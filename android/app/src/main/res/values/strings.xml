@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SalesNavigator</string>
+    <string name="title_activity_main">SalesNavigator</string>
+    <string name="package_name">com.kvp.salesnavigator</string>
+    <string name="custom_url_scheme">com.kvp.salesnavigator</string>
+</resources>

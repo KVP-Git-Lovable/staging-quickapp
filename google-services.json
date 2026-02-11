@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "849764307695",
+    "project_id": "abhishek2979-test-be6e4",
+    "storage_bucket": "abhishek2979-test-be6e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:849764307695:android:f46afe849a741e8d6c011a",
+        "android_client_info": {
+          "package_name": "com.kvp.salesnavigator"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvWQlaPs8esE54vyaCS5zlZjyV9QkHuqM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

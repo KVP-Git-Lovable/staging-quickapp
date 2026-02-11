@@ -38,9 +38,9 @@ export default defineConfig(({ mode }) => ({
         dontCacheBustURLsMatching: /\.[0-9a-f]{8}\./,
       },
       manifest: {
-        name: 'Bharath Sales Navigator',
-        short_name: 'SalesNav',
-        description: 'Professional sales navigator and analytics app',
+        name: 'QuickApp',
+        short_name: 'QuickApp',
+        description: 'AI-powered field sales platform for modern commerce',
         theme_color: '#007BFF',
         background_color: '#ffffff',
         display: 'standalone',
@@ -48,6 +48,21 @@ export default defineConfig(({ mode }) => ({
         scope: '/',
         start_url: '/',
         icons: [
+          {
+            src: '/icons/apple-touch-icon-120x120.png',
+            sizes: '120x120',
+            type: 'image/png',
+          },
+          {
+            src: '/icons/apple-touch-icon-152x152.png',
+            sizes: '152x152',
+            type: 'image/png',
+          },
+          {
+            src: '/icons/apple-touch-icon-180x180.png',
+            sizes: '180x180',
+            type: 'image/png',
+          },
           {
             src: '/icons/icon-192.png',
             sizes: '192x192',

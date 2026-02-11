@@ -1,0 +1,503 @@
+# Page snapshot
+
+```yaml
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - img
+            - heading [level=3]: Install App
+          - button:
+            - img
+        - paragraph: Install QuickApp.ai for a better experience
+      - generic:
+        - generic:
+          - button:
+            - img
+            - text: Install Now
+          - button: Maybe Later
+    - list
+    - generic:
+      - navigation:
+        - generic:
+          - generic:
+            - generic:
+              - button:
+                - img
+              - link:
+                - /url: /dashboard
+                - generic:
+                  - img
+                - generic:
+                  - generic:
+                    - button:
+                      - img
+                  - generic:
+                    - img
+            - generic:
+              - button:
+                - img
+              - button:
+                - img
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - heading [level=3]: My Beats
+                    - paragraph: Manage your sales territories and routes
+                    - generic:
+                      - combobox:
+                        - generic:
+                          - img
+                          - generic: My Data
+                        - img
+                - button:
+                  - img
+                  - text: Create New Beat
+          - generic:
+            - generic:
+              - generic:
+                - generic: "7"
+                - generic: Total Beats
+            - generic:
+              - generic:
+                - generic: "4"
+                - generic: Total Retailers
+            - generic:
+              - generic:
+                - generic: "0"
+                - generic: Unassigned
+            - generic:
+              - generic:
+                - generic: "1"
+                - generic: Avg per Beat
+          - generic:
+            - generic:
+              - img
+              - textbox:
+                - /placeholder: Search beats by name...
+          - generic:
+            - generic:
+              - generic:
+                - heading [level=2]: Your Beats (7 of 7)
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Nagasaki
+                      - generic:
+                        - generic: "#1"
+                        - generic: Bronze
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: "2"
+                        - generic: Retailers
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: 2/13/2026
+                        - generic: Last Visited
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Visits/Month:"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "New retailers (3M):"
+                        - generic: "2"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Last Visit Value:"
+                        - generic: ₹0
+                    - button:
+                      - img
+                      - generic: AI Insights
+                    - generic:
+                      - button:
+                        - img
+                        - text: Edit
+                      - button:
+                        - img
+                        - text: Analytics
+                      - button:
+                        - img
+                    - generic: "Created: 2/11/2026"
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Bejai2
+                      - generic:
+                        - generic: "#2"
+                        - generic: Bronze
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: "1"
+                        - generic: Retailers
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: Never
+                        - generic: Last Visited
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Visits/Month:"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "New retailers (3M):"
+                        - generic: "1"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Last Visit Value:"
+                        - generic: ₹0
+                    - button:
+                      - img
+                      - generic: AI Insights
+                    - generic:
+                      - button:
+                        - img
+                        - text: Edit
+                      - button:
+                        - img
+                        - text: Analytics
+                      - button:
+                        - img
+                    - generic: "Created: 2/11/2026"
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Test Beat 1770965422814
+                      - generic:
+                        - generic: "#3"
+                        - generic: Bronze
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: "1"
+                        - generic: Retailers
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: Never
+                        - generic: Last Visited
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Visits/Month:"
+                        - generic: "1"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "New retailers (3M):"
+                        - generic: "1"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Last Visit Value:"
+                        - generic: ₹0
+                    - generic:
+                      - img
+                      - generic: "Territory:"
+                      - generic: Udupi District
+                    - button:
+                      - img
+                      - generic: AI Insights
+                    - generic:
+                      - button:
+                        - img
+                        - text: Edit
+                      - button:
+                        - img
+                        - text: Analytics
+                      - button:
+                        - img
+                    - generic: "Created: 2/13/2026"
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Test Beat 1770974304810
+                      - generic:
+                        - generic: "#4"
+                        - generic: Bronze
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: "0"
+                        - generic: Retailers
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: Never
+                        - generic: Last Visited
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Visits/Month:"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "New retailers (3M):"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Last Visit Value:"
+                        - generic: ₹0
+                    - button:
+                      - img
+                      - generic: AI Insights
+                    - generic:
+                      - button:
+                        - img
+                        - text: Edit
+                      - button:
+                        - img
+                        - text: Analytics
+                      - button:
+                        - img
+                    - generic: "Created: 2/13/2026"
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Test Beat 1770974379694
+                      - generic:
+                        - generic: "#5"
+                        - generic: Bronze
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: "0"
+                        - generic: Retailers
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: Never
+                        - generic: Last Visited
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Visits/Month:"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "New retailers (3M):"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Last Visit Value:"
+                        - generic: ₹0
+                    - button:
+                      - img
+                      - generic: AI Insights
+                    - generic:
+                      - button:
+                        - img
+                        - text: Edit
+                      - button:
+                        - img
+                        - text: Analytics
+                      - button:
+                        - img
+                    - generic: "Created: 2/13/2026"
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: Test Beat 1770974577740
+                      - generic:
+                        - generic: "#6"
+                        - generic: Bronze
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: "0"
+                        - generic: Retailers
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: Never
+                        - generic: Last Visited
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Visits/Month:"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "New retailers (3M):"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Last Visit Value:"
+                        - generic: ₹0
+                    - button:
+                      - img
+                      - generic: AI Insights
+                    - generic:
+                      - button:
+                        - img
+                        - text: Edit
+                      - button:
+                        - img
+                        - text: Analytics
+                      - button:
+                        - img
+                    - generic: "Created: 2/13/2026"
+                - generic:
+                  - generic:
+                    - generic:
+                      - heading [level=3]: test
+                      - generic:
+                        - generic: "#7"
+                        - generic: Bronze
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: "0"
+                        - generic: Retailers
+                      - generic:
+                        - generic:
+                          - img
+                        - generic: Never
+                        - generic: Last Visited
+                    - generic:
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Visits/Month:"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "New retailers (3M):"
+                        - generic: "0"
+                      - generic:
+                        - generic:
+                          - img
+                          - generic: "Last Visit Value:"
+                        - generic: ₹0
+                    - generic:
+                      - img
+                      - generic: "Territory:"
+                      - generic: Udupi District
+                    - button:
+                      - img
+                      - generic: AI Insights
+                    - generic:
+                      - button:
+                        - img
+                        - text: Edit
+                      - button:
+                        - img
+                        - text: Analytics
+                      - button:
+                        - img
+                    - generic: "Created: 2/16/2026"
+              - generic:
+                - paragraph: Showing 1 - 7 of 7
+                - generic:
+                  - button [disabled]:
+                    - img
+                  - button [disabled]:
+                    - img
+                  - generic:
+                    - button: "1"
+                  - button [disabled]:
+                    - img
+                  - button [disabled]:
+                    - img
+      - button:
+        - img
+  - complementary:
+    - link:
+      - /url: https://lovable.dev/projects/b8852e08-a40a-4eb2-aee8-025d6468b172?utm_source=lovable-badge
+      - generic: Edit with
+      - img
+    - button:
+      - img
+  - dialog "Create New Beat" [active] [ref=e2]:
+    - heading "Create New Beat" [level=2] [ref=e4]:
+      - img [ref=e5]
+      - text: Create New Beat
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - text: Beat Name
+        - textbox "Beat Name" [ref=e8]:
+          - /placeholder: Enter beat name
+          - text: test
+      - generic [ref=e10]:
+        - checkbox "Schedule Recurring Visits" [ref=e11]
+        - generic [ref=e12] [cursor=pointer]:
+          - img [ref=e13]
+          - text: Schedule Recurring Visits
+      - generic [ref=e18]:
+        - text: Territory (Optional)
+        - combobox "Territory (Optional)" [ref=e19]:
+          - option "Select a territory"
+          - option "Udupi District" [selected]
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - text: Travel Allowance (₹)
+          - spinbutton "Travel Allowance (₹)" [ref=e22]
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - img [ref=e25]
+            - text: Beat Average KM
+          - spinbutton "Beat Average KM" [ref=e28]
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - img [ref=e31]
+          - text: Average Time (minutes)
+        - spinbutton "Average Time (minutes)" [ref=e34]
+      - button "Add New Retailer to test" [ref=e36] [cursor=pointer]:
+        - img
+        - text: Add New Retailer to test
+      - generic [ref=e39] [cursor=pointer]:
+        - heading "Select Retailers" [level=3] [ref=e40]:
+          - text: Select Retailers
+          - img [ref=e41]
+        - paragraph [ref=e43]: Choose retailers to include in this beat (0 selected)
+    - generic [ref=e44]:
+      - button "Cancel" [ref=e45] [cursor=pointer]
+      - button "Create Beat (0 retailers)" [ref=e46] [cursor=pointer]
+    - button "Close" [ref=e47] [cursor=pointer]:
+      - img [ref=e48]
+      - generic [ref=e51]: Close
+```
