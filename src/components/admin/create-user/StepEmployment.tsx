@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { Check, ChevronsUpDown, Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { CreateUserFormData, Manager, SecurityProfile } from './types';
 
 interface StepEmploymentProps {
@@ -17,6 +21,23 @@ const StepEmployment: React.FC<StepEmploymentProps> = ({
   managers, 
   securityProfiles 
 }) => {
+  const [managerSearch, setManagerSearch] = useState('');
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [secondaryManagerSearch, setSecondaryManagerSearch] = useState('');
+  const [secondaryManagerOpen, setSecondaryManagerOpen] = useState(false);
+
+  const filteredManagers = useMemo(() => 
+    managers.filter(m => 
+      `${m.full_name} ${m.username}`.toLowerCase().includes(managerSearch.toLowerCase())
+    ), [managers, managerSearch]);
+
+  const filteredSecondaryManagers = useMemo(() => 
+    managers.filter(m => 
+      `${m.full_name} ${m.username}`.toLowerCase().includes(secondaryManagerSearch.toLowerCase())
+    ), [managers, secondaryManagerSearch]);
+
+  const selectedManager = managers.find(m => m.id === formData.manager_id);
+  const selectedSecondaryManager = managers.find(m => m.id === formData.secondary_manager_id);
   return (
     <div className="space-y-6">
       <div>
@@ -80,40 +101,94 @@ const StepEmployment: React.FC<StepEmploymentProps> = ({
 
         <div className="space-y-2">
           <Label htmlFor="manager_id">Primary Manager (Reports To)</Label>
-          <Select 
-            value={formData.manager_id} 
-            onValueChange={(value) => onUpdate('manager_id', value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select primary manager" />
-            </SelectTrigger>
-            <SelectContent>
-              {managers.map((manager) => (
-                <SelectItem key={manager.id} value={manager.id}>
-                  {manager.full_name} ({manager.username})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={managerOpen} onOpenChange={setManagerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" aria-expanded={managerOpen} className="w-full justify-between font-normal">
+                {selectedManager ? `${selectedManager.full_name} (${selectedManager.username})` : "Select primary manager"}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0" align="start">
+              <div className="flex items-center border-b px-3">
+                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                <input
+                  className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                  placeholder="Search manager..."
+                  value={managerSearch}
+                  onChange={(e) => setManagerSearch(e.target.value)}
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto p-1">
+                {filteredManagers.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No manager found.</p>
+                ) : (
+                  filteredManagers.map((manager) => (
+                    <div
+                      key={manager.id}
+                      className={cn(
+                        "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                        formData.manager_id === manager.id && "bg-accent"
+                      )}
+                      onClick={() => {
+                        onUpdate('manager_id', manager.id);
+                        setManagerOpen(false);
+                        setManagerSearch('');
+                      }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", formData.manager_id === manager.id ? "opacity-100" : "opacity-0")} />
+                      {manager.full_name} ({manager.username})
+                    </div>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="secondary_manager_id">Secondary Manager</Label>
-          <Select 
-            value={formData.secondary_manager_id} 
-            onValueChange={(value) => onUpdate('secondary_manager_id', value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select secondary manager" />
-            </SelectTrigger>
-            <SelectContent>
-              {managers.map((manager) => (
-                <SelectItem key={manager.id} value={manager.id}>
-                  {manager.full_name} ({manager.username})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={secondaryManagerOpen} onOpenChange={setSecondaryManagerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" aria-expanded={secondaryManagerOpen} className="w-full justify-between font-normal">
+                {selectedSecondaryManager ? `${selectedSecondaryManager.full_name} (${selectedSecondaryManager.username})` : "Select secondary manager"}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0" align="start">
+              <div className="flex items-center border-b px-3">
+                <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                <input
+                  className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                  placeholder="Search manager..."
+                  value={secondaryManagerSearch}
+                  onChange={(e) => setSecondaryManagerSearch(e.target.value)}
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto p-1">
+                {filteredSecondaryManagers.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No manager found.</p>
+                ) : (
+                  filteredSecondaryManagers.map((manager) => (
+                    <div
+                      key={manager.id}
+                      className={cn(
+                        "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
+                        formData.secondary_manager_id === manager.id && "bg-accent"
+                      )}
+                      onClick={() => {
+                        onUpdate('secondary_manager_id', manager.id);
+                        setSecondaryManagerOpen(false);
+                        setSecondaryManagerSearch('');
+                      }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", formData.secondary_manager_id === manager.id ? "opacity-100" : "opacity-0")} />
+                      {manager.full_name} ({manager.username})
+                    </div>
+                  ))
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-2">

@@ -5,7 +5,7 @@ import { Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Shield, Lock, Loader2, User } from 'lucide-react';
+import { ArrowLeft, Shield, Lock, Loader2, User, KeyRound } from 'lucide-react';
 import { ProfileManagement } from '@/components/security/ProfileManagement';
 import { ObjectPermissions } from '@/components/security/ObjectPermissions';
 import { UserObjectPermissions } from '@/components/security/UserObjectPermissions';
@@ -89,7 +89,7 @@ export default function SecurityManagement() {
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profiles" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Profiles
@@ -101,6 +101,10 @@ export default function SecurityManagement() {
             <TabsTrigger value="user-permissions" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               User Permissions
+            </TabsTrigger>
+            <TabsTrigger value="permission-set" className="flex items-center gap-2" onClick={() => navigate('/permission-set')}>
+              <KeyRound className="h-4 w-4" />
+              Permission Set
             </TabsTrigger>
           </TabsList>
 

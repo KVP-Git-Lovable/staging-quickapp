@@ -7554,6 +7554,106 @@ export type Database = {
         }
         Relationships: []
       }
+      permission_set_group_permissions: {
+        Row: {
+          can_create: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_modify_all: boolean
+          can_read: boolean
+          can_view_all: boolean
+          created_at: string
+          group_id: string
+          id: string
+          object_name: string
+        }
+        Insert: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_modify_all?: boolean
+          can_read?: boolean
+          can_view_all?: boolean
+          created_at?: string
+          group_id: string
+          id?: string
+          object_name: string
+        }
+        Update: {
+          can_create?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_modify_all?: boolean
+          can_read?: boolean
+          can_view_all?: boolean
+          created_at?: string
+          group_id?: string
+          id?: string
+          object_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_set_group_permissions_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_set_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permission_set_group_users: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permission_set_group_users_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "permission_set_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      permission_set_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pincode_master: {
         Row: {
           created_at: string | null
