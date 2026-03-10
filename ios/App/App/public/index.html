@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="QuickApp" />
+    <title>QuickApp.ai - AI-Forward Commerce</title>
+    <meta name="description" content="QuickApp.ai - AI-powered field sales platform for modern commerce" />
+    <meta name="author" content="QuickApp.ai" />
+
+    <!-- Google Fonts - Preconnect for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Load fonts asynchronously to prevent render blocking -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"></noscript>
+
+    <meta property="og:title" content="QuickApp.ai - AI-Forward Commerce" />
+    <meta property="og:description" content="AI-powered field sales platform for modern commerce" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@quickapp_ai" />
+    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/assets/manifest-C6vQ5CsK.json" />
+    <meta name="theme-color" content="#007BFF" />
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180x180.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152x152.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/icons/apple-touch-icon-120x120.png" />
+    
+    <link rel="icon" type="image/png" href="/icons/apple-touch-icon.png" />
+    <script type="module" crossorigin src="/assets/index-DBcz8fBk.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BS06kbDm.css">
+  <link rel="manifest" href="/manifest.webmanifest"></head>
+
+  <body>
+    <div id="root"></div>
+
+    <!-- Blank-screen recovery (PWA + normal browser) -->
+    <script>
+      (function () {
+        try {
+          var TIMEOUT_MS = 8000;
+          var KEY = 'app_recovery_attempted_v2';
+
+          function isStandaloneMode() {
+            return (
+              (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+              (typeof navigator !== 'undefined' && navigator.standalone === true)
+            );
+          }
+
+          function rootHasContent() {
+            var root = document.getElementById('root');
+            return !!(root && root.childNodes && root.childNodes.length);
+          }
+
+          function clearCachesAndSW() {
+            return Promise.resolve()
+              .then(function () {
+                // Ask SW to clear caches too (best effort)
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                  try {
+                    navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_ALL_CACHES' });
+                  } catch {
+                    // ignore
+                  }
+                }
+              })
+              .then(function () {
+                if (!('caches' in window)) return;
+                return caches.keys().then(function (names) {
+                  return Promise.all(names.map(function (n) { return caches.delete(n); }));
+                });
+              })
+              .then(function () {
+                if (!('serviceWorker' in navigator)) return;
+                return navigator.serviceWorker.getRegistrations().then(function (regs) {
+                  return Promise.all(regs.map(function (r) { return r.unregister(); }));
+                });
+              });
+          }
+
+          function showRecoveryOverlay() {
+            if (document.getElementById('app-recovery-overlay')) return;
+
+            var overlay = document.createElement('div');
+            overlay.id = 'app-recovery-overlay';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-label', 'App recovery');
+            overlay.style.cssText =
+              'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#fff;color:#111;padding:24px;font-family:system-ui,-apple-system,sans-serif;';
+
+            var card = document.createElement('div');
+            card.style.cssText =
+              'width:100%;max-width:420px;border:1px solid rgba(0,0,0,.08);border-radius:16px;padding:18px;box-shadow:0 12px 40px rgba(0,0,0,.12);';
+
+            var title = document.createElement('div');
+            title.style.cssText = 'font-weight:700;font-size:18px;margin:0 0 6px;';
+            title.textContent = 'This page didn’t load';
+
+            var desc = document.createElement('div');
+            desc.style.cssText = 'font-size:14px;line-height:1.5;opacity:.75;margin:0 0 14px;';
+            desc.textContent =
+              'Sometimes an old cache causes a blank screen after updates. Tap Fix & Reload to clear caches and try again.';
+
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;gap:10px;';
+
+            var reloadBtn = document.createElement('button');
+            reloadBtn.type = 'button';
+            reloadBtn.textContent = 'Reload';
+            reloadBtn.style.cssText =
+              'flex:1;border:1px solid rgba(0,0,0,.14);background:#fff;border-radius:12px;padding:10px 12px;font-weight:600;';
+            reloadBtn.onclick = function () {
+              window.location.reload();
+            };
+
+            var fixBtn = document.createElement('button');
+            fixBtn.type = 'button';
+            fixBtn.textContent = 'Fix & Reload';
+            fixBtn.style.cssText =
+              'flex:1;border:0;background:#111;color:#fff;border-radius:12px;padding:10px 12px;font-weight:700;';
+            fixBtn.onclick = function () {
+              fixBtn.disabled = true;
+              fixBtn.textContent = 'Fixing…';
+              clearCachesAndSW()
+                .catch(function () {
+                  // ignore
+                })
+                .finally(function () {
+                  window.location.reload();
+                });
+            };
+
+            row.appendChild(fixBtn);
+            row.appendChild(reloadBtn);
+
+            card.appendChild(title);
+            card.appendChild(desc);
+            card.appendChild(row);
+            overlay.appendChild(card);
+            document.body.appendChild(overlay);
+          }
+
+          window.setTimeout(function () {
+            if (rootHasContent()) return;
+            if (sessionStorage.getItem(KEY) === '1') return;
+            sessionStorage.setItem(KEY, '1');
+
+            // ONLY auto-recover in standalone PWA mode (installed app)
+            // Do NOT show recovery overlay in normal browser - it causes false positives
+            if (isStandaloneMode()) {
+              clearCachesAndSW()
+                .catch(function () {
+                  // ignore
+                })
+                .finally(function () {
+                  window.location.reload();
+                });
+            }
+            // In normal browser mode, do nothing - let the app load naturally
+            // Users can manually refresh if needed
+          }, TIMEOUT_MS);
+        } catch {
+          // ignore
+        }
+      })();
+    </script>
+
+
+    <!-- Service Worker Registration -->
+  </body>
+</html>

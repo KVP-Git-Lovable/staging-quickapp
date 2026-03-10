@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline - KVP Field Force</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 48px 32px;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+    
+    .icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      stroke: white;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    
+    h1 {
+      font-size: 28px;
+      color: #1a202c;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    
+    p {
+      font-size: 16px;
+      color: #4a5568;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+    
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      background: #fed7d7;
+      color: #c53030;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 24px;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #c53030;
+      border-radius: 50%;
+      animation: blink 1.5s ease-in-out infinite;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      width: 100%;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+    
+    @keyframes blink {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.3;
+      }
+    }
+    
+    .features {
+      margin-top: 32px;
+      text-align: left;
+      background: #f7fafc;
+      padding: 20px;
+      border-radius: 8px;
+    }
+    
+    .features h3 {
+      font-size: 14px;
+      color: #2d3748;
+      margin-bottom: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .features ul {
+      list-style: none;
+    }
+    
+    .features li {
+      padding: 8px 0;
+      color: #4a5568;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .features li:before {
+      content: "✓";
+      color: #48bb78;
+      font-weight: bold;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M1 1l4 4L19 1l-4 4L1 19l4-4"></path>
+        <path d="M5 5L1 1"></path>
+        <path d="M19 19l4 4"></path>
+        <line x1="2" y1="22" x2="22" y2="2"></line>
+      </svg>
+    </div>
+    
+    <h1>You're Offline</h1>
+    
+    <div class="status">
+      <span class="status-dot"></span>
+      <span>No Internet Connection</span>
+    </div>
+    
+    <p>
+      The app is currently offline. Please check your internet connection and try again.
+    </p>
+    
+    <button onclick="location.reload()">
+      Try Again
+    </button>
+    
+    <div class="features">
+      <h3>Offline Features Available</h3>
+      <ul>
+        <li>View previously loaded data</li>
+        <li>Create orders and check-ins</li>
+        <li>Data auto-syncs when online</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script>
+    // Auto-redirect when back online
+    window.addEventListener('online', () => {
+      window.location.href = '/';
+    });
+    
+    // Check connection every 5 seconds
+    setInterval(() => {
+      if (navigator.onLine) {
+        window.location.href = '/';
+      }
+    }, 5000);
+  </script>
+</body>
+</html>
