@@ -7,6 +7,8 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useStartupCleanup } from "@/hooks/useStartupCleanup";
 import { periodicMemoryCleanup, initMemoryPressureHandler } from "@/utils/memoryManager";
 import { useBatteryMonitor } from "@/hooks/useBatteryMonitor";
+import { useNotifications } from "@/hooks/useNotifications";
+import { LeaderboardBanner } from "@/components/notifications/LeaderboardBanner";
 
 interface LayoutProps {
   children: ReactNode;
