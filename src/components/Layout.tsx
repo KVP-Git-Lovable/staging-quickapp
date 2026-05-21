@@ -107,6 +107,9 @@ export const Layout = memo(({ children }: LayoutProps) => {
         }}
       />
       
+      {pendingBanner && (
+        <LeaderboardBanner notification={pendingBanner} onDismiss={dismissBanner} />
+      )}
       <ChatWidget />
     </div>
   );
