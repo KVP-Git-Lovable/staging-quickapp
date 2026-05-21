@@ -11,6 +11,7 @@ import { ArrowLeft, Plus, Pencil, Trash2, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { NotificationRuleForm } from '@/components/admin/NotificationRuleForm';
+import { BannerHistorySection } from '@/components/admin/BannerHistorySection';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NotificationRule {
@@ -116,6 +117,8 @@ const NotificationRulesAdmin = () => {
               }}
             />
           )}
+
+          <BannerHistorySection />
 
           <Card>
             <CardHeader>

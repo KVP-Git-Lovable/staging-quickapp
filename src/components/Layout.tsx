@@ -7,6 +7,8 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useStartupCleanup } from "@/hooks/useStartupCleanup";
 import { periodicMemoryCleanup, initMemoryPressureHandler } from "@/utils/memoryManager";
 import { useBatteryMonitor } from "@/hooks/useBatteryMonitor";
+import { useNotifications } from "@/hooks/useNotifications";
+import { LeaderboardBanner } from "@/components/notifications/LeaderboardBanner";
 
 interface LayoutProps {
   children: ReactNode;
@@ -25,6 +27,7 @@ export const Layout = memo(({ children }: LayoutProps) => {
   // Run startup cleanup routines (orphan orders, stale cache, etc.)
   useStartupCleanup();
   useBatteryMonitor();
+  const { pendingBanner, dismissBanner } = useNotifications();
 
   // Initialize memory pressure handlers once per app lifecycle
   useEffect(() => {
@@ -104,6 +107,9 @@ export const Layout = memo(({ children }: LayoutProps) => {
         }}
       />
       
+      {pendingBanner && (
+        <LeaderboardBanner notification={pendingBanner} onDismiss={dismissBanner} />
+      )}
       <ChatWidget />
     </div>
   );
