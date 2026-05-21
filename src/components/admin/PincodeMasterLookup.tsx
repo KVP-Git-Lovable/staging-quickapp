@@ -76,7 +76,7 @@ export const PincodeMasterLookup: React.FC = () => {
       setSelectedDistrict('');
       setPincodes([]);
       const { data, error } = await (supabase as any).rpc('get_distinct_districts', {
-        selected_state: selectedState
+        p_state: selectedState
       });
       if (!error && data) {
         setDistricts((data as any[]).map((d: { district: string }) => d.district));
