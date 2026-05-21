@@ -27,6 +27,7 @@ export const Layout = memo(({ children }: LayoutProps) => {
   // Run startup cleanup routines (orphan orders, stale cache, etc.)
   useStartupCleanup();
   useBatteryMonitor();
+  const { pendingBanner, dismissBanner } = useNotifications();
 
   // Initialize memory pressure handlers once per app lifecycle
   useEffect(() => {
