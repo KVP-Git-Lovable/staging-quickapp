@@ -465,7 +465,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/admin/recycle-bin" element={<ProtectedRoute><RecycleBinAdmin /></ProtectedRoute>} />
         <Route path="/admin/distributor-portal" element={<ProtectedRoute><DistributorPortalAdmin /></ProtectedRoute>} />
         <Route path="/admin/pincode-master" element={<ProtectedRoute><PincodeMasterPage /></ProtectedRoute>} />
-        <Route path="/admin/pincode-master/:pin" element={<ProtectedRoute><PincodeDetailPage /></ProtectedRoute>} />
+        <Route path="/admin/pincode-master/:pincode" element={<ProtectedRoute><PincodeDetailPage /></ProtectedRoute>} />
         <Route path="/admin/tax-master" element={<ProtectedRoute><TaxMaster /></ProtectedRoute>} />
         <Route path="/admin/retailer-external-db" element={<ProtectedRoute><RetailerExternalDBPage /></ProtectedRoute>} />
         <Route path="/admin/retailer-unsorted" element={<ProtectedRoute><RetailerUnsortedPage /></ProtectedRoute>} />
