@@ -7050,6 +7050,7 @@ export type Database = {
           points: number
           reference_id: string | null
           reference_type: string | null
+          user_id: string | null
         }
         Insert: {
           action_id: string
@@ -7059,6 +7060,7 @@ export type Database = {
           points: number
           reference_id?: string | null
           reference_type?: string | null
+          user_id?: string | null
         }
         Update: {
           action_id?: string
@@ -7068,6 +7070,7 @@ export type Database = {
           points?: number
           reference_id?: string | null
           reference_type?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
