@@ -6563,6 +6563,48 @@ export type Database = {
         }
         Relationships: []
       }
+      failed_sync_log: {
+        Row: {
+          device_id: string | null
+          error: string | null
+          first_failed_at: string
+          id: string
+          idempotency_key: string
+          last_failed_at: string
+          payload: Json
+          resolved_at: string | null
+          resolved_by: string | null
+          retry_count: number
+          user_id: string | null
+        }
+        Insert: {
+          device_id?: string | null
+          error?: string | null
+          first_failed_at?: string
+          id?: string
+          idempotency_key: string
+          last_failed_at?: string
+          payload: Json
+          resolved_at?: string | null
+          resolved_by?: string | null
+          retry_count?: number
+          user_id?: string | null
+        }
+        Update: {
+          device_id?: string | null
+          error?: string | null
+          first_failed_at?: string
+          id?: string
+          idempotency_key?: string
+          last_failed_at?: string
+          payload?: Json
+          resolved_at?: string | null
+          resolved_by?: string | null
+          retry_count?: number
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       feature_flag_audit: {
         Row: {
           changed_at: string
@@ -10092,6 +10134,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "order_items_order_fk"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -10099,10 +10148,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "order_items_product_fk"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "order_items_uom_id_fkey"
             columns: ["uom_id"]
             isOneToOne: false
             referencedRelation: "uom_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_variant_fk"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
           {
@@ -10139,7 +10202,7 @@ export type Database = {
           distributor_name: string | null
           event_id: string | null
           id: string
-          idempotency_key: string | null
+          idempotency_key: string
           invoice_generated_at: string | null
           invoice_number: string | null
           is_backorder: boolean | null
@@ -10191,7 +10254,7 @@ export type Database = {
           distributor_name?: string | null
           event_id?: string | null
           id?: string
-          idempotency_key?: string | null
+          idempotency_key: string
           invoice_generated_at?: string | null
           invoice_number?: string | null
           is_backorder?: boolean | null
@@ -10243,7 +10306,7 @@ export type Database = {
           distributor_name?: string | null
           event_id?: string | null
           id?: string
-          idempotency_key?: string | null
+          idempotency_key?: string
           invoice_generated_at?: string | null
           invoice_number?: string | null
           is_backorder?: boolean | null
@@ -15475,6 +15538,42 @@ export type Database = {
           },
         ]
       }
+      retailer_pending_audit: {
+        Row: {
+          actor_user_id: string | null
+          after_amount: number | null
+          before_amount: number | null
+          created_at: string
+          delta: number
+          id: string
+          order_id: string | null
+          reason: string | null
+          retailer_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          after_amount?: number | null
+          before_amount?: number | null
+          created_at?: string
+          delta: number
+          id?: string
+          order_id?: string | null
+          reason?: string | null
+          retailer_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          after_amount?: number | null
+          before_amount?: number | null
+          created_at?: string
+          delta?: number
+          id?: string
+          order_id?: string | null
+          reason?: string | null
+          retailer_id?: string
+        }
+        Relationships: []
+      }
       retailer_visit_logs: {
         Row: {
           action_type: string | null
@@ -16500,6 +16599,48 @@ export type Database = {
           target_date?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      sync_audit_log: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          error: string | null
+          id: string
+          idempotency_key: string | null
+          order_id: string | null
+          payload: Json | null
+          reconciliation: Json | null
+          retry_count: number | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          error?: string | null
+          id?: string
+          idempotency_key?: string | null
+          order_id?: string | null
+          payload?: Json | null
+          reconciliation?: Json | null
+          retry_count?: number | null
+          status: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          error?: string | null
+          id?: string
+          idempotency_key?: string | null
+          order_id?: string | null
+          payload?: Json | null
+          reconciliation?: Json | null
+          retry_count?: number | null
+          status?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -20596,6 +20737,7 @@ export type Database = {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
       }
+      sync_order_with_items_v2: { Args: { p_payload: Json }; Returns: Json }
       to_base_qty: {
         Args: { p_product_id: string; p_qty: number; p_uom_code: string }
         Returns: number
