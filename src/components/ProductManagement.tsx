@@ -159,32 +159,23 @@ const [productForm, setProductForm] = useState({
 
   const executeDeleteAllProducts = async () => {
     try {
-      toast.loading('Deleting all products and related data...');
-      
-      // Delete in order: child tables first, then parent
-      await supabase.from('van_live_inventory').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('van_inward_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('van_closing_stock_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('van_return_grn_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('van_order_fulfillment').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('product_schemes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      await supabase.from('product_variants').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-      
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-      
+      toast.loading('Deactivating all products...');
+
+      const { data, error } = await supabase.rpc('admin_deactivate_all_products');
+
       if (error) throw error;
-      
+
+      const result = (data ?? {}) as { deactivated_products?: number; deactivated_variants?: number };
       toast.dismiss();
-      toast.success('All products and related data deleted successfully');
+      toast.success(
+        `Deactivated ${result.deactivated_products ?? 0} products and ${result.deactivated_variants ?? 0} variants. Order history and inventory preserved.`
+      );
       fetchData();
       setDeleteConfirm({ open: false, type: null, id: '', name: '' });
-    } catch (error) {
+    } catch (error: any) {
       toast.dismiss();
-      console.error('Error deleting products:', error);
-      toast.error('Failed to delete products. Check console for details.');
+      console.error('Error deactivating products:', error);
+      toast.error(`Failed to deactivate products: ${error?.message ?? 'unknown error'}`);
     }
   };
 
@@ -751,10 +742,10 @@ const [productForm, setProductForm] = useState({
                 <div className="flex gap-2">
                   <Button 
                     variant="destructive" 
-                    onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL products and related data' })}
+                    onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL active products and variants' })}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Delete All Products
+                    Deactivate All Products
                   </Button>
                   <Button 
                     variant="outline" 
