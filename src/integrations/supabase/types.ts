@@ -19911,6 +19911,7 @@ export type Database = {
     }
     Functions: {
       _safe_uuid: { Args: { p: string }; Returns: string }
+      admin_deactivate_all_products: { Args: never; Returns: Json }
       allocate_inventory_batches: {
         Args: {
           p_distributor_id: string
