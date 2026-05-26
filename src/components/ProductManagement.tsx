@@ -1503,8 +1503,11 @@ const [productForm, setProductForm] = useState({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete <strong>{deleteConfirm.name}</strong>
-              {deleteConfirm.type === 'all-products' && ' including all related data (van inventory, schemes, variants)'}.
+              {deleteConfirm.type === 'all-products' ? (
+                <>This will <strong>deactivate {deleteConfirm.name}</strong> (set <em>is_active = false</em>). Order history, distributor inventory, and schemes are preserved. Products can be reactivated individually later.</>
+              ) : (
+                <>This action cannot be undone. This will permanently delete <strong>{deleteConfirm.name}</strong>.</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1512,7 +1515,7 @@ const [productForm, setProductForm] = useState({
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAction} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Yes, Delete
+              {deleteConfirm.type === 'all-products' ? 'Yes, Deactivate All' : 'Yes, Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
