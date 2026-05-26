@@ -10134,6 +10134,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "order_items_order_fk"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -10141,10 +10148,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "order_items_product_fk"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "order_items_uom_id_fkey"
             columns: ["uom_id"]
             isOneToOne: false
             referencedRelation: "uom_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_variant_fk"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
           {
