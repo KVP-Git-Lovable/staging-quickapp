@@ -20737,6 +20737,7 @@ export type Database = {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
       }
+      sync_order_with_items_v2: { Args: { p_payload: Json }; Returns: Json }
       to_base_qty: {
         Args: { p_product_id: string; p_qty: number; p_uom_code: string }
         Returns: number
