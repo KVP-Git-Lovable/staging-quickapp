@@ -9,6 +9,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { runFullOrderCleanup, cleanupStaleSyncedOrders } from '@/utils/orderCleanup';
 import { cleanupOldSnapshots } from '@/lib/myVisitsSnapshot';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { clearApiCache, forceRefresh } from '@/utils/cacheUtils';
+
+const APP_CACHE_VERSION = 'v22';
+
+/**
+ * One-time hard refresh when app version bumps. Ensures returning users
+ * drop stale service-worker precache and pick up the latest UI build.
+ */
+function ensureFreshAppVersion() {
+  try {
+    const stored = localStorage.getItem('app_cache_version');
+    if (stored === APP_CACHE_VERSION) return;
+    console.log(`🔄 [startupCleanup] App version changed (${stored} → ${APP_CACHE_VERSION}) - clearing caches`);
+    localStorage.setItem('app_cache_version', APP_CACHE_VERSION);
+    clearApiCache().finally(() => {
+      setTimeout(() => forceRefresh(), 200);
+    });
+  } catch (e) {
+    console.error('[startupCleanup] Version check failed', e);
+  }
+}
 
 /**
  * Get today's date in YYYY-MM-DD format
