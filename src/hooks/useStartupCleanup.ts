@@ -46,6 +46,8 @@ export function useStartupCleanup() {
   const hasRunCleanupRef = useRef(false);
   
   useEffect(() => {
+    ensureFreshAppVersion();
+
     const runStartupCleanup = async () => {
       // Only run once per app session
       if (hasRunCleanupRef.current) {
