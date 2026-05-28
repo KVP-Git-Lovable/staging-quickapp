@@ -487,9 +487,31 @@ export function useOfflineSync() {
               console.warn('⚠️ RPC sync_order_with_items returned an error:', rpcError.message);
               throw rpcError;
             }
-            
+
+            // CRITICAL: RPC returns HTTP success even on validation_error.
+            // Never mark queue item as synced unless status is 'ok' or 'duplicate'.
+            const rpcStatus = (rpcResult as any)?.status;
+            if (rpcStatus !== 'ok' && rpcStatus !== 'duplicate') {
+              const errs = (rpcResult as any)?.errors || [(rpcResult as any)?.error || 'unknown_validation_error'];
+              console.error('❌ RPC validation_error - keeping in queue + logging to failed_sync_log:', errs);
+              try {
+                await supabase.from('failed_sync_log').upsert({
+                  idempotency_key: data.order?.idempotency_key || offlineOrderId,
+                  user_id: data.order?.user_id,
+                  payload: { order: orderToInsert, items: cleanItems } as any,
+                  error: JSON.stringify(errs),
+                  retry_count: 0,
+                  last_failed_at: new Date().toISOString(),
+                } as any, { onConflict: 'idempotency_key' });
+              } catch (logErr) {
+                console.warn('failed_sync_log write failed (non-fatal):', logErr);
+              }
+              throw new Error(`RPC ${rpcStatus || 'error'}: ${JSON.stringify(errs)}`);
+            }
+
             actualOrderId = rpcResult?.order_id || offlineOrderId;
             console.log('✅ Order + items synced via RPC:', rpcResult);
+
           } catch (rpcSyncError: any) {
             console.warn('⚠️ RPC sync_order_with_items failed; verifying whether the order was already persisted:', rpcSyncError?.message || rpcSyncError);
 
@@ -564,98 +586,33 @@ export function useOfflineSync() {
             console.warn('⚠️ Post-sync cleanup failed (non-fatal):', cacheErr);
           }
 
-          // Update retailer's pending_amount and last_order_date
-          const orderRetailerId = data.order?.retailer_id;
-          if (orderRetailerId) {
-            // Get current pending amount from retailer
-            const { data: retailerData } = await supabase
-              .from('retailers')
-              .select('pending_amount')
-              .eq('id', orderRetailerId)
-              .single();
-            
-            const currentPending = retailerData?.pending_amount || 0;
-            const creditPending = data.order?.credit_pending_amount || 0;
-            const creditPaid = data.order?.credit_paid_amount || 0;
-            const previousCleared = data.order?.previous_pending_cleared || 0;
-            
-            // Calculate new pending: current + new credit - paid amount (that clears previous)
-            const newPending = data.order?.is_credit_order 
-              ? currentPending + creditPending - previousCleared
-              : 0; // Full payment clears everything
-            
-            console.log('💰 Updating retailer pending amount from sync:', { 
-              orderRetailerId, 
-              currentPending, 
-              creditPending,
-              creditPaid,
-              previousCleared,
-              newPending 
-            });
-            
-            const { error: retailerUpdateError } = await supabase
-              .from('retailers')
-              .update({ 
-                pending_amount: Math.max(0, newPending),
-                last_order_date: new Date().toISOString().split('T')[0]
-              })
-              .eq('id', orderRetailerId);
-            
-            if (retailerUpdateError) {
-              console.error('❌ Failed to update retailer pending amount during sync:', retailerUpdateError);
-            } else {
-              console.log('✅ Retailer pending amount updated during sync');
-            }
-          }
+          // NOTE: retailer pending_amount, visit productive status, and van stock
+          // decrement are now handled atomically inside sync_order_with_items_v2.
+          // Client-side updates here were causing double-counting and race conditions.
+          // We only dispatch UI refresh events below.
 
-          // Trigger visit status refresh (database trigger auto-updates visit status)
+          // Trigger visit status refresh events for UI
           if (data.visitId || data.order?.visit_id) {
             const visitId = data.visitId || data.order.visit_id;
             const retailerId = data.order?.retailer_id;
-            
-            // Explicitly update visit status to productive (don't rely only on DB trigger)
-            console.log('🔄 Updating visit status to productive after order sync:', { visitId });
-            const { error: visitUpdateError } = await supabase
-              .from('visits')
-              .update({
-                status: 'productive',
-                no_order_reason: null,
-                check_out_time: new Date().toISOString()
-              })
-              .eq('id', visitId);
-            
-            if (visitUpdateError) {
-              console.error('❌ Error updating visit status:', visitUpdateError);
-            } else {
-              console.log('✅ Visit status updated to productive');
-            }
-            
+
             console.log('✅ Order synced, dispatching visitStatusChanged event:', { visitId, retailerId });
-            
-            // Include order in dispatch for immediate orders state update
             window.dispatchEvent(new CustomEvent('visitStatusChanged', {
-              detail: { 
-                visitId, 
-                status: 'productive', 
+              detail: {
+                visitId,
+                status: 'productive',
                 retailerId,
-                order: data.order 
+                order: data.order
               }
             }));
-            
-          // Dispatch visitDataChanged WITH date to trigger targeted sync (not full reload)
+
             setTimeout(() => {
               const orderDate = data.order?.order_date || data.order?.created_at?.split('T')[0] || getTodayDateString();
               console.log('✅ Dispatching visitDataChanged for date:', orderDate);
               window.dispatchEvent(new CustomEvent('visitDataChanged', { detail: { date: orderDate } }));
             }, 1000);
-            
-            // Sync order quantities to van stock
-            console.log('🚚 Syncing order to van stock...');
-            const orderDate = data.order?.created_at?.split('T')[0] || getTodayDateString();
-            syncOrdersToVanStock(orderDate, data.order?.user_id).catch(err => {
-              console.error('Error syncing van stock after order:', err);
-            });
           }
+
         } else {
           // Old format - just the order data
           const { error: orderError } = await supabase

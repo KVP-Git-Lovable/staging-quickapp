@@ -147,12 +147,33 @@ export async function submitOrderWithOfflineSupport(
         // Atomic insert: order header + items in a single transaction.
         // Guarantees an order row can never exist without its items, which
         // prevents empty orders from falsely marking visits as productive.
-        const { error: rpcError } = await supabase.rpc('sync_order_with_items', {
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('sync_order_with_items', {
           p_order: { ...orderForDirectInsert, id: orderId },
           p_items: normalizedItems,
         });
         if (rpcError) throw rpcError;
+        // CRITICAL: RPC returns HTTP success even on validation_error.
+        // Treat anything other than 'ok'/'duplicate' as a hard failure so the order
+        // is queued for retry and logged for support — never silently "synced".
+        const status = (rpcResult as any)?.status;
+        if (status !== 'ok' && status !== 'duplicate') {
+          const errs = (rpcResult as any)?.errors || [(rpcResult as any)?.error || 'unknown_validation_error'];
+          try {
+            await supabase.from('failed_sync_log').upsert({
+              idempotency_key: (orderForDirectInsert as any).idempotency_key || orderId,
+              user_id: orderData.user_id,
+              payload: { order: { ...orderForDirectInsert, id: orderId }, items: normalizedItems } as any,
+              error: JSON.stringify(errs),
+              retry_count: 0,
+              last_failed_at: new Date().toISOString(),
+            } as any, { onConflict: 'idempotency_key' });
+          } catch (logErr) {
+            console.warn('[offlineOrderUtils] failed_sync_log write failed (non-fatal):', logErr);
+          }
+          throw new Error(`RPC ${status || 'error'}: ${JSON.stringify(errs)}`);
+        }
       })();
+      
       
       const timeoutPromise = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error('10s timeout')), 10000)
