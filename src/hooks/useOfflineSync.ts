@@ -487,9 +487,31 @@ export function useOfflineSync() {
               console.warn('⚠️ RPC sync_order_with_items returned an error:', rpcError.message);
               throw rpcError;
             }
-            
+
+            // CRITICAL: RPC returns HTTP success even on validation_error.
+            // Never mark queue item as synced unless status is 'ok' or 'duplicate'.
+            const rpcStatus = (rpcResult as any)?.status;
+            if (rpcStatus !== 'ok' && rpcStatus !== 'duplicate') {
+              const errs = (rpcResult as any)?.errors || [(rpcResult as any)?.error || 'unknown_validation_error'];
+              console.error('❌ RPC validation_error - keeping in queue + logging to failed_sync_log:', errs);
+              try {
+                await supabase.from('failed_sync_log').upsert({
+                  idempotency_key: data.order?.idempotency_key || offlineOrderId,
+                  user_id: data.order?.user_id,
+                  payload: { order: orderToInsert, items: cleanItems } as any,
+                  error: JSON.stringify(errs),
+                  retry_count: 0,
+                  last_failed_at: new Date().toISOString(),
+                } as any, { onConflict: 'idempotency_key' });
+              } catch (logErr) {
+                console.warn('failed_sync_log write failed (non-fatal):', logErr);
+              }
+              throw new Error(`RPC ${rpcStatus || 'error'}: ${JSON.stringify(errs)}`);
+            }
+
             actualOrderId = rpcResult?.order_id || offlineOrderId;
             console.log('✅ Order + items synced via RPC:', rpcResult);
+
           } catch (rpcSyncError: any) {
             console.warn('⚠️ RPC sync_order_with_items failed; verifying whether the order was already persisted:', rpcSyncError?.message || rpcSyncError);
 
