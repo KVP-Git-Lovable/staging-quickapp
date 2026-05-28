@@ -436,7 +436,7 @@ async function generateFocusedProductsPost(supabase: any, userId: string, date: 
   // Fetch orders with focused products
   const { data: orders } = await supabase
     .from('orders')
-    .select('order_items(*)')
+    .select('order_items!order_items_order_id_fkey(*)')
     .eq('user_id', userId)
     .eq('order_date', date)
     .eq('status', 'confirmed');
@@ -477,7 +477,7 @@ ${focusedSold > 5 ? '🌟 Excellent focus on priority products!' : '💡 Keep pu
 async function generateOrderSummary(supabase: any, userId: string, date: string) {
   const { data: orders } = await supabase
     .from('orders')
-    .select('*, retailers(name), order_items(*)')
+    .select('*, retailers(name), order_items!order_items_order_id_fkey(*)')
     .eq('user_id', userId)
     .eq('order_date', date)
     .eq('status', 'confirmed');

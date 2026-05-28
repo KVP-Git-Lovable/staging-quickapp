@@ -73,7 +73,7 @@ const SecondaryInvoiceCreate = () => {
   const loadRetailerOrders = async () => {
     const { data } = await supabase
       .from('orders')
-      .select('id, retailer_name, total_amount, created_at, order_items(product_name, quantity, unit, rate, total)')
+      .select('id, retailer_name, total_amount, created_at, order_items!order_items_order_id_fkey(product_name, quantity, unit, rate, total)')
       .eq('retailer_id', selectedRetailerId)
       .in('status', ['confirmed', 'delivered'])
       .order('created_at', { ascending: false })

@@ -47,7 +47,7 @@ serve(async (req) => {
     // Fetch retailer's order history
     const { data: orderHistory } = await supabaseClient
       .from('orders')
-      .select('*, order_items(product_id, product_name, quantity, rate)')
+      .select('*, order_items!order_items_order_id_fkey(product_id, product_name, quantity, rate)')
       .eq('retailer_id', retailerId)
       .order('created_at', { ascending: false })
       .limit(10);
@@ -79,7 +79,7 @@ serve(async (req) => {
     // Get orders from similar retailers to find what they buy
     const { data: similarRetailerOrders } = await supabaseClient
       .from('orders')
-      .select('retailer_id, order_items(product_id, product_name, quantity, rate, total_amount)')
+      .select('retailer_id, order_items!order_items_order_id_fkey(product_id, product_name, quantity, rate, total_amount)')
       .in('retailer_id', similarRetailers?.map(r => r.id) || [])
       .order('created_at', { ascending: false })
       .limit(100);

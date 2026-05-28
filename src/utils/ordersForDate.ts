@@ -131,7 +131,7 @@ export async function getOrdersForDate(
         .from('orders')
         .select(`
           *,
-          order_items(*)
+          order_items!order_items_order_id_fkey(*)
         `)
         .eq('user_id', userId)
         .eq('status', 'confirmed')

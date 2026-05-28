@@ -181,7 +181,7 @@ export async function awardPointsForOrder(context: OrderContext) {
             // Get today's actual quantity from orders
             const { data: todayOrderItems } = await supabase
               .from("orders")
-              .select("order_items(quantity, unit)")
+              .select("order_items!order_items_order_id_fkey(quantity, unit)")
               .eq("user_id", userId)
               .gte("created_at", todayStart.toISOString())
               .lte("created_at", todayEnd.toISOString());

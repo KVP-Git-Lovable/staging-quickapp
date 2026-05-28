@@ -70,7 +70,7 @@ serve(async (req) => {
     // Fetch user's order patterns
     const { data: orders } = await supabase
       .from('orders')
-      .select('retailer_id, total_amount, items:order_items(product_id, quantity)')
+      .select('retailer_id, total_amount, items:order_items!order_items_order_id_fkey(product_id, quantity)')
       .eq('user_id', userId)
       .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
       .limit(50);

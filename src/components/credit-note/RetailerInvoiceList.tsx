@@ -36,7 +36,7 @@ export default function RetailerInvoiceList({ retailerId, selectedItems, onSelec
       setLoading(true);
       const { data, error } = await supabase
         .from("orders")
-        .select("id, invoice_number, created_at, total_amount, order_items(id, product_id, product_name, quantity, rate, total, hsn_code, unit, barcode, sku)")
+        .select("id, invoice_number, created_at, total_amount, order_items!order_items_order_id_fkey(id, product_id, product_name, quantity, rate, total, hsn_code, unit, barcode, sku)")
         .eq("retailer_id", retailerId)
         .not("invoice_number", "is", null)
         .order("created_at", { ascending: false });

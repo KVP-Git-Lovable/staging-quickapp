@@ -48,7 +48,7 @@ export function LoyaltyCrossSellCard({
       
       const { data, error } = await supabase
         .from("orders")
-        .select("id, total_amount, created_at, order_items(product_name)")
+        .select("id, total_amount, created_at, order_items!order_items_order_id_fkey(product_name)")
         .eq("retailer_id", retailerId)
         .gte("created_at", thirtyDaysAgo.toISOString())
         .order("created_at", { ascending: false });

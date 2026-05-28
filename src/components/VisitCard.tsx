@@ -987,7 +987,7 @@ export const VisitCard = ({
           // @ts-ignore to bypass TypeScript deep type inference issue
           const ordersResponse = await supabase
             .from('orders')
-            .select('*, order_items(*), distributor_name')
+            .select('*, order_items!order_items_order_id_fkey(*), distributor_name')
             .eq('retailer_id', visitRetailerId)
             .eq('user_id', currentUserId)
             .eq('order_date', targetDate)
@@ -2326,7 +2326,7 @@ export const VisitCard = ({
           
           const { data } = await supabase
             .from('orders')
-            .select('id, created_at, total_amount, is_credit_order, credit_paid_amount, invoice_number, idempotency_key, order_items(product_name, quantity, rate, original_rate, total, unit)')
+            .select('id, created_at, total_amount, is_credit_order, credit_paid_amount, invoice_number, idempotency_key, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
             .eq('user_id', effectiveUserId)
             .eq('retailer_id', retailerId)
             .in('status', ['confirmed', 'delivered'])
