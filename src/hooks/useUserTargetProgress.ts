@@ -265,7 +265,7 @@ export function useUserTargetProgress(
           // Use a join to get quantities in one query
           const { data: ordersData } = await supabase
             .from('orders')
-            .select('id, order_items(quantity, unit)')
+            .select('id, order_items!order_items_order_id_fkey(quantity, unit)')
             .eq('user_id', userId)
             .gte('created_at', startStr)
             .lte('created_at', endStr);

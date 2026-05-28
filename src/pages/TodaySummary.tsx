@@ -412,7 +412,7 @@ export const TodaySummary = () => {
             .from('orders')
             .select(`
               *,
-              order_items(*)
+              order_items!order_items_order_id_fkey(*)
             `)
             .in('user_id', targetUserIds)
             .eq('status', 'confirmed')

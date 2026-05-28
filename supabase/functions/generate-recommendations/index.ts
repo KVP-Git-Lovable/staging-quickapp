@@ -141,7 +141,7 @@ async function fetchDiscussionPointsData(supabase: any, userId: string, retailer
   // Fetch retailer's order history
   const { data: orders } = await supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*, order_items!order_items_order_id_fkey(*)')
     .eq('retailer_id', retailerId)
     .order('created_at', { ascending: false })
     .limit(10);

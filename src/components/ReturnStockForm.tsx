@@ -162,7 +162,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     try {
       const { data: pastOrders, error: ordersError } = await supabase
         .from('orders')
-        .select('id, invoice_number, created_at, status, order_items(product_id, product_name, quantity, rate)')
+        .select('id, invoice_number, created_at, status, order_items!order_items_order_id_fkey(product_id, product_name, quantity, rate)')
         .eq('retailer_id', retailerId)
         .not('invoice_number', 'is', null)
         .neq('status', 'cancelled')

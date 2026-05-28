@@ -289,7 +289,7 @@ export function useMasterDataCache() {
       
       const { data: orders, error } = await supabase
         .from('orders')
-        .select('*, order_items(*)')
+        .select('*, order_items!order_items_order_id_fkey(*)')
         .eq('user_id', user.id)
         .gte('created_at', `${today}T00:00:00`)
         .lte('created_at', `${today}T23:59:59`);
@@ -485,7 +485,7 @@ export function useMasterDataCache() {
       onProgress('orders', 'loading');
       const { data: orders } = await supabase
         .from('orders')
-        .select('*, order_items(*)')
+        .select('*, order_items!order_items_order_id_fkey(*)')
         .eq('user_id', user.id)
         .gte('created_at', `${todayStr}T00:00:00`)
         .lte('created_at', `${todayStr}T23:59:59`);

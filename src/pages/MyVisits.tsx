@@ -553,7 +553,7 @@ export const MyVisits = () => {
       const {
         data: orders,
         error: ordersError
-      } = await supabase.from('orders').select('retailer_id, total_amount, created_at, order_items(quantity)').eq('user_id', targetUserId).eq('status', 'confirmed').in('retailer_id', retailerIds).gte('created_at', dateStart.toISOString()).lte('created_at', dateEnd.toISOString());
+      } = await supabase.from('orders').select('retailer_id, total_amount, created_at, order_items!order_items_order_id_fkey(quantity)').eq('user_id', targetUserId).eq('status', 'confirmed').in('retailer_id', retailerIds).gte('created_at', dateStart.toISOString()).lte('created_at', dateEnd.toISOString());
       if (ordersError) throw ordersError;
 
       // Fetch retailer_visit_logs for accurate time tracking

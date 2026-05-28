@@ -706,7 +706,7 @@ const Analytics = () => {
 
       const { data: orders } = await supabase
         .from('orders')
-        .select('*, order_items(*)')
+        .select('*, order_items!order_items_order_id_fkey(*)')
         .eq('user_id', user.id)
         .gte('created_at', startDate.toISOString())
         .lte('created_at', endDate.toISOString());

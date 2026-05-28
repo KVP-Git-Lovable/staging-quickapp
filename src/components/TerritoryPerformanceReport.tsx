@@ -79,7 +79,7 @@ const TerritoryPerformanceReport: React.FC<TerritoryPerformanceReportProps> = ({
     // Current month sales with product details
     const { data: currentMonthOrders } = await supabase
       .from('orders')
-      .select('total_amount, retailer_id, order_items(product_id, product_name, quantity, total)')
+      .select('total_amount, retailer_id, order_items!order_items_order_id_fkey(product_id, product_name, quantity, total)')
       .in('retailer_id', retailerIds)
       .gte('created_at', currentMonthStart.toISOString())
       .lte('created_at', currentMonthEnd.toISOString())

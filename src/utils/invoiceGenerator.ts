@@ -974,7 +974,7 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   // Fetch order (try online first, then fall back to offline cache)
   const { data: dbOrder, error: orderError } = await supabase
     .from("orders")
-    .select("*, order_items(*)")
+    .select("*, order_items!order_items_order_id_fkey(*)")
     .eq("id", orderId)
     .maybeSingle();
 
