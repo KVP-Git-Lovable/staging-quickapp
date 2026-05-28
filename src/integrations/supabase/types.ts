@@ -20676,6 +20676,7 @@ export type Database = {
         Args: { p_leave_type_id: string; p_user_id: string }
         Returns: Json
       }
+      run_load_test: { Args: never; Returns: undefined }
       search_products_for_order: {
         Args: { p_category?: string; p_limit?: number; p_query: string }
         Returns: {
