@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -101,6 +101,26 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
   const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
   const [uploadingBarcode, setUploadingBarcode] = useState(false);
   const [recurringType, setRecurringType] = useState<'days' | 'weeks' | 'months'>('days');
+  const [uoms, setUoms] = useState<Array<{ id: string; code: string; name: string; category: string | null; is_base: boolean }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: enabled } = await supabase
+        .from('enabled_units')
+        .select('uom_id')
+        .eq('enabled', true);
+      const ids = (enabled || []).map((e: any) => e.uom_id);
+      let query = supabase.from('uom_master').select('id, code, name, category, is_base');
+      if (ids.length) query = query.in('id', ids);
+      const { data } = await query.order('name');
+      if (!cancelled && data) setUoms(data as any);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const baseUoms = uoms.filter((u) => u.is_base);
+  const allUoms = uoms;
 
   const handleBarcodeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -213,9 +233,15 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="kg">Kilogram (kg)</SelectItem>
-              <SelectItem value="ltr">Liter (ltr)</SelectItem>
-              <SelectItem value="pcs">Pieces (pcs)</SelectItem>
+              {(baseUoms.length ? baseUoms : allUoms).map((u) => (
+                <SelectItem key={u.id} value={u.code.toLowerCase()}>
+                  {u.name} ({u.code})
+                </SelectItem>
+              ))}
+              {/* Fallback if user has a legacy value not in master */}
+              {!allUoms.some((u) => u.code.toLowerCase() === form.base_unit) && form.base_unit && (
+                <SelectItem value={form.base_unit}>{form.base_unit}</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -226,9 +252,14 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="kg">Kilogram (kg)</SelectItem>
-              <SelectItem value="ltr">Liter (ltr)</SelectItem>
-              <SelectItem value="pcs">Pieces (pcs)</SelectItem>
+              {allUoms.map((u) => (
+                <SelectItem key={u.id} value={u.code.toLowerCase()}>
+                  {u.name} ({u.code})
+                </SelectItem>
+              ))}
+              {!allUoms.some((u) => u.code.toLowerCase() === form.unit) && form.unit && (
+                <SelectItem value={form.unit}>{form.unit}</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>
