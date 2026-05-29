@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock, Bell, Trash2, Building2, Gift, Target, Map, Percent, Database } from 'lucide-react';
+import { Users, Package, ArrowLeft, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock, Bell, Trash2, Building2, Gift, Target, Map, Percent, Database, Ruler, Route } from 'lucide-react';
 import { SearchInput } from '@/components/SearchInput';
 
 const AdminControls = () => {
@@ -31,6 +31,8 @@ const AdminControls = () => {
     { title: "User Management", description: "Manage user accounts, roles, and permissions", icon: Users, color: "orange", path: "/admin#users" },
     { title: "Attendance Management", description: "Manage user attendance, holidays, and leave approvals", icon: CalendarDays, color: "purple", path: "/attendance-management" },
     { title: "Products", description: "Manage your product catalog, categories, and SKUs", icon: Package, color: "blue", path: "/product-management" },
+    { title: "Unit of Measure Master", description: "Manage measurement units, defaults, and ordering for the product catalog", icon: Ruler, color: "sky", path: "/admin/uom-master" },
+    { title: "Beat Coordinator", description: "Plan beats, cover leave, and optimise routes for your team", icon: Route, color: "indigo", path: "/admin/beat-coordinator" },
     { title: "Scheme Master", description: "Create and manage promotional schemes, offers, and discounts", icon: Gift, color: "amber", path: "/scheme-management" },
     { title: "Vendors", description: "Manage vendor relationships and approvals", icon: Users, color: "green", path: "/vendors" },
     { title: "Territories & Distributors", description: "Manage territory assignments and distributor network", icon: MapPin, color: "indigo", path: "/territories-and-distributors" },
