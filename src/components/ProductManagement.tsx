@@ -754,69 +754,96 @@ const [productForm, setProductForm] = useState({
                     Total: {filteredProducts.length}
                   </Badge>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL active products and variants' })}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Deactivate All Products
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => navigate('/admin/uom-master')}>
+                    <SlidersHorizontal className="h-4 w-4 mr-2" />
+                    UoM Master
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       toast.loading('Syncing products...');
                       fetchData();
                     }}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Sync Products
+                    Sync
+                  </Button>
+                  <Button variant="outline" onClick={() => importInputRef.current?.click()}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Import Product Data
+                  </Button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => handleImportCsv(e.target.files?.[0])}
+                  />
+                  <Button variant="outline" onClick={handleExportCsv}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Products
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL active products and variants' })}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete All
                   </Button>
                   <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button onClick={() => setProductForm({
-                        id: '',
-                        sku: '',
-                        product_number: '',
-                        name: '',
-                        description: '',
-                        category_id: '',
-                        is_focused_product: false,
-                        focused_type: undefined,
-                        focused_due_date: '',
-                        focused_target_quantity: 0,
-                        focused_territories: [],
-                        focused_recurring_config: undefined,
-                        rate: 0,
-                        unit: 'piece',
-                        base_unit: 'kg',
-                        conversion_factor: 1,
-                        closing_stock: 0,
-                        is_active: true,
-                        sku_image_url: '',
-                        barcode: '',
-                        barcode_image_url: '',
-                        qr_code: '',
-                        hsn_code: ''
-                      })}>
+                      <Button onClick={() => {
+                        setUnitsValue(emptyProductUnitsEditorValue());
+                        setProductForm({
+                          id: '',
+                          sku: '',
+                          product_number: '',
+                          name: '',
+                          description: '',
+                          category_id: '',
+                          is_focused_product: false,
+                          focused_type: undefined,
+                          focused_due_date: '',
+                          focused_target_quantity: 0,
+                          focused_territories: [],
+                          focused_recurring_config: undefined,
+                          rate: 0,
+                          unit: 'piece',
+                          base_unit: 'kg',
+                          conversion_factor: 1,
+                          closing_stock: 0,
+                          is_active: true,
+                          sku_image_url: '',
+                          barcode: '',
+                          barcode_image_url: '',
+                          qr_code: '',
+                          hsn_code: ''
+                        });
+                      }}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+                  <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
                     <DialogHeader>
                       <DialogTitle>{productForm.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                       <DialogDescription>
                         {productForm.id ? 'Update product details' : 'Add a new product to your catalog'}
                       </DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="h-[400px] overflow-y-auto">
-                      <div className="p-4">
+                    <ScrollArea className="flex-1 overflow-y-auto pr-2">
+                      <div className="p-1 space-y-6">
                         <ProductFormFields
                           form={productForm}
                           categories={categories}
                           territories={territories}
                           onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
+                        />
+                        <ProductUnitsEditor
+                          value={unitsValue}
+                          onChange={setUnitsValue}
+                          productRate={productForm.rate}
                         />
                       </div>
                      </ScrollArea>
