@@ -1155,7 +1155,11 @@ const [productForm, setProductForm] = useState({
                                   qr_code: (product as any).qr_code || '',
                                   hsn_code: (product as any).hsn_code || ''
                                 });
+                                setUnitsValue(emptyProductUnitsEditorValue());
                                 setIsProductDialogOpen(true);
+                                hydrateUnitsEditorFromProduct(product.id)
+                                  .then((v) => { if (v) setUnitsValue(v); })
+                                  .catch((e) => console.error('Hydrate UoM editor failed:', e));
                               }}
                             >
                               <Edit2 className="h-4 w-4" />
