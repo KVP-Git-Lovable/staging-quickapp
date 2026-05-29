@@ -84,6 +84,8 @@ import { AdminDashboard } from "./pages/AdminDashboard";
 import AdminControls from "./pages/AdminControls";
 import FeatureManagement from "./pages/FeatureManagement";
 import ProductManagementPage from "./pages/ProductManagementPage";
+import UomMasterPage from "./pages/UomMasterPage";
+import BeatCoordinator from "./pages/admin/BeatCoordinator";
 import SchemeMasterPage from "./pages/SchemeMasterPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
 import ActivitiesInfo from "./pages/ActivitiesInfo";
@@ -377,6 +379,8 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/user_roles" element={<ProtectedRoute><UserRoles /></ProtectedRoute>} />
         <Route path="/security-management" element={<ProtectedRoute><SecurityManagement /></ProtectedRoute>} />
         <Route path="/product-management" element={<ProtectedRoute><ProductManagementPage /></ProtectedRoute>} />
+        <Route path="/admin/uom-master" element={<ProtectedRoute><UomMasterPage /></ProtectedRoute>} />
+        <Route path="/admin/beat-coordinator" element={<ProtectedRoute><BeatCoordinator /></ProtectedRoute>} />
         <Route path="/scheme-management" element={<ProtectedRoute><SchemeMasterPage /></ProtectedRoute>} />
         <Route path="/attendance-management" element={<ProtectedRoute><AttendanceManagement /></ProtectedRoute>} />
         <Route path="/feedback-management" element={<ProtectedRoute><FeedbackManagement /></ProtectedRoute>} />

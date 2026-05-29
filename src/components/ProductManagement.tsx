@@ -20,6 +20,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
 import { VariantFocusedFields } from './VariantFocusedFields';
 import { migrateProducts } from '@/utils/productMigration';
+import { usePagination } from '@/hooks/usePagination';
+import { PaginationControls } from '@/components/ui/PaginationControls';
 
 interface ProductCategory {
   id: string;
@@ -693,6 +695,12 @@ const [productForm, setProductForm] = useState({
     product.sku.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const productsPagination = usePagination(filteredProducts, { pageSize: 15 });
+
+  useEffect(() => {
+    productsPagination.goToPage(1);
+  }, [searchQuery]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -738,6 +746,9 @@ const [productForm, setProductForm] = useState({
                       className="pl-10 w-80"
                     />
                   </div>
+                  <Badge variant="secondary" className="rounded-full">
+                    Total: {filteredProducts.length}
+                  </Badge>
                 </div>
                 <div className="flex gap-2">
                   <Button 
@@ -836,7 +847,7 @@ const [productForm, setProductForm] = useState({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredProducts.map((product) => (
+                    {productsPagination.paginatedItems.map((product) => (
                       <TableRow key={product.id}>
                         <TableCell>
                           {(product as any).sku_image_url ? (
@@ -1007,6 +1018,18 @@ const [productForm, setProductForm] = useState({
                   </TableBody>
                 </Table>
               </ScrollArea>
+              <PaginationControls
+                currentPage={productsPagination.currentPage}
+                totalPages={productsPagination.totalPages}
+                startIndex={productsPagination.startIndex}
+                endIndex={productsPagination.endIndex}
+                totalItems={productsPagination.totalItems}
+                hasNextPage={productsPagination.hasNextPage}
+                hasPrevPage={productsPagination.hasPrevPage}
+                onNextPage={productsPagination.nextPage}
+                onPrevPage={productsPagination.prevPage}
+                onGoToPage={productsPagination.goToPage}
+              />
             </TabsContent>
 
             <TabsContent value="categories" className="space-y-4">
