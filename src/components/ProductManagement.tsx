@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { moveToRecycleBin } from '@/utils/recycleBinUtils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,13 +15,15 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
 import { VariantFocusedFields } from './VariantFocusedFields';
 import { migrateProducts } from '@/utils/productMigration';
 import { usePagination } from '@/hooks/usePagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { useNavigate } from 'react-router-dom';
+import { ProductUnitsEditor, emptyProductUnitsEditorValue, type ProductUnitsEditorValue } from '@/components/admin/uom/ProductUnitsEditor';
 
 interface ProductCategory {
   id: string;
@@ -77,6 +79,9 @@ interface Territory {
 }
 
 const ProductManagement = () => {
+  const navigate = useNavigate();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [unitsValue, setUnitsValue] = useState<ProductUnitsEditorValue>(() => emptyProductUnitsEditorValue());
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   
@@ -471,6 +476,100 @@ const [productForm, setProductForm] = useState({
     }
   };
 
+  const handleExportCsv = () => {
+    try {
+      const rows = filteredProducts;
+      const headers = ['SKU', 'Manufacturer Code', 'Name', 'Category', 'Rate', 'Unit', 'Base Unit', 'Conversion Factor', 'HSN/SAC', 'Barcode', 'Active'];
+      const escape = (v: any) => {
+        const s = v === null || v === undefined ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const lines = [headers.join(',')];
+      for (const p of rows) {
+        const catName = categories.find(c => c.id === p.category_id)?.name || '';
+        lines.push([p.sku, (p as any).product_number || '', p.name, catName, p.rate, p.unit, p.base_unit, p.conversion_factor, (p as any).hsn_code || '', p.barcode || '', p.is_active ? 'yes' : 'no'].map(escape).join(','));
+      }
+      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `products-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${rows.length} products`);
+    } catch (e) {
+      console.error(e);
+      toast.error('Export failed');
+    }
+  };
+
+  const handleImportCsv = async (file?: File) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (lines.length < 2) {
+        toast.error('CSV is empty');
+        return;
+      }
+      const parseLine = (line: string): string[] => {
+        const out: string[] = [];
+        let cur = '';
+        let inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (inQ) {
+            if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+            else if (c === '"') inQ = false;
+            else cur += c;
+          } else {
+            if (c === ',') { out.push(cur); cur = ''; }
+            else if (c === '"') inQ = true;
+            else cur += c;
+          }
+        }
+        out.push(cur);
+        return out;
+      };
+      const headers = parseLine(lines[0]).map(h => h.trim().toLowerCase());
+      const idx = (n: string) => headers.indexOf(n);
+      const sIdx = idx('sku');
+      const nIdx = idx('name');
+      if (sIdx < 0 || nIdx < 0) {
+        toast.error('CSV must contain SKU and Name columns');
+        return;
+      }
+      const toInsert = lines.slice(1).map(parseLine).map((r) => ({
+        sku: r[sIdx]?.trim(),
+        name: r[nIdx]?.trim(),
+        product_number: idx('manufacturer code') >= 0 ? (r[idx('manufacturer code')] || null) : null,
+        rate: Number(r[idx('rate')] || 0) || 0,
+        unit: r[idx('unit')] || 'piece',
+        base_unit: r[idx('base unit')] || 'kg',
+        conversion_factor: Number(r[idx('conversion factor')] || 1) || 1,
+        hsn_code: idx('hsn/sac') >= 0 ? (r[idx('hsn/sac')] || null) : null,
+        barcode: idx('barcode') >= 0 ? (r[idx('barcode')] || null) : null,
+        is_active: (r[idx('active')] || 'yes').toLowerCase() !== 'no',
+      })).filter(r => r.sku && r.name);
+      if (toInsert.length === 0) {
+        toast.error('No valid rows found');
+        return;
+      }
+      toast.loading(`Importing ${toInsert.length} products...`);
+      const { error } = await supabase.from('products').insert(toInsert as any);
+      if (error) throw error;
+      toast.success(`Imported ${toInsert.length} products`);
+      fetchData();
+    } catch (e: any) {
+      console.error(e);
+      toast.error(`Import failed: ${e.message || e}`);
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
+
   const handleProductSubmit = async () => {
     try {
       // Generate QR code if not exists
@@ -750,69 +849,96 @@ const [productForm, setProductForm] = useState({
                     Total: {filteredProducts.length}
                   </Badge>
                 </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="destructive" 
-                    onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL active products and variants' })}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Deactivate All Products
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => navigate('/admin/uom-master')}>
+                    <SlidersHorizontal className="h-4 w-4 mr-2" />
+                    UoM Master
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => {
                       toast.loading('Syncing products...');
                       fetchData();
                     }}
                   >
                     <RefreshCw className="h-4 w-4 mr-2" />
-                    Sync Products
+                    Sync
+                  </Button>
+                  <Button variant="outline" onClick={() => importInputRef.current?.click()}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Import Product Data
+                  </Button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => handleImportCsv(e.target.files?.[0])}
+                  />
+                  <Button variant="outline" onClick={handleExportCsv}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Products
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL active products and variants' })}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete All
                   </Button>
                   <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
                     <DialogTrigger asChild>
-                      <Button onClick={() => setProductForm({
-                        id: '',
-                        sku: '',
-                        product_number: '',
-                        name: '',
-                        description: '',
-                        category_id: '',
-                        is_focused_product: false,
-                        focused_type: undefined,
-                        focused_due_date: '',
-                        focused_target_quantity: 0,
-                        focused_territories: [],
-                        focused_recurring_config: undefined,
-                        rate: 0,
-                        unit: 'piece',
-                        base_unit: 'kg',
-                        conversion_factor: 1,
-                        closing_stock: 0,
-                        is_active: true,
-                        sku_image_url: '',
-                        barcode: '',
-                        barcode_image_url: '',
-                        qr_code: '',
-                        hsn_code: ''
-                      })}>
+                      <Button onClick={() => {
+                        setUnitsValue(emptyProductUnitsEditorValue());
+                        setProductForm({
+                          id: '',
+                          sku: '',
+                          product_number: '',
+                          name: '',
+                          description: '',
+                          category_id: '',
+                          is_focused_product: false,
+                          focused_type: undefined,
+                          focused_due_date: '',
+                          focused_target_quantity: 0,
+                          focused_territories: [],
+                          focused_recurring_config: undefined,
+                          rate: 0,
+                          unit: 'piece',
+                          base_unit: 'kg',
+                          conversion_factor: 1,
+                          closing_stock: 0,
+                          is_active: true,
+                          sku_image_url: '',
+                          barcode: '',
+                          barcode_image_url: '',
+                          qr_code: '',
+                          hsn_code: ''
+                        });
+                      }}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+                  <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
                     <DialogHeader>
                       <DialogTitle>{productForm.id ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                       <DialogDescription>
                         {productForm.id ? 'Update product details' : 'Add a new product to your catalog'}
                       </DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="h-[400px] overflow-y-auto">
-                      <div className="p-4">
+                    <ScrollArea className="flex-1 overflow-y-auto pr-2">
+                      <div className="p-1 space-y-6">
                         <ProductFormFields
                           form={productForm}
                           categories={categories}
                           territories={territories}
                           onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
+                        />
+                        <ProductUnitsEditor
+                          value={unitsValue}
+                          onChange={setUnitsValue}
+                          productRate={productForm.rate}
                         />
                       </div>
                      </ScrollArea>

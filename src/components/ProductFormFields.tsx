@@ -173,12 +173,14 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
           />
         </div>
         <div>
-          <Label htmlFor="product_number">Product Number</Label>
+          <Label htmlFor="product_number">
+            Manufacturer Code <span className="text-muted-foreground font-normal">(Optional)</span>
+          </Label>
           <Input
             id="product_number"
             value={form.product_number}
             onChange={(e) => onFormChange({ product_number: e.target.value })}
-            placeholder="Enter product number"
+            placeholder="e.g. MFG-KG-250"
           />
         </div>
       </div>
