@@ -80,6 +80,7 @@ interface Territory {
 
 const ProductManagement = () => {
   const navigate = useNavigate();
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [unitsValue, setUnitsValue] = useState<ProductUnitsEditorValue>(() => emptyProductUnitsEditorValue());
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
