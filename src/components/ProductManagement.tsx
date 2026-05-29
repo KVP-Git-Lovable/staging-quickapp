@@ -976,8 +976,8 @@ const [productForm, setProductForm] = useState({
                       <Button variant="outline" onClick={() => setIsProductDialogOpen(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={handleProductSubmit}>
-                        {productForm.id ? 'Update' : 'Create'}
+                      <Button onClick={handleProductSubmit} disabled={savingProduct}>
+                        {savingProduct ? 'Saving…' : productForm.id ? 'Update' : 'Create'}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
