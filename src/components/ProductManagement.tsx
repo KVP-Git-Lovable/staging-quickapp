@@ -24,6 +24,7 @@ import { usePagination } from '@/hooks/usePagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import { useNavigate } from 'react-router-dom';
 import { ProductUnitsEditor, emptyProductUnitsEditorValue, type ProductUnitsEditorValue } from '@/components/admin/uom/ProductUnitsEditor';
+import { reconcileProductUomMapping, hydrateUnitsEditorFromProduct } from '@/lib/productUomPersistence';
 
 interface ProductCategory {
   id: string;
