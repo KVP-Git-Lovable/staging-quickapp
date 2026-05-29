@@ -86,6 +86,7 @@ import FeatureManagement from "./pages/FeatureManagement";
 import ProductManagementPage from "./pages/ProductManagementPage";
 import UomMasterPage from "./pages/UomMasterPage";
 import BeatCoordinator from "./pages/admin/BeatCoordinator";
+import MyOperations from "./pages/MyOperations";
 import SchemeMasterPage from "./pages/SchemeMasterPage";
 import AttendanceManagement from "./pages/AttendanceManagement";
 import ActivitiesInfo from "./pages/ActivitiesInfo";
@@ -381,6 +382,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/product-management" element={<ProtectedRoute><ProductManagementPage /></ProtectedRoute>} />
         <Route path="/admin/uom-master" element={<ProtectedRoute><UomMasterPage /></ProtectedRoute>} />
         <Route path="/admin/beat-coordinator" element={<ProtectedRoute><BeatCoordinator /></ProtectedRoute>} />
+        <Route path="/my-operations" element={<ProtectedRoute><MyOperations /></ProtectedRoute>} />
         <Route path="/scheme-management" element={<ProtectedRoute><SchemeMasterPage /></ProtectedRoute>} />
         <Route path="/attendance-management" element={<ProtectedRoute><AttendanceManagement /></ProtectedRoute>} />
         <Route path="/feedback-management" element={<ProtectedRoute><FeedbackManagement /></ProtectedRoute>} />
