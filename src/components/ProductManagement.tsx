@@ -24,6 +24,7 @@ import { usePagination } from '@/hooks/usePagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import { useNavigate } from 'react-router-dom';
 import { ProductUnitsEditor, emptyProductUnitsEditorValue, type ProductUnitsEditorValue } from '@/components/admin/uom/ProductUnitsEditor';
+import { reconcileProductUomMapping, hydrateUnitsEditorFromProduct } from '@/lib/productUomPersistence';
 
 interface ProductCategory {
   id: string;
@@ -82,6 +83,7 @@ const ProductManagement = () => {
   const navigate = useNavigate();
   const importInputRef = useRef<HTMLInputElement>(null);
   const [unitsValue, setUnitsValue] = useState<ProductUnitsEditorValue>(() => emptyProductUnitsEditorValue());
+  const [savingProduct, setSavingProduct] = useState(false);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   
@@ -571,9 +573,12 @@ const [productForm, setProductForm] = useState({
   };
 
   const handleProductSubmit = async () => {
+    setSavingProduct(true);
     try {
       // Generate QR code if not exists
       const qrCode = productForm.qr_code || generateQRCode('product', productForm.sku, productForm.name);
+
+      let savedProductId = productForm.id;
 
       if (productForm.id) {
         const { error } = await supabase
@@ -600,11 +605,10 @@ const [productForm, setProductForm] = useState({
             hsn_code: productForm.hsn_code || null
           })
           .eq('id', productForm.id);
-        
+
         if (error) throw error;
-        toast.success('Product updated successfully');
       } else {
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('products')
           .insert({
             sku: productForm.sku,
@@ -626,12 +630,35 @@ const [productForm, setProductForm] = useState({
             barcode: productForm.barcode || null,
             qr_code: qrCode,
             hsn_code: productForm.hsn_code || null
-          });
-        
+          })
+          .select('id')
+          .single();
+
         if (error) throw error;
-        toast.success('Product created successfully');
+        savedProductId = inserted?.id ?? '';
       }
-      
+
+      // Persist Step 1 + Step 2 unit configuration to product_uom_mapping.
+      // Only run when the user actually touched the editor (rows present OR
+      // a Step-1 selection made) — keeps legacy products that were saved
+      // before this editor existed unaffected.
+      const editorTouched =
+        unitsValue.rows.length > 0 ||
+        !!unitsValue.priceBasisCode ||
+        !!unitsValue.defaultSalesCode;
+
+      if (editorTouched && savedProductId) {
+        try {
+          await reconcileProductUomMapping(savedProductId, unitsValue);
+        } catch (uomErr: any) {
+          console.error('UoM reconcile failed:', uomErr);
+          toast.error(uomErr?.message ?? 'Failed to save unit configuration');
+          // Don't bail entirely — the product itself saved successfully.
+        }
+      }
+
+      toast.success(productForm.id ? 'Product updated successfully' : 'Product created successfully');
+
       setIsProductDialogOpen(false);
       setProductForm({
         id: '',
@@ -662,10 +689,13 @@ const [productForm, setProductForm] = useState({
         qr_code: '',
         hsn_code: ''
       });
+      setUnitsValue(emptyProductUnitsEditorValue());
       fetchProducts();
     } catch (error) {
       console.error('Error saving product:', error);
       toast.error('Failed to save product');
+    } finally {
+      setSavingProduct(false);
     }
   };
 
@@ -946,8 +976,8 @@ const [productForm, setProductForm] = useState({
                       <Button variant="outline" onClick={() => setIsProductDialogOpen(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={handleProductSubmit}>
-                        {productForm.id ? 'Update' : 'Create'}
+                      <Button onClick={handleProductSubmit} disabled={savingProduct}>
+                        {savingProduct ? 'Saving…' : productForm.id ? 'Update' : 'Create'}
                       </Button>
                     </DialogFooter>
                   </DialogContent>
@@ -1125,7 +1155,11 @@ const [productForm, setProductForm] = useState({
                                   qr_code: (product as any).qr_code || '',
                                   hsn_code: (product as any).hsn_code || ''
                                 });
+                                setUnitsValue(emptyProductUnitsEditorValue());
                                 setIsProductDialogOpen(true);
+                                hydrateUnitsEditorFromProduct(product.id)
+                                  .then((v) => { if (v) setUnitsValue(v); })
+                                  .catch((e) => console.error('Hydrate UoM editor failed:', e));
                               }}
                             >
                               <Edit2 className="h-4 w-4" />

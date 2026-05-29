@@ -1,67 +1,49 @@
-## What's still missing
+## Goal
+Persist the `ProductUnitsEditor` state (Step 1 base unit, Step 2 packaging rows, price overrides) to `product_uom_mapping` whenever a product is created or updated, and hydrate the editor when an existing product is opened for edit.
 
-The historical commit `e1cf85b1` (15 May) had two pieces the current Dev branch never received:
+## Schema check
+`product_uom_mapping` columns available today:
+`id, product_id, uom_id, conversion_to_base, is_base, is_default_sales, is_default_purchase, is_price_basis, is_active, created_at, updated_at`.
 
-**A. Toolbar on Products & SKUs tab**
-Currently shows only: `Deactivate All Products`, `Sync Products`, `Add Product`.
-Missing: **UoM Master**, **Import Product Data**, **Export Products**; "Deactivate All Products" must be renamed **Delete All**.
+That covers Step 1 + Step 2. There is **no** `price_override` or `label` column, so:
+- Per-row `priceOverrides` will be persisted via the existing `price_lists` / `product_pricing` path if one exists; otherwise kept in-memory only for the Live Preview, and we'll surface a small warning under the section ("price overrides not persisted yet — schema column missing"). I'll confirm in the code before deciding.
+- The custom row label is rendered in the editor only; the canonical label comes from `uom_master.code/name`.
 
-**B. Add / Edit Product modal**
-Currently uses a small `max-w-md` dialog with the legacy `ProductFormFields` (SKU, Name, Product Number, Category, Rate, Unit, …). Missing everything from the screenshots:
+No DB migration is required for the core persistence.
 
-- Dialog widened (~`max-w-3xl`) with a two-column responsive grid
-- Field rename: "Product Number" → **Manufacturer Code (Optional)**
-- **STEP 1 — Base Unit Setup** card: Category (Weight/Volume/Count), Physical size of 1 piece, Price basis unit, Default sales unit, Default purchase unit
-- **STEP 2 — Packaging Rows** table: per-row UNIT / QTY PER 1 PIECE / LABEL SHOWN TO USER / BASE? / DEFAULT SALES? / DEFAULT PURCHASE? plus "+ add packaging unit" picker
-- **PRICE OVERRIDES (optional)** section
-- **LIVE PREVIEW** card with auto-computed conversion chips
+## Implementation
 
-All of the above already exists as `ProductUnitsEditor` in `src/components/admin/uom/ProductUnitsEditor.tsx` (restored in the previous turn) — it just isn't wired into the Add Product dialog yet.
+### 1. `src/components/ProductManagement.tsx` — `handleProductSubmit`
+After the existing `products` insert/update succeeds and we know the `product_id`:
+1. Load enabled units for the chosen `unitsValue.baseCategory` via `loadEnabledUnits(category)` (already in `uomEngine`) — needed to resolve sibling base units (e.g. KG when base is GRAM).
+2. Call `deriveProductMappings({ category, netWeightG, netVolumeMl, packagingRows: unitsValue.rows, baseCategoryUnits, priceBasisCode, defaultSalesCode, defaultPurchaseCode })` — returns the canonical `DerivedRow[]`.
+3. Reconcile against `product_uom_mapping`:
+   - `select id, uom_id from product_uom_mapping where product_id = :id`
+   - For each derived row → upsert `{ product_id, uom_id, conversion_to_base, is_base, is_default_sales, is_default_purchase, is_price_basis, is_active: true }` on the `(product_id, uom_id)` natural key (delete-then-insert if no unique constraint exists, otherwise `.upsert({ onConflict: 'product_id,uom_id' })`).
+   - Soft-deactivate any existing rows whose `uom_id` is no longer in the derived set (`is_active = false`) rather than hard-delete, to preserve historical references from order lines.
+4. Also mirror the derived "default sales" row back onto `products.unit` / `products.base_unit` / `products.conversion_factor` so legacy code paths keep working (the current update already writes these from `productForm`, so we just override them post-derive).
+5. If `deriveProductMappings` throws (e.g. user picked Weight without entering net grams), surface the error message via `toast.error` and abort the save.
 
-## Database confirmation
+### 2. Edit-mode hydration
+When a row's Edit pencil is clicked (existing `setProductForm` flow):
+1. Set `productForm` as today.
+2. Fetch `product_uom_mapping` rows joined to `uom_master` for that product (`select *, uom_master(code, name, category)` — limit to `is_active = true`).
+3. Build `ProductUnitsEditorValue`:
+   - `baseCategory` ← the base row's `uom_master.category` (fallback to "Quantity").
+   - `netWeightG` / `netVolumeMl` ← derived from the base row's `conversion_to_base` against the first non-base packaging row when possible; otherwise leave `null` and let the user re-enter.
+   - `rows` ← non-base, non-sibling mapping rows mapped into `UnitRow` shape (`uomId`, `code`, `qtyPerPiece` = `conversion_to_base / physicalSize`, flags).
+   - `priceBasisCode` / `defaultSalesCode` / `defaultPurchaseCode` ← the codes from the flagged rows.
+4. If no mapping rows exist for the product (legacy product), seed `unitsValue = emptyProductUnitsEditorValue()` so the user starts fresh — no crash.
 
-No schema work needed. Tables already in place:
-- `uom_master` + `enabled_units` — feeds Step 1 dropdowns via `useEnabledUnits`
-- `product_uom_mapping` (`conversion_to_base`, `is_base_unit`, `is_default_sales`, `is_default_purchase`, `label`) — persists Step 2 rows
-- `product_uom_mapping.price_override` (or equivalent) — persists Price Overrides
-- `products.product_number` already exists; only the UI label changes to "Manufacturer Code"
+### 3. UX touches
+- Disable the dialog's **Create / Update** button while the reconcile request is in flight.
+- After a successful save invalidate the small UoM cache: `clearUomCache(product_id)` + `clearPriceListCache(product_id)`.
+- The CSV import path stays unchanged — bulk-imported products keep their legacy `unit/base_unit/conversion_factor` and can be enriched later by opening them in the editor.
 
-## Implementation plan
-
-### 1. `src/components/ProductManagement.tsx` — toolbar
-- Replace the single `flex justify-between` row with a two-row toolbar matching the screenshot:
-  - Row 1: search input + `Total: N` badge (already present)
-  - Row 2: `UoM Master` (→ navigate `/admin/uom-master`), `Sync`, `Import Product Data`, `Export Products`, `Delete All` (destructive), `Add Product`
-- Rename existing "Deactivate All Products" → **Delete All** (keep the same handler — still deactivation, label only)
-- `Sync Products` → **Sync**
-- Wire `Export Products` to existing CSV export helper (or add a small inline CSV builder over `filteredProducts`)
-- Wire `Import Product Data` to the existing bulk-import dialog if present, otherwise open a placeholder file picker that calls the existing bulk-insert path
-
-### 2. Add / Edit Product dialog
-- Widen `DialogContent` to `max-w-3xl max-h-[90vh]`
-- Replace the inner `<ProductFormFields …/>` with a new composed form:
-  - Top grid: Active toggle, SKU*, Product Name*, **Manufacturer Code (Optional)** (bound to `product_number`)
-  - Second grid: Category*, Brand (Optional), HSN/SAC Code, GST %*
-  - Third grid: Barcode/EAN (Optional) + Description (Optional)
-  - "Mark as Focused Product" toggle (reuse existing focused-product fields, collapsed when off)
-  - `<ProductUnitsEditor value={unitsValue} onChange={setUnitsValue} productRate={form.rate}/>` — renders Step 1, Step 2, Price Overrides, Live Preview exactly as in the screenshots
-- On **Create / Update**:
-  1. Upsert into `products` (existing path; derive `rate`, `unit`, `base_unit`, `conversion_factor` from `unitsValue` so legacy code keeps working)
-  2. Reconcile `product_uom_mapping` rows for this product from `unitsValue.rows` (delete-missing + upsert) including `is_base_unit`, `is_default_sales`, `is_default_purchase`, `label`, `conversion_to_base`, and `price_override`
-- On **Edit**: hydrate `unitsValue` by reading `product_uom_mapping` + `uom_master` for the product
-
-### 3. `ProductFormFields.tsx`
-- Keep file for the legacy edit paths it's still used in, but inside the Add Product dialog we no longer mount it — the new composed form replaces it
-- Rename the visible label "Product Number" → "Manufacturer Code (Optional)" so any remaining mounts also reflect the change
-
-### 4. Non-goals (explicit)
-- No DB migrations
-- No changes to offline sync / IndexedDB writers (they already key off `product_uom_mapping`)
-- No changes to order entry, pricing, or inventory logic
-- Categories tab, search, pagination, table columns are already correct and stay untouched
+### 4. Non-goals
+- No schema changes.
+- No changes to order entry, inventory ledger, or offline IDB writers — they already read `product_uom_mapping`.
+- Price overrides remain UI-only for now unless a persistence target column is found during implementation.
 
 ## Confidence
-- Toolbar restoration: **~95 %** — pure presentational, all handlers already exist
-- Add Product redesign: **~85 %** — ProductUnitsEditor is fully restored; only wiring + persistence reconciliation is new. Edit-mode hydration is the riskiest piece and will be covered with a defensive fallback to the legacy shape if mapping rows are missing.
-
-Approve to proceed, or tell me to drop / adjust any of the above (e.g. keep "Deactivate All" instead of "Delete All", or skip Import/Export wiring for now).
+~85 %. The reconcile + hydration paths are mechanical; the only soft spot is reverse-deriving `netWeightG` / `netVolumeMl` from existing mapping rows when the product was created in the legacy UI — covered by the "leave null and let user re-enter" fallback.
