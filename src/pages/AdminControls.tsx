@@ -59,8 +59,13 @@ const AdminControls = () => {
     { title: "Retailer External Database", description: "Browse external grocery retailer data by state and city", icon: Database, color: "orange", path: "/admin/retailer-external-db" },
   ];
 
-  // Filter modules based on permissions only - no special bypass
-  const accessibleModules = adminModules.filter(module => permittedAdminPaths.has(module.path));
+  // Filter modules based on permissions. UOM Master and Beat Coordinator are
+  // shown to anyone with admin access since they are not yet wired into the
+  // granular permission registry.
+  const ALWAYS_VISIBLE_FOR_ADMIN = new Set(['/admin/uom-master', '/admin/beat-coordinator']);
+  const accessibleModules = adminModules.filter(module =>
+    permittedAdminPaths.has(module.path) || ALWAYS_VISIBLE_FOR_ADMIN.has(module.path)
+  );
 
   const filteredModules = accessibleModules.filter(module => 
     module.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
