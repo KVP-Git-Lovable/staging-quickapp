@@ -3989,6 +3989,36 @@ export type Database = {
           },
         ]
       }
+      distributor_collection_policy: {
+        Row: {
+          allocation_strategy: string
+          allow_manual_override: boolean
+          allow_unallocated_amount: boolean
+          created_at: string
+          distributor_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          allocation_strategy?: string
+          allow_manual_override?: boolean
+          allow_unallocated_amount?: boolean
+          created_at?: string
+          distributor_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          allocation_strategy?: string
+          allow_manual_override?: boolean
+          allow_unallocated_amount?: boolean
+          created_at?: string
+          distributor_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       distributor_company_return_items: {
         Row: {
           batch_number: string | null
@@ -4707,17 +4737,22 @@ export type Database = {
           bank_name: string | null
           cheque_date: string | null
           cheque_number: string | null
+          collected_by_user_id: string | null
           created_at: string
           created_by: string | null
           distributor_id: string
           id: string
           notes: string | null
+          operational_snapshot_user_id: string | null
+          owner_snapshot_user_id: string | null
           payment_date: string
           payment_mode: string
           receipt_number: string | null
           reference_number: string | null
           retailer_id: string
+          sales_credit_user_id: string | null
           status: string
+          unallocated_amount: number
           updated_at: string
         }
         Insert: {
@@ -4725,17 +4760,22 @@ export type Database = {
           bank_name?: string | null
           cheque_date?: string | null
           cheque_number?: string | null
+          collected_by_user_id?: string | null
           created_at?: string
           created_by?: string | null
           distributor_id: string
           id?: string
           notes?: string | null
+          operational_snapshot_user_id?: string | null
+          owner_snapshot_user_id?: string | null
           payment_date?: string
           payment_mode?: string
           receipt_number?: string | null
           reference_number?: string | null
           retailer_id: string
+          sales_credit_user_id?: string | null
           status?: string
+          unallocated_amount?: number
           updated_at?: string
         }
         Update: {
@@ -4743,17 +4783,22 @@ export type Database = {
           bank_name?: string | null
           cheque_date?: string | null
           cheque_number?: string | null
+          collected_by_user_id?: string | null
           created_at?: string
           created_by?: string | null
           distributor_id?: string
           id?: string
           notes?: string | null
+          operational_snapshot_user_id?: string | null
+          owner_snapshot_user_id?: string | null
           payment_date?: string
           payment_mode?: string
           receipt_number?: string | null
           reference_number?: string | null
           retailer_id?: string
+          sales_credit_user_id?: string | null
           status?: string
+          unallocated_amount?: number
           updated_at?: string
         }
         Relationships: [
@@ -5259,7 +5304,10 @@ export type Database = {
           invoice_date: string
           invoice_number: string
           notes: string | null
+          operational_snapshot_user_id: string | null
           order_id: string | null
+          owner_snapshot_user_id: string | null
+          payment_status: string
           pdf_url: string | null
           retailer_id: string
           sgst_amount: number
@@ -5278,7 +5326,10 @@ export type Database = {
           invoice_date?: string
           invoice_number: string
           notes?: string | null
+          operational_snapshot_user_id?: string | null
           order_id?: string | null
+          owner_snapshot_user_id?: string | null
+          payment_status?: string
           pdf_url?: string | null
           retailer_id: string
           sgst_amount?: number
@@ -5297,7 +5348,10 @@ export type Database = {
           invoice_date?: string
           invoice_number?: string
           notes?: string | null
+          operational_snapshot_user_id?: string | null
           order_id?: string | null
+          owner_snapshot_user_id?: string | null
+          payment_status?: string
           pdf_url?: string | null
           retailer_id?: string
           sgst_amount?: number
@@ -10038,6 +10092,48 @@ export type Database = {
           },
         ]
       }
+      operational_activity_log: {
+        Row: {
+          activity_type: string
+          beat_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          metadata_json: Json
+          operational_snapshot_user_id: string | null
+          owner_snapshot_user_id: string | null
+          performed_by_user_id: string | null
+          retailer_id: string | null
+        }
+        Insert: {
+          activity_type: string
+          beat_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata_json?: Json
+          operational_snapshot_user_id?: string | null
+          owner_snapshot_user_id?: string | null
+          performed_by_user_id?: string | null
+          retailer_id?: string | null
+        }
+        Update: {
+          activity_type?: string
+          beat_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          metadata_json?: Json
+          operational_snapshot_user_id?: string | null
+          owner_snapshot_user_id?: string | null
+          performed_by_user_id?: string | null
+          retailer_id?: string | null
+        }
+        Relationships: []
+      }
       order_cancellation_log: {
         Row: {
           cancelled_at: string
@@ -10744,6 +10840,51 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      payment_allocations: {
+        Row: {
+          allocated_amount: number
+          allocation_type: string
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_id: string
+          payment_id: string
+        }
+        Insert: {
+          allocated_amount: number
+          allocation_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id: string
+          payment_id: string
+        }
+        Update: {
+          allocated_amount?: number
+          allocation_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string
+          payment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_allocations_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "distributor_secondary_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_allocations_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "distributor_payments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       performance_comments: {
         Row: {
@@ -15560,6 +15701,63 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_shared_access: {
+        Row: {
+          access_template_id: string | null
+          can_collect_payment: boolean
+          can_take_orders: boolean
+          can_update_feedback: boolean
+          can_view: boolean
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          retailer_id: string
+          shared_by_user_id: string
+          shared_to_user_id: string
+          source: string
+          source_id: string | null
+        }
+        Insert: {
+          access_template_id?: string | null
+          can_collect_payment?: boolean
+          can_take_orders?: boolean
+          can_update_feedback?: boolean
+          can_view?: boolean
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          retailer_id: string
+          shared_by_user_id: string
+          shared_to_user_id: string
+          source?: string
+          source_id?: string | null
+        }
+        Update: {
+          access_template_id?: string | null
+          can_collect_payment?: boolean
+          can_take_orders?: boolean
+          can_update_feedback?: boolean
+          can_view?: boolean
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          retailer_id?: string
+          shared_by_user_id?: string
+          shared_to_user_id?: string
+          source?: string
+          source_id?: string | null
+        }
+        Relationships: []
+      }
       retailer_visit_logs: {
         Row: {
           action_type: string | null
@@ -15919,6 +16117,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      route_execution_history: {
+        Row: {
+          action_type: string
+          assigned_user_id: string | null
+          beat_id: string | null
+          created_at: string
+          executed_by_user_id: string | null
+          id: string
+          remarks: string | null
+          retailer_id: string | null
+          route_date: string
+        }
+        Insert: {
+          action_type: string
+          assigned_user_id?: string | null
+          beat_id?: string | null
+          created_at?: string
+          executed_by_user_id?: string | null
+          id?: string
+          remarks?: string | null
+          retailer_id?: string | null
+          route_date?: string
+        }
+        Update: {
+          action_type?: string
+          assigned_user_id?: string | null
+          beat_id?: string | null
+          created_at?: string
+          executed_by_user_id?: string | null
+          id?: string
+          remarks?: string | null
+          retailer_id?: string | null
+          route_date?: string
+        }
+        Relationships: []
       }
       saved_reports: {
         Row: {
@@ -18085,6 +18319,51 @@ export type Database = {
           },
         ]
       }
+      user_delegations: {
+        Row: {
+          beat_ids: string[]
+          created_at: string
+          created_by: string | null
+          delegation_scope: string
+          effective_from: string
+          effective_to: string
+          from_user_id: string
+          id: string
+          notes: string | null
+          retailer_ids: string[]
+          status: string
+          to_user_id: string
+        }
+        Insert: {
+          beat_ids?: string[]
+          created_at?: string
+          created_by?: string | null
+          delegation_scope: string
+          effective_from: string
+          effective_to: string
+          from_user_id: string
+          id?: string
+          notes?: string | null
+          retailer_ids?: string[]
+          status?: string
+          to_user_id: string
+        }
+        Update: {
+          beat_ids?: string[]
+          created_at?: string
+          created_by?: string | null
+          delegation_scope?: string
+          effective_from?: string
+          effective_to?: string
+          from_user_id?: string
+          id?: string
+          notes?: string | null
+          retailer_ids?: string[]
+          status?: string
+          to_user_id?: string
+        }
+        Relationships: []
+      }
       user_expense_config: {
         Row: {
           created_at: string
@@ -20052,6 +20331,14 @@ export type Database = {
         }
         Returns: Json
       }
+      allocate_payment_fifo: {
+        Args: { p_payment_id: string }
+        Returns: undefined
+      }
+      allocate_payment_manual: {
+        Args: { p_allocations: Json; p_payment_id: string }
+        Returns: undefined
+      }
       apply_event_stock_for_order: {
         Args: {
           p_items: Json
@@ -20181,6 +20468,18 @@ export type Database = {
         }
         Returns: Json
       }
+      create_user_delegation: {
+        Args: {
+          p_beat_ids: string[]
+          p_effective_from: string
+          p_effective_to: string
+          p_notes?: string
+          p_retailer_ids: string[]
+          p_scope: string
+          p_to_user: string
+        }
+        Returns: string
+      }
       delete_packing_list_atomic: {
         Args: { p_packing_list_id: string }
         Returns: Json
@@ -20245,6 +20544,7 @@ export type Database = {
         }
         Returns: Json
       }
+      expire_user_delegations: { Args: never; Returns: undefined }
       generate_grn_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_primary_invoice_number: { Args: never; Returns: string }
@@ -20275,6 +20575,17 @@ export type Database = {
           full_name: string
           id: string
           username: string
+        }[]
+      }
+      get_collection_workspace: {
+        Args: { p_filter?: string }
+        Returns: {
+          access_type: string
+          oldest_invoice_date: string
+          open_invoice_count: number
+          outstanding: number
+          retailer_id: string
+          retailer_name: string
         }[]
       }
       get_database_metrics: { Args: never; Returns: Json }
@@ -20338,6 +20649,16 @@ export type Database = {
           profile_picture_url: string
           user_status: Database["public"]["Enums"]["user_status"]
           username: string
+        }[]
+      }
+      get_my_operations_today: {
+        Args: { p_date?: string }
+        Returns: {
+          access_type: string
+          beat_id: string
+          pending_collection: number
+          retailer_id: string
+          retailer_name: string
         }[]
       }
       get_password_reset_stats: {
@@ -20652,6 +20973,16 @@ export type Database = {
         Args: { p_actor_user_id: string; p_metadata?: Json; p_rule_id: string }
         Returns: number
       }
+      record_route_execution: {
+        Args: {
+          p_action: string
+          p_beat_id?: string
+          p_remarks?: string
+          p_retailer_id: string
+          p_route_date?: string
+        }
+        Returns: string
+      }
       refresh_daily_admin_summary: {
         Args: { p_date: string }
         Returns: undefined
@@ -20675,6 +21006,10 @@ export type Database = {
       resolve_effective_leave_policy: {
         Args: { p_leave_type_id: string; p_user_id: string }
         Returns: Json
+      }
+      revoke_retailer_access: {
+        Args: { p_share_id: string }
+        Returns: undefined
       }
       run_load_test: { Args: never; Returns: undefined }
       search_products_for_order: {
@@ -20715,6 +21050,19 @@ export type Database = {
           title_param: string
           type_param?: string
           user_id_param: string
+        }
+        Returns: string
+      }
+      share_retailer_access: {
+        Args: {
+          p_can_collect_payment?: boolean
+          p_can_take_orders?: boolean
+          p_can_update_feedback?: boolean
+          p_can_view?: boolean
+          p_effective_from?: string
+          p_effective_to?: string
+          p_retailer_id: string
+          p_to_user: string
         }
         Returns: string
       }
@@ -20763,6 +21111,14 @@ export type Database = {
           new_phone_number?: string
           new_recovery_email?: string
         }
+        Returns: boolean
+      }
+      user_has_operational_access: {
+        Args: { _perm: string; _retailer: string; _user: string }
+        Returns: boolean
+      }
+      user_owns_retailer: {
+        Args: { _retailer: string; _user: string }
         Returns: boolean
       }
       validate_invitation_token: {
