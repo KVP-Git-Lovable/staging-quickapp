@@ -233,11 +233,12 @@ export function useTeammates() {
     queryFn: async () => {
       const { data, error } = await sb
         .from("profiles")
-        .select("id, full_name, email, role")
-        .eq("is_active", true)
+        .select("id, full_name, username")
+        .neq("user_status", "deleted")
         .order("full_name");
       if (error) throw error;
-      return data || [];
+      return (data || []).map((p: any) => ({ id: p.id, full_name: p.full_name || p.username || p.id, email: p.username }));
     },
   });
 }
+

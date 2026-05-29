@@ -29,11 +29,13 @@ function useMyDistributorId() {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
-      const { data } = await sb.from("profiles").select("distributor_id").eq("id", user.id).maybeSingle();
-      return data?.distributor_id ?? null;
+      // Resolve via retailers owned (most reps have this), then fall back to distributor_payments they created.
+      const { data: r } = await sb.from("retailers").select("distributor_id").eq("user_id", user.id).not("distributor_id", "is", null).limit(1).maybeSingle();
+      return r?.distributor_id ?? null;
     },
   });
 }
+
 
 export default function MyOperations() {
   const today = useMyOperationsToday();
