@@ -58,19 +58,21 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
             <Badge variant="default" className="text-[10px] px-1.5 py-0.5 font-medium">
               #{beat.beat_number}
             </Badge>
-            <Badge 
+            {beat.is_active === false && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">Inactive</Badge>
+            )}
+            <Badge
               className={`text-[10px] px-1.5 py-0.5 ${
-                beat.retailer_count >= 30 ? 'bg-yellow-100 text-yellow-800' : 
-                beat.retailer_count >= 20 ? 'bg-gray-100 text-gray-800' : 
-                beat.retailer_count >= 15 ? 'bg-orange-100 text-orange-800' : 
+                beat.retailer_count >= 30 ? 'bg-yellow-100 text-yellow-800' :
+                beat.retailer_count >= 20 ? 'bg-gray-100 text-gray-800' :
+                beat.retailer_count >= 15 ? 'bg-orange-100 text-orange-800' :
                 'bg-amber-100 text-amber-800'
               }`}
             >
-              {beat.retailer_count >= 30 ? 'Platinum' : 
-               beat.retailer_count >= 20 ? 'Silver' : 
+              {beat.retailer_count >= 30 ? 'Platinum' :
+               beat.retailer_count >= 20 ? 'Silver' :
                beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
             </Badge>
-            {/* Three-dot menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -78,16 +80,22 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {onTransfer && (
+                {onTransfer && beat.is_active !== false && (
                   <DropdownMenuItem onClick={onTransfer}>
                     <ArrowRightLeft size={14} className="mr-2" />
                     Transfer Beat
                   </DropdownMenuItem>
                 )}
-                {onDeactivate && (
+                {onDeactivate && beat.is_active !== false && (
                   <DropdownMenuItem onClick={onDeactivate} className="text-orange-600">
                     <Power size={14} className="mr-2" />
                     Deactivate Beat
+                  </DropdownMenuItem>
+                )}
+                {onReactivate && beat.is_active === false && (
+                  <DropdownMenuItem onClick={onReactivate} className="text-emerald-600">
+                    <Power size={14} className="mr-2" />
+                    Reactivate Beat
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
