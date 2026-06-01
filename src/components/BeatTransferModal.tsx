@@ -69,7 +69,7 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       setLoadingBeats(true);
       const { data, error } = await supabase
         .from("beats")
-        .select("id, beat_name")
+        .select("id, beat_id, beat_name")
         .eq("is_active", true)
         .order("beat_name", { ascending: true });
       if (error) toast.error(error.message);
