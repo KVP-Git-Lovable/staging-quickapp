@@ -307,16 +307,19 @@ export const MyBeats = () => {
       );
       
       if (userCachedBeats.length > 0) {
-        // Display cached data IMMEDIATELY
-        const cachedRetailersData = cachedRetailers.filter((r: any) => 
-          effectiveUserIds.includes(r.user_id) && r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned'
+        // Count retailers by beat_id (text) WITHOUT user scoping —
+        // a beat's retailers may belong to different users.
+        const beatIdSet = new Set(userCachedBeats.map((b: any) => b.beat_id));
+        const cachedRetailersData = cachedRetailers.filter((r: any) =>
+          r.beat_id && r.beat_id !== '' && r.beat_id !== 'unassigned' && beatIdSet.has(r.beat_id)
         ).map((r: any) => ({ beat_id: r.beat_id }));
-        
+
         const retailerCountMap = new Map<string, number>();
         cachedRetailersData.forEach((item: any) => {
           const beatId = item.beat_id;
           retailerCountMap.set(beatId, (retailerCountMap.get(beatId) || 0) + 1);
         });
+        
         
         const beatsArray = userCachedBeats.map((beat: any, index) => ({
           id: beat.beat_id,
@@ -365,13 +368,13 @@ export const MyBeats = () => {
             const territoriesMap = new Map();
             territoriesData?.forEach(t => territoriesMap.set(t.id, t.name));
 
+            // Count retailers per beat WITHOUT user_id scoping —
+            // retailers under a beat can belong to any user.
+            const beatTextIds = beatsData.map((b: any) => b.beat_id).filter(Boolean);
             const { data: onlineRetailers, error: retailersError } = await supabase
               .from('retailers')
               .select('beat_id')
-              .in('user_id', effectiveUserIds)
-              .not('beat_id', 'is', null)
-              .neq('beat_id', '')
-              .neq('beat_id', 'unassigned');
+              .in('beat_id', beatTextIds.length > 0 ? beatTextIds : ['__none__']);
 
             if (!retailersError && onlineRetailers) {
               const retailersData = onlineRetailers || [];
