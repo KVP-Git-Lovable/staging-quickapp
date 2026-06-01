@@ -330,7 +330,6 @@ export const MyBeats = () => {
           const { data: onlineBeats, error: beatsError } = await supabase
             .from('beats')
             .select('*')
-            .eq('is_active', true)
             .in('user_id', effectiveUserIds)
             .order('created_at', { ascending: true });
 
