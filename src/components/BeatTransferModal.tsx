@@ -37,7 +37,9 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
 
   const [available, setAvailable] = useState<Retailer[]>([]);
   const [selected, setSelected] = useState<Retailer[]>([]);
+  const [existingDest, setExistingDest] = useState<Retailer[]>([]);
   const [loadingRetailers, setLoadingRetailers] = useState(false);
+  const [loadingDest, setLoadingDest] = useState(false);
 
   const [leftSearch, setLeftSearch] = useState("");
   const [rightSearch, setRightSearch] = useState("");
@@ -54,7 +56,7 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
   useEffect(() => {
     if (!open) {
       setSourceBeatId(""); setDestBeatId("");
-      setAvailable([]); setSelected([]);
+      setAvailable([]); setSelected([]); setExistingDest([]);
       setLeftSearch(""); setRightSearch("");
       setLeftChecked(new Set()); setRightChecked(new Set());
       setLeftPage(1); setRightPage(1);
@@ -102,6 +104,32 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     })();
   }, [sourceBeatId, beats]);
 
+  // Load retailers currently in destination beat (read-only baseline)
+  useEffect(() => {
+    const dst = beats.find((b) => b.id === destBeatId);
+    if (!destBeatId || !dst) {
+      setExistingDest([]);
+      setSelected([]);
+      setRightChecked(new Set());
+      setRightPage(1);
+      return;
+    }
+    (async () => {
+      setLoadingDest(true);
+      const { data, error } = await supabase
+        .from("retailers")
+        .select("id, name, beat_id")
+        .eq("beat_id", dst.beat_id)
+        .order("name", { ascending: true });
+      if (error) toast.error(error.message);
+      setExistingDest((data as Retailer[]) || []);
+      setSelected([]);
+      setRightChecked(new Set());
+      setRightPage(1);
+      setLoadingDest(false);
+    })();
+  }, [destBeatId, beats]);
+
   const sourceBeat = beats.find((b) => b.id === sourceBeatId);
   const destBeat = beats.find((b) => b.id === destBeatId);
   const sameBeat = !!sourceBeatId && !!destBeatId && sourceBeatId === destBeatId;
@@ -110,10 +138,17 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     () => available.filter((r) => r.name.toLowerCase().includes(leftSearch.toLowerCase())),
     [available, leftSearch],
   );
-  const filteredRight = useMemo(
-    () => selected.filter((r) => r.name.toLowerCase().includes(rightSearch.toLowerCase())),
-    [selected, rightSearch],
-  );
+  type RightItem = { retailer: Retailer; kind: "existing" | "pending" };
+  const filteredRight = useMemo<RightItem[]>(() => {
+    const q = rightSearch.toLowerCase();
+    const ex: RightItem[] = existingDest
+      .filter((r) => r.name.toLowerCase().includes(q))
+      .map((r) => ({ retailer: r, kind: "existing" as const }));
+    const pe: RightItem[] = selected
+      .filter((r) => r.name.toLowerCase().includes(q))
+      .map((r) => ({ retailer: r, kind: "pending" as const }));
+    return [...ex, ...pe];
+  }, [existingDest, selected, rightSearch]);
 
   const leftTotal = filteredLeft.length;
   const rightTotal = filteredRight.length;
@@ -157,9 +192,10 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     setRightChecked(new Set());
   };
   const moveAllLeft = () => {
-    if (filteredRight.length === 0) return;
-    const movingIds = new Set(filteredRight.map((r) => r.id));
-    setAvailable([...available, ...filteredRight].sort((a, b) => a.name.localeCompare(b.name)));
+    const pendingItems = filteredRight.filter((x) => x.kind === "pending").map((x) => x.retailer);
+    if (pendingItems.length === 0) return;
+    const movingIds = new Set(pendingItems.map((r) => r.id));
+    setAvailable([...available, ...pendingItems].sort((a, b) => a.name.localeCompare(b.name)));
     setSelected(selected.filter((r) => !movingIds.has(r.id)));
     setRightChecked(new Set());
   };
@@ -331,7 +367,9 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
             {/* Right */}
             <div className="border rounded-md flex flex-col bg-card">
               <div className="px-3 py-2 border-b flex items-center justify-between">
-                <h4 className="text-sm font-semibold">Selected for Transfer ({selected.length})</h4>
+                <h4 className="text-sm font-semibold">
+                  Retailers in {destBeat?.beat_name || "—"} ({existingDest.length + selected.length})
+                </h4>
                 <button
                   type="button"
                   onClick={clearAllSelected}
@@ -349,34 +387,63 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
                     placeholder="Search retailers"
                     value={rightSearch}
                     onChange={(e) => { setRightSearch(e.target.value); setRightPage(1); }}
-                    disabled={isTransferring}
+                    disabled={isTransferring || !destBeatId}
                   />
                 </div>
                 <div className="flex-1 min-h-[260px] max-h-[340px] overflow-y-auto border rounded-md p-1 bg-background">
-                  {rightPageItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">No retailers selected yet.</p>
+                  {loadingDest ? (
+                    <div className="flex items-center justify-center h-32">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : !destBeatId ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Select a destination beat to view retailers.</p>
+                  ) : rightPageItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      {existingDest.length + selected.length === 0 ? "No retailers in this beat yet." : "No matches."}
+                    </p>
                   ) : (
-                    rightPageItems.map((r) => (
-                      <div key={r.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
-                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <Checkbox
-                          checked={rightChecked.has(r.id)}
-                          onCheckedChange={() => toggleRight(r.id)}
-                          disabled={isTransferring}
-                          className="hidden"
-                        />
-                        <span className="flex-1 truncate cursor-pointer" onClick={() => toggleRight(r.id)}>{r.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeOne(r.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                          disabled={isTransferring}
-                          aria-label="Remove"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))
+                    rightPageItems.map((item, idx) => {
+                      const r = item.retailer;
+                      if (item.kind === "existing") {
+                        return (
+                          <div key={`ex-${r.id}`} className="flex items-center gap-2 py-1.5 px-2 rounded text-sm text-muted-foreground">
+                            <span className="flex-1 truncate">{r.name}</span>
+                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground border">current</span>
+                          </div>
+                        );
+                      }
+                      const prev = rightPageItems[idx - 1];
+                      const showDivider = !prev || prev.kind === "existing";
+                      const pendingCount = filteredRight.filter((x) => x.kind === "pending").length;
+                      return (
+                        <div key={`pe-${r.id}`}>
+                          {showDivider && (
+                            <div className="text-[11px] uppercase tracking-wide text-primary px-2 pt-2 pb-1 border-t mt-1">
+                              Pending transfer ({pendingCount})
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
+                            <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <Checkbox
+                              checked={rightChecked.has(r.id)}
+                              onCheckedChange={() => toggleRight(r.id)}
+                              disabled={isTransferring}
+                              className="hidden"
+                            />
+                            <span className="flex-1 truncate cursor-pointer" onClick={() => toggleRight(r.id)}>{r.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeOne(r.id)}
+                              className="text-muted-foreground hover:text-destructive"
+                              disabled={isTransferring}
+                              aria-label="Remove"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
