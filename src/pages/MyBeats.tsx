@@ -70,6 +70,7 @@ interface Beat {
   territory_id?: string;
   territory_name?: string;
   owner_name?: string;
+  is_active?: boolean;
 }
 
 interface Retailer {
