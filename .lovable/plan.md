@@ -1,77 +1,48 @@
-## Goal
-Replace the current `beats` table UPDATE and DELETE RLS policies with profile-based policies that check `profile_object_permissions` instead of ownership (`auth.uid() = user_id`).
+## My Beats — Stats & Filter Enhancements
 
-## Approach
+The page already has a tab/segmented control (Active / Inactive / All) and `beats` is loaded fresh from the DB on every load + realtime reload on retailer/beat_plan changes. We will keep that infrastructure and only adjust the stats row + unassigned logic.
 
-### 1. Create a SECURITY DEFINER helper function
-To avoid repeating the join in every policy and to prevent any RLS recursion risk on `user_profiles` / `profile_object_permissions`:
+### 1. Stats row (replace current 4-card grid)
 
-```sql
-CREATE OR REPLACE FUNCTION public.user_has_action_permission(
-  _user_id uuid,
-  _action text,
-  _perm text  -- 'can_edit' | 'can_delete' | 'can_create' | 'can_read'
-)
-RETURNS boolean
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  result boolean;
-BEGIN
-  EXECUTE format('
-    SELECT EXISTS (
-      SELECT 1
-      FROM user_profiles up
-      JOIN profile_object_permissions pop ON pop.profile_id = up.profile_id
-      WHERE up.user_id = $1
-        AND pop.object_name = $2
-        AND pop.%I = true
-    )', _perm)
-  INTO result
-  USING _user_id, _action;
-  RETURN result;
-END;
-$$;
+Render 6 stat cards in `grid-cols-2 md:grid-cols-3 lg:grid-cols-6`, all derived from the freshly-loaded `beats` / `allRetailers` arrays (DB-backed):
+
+| Card | Source |
+|---|---|
+| Total Beats | `beats.length` |
+| Active Beats | `beats.filter(b => b.is_active !== false).length` |
+| Inactive Beats | `beats.filter(b => b.is_active === false).length` |
+| Beats with No Retailer | `beats.filter(b => b.retailer_count === 0).length` |
+| Total Retailers | `allRetailers.length` |
+| Avg per Beat | `round(totalAssignedRetailers / beats.length)` |
+
+Separate highlighted card (orange, full-width on mobile, spans 2 cols on desktop, placed under the 6-card row):
+
+- **Unassigned Retailers** = `allRetailers.filter(r => !r.beat_id || r.beat_id === '' || r.beat_id === 'unassigned' || !beats.some(b => b.id === r.beat_id))`
+
+That last clause covers retailers pointing to a deleted/orphan beat. Retailers on inactive beats are NOT counted as unassigned (their beat still exists), satisfying "retailers assigned to inactive beats remain visible under those inactive beats".
+
+Clicking the card opens the existing `statsDetailDialog === 'unassigned'` dialog (already implemented) and lists those retailers.
+
+### 2. Tabs / filter (already present)
+
+Keep the existing `ToggleGroup` for Active / Inactive / All beats. Default remains `'active'`. No DB query change needed — `beats` already holds all rows; `filteredBeats` slices by `is_active`.
+
+Ensure the header label updates from `Your Beats (X of Y)` to reflect the active tab clearly:
+`Active Beats (X) / Inactive Beats (X) / All Beats (X)`.
+
+### 3. Live refresh
+
+Already handled: the existing `supabase.channel('beats-updates')` subscribes to `retailers` + `beat_plans` postgres_changes and calls `loadBeats()` + `loadAllRetailers()`. We additionally subscribe to the `beats` table so create/deactivate/reactivate refresh counts automatically:
+
+```ts
+.on('postgres_changes', { event: '*', schema: 'public', table: 'beats',
+    filter: `user_id=eq.${user.id}` }, () => { loadBeats(); loadAllRetailers(); })
 ```
 
-### 2. Replace beats UPDATE policy
-Drop any existing UPDATE policy and create:
+### 4. Files touched
 
-```sql
-CREATE POLICY "Profile-based beat edit"
-ON public.beats
-FOR UPDATE
-TO authenticated
-USING (public.user_has_action_permission(auth.uid(), 'action_beat_edit', 'can_edit'))
-WITH CHECK (public.user_has_action_permission(auth.uid(), 'action_beat_edit', 'can_edit'));
-```
+- `src/pages/MyBeats.tsx` — replace stats grid (~lines 1324–1368), tweak header label (~1669), add `beats` realtime channel (~237–269). No other files.
 
-### 3. Replace beats DELETE policy
+### Out of scope
 
-```sql
-CREATE POLICY "Profile-based beat delete"
-ON public.beats
-FOR DELETE
-TO authenticated
-USING (public.user_has_action_permission(auth.uid(), 'action_beat_delete', 'can_delete'));
-```
-
-## Pre-flight checks before writing the migration
-1. Read the current policies on `public.beats` to know exact names to drop.
-2. Confirm `action_beat_edit` and `action_beat_delete` rows actually exist in `profile_object_permissions` for the 4 profiles you listed.
-3. Confirm `user_profiles` and `profile_object_permissions` are readable by `authenticated` (the SECURITY DEFINER function bypasses RLS, so this only matters for grants — function runs as owner).
-
-## What stays untouched
-- SELECT, INSERT policies on `beats` (not part of this request).
-- All other tables.
-- Frontend code — UI already drives off the same permissions hook, so no app changes needed.
-
-## Verification after apply
-- As System Administrator / Sales Manager: edit + delete a test beat → succeeds.
-- As Data Viewer: edit + delete attempt → blocked by RLS (PostgREST returns permission error).
-- Toggle "Edit Beat" off for Sales Manager in Security UI → that user immediately loses edit ability without code redeploy.
-
-Confirm and I'll switch to build mode and submit the migration.
+No DB migration, no changes to BeatCard, EditBeat, transfer logic, or retailer listing UI under each beat.
