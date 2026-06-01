@@ -315,7 +315,8 @@ export const MyBeats = () => {
           average_km: beat.average_km || 0,
           average_time_minutes: beat.average_time_minutes || 0,
           beat_number: index + 1,
-          retailers: []
+          retailers: [],
+          is_active: beat.is_active !== false,
         })).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         
         setBeats(beatsArray);
