@@ -14648,6 +14648,45 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_beat_transfer_history: {
+        Row: {
+          created_at: string
+          from_beat_id: string
+          from_beat_name: string
+          id: string
+          retailer_id: string
+          retailer_name: string
+          to_beat_id: string
+          to_beat_name: string
+          transferred_at: string
+          transferred_by: string
+        }
+        Insert: {
+          created_at?: string
+          from_beat_id: string
+          from_beat_name: string
+          id?: string
+          retailer_id: string
+          retailer_name: string
+          to_beat_id: string
+          to_beat_name: string
+          transferred_at?: string
+          transferred_by: string
+        }
+        Update: {
+          created_at?: string
+          from_beat_id?: string
+          from_beat_name?: string
+          id?: string
+          retailer_id?: string
+          retailer_name?: string
+          to_beat_id?: string
+          to_beat_name?: string
+          transferred_at?: string
+          transferred_by?: string
+        }
+        Relationships: []
+      }
       retailer_credit_scores: {
         Row: {
           avg_dso: number | null

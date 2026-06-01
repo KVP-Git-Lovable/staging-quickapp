@@ -55,6 +55,7 @@ import EventSummary from "./pages/EventSummary";
 import { Cart } from "./pages/Cart";
 import { MyRetailers } from "./pages/MyRetailers";
 import { MyBeats } from "./pages/MyBeats";
+import MassBeatTransfer from "./pages/MassBeatTransfer";
 import { AddRetailer } from "./pages/AddRetailer";
 import Attendance from "./pages/Attendance";
 import { TodaySummary } from "./pages/TodaySummary";
@@ -405,6 +406,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/event/:id/summary" element={<ProtectedRoute><EventSummary /></ProtectedRoute>} />
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
         <Route path="/my-beats" element={<ProtectedRoute><MyBeats /></ProtectedRoute>} />
+        <Route path="/beats/transfer" element={<ProtectedRoute><MassBeatTransfer /></ProtectedRoute>} />
         <Route path="/today-summary" element={<ProtectedRoute><TodaySummary /></ProtectedRoute>} />
         <Route path="/add-retailer" element={<ProtectedRoute><AddRetailer /></ProtectedRoute>} />
         <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
