@@ -188,7 +188,12 @@ export const MyBeats = () => {
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
-  
+
+  // Beat lifecycle (Active / Inactive / All)
+  const [beatStatusFilter, setBeatStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [deletabilityMap, setDeletabilityMap] = useState<Record<string, boolean>>({});
+  const beatLifecycle = useBeatLifecycle();
+
   // Delete confirmation dialog
   const { isOpen: isDeleteOpen, itemId: deleteItemId, itemName: deleteItemName, openDeleteDialog, closeDeleteDialog, setOpen: setDeleteOpen } = useDeleteConfirm();
 
