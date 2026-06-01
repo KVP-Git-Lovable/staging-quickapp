@@ -382,7 +382,8 @@ export const MyBeats = () => {
                 retailers: [],
                 territory_id: beat.territory_id,
                 territory_name: beat.territory_id ? territoriesMap.get(beat.territory_id) : null,
-                owner_name: beat.owner_name || null
+                owner_name: beat.owner_name || null,
+                is_active: beat.is_active !== false,
               })).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
               setBeats(beatsArray);
