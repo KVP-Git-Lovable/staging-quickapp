@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, ChevronsRight, ChevronLeft, ChevronsLeft, Loader2, X, Info, GripVertical, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronRight, ChevronsRight, ChevronLeft, ChevronsLeft, Loader2, Search, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,45 +26,53 @@ interface Props {
   onSuccess?: () => void;
 }
 
+type Side = "A" | "B";
 const PAGE_SIZE = 50;
+const sortByName = (xs: Retailer[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
 
 export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
   const [beats, setBeats] = useState<Beat[]>([]);
   const [loadingBeats, setLoadingBeats] = useState(false);
 
-  const [sourceBeatId, setSourceBeatId] = useState("");
-  const [destBeatId, setDestBeatId] = useState("");
+  const [beatAId, setBeatAId] = useState("");
+  const [beatBId, setBeatBId] = useState("");
 
-  const [available, setAvailable] = useState<Retailer[]>([]);
-  const [selected, setSelected] = useState<Retailer[]>([]);
-  const [existingDest, setExistingDest] = useState<Retailer[]>([]);
-  const [loadingRetailers, setLoadingRetailers] = useState(false);
-  const [loadingDest, setLoadingDest] = useState(false);
+  const [panelA, setPanelA] = useState<Retailer[]>([]);
+  const [panelB, setPanelB] = useState<Retailer[]>([]);
+  const [originalA, setOriginalA] = useState<Set<string>>(new Set());
+  const [originalB, setOriginalB] = useState<Set<string>>(new Set());
+  const [loadingA, setLoadingA] = useState(false);
+  const [loadingB, setLoadingB] = useState(false);
 
-  const [leftSearch, setLeftSearch] = useState("");
-  const [rightSearch, setRightSearch] = useState("");
-  const [leftChecked, setLeftChecked] = useState<Set<string>>(new Set());
-  const [rightChecked, setRightChecked] = useState<Set<string>>(new Set());
+  const [searchA, setSearchA] = useState("");
+  const [searchB, setSearchB] = useState("");
+  const [checkedA, setCheckedA] = useState<Set<string>>(new Set());
+  const [checkedB, setCheckedB] = useState<Set<string>>(new Set());
+  const [pageA, setPageA] = useState(1);
+  const [pageB, setPageB] = useState(1);
 
-  const [leftPage, setLeftPage] = useState(1);
-  const [rightPage, setRightPage] = useState(1);
-
+  const [dragOverSide, setDragOverSide] = useState<Side | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [isTransferring, setIsTransferring] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Reset state when closing
+  const beatA = beats.find((b) => b.id === beatAId);
+  const beatB = beats.find((b) => b.id === beatBId);
+  const sameBeat = !!beatAId && !!beatBId && beatAId === beatBId;
+
+  // Reset when closing
   useEffect(() => {
     if (!open) {
-      setSourceBeatId(""); setDestBeatId("");
-      setAvailable([]); setSelected([]); setExistingDest([]);
-      setLeftSearch(""); setRightSearch("");
-      setLeftChecked(new Set()); setRightChecked(new Set());
-      setLeftPage(1); setRightPage(1);
+      setBeatAId(""); setBeatBId("");
+      setPanelA([]); setPanelB([]);
+      setOriginalA(new Set()); setOriginalB(new Set());
+      setSearchA(""); setSearchB("");
+      setCheckedA(new Set()); setCheckedB(new Set());
+      setPageA(1); setPageB(1);
       setConfirmOpen(false);
     }
   }, [open]);
 
-  // Load beats when opened
+  // Load beats on open
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -80,416 +88,362 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     })();
   }, [open]);
 
-  // Load retailers for source beat
-  useEffect(() => {
-    const src = beats.find((b) => b.id === sourceBeatId);
-    if (!sourceBeatId || !src) {
-      setAvailable([]); setSelected([]);
-      setLeftChecked(new Set()); setRightChecked(new Set());
+  const loadSide = async (side: Side, beat: Beat | undefined) => {
+    if (!beat) {
+      if (side === "A") { setPanelA([]); setOriginalA(new Set()); }
+      else { setPanelB([]); setOriginalB(new Set()); }
       return;
     }
-    (async () => {
-      setLoadingRetailers(true);
-      const { data, error } = await supabase
-        .from("retailers")
-        .select("id, name, beat_id, beat_name")
-        .eq("beat_id", src.beat_id)
-        .order("name", { ascending: true });
-      if (error) toast.error(error.message);
-      setAvailable((data as Retailer[]) || []);
-      setSelected([]);
-      setLeftChecked(new Set()); setRightChecked(new Set());
-      setLeftPage(1); setRightPage(1);
-      setLoadingRetailers(false);
-    })();
-  }, [sourceBeatId, beats]);
+    side === "A" ? setLoadingA(true) : setLoadingB(true);
+    const { data, error } = await supabase
+      .from("retailers")
+      .select("id, name, beat_id")
+      .eq("beat_id", beat.beat_id)
+      .order("name", { ascending: true });
+    if (error) toast.error(error.message);
+    const rows = ((data as Retailer[]) || []).map((r) => ({ id: r.id, name: r.name }));
+    const ids = new Set(rows.map((r) => r.id));
+    if (side === "A") { setPanelA(rows); setOriginalA(ids); setLoadingA(false); }
+    else { setPanelB(rows); setOriginalB(ids); setLoadingB(false); }
+  };
 
-  // Load retailers currently in destination beat (read-only baseline)
+  // Reload both sides whenever either beat changes — clears pending moves
   useEffect(() => {
-    const dst = beats.find((b) => b.id === destBeatId);
-    if (!destBeatId || !dst) {
-      setExistingDest([]);
-      setSelected([]);
-      setRightChecked(new Set());
-      setRightPage(1);
-      return;
-    }
-    (async () => {
-      setLoadingDest(true);
-      const { data, error } = await supabase
-        .from("retailers")
-        .select("id, name, beat_id")
-        .eq("beat_id", dst.beat_id)
-        .order("name", { ascending: true });
-      if (error) toast.error(error.message);
-      setExistingDest((data as Retailer[]) || []);
-      setSelected([]);
-      setRightChecked(new Set());
-      setRightPage(1);
-      setLoadingDest(false);
-    })();
-  }, [destBeatId, beats]);
+    if (!open || sameBeat) return;
+    setCheckedA(new Set()); setCheckedB(new Set());
+    setPageA(1); setPageB(1);
+    loadSide("A", beatA);
+    loadSide("B", beatB);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beatAId, beatBId, open]);
 
-  const sourceBeat = beats.find((b) => b.id === sourceBeatId);
-  const destBeat = beats.find((b) => b.id === destBeatId);
-  const sameBeat = !!sourceBeatId && !!destBeatId && sourceBeatId === destBeatId;
-
-  const filteredLeft = useMemo(
-    () => available.filter((r) => r.name.toLowerCase().includes(leftSearch.toLowerCase())),
-    [available, leftSearch],
+  const filteredA = useMemo(
+    () => panelA.filter((r) => r.name.toLowerCase().includes(searchA.toLowerCase())),
+    [panelA, searchA],
   );
-  type RightItem = { retailer: Retailer; kind: "existing" | "pending" };
-  const filteredRight = useMemo<RightItem[]>(() => {
-    const q = rightSearch.toLowerCase();
-    const ex: RightItem[] = existingDest
-      .filter((r) => r.name.toLowerCase().includes(q))
-      .map((r) => ({ retailer: r, kind: "existing" as const }));
-    const pe: RightItem[] = selected
-      .filter((r) => r.name.toLowerCase().includes(q))
-      .map((r) => ({ retailer: r, kind: "pending" as const }));
-    return [...ex, ...pe];
-  }, [existingDest, selected, rightSearch]);
+  const filteredB = useMemo(
+    () => panelB.filter((r) => r.name.toLowerCase().includes(searchB.toLowerCase())),
+    [panelB, searchB],
+  );
 
-  const leftTotal = filteredLeft.length;
-  const rightTotal = filteredRight.length;
-  const leftStart = leftTotal === 0 ? 0 : (leftPage - 1) * PAGE_SIZE + 1;
-  const leftEnd = Math.min(leftPage * PAGE_SIZE, leftTotal);
-  const rightStart = rightTotal === 0 ? 0 : (rightPage - 1) * PAGE_SIZE + 1;
-  const rightEnd = Math.min(rightPage * PAGE_SIZE, rightTotal);
-  const leftPageItems = filteredLeft.slice(leftStart === 0 ? 0 : leftStart - 1, leftEnd);
-  const rightPageItems = filteredRight.slice(rightStart === 0 ? 0 : rightStart - 1, rightEnd);
+  const aTotal = filteredA.length;
+  const bTotal = filteredB.length;
+  const aStart = aTotal === 0 ? 0 : (pageA - 1) * PAGE_SIZE + 1;
+  const aEnd = Math.min(pageA * PAGE_SIZE, aTotal);
+  const bStart = bTotal === 0 ? 0 : (pageB - 1) * PAGE_SIZE + 1;
+  const bEnd = Math.min(pageB * PAGE_SIZE, bTotal);
+  const aPageItems = filteredA.slice(aStart === 0 ? 0 : aStart - 1, aEnd);
+  const bPageItems = filteredB.slice(bStart === 0 ? 0 : bStart - 1, bEnd);
 
-  const toggleLeft = (id: string) => {
-    const s = new Set(leftChecked);
-    s.has(id) ? s.delete(id) : s.add(id);
-    setLeftChecked(s);
+  const toggleCheck = (side: Side, id: string) => {
+    if (side === "A") {
+      const s = new Set(checkedA); s.has(id) ? s.delete(id) : s.add(id); setCheckedA(s);
+    } else {
+      const s = new Set(checkedB); s.has(id) ? s.delete(id) : s.add(id); setCheckedB(s);
+    }
   };
-  const toggleRight = (id: string) => {
-    const s = new Set(rightChecked);
-    s.has(id) ? s.delete(id) : s.add(id);
-    setRightChecked(s);
-  };
-
-  const moveRight = () => {
-    if (leftChecked.size === 0) return;
-    const moving = available.filter((r) => leftChecked.has(r.id));
-    setSelected([...selected, ...moving].sort((a, b) => a.name.localeCompare(b.name)));
-    setAvailable(available.filter((r) => !leftChecked.has(r.id)));
-    setLeftChecked(new Set());
-  };
-  const moveAllRight = () => {
-    if (filteredLeft.length === 0) return;
-    const movingIds = new Set(filteredLeft.map((r) => r.id));
-    setSelected([...selected, ...filteredLeft].sort((a, b) => a.name.localeCompare(b.name)));
-    setAvailable(available.filter((r) => !movingIds.has(r.id)));
-    setLeftChecked(new Set());
-  };
-  const moveLeft = () => {
-    if (rightChecked.size === 0) return;
-    const moving = selected.filter((r) => rightChecked.has(r.id));
-    setAvailable([...available, ...moving].sort((a, b) => a.name.localeCompare(b.name)));
-    setSelected(selected.filter((r) => !rightChecked.has(r.id)));
-    setRightChecked(new Set());
-  };
-  const moveAllLeft = () => {
-    const pendingItems = filteredRight.filter((x) => x.kind === "pending").map((x) => x.retailer);
-    if (pendingItems.length === 0) return;
-    const movingIds = new Set(pendingItems.map((r) => r.id));
-    setAvailable([...available, ...pendingItems].sort((a, b) => a.name.localeCompare(b.name)));
-    setSelected(selected.filter((r) => !movingIds.has(r.id)));
-    setRightChecked(new Set());
-  };
-  const removeOne = (id: string) => {
-    const r = selected.find((x) => x.id === id);
-    if (!r) return;
-    setAvailable([...available, r].sort((a, b) => a.name.localeCompare(b.name)));
-    setSelected(selected.filter((x) => x.id !== id));
-    const s = new Set(rightChecked); s.delete(id); setRightChecked(s);
-  };
-  const clearAllSelected = () => {
-    if (selected.length === 0) return;
-    setAvailable([...available, ...selected].sort((a, b) => a.name.localeCompare(b.name)));
-    setSelected([]);
-    setRightChecked(new Set());
+  const toggleSelectAll = (side: Side) => {
+    if (side === "A") {
+      const ids = filteredA.map((r) => r.id);
+      const all = ids.every((id) => checkedA.has(id));
+      const s = new Set(checkedA);
+      if (all) ids.forEach((id) => s.delete(id)); else ids.forEach((id) => s.add(id));
+      setCheckedA(s);
+    } else {
+      const ids = filteredB.map((r) => r.id);
+      const all = ids.every((id) => checkedB.has(id));
+      const s = new Set(checkedB);
+      if (all) ids.forEach((id) => s.delete(id)); else ids.forEach((id) => s.add(id));
+      setCheckedB(s);
+    }
   };
 
-  const canTransfer = !!sourceBeatId && !!destBeatId && !sameBeat && selected.length > 0 && !isTransferring;
+  const moveIds = (from: Side, to: Side, ids: string[]) => {
+    if (from === to || ids.length === 0) return;
+    const idSet = new Set(ids);
+    if (from === "A") {
+      const moving = panelA.filter((r) => idSet.has(r.id));
+      setPanelA(panelA.filter((r) => !idSet.has(r.id)));
+      setPanelB(sortByName([...panelB, ...moving]));
+      const c = new Set(checkedA); ids.forEach((id) => c.delete(id)); setCheckedA(c);
+    } else {
+      const moving = panelB.filter((r) => idSet.has(r.id));
+      setPanelB(panelB.filter((r) => !idSet.has(r.id)));
+      setPanelA(sortByName([...panelA, ...moving]));
+      const c = new Set(checkedB); ids.forEach((id) => c.delete(id)); setCheckedB(c);
+    }
+  };
 
-  const handleTransfer = async () => {
-    if (!canTransfer || !sourceBeat || !destBeat) return;
-    setIsTransferring(true);
+  const movedToB = useMemo(() => panelB.filter((r) => originalA.has(r.id)), [panelB, originalA]);
+  const movedToA = useMemo(() => panelA.filter((r) => originalB.has(r.id)), [panelA, originalB]);
+  const totalMoves = movedToA.length + movedToB.length;
+
+  const canConfirm = !!beatAId && !!beatBId && !sameBeat && totalMoves > 0 && !isSaving;
+
+  // Drag handlers
+  const onDragStart = (e: React.DragEvent, side: Side, id: string) => {
+    e.dataTransfer.setData("text/plain", JSON.stringify({ side, id }));
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const onDragOver = (e: React.DragEvent, side: Side) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverSide !== side) setDragOverSide(side);
+  };
+  const onDragLeave = (side: Side) => {
+    if (dragOverSide === side) setDragOverSide(null);
+  };
+  const onDrop = (e: React.DragEvent, target: Side) => {
+    e.preventDefault();
+    setDragOverSide(null);
+    try {
+      const { side, id } = JSON.parse(e.dataTransfer.getData("text/plain"));
+      if (side && id && side !== target) moveIds(side, target, [id]);
+    } catch { /* ignore */ }
+  };
+
+  const handleConfirm = async () => {
+    if (!canConfirm || !beatA || !beatB) return;
+    setIsSaving(true);
     try {
       const { data: userData, error: authErr } = await supabase.auth.getUser();
       if (authErr || !userData.user) throw new Error("Not authenticated");
       const userId = userData.user.id;
+      const nowIso = new Date().toISOString();
 
-      const ids = selected.map((r) => r.id);
-      const { error: updErr } = await supabase
-        .from("retailers")
-        .update({
-          beat_id: destBeat.beat_id,
-          beat_name: destBeat.beat_name,
-          updated_at: new Date().toISOString(),
-        })
-        .in("id", ids);
-      if (updErr) throw updErr;
+      if (movedToB.length > 0) {
+        const { error } = await supabase
+          .from("retailers")
+          .update({ beat_id: beatB.beat_id, beat_name: beatB.beat_name, updated_at: nowIso })
+          .in("id", movedToB.map((r) => r.id));
+        if (error) throw error;
+      }
+      if (movedToA.length > 0) {
+        const { error } = await supabase
+          .from("retailers")
+          .update({ beat_id: beatA.beat_id, beat_name: beatA.beat_name, updated_at: nowIso })
+          .in("id", movedToA.map((r) => r.id));
+        if (error) throw error;
+      }
 
-      const historyRows = selected.map((r) => ({
-        retailer_id: r.id,
-        retailer_name: r.name,
-        from_beat_id: sourceBeat.beat_id,
-        from_beat_name: sourceBeat.beat_name,
-        to_beat_id: destBeat.beat_id,
-        to_beat_name: destBeat.beat_name,
-        transferred_by: userId,
-      }));
-      const { error: histErr } = await supabase
-        .from("retailer_beat_transfer_history")
-        .insert(historyRows);
-      if (histErr) throw histErr;
+      const historyRows = [
+        ...movedToB.map((r) => ({
+          retailer_id: r.id, retailer_name: r.name,
+          from_beat_id: beatA.beat_id, from_beat_name: beatA.beat_name,
+          to_beat_id: beatB.beat_id, to_beat_name: beatB.beat_name,
+          transferred_by: userId,
+        })),
+        ...movedToA.map((r) => ({
+          retailer_id: r.id, retailer_name: r.name,
+          from_beat_id: beatB.beat_id, from_beat_name: beatB.beat_name,
+          to_beat_id: beatA.beat_id, to_beat_name: beatA.beat_name,
+          transferred_by: userId,
+        })),
+      ];
+      if (historyRows.length > 0) {
+        const { error: histErr } = await supabase
+          .from("retailer_beat_transfer_history")
+          .insert(historyRows);
+        if (histErr) throw histErr;
+      }
 
-      const count = selected.length;
-      toast.success(`${count} retailer${count === 1 ? "" : "s"} transferred successfully.`);
+      const x = movedToB.length, y = movedToA.length;
+      toast.success(`Exchange complete. ${x} retailers moved to ${beatB.beat_name}, ${y} moved to ${beatA.beat_name}.`);
       setConfirmOpen(false);
+      // Reload both panels
+      setCheckedA(new Set()); setCheckedB(new Set());
+      setPageA(1); setPageB(1);
+      await Promise.all([loadSide("A", beatA), loadSide("B", beatB)]);
       onSuccess?.();
-      onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || "Transfer failed");
+      toast.error(e.message || "Exchange failed");
     } finally {
-      setIsTransferring(false);
+      setIsSaving(false);
     }
   };
 
+  const renderPanel = (side: Side) => {
+    const beat = side === "A" ? beatA : beatB;
+    const panel = side === "A" ? panelA : panelB;
+    const loading = side === "A" ? loadingA : loadingB;
+    const search = side === "A" ? searchA : searchB;
+    const setSearch = side === "A" ? setSearchA : setSearchB;
+    const setPage = side === "A" ? setPageA : setPageB;
+    const filtered = side === "A" ? filteredA : filteredB;
+    const pageItems = side === "A" ? aPageItems : bPageItems;
+    const checked = side === "A" ? checkedA : checkedB;
+    const start = side === "A" ? aStart : bStart;
+    const end = side === "A" ? aEnd : bEnd;
+    const total = side === "A" ? aTotal : bTotal;
+    const page = side === "A" ? pageA : pageB;
+    const beatId = side === "A" ? beatAId : beatBId;
+    const allFilteredChecked = filtered.length > 0 && filtered.every((r) => checked.has(r.id));
+
+    return (
+      <div
+        className={`border rounded-md flex flex-col bg-card transition-colors ${dragOverSide === side ? "ring-2 ring-primary border-primary bg-primary/5" : ""}`}
+        onDragOver={(e) => onDragOver(e, side)}
+        onDragLeave={() => onDragLeave(side)}
+        onDrop={(e) => onDrop(e, side)}
+      >
+        <div className="px-3 py-2 border-b">
+          <h4 className="text-sm font-semibold">
+            Retailers in {beat?.beat_name || "—"} ({panel.length})
+          </h4>
+        </div>
+        <div className="p-3 space-y-2 flex-1 flex flex-col">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder="Search retailers"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              disabled={!beatId || isSaving}
+            />
+          </div>
+          {beatId && filtered.length > 0 && (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+              <Checkbox
+                checked={allFilteredChecked}
+                onCheckedChange={() => toggleSelectAll(side)}
+                disabled={isSaving}
+              />
+              <span>Select all ({filtered.length})</span>
+            </label>
+          )}
+          <div className="flex-1 min-h-[260px] max-h-[340px] overflow-y-auto border rounded-md p-1 bg-background">
+            {loading ? (
+              <div className="flex items-center justify-center h-32">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : !beatId ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Select a beat.</p>
+            ) : pageItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                {panel.length === 0 ? "No retailers in this beat." : "No matches."}
+              </p>
+            ) : (
+              pageItems.map((r) => (
+                <div
+                  key={r.id}
+                  draggable={!isSaving}
+                  onDragStart={(e) => onDragStart(e, side, r.id)}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 cursor-grab active:cursor-grabbing text-sm"
+                >
+                  <Checkbox
+                    checked={checked.has(r.id)}
+                    onCheckedChange={() => toggleCheck(side, r.id)}
+                    disabled={isSaving}
+                  />
+                  <span className="flex-1 truncate">{r.name}</span>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Showing {start} to {end} of {total}</span>
+            <div className="flex gap-1">
+              <Button size="sm" variant="ghost" className="h-7 px-2" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</Button>
+              <Button size="sm" variant="ghost" className="h-7 px-2" disabled={end >= total} onClick={() => setPage(page + 1)}>Next</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const x = movedToB.length, y = movedToA.length;
+
   return (
     <>
-      <Dialog open={open} onOpenChange={(o) => !isTransferring && onOpenChange(o)}>
+      <Dialog open={open} onOpenChange={(o) => !isSaving && onOpenChange(o)}>
         <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Beat Transfer</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-primary" />
+              Beat Exchange
+            </DialogTitle>
             <DialogDescription>
-              Move retailers from one beat to another in a single operation.
+              Pick two beats and freely move retailers between them. Nothing is saved until you confirm.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">From Beat</label>
-              <Select value={sourceBeatId} onValueChange={setSourceBeatId} disabled={loadingBeats || isTransferring}>
+              <label className="text-xs font-medium text-muted-foreground">Beat A</label>
+              <Select value={beatAId} onValueChange={setBeatAId} disabled={loadingBeats || isSaving}>
                 <SelectTrigger>
-                  <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select source beat"} />
+                  <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select Beat A"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {beats.map((b) => (
+                  {beats.filter((b) => b.id !== beatBId).map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">To Beat</label>
-              <Select value={destBeatId} onValueChange={setDestBeatId} disabled={loadingBeats || isTransferring || !sourceBeatId}>
+              <label className="text-xs font-medium text-muted-foreground">Beat B</label>
+              <Select value={beatBId} onValueChange={setBeatBId} disabled={loadingBeats || isSaving}>
                 <SelectTrigger>
-                  <SelectValue placeholder={!sourceBeatId ? "Select source first" : "Select destination beat"} />
+                  <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select Beat B"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {beats.filter((b) => b.id !== sourceBeatId).map((b) => (
+                  {beats.filter((b) => b.id !== beatAId).map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {sameBeat && (
-                <p className="text-xs text-destructive">Source and destination beat cannot be the same.</p>
+                <p className="text-xs text-destructive">Beat A and Beat B cannot be the same.</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-stretch mt-2">
-            {/* Left */}
-            <div className="border rounded-md flex flex-col bg-card">
-              <div className="px-3 py-2 border-b">
-                <h4 className="text-sm font-semibold">
-                  Retailers in {sourceBeat?.beat_name || "—"} ({available.length})
-                </h4>
-              </div>
-              <div className="p-3 space-y-2 flex-1 flex flex-col">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="pl-8"
-                    placeholder="Search retailers"
-                    value={leftSearch}
-                    onChange={(e) => { setLeftSearch(e.target.value); setLeftPage(1); }}
-                    disabled={!sourceBeatId || isTransferring}
-                  />
-                </div>
-                <div className="flex-1 min-h-[260px] max-h-[340px] overflow-y-auto border rounded-md p-1 bg-background">
-                  {loadingRetailers ? (
-                    <div className="flex items-center justify-center h-32">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : !sourceBeatId ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">Select a source beat to load retailers.</p>
-                  ) : leftPageItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      {available.length === 0 ? "No retailers found in this beat." : "No matches."}
-                    </p>
-                  ) : (
-                    leftPageItems.map((r) => (
-                      <label key={r.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 cursor-pointer text-sm">
-                        <Checkbox
-                          checked={leftChecked.has(r.id)}
-                          onCheckedChange={() => toggleLeft(r.id)}
-                          disabled={isTransferring}
-                        />
-                        <span className="flex-1 truncate">{r.name}</span>
-                      </label>
-                    ))
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Showing {leftStart} to {leftEnd} of {leftTotal}</span>
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" className="h-7 px-2" disabled={leftPage <= 1} onClick={() => setLeftPage(leftPage - 1)}>Prev</Button>
-                    <Button size="sm" variant="ghost" className="h-7 px-2" disabled={leftEnd >= leftTotal} onClick={() => setLeftPage(leftPage + 1)}>Next</Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Middle */}
+            {renderPanel("A")}
             <div className="flex md:flex-col flex-row justify-center items-center gap-2 md:py-4">
-              <Button size="icon" variant="outline" onClick={moveRight} disabled={leftChecked.size === 0 || isTransferring} title="Move selected"><ChevronRight /></Button>
-              <Button size="icon" variant="outline" onClick={moveAllRight} disabled={filteredLeft.length === 0 || isTransferring} title="Move all"><ChevronsRight /></Button>
-              <Button size="icon" variant="outline" onClick={moveLeft} disabled={rightChecked.size === 0 || isTransferring} title="Return selected"><ChevronLeft /></Button>
-              <Button size="icon" variant="outline" onClick={moveAllLeft} disabled={filteredRight.length === 0 || isTransferring} title="Return all"><ChevronsLeft /></Button>
+              <Button size="icon" variant="outline" onClick={() => moveIds("A","B",[...checkedA])} disabled={checkedA.size === 0 || isSaving} title="Move checked to B"><ChevronRight /></Button>
+              <Button size="icon" variant="outline" onClick={() => moveIds("A","B", filteredA.map((r) => r.id))} disabled={filteredA.length === 0 || isSaving} title="Move all to B"><ChevronsRight /></Button>
+              <Button size="icon" variant="outline" onClick={() => moveIds("B","A",[...checkedB])} disabled={checkedB.size === 0 || isSaving} title="Move checked to A"><ChevronLeft /></Button>
+              <Button size="icon" variant="outline" onClick={() => moveIds("B","A", filteredB.map((r) => r.id))} disabled={filteredB.length === 0 || isSaving} title="Move all to A"><ChevronsLeft /></Button>
             </div>
-
-            {/* Right */}
-            <div className="border rounded-md flex flex-col bg-card">
-              <div className="px-3 py-2 border-b flex items-center justify-between">
-                <h4 className="text-sm font-semibold">
-                  Retailers in {destBeat?.beat_name || "—"} ({existingDest.length + selected.length})
-                </h4>
-                <button
-                  type="button"
-                  onClick={clearAllSelected}
-                  className="text-xs text-primary hover:underline disabled:opacity-50"
-                  disabled={selected.length === 0 || isTransferring}
-                >
-                  Clear all
-                </button>
-              </div>
-              <div className="p-3 space-y-2 flex-1 flex flex-col">
-                <div className="relative">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="pl-8"
-                    placeholder="Search retailers"
-                    value={rightSearch}
-                    onChange={(e) => { setRightSearch(e.target.value); setRightPage(1); }}
-                    disabled={isTransferring || !destBeatId}
-                  />
-                </div>
-                <div className="flex-1 min-h-[260px] max-h-[340px] overflow-y-auto border rounded-md p-1 bg-background">
-                  {loadingDest ? (
-                    <div className="flex items-center justify-center h-32">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : !destBeatId ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">Select a destination beat to view retailers.</p>
-                  ) : rightPageItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      {existingDest.length + selected.length === 0 ? "No retailers in this beat yet." : "No matches."}
-                    </p>
-                  ) : (
-                    rightPageItems.map((item, idx) => {
-                      const r = item.retailer;
-                      if (item.kind === "existing") {
-                        return (
-                          <div key={`ex-${r.id}`} className="flex items-center gap-2 py-1.5 px-2 rounded text-sm text-muted-foreground">
-                            <span className="flex-1 truncate">{r.name}</span>
-                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground border">current</span>
-                          </div>
-                        );
-                      }
-                      const prev = rightPageItems[idx - 1];
-                      const showDivider = !prev || prev.kind === "existing";
-                      const pendingCount = filteredRight.filter((x) => x.kind === "pending").length;
-                      return (
-                        <div key={`pe-${r.id}`}>
-                          {showDivider && (
-                            <div className="text-[11px] uppercase tracking-wide text-primary px-2 pt-2 pb-1 border-t mt-1">
-                              Pending transfer ({pendingCount})
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
-                            <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <Checkbox
-                              checked={rightChecked.has(r.id)}
-                              onCheckedChange={() => toggleRight(r.id)}
-                              disabled={isTransferring}
-                              className="hidden"
-                            />
-                            <span className="flex-1 truncate cursor-pointer" onClick={() => toggleRight(r.id)}>{r.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeOne(r.id)}
-                              className="text-muted-foreground hover:text-destructive"
-                              disabled={isTransferring}
-                              aria-label="Remove"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Showing {rightStart} to {rightEnd} of {rightTotal}</span>
-                  <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" className="h-7 px-2" disabled={rightPage <= 1} onClick={() => setRightPage(rightPage - 1)}>Prev</Button>
-                    <Button size="sm" variant="ghost" className="h-7 px-2" disabled={rightEnd >= rightTotal} onClick={() => setRightPage(rightPage + 1)}>Next</Button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {renderPanel("B")}
           </div>
 
-          {selected.length > 0 && sourceBeat && destBeat && !sameBeat && (
-            <div className="flex items-center gap-2 text-sm rounded-md border border-primary/20 bg-primary/5 text-foreground px-3 py-2 mt-2">
-              <Info className="h-4 w-4 text-primary" />
-              <span>
-                <strong>{selected.length}</strong> retailer{selected.length === 1 ? "" : "s"} will be moved from{" "}
-                <strong>{sourceBeat.beat_name}</strong> to <strong>{destBeat.beat_name}</strong>.
-              </span>
+          {totalMoves > 0 && beatA && beatB && (
+            <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+              <strong>{x}</strong> retailer{x === 1 ? "" : "s"} will move to <strong>{beatB.beat_name}</strong>,{" "}
+              <strong>{y}</strong> retailer{y === 1 ? "" : "s"} will move to <strong>{beatA.beat_name}</strong>.
             </div>
           )}
 
-          <DialogFooter className="flex-row gap-2 sm:justify-end pt-2 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isTransferring}>Cancel</Button>
-            <Button onClick={() => setConfirmOpen(true)} disabled={!canTransfer}>
-              Transfer {selected.length} Retailer{selected.length === 1 ? "" : "s"}
+          <DialogFooter className="flex-row gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>Cancel</Button>
+            <Button onClick={() => setConfirmOpen(true)} disabled={!canConfirm}>
+              Confirm Exchange
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmOpen} onOpenChange={(o) => !isTransferring && setConfirmOpen(o)}>
+      <Dialog open={confirmOpen} onOpenChange={(o) => !isSaving && setConfirmOpen(o)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Confirm Transfer</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to move <strong>{selected.length}</strong> retailer
-              {selected.length === 1 ? "" : "s"} from <strong>{sourceBeat?.beat_name}</strong> to{" "}
-              <strong>{destBeat?.beat_name}</strong>? This action cannot be undone.
+            <DialogTitle>Confirm Beat Exchange</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-1 pt-1 text-sm text-foreground">
+                <div><strong>{x}</strong> retailer{x === 1 ? "" : "s"} will be moved to <strong>{beatB?.beat_name}</strong>.</div>
+                <div><strong>{y}</strong> retailer{y === 1 ? "" : "s"} will be moved to <strong>{beatA?.beat_name}</strong>.</div>
+                <div className="text-muted-foreground pt-2">This action cannot be undone.</div>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row gap-2 sm:justify-end">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isTransferring}>Cancel</Button>
-            <Button onClick={handleTransfer} disabled={isTransferring}>
-              {isTransferring ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Transferring…</>) : "Confirm Transfer"}
+            <Button variant="outline" onClick={() => setConfirmOpen(false)} disabled={isSaving}>Cancel</Button>
+            <Button onClick={handleConfirm} disabled={isSaving}>
+              {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</> : "Confirm Exchange"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -497,5 +451,3 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     </>
   );
 };
-
-export default BeatTransferModal;
