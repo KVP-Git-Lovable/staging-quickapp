@@ -367,7 +367,9 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
             {/* Right */}
             <div className="border rounded-md flex flex-col bg-card">
               <div className="px-3 py-2 border-b flex items-center justify-between">
-                <h4 className="text-sm font-semibold">Selected for Transfer ({selected.length})</h4>
+                <h4 className="text-sm font-semibold">
+                  Retailers in {destBeat?.beat_name || "—"} ({existingDest.length + selected.length})
+                </h4>
                 <button
                   type="button"
                   onClick={clearAllSelected}
@@ -385,34 +387,63 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
                     placeholder="Search retailers"
                     value={rightSearch}
                     onChange={(e) => { setRightSearch(e.target.value); setRightPage(1); }}
-                    disabled={isTransferring}
+                    disabled={isTransferring || !destBeatId}
                   />
                 </div>
                 <div className="flex-1 min-h-[260px] max-h-[340px] overflow-y-auto border rounded-md p-1 bg-background">
-                  {rightPageItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">No retailers selected yet.</p>
+                  {loadingDest ? (
+                    <div className="flex items-center justify-center h-32">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : !destBeatId ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">Select a destination beat to view retailers.</p>
+                  ) : rightPageItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      {existingDest.length + selected.length === 0 ? "No retailers in this beat yet." : "No matches."}
+                    </p>
                   ) : (
-                    rightPageItems.map((r) => (
-                      <div key={r.id} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
-                        <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <Checkbox
-                          checked={rightChecked.has(r.id)}
-                          onCheckedChange={() => toggleRight(r.id)}
-                          disabled={isTransferring}
-                          className="hidden"
-                        />
-                        <span className="flex-1 truncate cursor-pointer" onClick={() => toggleRight(r.id)}>{r.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeOne(r.id)}
-                          className="text-muted-foreground hover:text-destructive"
-                          disabled={isTransferring}
-                          aria-label="Remove"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))
+                    rightPageItems.map((item, idx) => {
+                      const r = item.retailer;
+                      if (item.kind === "existing") {
+                        return (
+                          <div key={`ex-${r.id}`} className="flex items-center gap-2 py-1.5 px-2 rounded text-sm text-muted-foreground">
+                            <span className="flex-1 truncate">{r.name}</span>
+                            <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground border">current</span>
+                          </div>
+                        );
+                      }
+                      const prev = rightPageItems[idx - 1];
+                      const showDivider = !prev || prev.kind === "existing";
+                      const pendingCount = filteredRight.filter((x) => x.kind === "pending").length;
+                      return (
+                        <div key={`pe-${r.id}`}>
+                          {showDivider && (
+                            <div className="text-[11px] uppercase tracking-wide text-primary px-2 pt-2 pb-1 border-t mt-1">
+                              Pending transfer ({pendingCount})
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 text-sm">
+                            <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <Checkbox
+                              checked={rightChecked.has(r.id)}
+                              onCheckedChange={() => toggleRight(r.id)}
+                              disabled={isTransferring}
+                              className="hidden"
+                            />
+                            <span className="flex-1 truncate cursor-pointer" onClick={() => toggleRight(r.id)}>{r.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeOne(r.id)}
+                              className="text-muted-foreground hover:text-destructive"
+                              disabled={isTransferring}
+                              aria-label="Remove"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
