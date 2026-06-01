@@ -347,14 +347,8 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
         if (addError) throw addError;
       }
 
-      // Update beat name for all current retailers in this beat
-      const { error: updateNameError } = await supabase
-        .from('retailers')
-        .update({ beat_name: beatName.trim() })
-        .eq('beat_id', beat.id)
-        .eq('user_id', user.id);
-
-      if (updateNameError) throw updateNameError;
+      // Note: retailers.beat_name is auto-synced for ALL users by the
+      // trg_sync_retailers_beat_name database trigger when beats.beat_name changes.
 
       // Handle beat plans if recurrence is enabled
       if (repeatEnabled && repeatEndDate) {
