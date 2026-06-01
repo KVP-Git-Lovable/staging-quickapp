@@ -55,7 +55,7 @@ export default function MassBeatTransfer() {
       setLoadingBeats(true);
       const { data, error } = await supabase
         .from("beats")
-        .select("id, beat_name")
+        .select("beat_id, beat_name")
         .eq("is_active", true)
         .order("beat_name", { ascending: true });
       if (error) toast.error(error.message);
