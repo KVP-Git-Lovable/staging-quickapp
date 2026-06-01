@@ -266,6 +266,20 @@ export const MyBeats = () => {
           loadAllRetailers();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'beats',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Beat row changed, reloading beats:', payload);
+          loadBeats();
+          loadAllRetailers();
+        }
+      )
       .subscribe();
 
     return () => {
