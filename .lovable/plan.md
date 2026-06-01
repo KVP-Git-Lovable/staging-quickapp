@@ -1,33 +1,39 @@
-## Fix: use `beats.beat_id` (text) as the retailer join key
+## Fix: "To Beat" panel should list retailers currently in the destination beat
 
-`BeatTransferModal.tsx` currently joins retailers on `beats.id` (UUID). Retailers actually store `beats.beat_id` (text), so the source list is always empty.
+Right now the right column is just a staging list ("Selected for Transfer"). When the user picks a destination beat (e.g. `surathkal`) it display existing retailers in the destination beat, and visually append items being transferred.
 
-### Changes (single file: `src/components/BeatTransferModal.tsx`)
+### Scope
 
-1. **`Beat` type** — add `beat_id`:
-   ```ts
-   interface Beat { id: string; beat_id: string; beat_name: string; }
-   ```
-2. **Beats query** — select all three columns:
-   ```ts
-   .from("beats").select("id, beat_id, beat_name").eq("is_active", true)
-   ```
-3. **Select value** — keep using `b.id` (UUID, guaranteed unique) for the `<Select>` value so the dropdown stays stable. Look up the full beat via `beats.find(b => b.id === sourceBeatId)` (already done).
-4. **Retailers query** — use the resolved `sourceBeat.beat_id` text:
-   ```ts
-   .from("retailers").select("id, name, beat_id, beat_name")
-     .eq("beat_id", sourceBeat.beat_id)
-   ```
-   Change the effect's dependency to re-run when `sourceBeat?.beat_id` changes, and guard on `sourceBeat` being resolved.
-5. **Transfer UPDATE** — write the text key:
-   ```ts
-   .update({ beat_id: destBeat.beat_id, beat_name: destBeat.beat_name, updated_at: ... })
-   .in("id", ids)
-   ```
-6. **History insert** — log text ids:
-   ```ts
-   from_beat_id: sourceBeat.beat_id,
-   to_beat_id:   destBeat.beat_id,
-   ```
+Single file: `src/components/BeatTransferModal.tsx`. No DB, no other UI.
 
-No UI, layout, styling, or other logic changes.
+### Changes
+
+1. **New state**
+  - `existingDest: Retailer[]` — retailers already in destination beat (read-only baseline).
+  - `loadingDest: boolean`.
+2. **Fetch destination retailers**
+  - New `useEffect` keyed on `destBeat?.beat_id`. When destination is cleared, reset `existingDest` to `[]`.
+  - Query:
+    ```ts
+    supabase.from("retailers")
+      .select("id, name, beat_id")
+      .eq("beat_id", destBeat.beat_id)
+      .order("name");
+    ```
+3. **Right panel rendering**
+  - Header: `Retailers in {destBeat?.beat_name || "—"} ({existingDest.length + selected.length})`.
+  - List shows two groups inside the same scroll area:
+    - **Existing** (rendered first, muted styling, no checkbox / no remove button, small "current" badge).
+    - **Pending transfer** (rendered after a thin divider with label "Pending transfer (n)") — these are the `selected[]` items; keep the existing remove / checkbox affordances so the user can un-stage them.
+  - Pagination + search filter apply to the combined list (existing first, then pending). Empty state: "No retailers in this beat yet." when both groups empty and a destination is chosen; current "Select a destination beat" hint when none chosen.
+  - Keep "Clear all" button — only clears `selected[]`, never `existingDest`.
+4. **Move / transfer logic**
+  - Unchanged. `selected[]` is still the only thing the Transfer action writes. Existing retailers also should be able to be moved 
+  - Guard: prevent staging a retailer whose `id` is already in `existingDest` (defensive — same beat is already blocked, but cheap to check).
+5. **Reset rules**
+  - On modal close and on destination change: clear `selected[]`, `rightChecked`, `rightPage = 1`, refetch `existingDest`.
+  - On successful transfer (`onSuccess`): close modal as today; no extra refresh needed here.
+
+### Out of scope
+
+- Left panel, From-Beat select, transfer SQL, history insert, styling tokens, and all other modals remain untouched.
