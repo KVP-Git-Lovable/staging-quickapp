@@ -1663,8 +1663,18 @@ export const MyBeats = () => {
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-lg font-semibold">Your Beats ({filteredBeats.length} of {beats.length})</h2>
+                  <ToggleGroup
+                    type="single"
+                    value={beatStatusFilter}
+                    onValueChange={(v) => v && setBeatStatusFilter(v as 'active' | 'inactive' | 'all')}
+                    className="bg-muted rounded-md p-0.5"
+                  >
+                    <ToggleGroupItem value="active" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">Active</ToggleGroupItem>
+                    <ToggleGroupItem value="inactive" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">Inactive</ToggleGroupItem>
+                    <ToggleGroupItem value="all" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">All</ToggleGroupItem>
+                  </ToggleGroup>
                 </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {paginatedBeats.map((beat) => (
                 <BeatCard
@@ -1680,6 +1690,11 @@ export const MyBeats = () => {
                   }}
                   onTransfer={() => handleTransferBeat(beat.id, beat.name)}
                   onDeactivate={() => handleDeactivateBeat(beat.id, beat.name)}
+                  onReactivate={async () => {
+                    const ok = await beatLifecycle.reactivate(beat.id, beat.name);
+                    if (ok) loadBeats();
+                  }}
+                  isHardDeletable={deletabilityMap[beat.id] === true}
                 />
               ))}
             </div>
