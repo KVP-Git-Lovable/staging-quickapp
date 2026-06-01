@@ -1,107 +1,62 @@
-# Mass Beat Transfer Module
+## Goal
 
-Build a standalone, fully-functional "Mass Beat Transfer" page wired to Supabase data, with a new history table for audit.
+Replace the current single-select "Mass Edit Beats" modal opened from the **My Retailers** page with a new **Beat Transfer** modal that matches the attached dual-pane screenshot and runs entirely on live Supabase data. The existing `Mass Edit Beats` button (`src/pages/MyRetailers.tsx`, line 732) keeps its position but opens the new modal.
 
-## 1. Database migration
+The standalone `/beats/transfer` page and `retailer_beat_transfer_history` audit table built earlier are reused — only the entry point and UI shell change.
 
-New table only — no changes to `beats` or `retailers`.
+## 1. New component: `src/components/BeatTransferModal.tsx`
 
-```sql
-CREATE TABLE IF NOT EXISTS public.retailer_beat_transfer_history (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  retailer_id     uuid NOT NULL,
-  retailer_name   text NOT NULL,
-  from_beat_id    uuid NOT NULL,
-  from_beat_name  text NOT NULL,
-  to_beat_id      uuid NOT NULL,
-  to_beat_name    text NOT NULL,
-  transferred_by  uuid NOT NULL,
-  transferred_at  timestamptz NOT NULL DEFAULT now(),
-  created_at      timestamptz NOT NULL DEFAULT now()
-);
+Self-contained modal (no route change) with the exact layout from the screenshot:
 
-GRANT SELECT, INSERT ON public.retailer_beat_transfer_history TO authenticated;
-GRANT ALL ON public.retailer_beat_transfer_history TO service_role;
+- Header: "Beat Transfer".
+- Top row, two `Select`s side-by-side: **From Beat** and **To Beat**. Destination list excludes the chosen source.
+- Two-pane body (`grid-cols-1 md:grid-cols-[1fr_auto_1fr]`):
+  - **Left card** "Retailers in {sourceBeatName} ({total})" — search input, scroll list with checkboxes, footer "Showing X to Y of N".
+  - **Middle column** — vertical stack of icon buttons: `>` (move checked), `>>` (move all filtered), `<` (return checked), `<<` (return all).
+  - **Right card** "Selected for Transfer ({count})" with a "Clear all" link, search input, row list with grab handle + `X` remove, pagination footer.
+- Info bar (blue tint): "{count} retailers will be moved from **{source}** to **{destination}**".
+- Footer: `Cancel` and primary `Transfer N Retailers` (disabled until source + destination + ≥1 selection).
+- Confirm sub-dialog before write.
 
-ALTER TABLE public.retailer_beat_transfer_history ENABLE ROW LEVEL SECURITY;
+State: `sourceBeatId`, `destBeatId`, `available`, `selected`, `leftSearch`, `rightSearch`, `leftChecked: Set<string>`, `rightChecked: Set<string>`, `isLoading`, `isTransferring`.
 
-CREATE POLICY "Authenticated users can read transfer history"
-  ON public.retailer_beat_transfer_history FOR SELECT
-  TO authenticated USING (true);
+## 2. Data — all via `@/integrations/supabase/client`
 
-CREATE POLICY "Users insert their own transfer history rows"
-  ON public.retailer_beat_transfer_history FOR INSERT
-  TO authenticated WITH CHECK (transferred_by = auth.uid());
+- Beats: `supabase.from('beats').select('id, beat_id, beat_name').eq('is_active', true).order('beat_name')`.
+- Source retailers: `supabase.from('retailers').select('id, name').eq('beat_id', sourceBeatId).order('name')`, fired when source changes; spinner while loading; "No retailers found in this beat." empty state.
+- Transfer on confirm:
+  1. `auth.getUser()` → `transferred_by`.
+  2. `supabase.from('retailers').update({ beat_id, beat_name, updated_at: new Date().toISOString() }).in('id', ids)`.
+  3. `supabase.from('retailer_beat_transfer_history').insert(rows)` (one row per retailer, from/to id+name + `transferred_by`).
+  4. On success: toast, refetch source-beat retailers, clear right pane and selections, call `onSuccess?.()` so My Retailers refreshes its list, close modal.
+  5. On any error: `toast.error(err.message)`, keep state intact.
 
-CREATE INDEX idx_rbth_retailer ON public.retailer_beat_transfer_history(retailer_id);
-CREATE INDEX idx_rbth_from_beat ON public.retailer_beat_transfer_history(from_beat_id);
-CREATE INDEX idx_rbth_to_beat ON public.retailer_beat_transfer_history(to_beat_id);
-```
+No mock data, no hardcoded ids/names. Strict TS types: `Beat`, `Retailer`, `TransferHistoryRow`.
 
-## 2. Route & file structure
+## 3. Wire to My Retailers button
 
-- Route: `/beats/transfer` registered in `src/App.tsx` (lazy import, same pattern as existing pages).
-- New page: `src/pages/MassBeatTransfer.tsx`.
-- New hook: `src/hooks/useMassBeatTransfer.ts` (fetch beats, fetch retailers by beat, perform transfer).
-- Reuse existing UI primitives: `Card`, `Select`, `Input`, `Button`, `Checkbox`, `Dialog`, `sonner` toast, `SearchInput`.
+In `src/pages/MyRetailers.tsx`:
 
-## 3. UI layout
+- Replace the `MassEditBeatsModal` import with `BeatTransferModal`.
+- Keep `massEditModalOpen` state + the existing button (line 732 — label stays "Mass Edit Beats" so we don't change user-visible chrome unless asked).
+- Render `<BeatTransferModal open={massEditModalOpen} onOpenChange={setMassEditModalOpen} onSuccess={() => { setMassEditModalOpen(false); /* existing refetch */ }} />` in place of the current modal block (lines 1110–1120).
+- No other logic on the page changes.
 
-Standard app shell (sidebar + header inherited from layout). Page contains:
+## 4. Leave alone
 
-- Header row: title "Mass Beat Transfer" + subtitle.
-- Two `Select` dropdowns at top: Source Beat, Destination Beat.
-- Inline error if user picks same beat in both.
-- Two-column responsive grid (`grid-cols-1 md:grid-cols-[1fr_auto_1fr]`):
-  - Left card: "Retailers in {sourceBeatName} (N)" — search box, Select-All checkbox, scrollable checkbox list, pagination footer "Showing X to Y of N".
-  - Middle column: vertical stack of move buttons `>`, `>>`, `<`, `<<`.
-  - Right card: "Selected for Transfer (N)" — search box, removable list rows with `x`, pagination footer.
-- Info bar below: "X retailers will be moved from {Source} to {Destination}".
-- Footer actions: `Cancel` (resets state / navigates back) and `Transfer X Retailers` (opens confirm modal).
+- `MassEditBeatsModal.tsx` stays in the repo (unused after this change) — no deletes per the "don't modify existing components" constraint discussed earlier. It can be removed later if you want.
+- The standalone `/beats/transfer` route + `MassBeatTransfer.tsx` page remain available.
+- `retailer_beat_transfer_history` table and its policies are already in place — no new migration.
 
-## 4. Data fetching (all live)
+## 5. Validation & UX details
 
-- **Beats dropdowns**: `supabase.from('beats').select('id, beat_name').eq('is_active', true).order('beat_name')`. Destination list filters out the chosen source id client-side.
-- **Source retailers**: when source beat selected — `supabase.from('retailers').select('id, name').eq('beat_id', sourceBeatId).order('name')`. Show spinner while loading. Empty state: "No retailers found in this beat."
-- All queries via the shared `@/integrations/supabase/client`.
-- React state holds: `sourceBeatId`, `destBeatId`, `availableRetailers`, `selectedRetailers` (moved to right pane), `leftSearch`, `rightSearch`, `leftChecked` (checkbox set for current move), `rightChecked`, `isLoadingRetailers`, `isTransferring`.
-
-## 5. Transfer logic
-
-On confirm:
-
-1. `supabase.auth.getUser()` → `transferred_by`.
-2. `UPDATE retailers SET beat_id, beat_name, updated_at = now() WHERE id IN (...)` via `.update().in('id', ids)`.
-3. `INSERT` one row per retailer into `retailer_beat_transfer_history` with from/to beat id+name and `transferred_by`.
-4. On success: refetch source-beat retailers, clear right pane and selections, toast "X retailers transferred successfully."
-5. On any error: `toast.error(err.message)` and keep state intact.
-
-## 6. Confirmation modal
-
-Standard `Dialog` with title "Confirm Transfer", body "Are you sure you want to move X retailers from {Source} to {Destination}? This action cannot be undone.", buttons `Cancel` / `Confirm Transfer`. Confirm button shows spinner while `isTransferring`.
-
-## 7. Validation rules
-
-- Transfer button disabled unless source + destination + ≥1 retailer in right pane.
-- If user picks the same beat for destination, show inline destructive helper text under the Destination select and block the modal.
-- Empty source beat → empty-state message in left card.
-- All Supabase errors surfaced via `toast.error`.
-
-## 8. Loading & disabled states
-
-- Left card shows a centered spinner while retailers load.
-- Confirm button shows spinner + "Transferring…" while running.
-- During transfer, disable both dropdowns, move buttons, search inputs, and cancel.
-
-## 9. Non-goals / constraints
-
-- No edits to `beats`, `retailers`, or any existing component/page.
-- No mock data; everything from Supabase.
-- Strict TypeScript types for `Beat`, `Retailer`, `TransferHistoryRow`.
-- Uses semantic Tailwind tokens already in the design system (no raw colors).
+- Disable both `Select`s, move buttons, and search inputs while `isTransferring`.
+- Confirm dialog body: "Are you sure you want to move {N} retailers from {source} to {destination}? This action cannot be undone."
+- Move buttons act on the **filtered** view (so `>>` respects the active left search), matching the screenshot's expected behavior.
+- All styling uses existing semantic tokens (`bg-muted`, `text-muted-foreground`, `border`, `text-primary`, etc.) — no raw hex.
 
 ## Phasing
 
-1. Run the migration.
-2. After approval, regenerate Supabase types (auto), then build `useMassBeatTransfer.ts`, `MassBeatTransfer.tsx`, and register the route.
-3. Smoke test: pick a beat, move retailers, confirm DB rows in both `retailers` and `retailer_beat_transfer_history`.
+1. Build `BeatTransferModal.tsx`.
+2. Swap the modal in `MyRetailers.tsx`.
+3. Smoke test from the My Retailers button: pick beats → move → confirm → verify both `retailers` and `retailer_beat_transfer_history` updated.
