@@ -90,8 +90,8 @@ export default function MassBeatTransfer() {
     })();
   }, [sourceBeatId]);
 
-  const sourceBeat = beats.find((b) => b.id === sourceBeatId);
-  const destBeat = beats.find((b) => b.id === destBeatId);
+  const sourceBeat = beats.find((b) => b.beat_id === sourceBeatId);
+  const destBeat = beats.find((b) => b.beat_id === destBeatId);
   const sameBeat = !!sourceBeatId && !!destBeatId && sourceBeatId === destBeatId;
 
   const filteredLeft = useMemo(
