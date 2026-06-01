@@ -243,7 +243,7 @@ export default function MassBeatTransfer() {
               </SelectTrigger>
               <SelectContent>
                 {beats.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
+                  <SelectItem key={b.beat_id} value={b.beat_id}>{b.beat_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
