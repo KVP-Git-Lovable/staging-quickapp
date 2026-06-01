@@ -255,8 +255,8 @@ export default function MassBeatTransfer() {
                 <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select destination beat"} />
               </SelectTrigger>
               <SelectContent>
-                {beats.filter((b) => b.id !== sourceBeatId).map((b) => (
-                  <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
+                {beats.filter((b) => b.beat_id !== sourceBeatId).map((b) => (
+                  <SelectItem key={b.beat_id} value={b.beat_id}>{b.beat_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
