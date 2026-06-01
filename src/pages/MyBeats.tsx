@@ -1214,9 +1214,31 @@ export const MyBeats = () => {
     retailer.phone.includes(searchTerm)
   );
 
-  const filteredBeats = beats.filter((beat) =>
-    beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase())
-  );
+  const filteredBeats = beats.filter((beat) => {
+    if (beatStatusFilter === 'active' && beat.is_active === false) return false;
+    if (beatStatusFilter === 'inactive' && beat.is_active !== false) return false;
+    return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
+  });
+
+  // Lazily resolve which beats are hard-deletable (no historical references)
+  useEffect(() => {
+    const unknown = filteredBeats.filter((b) => deletabilityMap[b.id] === undefined).slice(0, 12);
+    if (unknown.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        unknown.map(async (b) => [b.id, (await beatLifecycle.canDelete(b.id)).deletable] as const)
+      );
+      if (!cancelled) {
+        setDeletabilityMap((prev) => {
+          const next = { ...prev };
+          entries.forEach(([id, val]) => { next[id] = val; });
+          return next;
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [filteredBeats, beatLifecycle, deletabilityMap]);
 
   // Pagination for beats - 10 items per page
   const {
