@@ -192,9 +192,10 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     setRightChecked(new Set());
   };
   const moveAllLeft = () => {
-    if (filteredRight.length === 0) return;
-    const movingIds = new Set(filteredRight.map((r) => r.id));
-    setAvailable([...available, ...filteredRight].sort((a, b) => a.name.localeCompare(b.name)));
+    const pendingItems = filteredRight.filter((x) => x.kind === "pending").map((x) => x.retailer);
+    if (pendingItems.length === 0) return;
+    const movingIds = new Set(pendingItems.map((r) => r.id));
+    setAvailable([...available, ...pendingItems].sort((a, b) => a.name.localeCompare(b.name)));
     setSelected(selected.filter((r) => !movingIds.has(r.id)));
     setRightChecked(new Set());
   };
