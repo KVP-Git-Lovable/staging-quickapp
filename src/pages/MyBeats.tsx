@@ -1220,13 +1220,17 @@ export const MyBeats = () => {
   });
 
   // Lazily resolve which beats are hard-deletable (no historical references)
+  const unknownDeletabilityIds = useMemo(
+    () => filteredBeats.filter((b) => deletabilityMap[b.id] === undefined).slice(0, 12).map((b) => b.id),
+    [filteredBeats, deletabilityMap]
+  );
+  const unknownKey = unknownDeletabilityIds.join(',');
   useEffect(() => {
-    const unknown = filteredBeats.filter((b) => deletabilityMap[b.id] === undefined).slice(0, 12);
-    if (unknown.length === 0) return;
+    if (unknownDeletabilityIds.length === 0) return;
     let cancelled = false;
     (async () => {
       const entries = await Promise.all(
-        unknown.map(async (b) => [b.id, (await beatLifecycle.canDelete(b.id)).deletable] as const)
+        unknownDeletabilityIds.map(async (id) => [id, (await beatLifecycle.canDelete(id)).deletable] as const)
       );
       if (!cancelled) {
         setDeletabilityMap((prev) => {
@@ -1237,7 +1241,8 @@ export const MyBeats = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, [filteredBeats, beatLifecycle, deletabilityMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unknownKey]);
 
   // Pagination for beats - 10 items per page
   const {
