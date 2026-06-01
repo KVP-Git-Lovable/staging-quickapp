@@ -138,10 +138,17 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     () => available.filter((r) => r.name.toLowerCase().includes(leftSearch.toLowerCase())),
     [available, leftSearch],
   );
-  const filteredRight = useMemo(
-    () => selected.filter((r) => r.name.toLowerCase().includes(rightSearch.toLowerCase())),
-    [selected, rightSearch],
-  );
+  type RightItem = { retailer: Retailer; kind: "existing" | "pending" };
+  const filteredRight = useMemo<RightItem[]>(() => {
+    const q = rightSearch.toLowerCase();
+    const ex: RightItem[] = existingDest
+      .filter((r) => r.name.toLowerCase().includes(q))
+      .map((r) => ({ retailer: r, kind: "existing" as const }));
+    const pe: RightItem[] = selected
+      .filter((r) => r.name.toLowerCase().includes(q))
+      .map((r) => ({ retailer: r, kind: "pending" as const }));
+    return [...ex, ...pe];
+  }, [existingDest, selected, rightSearch]);
 
   const leftTotal = filteredLeft.length;
   const rightTotal = filteredRight.length;
