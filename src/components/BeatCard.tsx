@@ -181,9 +181,21 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
               <BarChart size={14} className="mr-2" />
               Analytics
             </Button>
-            <Button variant="destructive" size="sm" className="px-3" onClick={onDelete}>
-              <Trash2 size={14} />
-            </Button>
+            {isHardDeletable ? (
+              <Button variant="destructive" size="sm" className="px-3" onClick={onDelete} title="Permanently delete">
+                <Trash2 size={14} />
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-3 text-orange-600 border-orange-300 hover:bg-orange-50"
+                onClick={onDeactivate || onDelete}
+                title="Deactivate (history exists)"
+              >
+                <Power size={14} />
+              </Button>
+            )}
           </div>
         </div>
 
