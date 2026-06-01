@@ -1,45 +1,77 @@
 ## Goal
-Fix the app-wide bug where retailer queries against a beat use `beats.id` (UUID) instead of `beats.beat_id` (text). The `retailers.beat_id` column stores the text code, so any filter using the UUID returns 0 rows — which is why Beat detail and Beat cards show empty retailer counts and lists.
+Replace the current `beats` table UPDATE and DELETE RLS policies with profile-based policies that check `profile_object_permissions` instead of ownership (`auth.uid() = user_id`).
 
-## Root cause
-Two ID columns on `beats`:
-- `beats.id` — UUID
-- `beats.beat_id` — text code (e.g. `beat_1776158879188_p96py4yji`)
+## Approach
 
-`retailers.beat_id` stores the **text code**. Any code path that selects `beats.id` and then filters retailers by it silently returns nothing.
+### 1. Create a SECURITY DEFINER helper function
+To avoid repeating the join in every policy and to prevent any RLS recursion risk on `user_profiles` / `profile_object_permissions`:
 
-## Audit scope
-Every file containing a query against `retailers` (select/update/count) filtered by `beat_id`, and the upstream code that supplies the value. Each must pass the text `beat_id`, never the UUID.
+```sql
+CREATE OR REPLACE FUNCTION public.user_has_action_permission(
+  _user_id uuid,
+  _action text,
+  _perm text  -- 'can_edit' | 'can_delete' | 'can_create' | 'can_read'
+)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result boolean;
+BEGIN
+  EXECUTE format('
+    SELECT EXISTS (
+      SELECT 1
+      FROM user_profiles up
+      JOIN profile_object_permissions pop ON pop.profile_id = up.profile_id
+      WHERE up.user_id = $1
+        AND pop.object_name = $2
+        AND pop.%I = true
+    )', _perm)
+  INTO result
+  USING _user_id, _action;
+  RETURN result;
+END;
+$$;
+```
 
-## Confirmed bugs to fix
+### 2. Replace beats UPDATE policy
+Drop any existing UPDATE policy and create:
 
-1. **`src/pages/MassBeatTransfer.tsx`**
-   - Line 58: selects `beats.id` instead of `beat_id`. Change select to `id, beat_id, beat_name`.
-   - Keep `Beat` interface but add `beat_id: string`.
-   - Lines 80, 186, 196, 198, 216: replace `sourceBeatId`/`destBeat.id`/`sourceBeat.id` with the text `beat_id`. Drive the dropdown by `beat_id` (or keep UUID for the Select value but resolve `beat_id` when querying/updating retailers).
+```sql
+CREATE POLICY "Profile-based beat edit"
+ON public.beats
+FOR UPDATE
+TO authenticated
+USING (public.user_has_action_permission(auth.uid(), 'action_beat_edit', 'can_edit'))
+WITH CHECK (public.user_has_action_permission(auth.uid(), 'action_beat_edit', 'can_edit'));
+```
 
-2. **Sweep all `.eq('beat_id', X)` / `.in('beat_id', X)` calls on the `retailers` table** and verify `X` is a text `beat_id`. Files to verify (most already correct, a few suspect):
-   - `src/components/BeatAnalyticsModal.tsx` (beatId prop): in `MyBeats.tsx` it is passed `selectedBeatForAnalytics.id` — that `id` is mapped from `beat.beat_id`, so OK; in `BeatDetail.tsx` confirm same.
-   - `src/components/BeatVisitCalendar.tsx`, `BeatAuditTimeline.tsx`, `BeatTransferDialog.tsx`, `BeatInsightModal`, `BeatAllowanceManagement.tsx`, `MassEditBeatsModal.tsx`, `TomorrowBeatPlan.tsx`, `CreateNewVisitModal.tsx`, `VanStockManagement.tsx`, `AddRetailerInlineToBeat.tsx`, `EditBeatModal.tsx`, `performance/TargetVsActualCard.tsx`, `BeatPlanning.tsx`, `hooks/useBeatMetrics.ts`, `hooks/useRetailerBeatHistory.ts`, `hooks/useBeatCoordinatorMonth.ts`, `hooks/useMissedBeats.ts`, `hooks/useCalendarData.ts`, `pages/MyBeats.tsx`, `pages/BeatDetail.tsx`, `pages/CreateBeat.tsx`.
-   - For each, trace the source of the value passed in. If it ultimately comes from `beats.id` (UUID), change the upstream query/prop to use `beats.beat_id`.
+### 3. Replace beats DELETE policy
 
-3. **`src/components/BeatCard.tsx` retailer count** — comes from `MyBeats` which already maps `beat.beat_id`. Re-verify nothing along the chain reverts to UUID.
+```sql
+CREATE POLICY "Profile-based beat delete"
+ON public.beats
+FOR DELETE
+TO authenticated
+USING (public.user_has_action_permission(auth.uid(), 'action_beat_delete', 'can_delete'));
+```
 
-4. **`src/pages/BeatDetail.tsx`** — already resolves `beat?.beat_id ?? id` before querying retailers; verify no remaining `beat.id` usages leak into retailer filters.
+## Pre-flight checks before writing the migration
+1. Read the current policies on `public.beats` to know exact names to drop.
+2. Confirm `action_beat_edit` and `action_beat_delete` rows actually exist in `profile_object_permissions` for the 4 profiles you listed.
+3. Confirm `user_profiles` and `profile_object_permissions` are readable by `authenticated` (the SECURITY DEFINER function bypasses RLS, so this only matters for grants — function runs as owner).
 
-## Method
-For every file in the audit list:
-1. Read the query and the variable feeding `beat_id`.
-2. Trace back to the source. If it's a `beats` row fetched with `select('id ...')` and used as a retailer filter, replace with `beat_id` (text) end-to-end.
-3. Leave all unrelated logic, UI, styling untouched.
+## What stays untouched
+- SELECT, INSERT policies on `beats` (not part of this request).
+- All other tables.
+- Frontend code — UI already drives off the same permissions hook, so no app changes needed.
 
-## Non-goals
-- No UI/layout/styling changes.
-- No schema changes; no edits to other modules (orders, distributors, visits) unless their filter on `retailers.beat_id` is also wrong.
-- No change to queries that legitimately use `beats.id` (e.g. `distributor_beat_mappings.beat_id` which references the UUID).
+## Verification after apply
+- As System Administrator / Sales Manager: edit + delete a test beat → succeeds.
+- As Data Viewer: edit + delete attempt → blocked by RLS (PostgREST returns permission error).
+- Toggle "Edit Beat" off for Sales Manager in Security UI → that user immediately loses edit ability without code redeploy.
 
-## Verification
-- Open `/my-beats` → cards show non-zero retailer counts where retailers exist.
-- Open a Beat detail page → "Retailers in this Beat (N)" matches DB and the list renders.
-- Mass Beat Transfer page → selecting a source beat loads its retailers; transfer writes text `beat_id` to `retailers`.
-- `grep` confirms no remaining `.eq('beat_id', <somethingThatIsUUID>)` against the `retailers` table.
+Confirm and I'll switch to build mode and submit the migration.

@@ -21231,6 +21231,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_has_action_permission: {
+        Args: { _action: string; _perm: string; _user_id: string }
+        Returns: boolean
+      }
       user_has_operational_access: {
         Args: { _perm: string; _retailer: string; _user: string }
         Returns: boolean
