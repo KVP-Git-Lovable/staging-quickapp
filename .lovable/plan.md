@@ -1,123 +1,107 @@
-# Beat Lifecycle + Retailer-Beat Assignment History
+# Mass Beat Transfer Module
 
-## Goals
-1. Beat Master: segmented `Active / Inactive / All` toggle (default Active).
-2. Soft-delete (deactivate) any Beat that has history; allow permanent delete only when fully unused.
-3. Track every retailer↔beat assignment with full `assigned_from / assigned_to / assigned_by / reason` history so Beat A→B→A is fully reconstructible.
-4. Surface this history in Retailer details and Beat details, plus a full audit trail.
+Build a standalone, fully-functional "Mass Beat Transfer" page wired to Supabase data, with a new history table for audit.
 
-Out of scope (this phase): admin reactivation screens beyond the toggle action, mass-history backfill UI (we will backfill silently in the migration).
+## 1. Database migration
 
----
+New table only — no changes to `beats` or `retailers`.
 
-## 1. Database changes
+```sql
+CREATE TABLE IF NOT EXISTS public.retailer_beat_transfer_history (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  retailer_id     uuid NOT NULL,
+  retailer_name   text NOT NULL,
+  from_beat_id    uuid NOT NULL,
+  from_beat_name  text NOT NULL,
+  to_beat_id      uuid NOT NULL,
+  to_beat_name    text NOT NULL,
+  transferred_by  uuid NOT NULL,
+  transferred_at  timestamptz NOT NULL DEFAULT now(),
+  created_at      timestamptz NOT NULL DEFAULT now()
+);
 
-### 1a. `beats` table — add lifecycle columns
-- `updated_by uuid`
-- `deactivated_at timestamptz null`
-- `deactivated_by uuid null`
-- `reactivated_at timestamptz null`
-- `reactivated_by uuid null`
+GRANT SELECT, INSERT ON public.retailer_beat_transfer_history TO authenticated;
+GRANT ALL ON public.retailer_beat_transfer_history TO service_role;
 
-(`is_active`, `created_at`, `created_by`, `updated_at` already exist.)
+ALTER TABLE public.retailer_beat_transfer_history ENABLE ROW LEVEL SECURITY;
 
-### 1b. New table `retailer_beat_assignments`
-```text
-id              uuid pk
-retailer_id     uuid not null  (-> retailers.id)
-beat_id         text not null  (-> beats.beat_id, matches existing FK style)
-assigned_from   timestamptz not null default now()
-assigned_to     timestamptz null
-is_current      boolean not null default true
-assigned_by     uuid null
-removed_by      uuid null
-transfer_reason text null
-created_at / updated_at timestamptz
+CREATE POLICY "Authenticated users can read transfer history"
+  ON public.retailer_beat_transfer_history FOR SELECT
+  TO authenticated USING (true);
+
+CREATE POLICY "Users insert their own transfer history rows"
+  ON public.retailer_beat_transfer_history FOR INSERT
+  TO authenticated WITH CHECK (transferred_by = auth.uid());
+
+CREATE INDEX idx_rbth_retailer ON public.retailer_beat_transfer_history(retailer_id);
+CREATE INDEX idx_rbth_from_beat ON public.retailer_beat_transfer_history(from_beat_id);
+CREATE INDEX idx_rbth_to_beat ON public.retailer_beat_transfer_history(to_beat_id);
 ```
-- Partial unique index: `(retailer_id) where is_current = true` — enforces "one active beat per retailer".
-- Indexes on `beat_id`, `retailer_id`, `is_current`.
-- RLS + GRANTs following project conventions (auth-only writes, scoped reads by `user_id` chain via security-definer helper).
 
-### 1c. Backfill
-One-shot insert: for every `retailers` row with a non-null `beat_id`, create a row with `assigned_from = retailers.created_at`, `is_current = true`, `assigned_by = retailers.user_id`.
+## 2. Route & file structure
 
-### 1d. RPCs (SECURITY DEFINER, `p_` params)
-- `transfer_retailer_beat(p_retailer_id, p_new_beat_id, p_reason)` — closes current row (`assigned_to = now(), is_current = false, removed_by = auth.uid()`), inserts new row, updates `retailers.beat_id/beat_name`, writes `beat_audit_log` entry `RETAILER_TRANSFERRED`. Idempotent if new beat == current beat.
-- `assign_retailer_to_beat(p_retailer_id, p_beat_id, p_reason)` — same logic; used for initial assignment from "Unassigned".
-- `can_delete_beat(p_beat_id) returns jsonb` — returns `{deletable: bool, reasons: text[]}` after checking:
-  - any current retailer (`retailers.beat_id = p_beat_id`)
-  - any row in `retailer_beat_assignments` (current or historical)
-  - any `visits` referencing the beat
-  - any `orders` / `distributor_secondary_invoices` referencing the beat
-  - any `daily_beat_plans` / `beat_plans` / `daily_retailer_assignments` / `van_beat_assignments` rows
-  - any `beat_audit_log` rows
-- `deactivate_beat(p_beat_id)` — sets `is_active=false`, stamps `deactivated_at/by`, writes `BEAT_DEACTIVATED` audit row. Leaves history intact.
-- `reactivate_beat(p_beat_id)` — reverse + `BEAT_REACTIVATED`.
-- `delete_beat_permanent(p_beat_id)` — re-runs `can_delete_beat` server-side; throws if not deletable; deletes the beat row.
+- Route: `/beats/transfer` registered in `src/App.tsx` (lazy import, same pattern as existing pages).
+- New page: `src/pages/MassBeatTransfer.tsx`.
+- New hook: `src/hooks/useMassBeatTransfer.ts` (fetch beats, fetch retailers by beat, perform transfer).
+- Reuse existing UI primitives: `Card`, `Select`, `Input`, `Button`, `Checkbox`, `Dialog`, `sonner` toast, `SearchInput`.
 
-### 1e. `beat_audit_log` — add allowed action values
-Allow new actions: `BEAT_CREATED`, `BEAT_UPDATED`, `BEAT_DEACTIVATED`, `BEAT_REACTIVATED`, `RETAILER_TRANSFERRED`, `RETAILER_ASSIGNED_TO_BEAT`. (Table is freeform `text`, no schema change needed; only conventions + triggers updated.)
+## 3. UI layout
 
-### 1f. Trigger
-On `beats` INSERT / UPDATE of meaningful columns → write `BEAT_CREATED` / `BEAT_UPDATED` rows automatically.
+Standard app shell (sidebar + header inherited from layout). Page contains:
 
----
+- Header row: title "Mass Beat Transfer" + subtitle.
+- Two `Select` dropdowns at top: Source Beat, Destination Beat.
+- Inline error if user picks same beat in both.
+- Two-column responsive grid (`grid-cols-1 md:grid-cols-[1fr_auto_1fr]`):
+  - Left card: "Retailers in {sourceBeatName} (N)" — search box, Select-All checkbox, scrollable checkbox list, pagination footer "Showing X to Y of N".
+  - Middle column: vertical stack of move buttons `>`, `>>`, `<`, `<<`.
+  - Right card: "Selected for Transfer (N)" — search box, removable list rows with `x`, pagination footer.
+- Info bar below: "X retailers will be moved from {Source} to {Destination}".
+- Footer actions: `Cancel` (resets state / navigates back) and `Transfer X Retailers` (opens confirm modal).
 
-## 2. Frontend — Beat Master (`src/pages/MyBeats.tsx`)
+## 4. Data fetching (all live)
 
-- New state `beatStatusFilter: 'active' | 'inactive' | 'all'`, default `'active'`.
-- Segmented control (`ToggleGroup`) at the top of the Beats tab.
-- Beat fetch: drop the hard-coded `.eq('is_active', true)`; filter client-side from the segmented value (keeps offline cache simple).
-- Per-row action menu:
-  - Call `can_delete_beat` lazily when the menu opens (or batch on list load) → show **Delete** only when `deletable=true`, otherwise show **Deactivate**.
-  - Inactive beats show **Reactivate** instead.
-- Update `BeatDeleteDialog` to a thin wrapper that:
-  - If `deletable=true` → confirm hard delete (calls `delete_beat_permanent`).
-  - If `deletable=false` → show blocked message with the reason list and a single **Deactivate** CTA (calls `deactivate_beat`). Keeps existing transfer/reassign/unassign options as separate pre-step actions if the user wants to clear retailers first.
-- Inactive beats render with a muted style + "Inactive" badge.
+- **Beats dropdowns**: `supabase.from('beats').select('id, beat_name').eq('is_active', true).order('beat_name')`. Destination list filters out the chosen source id client-side.
+- **Source retailers**: when source beat selected — `supabase.from('retailers').select('id, name').eq('beat_id', sourceBeatId).order('name')`. Show spinner while loading. Empty state: "No retailers found in this beat."
+- All queries via the shared `@/integrations/supabase/client`.
+- React state holds: `sourceBeatId`, `destBeatId`, `availableRetailers`, `selectedRetailers` (moved to right pane), `leftSearch`, `rightSearch`, `leftChecked` (checkbox set for current move), `rightChecked`, `isLoadingRetailers`, `isTransferring`.
 
-## 3. Retailer transfer flow
+## 5. Transfer logic
 
-- New `TransferRetailerBeatModal` (reused from Retailer detail + a row action in `MyRetailers`):
-  - Fields: Current Beat (read-only), New Beat (Select, only active beats), Transfer Reason (textarea, required).
-  - Calls `transfer_retailer_beat` RPC. Invalidates retailer + beat queries.
-- `MassEditBeatsModal`: route through `transfer_retailer_beat` per retailer (looped or new bulk RPC `transfer_retailers_beat_bulk`) so history rows are created.
+On confirm:
 
-## 4. History views
+1. `supabase.auth.getUser()` → `transferred_by`.
+2. `UPDATE retailers SET beat_id, beat_name, updated_at = now() WHERE id IN (...)` via `.update().in('id', ids)`.
+3. `INSERT` one row per retailer into `retailer_beat_transfer_history` with from/to beat id+name and `transferred_by`.
+4. On success: refetch source-beat retailers, clear right pane and selections, toast "X retailers transferred successfully."
+5. On any error: `toast.error(err.message)` and keep state intact.
 
-- **Retailer detail** (`RetailerDetailModal`): add tab **Beat History** — table of `retailer_beat_assignments` for the retailer, newest first, joined to beat name + assigner profile name. Always show "Current" badge on the active row.
-- **Beat detail** (`BeatDetail.tsx`): two sub-sections:
-  - **Current Retailers** — existing list (filtered by `is_current = true`).
-  - **Historical Retailers** — distinct retailers from `retailer_beat_assignments` for this beat with assigned_from / assigned_to columns, even if the retailer is now elsewhere or the beat is inactive.
+## 6. Confirmation modal
 
-## 5. Hooks / utilities
+Standard `Dialog` with title "Confirm Transfer", body "Are you sure you want to move X retailers from {Source} to {Destination}? This action cannot be undone.", buttons `Cancel` / `Confirm Transfer`. Confirm button shows spinner while `isTransferring`.
 
-- `src/hooks/useBeatLifecycle.ts` — wraps `can_delete_beat`, `deactivate_beat`, `reactivate_beat`, `delete_beat_permanent` with React Query + toasts.
-- `src/hooks/useRetailerBeatHistory.ts` — fetches assignment rows for a retailer or beat.
-- Replace direct `retailers.update({ beat_id })` in MyBeats / MassEditBeatsModal / inline assign with the new RPCs so no code path can mutate beat ownership without a history row.
+## 7. Validation rules
 
-## 6. Offline-first compatibility
+- Transfer button disabled unless source + destination + ≥1 retailer in right pane.
+- If user picks the same beat for destination, show inline destructive helper text under the Destination select and block the modal.
+- Empty source beat → empty-state message in left card.
+- All Supabase errors surfaced via `toast.error`.
 
-- New RPC calls go through the existing offline retry queue (`offlineErrorHandler`) — they are idempotent on `(retailer_id, beat_id, assigned_from)` so retries from a different device safely return 23505 → treated as success per project policy.
-- IndexedDB cache of retailers continues to store `beat_id` / `beat_name` for quick UI; history is fetched on demand and not cached offline (acceptable — it is reporting data).
+## 8. Loading & disabled states
 
-## 7. Acceptance checks
-- Toggle defaults to Active and switches lists correctly.
-- A brand-new beat with no retailers and no other refs shows **Delete**; clicking it removes the row.
-- A beat that ever had a retailer shows **Deactivate**; trying to force-delete via API also fails.
-- Transferring ABC Medical: North → South → North creates 3 rows; current row points to North; previous two have `assigned_to` set.
-- Retailer detail → Beat History tab shows all 3 rows with timestamps and assigner.
-- Beat detail (North) → Historical Retailers shows ABC Medical twice with the two stints.
-- Deactivating a beat hides it from the default list but keeps every historical row intact; reports for prior dates still resolve the beat name.
-- `beat_audit_log` contains matching `BEAT_DEACTIVATED` / `RETAILER_TRANSFERRED` rows.
+- Left card shows a centered spinner while retailers load.
+- Confirm button shows spinner + "Transferring…" while running.
+- During transfer, disable both dropdowns, move buttons, search inputs, and cancel.
 
----
+## 9. Non-goals / constraints
+
+- No edits to `beats`, `retailers`, or any existing component/page.
+- No mock data; everything from Supabase.
+- Strict TypeScript types for `Beat`, `Retailer`, `TransferHistoryRow`.
+- Uses semantic Tailwind tokens already in the design system (no raw colors).
 
 ## Phasing
-1. **DB migration** — beats columns + `retailer_beat_assignments` + RPCs + backfill + trigger.
-2. **Beat Master UI** — toggle + dynamic Edit/Delete/Deactivate + Reactivate.
-3. **Retailer transfer RPC wiring** — modal + MyRetailers row action + MassEditBeats rewrite.
-4. **History tabs** — Retailer detail + Beat detail.
-5. **QA pass** against the acceptance checks.
 
-Shall I proceed with Phase 1 (the migration)?
+1. Run the migration.
+2. After approval, regenerate Supabase types (auto), then build `useMassBeatTransfer.ts`, `MassBeatTransfer.tsx`, and register the route.
+3. Smoke test: pick a beat, move retailers, confirm DB rows in both `retailers` and `retailer_beat_transfer_history`.
