@@ -1,62 +1,142 @@
 ## Goal
 
-Replace the current single-select "Mass Edit Beats" modal opened from the **My Retailers** page with a new **Beat Transfer** modal that matches the attached dual-pane screenshot and runs entirely on live Supabase data. The existing `Mass Edit Beats` button (`src/pages/MyRetailers.tsx`, line 732) keeps its position but opens the new modal.
+Make the database the single source of truth for `retailers.beat_name`. When a row in `beats` is renamed, a trigger updates every retailer with that `beat_id` — across all users — so multi-owner beats stay consistent without relying on frontend code.
 
-The standalone `/beats/transfer` page and `retailer_beat_transfer_history` audit table built earlier are reused — only the entry point and UI shell change.
+## Impact analysis (tables that store `beat_name`)
 
-## 1. New component: `src/components/BeatTransferModal.tsx`
+A scan of the schema and the codebase shows seven tables carry a `beat_name` column:
 
-Self-contained modal (no route change) with the exact layout from the screenshot:
 
-- Header: "Beat Transfer".
-- Top row, two `Select`s side-by-side: **From Beat** and **To Beat**. Destination list excludes the chosen source.
-- Two-pane body (`grid-cols-1 md:grid-cols-[1fr_auto_1fr]`):
-  - **Left card** "Retailers in {sourceBeatName} ({total})" — search input, scroll list with checkboxes, footer "Showing X to Y of N".
-  - **Middle column** — vertical stack of icon buttons: `>` (move checked), `>>` (move all filtered), `<` (return checked), `<<` (return all).
-  - **Right card** "Selected for Transfer ({count})" with a "Clear all" link, search input, row list with grab handle + `X` remove, pagination footer.
-- Info bar (blue tint): "{count} retailers will be moved from **{source}** to **{destination}**".
-- Footer: `Cancel` and primary `Transfer N Retailers` (disabled until source + destination + ≥1 selection).
-- Confirm sub-dialog before write.
+| Table                                | Role                                  | Should trigger sync it?                                                                          |
+| ------------------------------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `beats`                              | source of truth                       | n/a (this is what changes)                                                                       |
+| `retailers`                          | live operational data                 | **Yes** — the bug you described                                                                  |
+| `beat_allowances`                    | per-user current allowance row        | No (out of scope for this fix; current row, but EditBeatModal already keeps it in sync per user) |
+| `beat_plans`                         | daily plan rows (historical + future) | No — keep historical names as the snapshot of that plan day                                      |
+| `retailer_beat_assignments`          | assignment history                    | No — historical                                                                                  |
+| `joint_sales_sessions`               | completed session snapshots           | No — historical                                                                                  |
+| `user_business_plan_territory_beats` | business-plan snapshot rows           | No — plan snapshot                                                                               |
 
-State: `sourceBeatId`, `destBeatId`, `available`, `selected`, `leftSearch`, `rightSearch`, `leftChecked: Set<string>`, `rightChecked: Set<string>`, `isLoading`, `isTransferring`.
 
-## 2. Data — all via `@/integrations/supabase/client`
+So the trigger is intentionally scoped to `**retailers` only**. This matches your stated requirement ("history table should NOT update") and avoids rewriting historical snapshots elsewhere.
 
-- Beats: `supabase.from('beats').select('id, beat_id, beat_name').eq('is_active', true).order('beat_name')`.
-- Source retailers: `supabase.from('retailers').select('id, name').eq('beat_id', sourceBeatId).order('name')`, fired when source changes; spinner while loading; "No retailers found in this beat." empty state.
-- Transfer on confirm:
-  1. `auth.getUser()` → `transferred_by`.
-  2. `supabase.from('retailers').update({ beat_id, beat_name, updated_at: new Date().toISOString() }).in('id', ids)`.
-  3. `supabase.from('retailer_beat_transfer_history').insert(rows)` (one row per retailer, from/to id+name + `transferred_by`).
-  4. On success: toast, refetch source-beat retailers, clear right pane and selections, call `onSuccess?.()` so My Retailers refreshes its list, close modal.
-  5. On any error: `toast.error(err.message)`, keep state intact.
+Code paths verified to be safe after this change:
 
-No mock data, no hardcoded ids/names. Strict TS types: `Beat`, `Retailer`, `TransferHistoryRow`.
+- `EditBeatModal.tsx` — currently does the user-scoped `UPDATE retailers SET beat_name … WHERE beat_id=? AND user_id=?` (line 351–355). After the trigger ships, this block becomes redundant and is removed.
+- `MassEditBeatsModal.tsx`, `BeatTransferModal.tsx`, `TransferRetailerBeatModal.tsx`, `MassBeatTransfer.tsx`, `AddRetailerInlineToBeat.tsx`, `CreateNewVisitModal.tsx`, `BulkImportRetailersModal.tsx` — these set `beat_id` + `beat_name` together when **moving** a retailer between beats (not renaming a beat). They keep working unchanged; the trigger only fires on `beats.beat_name` updates.
+- Read-side consumers (`MyBeats`, `MyRetailers`, analytics, packing list, visits, distributor pages, etc.) just read `retailers.beat_name`. They benefit automatically.
+- `retailer_beat_transfer_history` already snapshots `from_beat_name` / `to_beat_name` at write time — unaffected.
 
-## 3. Wire to My Retailers button
+## 1. Migration: trigger on `beats`
 
-In `src/pages/MyRetailers.tsx`:
+```sql
+-- Function: when a beat is renamed, propagate the new name to every retailer
+-- that points at it, regardless of which user owns the retailer.
+CREATE OR REPLACE FUNCTION public.sync_retailers_beat_name()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.beat_name IS DISTINCT FROM OLD.beat_name THEN
+    UPDATE public.retailers
+       SET beat_name = NEW.beat_name,
+     WHERE beat_id = NEW.beat_id
+       AND beat_name IS DISTINCT FROM NEW.beat_name;
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
-- Replace the `MassEditBeatsModal` import with `BeatTransferModal`.
-- Keep `massEditModalOpen` state + the existing button (line 732 — label stays "Mass Edit Beats" so we don't change user-visible chrome unless asked).
-- Render `<BeatTransferModal open={massEditModalOpen} onOpenChange={setMassEditModalOpen} onSuccess={() => { setMassEditModalOpen(false); /* existing refetch */ }} />` in place of the current modal block (lines 1110–1120).
-- No other logic on the page changes.
+DROP TRIGGER IF EXISTS trg_sync_retailers_beat_name ON public.beats;
+CREATE TRIGGER trg_sync_retailers_beat_name
+AFTER UPDATE OF beat_name ON public.beats
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_retailers_beat_name();
+```
 
-## 4. Leave alone
+Notes:
 
-- `MassEditBeatsModal.tsx` stays in the repo (unused after this change) — no deletes per the "don't modify existing components" constraint discussed earlier. It can be removed later if you want.
-- The standalone `/beats/transfer` route + `MassBeatTransfer.tsx` page remain available.
-- `retailer_beat_transfer_history` table and its policies are already in place — no new migration.
+- `SECURITY DEFINER` so the cross-user `UPDATE` bypasses RLS — the rename action itself is already authorized by the policy on `beats`.
+- `IS DISTINCT FROM` guards against no-op writes and infinite loops.
+- One-time backfill is included to fix retailers whose names drifted before the trigger existed:
 
-## 5. Validation & UX details
+```sql
+UPDATE public.retailers r
+   SET beat_name = b.beat_name,
+       updated_at = now()
+  FROM public.beats b
+ WHERE r.beat_id = b.beat_id
+   AND r.beat_name IS DISTINCT FROM b.beat_name;
+```
 
-- Disable both `Select`s, move buttons, and search inputs while `isTransferring`.
-- Confirm dialog body: "Are you sure you want to move {N} retailers from {source} to {destination}? This action cannot be undone."
-- Move buttons act on the **filtered** view (so `>>` respects the active left search), matching the screenshot's expected behavior.
-- All styling uses existing semantic tokens (`bg-muted`, `text-muted-foreground`, `border`, `text-primary`, etc.) — no raw hex.
+## 2. Frontend cleanup — `src/components/EditBeatModal.tsx`
 
-## Phasing
+Remove the redundant retailer-name sync block (lines 350–357):
 
-1. Build `BeatTransferModal.tsx`.
-2. Swap the modal in `MyRetailers.tsx`.
-3. Smoke test from the My Retailers button: pick beats → move → confirm → verify both `retailers` and `retailer_beat_transfer_history` updated.
+```ts
+// Update beat name for all current retailers in this beat
+const { error: updateNameError } = await supabase
+  .from('retailers')
+  .update({ beat_name: beatName.trim() })
+  .eq('beat_id', beat.id)
+  .eq('user_id', user.id);
+if (updateNameError) throw updateNameError;
+```
+
+Reason: after the trigger ships this is duplicate work and reintroduces the user-scoped bug. The earlier `beats` update (line 273) now propagates automatically.
+
+The "remove from beat" and "add to beat" blocks (lines 322–348) **stay** — they handle membership changes (`beat_id`), not renames.
+
+No other files need code changes.  
+  
+Add an audit entry when a Beat is renamed.
+
+Example:
+
+```
+
+```
+
+```
+BEAT_RENAMED
+
+Beat ID: beat_123
+
+Old Name:
+North Zone
+
+New Name:
+North Territory
+
+Changed By:
+Admin
+
+Changed At:
+01-Jun-2026 10:15 AM
+```
+
+Since you already have:
+
+```
+
+```
+
+```
+beats_audit_trg
+```
+
+this may already happen, but verify it.
+
+## 3. Verification steps
+
+1. Apply the migration and confirm the trigger exists (`SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.beats'::regclass`).
+2. Rename a beat owned by multiple users via `EditBeatModal`, then query `SELECT DISTINCT beat_name FROM retailers WHERE beat_id = ?` — should return exactly one row with the new name.
+3. Spot-check that `beat_plans`, `joint_sales_sessions`, and `retailer_beat_transfer_history` still hold the **old** name for prior rows (historical integrity preserved).
+4. Run an existing beat **transfer** to confirm move flows still work (no regression).
+
+## Out of scope (call out, do not change now)
+
+- Syncing `beat_allowances.beat_name`, `beat_plans.beat_name`, `user_business_plan_territory_beats.beat_name` via trigger — can be added later if you want full denormalized consistency. Today the codebase treats them as snapshots.
+- Removing the `MassEditBeatsModal.tsx` legacy file.
