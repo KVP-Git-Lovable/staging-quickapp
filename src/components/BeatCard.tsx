@@ -22,6 +22,7 @@ interface BeatCardProps {
     created_at: string;
     territory_name?: string;
     owner_name?: string;
+    is_active?: boolean;
   };
   userId: string;
   onEdit: () => void;
@@ -30,9 +31,12 @@ interface BeatCardProps {
   onAIInsights: () => void;
   onTransfer?: () => void;
   onDeactivate?: () => void;
+  onReactivate?: () => void;
+  /** When true bottom button is permanent Delete; when false it is Deactivate */
+  isHardDeletable?: boolean;
 }
 
-export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsights, onTransfer, onDeactivate }: BeatCardProps) {
+export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsights, onTransfer, onDeactivate, onReactivate, isHardDeletable }: BeatCardProps) {
   const { metrics, loading } = useBeatMetrics(beat.id, userId);
   const navigate = useNavigate();
 
