@@ -80,7 +80,8 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
 
   // Load retailers for source beat
   useEffect(() => {
-    if (!sourceBeatId) {
+    const src = beats.find((b) => b.id === sourceBeatId);
+    if (!sourceBeatId || !src) {
       setAvailable([]); setSelected([]);
       setLeftChecked(new Set()); setRightChecked(new Set());
       return;
@@ -89,8 +90,8 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       setLoadingRetailers(true);
       const { data, error } = await supabase
         .from("retailers")
-        .select("id, name")
-        .eq("beat_id", sourceBeatId)
+        .select("id, name, beat_id, beat_name")
+        .eq("beat_id", src.beat_id)
         .order("name", { ascending: true });
       if (error) toast.error(error.message);
       setAvailable((data as Retailer[]) || []);
@@ -99,7 +100,7 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       setLeftPage(1); setRightPage(1);
       setLoadingRetailers(false);
     })();
-  }, [sourceBeatId]);
+  }, [sourceBeatId, beats]);
 
   const sourceBeat = beats.find((b) => b.id === sourceBeatId);
   const destBeat = beats.find((b) => b.id === destBeatId);
