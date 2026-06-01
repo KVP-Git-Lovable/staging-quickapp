@@ -55,6 +55,7 @@ import EventSummary from "./pages/EventSummary";
 import { Cart } from "./pages/Cart";
 import { MyRetailers } from "./pages/MyRetailers";
 import { MyBeats } from "./pages/MyBeats";
+import MassBeatTransfer from "./pages/MassBeatTransfer";
 import { AddRetailer } from "./pages/AddRetailer";
 import Attendance from "./pages/Attendance";
 import { TodaySummary } from "./pages/TodaySummary";
