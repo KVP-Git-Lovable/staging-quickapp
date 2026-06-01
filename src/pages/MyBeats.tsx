@@ -1170,30 +1170,14 @@ export const MyBeats = () => {
 
   const confirmDeactivateBeat = async () => {
     if (!deactivateBeat || !user) return;
-    try {
-      await supabase
-        .from('beats')
-        .update({ is_active: false })
-        .eq('beat_id', deactivateBeat.id)
-        .or(`user_id.eq.${user.id},created_by.eq.${user.id}`);
-
-      await supabase.from('beat_audit_log' as any).insert({
-        beat_id: deactivateBeat.id,
-        action: 'deactivate',
-        old_user_id: user.id,
-        metadata: { beat_name: deactivateBeat.name },
-        performed_by: user.id,
-      });
-
-      setBeats(prev => prev.filter(b => b.id !== deactivateBeat.id));
-      toast.success(`Beat "${deactivateBeat.name}" deactivated`);
+    const ok = await beatLifecycle.deactivate(deactivateBeat.id, deactivateBeat.name);
+    if (ok) {
+      // Reflect new state locally; list re-renders against filter.
+      setBeats((prev) => prev.map((b) => (b.id === deactivateBeat.id ? { ...b, is_active: false } : b)));
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
-    } catch (error) {
-      console.error('Error deactivating beat:', error);
-      toast.error('Failed to deactivate beat');
-    } finally {
-      setDeactivateBeat(null);
+      loadBeats();
     }
+    setDeactivateBeat(null);
   };
 
 
