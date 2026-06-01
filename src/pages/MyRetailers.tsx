@@ -21,7 +21,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { Layout } from "@/components/Layout";
 import { AddRetailerToVisitModal } from "@/components/AddRetailerToVisitModal";
-import { MassEditBeatsModal } from "@/components/MassEditBeatsModal";
+import { BeatTransferModal } from "@/components/BeatTransferModal";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BulkImportRetailersModal } from "@/components/BulkImportRetailersModal";
 import { RetailerAnalytics } from "@/components/RetailerAnalytics";
@@ -1107,12 +1107,10 @@ export const MyRetailers = () => {
           }}
         />
 
-        {/* Mass Edit Beats Modal */}
-        <MassEditBeatsModal
-          isOpen={massEditModalOpen}
-          onClose={() => setMassEditModalOpen(false)}
-          retailers={retailers}
-          beats={beats}
+        {/* Beat Transfer Modal */}
+        <BeatTransferModal
+          open={massEditModalOpen}
+          onOpenChange={setMassEditModalOpen}
           onSuccess={() => {
             refreshRetailers();
             setMassEditModalOpen(false);
