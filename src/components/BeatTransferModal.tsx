@@ -104,6 +104,32 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     })();
   }, [sourceBeatId, beats]);
 
+  // Load retailers currently in destination beat (read-only baseline)
+  useEffect(() => {
+    const dst = beats.find((b) => b.id === destBeatId);
+    if (!destBeatId || !dst) {
+      setExistingDest([]);
+      setSelected([]);
+      setRightChecked(new Set());
+      setRightPage(1);
+      return;
+    }
+    (async () => {
+      setLoadingDest(true);
+      const { data, error } = await supabase
+        .from("retailers")
+        .select("id, name, beat_id")
+        .eq("beat_id", dst.beat_id)
+        .order("name", { ascending: true });
+      if (error) toast.error(error.message);
+      setExistingDest((data as Retailer[]) || []);
+      setSelected([]);
+      setRightChecked(new Set());
+      setRightPage(1);
+      setLoadingDest(false);
+    })();
+  }, [destBeatId, beats]);
+
   const sourceBeat = beats.find((b) => b.id === sourceBeatId);
   const destBeat = beats.find((b) => b.id === destBeatId);
   const sameBeat = !!sourceBeatId && !!destBeatId && sourceBeatId === destBeatId;
