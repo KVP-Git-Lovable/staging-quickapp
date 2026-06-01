@@ -183,7 +183,7 @@ export default function MassBeatTransfer() {
       const { error: updErr } = await supabase
         .from("retailers")
         .update({
-          beat_id: destBeat.id,
+          beat_id: destBeat.beat_id,
           beat_name: destBeat.beat_name,
           updated_at: new Date().toISOString(),
         })
@@ -193,9 +193,9 @@ export default function MassBeatTransfer() {
       const historyRows = selected.map((r) => ({
         retailer_id: r.id,
         retailer_name: r.name,
-        from_beat_id: sourceBeat.id,
+        from_beat_id: sourceBeat.beat_id,
         from_beat_name: sourceBeat.beat_name,
-        to_beat_id: destBeat.id,
+        to_beat_id: destBeat.beat_id,
         to_beat_name: destBeat.beat_name,
         transferred_by: userId,
       }));
