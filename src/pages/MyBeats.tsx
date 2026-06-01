@@ -40,6 +40,8 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { BeatDeleteDialog } from "@/components/BeatDeleteDialog";
 import { BeatTransferDialog } from "@/components/BeatTransferDialog";
 import { useDeleteConfirm } from "@/hooks/useDeleteConfirm";
+import { useBeatLifecycle } from "@/hooks/useBeatLifecycle";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import {
@@ -70,6 +72,7 @@ interface Beat {
   territory_id?: string;
   territory_name?: string;
   owner_name?: string;
+  is_active?: boolean;
 }
 
 interface Retailer {
@@ -185,7 +188,12 @@ export const MyBeats = () => {
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
-  
+
+  // Beat lifecycle (Active / Inactive / All)
+  const [beatStatusFilter, setBeatStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [deletabilityMap, setDeletabilityMap] = useState<Record<string, boolean>>({});
+  const beatLifecycle = useBeatLifecycle();
+
   // Delete confirmation dialog
   const { isOpen: isDeleteOpen, itemId: deleteItemId, itemName: deleteItemName, openDeleteDialog, closeDeleteDialog, setOpen: setDeleteOpen } = useDeleteConfirm();
 
@@ -307,7 +315,8 @@ export const MyBeats = () => {
           average_km: beat.average_km || 0,
           average_time_minutes: beat.average_time_minutes || 0,
           beat_number: index + 1,
-          retailers: []
+          retailers: [],
+          is_active: beat.is_active !== false,
         })).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         
         setBeats(beatsArray);
@@ -322,7 +331,6 @@ export const MyBeats = () => {
           const { data: onlineBeats, error: beatsError } = await supabase
             .from('beats')
             .select('*')
-            .eq('is_active', true)
             .in('user_id', effectiveUserIds)
             .order('created_at', { ascending: true });
 
@@ -375,7 +383,8 @@ export const MyBeats = () => {
                 retailers: [],
                 territory_id: beat.territory_id,
                 territory_name: beat.territory_id ? territoriesMap.get(beat.territory_id) : null,
-                owner_name: beat.owner_name || null
+                owner_name: beat.owner_name || null,
+                is_active: beat.is_active !== false,
               })).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
               setBeats(beatsArray);
@@ -877,8 +886,26 @@ export const MyBeats = () => {
   };
 
   const handleDeleteBeatClick = async (beatId: string, beatName: string) => {
+    // Check whether the beat has any historical references.
+    const check = await beatLifecycle.canDelete(beatId);
+    setDeletabilityMap((prev) => ({ ...prev, [beatId]: check.deletable }));
+
+    if (!check.deletable) {
+      // Block hard delete; route into deactivate confirmation.
+      const reasonText = check.reasons.length
+        ? `\n\nBlocking references:\n• ${check.reasons.join('\n• ')}`
+        : '';
+      const proceed = window.confirm(
+        `"${beatName}" contains historical data and cannot be deleted.${reasonText}\n\nDeactivate this beat instead?`
+      );
+      if (proceed) {
+        setDeactivateBeat({ id: beatId, name: beatName });
+      }
+      return;
+    }
+
     try {
-      // Fetch retailer count
+      // Beat is hard-deletable; still gather counts for the dialog (will be zero).
       const { count: retailerCount } = await supabase
         .from('retailers')
         .select('id', { count: 'exact', head: true })
@@ -886,7 +913,6 @@ export const MyBeats = () => {
         .eq('user_id', user?.id);
       setAffectedRetailerCount(retailerCount || 0);
 
-      // Fetch upcoming visits count
       const today = new Date().toISOString().split('T')[0];
       const { count: visitsCount } = await supabase
         .from('beat_plans')
@@ -895,7 +921,6 @@ export const MyBeats = () => {
         .gte('plan_date', today);
       setUpcomingVisitsCount(visitsCount || 0);
 
-      // Fetch pending orders count
       const { count: ordersCount } = await supabase
         .from('orders')
         .select('id', { count: 'exact', head: true })
@@ -903,7 +928,6 @@ export const MyBeats = () => {
         .eq('status', 'pending');
       setPendingOrdersCount(ordersCount || 0);
 
-      // Fetch available users
       const { data: users } = await supabase.rpc('get_profiles_for_selector');
       setAvailableUsersForDialog(
         (users || []).filter((u: any) => u.id !== user?.id).map((u: any) => ({ id: u.id, full_name: u.full_name }))
@@ -1146,30 +1170,14 @@ export const MyBeats = () => {
 
   const confirmDeactivateBeat = async () => {
     if (!deactivateBeat || !user) return;
-    try {
-      await supabase
-        .from('beats')
-        .update({ is_active: false })
-        .eq('beat_id', deactivateBeat.id)
-        .or(`user_id.eq.${user.id},created_by.eq.${user.id}`);
-
-      await supabase.from('beat_audit_log' as any).insert({
-        beat_id: deactivateBeat.id,
-        action: 'deactivate',
-        old_user_id: user.id,
-        metadata: { beat_name: deactivateBeat.name },
-        performed_by: user.id,
-      });
-
-      setBeats(prev => prev.filter(b => b.id !== deactivateBeat.id));
-      toast.success(`Beat "${deactivateBeat.name}" deactivated`);
+    const ok = await beatLifecycle.deactivate(deactivateBeat.id, deactivateBeat.name);
+    if (ok) {
+      // Reflect new state locally; list re-renders against filter.
+      setBeats((prev) => prev.map((b) => (b.id === deactivateBeat.id ? { ...b, is_active: false } : b)));
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
-    } catch (error) {
-      console.error('Error deactivating beat:', error);
-      toast.error('Failed to deactivate beat');
-    } finally {
-      setDeactivateBeat(null);
+      loadBeats();
     }
+    setDeactivateBeat(null);
   };
 
 
@@ -1205,9 +1213,36 @@ export const MyBeats = () => {
     retailer.phone.includes(searchTerm)
   );
 
-  const filteredBeats = beats.filter((beat) =>
-    beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase())
+  const filteredBeats = beats.filter((beat) => {
+    if (beatStatusFilter === 'active' && beat.is_active === false) return false;
+    if (beatStatusFilter === 'inactive' && beat.is_active !== false) return false;
+    return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
+  });
+
+  // Lazily resolve which beats are hard-deletable (no historical references)
+  const unknownDeletabilityIds = useMemo(
+    () => filteredBeats.filter((b) => deletabilityMap[b.id] === undefined).slice(0, 12).map((b) => b.id),
+    [filteredBeats, deletabilityMap]
   );
+  const unknownKey = unknownDeletabilityIds.join(',');
+  useEffect(() => {
+    if (unknownDeletabilityIds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        unknownDeletabilityIds.map(async (id) => [id, (await beatLifecycle.canDelete(id)).deletable] as const)
+      );
+      if (!cancelled) {
+        setDeletabilityMap((prev) => {
+          const next = { ...prev };
+          entries.forEach(([id, val]) => { next[id] = val; });
+          return next;
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unknownKey]);
 
   // Pagination for beats - 10 items per page
   const {
@@ -1632,8 +1667,18 @@ export const MyBeats = () => {
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-lg font-semibold">Your Beats ({filteredBeats.length} of {beats.length})</h2>
+                  <ToggleGroup
+                    type="single"
+                    value={beatStatusFilter}
+                    onValueChange={(v) => v && setBeatStatusFilter(v as 'active' | 'inactive' | 'all')}
+                    className="bg-muted rounded-md p-0.5"
+                  >
+                    <ToggleGroupItem value="active" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">Active</ToggleGroupItem>
+                    <ToggleGroupItem value="inactive" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">Inactive</ToggleGroupItem>
+                    <ToggleGroupItem value="all" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">All</ToggleGroupItem>
+                  </ToggleGroup>
                 </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {paginatedBeats.map((beat) => (
                 <BeatCard
@@ -1649,6 +1694,11 @@ export const MyBeats = () => {
                   }}
                   onTransfer={() => handleTransferBeat(beat.id, beat.name)}
                   onDeactivate={() => handleDeactivateBeat(beat.id, beat.name)}
+                  onReactivate={async () => {
+                    const ok = await beatLifecycle.reactivate(beat.id, beat.name);
+                    if (ok) loadBeats();
+                  }}
+                  isHardDeletable={deletabilityMap[beat.id] === true}
                 />
               ))}
             </div>

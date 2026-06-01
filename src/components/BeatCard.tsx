@@ -22,6 +22,7 @@ interface BeatCardProps {
     created_at: string;
     territory_name?: string;
     owner_name?: string;
+    is_active?: boolean;
   };
   userId: string;
   onEdit: () => void;
@@ -30,9 +31,12 @@ interface BeatCardProps {
   onAIInsights: () => void;
   onTransfer?: () => void;
   onDeactivate?: () => void;
+  onReactivate?: () => void;
+  /** When true bottom button is permanent Delete; when false it is Deactivate */
+  isHardDeletable?: boolean;
 }
 
-export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsights, onTransfer, onDeactivate }: BeatCardProps) {
+export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsights, onTransfer, onDeactivate, onReactivate, isHardDeletable }: BeatCardProps) {
   const { metrics, loading } = useBeatMetrics(beat.id, userId);
   const navigate = useNavigate();
 
@@ -54,19 +58,21 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
             <Badge variant="default" className="text-[10px] px-1.5 py-0.5 font-medium">
               #{beat.beat_number}
             </Badge>
-            <Badge 
+            {beat.is_active === false && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">Inactive</Badge>
+            )}
+            <Badge
               className={`text-[10px] px-1.5 py-0.5 ${
-                beat.retailer_count >= 30 ? 'bg-yellow-100 text-yellow-800' : 
-                beat.retailer_count >= 20 ? 'bg-gray-100 text-gray-800' : 
-                beat.retailer_count >= 15 ? 'bg-orange-100 text-orange-800' : 
+                beat.retailer_count >= 30 ? 'bg-yellow-100 text-yellow-800' :
+                beat.retailer_count >= 20 ? 'bg-gray-100 text-gray-800' :
+                beat.retailer_count >= 15 ? 'bg-orange-100 text-orange-800' :
                 'bg-amber-100 text-amber-800'
               }`}
             >
-              {beat.retailer_count >= 30 ? 'Platinum' : 
-               beat.retailer_count >= 20 ? 'Silver' : 
+              {beat.retailer_count >= 30 ? 'Platinum' :
+               beat.retailer_count >= 20 ? 'Silver' :
                beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
             </Badge>
-            {/* Three-dot menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
@@ -74,16 +80,22 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                {onTransfer && (
+                {onTransfer && beat.is_active !== false && (
                   <DropdownMenuItem onClick={onTransfer}>
                     <ArrowRightLeft size={14} className="mr-2" />
                     Transfer Beat
                   </DropdownMenuItem>
                 )}
-                {onDeactivate && (
+                {onDeactivate && beat.is_active !== false && (
                   <DropdownMenuItem onClick={onDeactivate} className="text-orange-600">
                     <Power size={14} className="mr-2" />
                     Deactivate Beat
+                  </DropdownMenuItem>
+                )}
+                {onReactivate && beat.is_active === false && (
+                  <DropdownMenuItem onClick={onReactivate} className="text-emerald-600">
+                    <Power size={14} className="mr-2" />
+                    Reactivate Beat
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -169,9 +181,21 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
               <BarChart size={14} className="mr-2" />
               Analytics
             </Button>
-            <Button variant="destructive" size="sm" className="px-3" onClick={onDelete}>
-              <Trash2 size={14} />
-            </Button>
+            {isHardDeletable ? (
+              <Button variant="destructive" size="sm" className="px-3" onClick={onDelete} title="Permanently delete">
+                <Trash2 size={14} />
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="px-3 text-orange-600 border-orange-300 hover:bg-orange-50"
+                onClick={onDeactivate || onDelete}
+                title="Deactivate (history exists)"
+              >
+                <Power size={14} />
+              </Button>
+            )}
           </div>
         </div>
 

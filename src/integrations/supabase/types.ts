@@ -1207,14 +1207,19 @@ export type Database = {
           category: string | null
           created_at: string
           created_by: string | null
+          deactivated_at: string | null
+          deactivated_by: string | null
           distributor_id: string | null
           id: string
           is_active: boolean | null
           owner_id: string | null
           owner_name: string | null
+          reactivated_at: string | null
+          reactivated_by: string | null
           territory_id: string | null
           travel_allowance: number | null
           updated_at: string
+          updated_by: string | null
           user_id: string | null
         }
         Insert: {
@@ -1225,14 +1230,19 @@ export type Database = {
           category?: string | null
           created_at?: string
           created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           distributor_id?: string | null
           id?: string
           is_active?: boolean | null
           owner_id?: string | null
           owner_name?: string | null
+          reactivated_at?: string | null
+          reactivated_by?: string | null
           territory_id?: string | null
           travel_allowance?: number | null
           updated_at?: string
+          updated_by?: string | null
           user_id?: string | null
         }
         Update: {
@@ -1243,14 +1253,19 @@ export type Database = {
           category?: string | null
           created_at?: string
           created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           distributor_id?: string | null
           id?: string
           is_active?: boolean | null
           owner_id?: string | null
           owner_name?: string | null
+          reactivated_at?: string | null
+          reactivated_by?: string | null
           territory_id?: string | null
           travel_allowance?: number | null
           updated_at?: string
+          updated_by?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -14585,6 +14600,54 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_beat_assignments: {
+        Row: {
+          assigned_by: string | null
+          assigned_from: string
+          assigned_to: string | null
+          beat_id: string
+          beat_name: string | null
+          created_at: string
+          id: string
+          is_current: boolean
+          removed_by: string | null
+          retailer_id: string
+          transfer_reason: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assigned_by?: string | null
+          assigned_from?: string
+          assigned_to?: string | null
+          beat_id: string
+          beat_name?: string | null
+          created_at?: string
+          id?: string
+          is_current?: boolean
+          removed_by?: string | null
+          retailer_id: string
+          transfer_reason?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assigned_by?: string | null
+          assigned_from?: string
+          assigned_to?: string | null
+          beat_id?: string
+          beat_name?: string | null
+          created_at?: string
+          id?: string
+          is_current?: boolean
+          removed_by?: string | null
+          retailer_id?: string
+          transfer_reason?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       retailer_credit_scores: {
         Row: {
           avg_dso: number | null
@@ -20348,6 +20411,10 @@ export type Database = {
         }
         Returns: Json
       }
+      assign_retailer_to_beat: {
+        Args: { p_beat_id: string; p_reason?: string; p_retailer_id: string }
+        Returns: Json
+      }
       calculate_beat_adherence: {
         Args: { p_end: string; p_start: string; p_user_id: string }
         Returns: number
@@ -20405,6 +20472,7 @@ export type Database = {
         Args: { _packing_list_id: string }
         Returns: boolean
       }
+      can_delete_beat: { Args: { p_beat_id: string }; Returns: Json }
       can_view_distributor: {
         Args: { _distributor_id: string }
         Returns: boolean
@@ -20480,6 +20548,8 @@ export type Database = {
         }
         Returns: string
       }
+      deactivate_beat: { Args: { p_beat_id: string }; Returns: Json }
+      delete_beat_permanent: { Args: { p_beat_id: string }; Returns: Json }
       delete_packing_list_atomic: {
         Args: { p_packing_list_id: string }
         Returns: Json
@@ -20973,6 +21043,7 @@ export type Database = {
         Args: { p_actor_user_id: string; p_metadata?: Json; p_rule_id: string }
         Returns: number
       }
+      reactivate_beat: { Args: { p_beat_id: string }; Returns: Json }
       record_route_execution: {
         Args: {
           p_action: string
@@ -21076,6 +21147,14 @@ export type Database = {
       to_base_qty: {
         Args: { p_product_id: string; p_qty: number; p_uom_code: string }
         Returns: number
+      }
+      transfer_retailer_beat: {
+        Args: {
+          p_new_beat_id: string
+          p_reason?: string
+          p_retailer_id: string
+        }
+        Returns: Json
       }
       transfer_user_data_partial: {
         Args: {
