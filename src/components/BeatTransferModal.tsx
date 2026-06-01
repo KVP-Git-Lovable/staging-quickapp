@@ -37,7 +37,9 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
 
   const [available, setAvailable] = useState<Retailer[]>([]);
   const [selected, setSelected] = useState<Retailer[]>([]);
+  const [existingDest, setExistingDest] = useState<Retailer[]>([]);
   const [loadingRetailers, setLoadingRetailers] = useState(false);
+  const [loadingDest, setLoadingDest] = useState(false);
 
   const [leftSearch, setLeftSearch] = useState("");
   const [rightSearch, setRightSearch] = useState("");
@@ -54,7 +56,7 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
   useEffect(() => {
     if (!open) {
       setSourceBeatId(""); setDestBeatId("");
-      setAvailable([]); setSelected([]);
+      setAvailable([]); setSelected([]); setExistingDest([]);
       setLeftSearch(""); setRightSearch("");
       setLeftChecked(new Set()); setRightChecked(new Set());
       setLeftPage(1); setRightPage(1);
