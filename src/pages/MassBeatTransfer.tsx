@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Beat {
-  id: string;
+  beat_id: string;
   beat_name: string;
 }
 
@@ -55,7 +55,7 @@ export default function MassBeatTransfer() {
       setLoadingBeats(true);
       const { data, error } = await supabase
         .from("beats")
-        .select("id, beat_name")
+        .select("beat_id, beat_name")
         .eq("is_active", true)
         .order("beat_name", { ascending: true });
       if (error) toast.error(error.message);
@@ -90,8 +90,8 @@ export default function MassBeatTransfer() {
     })();
   }, [sourceBeatId]);
 
-  const sourceBeat = beats.find((b) => b.id === sourceBeatId);
-  const destBeat = beats.find((b) => b.id === destBeatId);
+  const sourceBeat = beats.find((b) => b.beat_id === sourceBeatId);
+  const destBeat = beats.find((b) => b.beat_id === destBeatId);
   const sameBeat = !!sourceBeatId && !!destBeatId && sourceBeatId === destBeatId;
 
   const filteredLeft = useMemo(
@@ -183,7 +183,7 @@ export default function MassBeatTransfer() {
       const { error: updErr } = await supabase
         .from("retailers")
         .update({
-          beat_id: destBeat.id,
+          beat_id: destBeat.beat_id,
           beat_name: destBeat.beat_name,
           updated_at: new Date().toISOString(),
         })
@@ -193,9 +193,9 @@ export default function MassBeatTransfer() {
       const historyRows = selected.map((r) => ({
         retailer_id: r.id,
         retailer_name: r.name,
-        from_beat_id: sourceBeat.id,
+        from_beat_id: sourceBeat.beat_id,
         from_beat_name: sourceBeat.beat_name,
-        to_beat_id: destBeat.id,
+        to_beat_id: destBeat.beat_id,
         to_beat_name: destBeat.beat_name,
         transferred_by: userId,
       }));
@@ -243,7 +243,7 @@ export default function MassBeatTransfer() {
               </SelectTrigger>
               <SelectContent>
                 {beats.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
+                  <SelectItem key={b.beat_id} value={b.beat_id}>{b.beat_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -255,8 +255,8 @@ export default function MassBeatTransfer() {
                 <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select destination beat"} />
               </SelectTrigger>
               <SelectContent>
-                {beats.filter((b) => b.id !== sourceBeatId).map((b) => (
-                  <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
+                {beats.filter((b) => b.beat_id !== sourceBeatId).map((b) => (
+                  <SelectItem key={b.beat_id} value={b.beat_id}>{b.beat_name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
