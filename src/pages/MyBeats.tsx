@@ -1705,7 +1705,7 @@ export const MyBeats = () => {
             ) : (
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <h2 className="text-lg font-semibold">Your Beats ({filteredBeats.length} of {beats.length})</h2>
+                  <h2 className="text-lg font-semibold">{beatStatusFilter === 'active' ? 'Active Beats' : beatStatusFilter === 'inactive' ? 'Inactive Beats' : 'All Beats'} ({filteredBeats.length})</h2>
                   <ToggleGroup
                     type="single"
                     value={beatStatusFilter}
