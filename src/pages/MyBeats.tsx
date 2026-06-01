@@ -886,8 +886,26 @@ export const MyBeats = () => {
   };
 
   const handleDeleteBeatClick = async (beatId: string, beatName: string) => {
+    // Check whether the beat has any historical references.
+    const check = await beatLifecycle.canDelete(beatId);
+    setDeletabilityMap((prev) => ({ ...prev, [beatId]: check.deletable }));
+
+    if (!check.deletable) {
+      // Block hard delete; route into deactivate confirmation.
+      const reasonText = check.reasons.length
+        ? `\n\nBlocking references:\n• ${check.reasons.join('\n• ')}`
+        : '';
+      const proceed = window.confirm(
+        `"${beatName}" contains historical data and cannot be deleted.${reasonText}\n\nDeactivate this beat instead?`
+      );
+      if (proceed) {
+        setDeactivateBeat({ id: beatId, name: beatName });
+      }
+      return;
+    }
+
     try {
-      // Fetch retailer count
+      // Beat is hard-deletable; still gather counts for the dialog (will be zero).
       const { count: retailerCount } = await supabase
         .from('retailers')
         .select('id', { count: 'exact', head: true })
@@ -895,7 +913,6 @@ export const MyBeats = () => {
         .eq('user_id', user?.id);
       setAffectedRetailerCount(retailerCount || 0);
 
-      // Fetch upcoming visits count
       const today = new Date().toISOString().split('T')[0];
       const { count: visitsCount } = await supabase
         .from('beat_plans')
@@ -904,7 +921,6 @@ export const MyBeats = () => {
         .gte('plan_date', today);
       setUpcomingVisitsCount(visitsCount || 0);
 
-      // Fetch pending orders count
       const { count: ordersCount } = await supabase
         .from('orders')
         .select('id', { count: 'exact', head: true })
@@ -912,7 +928,6 @@ export const MyBeats = () => {
         .eq('status', 'pending');
       setPendingOrdersCount(ordersCount || 0);
 
-      // Fetch available users
       const { data: users } = await supabase.rpc('get_profiles_for_selector');
       setAvailableUsersForDialog(
         (users || []).filter((u: any) => u.id !== user?.id).map((u: any) => ({ id: u.id, full_name: u.full_name }))
