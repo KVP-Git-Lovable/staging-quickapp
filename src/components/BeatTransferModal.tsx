@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 interface Beat {
   id: string;
+  beat_id: string;
   beat_name: string;
 }
 interface Retailer {
@@ -68,7 +69,7 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       setLoadingBeats(true);
       const { data, error } = await supabase
         .from("beats")
-        .select("id, beat_name")
+        .select("id, beat_id, beat_name")
         .eq("is_active", true)
         .order("beat_name", { ascending: true });
       if (error) toast.error(error.message);
@@ -79,7 +80,8 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
 
   // Load retailers for source beat
   useEffect(() => {
-    if (!sourceBeatId) {
+    const src = beats.find((b) => b.id === sourceBeatId);
+    if (!sourceBeatId || !src) {
       setAvailable([]); setSelected([]);
       setLeftChecked(new Set()); setRightChecked(new Set());
       return;
@@ -88,8 +90,8 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       setLoadingRetailers(true);
       const { data, error } = await supabase
         .from("retailers")
-        .select("id, name")
-        .eq("beat_id", sourceBeatId)
+        .select("id, name, beat_id, beat_name")
+        .eq("beat_id", src.beat_id)
         .order("name", { ascending: true });
       if (error) toast.error(error.message);
       setAvailable((data as Retailer[]) || []);
@@ -98,7 +100,7 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       setLeftPage(1); setRightPage(1);
       setLoadingRetailers(false);
     })();
-  }, [sourceBeatId]);
+  }, [sourceBeatId, beats]);
 
   const sourceBeat = beats.find((b) => b.id === sourceBeatId);
   const destBeat = beats.find((b) => b.id === destBeatId);
@@ -189,7 +191,7 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       const { error: updErr } = await supabase
         .from("retailers")
         .update({
-          beat_id: destBeat.id,
+          beat_id: destBeat.beat_id,
           beat_name: destBeat.beat_name,
           updated_at: new Date().toISOString(),
         })
@@ -199,9 +201,9 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       const historyRows = selected.map((r) => ({
         retailer_id: r.id,
         retailer_name: r.name,
-        from_beat_id: sourceBeat.id,
+        from_beat_id: sourceBeat.beat_id,
         from_beat_name: sourceBeat.beat_name,
-        to_beat_id: destBeat.id,
+        to_beat_id: destBeat.beat_id,
         to_beat_name: destBeat.beat_name,
         transferred_by: userId,
       }));
