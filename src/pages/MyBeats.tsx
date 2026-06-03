@@ -2595,8 +2595,18 @@ export const MyBeats = () => {
           />
         )}
 
-
-
+        {duplicateWarning && (
+          <DuplicateBeatWarningDialog
+            open={!!duplicateWarning}
+            onOpenChange={(o) => { if (!o) setDuplicateWarning(null); }}
+            beatName={beatName}
+            matchType={duplicateWarning.matchType}
+            existingOwnerName={duplicateWarning.existingOwnerName}
+            matchedBeatName={duplicateWarning.matchedBeatName}
+            onConfirm={duplicateWarning.proceedCallback}
+            onCancel={() => setDuplicateWarning(null)}
+          />
+        )}
 
       </div>
     </Layout>
