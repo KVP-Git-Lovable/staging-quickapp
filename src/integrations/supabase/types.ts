@@ -1212,6 +1212,7 @@ export type Database = {
           beat_id: string
           beat_name: string
           created_at: string
+          effective_date: string
           id: string
           new_owner_id: string
           new_owner_name: string | null
@@ -1225,6 +1226,7 @@ export type Database = {
           beat_id: string
           beat_name: string
           created_at?: string
+          effective_date?: string
           id?: string
           new_owner_id: string
           new_owner_name?: string | null
@@ -1238,6 +1240,7 @@ export type Database = {
           beat_id?: string
           beat_name?: string
           created_at?: string
+          effective_date?: string
           id?: string
           new_owner_id?: string
           new_owner_name?: string | null
@@ -15889,6 +15892,51 @@ export type Database = {
           },
         ]
       }
+      retailer_owner_history: {
+        Row: {
+          beat_id: string | null
+          changed_at: string
+          changed_by: string
+          created_at: string
+          id: string
+          new_user_id: string
+          new_user_name: string | null
+          old_user_id: string
+          old_user_name: string | null
+          reason: string | null
+          retailer_id: string
+          retailer_name: string | null
+        }
+        Insert: {
+          beat_id?: string | null
+          changed_at?: string
+          changed_by: string
+          created_at?: string
+          id?: string
+          new_user_id: string
+          new_user_name?: string | null
+          old_user_id: string
+          old_user_name?: string | null
+          reason?: string | null
+          retailer_id: string
+          retailer_name?: string | null
+        }
+        Update: {
+          beat_id?: string | null
+          changed_at?: string
+          changed_by?: string
+          created_at?: string
+          id?: string
+          new_user_id?: string
+          new_user_name?: string | null
+          old_user_id?: string
+          old_user_name?: string | null
+          reason?: string | null
+          retailer_id?: string
+          retailer_name?: string | null
+        }
+        Relationships: []
+      }
       retailer_payment_collections: {
         Row: {
           amount: number
@@ -20688,6 +20736,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      cleanup_expired_coverage: { Args: never; Returns: undefined }
       cleanup_expired_insights: { Args: never; Returns: undefined }
       cleanup_expired_recommendations: { Args: never; Returns: undefined }
       cleanup_expired_reset_tokens: { Args: never; Returns: undefined }
