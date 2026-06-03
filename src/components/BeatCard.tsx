@@ -8,9 +8,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Users, Calendar, MoreVertical, Edit2, BarChart, Trash2, MapPin, Package, Sparkles, CalendarDays, UserPlus, ArrowRightLeft, Power } from 'lucide-react';
+import {
+  Users, Calendar, MoreVertical, Edit2, BarChart, Trash2, MapPin, Package,
+  Sparkles, CalendarDays, UserPlus, Power, Share2, ShieldCheck, ArrowRightLeft,
+  Copy, History as HistoryIcon,
+} from 'lucide-react';
 import { useBeatMetrics } from '@/hooks/useBeatMetrics';
 import { useNavigate } from 'react-router-dom';
+import { usePermissions } from '@/hooks/usePermissions';
+
+export type BeatAccessType = 'OWNED' | 'CO_OWNER' | 'VIEW_ONLY' | 'COVERAGE';
 
 interface BeatCardProps {
   beat: {
@@ -25,6 +32,9 @@ interface BeatCardProps {
     is_active?: boolean;
   };
   userId: string;
+  accessType?: BeatAccessType;
+  coverageEndDate?: string | null;
+  sharedByName?: string | null;
   onEdit: () => void;
   onDelete: () => void;
   onDetails: () => void;
@@ -32,33 +42,102 @@ interface BeatCardProps {
   onTransfer?: () => void;
   onDeactivate?: () => void;
   onReactivate?: () => void;
+  onShare?: () => void;
+  onAssignCoverage?: () => void;
+  onTransferOwnership?: () => void;
+  onClone?: () => void;
+  onHistory?: () => void;
   /** When true bottom button is permanent Delete; when false it is Deactivate */
   isHardDeletable?: boolean;
 }
 
-export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsights, onTransfer, onDeactivate, onReactivate, isHardDeletable }: BeatCardProps) {
+function accessBadge(at: BeatAccessType) {
+  switch (at) {
+    case 'OWNED':
+      return <Badge className="text-[10px] px-1.5 py-0.5 bg-primary text-primary-foreground">Owner</Badge>;
+    case 'CO_OWNER':
+      return <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">Co-owner</Badge>;
+    case 'VIEW_ONLY':
+      return <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">Viewing</Badge>;
+    case 'COVERAGE':
+      return <Badge className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 border-amber-200">Covering</Badge>;
+  }
+}
+
+export function BeatCard({
+  beat,
+  userId,
+  accessType = 'OWNED',
+  coverageEndDate,
+  sharedByName,
+  onEdit,
+  onDelete,
+  onDetails,
+  onAIInsights,
+  onTransfer,
+  onDeactivate,
+  onReactivate,
+  onShare,
+  onAssignCoverage,
+  onTransferOwnership,
+  onClone,
+  onHistory,
+  isHardDeletable,
+}: BeatCardProps) {
   const { metrics, loading } = useBeatMetrics(beat.id, userId);
   const navigate = useNavigate();
+  const { can } = usePermissions();
+
+  const isActive = beat.is_active !== false;
+  const isOwner = accessType === 'OWNED';
+  const isCoOwner = accessType === 'CO_OWNER';
 
   const handleBeatNameClick = () => {
     navigate(`/beat/${beat.id}`);
   };
 
+  // Menu visibility per spec
+  const showEdit       = isActive && (isOwner || isCoOwner) && can('action_beat_edit', 'edit');
+  const showShare      = isActive && isOwner && !!onShare && can('action_beat_share', 'create');
+  const showCoverage   = isActive && isOwner && !!onAssignCoverage && can('action_beat_coverage', 'create');
+  const showTransfer   = isActive && isOwner && !!onTransferOwnership && can('action_beat_transfer', 'create');
+  const showClone      = isActive && isOwner && !!onClone && can('action_beat_clone', 'create');
+  const showHistory    = !!onHistory && can('module_my_beats', 'read');
+  const showDeactivate = isActive && isOwner && !!onDeactivate && can('action_beat_delete', 'delete');
+  const showReactivate = !isActive && !!onReactivate && can('action_beat_reactivate', 'edit');
+  const showDelete     = !isActive && !!onDelete && can('action_beat_delete', 'delete') && (beat.retailer_count || 0) === 0;
+
+  const hasAnyMenuItem =
+    showEdit || showShare || showCoverage || showTransfer || showClone ||
+    showHistory || showDeactivate || showReactivate || showDelete;
+
   return (
     <Card className="hover:shadow-lg transition-all duration-200 hover:scale-105">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle 
-            className="text-base leading-tight cursor-pointer hover:text-primary transition-colors flex-1"
-            onClick={handleBeatNameClick}
-          >
-            {beat.name}
-          </CardTitle>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <CardTitle
+              className="text-base leading-tight cursor-pointer hover:text-primary transition-colors truncate"
+              onClick={handleBeatNameClick}
+            >
+              {beat.name}
+            </CardTitle>
+            {accessType === 'COVERAGE' && coverageEndDate ? (
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                Covering until {new Date(coverageEndDate).toLocaleDateString()}
+              </div>
+            ) : sharedByName ? (
+              <div className="text-[11px] text-muted-foreground mt-0.5">
+                Shared by {sharedByName}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0 flex-wrap justify-end">
             <Badge variant="default" className="text-[10px] px-1.5 py-0.5 font-medium">
               #{beat.beat_number}
             </Badge>
-            {beat.is_active === false && (
+            {accessBadge(accessType)}
+            {!isActive && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">Inactive</Badge>
             )}
             <Badge
@@ -73,33 +152,63 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
                beat.retailer_count >= 20 ? 'Silver' :
                beat.retailer_count >= 15 ? 'Gold' : 'Bronze'}
             </Badge>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-                  <MoreVertical size={14} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                {onTransfer && beat.is_active !== false && (
-                  <DropdownMenuItem onClick={onTransfer}>
-                    <ArrowRightLeft size={14} className="mr-2" />
-                    Transfer Beat
-                  </DropdownMenuItem>
-                )}
-                {onDeactivate && beat.is_active !== false && (
-                  <DropdownMenuItem onClick={onDeactivate} className="text-orange-600">
-                    <Power size={14} className="mr-2" />
-                    Deactivate Beat
-                  </DropdownMenuItem>
-                )}
-                {onReactivate && beat.is_active === false && (
-                  <DropdownMenuItem onClick={onReactivate} className="text-emerald-600">
-                    <Power size={14} className="mr-2" />
-                    Reactivate Beat
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {hasAnyMenuItem && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                    <MoreVertical size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  {showEdit && (
+                    <DropdownMenuItem onClick={onEdit}>
+                      <Edit2 size={14} className="mr-2" /> Edit Beat
+                    </DropdownMenuItem>
+                  )}
+                  {showShare && (
+                    <DropdownMenuItem onClick={onShare}>
+                      <Share2 size={14} className="mr-2" /> Share Beat
+                    </DropdownMenuItem>
+                  )}
+                  {showCoverage && (
+                    <DropdownMenuItem onClick={onAssignCoverage}>
+                      <ShieldCheck size={14} className="mr-2" /> Assign Coverage
+                    </DropdownMenuItem>
+                  )}
+                  {showTransfer && (
+                    <DropdownMenuItem onClick={onTransferOwnership}>
+                      <ArrowRightLeft size={14} className="mr-2" /> Transfer Ownership
+                    </DropdownMenuItem>
+                  )}
+                  {showClone && (
+                    <DropdownMenuItem onClick={onClone}>
+                      <Copy size={14} className="mr-2" /> Clone Beat
+                    </DropdownMenuItem>
+                  )}
+                  {showHistory && (
+                    <DropdownMenuItem onClick={onHistory}>
+                      <HistoryIcon size={14} className="mr-2" /> View History
+                    </DropdownMenuItem>
+                  )}
+                  {(showDeactivate || showReactivate || showDelete) && <DropdownMenuSeparator />}
+                  {showReactivate && (
+                    <DropdownMenuItem onClick={onReactivate} className="text-emerald-600">
+                      <Power size={14} className="mr-2" /> Reactivate Beat
+                    </DropdownMenuItem>
+                  )}
+                  {showDeactivate && (
+                    <DropdownMenuItem onClick={onDeactivate} className="text-orange-600">
+                      <Power size={14} className="mr-2" /> Deactivate Beat
+                    </DropdownMenuItem>
+                  )}
+                  {showDelete && (
+                    <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                      <Trash2 size={14} className="mr-2" /> Delete Beat
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -173,28 +282,32 @@ export function BeatCard({ beat, userId, onEdit, onDelete, onDetails, onAIInsigh
             AI Insights
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
-              <Edit2 size={14} className="mr-2" />
-              Edit
-            </Button>
+            {isOwner && isActive && can('action_beat_edit', 'edit') && (
+              <Button variant="outline" size="sm" className="flex-1" onClick={onEdit}>
+                <Edit2 size={14} className="mr-2" />
+                Edit
+              </Button>
+            )}
             <Button variant="outline" size="sm" className="flex-1" onClick={onDetails}>
               <BarChart size={14} className="mr-2" />
               Analytics
             </Button>
-            {isHardDeletable ? (
-              <Button variant="destructive" size="sm" className="px-3" onClick={onDelete} title="Permanently delete">
-                <Trash2 size={14} />
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="px-3 text-orange-600 border-orange-300 hover:bg-orange-50"
-                onClick={onDeactivate || onDelete}
-                title="Deactivate (history exists)"
-              >
-                <Power size={14} />
-              </Button>
+            {isOwner && isActive && (
+              isHardDeletable && can('action_beat_delete', 'delete') ? (
+                <Button variant="destructive" size="sm" className="px-3" onClick={onDelete} title="Permanently delete">
+                  <Trash2 size={14} />
+                </Button>
+              ) : can('action_beat_delete', 'delete') ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="px-3 text-orange-600 border-orange-300 hover:bg-orange-50"
+                  onClick={onDeactivate || onDelete}
+                  title="Deactivate (history exists)"
+                >
+                  <Power size={14} />
+                </Button>
+              ) : null
             )}
           </div>
         </div>
