@@ -88,7 +88,7 @@ export function TransferOwnershipModal({
     return () => clearTimeout(handle);
   }, [query, open, currentUserId]);
 
-  const personName = selectedUser?.full_name || selectedUser?.name || "this user";
+  const personName = selectedUser?.full_name || selectedUser?.username || "this user";
   const canSubmit = !!selectedUser && !!reason.trim() && !submitting;
 
   const handleConfirm = async () => {
