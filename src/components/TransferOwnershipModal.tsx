@@ -169,7 +169,7 @@ export function TransferOwnershipModal({
                     ) : (
                       results.map((r) => (
                         <button
-                          key={r.user_id}
+                          key={r.id}
                           type="button"
                           onClick={() => {
                             setSelectedUser(r);
@@ -179,10 +179,10 @@ export function TransferOwnershipModal({
                           className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
                         >
                           <Avatar className="h-6 w-6">
-                            <AvatarImage src={r.avatar_url ?? undefined} />
-                            <AvatarFallback>{initials(r.full_name || r.name)}</AvatarFallback>
+                            <AvatarImage src={r.profile_picture_url ?? undefined} />
+                            <AvatarFallback>{initials(r.full_name || r.username)}</AvatarFallback>
                           </Avatar>
-                          <span className="text-sm">{r.full_name || r.name || "Unnamed"}</span>
+                          <span className="text-sm">{r.full_name || r.username || "Unnamed"}</span>
                         </button>
                       ))
                     )}
