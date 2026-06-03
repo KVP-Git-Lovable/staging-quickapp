@@ -188,8 +188,8 @@ export const MyBeats = () => {
   const [transferBeat, setTransferBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   
-  // Deactivate state
-  const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string} | null>(null);
+  // Deactivate state (wizard)
+  const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
