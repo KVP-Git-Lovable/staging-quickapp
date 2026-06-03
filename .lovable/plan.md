@@ -1,10 +1,9 @@
 ## Goal
-Create `DeactivateBeatWizard` to replace the current delete action on My Beats. It guides the user through handling retailers, then deactivates the beat.
+Build two modals that drive sharing and coverage on a beat using existing `beatService` functions, and wire them into `MyBeats.tsx` to replace the current "coming soon" toasts.
 
-## New file
-`src/components/DeactivateBeatWizard.tsx`
+---
 
-A controlled Dialog with two-step wizard state (`step: 1 | 2`).
+## File 1 — `src/components/ShareBeatModal.tsx` (new)
 
 ### Props
 ```ts
@@ -12,62 +11,75 @@ A controlled Dialog with two-step wizard state (`step: 1 | 2`).
   open: boolean;
   onOpenChange: (open: boolean) => void;
   beat: { id: string; beat_id: string; beat_name: string };
-  retailerCount: number;
-  userId: string;
-  onSuccess: () => void;   // parent reloads beats
+  grantedBy: string;     // current user id
 }
 ```
 
-### Internal data fetched on open
-- Retailers on this beat: `supabase.from('retailers').select('id, name').eq('beat_id', beat.beat_id)`
-- Active destination beats (excluding current): `supabase.from('beats').select('id, beat_id, beat_name').eq('is_active', true).neq('id', beat.id)` (scoped by `user_id = userId` to keep it to user's own beats)
+### UI
+- Shadcn `Dialog` titled "Share Beat — {beat.beat_name}".
+- **Form** (top):
+  - User search: debounced text input → `supabase.from('profiles').select('user_id, full_name, name, avatar_url').ilike('full_name','%q%').limit(8)`. Show result list; click sets `selectedUser`. Exclude beat owner and already-active sharees.
+  - Access level: `RadioGroup` with `CO_OWNER` ("Co-owner — can view, visit, take orders, edit retailers") and `VIEW_ONLY` ("View only — can view beat and retailers only").
+  - Duration: `RadioGroup` with `permanent` and `until`. When `until`, show shadcn date picker (Popover + Calendar with `pointer-events-auto`).
+  - Reason: optional `Input`.
+  - Footer: `Cancel` + `Grant Access` (disabled until user + access + (date if "until") set, plus submitting spinner).
+- **Current shares list** (below form):
+  - Fetched via `supabase.from('beat_user_access').select('id, user_id, access_type, effective_to, profiles:profiles!beat_user_access_user_id_fkey(full_name, name, avatar_url)').eq('beat_id', beat.beat_id).in('access_type', ['CO_OWNER','VIEW_ONLY']).eq('is_active', true)`. If the FK alias fails, fall back to a separate `profiles` batch fetch.
+  - Each row: `Avatar` (initials), name, access badge (`Co-owner` / `View only`), duration text (`Permanent` if `effective_to` null, else `Until <formatted date>`), `Revoke` button.
 
-### Step 1 — Retailer handling
-If `retailerCount === 0`: skip directly to Step 2 (set step=2 in the load effect).
+### Actions
+- **Grant**: `await beatService.grantBeatAccess(beat.id, selectedUser.user_id, access, grantedBy, untilDate?.toISOString() ?? null)` → toast success, reset form, refresh shares list.
+- **Revoke**: `await beatService.revokeBeatAccess(beat.id, row.user_id, row.access_type)` → toast, refresh list.
+- All errors → `toast.error(err.message)`, keep dialog open.
 
-Otherwise show RadioGroup with 3 options:
-1. `keep` — "Keep retailers attached" (default)
-2. `transfer_all` — "Transfer all retailers" + Select dropdown of destination beats
-3. `transfer_selected` — "Transfer selected retailers" + checkbox list of retailers + Select dropdown of destination beats
+---
 
-Validation to enable Next:
-- `keep` → always valid
-- `transfer_all` → destination chosen
-- `transfer_selected` → ≥1 retailer checked AND destination chosen
+## File 2 — `src/components/CoverageModal.tsx` (new)
 
-Buttons: [Cancel] [Next]
+### Props
+```ts
+{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  beat: { id: string; beat_id: string; beat_name: string };
+  primaryUserId: string; // beat owner
+  assignedBy: string;    // current user id
+}
+```
 
-### Step 2 — Confirmation summary
-Plain-language summary derived from Step 1 state:
-- "Beat **{beat_name}** will be marked **Inactive**."
-- If transferring: "**{N}** retailer(s) will move to **{destBeatName}**."
-- If keep: "**{retailerCount}** retailer(s) will remain attached."
+### UI
+- Shadcn `Dialog` titled "Assign Coverage — {beat.beat_name}".
+- **Form**:
+  - Coverage person: same debounced profile search component pattern as ShareBeatModal (exclude `primaryUserId`).
+  - Start date + End date: two shadcn date pickers (Popover + Calendar). End must be ≥ Start.
+  - Temporary permissions: `Select` populated from `supabase.from('permission_set_groups').select('id, name, description').order('name')`. Optional. Helper text: "If selected, {personName} gets these extra permissions only during coverage dates."
+  - Reason: required `Input` (reason is non-null in `assignCoverage`).
+  - Footer: `Cancel` + `Assign Coverage` (disabled until person + start + end + reason).
 
-Buttons: [Back] [Confirm Deactivate] (loading state while submitting)
+### Actions
+- **Assign**: `beatService.assignCoverage(beat.id, primaryUserId, coverageUser.user_id, startIso, endIso, reason, permissionSetId ?? '', assignedBy)`.
+  - Caveat: `assignCoverage` always inserts into `coverage_permission_assignments`. If no permission set selected we will pass an empty string today, which will likely fail. **Workaround in this modal**: require a permission set selection (mark dropdown required) to avoid a broken call. Note this clearly in the helper text: "Select a permission set". Updating the service signature to make it optional is out of scope per prior agreement.
+  - Toast success, close dialog, refresh active coverage list.
+- **Active coverage list** (below form): `supabase.from('beat_coverage_assignments').select('id, coverage_user_id, start_date, end_date, profiles:profiles!beat_coverage_assignments_coverage_user_id_fkey(full_name, name, avatar_url)').eq('beat_id', beat.beat_id).eq('is_active', true).order('start_date',{ascending:false})`. Same FK fallback pattern.
+  - Each row: avatar + name + `{start} → {end}` + `End Coverage` button → `beatService.endCoverage(row.id)` → refresh.
 
-### On Confirm
-1. If mode is `transfer_all` or `transfer_selected`:
-   - `await beatService.transferRetailers(retailerIds, beat.id, destBeatId, userId, 'Beat deactivation')`
-   - `retailerIds` = all retailers (transfer_all) or checked subset
-2. `await beatService.deactivateBeat(beat.id, userId)`
-3. `toast.success('Beat deactivated')`
-4. `onSuccess()` and close dialog
-5. Catch → `toast.error(err.message)`, keep dialog open
+---
 
 ## Wire-up in `src/pages/MyBeats.tsx`
-- Import `DeactivateBeatWizard`.
-- Add state: `deactivatingBeat: AnnotatedBeat | null`.
-- Replace whatever currently handles the "Deactivate Beat" menu action on `BeatCard` (the `onDeactivate` / delete callback) so it sets `deactivatingBeat` instead of calling delete.
-- Render `<DeactivateBeatWizard open={!!deactivatingBeat} onOpenChange={(o)=>!o&&setDeactivatingBeat(null)} beat={...} retailerCount={deactivatingBeat?.retailer_count ?? 0} userId={user.id} onSuccess={loadMyBeatsAndStats} />`.
+- Import `ShareBeatModal` and `CoverageModal`.
+- Add state: `shareBeat`, `coverageBeat` (`{ id, beat_id, name } | null`).
+- Replace existing `onShare`/`onAssignCoverage` props (currently `toast.info`) on `BeatCard` (line 1787-1788) to set the corresponding state with `{ id: beat.id, beat_id: beat.id, name: beat.name }` (since `MyBeats` `beat.id` IS the text key per memory).
+- Render both modals near other dialogs at the bottom of the JSX, gated by `user` and the state being set; pass `grantedBy: user.id`, `primaryUserId: user.id` (current owner viewing their own beat), `assignedBy: user.id`.
+
+---
 
 ## Out of scope
-- No changes to `beatService` (uses existing `transferRetailers` and `deactivateBeat`).
-- No changes to `BeatCard` menu structure or permissions matrix.
-- No edits to `BeatDeleteDialog` (kept for the separate inactive-beat hard delete path).
-- No DB / RLS / migration changes.
-- No edits to `types.ts`.
+- No `beatService.ts` changes.
+- No DB migration, RLS, or table changes.
+- No edits to `types.ts`, `BeatCard.tsx` menu, or permission matrix.
+- No revamp of MyBeats data loading.
 
-## UI/UX notes
-- Use existing shadcn `Dialog`, `RadioGroup`, `Select`, `Checkbox`, `ScrollArea`, `Button`.
-- Use semantic design tokens only; no hardcoded colors.
-- Disable destructive Confirm button while async work is pending.
+## UI notes
+- Use semantic tokens only; no hardcoded hex.
+- Calendar uses `pointer-events-auto` per shadcn datepicker guidance.
+- `Avatar` initials fallback when `avatar_url` missing.
