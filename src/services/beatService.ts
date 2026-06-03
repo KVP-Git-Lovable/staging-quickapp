@@ -47,7 +47,7 @@ async function resolveBeatTextId(beatId: string): Promise<{ id: string; beat_id:
   const { data, error } = await supabase
     .from('beats')
     .select('id, beat_id, beat_name, user_id')
-    .eq('id', beatId)
+    .eq('beat_id', beatId)
     .maybeSingle();
   throwIfError(error, 'resolveBeatTextId');
   if (!data) throw new Error(`Beat not found: ${beatId}`);
@@ -241,7 +241,7 @@ export async function transferBeatOwnership(
   const { data: beat, error: bErr } = await supabase
     .from('beats')
     .select('id, beat_id, beat_name, owner_id, owner_name, user_id')
-    .eq('id', beatId)
+    .eq('beat_id', beatId)
     .maybeSingle();
   throwIfError(bErr, 'transferBeatOwnership.fetch');
   if (!beat) throw new Error('Beat not found');
