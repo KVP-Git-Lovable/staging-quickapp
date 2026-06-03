@@ -1794,9 +1794,9 @@ export const MyBeats = () => {
                   }}
                   onShare={() => setShareBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   onAssignCoverage={() => setCoverageBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
-                  onTransferOwnership={() => toast.info('Transfer Ownership — coming soon')}
+                  onTransferOwnership={() => setOwnershipTransferBeat({ id: beat.id, beat_id: beat.id, name: beat.name, retailer_count: beat.retailer_count })}
                   onClone={() => toast.info('Clone Beat — coming soon')}
-                  onHistory={() => toast.info('View History — coming soon')}
+                  onHistory={() => setHistoryBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   isHardDeletable={deletabilityMap[beat.id] === true}
                 />
               ))}
