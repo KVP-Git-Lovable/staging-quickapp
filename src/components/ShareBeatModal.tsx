@@ -405,7 +405,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
             ) : (
               <div className="space-y-2">
                 {shares.map((row) => {
-                  const nm = row.profile?.full_name || row.profile?.name || "Unnamed";
+                  const nm = row.profile?.full_name || row.profile?.username || "Unnamed";
                   return (
                     <div
                       key={row.id}
@@ -413,7 +413,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={row.profile?.avatar_url ?? undefined} />
+                          <AvatarImage src={row.profile?.profile_picture_url ?? undefined} />
                           <AvatarFallback>{initials(nm)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
