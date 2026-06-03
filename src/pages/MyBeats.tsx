@@ -38,6 +38,7 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { clearMyVisitsSnapshot } from "@/lib/myVisitsSnapshot";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { BeatDeleteDialog } from "@/components/BeatDeleteDialog";
+import { DuplicateBeatWarningDialog } from "@/components/DuplicateBeatWarningDialog";
 import { BeatTransferDialog } from "@/components/BeatTransferDialog";
 import { useDeleteConfirm } from "@/hooks/useDeleteConfirm";
 import { useBeatLifecycle } from "@/hooks/useBeatLifecycle";
@@ -102,6 +103,75 @@ interface Retailer {
     avgOrderPerVisit: number;
     visitsIn3Months: number;
   };
+}
+
+// Levenshtein distance for near-match detection
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[m][n];
+}
+
+type DuplicateMatch = {
+  matchType: 'exact_own' | 'exact_other' | 'near_own' | 'near_other';
+  existingOwnerName?: string;
+  matchedBeatName?: string;
+};
+
+async function checkBeatNameDuplicate(
+  name: string,
+  currentUserId: string,
+  distributorId: string | null
+): Promise<DuplicateMatch | null> {
+  const normalized = name.trim().toLowerCase();
+
+  let query = supabase
+    .from('beats')
+    .select('beat_name, user_id, profiles:user_id(full_name, name)')
+    .eq('is_active', true);
+
+  if (distributorId) query = query.eq('distributor_id', distributorId);
+
+  const { data: orgBeats } = await query;
+  if (!orgBeats || orgBeats.length === 0) return null;
+
+  for (const b of orgBeats as any[]) {
+    const bName = (b.beat_name || '').toLowerCase();
+    if (bName === normalized) {
+      const isOwn = b.user_id === currentUserId;
+      const ownerName = b.profiles?.full_name || b.profiles?.name || 'Another user';
+      return {
+        matchType: isOwn ? 'exact_own' : 'exact_other',
+        existingOwnerName: ownerName,
+        matchedBeatName: b.beat_name,
+      };
+    }
+  }
+
+  for (const b of orgBeats as any[]) {
+    const bName = (b.beat_name || '').toLowerCase();
+    if (!bName) continue;
+    const dist = levenshtein(normalized, bName);
+    const contains = normalized.length >= 4 && (bName.includes(normalized) || normalized.includes(bName));
+    if (dist <= 2 || contains) {
+      const isOwn = b.user_id === currentUserId;
+      const ownerName = b.profiles?.full_name || b.profiles?.name || 'Another user';
+      return {
+        matchType: isOwn ? 'near_own' : 'near_other',
+        existingOwnerName: ownerName,
+        matchedBeatName: b.beat_name,
+      };
+    }
+  }
+
+  return null;
 }
 
 export const MyBeats = () => {
@@ -199,6 +269,12 @@ export const MyBeats = () => {
   const [coverageBeat, setCoverageBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   const [ownershipTransferBeat, setOwnershipTransferBeat] = useState<{id: string; beat_id: string; name: string; retailer_count: number} | null>(null);
   const [historyBeat, setHistoryBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    matchType: 'exact_own' | 'exact_other' | 'near_own' | 'near_other';
+    existingOwnerName?: string;
+    matchedBeatName?: string;
+    proceedCallback: () => void;
+  } | null>(null);
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
@@ -640,44 +716,13 @@ export const MyBeats = () => {
     })));
   };
 
-  const handleSaveBeat = async () => {
-    if (!beatName.trim()) {
-      toast.error('Please enter a beat name');
-      return;
-    }
-
-    // Check for duplicate beat name
-    const duplicateBeat = beats.find(
-      beat => beat.name.toLowerCase() === beatName.trim().toLowerCase()
-    );
-    
-    if (duplicateBeat) {
-      toast.error(`Beat name "${beatName.trim()}" already exists. Please use a different name.`);
-      return;
-    }
-
-    if (repeatEnabled && repeatType === 'weekly' && repeatDays.length === 0) {
-      toast.error("Please select at least one day for weekly repeat");
-      return;
-    }
-
-    if (repeatEnabled && repeatType === 'custom' && (!customIntervalDays || customIntervalDays < 1)) {
-      toast.error("Please enter a valid number of days (minimum 1) for custom interval");
-      return;
-    }
-
-    if (repeatEnabled && repeatUntilMode === "date" && !repeatEndDate) {
-      toast.error("Please select an end date for the recurring beat");
-      return;
-    }
-
+  const proceedWithBeatCreation = async () => {
     if (!user) return;
-
     setIsCreating(true);
     try {
       // Generate unique beat ID
       const beatId = `beat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const beatData = {
         beat_id: beatId,
         beat_name: beatName.trim(),
@@ -692,24 +737,31 @@ export const MyBeats = () => {
         territory_id: selectedTerritoryId || null,
         created_at: new Date().toISOString()
       };
-      
+
       // Insert beat into database
       const { error: beatError } = await supabase
         .from('beats')
         .insert([beatData]);
-      
-      if (beatError) throw beatError;
-      
+
+      if (beatError) {
+        // DB unique-index safety net for exact duplicates
+        if ((beatError as any).code === '23505') {
+          toast.error(`Beat name "${beatName.trim()}" already exists. Please choose a different name.`);
+          return;
+        }
+        throw beatError;
+      }
+
       // Update selected retailers with beat information (only if retailers are selected)
       if (selectedRetailers.size > 0) {
         const { error: retailerError } = await supabase
           .from('retailers')
-          .update({ 
+          .update({
             beat_id: beatId,
             beat_name: beatName.trim()
           })
           .in('id', Array.from(selectedRetailers));
-        
+
         if (retailerError) throw retailerError;
       }
 
@@ -725,7 +777,7 @@ export const MyBeats = () => {
         average_time_minutes: parseInt(averageTimeMinutes) || 0,
         created_at: new Date().toISOString()
       };
-      
+
       try {
         await supabase.from('beat_allowances').insert(allowanceData);
       } catch (error) {
@@ -761,6 +813,55 @@ export const MyBeats = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleSaveBeat = async () => {
+    if (!beatName.trim()) {
+      toast.error('Please enter a beat name');
+      return;
+    }
+
+    if (repeatEnabled && repeatType === 'weekly' && repeatDays.length === 0) {
+      toast.error("Please select at least one day for weekly repeat");
+      return;
+    }
+
+    if (repeatEnabled && repeatType === 'custom' && (!customIntervalDays || customIntervalDays < 1)) {
+      toast.error("Please enter a valid number of days (minimum 1) for custom interval");
+      return;
+    }
+
+    if (repeatEnabled && repeatUntilMode === "date" && !repeatEndDate) {
+      toast.error("Please select an end date for the recurring beat");
+      return;
+    }
+
+    if (!user) return;
+
+    // Async duplicate check across the org
+    const duplicateResult = await checkBeatNameDuplicate(
+      beatName.trim(),
+      user.id,
+      (user as any).distributor_id ?? null
+    );
+
+    if (duplicateResult) {
+      const isExact =
+        duplicateResult.matchType === 'exact_own' || duplicateResult.matchType === 'exact_other';
+      setDuplicateWarning({
+        ...duplicateResult,
+        // Exact duplicates are blocked — proceedCallback is a no-op for them.
+        proceedCallback: isExact
+          ? () => setDuplicateWarning(null)
+          : async () => {
+              setDuplicateWarning(null);
+              await proceedWithBeatCreation();
+            },
+      });
+      return;
+    }
+
+    await proceedWithBeatCreation();
   };
 
   const generateBeatPlans = async (beatId: string, endDate: Date, beatNameParam?: string) => {
@@ -2494,8 +2595,18 @@ export const MyBeats = () => {
           />
         )}
 
-
-
+        {duplicateWarning && (
+          <DuplicateBeatWarningDialog
+            open={!!duplicateWarning}
+            onOpenChange={(o) => { if (!o) setDuplicateWarning(null); }}
+            beatName={beatName}
+            matchType={duplicateWarning.matchType}
+            existingOwnerName={duplicateWarning.existingOwnerName}
+            matchedBeatName={duplicateWarning.matchedBeatName}
+            onConfirm={duplicateWarning.proceedCallback}
+            onCancel={() => setDuplicateWarning(null)}
+          />
+        )}
 
       </div>
     </Layout>
