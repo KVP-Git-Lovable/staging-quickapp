@@ -716,44 +716,13 @@ export const MyBeats = () => {
     })));
   };
 
-  const handleSaveBeat = async () => {
-    if (!beatName.trim()) {
-      toast.error('Please enter a beat name');
-      return;
-    }
-
-    // Check for duplicate beat name
-    const duplicateBeat = beats.find(
-      beat => beat.name.toLowerCase() === beatName.trim().toLowerCase()
-    );
-    
-    if (duplicateBeat) {
-      toast.error(`Beat name "${beatName.trim()}" already exists. Please use a different name.`);
-      return;
-    }
-
-    if (repeatEnabled && repeatType === 'weekly' && repeatDays.length === 0) {
-      toast.error("Please select at least one day for weekly repeat");
-      return;
-    }
-
-    if (repeatEnabled && repeatType === 'custom' && (!customIntervalDays || customIntervalDays < 1)) {
-      toast.error("Please enter a valid number of days (minimum 1) for custom interval");
-      return;
-    }
-
-    if (repeatEnabled && repeatUntilMode === "date" && !repeatEndDate) {
-      toast.error("Please select an end date for the recurring beat");
-      return;
-    }
-
+  const proceedWithBeatCreation = async () => {
     if (!user) return;
-
     setIsCreating(true);
     try {
       // Generate unique beat ID
       const beatId = `beat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       const beatData = {
         beat_id: beatId,
         beat_name: beatName.trim(),
@@ -768,24 +737,31 @@ export const MyBeats = () => {
         territory_id: selectedTerritoryId || null,
         created_at: new Date().toISOString()
       };
-      
+
       // Insert beat into database
       const { error: beatError } = await supabase
         .from('beats')
         .insert([beatData]);
-      
-      if (beatError) throw beatError;
-      
+
+      if (beatError) {
+        // DB unique-index safety net for exact duplicates
+        if ((beatError as any).code === '23505') {
+          toast.error(`Beat name "${beatName.trim()}" already exists. Please choose a different name.`);
+          return;
+        }
+        throw beatError;
+      }
+
       // Update selected retailers with beat information (only if retailers are selected)
       if (selectedRetailers.size > 0) {
         const { error: retailerError } = await supabase
           .from('retailers')
-          .update({ 
+          .update({
             beat_id: beatId,
             beat_name: beatName.trim()
           })
           .in('id', Array.from(selectedRetailers));
-        
+
         if (retailerError) throw retailerError;
       }
 
@@ -801,7 +777,7 @@ export const MyBeats = () => {
         average_time_minutes: parseInt(averageTimeMinutes) || 0,
         created_at: new Date().toISOString()
       };
-      
+
       try {
         await supabase.from('beat_allowances').insert(allowanceData);
       } catch (error) {
@@ -837,6 +813,55 @@ export const MyBeats = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleSaveBeat = async () => {
+    if (!beatName.trim()) {
+      toast.error('Please enter a beat name');
+      return;
+    }
+
+    if (repeatEnabled && repeatType === 'weekly' && repeatDays.length === 0) {
+      toast.error("Please select at least one day for weekly repeat");
+      return;
+    }
+
+    if (repeatEnabled && repeatType === 'custom' && (!customIntervalDays || customIntervalDays < 1)) {
+      toast.error("Please enter a valid number of days (minimum 1) for custom interval");
+      return;
+    }
+
+    if (repeatEnabled && repeatUntilMode === "date" && !repeatEndDate) {
+      toast.error("Please select an end date for the recurring beat");
+      return;
+    }
+
+    if (!user) return;
+
+    // Async duplicate check across the org
+    const duplicateResult = await checkBeatNameDuplicate(
+      beatName.trim(),
+      user.id,
+      (user as any).distributor_id ?? null
+    );
+
+    if (duplicateResult) {
+      const isExact =
+        duplicateResult.matchType === 'exact_own' || duplicateResult.matchType === 'exact_other';
+      setDuplicateWarning({
+        ...duplicateResult,
+        // Exact duplicates are blocked — proceedCallback is a no-op for them.
+        proceedCallback: isExact
+          ? () => setDuplicateWarning(null)
+          : async () => {
+              setDuplicateWarning(null);
+              await proceedWithBeatCreation();
+            },
+      });
+      return;
+    }
+
+    await proceedWithBeatCreation();
   };
 
   const generateBeatPlans = async (beatId: string, endDate: Date, beatNameParam?: string) => {
