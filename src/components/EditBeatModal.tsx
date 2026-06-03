@@ -27,6 +27,7 @@ interface Beat {
   average_km?: number;
   average_time_minutes?: number;
   territory_id?: string;
+  category?: string;
 }
 
 interface Territory {
@@ -56,6 +57,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
   const [travelAllowance, setTravelAllowance] = useState('');
   const [averageKm, setAverageKm] = useState('');
   const [averageTimeMinutes, setAverageTimeMinutes] = useState('');
+  const [category, setCategory] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [allRetailers, setAllRetailers] = useState<Retailer[]>([]);
@@ -100,6 +102,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
       setBeatName(beat.name || '');
       setAverageKm(beat.average_km?.toString() || '');
       setAverageTimeMinutes(beat.average_time_minutes?.toString() || '');
+      setCategory(beat.category || '');
       loadRetailers();
       loadTerritories();
       loadBeatTerritory();
@@ -269,16 +272,17 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
 
     setLoading(true);
     try {
-      // Update the shared beats table
+      // Update the shared beats table.
+      // Note: beat.id here is the text beat_id (see MyBeats.loadBeats which maps id: beat.beat_id).
       const { error: beatUpdateError } = await supabase
         .from('beats')
         .update({
           beat_name: beatName.trim(),
+          category: category.trim() || null,
           travel_allowance: taType === 'fixed' ? fixedTaAmount : (parseFloat(travelAllowance) || 0),
           average_km: parseFloat(averageKm) || 0,
           average_time_minutes: parseInt(averageTimeMinutes) || 0,
           territory_id: selectedTerritoryId || null,
-          updated_at: new Date().toISOString()
         })
         .eq('beat_id', beat.id);
 
@@ -390,6 +394,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
     setTravelAllowance('');
     setAverageKm('');
     setAverageTimeMinutes('');
+    setCategory('');
     setSearchTerm('');
     setSelectedRetailers(new Set());
     setRepeatEnabled(false);
@@ -501,6 +506,17 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      placeholder="e.g. General, Premium, Wholesale"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                    />
+                  </div>
+                  
                   
                   <div className="space-y-2">
                     <Label htmlFor="territory" className="flex items-center gap-2">
