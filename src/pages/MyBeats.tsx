@@ -1263,11 +1263,43 @@ export const MyBeats = () => {
     retailer.phone.includes(searchTerm)
   );
 
-  const filteredBeats = beats.filter((beat) => {
-    if (beatStatusFilter === 'active' && beat.is_active === false) return false;
-    if (beatStatusFilter === 'inactive' && beat.is_active !== false) return false;
+  // Access lookup keyed by the text beat_id (which matches Beat.id in this page).
+  const accessByBeatId = useMemo(() => {
+    const map = new Map<string, BeatWithAccess>();
+    for (const b of myBeatsRaw) {
+      if ((b as any).beat_id) map.set((b as any).beat_id, b);
+    }
+    return map;
+  }, [myBeatsRaw]);
+
+  // Annotate beats with their accessType for filtering / rendering.
+  const annotatedBeats = useMemo(() => {
+    return beats.map((b) => {
+      const acc = accessByBeatId.get(b.id);
+      const accessType = (acc?.accessType ?? 'OWNED') as 'OWNED' | 'CO_OWNER' | 'VIEW_ONLY' | 'COVERAGE';
+      return {
+        ...b,
+        accessType,
+        coverageEndDate: (acc as any)?.effective_to ?? null,
+        sharedByName: (acc as any)?.owner_name ?? null,
+      };
+    });
+  }, [beats, accessByBeatId]);
+
+  const filteredBeats = annotatedBeats.filter((beat) => {
+    // Tab filter
+    const isActive = beat.is_active !== false;
+    if (accessTab === 'mine' && !(beat.accessType === 'OWNED' && isActive)) return false;
+    if (accessTab === 'shared' && !((beat.accessType === 'CO_OWNER' || beat.accessType === 'VIEW_ONLY') && isActive)) return false;
+    if (accessTab === 'covering') {
+      if (beat.accessType !== 'COVERAGE') return false;
+      if (beat.coverageEndDate && new Date(beat.coverageEndDate) < new Date(new Date().toDateString())) return false;
+    }
+    if (accessTab === 'inactive' && isActive) return false;
+    // 'all' = no tab filter
     return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
   });
+
 
   // Lazily resolve which beats are hard-deletable (no historical references)
   const unknownDeletabilityIds = useMemo(
