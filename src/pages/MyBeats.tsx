@@ -1784,8 +1784,8 @@ export const MyBeats = () => {
                     const ok = await beatLifecycle.reactivate(beat.id, beat.name);
                     if (ok) loadBeats();
                   }}
-                  onShare={() => toast.info('Share Beat — coming soon')}
-                  onAssignCoverage={() => toast.info('Assign Coverage — coming soon')}
+                  onShare={() => setShareBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
+                  onAssignCoverage={() => setCoverageBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   onTransferOwnership={() => toast.info('Transfer Ownership — coming soon')}
                   onClone={() => toast.info('Clone Beat — coming soon')}
                   onHistory={() => toast.info('View History — coming soon')}
