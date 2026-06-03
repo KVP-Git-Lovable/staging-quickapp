@@ -1162,6 +1162,93 @@ export type Database = {
         }
         Relationships: []
       }
+      beat_coverage_assignments: {
+        Row: {
+          assigned_by: string
+          beat_id: string
+          beat_name: string
+          coverage_user_id: string
+          created_at: string
+          end_date: string
+          id: string
+          is_active: boolean
+          primary_user_id: string
+          reason: string | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by: string
+          beat_id: string
+          beat_name: string
+          coverage_user_id: string
+          created_at?: string
+          end_date: string
+          id?: string
+          is_active?: boolean
+          primary_user_id: string
+          reason?: string | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string
+          beat_id?: string
+          beat_name?: string
+          coverage_user_id?: string
+          created_at?: string
+          end_date?: string
+          id?: string
+          is_active?: boolean
+          primary_user_id?: string
+          reason?: string | null
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      beat_ownership_history: {
+        Row: {
+          beat_id: string
+          beat_name: string
+          created_at: string
+          id: string
+          new_owner_id: string
+          new_owner_name: string | null
+          old_owner_id: string
+          old_owner_name: string | null
+          reason: string | null
+          transferred_at: string
+          transferred_by: string
+        }
+        Insert: {
+          beat_id: string
+          beat_name: string
+          created_at?: string
+          id?: string
+          new_owner_id: string
+          new_owner_name?: string | null
+          old_owner_id: string
+          old_owner_name?: string | null
+          reason?: string | null
+          transferred_at?: string
+          transferred_by: string
+        }
+        Update: {
+          beat_id?: string
+          beat_name?: string
+          created_at?: string
+          id?: string
+          new_owner_id?: string
+          new_owner_name?: string | null
+          old_owner_id?: string
+          old_owner_name?: string | null
+          reason?: string | null
+          transferred_at?: string
+          transferred_by?: string
+        }
+        Relationships: []
+      }
       beat_plans: {
         Row: {
           beat_data: Json
@@ -1198,6 +1285,48 @@ export type Database = {
         }
         Relationships: []
       }
+      beat_user_access: {
+        Row: {
+          access_type: string
+          beat_id: string
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          granted_by: string
+          id: string
+          is_active: boolean
+          reason: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_type: string
+          beat_id: string
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          granted_by: string
+          id?: string
+          is_active?: boolean
+          reason?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          beat_id?: string
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          granted_by?: string
+          id?: string
+          is_active?: boolean
+          reason?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       beats: {
         Row: {
           average_km: number | null
@@ -1217,6 +1346,8 @@ export type Database = {
           reactivated_at: string | null
           reactivated_by: string | null
           territory_id: string | null
+          transferred_at: string | null
+          transferred_by: string | null
           travel_allowance: number | null
           updated_at: string
           updated_by: string | null
@@ -1240,6 +1371,8 @@ export type Database = {
           reactivated_at?: string | null
           reactivated_by?: string | null
           territory_id?: string | null
+          transferred_at?: string | null
+          transferred_by?: string | null
           travel_allowance?: number | null
           updated_at?: string
           updated_by?: string | null
@@ -1263,6 +1396,8 @@ export type Database = {
           reactivated_at?: string | null
           reactivated_by?: string | null
           territory_id?: string | null
+          transferred_at?: string | null
+          transferred_by?: string | null
           travel_allowance?: number | null
           updated_at?: string
           updated_by?: string | null
@@ -2924,6 +3059,50 @@ export type Database = {
             columns: ["pos_customer_id"]
             isOneToOne: false
             referencedRelation: "pos_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coverage_permission_assignments: {
+        Row: {
+          created_at: string
+          end_date: string
+          granted_by: string
+          id: string
+          is_active: boolean
+          permission_set_id: string
+          reason: string | null
+          start_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          granted_by: string
+          id?: string
+          is_active?: boolean
+          permission_set_id: string
+          reason?: string | null
+          start_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          granted_by?: string
+          id?: string
+          is_active?: boolean
+          permission_set_id?: string
+          reason?: string | null
+          start_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coverage_permission_assignments_permission_set_id_fkey"
+            columns: ["permission_set_id"]
+            isOneToOne: false
+            referencedRelation: "permission_set_groups"
             referencedColumns: ["id"]
           },
         ]
@@ -10280,6 +10459,7 @@ export type Database = {
           assigned_agent_id: string | null
           assigned_van_id: string | null
           beat_id: string | null
+          beat_name_snapshot: string | null
           cancellation_reason: string | null
           cancelled_at: string | null
           cancelled_by: string | null
@@ -10332,6 +10512,7 @@ export type Database = {
           assigned_agent_id?: string | null
           assigned_van_id?: string | null
           beat_id?: string | null
+          beat_name_snapshot?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -10384,6 +10565,7 @@ export type Database = {
           assigned_agent_id?: string | null
           assigned_van_id?: string | null
           beat_id?: string | null
+          beat_name_snapshot?: string | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
@@ -21235,8 +21417,16 @@ export type Database = {
         Args: { _action: string; _perm: string; _user_id: string }
         Returns: boolean
       }
+      user_has_beat_access: {
+        Args: { _beat_id: string; _user_id: string }
+        Returns: boolean
+      }
       user_has_operational_access: {
         Args: { _perm: string; _retailer: string; _user: string }
+        Returns: boolean
+      }
+      user_has_permission: {
+        Args: { _object: string; _perm: string; _user_id: string }
         Returns: boolean
       }
       user_owns_retailer: {
