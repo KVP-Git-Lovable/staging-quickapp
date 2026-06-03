@@ -848,16 +848,18 @@ export const MyBeats = () => {
     if (duplicateResult) {
       const isExact =
         duplicateResult.matchType === 'exact_own' || duplicateResult.matchType === 'exact_other';
-      setDuplicateWarning({
-        ...duplicateResult,
-        // Exact duplicates are blocked — proceedCallback is a no-op for them.
-        proceedCallback: isExact
-          ? () => setDuplicateWarning(null)
-          : async () => {
-              setDuplicateWarning(null);
-              await proceedWithBeatCreation();
-            },
-      });
+      setIsCreateBeatOpen(false);
+      setTimeout(() => {
+        setDuplicateWarning({
+          ...duplicateResult,
+          proceedCallback: isExact
+            ? () => setDuplicateWarning(null)
+            : async () => {
+                setDuplicateWarning(null);
+                await proceedWithBeatCreation();
+              },
+        });
+      }, 150);
       return;
     }
 

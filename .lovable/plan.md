@@ -1,33 +1,35 @@
-## Plan: Fix duplicate-check returning nothing + wrong owner name
+## Status check
 
-### Root cause
+- ✅ `username` fix in `checkBeatNameDuplicate` (line 137 + both owner-name fallbacks at 149/165) is already applied.
+- ❌ Dialog-stacking fix is **not** applied yet. `handleSaveBeat` (lines 848–862) sets `duplicateWarning` while the Create Beat `<Dialog open={isCreateBeatOpen}>` is still open, so the warning renders behind it and the user sees nothing happen.
 
-`checkBeatNameDuplicate` in `src/pages/MyBeats.tsx` line 137 selects `profiles:user_id(full_name, name)`. The `name` column does not exist on `profiles` (correct column is `username`). PostgREST rejects the whole query, `orgBeats` comes back undefined/empty, and the function returns `null` — so **no duplicate warning ever fires**, which is why typing "udupi" went through silently even though "Udupi" exists in the table.
+## Fix (single edit, `src/pages/MyBeats.tsx`, lines 848–862)
 
-The same bad column also means the owner-name fallback (`b.profiles?.name`) can never resolve, hence `"Another user"` when it should read `"Prabhu KVP"`.
+Close the Create Beat dialog first, then open the warning after a short delay so Radix's exit animation completes and the warning portal sits on top cleanly.
 
-### Fix (single file, src/pages/MyBeats.tsx)
+```ts
+if (duplicateResult) {
+  const isExact =
+    duplicateResult.matchType === 'exact_own' || duplicateResult.matchType === 'exact_other';
+  setIsCreateBeatOpen(false);
+  setTimeout(() => {
+    setDuplicateWarning({
+      ...duplicateResult,
+      proceedCallback: isExact
+        ? () => setDuplicateWarning(null)
+        : async () => {
+            setDuplicateWarning(null);
+            await proceedWithBeatCreation();
+          },
+    });
+  }, 150);
+  return;
+}
+```
 
-Three one-token edits:
-
-1. **Line 137** — embed select:
-   ```ts
-   .select('beat_name, user_id, profiles:user_id(full_name, username)')
-   ```
-2. **Line 149** — exact-match owner name:
-   ```ts
-   const ownerName = b.profiles?.full_name || b.profiles?.username || 'Another user';
-   ```
-3. **Line 165** — near-match owner name: same change as line 149.
-
-No other code, schema, or UI changes. The dialog wiring (`DuplicateBeatWarningDialog`) and `handleSaveBeat` flow are already correct.
+No other changes needed — `proceedWithBeatCreation`, the warning-dialog component, and the username join are already correct.
 
 ### Verification
-
-- Type a beat name owned by a different user (e.g. "udupi" → existing "Udupi"). Expect the red dialog "Duplicate Beat Name Not Allowed" with **Existing owner: Prabhu KVP**.
-- Type a unique name → no dialog.
-- Type a near-match → amber dialog with correct owner name.
-
-### Notes
-
-- The PostgREST embed `profiles:user_id(...)` relies on the FK from `beats.user_id` → `profiles.id`. If for any reason the embed comes back `null` at runtime, I'll add a one-shot fallback that re-queries `profiles` by id. Will only add if observed; not needed otherwise.
+- Type `Udupi` → click Create Beat → Create dialog closes → red "Duplicate Beat Name Not Allowed" dialog appears with `Existing owner: Prabhu KVP` and only an Edit Name action.
+- Type a brand-new name → no warning, beat creates as before.
+- Type a near-match → Create dialog closes → amber "Similar beat found" with Cancel + Create Anyway. Clicking Create Anyway calls `proceedWithBeatCreation`.
