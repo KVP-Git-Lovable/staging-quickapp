@@ -1216,20 +1216,10 @@ export const MyBeats = () => {
   };
 
   const handleDeactivateBeat = (beatId: string, beatName: string) => {
-    setDeactivateBeat({ id: beatId, name: beatName });
+    const rc = beats.find(b => b.id === beatId)?.retailer_count ?? 0;
+    setDeactivateBeat({ id: beatId, name: beatName, retailerCount: rc });
   };
 
-  const confirmDeactivateBeat = async () => {
-    if (!deactivateBeat || !user) return;
-    const ok = await beatLifecycle.deactivate(deactivateBeat.id, deactivateBeat.name);
-    if (ok) {
-      // Reflect new state locally; list re-renders against filter.
-      setBeats((prev) => prev.map((b) => (b.id === deactivateBeat.id ? { ...b, is_active: false } : b)));
-      window.dispatchEvent(new CustomEvent('visitDataChanged'));
-      loadBeats();
-    }
-    setDeactivateBeat(null);
-  };
 
 
   const handleAddBeats = () => {
