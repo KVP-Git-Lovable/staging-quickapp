@@ -170,6 +170,8 @@ export function DeactivateBeatWizard({
   };
 
   const handleConfirm = async () => {
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_delete", "delete")) { toast.error("You don't have permission to deactivate beats"); return; }
     setSubmitting(true);
     try {
       if (
