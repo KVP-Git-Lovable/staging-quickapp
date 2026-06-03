@@ -183,20 +183,59 @@ export function useOfflineRetailers() {
       setLoading(true);
 
       if (isOnline) {
-        // Online: Fetch from server and cache
-        const { data, error } = await supabase
-          .from('retailers')
-          .select('*')
-          .order('name');
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
 
-        if (error) throw error;
+        // Own retailers
+        const ownQuery = userId
+          ? supabase.from('retailers').select('*').eq('user_id', userId)
+          : supabase.from('retailers').select('*');
 
-        // Update cache (single merge write)
-        if (data) {
-          await offlineStorage.mergeData(STORES.RETAILERS, data as any);
+        // Accessible (shared) beats via beat_user_access
+        const nowIso = new Date().toISOString();
+        const accessQuery = userId
+          ? supabase
+              .from('beat_user_access')
+              .select('beat_id')
+              .eq('user_id', userId)
+              .eq('is_active', true)
+              .or(`effective_to.is.null,effective_to.gt.${nowIso}`)
+          : Promise.resolve({ data: [] as any[], error: null });
+
+        const [ownRes, accessRes] = await Promise.all([ownQuery, accessQuery as any]);
+
+        if (ownRes.error) throw ownRes.error;
+        const ownRetailers = ownRes.data || [];
+
+        let sharedRetailers: any[] = [];
+        if (accessRes && !accessRes.error && Array.isArray(accessRes.data) && accessRes.data.length > 0) {
+          const beatIds = accessRes.data.map((b: any) => b.beat_id).filter(Boolean);
+          if (beatIds.length > 0 && userId) {
+            const { data: shared, error: sharedErr } = await supabase
+              .from('retailers')
+              .select('*')
+              .in('beat_id', beatIds)
+              .neq('user_id', userId);
+            if (sharedErr) {
+              console.warn('Failed to fetch shared-beat retailers:', sharedErr.message);
+            } else {
+              sharedRetailers = shared || [];
+            }
+          }
+        } else if (accessRes?.error) {
+          console.warn('beat_user_access lookup failed, using own retailers only:', accessRes.error.message);
         }
 
-        return { success: true, data: data || [] };
+        // Merge + dedupe by id
+        const merged = Array.from(
+          new Map([...ownRetailers, ...sharedRetailers].map((r: any) => [r.id, r])).values()
+        ).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+
+        if (merged.length > 0) {
+          await offlineStorage.mergeData(STORES.RETAILERS, merged as any);
+        }
+
+        return { success: true, data: merged };
       } else {
         // Offline: Load from cache
         const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
