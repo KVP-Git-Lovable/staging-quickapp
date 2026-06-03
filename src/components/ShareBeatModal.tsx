@@ -4,6 +4,7 @@ import { CalendarIcon, Loader2, Search, Share2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
