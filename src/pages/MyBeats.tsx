@@ -134,7 +134,7 @@ async function checkBeatNameDuplicate(
 
   let query = supabase
     .from('beats')
-    .select('beat_name, user_id, profiles:user_id(full_name, name)')
+    .select('beat_name, user_id, profiles:user_id(full_name, username)')
     .eq('is_active', true);
 
   if (distributorId) query = query.eq('distributor_id', distributorId);
