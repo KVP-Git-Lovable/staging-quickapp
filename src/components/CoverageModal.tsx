@@ -222,7 +222,7 @@ export function CoverageModal({
   };
 
   const personName =
-    selectedUser?.full_name || selectedUser?.name || "this person";
+    selectedUser?.full_name || selectedUser?.username || "this person";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
