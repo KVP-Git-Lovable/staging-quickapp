@@ -1339,7 +1339,6 @@ export type Database = {
           deactivated_at: string | null
           deactivated_by: string | null
           distributor_id: string | null
-          id: string
           is_active: boolean | null
           owner_id: string | null
           owner_name: string | null
@@ -1364,7 +1363,6 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           distributor_id?: string | null
-          id?: string
           is_active?: boolean | null
           owner_id?: string | null
           owner_name?: string | null
@@ -1389,7 +1387,6 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           distributor_id?: string | null
-          id?: string
           is_active?: boolean | null
           owner_id?: string | null
           owner_name?: string | null
@@ -3827,13 +3824,6 @@ export type Database = {
           id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "distributor_beat_mappings_beat_id_fkey"
-            columns: ["beat_id"]
-            isOneToOne: false
-            referencedRelation: "beats"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "distributor_beat_mappings_distributor_id_fkey"
             columns: ["distributor_id"]
@@ -18396,13 +18386,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_business_plan_territory_beats_beat_id_fkey"
-            columns: ["beat_id"]
-            isOneToOne: false
-            referencedRelation: "beats"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "user_business_plan_territory_beats_business_plan_id_fkey"
             columns: ["business_plan_id"]
             isOneToOne: false
@@ -19243,13 +19226,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "van_beat_assignments_beat_id_fkey"
-            columns: ["beat_id"]
-            isOneToOne: false
-            referencedRelation: "beats"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "van_beat_assignments_van_id_fkey"
             columns: ["van_id"]
             isOneToOne: false
@@ -19407,13 +19383,6 @@ export type Database = {
           verified_by_name?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "van_inward_grn_beat_id_fkey"
-            columns: ["beat_id"]
-            isOneToOne: false
-            referencedRelation: "beats"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "van_inward_grn_van_id_fkey"
             columns: ["van_id"]
@@ -19828,13 +19797,6 @@ export type Database = {
           van_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "van_stock_beat_id_fkey"
-            columns: ["beat_id"]
-            isOneToOne: false
-            referencedRelation: "beats"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "van_stock_van_id_fkey"
             columns: ["van_id"]
