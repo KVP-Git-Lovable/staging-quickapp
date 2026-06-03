@@ -1276,7 +1276,7 @@ export const MyBeats = () => {
   const annotatedBeats = useMemo(() => {
     return beats.map((b) => {
       const acc = accessByBeatId.get(b.id);
-      const accessType = (acc?.accessType ?? 'OWNED') as 'OWNED' | 'CO_OWNER' | 'VIEW_ONLY' | 'COVERAGE';
+      const accessType = (acc?.accessType ?? 'OWNED') as 'OWNED' | 'CO_OWNER' | 'OPERATIONAL' | 'VIEW_ONLY' | 'COVERAGE';
       return {
         ...b,
         accessType,
@@ -1290,7 +1290,7 @@ export const MyBeats = () => {
     // Tab filter
     const isActive = beat.is_active !== false;
     if (accessTab === 'mine' && !(beat.accessType === 'OWNED' && isActive)) return false;
-    if (accessTab === 'shared' && !((beat.accessType === 'CO_OWNER' || beat.accessType === 'VIEW_ONLY') && isActive)) return false;
+    if (accessTab === 'shared' && !((beat.accessType === 'CO_OWNER' || beat.accessType === 'OPERATIONAL' || beat.accessType === 'VIEW_ONLY') && isActive)) return false;
     if (accessTab === 'covering') {
       if (beat.accessType !== 'COVERAGE') return false;
       if (beat.coverageEndDate && new Date(beat.coverageEndDate) < new Date(new Date().toDateString())) return false;

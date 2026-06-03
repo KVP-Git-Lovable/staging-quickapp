@@ -23,7 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
-type Access = "CO_OWNER" | "VIEW_ONLY";
+type Access = "CO_OWNER" | "OPERATIONAL" | "VIEW_ONLY";
 
 interface Profile {
   user_id: string;
@@ -94,7 +94,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
         .from("beat_user_access")
         .select("id, user_id, access_type, effective_to")
         .eq("beat_id", beat.beat_id)
-        .in("access_type", ["CO_OWNER", "VIEW_ONLY"])
+        .in("access_type", ["CO_OWNER", "OPERATIONAL", "VIEW_ONLY"])
         .eq("is_active", true);
       if (error) throw error;
       const rows = (data ?? []) as any[];
@@ -292,7 +292,16 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                 <Label htmlFor="acc-co" className="flex-1 cursor-pointer">
                   <div className="font-medium text-sm">Co-owner</div>
                   <div className="text-xs text-muted-foreground">
-                    Can view, visit, take orders, edit retailers
+                    Can view, visit, take orders, edit retailers, edit beat
+                  </div>
+                </Label>
+              </div>
+              <div className="flex items-start gap-2 rounded-md border p-2">
+                <RadioGroupItem value="OPERATIONAL" id="acc-op" className="mt-1" />
+                <Label htmlFor="acc-op" className="flex-1 cursor-pointer">
+                  <div className="font-medium text-sm">Operational</div>
+                  <div className="text-xs text-muted-foreground">
+                    Can visit, take orders, update retailers — cannot edit beat structure
                   </div>
                 </Label>
               </div>
@@ -411,7 +420,11 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                           <div className="truncate text-sm font-medium">{nm}</div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Badge variant="secondary" className="text-[10px]">
-                              {row.access_type === "CO_OWNER" ? "Co-owner" : "View only"}
+                              {row.access_type === "CO_OWNER"
+                                ? "Co-owner"
+                                : row.access_type === "OPERATIONAL"
+                                ? "Operational"
+                                : "View only"}
                             </Badge>
                             <span>
                               {row.effective_to
