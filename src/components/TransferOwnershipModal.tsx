@@ -45,6 +45,7 @@ export function TransferOwnershipModal({
   currentUserId,
   onSuccess,
 }: TransferOwnershipModalProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
