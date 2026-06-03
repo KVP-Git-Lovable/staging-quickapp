@@ -995,13 +995,12 @@ export function useOfflineSync() {
         console.log('Syncing return stock:', data);
         // Return stock is typically part of orders table or a separate returns table
         // Update this based on your schema
+        const returnEnriched = await enrichWithBeatSnapshots({ ...data, order_type: 'return' });
         const { error: returnStockError } = await supabase
           .from('orders')
-          .insert({
-            ...data,
-            order_type: 'return'
-          });
+          .insert(returnEnriched);
         if (returnStockError) throw returnStockError;
+
         break;
         
       case 'SEND_INVOICE':
