@@ -619,10 +619,12 @@ export function useOfflineSync() {
 
         } else {
           // Old format - just the order data
+          const enriched = await enrichWithBeatSnapshots(data);
           const { error: orderError } = await supabase
             .from('orders')
-            .insert(data);
+            .insert(enriched);
           if (orderError) throw orderError;
+
 
           // Update retailer's pending_amount for old format too
           if (data.retailer_id) {
