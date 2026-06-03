@@ -54,6 +54,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import * as beatService from "@/services/beatService";
+import type { BeatWithAccess, BeatStats } from "@/services/beatService";
+
+
 
 
 interface Beat {
