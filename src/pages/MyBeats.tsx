@@ -1403,90 +1403,55 @@ export const MyBeats = () => {
           </CardHeader>
         </Card>
 
-        {/* Stats Dashboard */}
-        {(() => {
-          const activeBeats = beats.filter(b => b.is_active !== false).length;
-          const inactiveBeats = beats.filter(b => b.is_active === false).length;
-          const noRetailerBeats = beats.filter(b => (b.retailer_count || 0) === 0).length;
-          const totalAssigned = beats.reduce((sum, b) => sum + (b.retailer_count || 0), 0);
-          const avgPerBeat = beats.length > 0 ? Math.round(totalAssigned / beats.length) : 0;
-          const beatIdSet = new Set(beats.map(b => b.id));
-          const unassignedCount = allRetailers.filter(r =>
-            !r.beat_id || r.beat_id === '' || r.beat_id === 'unassigned' || !beatIdSet.has(r.beat_id)
-          ).length;
-          return (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-primary"
-                  onClick={() => setStatsDetailDialog('beats')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-primary">{beats.length}</div>
-                    <div className="text-sm text-muted-foreground">Total Beats</div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-emerald-500"
-                  onClick={() => setBeatStatusFilter('active')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-emerald-600">{activeBeats}</div>
-                    <div className="text-sm text-muted-foreground">Active Beats</div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-slate-500"
-                  onClick={() => setBeatStatusFilter('inactive')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-slate-600">{inactiveBeats}</div>
-                    <div className="text-sm text-muted-foreground">Inactive Beats</div>
-                  </CardContent>
-                </Card>
-                <Card className="text-center hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-amber-600">{noRetailerBeats}</div>
-                    <div className="text-sm text-muted-foreground">No Retailer</div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-green-500"
-                  onClick={() => setStatsDetailDialog('retailers')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-green-600">{allRetailers.length}</div>
-                    <div className="text-sm text-muted-foreground">Total Retailers</div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-blue-500"
-                  onClick={() => setStatsDetailDialog('average')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-blue-600">{avgPerBeat}</div>
-                    <div className="text-sm text-muted-foreground">Avg per Beat</div>
-                  </CardContent>
-                </Card>
-              </div>
-              <Card
-                className="cursor-pointer hover:shadow-md transition-shadow border-orange-200 bg-orange-50/40 hover:border-orange-500"
-                onClick={() => setStatsDetailDialog('unassigned')}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-orange-600" />
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Unassigned Retailers</div>
-                      <div className="text-xs text-muted-foreground">Retailers not linked to any beat — click to view</div>
-                    </div>
-                  </div>
-                  <div className="text-3xl font-bold text-orange-600">{unassignedCount}</div>
-                </CardContent>
-              </Card>
-            </>
-          );
-        })()}
+        {/* Stats Dashboard — 5 cards driven by beatService.getBeatStats */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-primary"
+            onClick={() => setAccessTab('mine')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-primary">{beatStats?.total ?? 0}</div>
+              <div className="text-sm text-muted-foreground">My Beats</div>
+            </CardContent>
+          </Card>
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-emerald-500"
+            onClick={() => setAccessTab('mine')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-emerald-600">{beatStats?.active ?? 0}</div>
+              <div className="text-sm text-muted-foreground">Active</div>
+            </CardContent>
+          </Card>
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-slate-500"
+            onClick={() => setAccessTab('inactive')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-slate-600">{beatStats?.inactive ?? 0}</div>
+              <div className="text-sm text-muted-foreground">Inactive</div>
+            </CardContent>
+          </Card>
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-blue-500"
+            onClick={() => setAccessTab('shared')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{beatStats?.sharedWithMe ?? 0}</div>
+              <div className="text-sm text-muted-foreground">Shared With Me</div>
+            </CardContent>
+          </Card>
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-amber-500"
+            onClick={() => setAccessTab('covering')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-amber-600">{beatStats?.covering ?? 0}</div>
+              <div className="text-sm text-muted-foreground">Covering Today</div>
+            </CardContent>
+          </Card>
+        </div>
+
 
         {/* Stats Detail Dialog */}
         <Dialog open={statsDetailDialog !== null} onOpenChange={(open) => !open && setStatsDetailDialog(null)}>
