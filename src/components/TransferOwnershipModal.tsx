@@ -93,6 +93,8 @@ export function TransferOwnershipModal({
 
   const handleConfirm = async () => {
     if (!selectedUser) return;
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_transfer", "create")) { toast.error("You don't have permission to transfer ownership"); return; }
     setSubmitting(true);
     try {
       await beatService.transferBeatOwnership(
