@@ -19,10 +19,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Profile {
-  user_id: string;
+  id: string;
   full_name: string | null;
-  name?: string | null;
-  avatar_url?: string | null;
+  username?: string | null;
+  profile_picture_url?: string | null;
 }
 
 interface TransferOwnershipModalProps {
@@ -73,9 +73,9 @@ export function TransferOwnershipModal({
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .or(`full_name.ilike.%${q}%,name.ilike.%${q}%`)
-          .neq("user_id", currentUserId)
+          .select("id, full_name, username, profile_picture_url")
+          .or(`full_name.ilike.%${q}%,username.ilike.%${q}%`)
+          .neq("id", currentUserId)
           .limit(8);
         if (error) throw error;
         setResults((data ?? []) as Profile[]);
@@ -88,7 +88,7 @@ export function TransferOwnershipModal({
     return () => clearTimeout(handle);
   }, [query, open, currentUserId]);
 
-  const personName = selectedUser?.full_name || selectedUser?.name || "this user";
+  const personName = selectedUser?.full_name || selectedUser?.username || "this user";
   const canSubmit = !!selectedUser && !!reason.trim() && !submitting;
 
   const handleConfirm = async () => {
@@ -99,7 +99,7 @@ export function TransferOwnershipModal({
     try {
       await beatService.transferBeatOwnership(
         beat.id,
-        selectedUser.user_id,
+        selectedUser.id,
         currentUserId,
         reason.trim(),
         new Date().toISOString().split("T")[0], // always today — no future-date logic
@@ -142,7 +142,7 @@ export function TransferOwnershipModal({
               <div className="flex items-center justify-between rounded-md border p-2">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedUser.avatar_url ?? undefined} />
+                    <AvatarImage src={selectedUser.profile_picture_url ?? undefined} />
                     <AvatarFallback>{initials(personName)}</AvatarFallback>
                   </Avatar>
                   <div className="text-sm font-medium">{personName}</div>
@@ -169,7 +169,7 @@ export function TransferOwnershipModal({
                     ) : (
                       results.map((r) => (
                         <button
-                          key={r.user_id}
+                          key={r.id}
                           type="button"
                           onClick={() => {
                             setSelectedUser(r);
@@ -179,10 +179,10 @@ export function TransferOwnershipModal({
                           className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
                         >
                           <Avatar className="h-6 w-6">
-                            <AvatarImage src={r.avatar_url ?? undefined} />
-                            <AvatarFallback>{initials(r.full_name || r.name)}</AvatarFallback>
+                            <AvatarImage src={r.profile_picture_url ?? undefined} />
+                            <AvatarFallback>{initials(r.full_name || r.username)}</AvatarFallback>
                           </Avatar>
-                          <span className="text-sm">{r.full_name || r.name || "Unnamed"}</span>
+                          <span className="text-sm">{r.full_name || r.username || "Unnamed"}</span>
                         </button>
                       ))
                     )}

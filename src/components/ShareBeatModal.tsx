@@ -26,10 +26,10 @@ import { Calendar } from "@/components/ui/calendar";
 type Access = "CO_OWNER" | "OPERATIONAL" | "VIEW_ONLY";
 
 interface Profile {
-  user_id: string;
+  id: string;
   full_name: string | null;
-  name?: string | null;
-  avatar_url?: string | null;
+  username?: string | null;
+  profile_picture_url?: string | null;
 }
 
 interface ShareRow {
@@ -103,9 +103,9 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
       if (ids.length) {
         const { data: profs } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .in("user_id", ids);
-        (profs ?? []).forEach((p: any) => profilesMap.set(p.user_id, p));
+          .select("id, full_name, username, profile_picture_url")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => profilesMap.set(p.id, p));
       }
       setShares(
         rows.map((r) => ({ ...r, profile: profilesMap.get(r.user_id) ?? null })),
@@ -130,8 +130,8 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .or(`full_name.ilike.%${q}%,name.ilike.%${q}%`)
+          .select("id, full_name, username, profile_picture_url")
+          .or(`full_name.ilike.%${q}%,username.ilike.%${q}%`)
           .limit(8);
         if (error) throw error;
         setResults((data ?? []) as Profile[]);
@@ -163,7 +163,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
     try {
       await beatService.grantBeatAccess(
         beat.id,
-        selectedUser.user_id,
+        selectedUser.id,
         access,
         grantedBy,
         duration === "until" && untilDate ? untilDate.toISOString() : null,
@@ -216,13 +216,13 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
               <div className="flex items-center justify-between rounded-md border p-2">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedUser.avatar_url ?? undefined} />
+                    <AvatarImage src={selectedUser.profile_picture_url ?? undefined} />
                     <AvatarFallback>
-                      {initials(selectedUser.full_name || selectedUser.name)}
+                      {initials(selectedUser.full_name || selectedUser.username)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="text-sm font-medium">
-                    {selectedUser.full_name || selectedUser.name || "Unnamed"}
+                    {selectedUser.full_name || selectedUser.username || "Unnamed"}
                   </div>
                 </div>
                 <Button
@@ -249,14 +249,14 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                   <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover">
                     {searching ? (
                       <div className="p-2 text-sm text-muted-foreground">Searching…</div>
-                    ) : results.filter((r) => !excludedIds.has(r.user_id)).length === 0 ? (
+                    ) : results.filter((r) => !excludedIds.has(r.id)).length === 0 ? (
                       <div className="p-2 text-sm text-muted-foreground">No results</div>
                     ) : (
                       results
-                        .filter((r) => !excludedIds.has(r.user_id))
+                        .filter((r) => !excludedIds.has(r.id))
                         .map((r) => (
                           <button
-                            key={r.user_id}
+                            key={r.id}
                             type="button"
                             onClick={() => {
                               setSelectedUser(r);
@@ -266,13 +266,13 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                             className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
                           >
                             <Avatar className="h-6 w-6">
-                              <AvatarImage src={r.avatar_url ?? undefined} />
+                              <AvatarImage src={r.profile_picture_url ?? undefined} />
                               <AvatarFallback>
-                                {initials(r.full_name || r.name)}
+                                {initials(r.full_name || r.username)}
                               </AvatarFallback>
                             </Avatar>
                             <span className="text-sm">
-                              {r.full_name || r.name || "Unnamed"}
+                              {r.full_name || r.username || "Unnamed"}
                             </span>
                           </button>
                         ))
@@ -405,7 +405,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
             ) : (
               <div className="space-y-2">
                 {shares.map((row) => {
-                  const nm = row.profile?.full_name || row.profile?.name || "Unnamed";
+                  const nm = row.profile?.full_name || row.profile?.username || "Unnamed";
                   return (
                     <div
                       key={row.id}
@@ -413,7 +413,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={row.profile?.avatar_url ?? undefined} />
+                          <AvatarImage src={row.profile?.profile_picture_url ?? undefined} />
                           <AvatarFallback>{initials(nm)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">

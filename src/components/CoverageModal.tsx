@@ -29,10 +29,10 @@ import {
 } from "@/components/ui/select";
 
 interface Profile {
-  user_id: string;
+  id: string;
   full_name: string | null;
-  name?: string | null;
-  avatar_url?: string | null;
+  username?: string | null;
+  profile_picture_url?: string | null;
 }
 
 interface PermissionGroup {
@@ -128,9 +128,9 @@ export function CoverageModal({
       if (ids.length) {
         const { data: profs } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .in("user_id", ids);
-        (profs ?? []).forEach((p: any) => profMap.set(p.user_id, p));
+          .select("id, full_name, username, profile_picture_url")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
       }
       setActiveCoverage(
         rows.map((r) => ({ ...r, profile: profMap.get(r.coverage_user_id) ?? null })),
@@ -154,9 +154,9 @@ export function CoverageModal({
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .or(`full_name.ilike.%${q}%,name.ilike.%${q}%`)
-          .neq("user_id", primaryUserId)
+          .select("id, full_name, username, profile_picture_url")
+          .or(`full_name.ilike.%${q}%,username.ilike.%${q}%`)
+          .neq("id", primaryUserId)
           .limit(8);
         if (error) throw error;
         setResults((data ?? []) as Profile[]);
@@ -187,7 +187,7 @@ export function CoverageModal({
       await beatService.assignCoverage(
         beat.id,
         primaryUserId,
-        selectedUser.user_id,
+        selectedUser.id,
         startDate.toISOString(),
         endDate.toISOString(),
         reason.trim(),
@@ -222,7 +222,7 @@ export function CoverageModal({
   };
 
   const personName =
-    selectedUser?.full_name || selectedUser?.name || "this person";
+    selectedUser?.full_name || selectedUser?.username || "this person";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !submitting && onOpenChange(o)}>
@@ -245,9 +245,9 @@ export function CoverageModal({
               <div className="flex items-center justify-between rounded-md border p-2">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedUser.avatar_url ?? undefined} />
+                    <AvatarImage src={selectedUser.profile_picture_url ?? undefined} />
                     <AvatarFallback>
-                      {initials(selectedUser.full_name || selectedUser.name)}
+                      {initials(selectedUser.full_name || selectedUser.username)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="text-sm font-medium">{personName}</div>
@@ -281,7 +281,7 @@ export function CoverageModal({
                     ) : (
                       results.map((r) => (
                         <button
-                          key={r.user_id}
+                          key={r.id}
                           type="button"
                           onClick={() => {
                             setSelectedUser(r);
@@ -291,13 +291,13 @@ export function CoverageModal({
                           className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
                         >
                           <Avatar className="h-6 w-6">
-                            <AvatarImage src={r.avatar_url ?? undefined} />
+                            <AvatarImage src={r.profile_picture_url ?? undefined} />
                             <AvatarFallback>
-                              {initials(r.full_name || r.name)}
+                              {initials(r.full_name || r.username)}
                             </AvatarFallback>
                           </Avatar>
                           <span className="text-sm">
-                            {r.full_name || r.name || "Unnamed"}
+                            {r.full_name || r.username || "Unnamed"}
                           </span>
                         </button>
                       ))
@@ -428,7 +428,7 @@ export function CoverageModal({
             ) : (
               <div className="space-y-2">
                 {activeCoverage.map((row) => {
-                  const nm = row.profile?.full_name || row.profile?.name || "Unnamed";
+                  const nm = row.profile?.full_name || row.profile?.username || "Unnamed";
                   return (
                     <div
                       key={row.id}
@@ -436,7 +436,7 @@ export function CoverageModal({
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={row.profile?.avatar_url ?? undefined} />
+                          <AvatarImage src={row.profile?.profile_picture_url ?? undefined} />
                           <AvatarFallback>{initials(nm)}</AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
