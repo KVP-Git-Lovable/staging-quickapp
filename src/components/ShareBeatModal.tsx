@@ -184,6 +184,8 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
   };
 
   const handleRevoke = async (row: ShareRow) => {
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_share", "create")) { toast.error("You don't have permission"); return; }
     try {
       await beatService.revokeBeatAccess(beat.id, row.user_id, row.access_type);
       toast.success("Access revoked");
