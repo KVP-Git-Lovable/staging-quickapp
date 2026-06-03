@@ -269,6 +269,12 @@ export const MyBeats = () => {
   const [coverageBeat, setCoverageBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   const [ownershipTransferBeat, setOwnershipTransferBeat] = useState<{id: string; beat_id: string; name: string; retailer_count: number} | null>(null);
   const [historyBeat, setHistoryBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    matchType: 'exact_own' | 'exact_other' | 'near_own' | 'near_other';
+    existingOwnerName?: string;
+    matchedBeatName?: string;
+    proceedCallback: () => void;
+  } | null>(null);
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
