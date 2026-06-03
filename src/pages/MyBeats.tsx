@@ -1751,26 +1751,34 @@ export const MyBeats = () => {
               </Card>
             ) : (
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <h2 className="text-lg font-semibold">{beatStatusFilter === 'active' ? 'Active Beats' : beatStatusFilter === 'inactive' ? 'Inactive Beats' : 'All Beats'} ({filteredBeats.length})</h2>
-                  <ToggleGroup
-                    type="single"
-                    value={beatStatusFilter}
-                    onValueChange={(v) => v && setBeatStatusFilter(v as 'active' | 'inactive' | 'all')}
-                    className="bg-muted rounded-md p-0.5"
-                  >
-                    <ToggleGroupItem value="active" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">Active</ToggleGroupItem>
-                    <ToggleGroupItem value="inactive" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">Inactive</ToggleGroupItem>
-                    <ToggleGroupItem value="all" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">All</ToggleGroupItem>
-                  </ToggleGroup>
+                <Tabs value={accessTab} onValueChange={(v) => setAccessTab(v as typeof accessTab)}>
+                  <TabsList className="grid grid-cols-5 w-full md:w-auto">
+                    <TabsTrigger value="mine">My Beats</TabsTrigger>
+                    <TabsTrigger value="shared">Shared With Me</TabsTrigger>
+                    <TabsTrigger value="covering">Covering</TabsTrigger>
+                    <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                    <TabsTrigger value="all">All</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">
+                    {accessTab === 'mine' ? 'My Beats' :
+                     accessTab === 'shared' ? 'Shared With Me' :
+                     accessTab === 'covering' ? 'Covering' :
+                     accessTab === 'inactive' ? 'Inactive Beats' : 'All Beats'}
+                    {' '}({filteredBeats.length})
+                  </h2>
                 </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {paginatedBeats.map((beat) => (
+              {paginatedBeats.map((beat: any) => (
                 <BeatCard
                   key={beat.id}
                   beat={beat}
                   userId={user?.id || ''}
+                  accessType={beat.accessType}
+                  coverageEndDate={beat.coverageEndDate}
+                  sharedByName={beat.sharedByName}
                   onEdit={() => handleEditBeat(beat)}
                   onDelete={() => handleDeleteBeatClick(beat.id, beat.name)}
                   onDetails={() => setSelectedBeatForAnalytics(beat)}
@@ -1784,10 +1792,16 @@ export const MyBeats = () => {
                     const ok = await beatLifecycle.reactivate(beat.id, beat.name);
                     if (ok) loadBeats();
                   }}
+                  onShare={() => toast.info('Share Beat — coming soon')}
+                  onAssignCoverage={() => toast.info('Assign Coverage — coming soon')}
+                  onTransferOwnership={() => toast.info('Transfer Ownership — coming soon')}
+                  onClone={() => toast.info('Clone Beat — coming soon')}
+                  onHistory={() => toast.info('View History — coming soon')}
                   isHardDeletable={deletabilityMap[beat.id] === true}
                 />
               ))}
             </div>
+
             
             {/* Beats Pagination */}
             <PaginationControls
