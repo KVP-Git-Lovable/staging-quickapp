@@ -96,7 +96,7 @@ export function BeatHistoryDrawer({ open, onOpenChange, beat }: BeatHistoryDrawe
     return () => {
       cancelled = true;
     };
-  }, [open, beat.id]);
+  }, [open, beat.id, permLoading]);
 
   const nameOf = (id?: string | null) => (id ? profileNames[id] ?? id.slice(0, 8) : "—");
   const todayStr = new Date().toISOString().slice(0, 10);
