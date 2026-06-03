@@ -157,6 +157,8 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
 
   const handleGrant = async () => {
     if (!selectedUser) return;
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_share", "create")) { toast.error("You don't have permission to share beats"); return; }
     setSubmitting(true);
     try {
       await beatService.grantBeatAccess(
