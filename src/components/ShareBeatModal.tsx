@@ -216,13 +216,13 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
               <div className="flex items-center justify-between rounded-md border p-2">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedUser.avatar_url ?? undefined} />
+                    <AvatarImage src={selectedUser.profile_picture_url ?? undefined} />
                     <AvatarFallback>
-                      {initials(selectedUser.full_name || selectedUser.name)}
+                      {initials(selectedUser.full_name || selectedUser.username)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="text-sm font-medium">
-                    {selectedUser.full_name || selectedUser.name || "Unnamed"}
+                    {selectedUser.full_name || selectedUser.username || "Unnamed"}
                   </div>
                 </div>
                 <Button
