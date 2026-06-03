@@ -36,12 +36,21 @@ function fmt(dt?: string | null, withTime = false) {
 }
 
 export function BeatHistoryDrawer({ open, onOpenChange, beat }: BeatHistoryDrawerProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [history, setHistory] = useState<BeatHistory | null>(null);
   const [loading, setLoading] = useState(false);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
+  const [denied, setDenied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    if (permLoading) return;
+    if (!can("module_my_beats", "read")) {
+      setDenied(true);
+      setHistory(null);
+      return;
+    }
+    setDenied(false);
     let cancelled = false;
     (async () => {
       setLoading(true);
