@@ -162,7 +162,7 @@ async function checkBeatNameDuplicate(
     const contains = normalized.length >= 4 && (bName.includes(normalized) || normalized.includes(bName));
     if (dist <= 2 || contains) {
       const isOwn = b.user_id === currentUserId;
-      const ownerName = b.profiles?.full_name || b.profiles?.name || 'Another user';
+      const ownerName = b.profiles?.full_name || b.profiles?.username || 'Another user';
       return {
         matchType: isOwn ? 'near_own' : 'near_other',
         existingOwnerName: ownerName,
