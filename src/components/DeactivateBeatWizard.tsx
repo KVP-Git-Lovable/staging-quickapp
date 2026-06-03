@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,7 @@ export function DeactivateBeatWizard({
   userId,
   onSuccess,
 }: DeactivateBeatWizardProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [step, setStep] = useState<1 | 2>(1);
   const [mode, setMode] = useState<Mode>("keep");
   const [destBeatId, setDestBeatId] = useState<string>("");
@@ -79,7 +81,8 @@ export function DeactivateBeatWizard({
     (async () => {
       setLoading(true);
       try {
-        const [retRes, beatsRes] = await Promise.all([
+        const nowIso = new Date().toISOString();
+        const [retRes, ownRes, accessRes] = await Promise.all([
           retailerCount > 0
             ? supabase
                 .from("retailers")
@@ -92,12 +95,42 @@ export function DeactivateBeatWizard({
             .eq("is_active", true)
             .eq("user_id", userId)
             .neq("beat_id", beat.beat_id),
+          supabase
+            .from("beat_user_access")
+            .select("beat_id")
+            .eq("user_id", userId)
+            .eq("is_active", true)
+            .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
         ]);
         if (cancelled) return;
         if (retRes.error) throw retRes.error;
-        if (beatsRes.error) throw beatsRes.error;
+        if (ownRes.error) throw ownRes.error;
+
+        let sharedBeats: DestBeat[] = [];
+        const sharedBeatIds = ((accessRes as any)?.data ?? [])
+          .map((r: any) => r.beat_id)
+          .filter((id: string) => id && id !== beat.beat_id);
+        if (sharedBeatIds.length > 0) {
+          const { data: sb, error: sbErr } = await supabase
+            .from("beats")
+            .select("id, beat_id, beat_name")
+            .eq("is_active", true)
+            .in("beat_id", sharedBeatIds)
+            .neq("beat_id", beat.beat_id);
+          if (sbErr) {
+            console.warn("Shared beats lookup failed:", sbErr.message);
+          } else {
+            sharedBeats = (sb ?? []) as DestBeat[];
+          }
+        }
+
+        const all = [...((ownRes.data ?? []) as DestBeat[]), ...sharedBeats];
+        const deduped = Array.from(
+          new Map(all.map((b) => [b.beat_id, b])).values(),
+        );
+
         setRetailers((retRes.data ?? []) as RetailerRow[]);
-        setDestBeats((beatsRes.data ?? []) as DestBeat[]);
+        setDestBeats(deduped);
       } catch (err: any) {
         toast.error(err?.message || "Failed to load wizard data");
       } finally {
@@ -137,6 +170,8 @@ export function DeactivateBeatWizard({
   };
 
   const handleConfirm = async () => {
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_delete", "delete")) { toast.error("You don't have permission to deactivate beats"); return; }
     setSubmitting(true);
     try {
       if (

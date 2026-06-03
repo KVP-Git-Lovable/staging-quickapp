@@ -4,6 +4,7 @@ import { CalendarIcon, Loader2, Search, UserCheck, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -74,6 +75,7 @@ export function CoverageModal({
   primaryUserId,
   assignedBy,
 }: CoverageModalProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
@@ -178,6 +180,8 @@ export function CoverageModal({
 
   const handleAssign = async () => {
     if (!selectedUser || !startDate || !endDate) return;
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_coverage", "create")) { toast.error("You don't have permission to assign coverage"); return; }
     setSubmitting(true);
     try {
       await beatService.assignCoverage(
@@ -206,6 +210,8 @@ export function CoverageModal({
   };
 
   const handleEnd = async (row: CoverageRow) => {
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_coverage", "create")) { toast.error("You don't have permission"); return; }
     try {
       await beatService.endCoverage(row.id);
       toast.success("Coverage ended");

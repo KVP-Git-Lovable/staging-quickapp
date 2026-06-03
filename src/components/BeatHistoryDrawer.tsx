@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
 import type { BeatHistory } from "@/services/beatService";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Sheet,
   SheetContent,
@@ -35,12 +36,21 @@ function fmt(dt?: string | null, withTime = false) {
 }
 
 export function BeatHistoryDrawer({ open, onOpenChange, beat }: BeatHistoryDrawerProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [history, setHistory] = useState<BeatHistory | null>(null);
   const [loading, setLoading] = useState(false);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
+  const [denied, setDenied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    if (permLoading) return;
+    if (!can("module_my_beats", "read")) {
+      setDenied(true);
+      setHistory(null);
+      return;
+    }
+    setDenied(false);
     let cancelled = false;
     (async () => {
       setLoading(true);
@@ -86,7 +96,7 @@ export function BeatHistoryDrawer({ open, onOpenChange, beat }: BeatHistoryDrawe
     return () => {
       cancelled = true;
     };
-  }, [open, beat.id]);
+  }, [open, beat.id, permLoading]);
 
   const nameOf = (id?: string | null) => (id ? profileNames[id] ?? id.slice(0, 8) : "—");
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -104,7 +114,11 @@ export function BeatHistoryDrawer({ open, onOpenChange, beat }: BeatHistoryDrawe
           </SheetDescription>
         </SheetHeader>
 
-        {loading || !history ? (
+        {denied ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">
+            You don't have permission to view beat history.
+          </div>
+        ) : loading || permLoading || !history ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>

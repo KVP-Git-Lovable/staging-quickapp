@@ -4,6 +4,7 @@ import { CalendarIcon, Loader2, Search, Share2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
+import { usePermissions } from "@/hooks/usePermissions";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -58,6 +59,7 @@ function initials(name?: string | null) {
 }
 
 export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBeatModalProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
@@ -155,6 +157,8 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
 
   const handleGrant = async () => {
     if (!selectedUser) return;
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_share", "create")) { toast.error("You don't have permission to share beats"); return; }
     setSubmitting(true);
     try {
       await beatService.grantBeatAccess(
@@ -180,6 +184,8 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
   };
 
   const handleRevoke = async (row: ShareRow) => {
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_share", "create")) { toast.error("You don't have permission"); return; }
     try {
       await beatService.revokeBeatAccess(beat.id, row.user_id, row.access_type);
       toast.success("Access revoked");

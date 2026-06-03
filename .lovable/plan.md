@@ -1,45 +1,42 @@
 ## Goal
 
-Make the offline retailer cache include retailers from beats shared with the current user (via `beat_user_access`), not just their own retailers.
+Apply two fixes against the critical rules audit:
 
-## File to modify
+1. **Rule 4** — `DeactivateBeatWizard` destination beats query filters by `user_id` only, hiding beats the user can access via `beat_user_access`.
+2. **Rules 1/2 defense-in-depth** — Add `usePermissions()` guards inside the 5 new modals so submit handlers can't run if the user lacks permission (buttons in `BeatCard` are already gated; this hardens the modals themselves).
 
-`src/hooks/useOfflineRetailers.ts` — specifically the `getAllRetailers` function (lines ~181-214). This is the single fetch path that hydrates IndexedDB (`STORES.RETAILERS`) for offline use.
+## Changes
 
-## Change
+### 1. `src/components/DeactivateBeatWizard.tsx` (lines 81-100)
 
-Replace the current single `select('*')` with a three-step parallel fetch + merge:
+Replace the single own-beats query with a parallel fetch of:
+- Own active beats (`user_id = userId`)
+- Accessible beat IDs from `beat_user_access` (active, `effective_to` null or future)
 
-1. Resolve current user via `supabase.auth.getUser()`.
-2. Fetch own retailers: `from('retailers').select('*').eq('user_id', userId)`.
-3. Fetch accessible beat IDs:
-   ```ts
-   const { data: accessibleBeats } = await supabase
-     .from('beat_user_access')
-     .select('beat_id')
-     .eq('user_id', userId)
-     .eq('is_active', true)
-     .or(`effective_to.is.null,effective_to.gt.${new Date().toISOString()}`);
-   const beatIds = accessibleBeats?.map(b => b.beat_id) ?? [];
-   ```
-4. If `beatIds.length > 0`, fetch shared retailers:
-   ```ts
-   from('retailers').select('*').in('beat_id', beatIds).neq('user_id', userId)
-   ```
-5. Merge `own + shared`, dedupe by `id` (Map-based), then `offlineStorage.mergeData(STORES.RETAILERS, merged)` and return.
+Then fetch shared beats by `beat_id IN (sharedIds)`, merge with own, dedupe by `beat_id`, and use that as the destination list.
 
-Offline branch (no network) is unchanged — IndexedDB already holds both sets from the last online sync.
+### 2. Modal submit guards (additive, no UI change)
 
-Error handling: if the `beat_user_access` query fails, fall back to own retailers only and log a warning (do not block).
+Add at the top of each modal component:
+```ts
+const { can, loading: permLoading } = usePermissions();
+```
+
+Gate the submit handler with the matching key (same keys `BeatCard` already uses):
+
+| Modal | Permission key + action |
+|---|---|
+| `ShareBeatModal` — `handleGrant`/`handleRevoke` | `action_beat_share`, `create` |
+| `CoverageModal` — `handleAssign`/`handleEnd` | `action_beat_coverage`, `create` |
+| `TransferOwnershipModal` — `handleTransfer` | `action_beat_transfer`, `create` |
+| `DeactivateBeatWizard` — confirm handler | `action_beat_delete`, `delete` |
+| `BeatHistoryDrawer` — read gate | `module_my_beats`, `read` |
+
+Behavior: if `permLoading` → block submit + toast "Checking permissions…"; if `!can(...)` → toast "You don't have permission" and return early.
 
 ## Out of scope
 
-- `useOfflineSync.ts` retailer paths (lines 632/654/872/885/948) — those are queue-sync writes (update/insert by id), not list fetches, so they don't need filtering changes.
-- `useOfflineRetailers.createRetailer/updateRetailer/deleteRetailer` — unchanged.
-- RLS policies — assumed to already permit reading shared retailers (Messages 1-7 set this up via `beat_user_access`).
-- No DB migration, no type changes.
-
-## Verification
-
-- Reload the app while online → IndexedDB `retailers` store contains both own and shared-beat retailers.
-- Disconnect → retailers from shared beats still listed.
+- No DB migrations.
+- No changes to `BeatCard` button gating (already correct).
+- No changes to `useOfflineRetailers` Message 12 work.
+- No changes to `beatService` or RLS.

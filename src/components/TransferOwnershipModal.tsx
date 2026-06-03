@@ -3,6 +3,7 @@ import { AlertTriangle, Loader2, Search, UserPlus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,7 @@ export function TransferOwnershipModal({
   currentUserId,
   onSuccess,
 }: TransferOwnershipModalProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
@@ -91,6 +93,8 @@ export function TransferOwnershipModal({
 
   const handleConfirm = async () => {
     if (!selectedUser) return;
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_transfer", "create")) { toast.error("You don't have permission to transfer ownership"); return; }
     setSubmitting(true);
     try {
       await beatService.transferBeatOwnership(
