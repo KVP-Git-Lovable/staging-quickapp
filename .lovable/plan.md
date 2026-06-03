@@ -1,35 +1,35 @@
-## Plan: Resolve Krishnapura duplicate by renaming older beat
+## Plan: Fix profiles column references in 4 components
 
-Both active "Krishnapura" beats are owned by **Vikhyath** (user `206ae2fa-…`). To unblock the per-user partial unique index without losing data, rename the older one and append the owner's name for clarity.
+The `profiles` table uses `id`, `username`, `profile_picture_url` — not `user_id`, `name`, `avatar_url`. Apply the exact substitutions specified in 4 files.
 
-### 1. Migration (single `supabase--migration` call)
+### Files
 
-```sql
--- Step 1: Rename the older Krishnapura beat (Feb 2026) to disambiguate
-UPDATE public.beats
-SET beat_name = 'Krishnapura (Vikhyath - Old)'
-WHERE beat_id = 'beat_1779082704647_okhsc9d6o'
-  AND beat_name = 'Krishnapura'
-  AND is_active = true;
+1. **`src/components/ShareBeatModal.tsx`**
+   - Update `Profile` interface fields.
+   - Both `profiles` selects → `id, full_name, username, profile_picture_url`.
+   - `profilesMap.set(p.user_id, …)` → `p.id`.
+   - Keep `profilesMap.get(r.user_id)` and `beat_user_access.user_id`/`excludedIds` lookups against `beat_user_access` rows unchanged.
+   - `selectedUser.user_id` → `.id`; avatar/name fields swapped; result list `key`/filter switched to `r.id`.
 
--- Step 2: Create the per-user partial unique index (previously failed)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_beats_unique_name_user
-  ON public.beats (LOWER(beat_name), user_id)
-  WHERE is_active = true AND distributor_id IS NULL;
-```
+2. **`src/components/CoverageModal.tsx`**
+   - Update `UserProfile` interface.
+   - Profile lookup select + `.in("id", ids)` + `profMap.set(p.id, …)`. Keep `profMap.get(r.coverage_user_id)`.
+   - Search select + `.neq("id", primaryUserId)`.
+   - `selectedUser.user_id` → `.id`; all `name`/`avatar_url` display references swapped; result `key={r.id}`.
 
-The distributor-scoped index `idx_beats_unique_name_distributor` already exists from the previous run — not recreated.
+3. **`src/components/TransferOwnershipModal.tsx`**
+   - Update `UserProfile` interface.
+   - Search select + `.neq("id", currentUserId)`.
+   - `selectedUser.user_id` → `.id`; display fields swapped; `key={r.id}`.
 
-### 2. Verification
+4. **`src/components/BeatHistoryDrawer.tsx`**
+   - Profile select → `id, full_name, username`, `.in("id", …)`, `map[p.id] = p.full_name || p.username`.
 
-- Re-query `beats` for `beat_name ILIKE 'krishnapura%'` to confirm two distinct names.
-- Confirm `pg_indexes` lists both `idx_beats_unique_name_distributor` and `idx_beats_unique_name_user`.
+### Verification
 
-### 3. No code changes
+- Auto type-check after edits.
+- No DB/schema changes; no behavior changes beyond column names.
 
-Scenario 9 UI + service code is already implemented. This plan only resolves the data conflict and adds the second DB safety-net index.
+### Notes
 
-### Notes / assumptions
-
-- Renaming is non-destructive — all FKs reference `beat_id` (text), not `beat_name`, so retailers, visits, orders, coverage, etc. remain intact.
-- Suffix format `"<original> (<owner> - Old)"` is human-readable and matches your "rename with user name created by user" instruction. If you prefer a different suffix (e.g. just `"Krishnapura - Vikhyath"` or include creation date), tell me before approving.
+- Only references to `profiles.*` columns are changed. References to `beat_user_access.user_id`, `beat_coverage_assignments.coverage_user_id`, etc. stay as-is per the spec.
