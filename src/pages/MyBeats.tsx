@@ -134,7 +134,7 @@ async function checkBeatNameDuplicate(
 
   let query = supabase
     .from('beats')
-    .select('beat_name, user_id, profiles:user_id(full_name, name)')
+    .select('beat_name, user_id, profiles:user_id(full_name, username)')
     .eq('is_active', true);
 
   if (distributorId) query = query.eq('distributor_id', distributorId);
@@ -146,7 +146,7 @@ async function checkBeatNameDuplicate(
     const bName = (b.beat_name || '').toLowerCase();
     if (bName === normalized) {
       const isOwn = b.user_id === currentUserId;
-      const ownerName = b.profiles?.full_name || b.profiles?.name || 'Another user';
+      const ownerName = b.profiles?.full_name || b.profiles?.username || 'Another user';
       return {
         matchType: isOwn ? 'exact_own' : 'exact_other',
         existingOwnerName: ownerName,
@@ -162,7 +162,7 @@ async function checkBeatNameDuplicate(
     const contains = normalized.length >= 4 && (bName.includes(normalized) || normalized.includes(bName));
     if (dist <= 2 || contains) {
       const isOwn = b.user_id === currentUserId;
-      const ownerName = b.profiles?.full_name || b.profiles?.name || 'Another user';
+      const ownerName = b.profiles?.full_name || b.profiles?.username || 'Another user';
       return {
         matchType: isOwn ? 'near_own' : 'near_other',
         existingOwnerName: ownerName,
