@@ -194,7 +194,7 @@ export const MyBeats = () => {
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   
   // Deactivate state (wizard)
-  const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
+  const [deactivateBeat, setDeactivateBeat] = useState<{id: string; beat_id: string; name: string; retailerCount: number} | null>(null);
   const [shareBeat, setShareBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   const [coverageBeat, setCoverageBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   const [ownershipTransferBeat, setOwnershipTransferBeat] = useState<{id: string; beat_id: string; name: string; retailer_count: number} | null>(null);
@@ -959,7 +959,7 @@ export const MyBeats = () => {
       );
       if (proceed) {
         const rc = beats.find(b => b.id === beatId)?.retailer_count ?? 0;
-        setDeactivateBeat({ id: beatId, name: beatName, retailerCount: rc });
+        setDeactivateBeat({ id: beatId, beat_id: beatId, name: beatName, retailerCount: rc });
       }
       return;
     }
@@ -1226,7 +1226,7 @@ export const MyBeats = () => {
 
   const handleDeactivateBeat = (beatId: string, beatName: string) => {
     const rc = beats.find(b => b.id === beatId)?.retailer_count ?? 0;
-    setDeactivateBeat({ id: beatId, name: beatName, retailerCount: rc });
+    setDeactivateBeat({ id: beatId, beat_id: beatId, name: beatName, retailerCount: rc });
   };
 
 
@@ -1795,7 +1795,17 @@ export const MyBeats = () => {
                   onShare={() => setShareBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   onAssignCoverage={() => setCoverageBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   onTransferOwnership={() => setOwnershipTransferBeat({ id: beat.id, beat_id: beat.id, name: beat.name, retailer_count: beat.retailer_count })}
-                  onClone={() => toast.info('Clone Beat — coming soon')}
+                  onClone={async () => {
+                    const newName = window.prompt(`Clone "${beat.name}" — enter new beat name:`, `${beat.name} (Copy)`);
+                    if (!newName?.trim()) return;
+                    try {
+                      await beatService.cloneBeat(beat.id, newName.trim(), user!.id);
+                      toast.success(`Beat cloned as "${newName.trim()}"`);
+                      loadBeats();
+                    } catch (err: any) {
+                      toast.error(err?.message || 'Failed to clone beat');
+                    }
+                  }}
                   onHistory={() => setHistoryBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   isHardDeletable={deletabilityMap[beat.id] === true}
                 />
@@ -2426,7 +2436,7 @@ export const MyBeats = () => {
             onOpenChange={(o) => { if (!o) setDeactivateBeat(null); }}
             beat={{
               id: deactivateBeat.id,
-              beat_id: deactivateBeat.id,
+              beat_id: deactivateBeat.beat_id,
               beat_name: deactivateBeat.name,
             }}
             retailerCount={deactivateBeat.retailerCount}
