@@ -36,7 +36,10 @@ export async function submitOrderWithOfflineSupport(
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return uuidRegex.test(id);
   };
-  
+
+  // Inject beat/owner snapshots (set once at creation; never updated downstream)
+  orderData = await enrichWithBeatSnapshots(orderData);
+
   const normalizedOrder = {
     ...orderData,
     id: orderId,
@@ -45,6 +48,7 @@ export async function submitOrderWithOfflineSupport(
     status: orderData.status || 'confirmed',
     created_at: new Date().toISOString(),
   };
+
 
   // Sanitize payload for direct DB insert (queue sync path already sanitizes separately)
   const { scheme_details, pending_amount, ...orderWithoutExtraFields } = normalizedOrder as any;
