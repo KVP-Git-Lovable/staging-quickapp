@@ -2458,6 +2458,34 @@ export const MyBeats = () => {
           />
         )}
 
+        {ownershipTransferBeat && user && (
+          <TransferOwnershipModal
+            open={!!ownershipTransferBeat}
+            onOpenChange={(o) => { if (!o) setOwnershipTransferBeat(null); }}
+            beat={{
+              id: ownershipTransferBeat.id,
+              beat_id: ownershipTransferBeat.beat_id,
+              beat_name: ownershipTransferBeat.name,
+              retailer_count: ownershipTransferBeat.retailer_count,
+            }}
+            currentUserId={user.id}
+            onSuccess={() => {
+              setBeats((prev) => prev.filter((b) => b.id !== ownershipTransferBeat.id));
+              loadBeats();
+            }}
+          />
+        )}
+
+        {historyBeat && (
+          <BeatHistoryDrawer
+            open={!!historyBeat}
+            onOpenChange={(o) => { if (!o) setHistoryBeat(null); }}
+            beat={{ id: historyBeat.id, beat_id: historyBeat.beat_id, beat_name: historyBeat.name }}
+          />
+        )}
+
+
+
 
       </div>
     </Layout>
