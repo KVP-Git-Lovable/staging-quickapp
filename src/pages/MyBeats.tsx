@@ -1752,12 +1752,12 @@ export const MyBeats = () => {
             ) : (
               <div className="space-y-4">
                 <Tabs value={accessTab} onValueChange={(v) => setAccessTab(v as typeof accessTab)}>
-                  <TabsList className="grid grid-cols-5 w-full md:w-auto">
-                    <TabsTrigger value="mine">My Beats</TabsTrigger>
-                    <TabsTrigger value="shared">Shared With Me</TabsTrigger>
-                    <TabsTrigger value="covering">Covering</TabsTrigger>
-                    <TabsTrigger value="inactive">Inactive</TabsTrigger>
-                    <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsList className="flex w-full overflow-x-auto md:grid md:grid-cols-5 md:w-auto gap-1 h-auto p-1 no-scrollbar">
+                    <TabsTrigger value="mine" className="flex-shrink-0 whitespace-nowrap text-xs sm:text-sm px-3">My Beats</TabsTrigger>
+                    <TabsTrigger value="shared" className="flex-shrink-0 whitespace-nowrap text-xs sm:text-sm px-3">Shared</TabsTrigger>
+                    <TabsTrigger value="covering" className="flex-shrink-0 whitespace-nowrap text-xs sm:text-sm px-3">Covering</TabsTrigger>
+                    <TabsTrigger value="inactive" className="flex-shrink-0 whitespace-nowrap text-xs sm:text-sm px-3">Inactive</TabsTrigger>
+                    <TabsTrigger value="all" className="flex-shrink-0 whitespace-nowrap text-xs sm:text-sm px-3">All</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 <div className="flex items-center justify-between">
