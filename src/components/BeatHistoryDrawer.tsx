@@ -77,12 +77,12 @@ export function BeatHistoryDrawer({ open, onOpenChange, beat }: BeatHistoryDrawe
         if (ids.size) {
           const { data: profs } = await supabase
             .from("profiles")
-            .select("user_id, full_name, name")
-            .in("user_id", Array.from(ids));
+            .select("id, full_name, username")
+            .in("id", Array.from(ids));
           if (!cancelled) {
             const map: Record<string, string> = {};
             (profs ?? []).forEach((p: any) => {
-              map[p.user_id] = p.full_name || p.name || "Unknown";
+              map[p.id] = p.full_name || p.username || "Unknown";
             });
             setProfileNames(map);
           }
