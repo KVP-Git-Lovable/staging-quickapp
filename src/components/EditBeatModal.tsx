@@ -506,6 +506,17 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      placeholder="e.g. General, Premium, Wholesale"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                    />
+                  </div>
+                  
                   
                   <div className="space-y-2">
                     <Label htmlFor="territory" className="flex items-center gap-2">
