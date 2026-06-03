@@ -1234,14 +1234,19 @@ export const MyBeats = () => {
 
       if (allowanceError) console.error('Error deleting beat allowance:', allowanceError);
 
-      // Mark beat as inactive (soft delete)
-      const { error: beatError } = await supabase
-        .from('beats')
-        .update({ is_active: false })
-        .eq('beat_id', deleteItemId)
-        .or(`user_id.eq.${user.id},created_by.eq.${user.id}`);
-
-      if (beatError) throw beatError;
+      // Hard delete if beat has no dependencies, otherwise soft delete
+      const isDeletable = deletabilityMap[deleteItemId] === true;
+      if (isDeletable) {
+        const deleted = await beatLifecycle.deletePermanent(deleteItemId, deleteItemName);
+        if (!deleted) throw new Error('Failed to permanently delete beat');
+      } else {
+        const { error: beatError } = await supabase
+          .from('beats')
+          .update({ is_active: false })
+          .eq('beat_id', deleteItemId)
+          .or(`user_id.eq.${user.id},created_by.eq.${user.id}`);
+        if (beatError) throw beatError;
+      }
 
       // Insert audit log
       try {
