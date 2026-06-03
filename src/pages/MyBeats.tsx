@@ -2435,6 +2435,26 @@ export const MyBeats = () => {
           />
         )}
 
+        {shareBeat && user && (
+          <ShareBeatModal
+            open={!!shareBeat}
+            onOpenChange={(o) => { if (!o) setShareBeat(null); }}
+            beat={{ id: shareBeat.id, beat_id: shareBeat.beat_id, beat_name: shareBeat.name }}
+            grantedBy={user.id}
+          />
+        )}
+
+        {coverageBeat && user && (
+          <CoverageModal
+            open={!!coverageBeat}
+            onOpenChange={(o) => { if (!o) setCoverageBeat(null); }}
+            beat={{ id: coverageBeat.id, beat_id: coverageBeat.beat_id, beat_name: coverageBeat.name }}
+            primaryUserId={user.id}
+            assignedBy={user.id}
+          />
+        )}
+
+
       </div>
     </Layout>
   );
