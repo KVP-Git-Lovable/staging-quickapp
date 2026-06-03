@@ -60,6 +60,8 @@ import type { BeatWithAccess, BeatStats } from "@/services/beatService";
 import { DeactivateBeatWizard } from "@/components/DeactivateBeatWizard";
 import { ShareBeatModal } from "@/components/ShareBeatModal";
 import { CoverageModal } from "@/components/CoverageModal";
+import { TransferOwnershipModal } from "@/components/TransferOwnershipModal";
+import { BeatHistoryDrawer } from "@/components/BeatHistoryDrawer";
 
 
 
