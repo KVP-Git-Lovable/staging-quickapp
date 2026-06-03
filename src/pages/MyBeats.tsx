@@ -146,7 +146,7 @@ async function checkBeatNameDuplicate(
     const bName = (b.beat_name || '').toLowerCase();
     if (bName === normalized) {
       const isOwn = b.user_id === currentUserId;
-      const ownerName = b.profiles?.full_name || b.profiles?.name || 'Another user';
+      const ownerName = b.profiles?.full_name || b.profiles?.username || 'Another user';
       return {
         matchType: isOwn ? 'exact_own' : 'exact_other',
         existingOwnerName: ownerName,
