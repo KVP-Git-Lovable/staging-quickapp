@@ -105,6 +105,75 @@ interface Retailer {
   };
 }
 
+// Levenshtein distance for near-match detection
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+  return dp[m][n];
+}
+
+type DuplicateMatch = {
+  matchType: 'exact_own' | 'exact_other' | 'near_own' | 'near_other';
+  existingOwnerName?: string;
+  matchedBeatName?: string;
+};
+
+async function checkBeatNameDuplicate(
+  name: string,
+  currentUserId: string,
+  distributorId: string | null
+): Promise<DuplicateMatch | null> {
+  const normalized = name.trim().toLowerCase();
+
+  let query = supabase
+    .from('beats')
+    .select('beat_name, user_id, profiles:user_id(full_name, name)')
+    .eq('is_active', true);
+
+  if (distributorId) query = query.eq('distributor_id', distributorId);
+
+  const { data: orgBeats } = await query;
+  if (!orgBeats || orgBeats.length === 0) return null;
+
+  for (const b of orgBeats as any[]) {
+    const bName = (b.beat_name || '').toLowerCase();
+    if (bName === normalized) {
+      const isOwn = b.user_id === currentUserId;
+      const ownerName = b.profiles?.full_name || b.profiles?.name || 'Another user';
+      return {
+        matchType: isOwn ? 'exact_own' : 'exact_other',
+        existingOwnerName: ownerName,
+        matchedBeatName: b.beat_name,
+      };
+    }
+  }
+
+  for (const b of orgBeats as any[]) {
+    const bName = (b.beat_name || '').toLowerCase();
+    if (!bName) continue;
+    const dist = levenshtein(normalized, bName);
+    const contains = normalized.length >= 4 && (bName.includes(normalized) || normalized.includes(bName));
+    if (dist <= 2 || contains) {
+      const isOwn = b.user_id === currentUserId;
+      const ownerName = b.profiles?.full_name || b.profiles?.name || 'Another user';
+      return {
+        matchType: isOwn ? 'near_own' : 'near_other',
+        existingOwnerName: ownerName,
+        matchedBeatName: b.beat_name,
+      };
+    }
+  }
+
+  return null;
+}
+
 export const MyBeats = () => {
   const [beats, setBeats] = useState<Beat[]>([]);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
