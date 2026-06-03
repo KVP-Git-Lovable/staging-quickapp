@@ -58,6 +58,8 @@ import { usePermissions } from "@/hooks/usePermissions";
 import * as beatService from "@/services/beatService";
 import type { BeatWithAccess, BeatStats } from "@/services/beatService";
 import { DeactivateBeatWizard } from "@/components/DeactivateBeatWizard";
+import { ShareBeatModal } from "@/components/ShareBeatModal";
+import { CoverageModal } from "@/components/CoverageModal";
 
 
 
@@ -191,6 +193,8 @@ export const MyBeats = () => {
   
   // Deactivate state (wizard)
   const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
+  const [shareBeat, setShareBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
+  const [coverageBeat, setCoverageBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
@@ -1784,8 +1788,8 @@ export const MyBeats = () => {
                     const ok = await beatLifecycle.reactivate(beat.id, beat.name);
                     if (ok) loadBeats();
                   }}
-                  onShare={() => toast.info('Share Beat — coming soon')}
-                  onAssignCoverage={() => toast.info('Assign Coverage — coming soon')}
+                  onShare={() => setShareBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
+                  onAssignCoverage={() => setCoverageBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   onTransferOwnership={() => toast.info('Transfer Ownership — coming soon')}
                   onClone={() => toast.info('Clone Beat — coming soon')}
                   onHistory={() => toast.info('View History — coming soon')}
@@ -2430,6 +2434,26 @@ export const MyBeats = () => {
             }}
           />
         )}
+
+        {shareBeat && user && (
+          <ShareBeatModal
+            open={!!shareBeat}
+            onOpenChange={(o) => { if (!o) setShareBeat(null); }}
+            beat={{ id: shareBeat.id, beat_id: shareBeat.beat_id, beat_name: shareBeat.name }}
+            grantedBy={user.id}
+          />
+        )}
+
+        {coverageBeat && user && (
+          <CoverageModal
+            open={!!coverageBeat}
+            onOpenChange={(o) => { if (!o) setCoverageBeat(null); }}
+            beat={{ id: coverageBeat.id, beat_id: coverageBeat.beat_id, beat_name: coverageBeat.name }}
+            primaryUserId={user.id}
+            assignedBy={user.id}
+          />
+        )}
+
 
       </div>
     </Layout>
