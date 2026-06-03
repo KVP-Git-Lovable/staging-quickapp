@@ -20963,6 +20963,15 @@ export type Database = {
           retailer_name: string
         }[]
       }
+      get_org_beat_names: {
+        Args: { p_distributor_id?: string }
+        Returns: {
+          beat_name: string
+          full_name: string
+          user_id: string
+          username: string
+        }[]
+      }
       get_password_reset_stats: {
         Args: never
         Returns: {

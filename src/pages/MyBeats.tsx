@@ -132,21 +132,16 @@ async function checkBeatNameDuplicate(
 ): Promise<DuplicateMatch | null> {
   const normalized = name.trim().toLowerCase();
 
-  let query = supabase
-    .from('beats')
-    .select('beat_name, user_id, profiles:user_id(full_name, username)')
-    .eq('is_active', true);
-
-  if (distributorId) query = query.eq('distributor_id', distributorId);
-
-  const { data: orgBeats } = await query;
+  const { data: orgBeats, error } = await (supabase as any)
+    .rpc('get_org_beat_names', { p_distributor_id: distributorId ?? null });
+  if (error) { console.error('checkBeatNameDuplicate:', error); return null; }
   if (!orgBeats || orgBeats.length === 0) return null;
 
   for (const b of orgBeats as any[]) {
     const bName = (b.beat_name || '').toLowerCase();
     if (bName === normalized) {
       const isOwn = b.user_id === currentUserId;
-      const ownerName = b.profiles?.full_name || b.profiles?.username || 'Another user';
+      const ownerName = b.full_name || b.username || 'Another user';
       return {
         matchType: isOwn ? 'exact_own' : 'exact_other',
         existingOwnerName: ownerName,
@@ -162,7 +157,7 @@ async function checkBeatNameDuplicate(
     const contains = normalized.length >= 4 && (bName.includes(normalized) || normalized.includes(bName));
     if (dist <= 2 || contains) {
       const isOwn = b.user_id === currentUserId;
-      const ownerName = b.profiles?.full_name || b.profiles?.username || 'Another user';
+      const ownerName = b.full_name || b.username || 'Another user';
       return {
         matchType: isOwn ? 'near_own' : 'near_other',
         existingOwnerName: ownerName,
