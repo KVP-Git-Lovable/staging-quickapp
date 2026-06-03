@@ -1,116 +1,43 @@
-## Goal
+## Plan: DB Audit Fixes (Parts A, B, C)
 
-Apply the 4 DB patches (A-D), the `beatService.transferBeatOwnership` patch, the ShareBeatModal OPERATIONAL option, and the MyBeats/BeatCard OPERATIONAL action-menu + badge updates. Add the `cleanup-expired-coverage` Edge Function.
+### Part A — Single Supabase migration (Fixes 1-5)
 
-Confirmed current DB state (from a live check):
-- `beat_user_access` CHECK constraint = `('OWNER','CO_OWNER','VIEW_ONLY','COVERAGE')` — missing OPERATIONAL.
-- `beat_ownership_history` columns = id, beat_id, beat_name, old_owner_id, old_owner_name, new_owner_id, new_owner_name, transferred_by, transferred_at, reason, created_at — missing `effective_date`.
-- `retailer_owner_history` does not exist.
-- `cleanup_expired_coverage()` does not exist.
+Run all 5 RLS changes as one migration:
 
-## 1. Single DB migration (Patches A + B + C + D)
+1. `CREATE POLICY "beats_select"` on `beats` — gated by `user_has_permission('module_my_beats','can_read')`.
+2. `CREATE POLICY "beats_insert"` on `beats` — gated by `user_has_permission('action_beat_create','can_create')`.
+3. `DROP POLICY` "Allow anon read product_schemes for portal" and "Product schemes are viewable by authenticated users" on `product_schemes`.
+4. Drop & recreate `visits_insert` policy with `user_has_permission('action_visit_create','can_create') AND auth.uid()=user_id AND user_has_beat_access(auth.uid(), beat_id)`.
+5. Drop 3 old `orders` UPDATE policies, create single `orders_update` with `user_has_permission('action_order_edit','can_edit') AND (auth.uid()=user_id OR user_has_beat_access(auth.uid(), beat_id))` for both USING and WITH CHECK.
 
-```sql
--- A: add OPERATIONAL to beat_user_access.access_type
-ALTER TABLE public.beat_user_access DROP CONSTRAINT IF EXISTS beat_user_access_access_type_check;
-ALTER TABLE public.beat_user_access
-  ADD CONSTRAINT beat_user_access_access_type_check
-  CHECK (access_type IN ('OWNER','CO_OWNER','VIEW_ONLY','COVERAGE','OPERATIONAL'));
+After migration is approved & run, execute the two verification SELECTs from `pg_policies` via `supabase--read_query` and share results.
 
--- B: effective_date on beat_ownership_history
-ALTER TABLE public.beat_ownership_history
-  ADD COLUMN IF NOT EXISTS effective_date DATE NOT NULL DEFAULT CURRENT_DATE;
+### Part B — Code fixes
 
--- C: retailer_owner_history (+ indexes, GRANTs, RLS, policies)
-CREATE TABLE IF NOT EXISTS public.retailer_owner_history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  retailer_id UUID NOT NULL,
-  retailer_name TEXT,
-  old_user_id UUID NOT NULL,
-  old_user_name TEXT,
-  new_user_id UUID NOT NULL,
-  new_user_name TEXT,
-  changed_by UUID NOT NULL,
-  changed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  reason TEXT,
-  beat_id TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_roh_retailer_id ON public.retailer_owner_history (retailer_id);
-CREATE INDEX IF NOT EXISTS idx_roh_old_user ON public.retailer_owner_history (old_user_id);
-CREATE INDEX IF NOT EXISTS idx_roh_new_user ON public.retailer_owner_history (new_user_id);
+**Fix 6 — `src/services/beatService.ts`:** Already a batch insert (lines 297-315). No change needed. Report this in the final summary.
 
-GRANT SELECT, INSERT ON public.retailer_owner_history TO authenticated;
-GRANT ALL ON public.retailer_owner_history TO service_role;
+**Fix 7 — `src/hooks/usePermissions.ts`:** Add a 4th parallel fetch from `user_object_permissions` for the current user. Merge its rows FIRST (highest priority) before profile, set, and coverage permissions. Since merge is additive OR-logic, priority order doesn't change semantics, but we'll order the merge calls as: userOverrides → coverage → set → profile to match backend `user_has_permission()` layering.
 
-ALTER TABLE public.retailer_owner_history ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "roh_select" ON public.retailer_owner_history FOR SELECT TO authenticated USING (true);
-CREATE POLICY "roh_insert" ON public.retailer_owner_history FOR INSERT TO authenticated WITH CHECK (true);
+**Fix 8 — `src/hooks/useOfflineRetailers.ts`:** Already has no `access_type` filter on the `beat_user_access` query (lines 196-203). No change needed. Report this.
 
--- D: cleanup_expired_coverage
-CREATE OR REPLACE FUNCTION public.cleanup_expired_coverage()
-RETURNS void
-LANGUAGE sql SECURITY DEFINER
-SET search_path = public
-AS $$
-  UPDATE beat_coverage_assignments
-     SET is_active = false, updated_at = now()
-   WHERE is_active = true AND end_date < CURRENT_DATE;
+**Fix 9 — `src/components/DeactivateBeatWizard.tsx`:** Currently fetches own beats via `.eq('user_id', userId)` then merges shared beats. Replace this with a single `beatService.getMyBeats(userId)` call (which returns owned + shared + coverage), then filter out the current beat and map to `DestBeat` shape. Keep the retailers fetch as-is.
 
-  UPDATE beat_user_access
-     SET is_active = false, updated_at = now()
-   WHERE is_active = true AND effective_to IS NOT NULL AND effective_to < now();
+**Fix 10 — `src/components/TransferOwnershipModal.tsx`:** Update the `transferBeatOwnership` call at line 100 to pass `new Date().toISOString().split('T')[0]` as the 5th argument (`effectiveDate`).
 
-  UPDATE coverage_permission_assignments
-     SET is_active = false
-   WHERE is_active = true AND end_date < CURRENT_DATE;
-$$;
-GRANT EXECUTE ON FUNCTION public.cleanup_expired_coverage() TO authenticated, service_role;
-```
+### Part C — Confirmations (already verified via grep)
 
-## 2. Edge Function `supabase/functions/cleanup-expired-coverage/index.ts`
+- No "Pending Transfer" badge anywhere — grep for `Pending Transfer|pending_transfer|scheduled.*transfer|future.*ownership` returns no matches.
+- No future-date picker in `TransferOwnershipModal.tsx` — only a reason text input.
+- No setTimeout/polling logic for transfers — none found.
 
-- CORS + OPTIONS handler.
-- Uses `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` to create an admin client.
-- Calls `await admin.rpc('cleanup_expired_coverage')`.
-- Returns `{ ok: true }`.
-- Inform user they can schedule it daily via the Dashboard (we do not auto-schedule via pg_cron in this patch).
+Will report all three as "confirmed not present" in the final summary.
 
-## 3. `src/services/beatService.ts`
+### Final verification
 
-- Extend `AccessType`: `'OWNED' | 'CO_OWNER' | 'OPERATIONAL' | 'VIEW_ONLY' | 'COVERAGE'`.
-- Update `grantBeatAccess` / `revokeBeatAccess` parameter signatures (they already use `Exclude<AccessType,'OWNED'>` so OPERATIONAL is automatically allowed).
-- Extend `getBeatsForUser` `.in('access_type', ['CO_OWNER','VIEW_ONLY','OPERATIONAL'])` (line 471) for sharedWithMe count.
-- `transferBeatOwnership(beatId, newOwnerId, transferredBy, reason, effectiveDate?: string)`:
-  - Resolve `effectiveDate` → `CURRENT_DATE` if absent; pass to `beat_ownership_history.effective_date`.
-  - Fetch retailers for the beat (id, retailer_name) BEFORE the user_id update.
-  - Resolve `currentOwnerName` from `beat.owner_name`, and `newOwnerName` (already resolved).
-  - After the existing retailers `user_id` update, insert one `retailer_owner_history` row per retailer (batch insert) with old/new user ids+names, changed_by, reason, beat_id (TEXT).
-  - No future-date scheduling logic — record is written immediately; UI may show "pending" later but we don't gate transfer execution on `effective_date`.
+After all DB + code changes, run the final `pg_policies` audit query from the user's message via `supabase--read_query` and share the table of results so the user can confirm every row is ✅ profile-based or ✅ beat-access.
 
-## 4. `src/components/ShareBeatModal.tsx`
+### Technical notes
 
-- `type Access = "CO_OWNER" | "OPERATIONAL" | "VIEW_ONLY"`.
-- Add a third RadioGroupItem `OPERATIONAL` with label "Operational" and description "Can visit, take orders, update retailers — cannot edit beat structure".
-- `.in("access_type", ["CO_OWNER","OPERATIONAL","VIEW_ONLY"])` when loading shares.
-- Row badge label map: `CO_OWNER`→"Co-owner", `OPERATIONAL`→"Operational", `VIEW_ONLY`→"View only".
-
-## 5. `src/components/BeatCard.tsx`
-
-- Extend `BeatAccessType` to include `'OPERATIONAL'`.
-- Add `accessBadge` case: `OPERATIONAL` → blue badge "Operational".
-- `COVERAGE` badge → "Covering until {format(coverageEndDate,'PP')}" when `coverageEndDate` present, else "Covering".
-- Visibility for OPERATIONAL active: only `showHistory` (gated by existing permission key). Confirm `showEdit` excludes OPERATIONAL (currently `isOwner || isCoOwner` — already excludes), and Share/Coverage/Transfer/Deactivate/Clone require `isOwner` — already excludes.
-
-## 6. `src/pages/MyBeats.tsx`
-
-- Widen the inline union at line 1279 to include `'OPERATIONAL'`.
-- `accessTab === 'shared'` filter (line 1293): include OPERATIONAL alongside CO_OWNER / VIEW_ONLY.
-
-## Out of scope
-
-- No pg_cron scheduling (Dashboard scheduling instead).
-- No future-date scheduling UI / "pending transfer" badge (rule says do not build it yet).
-- No changes to `EditBeatModal`.
-- No changes to RLS on existing tables beyond what's listed.
-- No changes to `useOfflineRetailers` / Message 12 work.
+- Fixes 6 and 8 require no edits — current code already matches the spec. Will explicitly note this rather than make redundant changes.
+- Fix 7 priority order is documentational only since merge is OR-based; behavior is identical regardless of merge order.
+- `getMyBeats` returns `BeatWithAccess[]` with fields `id`, `beat_id`, `beat_name`, `access_type` — mapping to `DestBeat` ({id, beat_id, beat_name}) is a direct field pick.

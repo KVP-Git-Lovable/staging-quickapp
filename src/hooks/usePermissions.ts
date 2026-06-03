@@ -49,7 +49,7 @@ export function usePermissions() {
     const today = new Date().toISOString().split('T')[0];
     const profileId = await getUserProfileId(user.id);
 
-    const [profileRes, setRes, coverageRes] = await Promise.all([
+    const [profileRes, setRes, coverageRes, userOverridesRes] = await Promise.all([
       profileId
         ? supabase
             .from('profile_object_permissions')
@@ -77,6 +77,10 @@ export function usePermissions() {
         .eq('is_active', true)
         .lte('start_date', today)
         .gte('end_date', today),
+      supabase
+        .from('user_object_permissions')
+        .select('object_name, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
+        .eq('user_id', user.id),
     ]);
 
     const merged: PermissionMap = {};
@@ -93,18 +97,22 @@ export function usePermissions() {
       merged[key] = cur;
     };
 
-    (profileRes.data as any[] | null)?.forEach(mergeRow);
-    (setRes.data as any[] | null)?.forEach((sp: any) => {
-      const perms = sp?.permission_set_group_permissions;
-      if (Array.isArray(perms)) perms.forEach(mergeRow);
-      else if (perms) mergeRow(perms);
-    });
+    // Merge order mirrors backend user_has_permission() layering:
+    // 1) user overrides (highest), 2) coverage, 3) permanent sets, 4) base profile.
+    // Logic is additive (OR) — any true value wins across all layers.
+    (userOverridesRes.data as any[] | null)?.forEach(mergeRow);
     (coverageRes.data as any[] | null)?.forEach((cp: any) => {
       const grp = cp?.permission_set_groups;
       const perms = grp?.permission_set_group_permissions;
       if (Array.isArray(perms)) perms.forEach(mergeRow);
       else if (perms) mergeRow(perms);
     });
+    (setRes.data as any[] | null)?.forEach((sp: any) => {
+      const perms = sp?.permission_set_group_permissions;
+      if (Array.isArray(perms)) perms.forEach(mergeRow);
+      else if (perms) mergeRow(perms);
+    });
+    (profileRes.data as any[] | null)?.forEach(mergeRow);
 
     setPermissions(merged);
     setLoading(false);

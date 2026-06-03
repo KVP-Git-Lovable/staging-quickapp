@@ -81,56 +81,34 @@ export function DeactivateBeatWizard({
     (async () => {
       setLoading(true);
       try {
-        const nowIso = new Date().toISOString();
-        const [retRes, ownRes, accessRes] = await Promise.all([
+        const [retRes, myBeats] = await Promise.all([
           retailerCount > 0
             ? supabase
                 .from("retailers")
                 .select("id, name")
                 .eq("beat_id", beat.beat_id)
             : Promise.resolve({ data: [], error: null } as any),
-          supabase
-            .from("beats")
-            .select("id, beat_id, beat_name")
-            .eq("is_active", true)
-            .eq("user_id", userId)
-            .neq("beat_id", beat.beat_id),
-          supabase
-            .from("beat_user_access")
-            .select("beat_id")
-            .eq("user_id", userId)
-            .eq("is_active", true)
-            .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
+          beatService.getMyBeats(userId),
         ]);
         if (cancelled) return;
         if (retRes.error) throw retRes.error;
-        if (ownRes.error) throw ownRes.error;
 
-        let sharedBeats: DestBeat[] = [];
-        const sharedBeatIds = ((accessRes as any)?.data ?? [])
-          .map((r: any) => r.beat_id)
-          .filter((id: string) => id && id !== beat.beat_id);
-        if (sharedBeatIds.length > 0) {
-          const { data: sb, error: sbErr } = await supabase
-            .from("beats")
-            .select("id, beat_id, beat_name")
-            .eq("is_active", true)
-            .in("beat_id", sharedBeatIds)
-            .neq("beat_id", beat.beat_id);
-          if (sbErr) {
-            console.warn("Shared beats lookup failed:", sbErr.message);
-          } else {
-            sharedBeats = (sb ?? []) as DestBeat[];
-          }
-        }
-
-        const all = [...((ownRes.data ?? []) as DestBeat[]), ...sharedBeats];
-        const deduped = Array.from(
-          new Map(all.map((b) => [b.beat_id, b])).values(),
+        // getMyBeats returns owned + shared + coverage (all access types).
+        // Filter out the beat being deactivated and map to DestBeat shape.
+        const deduped: DestBeat[] = Array.from(
+          new Map(
+            (myBeats ?? [])
+              .filter((b: any) => b.beat_id !== beat.beat_id && b.is_active !== false)
+              .map((b: any) => [
+                b.beat_id,
+                { id: b.id, beat_id: b.beat_id, beat_name: b.beat_name } as DestBeat,
+              ]),
+          ).values(),
         );
 
         setRetailers((retRes.data ?? []) as RetailerRow[]);
         setDestBeats(deduped);
+
       } catch (err: any) {
         toast.error(err?.message || "Failed to load wizard data");
       } finally {

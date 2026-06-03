@@ -102,7 +102,9 @@ export function TransferOwnershipModal({
         selectedUser.user_id,
         currentUserId,
         reason.trim(),
+        new Date().toISOString().split("T")[0], // always today — no future-date logic
       );
+
       toast.success(`Beat transferred to ${personName}`);
       onSuccess();
       onOpenChange(false);
