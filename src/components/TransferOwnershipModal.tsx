@@ -19,10 +19,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Profile {
-  user_id: string;
+  id: string;
   full_name: string | null;
-  name?: string | null;
-  avatar_url?: string | null;
+  username?: string | null;
+  profile_picture_url?: string | null;
 }
 
 interface TransferOwnershipModalProps {
