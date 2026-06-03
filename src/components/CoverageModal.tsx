@@ -187,7 +187,7 @@ export function CoverageModal({
       await beatService.assignCoverage(
         beat.id,
         primaryUserId,
-        selectedUser.user_id,
+        selectedUser.id,
         startDate.toISOString(),
         endDate.toISOString(),
         reason.trim(),
