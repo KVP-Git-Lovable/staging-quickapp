@@ -38,6 +38,7 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { clearMyVisitsSnapshot } from "@/lib/myVisitsSnapshot";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { BeatDeleteDialog } from "@/components/BeatDeleteDialog";
+import { DuplicateBeatWarningDialog } from "@/components/DuplicateBeatWarningDialog";
 import { BeatTransferDialog } from "@/components/BeatTransferDialog";
 import { useDeleteConfirm } from "@/hooks/useDeleteConfirm";
 import { useBeatLifecycle } from "@/hooks/useBeatLifecycle";
