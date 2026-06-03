@@ -79,7 +79,8 @@ export function DeactivateBeatWizard({
     (async () => {
       setLoading(true);
       try {
-        const [retRes, beatsRes] = await Promise.all([
+        const nowIso = new Date().toISOString();
+        const [retRes, ownRes, accessRes] = await Promise.all([
           retailerCount > 0
             ? supabase
                 .from("retailers")
@@ -92,12 +93,42 @@ export function DeactivateBeatWizard({
             .eq("is_active", true)
             .eq("user_id", userId)
             .neq("beat_id", beat.beat_id),
+          supabase
+            .from("beat_user_access")
+            .select("beat_id")
+            .eq("user_id", userId)
+            .eq("is_active", true)
+            .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
         ]);
         if (cancelled) return;
         if (retRes.error) throw retRes.error;
-        if (beatsRes.error) throw beatsRes.error;
+        if (ownRes.error) throw ownRes.error;
+
+        let sharedBeats: DestBeat[] = [];
+        const sharedBeatIds = ((accessRes as any)?.data ?? [])
+          .map((r: any) => r.beat_id)
+          .filter((id: string) => id && id !== beat.beat_id);
+        if (sharedBeatIds.length > 0) {
+          const { data: sb, error: sbErr } = await supabase
+            .from("beats")
+            .select("id, beat_id, beat_name")
+            .eq("is_active", true)
+            .in("beat_id", sharedBeatIds)
+            .neq("beat_id", beat.beat_id);
+          if (sbErr) {
+            console.warn("Shared beats lookup failed:", sbErr.message);
+          } else {
+            sharedBeats = (sb ?? []) as DestBeat[];
+          }
+        }
+
+        const all = [...((ownRes.data ?? []) as DestBeat[]), ...sharedBeats];
+        const deduped = Array.from(
+          new Map(all.map((b) => [b.beat_id, b])).values(),
+        );
+
         setRetailers((retRes.data ?? []) as RetailerRow[]);
-        setDestBeats((beatsRes.data ?? []) as DestBeat[]);
+        setDestBeats(deduped);
       } catch (err: any) {
         toast.error(err?.message || "Failed to load wizard data");
       } finally {
