@@ -114,7 +114,11 @@ export function BeatHistoryDrawer({ open, onOpenChange, beat }: BeatHistoryDrawe
           </SheetDescription>
         </SheetHeader>
 
-        {loading || !history ? (
+        {denied ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">
+            You don't have permission to view beat history.
+          </div>
+        ) : loading || permLoading || !history ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
