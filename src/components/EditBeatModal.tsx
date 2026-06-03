@@ -27,6 +27,7 @@ interface Beat {
   average_km?: number;
   average_time_minutes?: number;
   territory_id?: string;
+  category?: string;
 }
 
 interface Territory {
