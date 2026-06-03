@@ -128,7 +128,7 @@ export async function reactivateBeat(beatId: string, userId: string) {
       reactivated_by: userId,
       updated_by: userId,
     })
-    .eq('id', beatId)
+    .eq('beat_id', beatId)
     .select()
     .maybeSingle();
   throwIfError(error, 'reactivateBeat');
@@ -145,7 +145,7 @@ export async function deactivateBeat(beatId: string, userId: string) {
       deactivated_by: userId,
       updated_by: userId,
     })
-    .eq('id', beatId)
+    .eq('beat_id', beatId)
     .select()
     .maybeSingle();
   throwIfError(error, 'deactivateBeat');
@@ -524,7 +524,7 @@ export async function cloneBeat(beatId: string, newBeatName: string, createdBy: 
   const { data: src, error: sErr } = await supabase
     .from('beats')
     .select('*')
-    .eq('id', beatId)
+    .eq('beat_id', beatId)
     .maybeSingle();
   throwIfError(sErr, 'cloneBeat.fetch');
   if (!src) throw new Error('Source beat not found');
