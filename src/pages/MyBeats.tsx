@@ -2410,26 +2410,26 @@ export const MyBeats = () => {
           />
         )}
 
-        {/* Deactivate Confirmation */}
-        <AlertDialog open={!!deactivateBeat} onOpenChange={(v) => { if (!v) setDeactivateBeat(null); }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2">
-                <Power size={18} className="text-orange-500" />
-                Deactivate Beat
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Deactivate "{deactivateBeat?.name}"? It will be hidden from daily planning but remain in reports.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeactivateBeat} className="bg-orange-500 hover:bg-orange-600">
-                Deactivate
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Deactivate Beat Wizard */}
+        {deactivateBeat && user && (
+          <DeactivateBeatWizard
+            open={!!deactivateBeat}
+            onOpenChange={(o) => { if (!o) setDeactivateBeat(null); }}
+            beat={{
+              id: deactivateBeat.id,
+              beat_id: deactivateBeat.id,
+              beat_name: deactivateBeat.name,
+            }}
+            retailerCount={deactivateBeat.retailerCount}
+            userId={user.id}
+            onSuccess={() => {
+              setBeats((prev) => prev.map((b) => (b.id === deactivateBeat.id ? { ...b, is_active: false } : b)));
+              window.dispatchEvent(new CustomEvent('visitDataChanged'));
+              loadBeats();
+            }}
+          />
+        )}
+
       </div>
     </Layout>
   );
