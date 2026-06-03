@@ -17,7 +17,7 @@ import { useBeatMetrics } from '@/hooks/useBeatMetrics';
 import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
 
-export type BeatAccessType = 'OWNED' | 'CO_OWNER' | 'VIEW_ONLY' | 'COVERAGE';
+export type BeatAccessType = 'OWNED' | 'CO_OWNER' | 'OPERATIONAL' | 'VIEW_ONLY' | 'COVERAGE';
 
 interface BeatCardProps {
   beat: {
@@ -51,16 +51,22 @@ interface BeatCardProps {
   isHardDeletable?: boolean;
 }
 
-function accessBadge(at: BeatAccessType) {
+function accessBadge(at: BeatAccessType, coverageEndDate?: string | null) {
   switch (at) {
     case 'OWNED':
-      return <Badge className="text-[10px] px-1.5 py-0.5 bg-primary text-primary-foreground">Owner</Badge>;
+      return null; // owner: no badge
     case 'CO_OWNER':
-      return <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">Co-owner</Badge>;
+      return <Badge className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-800 border-purple-200">Co-owner</Badge>;
+    case 'OPERATIONAL':
+      return <Badge className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-800 border-blue-200">Operational</Badge>;
     case 'VIEW_ONLY':
-      return <Badge variant="outline" className="text-[10px] px-1.5 py-0.5">Viewing</Badge>;
-    case 'COVERAGE':
-      return <Badge className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 border-amber-200">Covering</Badge>;
+      return <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-muted text-muted-foreground">Viewing</Badge>;
+    case 'COVERAGE': {
+      const label = coverageEndDate
+        ? `Covering until ${new Date(coverageEndDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+        : 'Covering';
+      return <Badge className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 border-amber-200">{label}</Badge>;
+    }
   }
 }
 

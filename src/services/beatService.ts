@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export type AccessType = 'OWNED' | 'CO_OWNER' | 'VIEW_ONLY' | 'COVERAGE';
+export type AccessType = 'OWNED' | 'CO_OWNER' | 'OPERATIONAL' | 'VIEW_ONLY' | 'COVERAGE';
 
 export interface BeatWithAccess {
   id: string;
@@ -236,6 +236,7 @@ export async function transferBeatOwnership(
   newOwnerId: string,
   transferredBy: string,
   reason: string,
+  effectiveDate?: string, // ISO date (YYYY-MM-DD); defaults to today
 ) {
   const { data: beat, error: bErr } = await supabase
     .from('beats')
@@ -245,8 +246,18 @@ export async function transferBeatOwnership(
   throwIfError(bErr, 'transferBeatOwnership.fetch');
   if (!beat) throw new Error('Beat not found');
 
+  const oldOwnerId = (beat as any).owner_id ?? (beat as any).user_id;
+  const oldOwnerName = (beat as any).owner_name ?? (await getProfileName(oldOwnerId));
   const newOwnerName = await getProfileName(newOwnerId);
   const nowIso = new Date().toISOString();
+  const effDate = effectiveDate ?? new Date().toISOString().slice(0, 10);
+
+  // Snapshot retailers BEFORE update for retailer_owner_history.
+  const { data: retailers, error: rFetchErr } = await supabase
+    .from('retailers')
+    .select('id, retailer_name')
+    .eq('beat_id', (beat as any).beat_id);
+  throwIfError(rFetchErr, 'transferBeatOwnership.fetchRetailers');
 
   const { error: updErr } = await supabase
     .from('beats')
@@ -266,14 +277,15 @@ export async function transferBeatOwnership(
     .insert({
       beat_id: (beat as any).beat_id,
       beat_name: (beat as any).beat_name,
-      old_owner_id: (beat as any).owner_id ?? (beat as any).user_id,
-      old_owner_name: (beat as any).owner_name,
+      old_owner_id: oldOwnerId,
+      old_owner_name: oldOwnerName,
       new_owner_id: newOwnerId,
       new_owner_name: newOwnerName,
       transferred_by: transferredBy,
       transferred_at: nowIso,
+      effective_date: effDate,
       reason,
-    });
+    } as any);
   throwIfError(histErr, 'transferBeatOwnership.history');
 
   const { error: retErr } = await supabase
@@ -281,6 +293,26 @@ export async function transferBeatOwnership(
     .update({ user_id: newOwnerId })
     .eq('beat_id', (beat as any).beat_id);
   throwIfError(retErr, 'transferBeatOwnership.retailers');
+
+  // Per-retailer ownership history (batch insert).
+  if (retailers && retailers.length > 0) {
+    const rows = retailers.map((r: any) => ({
+      retailer_id: r.id,
+      retailer_name: r.retailer_name,
+      old_user_id: oldOwnerId,
+      old_user_name: oldOwnerName,
+      new_user_id: newOwnerId,
+      new_user_name: newOwnerName,
+      changed_by: transferredBy,
+      reason,
+      beat_id: (beat as any).beat_id,
+    }));
+    const { error: rohErr } = await supabase
+      .from('retailer_owner_history')
+      .insert(rows as any);
+    // Non-fatal: log but don't reverse the transfer.
+    if (rohErr) console.error('transferBeatOwnership.retailerHistory', rohErr);
+  }
 
   return { ok: true };
 }
@@ -468,7 +500,7 @@ export async function getBeatStats(userId: string): Promise<BeatStats> {
     head(supabase.from('beats')).eq('user_id', userId).eq('is_active', false),
     head(supabase.from('beat_user_access'))
       .eq('user_id', userId)
-      .in('access_type', ['CO_OWNER', 'VIEW_ONLY'])
+      .in('access_type', ['CO_OWNER', 'VIEW_ONLY', 'OPERATIONAL'])
       .eq('is_active', true)
       .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
     head(supabase.from('beat_user_access'))
