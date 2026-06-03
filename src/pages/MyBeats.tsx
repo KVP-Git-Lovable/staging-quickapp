@@ -949,7 +949,8 @@ export const MyBeats = () => {
         `"${beatName}" contains historical data and cannot be deleted.${reasonText}\n\nDeactivate this beat instead?`
       );
       if (proceed) {
-        setDeactivateBeat({ id: beatId, name: beatName });
+        const rc = beats.find(b => b.id === beatId)?.retailer_count ?? 0;
+        setDeactivateBeat({ id: beatId, name: beatName, retailerCount: rc });
       }
       return;
     }
