@@ -210,6 +210,8 @@ export function CoverageModal({
   };
 
   const handleEnd = async (row: CoverageRow) => {
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_coverage", "create")) { toast.error("You don't have permission"); return; }
     try {
       await beatService.endCoverage(row.id);
       toast.success("Coverage ended");
