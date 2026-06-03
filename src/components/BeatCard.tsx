@@ -142,7 +142,7 @@ export function BeatCard({
             <Badge variant="default" className="text-[10px] px-1.5 py-0.5 font-medium">
               #{beat.beat_number}
             </Badge>
-            {accessBadge(accessType)}
+            {accessBadge(accessType, coverageEndDate)}
             {!isActive && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">Inactive</Badge>
             )}
