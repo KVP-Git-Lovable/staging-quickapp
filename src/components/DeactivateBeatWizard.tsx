@@ -55,6 +55,7 @@ export function DeactivateBeatWizard({
   userId,
   onSuccess,
 }: DeactivateBeatWizardProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [step, setStep] = useState<1 | 2>(1);
   const [mode, setMode] = useState<Mode>("keep");
   const [destBeatId, setDestBeatId] = useState<string>("");
