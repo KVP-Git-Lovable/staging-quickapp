@@ -54,6 +54,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import * as beatService from "@/services/beatService";
+import type { BeatWithAccess, BeatStats } from "@/services/beatService";
+
+
 
 
 interface Beat {
@@ -194,6 +199,13 @@ export const MyBeats = () => {
   const [deletabilityMap, setDeletabilityMap] = useState<Record<string, boolean>>({});
   const beatLifecycle = useBeatLifecycle();
 
+  // Access-aware tab + service data
+  const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all'>('mine');
+  const [myBeatsRaw, setMyBeatsRaw] = useState<BeatWithAccess[]>([]);
+  const [beatStats, setBeatStats] = useState<BeatStats | null>(null);
+  const { can } = usePermissions();
+
+
   // Delete confirmation dialog
   const { isOpen: isDeleteOpen, itemId: deleteItemId, itemName: deleteItemName, openDeleteDialog, closeDeleteDialog, setOpen: setDeleteOpen } = useDeleteConfirm();
 
@@ -213,15 +225,36 @@ export const MyBeats = () => {
       if (effectiveUserIds.length > 0) {
         await loadBeats();
         await loadAllRetailers();
-        
+
         if (isOnline) {
           await loadTerritories();
         }
       }
     };
-    
+
     loadData();
   }, [effectiveUserIds, isOnline]);
+
+  // Access-aware load: pull merged beats + stats for the signed-in user
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [mine, stats] = await Promise.all([
+          beatService.getMyBeats(user.id),
+          beatService.getBeatStats(user.id),
+        ]);
+        if (cancelled) return;
+        setMyBeatsRaw(mine);
+        setBeatStats(stats);
+      } catch (e) {
+        console.error('[MyBeats] beatService load failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, beats.length]);
+
 
   // Auto-populate retailers list when allRetailers loads and create modal is open
   useEffect(() => {
@@ -1230,11 +1263,43 @@ export const MyBeats = () => {
     retailer.phone.includes(searchTerm)
   );
 
-  const filteredBeats = beats.filter((beat) => {
-    if (beatStatusFilter === 'active' && beat.is_active === false) return false;
-    if (beatStatusFilter === 'inactive' && beat.is_active !== false) return false;
+  // Access lookup keyed by the text beat_id (which matches Beat.id in this page).
+  const accessByBeatId = useMemo(() => {
+    const map = new Map<string, BeatWithAccess>();
+    for (const b of myBeatsRaw) {
+      if ((b as any).beat_id) map.set((b as any).beat_id, b);
+    }
+    return map;
+  }, [myBeatsRaw]);
+
+  // Annotate beats with their accessType for filtering / rendering.
+  const annotatedBeats = useMemo(() => {
+    return beats.map((b) => {
+      const acc = accessByBeatId.get(b.id);
+      const accessType = (acc?.accessType ?? 'OWNED') as 'OWNED' | 'CO_OWNER' | 'VIEW_ONLY' | 'COVERAGE';
+      return {
+        ...b,
+        accessType,
+        coverageEndDate: (acc as any)?.effective_to ?? null,
+        sharedByName: (acc as any)?.owner_name ?? null,
+      };
+    });
+  }, [beats, accessByBeatId]);
+
+  const filteredBeats = annotatedBeats.filter((beat) => {
+    // Tab filter
+    const isActive = beat.is_active !== false;
+    if (accessTab === 'mine' && !(beat.accessType === 'OWNED' && isActive)) return false;
+    if (accessTab === 'shared' && !((beat.accessType === 'CO_OWNER' || beat.accessType === 'VIEW_ONLY') && isActive)) return false;
+    if (accessTab === 'covering') {
+      if (beat.accessType !== 'COVERAGE') return false;
+      if (beat.coverageEndDate && new Date(beat.coverageEndDate) < new Date(new Date().toDateString())) return false;
+    }
+    if (accessTab === 'inactive' && isActive) return false;
+    // 'all' = no tab filter
     return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
   });
+
 
   // Lazily resolve which beats are hard-deletable (no historical references)
   const unknownDeletabilityIds = useMemo(
@@ -1338,90 +1403,55 @@ export const MyBeats = () => {
           </CardHeader>
         </Card>
 
-        {/* Stats Dashboard */}
-        {(() => {
-          const activeBeats = beats.filter(b => b.is_active !== false).length;
-          const inactiveBeats = beats.filter(b => b.is_active === false).length;
-          const noRetailerBeats = beats.filter(b => (b.retailer_count || 0) === 0).length;
-          const totalAssigned = beats.reduce((sum, b) => sum + (b.retailer_count || 0), 0);
-          const avgPerBeat = beats.length > 0 ? Math.round(totalAssigned / beats.length) : 0;
-          const beatIdSet = new Set(beats.map(b => b.id));
-          const unassignedCount = allRetailers.filter(r =>
-            !r.beat_id || r.beat_id === '' || r.beat_id === 'unassigned' || !beatIdSet.has(r.beat_id)
-          ).length;
-          return (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-primary"
-                  onClick={() => setStatsDetailDialog('beats')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-primary">{beats.length}</div>
-                    <div className="text-sm text-muted-foreground">Total Beats</div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-emerald-500"
-                  onClick={() => setBeatStatusFilter('active')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-emerald-600">{activeBeats}</div>
-                    <div className="text-sm text-muted-foreground">Active Beats</div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-slate-500"
-                  onClick={() => setBeatStatusFilter('inactive')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-slate-600">{inactiveBeats}</div>
-                    <div className="text-sm text-muted-foreground">Inactive Beats</div>
-                  </CardContent>
-                </Card>
-                <Card className="text-center hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-amber-600">{noRetailerBeats}</div>
-                    <div className="text-sm text-muted-foreground">No Retailer</div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-green-500"
-                  onClick={() => setStatsDetailDialog('retailers')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-green-600">{allRetailers.length}</div>
-                    <div className="text-sm text-muted-foreground">Total Retailers</div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-blue-500"
-                  onClick={() => setStatsDetailDialog('average')}
-                >
-                  <CardContent className="p-4">
-                    <div className="text-2xl font-bold text-blue-600">{avgPerBeat}</div>
-                    <div className="text-sm text-muted-foreground">Avg per Beat</div>
-                  </CardContent>
-                </Card>
-              </div>
-              <Card
-                className="cursor-pointer hover:shadow-md transition-shadow border-orange-200 bg-orange-50/40 hover:border-orange-500"
-                onClick={() => setStatsDetailDialog('unassigned')}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="h-5 w-5 text-orange-600" />
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Unassigned Retailers</div>
-                      <div className="text-xs text-muted-foreground">Retailers not linked to any beat — click to view</div>
-                    </div>
-                  </div>
-                  <div className="text-3xl font-bold text-orange-600">{unassignedCount}</div>
-                </CardContent>
-              </Card>
-            </>
-          );
-        })()}
+        {/* Stats Dashboard — 5 cards driven by beatService.getBeatStats */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-primary"
+            onClick={() => setAccessTab('mine')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-primary">{beatStats?.total ?? 0}</div>
+              <div className="text-sm text-muted-foreground">My Beats</div>
+            </CardContent>
+          </Card>
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-emerald-500"
+            onClick={() => setAccessTab('mine')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-emerald-600">{beatStats?.active ?? 0}</div>
+              <div className="text-sm text-muted-foreground">Active</div>
+            </CardContent>
+          </Card>
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-slate-500"
+            onClick={() => setAccessTab('inactive')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-slate-600">{beatStats?.inactive ?? 0}</div>
+              <div className="text-sm text-muted-foreground">Inactive</div>
+            </CardContent>
+          </Card>
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-blue-500"
+            onClick={() => setAccessTab('shared')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{beatStats?.sharedWithMe ?? 0}</div>
+              <div className="text-sm text-muted-foreground">Shared With Me</div>
+            </CardContent>
+          </Card>
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-amber-500"
+            onClick={() => setAccessTab('covering')}
+          >
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-amber-600">{beatStats?.covering ?? 0}</div>
+              <div className="text-sm text-muted-foreground">Covering Today</div>
+            </CardContent>
+          </Card>
+        </div>
+
 
         {/* Stats Detail Dialog */}
         <Dialog open={statsDetailDialog !== null} onOpenChange={(open) => !open && setStatsDetailDialog(null)}>
@@ -1721,26 +1751,34 @@ export const MyBeats = () => {
               </Card>
             ) : (
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <h2 className="text-lg font-semibold">{beatStatusFilter === 'active' ? 'Active Beats' : beatStatusFilter === 'inactive' ? 'Inactive Beats' : 'All Beats'} ({filteredBeats.length})</h2>
-                  <ToggleGroup
-                    type="single"
-                    value={beatStatusFilter}
-                    onValueChange={(v) => v && setBeatStatusFilter(v as 'active' | 'inactive' | 'all')}
-                    className="bg-muted rounded-md p-0.5"
-                  >
-                    <ToggleGroupItem value="active" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">Active</ToggleGroupItem>
-                    <ToggleGroupItem value="inactive" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">Inactive</ToggleGroupItem>
-                    <ToggleGroupItem value="all" size="sm" className="data-[state=on]:bg-background data-[state=on]:shadow">All</ToggleGroupItem>
-                  </ToggleGroup>
+                <Tabs value={accessTab} onValueChange={(v) => setAccessTab(v as typeof accessTab)}>
+                  <TabsList className="grid grid-cols-5 w-full md:w-auto">
+                    <TabsTrigger value="mine">My Beats</TabsTrigger>
+                    <TabsTrigger value="shared">Shared With Me</TabsTrigger>
+                    <TabsTrigger value="covering">Covering</TabsTrigger>
+                    <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                    <TabsTrigger value="all">All</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold">
+                    {accessTab === 'mine' ? 'My Beats' :
+                     accessTab === 'shared' ? 'Shared With Me' :
+                     accessTab === 'covering' ? 'Covering' :
+                     accessTab === 'inactive' ? 'Inactive Beats' : 'All Beats'}
+                    {' '}({filteredBeats.length})
+                  </h2>
                 </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {paginatedBeats.map((beat) => (
+              {paginatedBeats.map((beat: any) => (
                 <BeatCard
                   key={beat.id}
                   beat={beat}
                   userId={user?.id || ''}
+                  accessType={beat.accessType}
+                  coverageEndDate={beat.coverageEndDate}
+                  sharedByName={beat.sharedByName}
                   onEdit={() => handleEditBeat(beat)}
                   onDelete={() => handleDeleteBeatClick(beat.id, beat.name)}
                   onDetails={() => setSelectedBeatForAnalytics(beat)}
@@ -1754,10 +1792,16 @@ export const MyBeats = () => {
                     const ok = await beatLifecycle.reactivate(beat.id, beat.name);
                     if (ok) loadBeats();
                   }}
+                  onShare={() => toast.info('Share Beat — coming soon')}
+                  onAssignCoverage={() => toast.info('Assign Coverage — coming soon')}
+                  onTransferOwnership={() => toast.info('Transfer Ownership — coming soon')}
+                  onClone={() => toast.info('Clone Beat — coming soon')}
+                  onHistory={() => toast.info('View History — coming soon')}
                   isHardDeletable={deletabilityMap[beat.id] === true}
                 />
               ))}
             </div>
+
             
             {/* Beats Pagination */}
             <PaginationControls
