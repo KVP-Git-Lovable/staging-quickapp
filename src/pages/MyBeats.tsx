@@ -193,6 +193,8 @@ export const MyBeats = () => {
   
   // Deactivate state (wizard)
   const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
+  const [shareBeat, setShareBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
+  const [coverageBeat, setCoverageBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
