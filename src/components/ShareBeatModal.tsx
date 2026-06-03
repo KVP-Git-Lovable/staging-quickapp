@@ -163,7 +163,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
     try {
       await beatService.grantBeatAccess(
         beat.id,
-        selectedUser.user_id,
+        selectedUser.id,
         access,
         grantedBy,
         duration === "until" && untilDate ? untilDate.toISOString() : null,
