@@ -99,7 +99,7 @@ export function TransferOwnershipModal({
     try {
       await beatService.transferBeatOwnership(
         beat.id,
-        selectedUser.user_id,
+        selectedUser.id,
         currentUserId,
         reason.trim(),
         new Date().toISOString().split("T")[0], // always today — no future-date logic
