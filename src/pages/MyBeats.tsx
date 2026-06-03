@@ -199,6 +199,13 @@ export const MyBeats = () => {
   const [deletabilityMap, setDeletabilityMap] = useState<Record<string, boolean>>({});
   const beatLifecycle = useBeatLifecycle();
 
+  // Access-aware tab + service data
+  const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all'>('mine');
+  const [myBeatsRaw, setMyBeatsRaw] = useState<BeatWithAccess[]>([]);
+  const [beatStats, setBeatStats] = useState<BeatStats | null>(null);
+  const { can } = usePermissions();
+
+
   // Delete confirmation dialog
   const { isOpen: isDeleteOpen, itemId: deleteItemId, itemName: deleteItemName, openDeleteDialog, closeDeleteDialog, setOpen: setDeleteOpen } = useDeleteConfirm();
 
