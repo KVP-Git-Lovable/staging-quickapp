@@ -103,9 +103,9 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
       if (ids.length) {
         const { data: profs } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .in("user_id", ids);
-        (profs ?? []).forEach((p: any) => profilesMap.set(p.user_id, p));
+          .select("id, full_name, username, profile_picture_url")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => profilesMap.set(p.id, p));
       }
       setShares(
         rows.map((r) => ({ ...r, profile: profilesMap.get(r.user_id) ?? null })),
