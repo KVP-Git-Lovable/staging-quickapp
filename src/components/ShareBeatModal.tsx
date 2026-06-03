@@ -130,8 +130,8 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .or(`full_name.ilike.%${q}%,name.ilike.%${q}%`)
+          .select("id, full_name, username, profile_picture_url")
+          .or(`full_name.ilike.%${q}%,username.ilike.%${q}%`)
           .limit(8);
         if (error) throw error;
         setResults((data ?? []) as Profile[]);
