@@ -26,10 +26,10 @@ import { Calendar } from "@/components/ui/calendar";
 type Access = "CO_OWNER" | "OPERATIONAL" | "VIEW_ONLY";
 
 interface Profile {
-  user_id: string;
+  id: string;
   full_name: string | null;
-  name?: string | null;
-  avatar_url?: string | null;
+  username?: string | null;
+  profile_picture_url?: string | null;
 }
 
 interface ShareRow {
