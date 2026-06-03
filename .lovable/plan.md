@@ -1,63 +1,23 @@
 ## Problem
-
-The duplicate-beat check on `My Beats` silently fails when another user in the same org already owns the beat name. Two root causes:
-
-1. The Supabase embed `profiles:user_id(full_name, username)` in `checkBeatNameDuplicate` (src/pages/MyBeats.tsx line 137) needs an FK from `beats.user_id` → `profiles.id`. That FK doesn't exist, so PostgREST returns an empty/failed result and the check exits early.
-2. The `beats_select` RLS policy scopes rows per-user, so even without the embed the current user can't see other users' beats to compare against.
+Two related issues prevent cleanly deleting empty beats from `My Beats`:
+1. `handleConfirmDeleteBeat` in `src/pages/MyBeats.tsx` always soft-deletes (sets `is_active = false`). Even truly empty beats (no retailers, visits, plans, orders) stay in the table forever.
+2. The `can_delete_beat` RPC references `visits.beat_id`, but the `visits` table has no such column — the RPC crashes, so `canDelete` returns `false` and the UI never offers a permanent delete. It also blocks deletion based on `beat_audit_log`, which should not gate deletion of an otherwise-empty beat.
 
 ## Fix
 
-### 1. Database — add a SECURITY DEFINER RPC
+### 1. Database — replace `can_delete_beat`
+- Join `visits` through `retailers.beat_id` instead of `visits.beat_id`.
+- Drop the `beat_audit_log` block; audit rows must never prevent deletion.
+- Keep checks for: `retailers`, `retailer_beat_assignments`, `visits` (via retailers), `orders` (if column exists), `beat_plans`, `daily_beat_plans`, `van_beat_assignments`.
 
-Create `public.get_org_beat_names(p_distributor_id uuid)` that bypasses RLS and returns every active beat plus its owner's display name. Grant `EXECUTE` to `authenticated`.
+### 2. Code — `src/pages/MyBeats.tsx`, `handleConfirmDeleteBeat` (~lines 1237–1244)
+Branch on `deletabilityMap[deleteItemId]`:
+- If `true` → call `beatLifecycle.deletePermanent(deleteItemId, deleteItemName)`; throw on failure.
+- Else → existing soft-delete path (`is_active = false`).
 
-```sql
-CREATE OR REPLACE FUNCTION public.get_org_beat_names(p_distributor_id uuid DEFAULT NULL)
-RETURNS TABLE(beat_name text, user_id uuid, full_name text, username text)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = public
-AS $$
-  SELECT b.beat_name, b.user_id, p.full_name, p.username
-  FROM beats b
-  LEFT JOIN profiles p ON p.id = b.user_id
-  WHERE b.is_active = true
-    AND (p_distributor_id IS NULL OR b.distributor_id = p_distributor_id);
-$$;
-
-GRANT EXECUTE ON FUNCTION public.get_org_beat_names(uuid) TO authenticated;
-```
-
-No change to the existing `beats_select` RLS — duplicate checking goes through the RPC only.
-
-### 2. Code — `src/pages/MyBeats.tsx` `checkBeatNameDuplicate` (lines 128–175)
-
-Replace the failing `from('beats').select(...)` call with the RPC. Owner name comes directly from RPC fields, so no extra `profiles` lookup is needed. Exact-match and near-match logic stay identical.
-
-```ts
-const { data: orgBeats, error } = await supabase
-  .rpc('get_org_beat_names', { p_distributor_id: distributorId ?? null });
-if (error) { console.error('checkBeatNameDuplicate:', error); return null; }
-if (!orgBeats || orgBeats.length === 0) return null;
-
-// exact match
-for (const b of orgBeats as any[]) {
-  const bName = (b.beat_name || '').toLowerCase();
-  if (bName === normalized) {
-    const isOwn = b.user_id === currentUserId;
-    return {
-      matchType: isOwn ? 'exact_own' : 'exact_other',
-      existingOwnerName: b.full_name || b.username || 'Another user',
-      matchedBeatName: b.beat_name,
-    };
-  }
-}
-
-// near match (unchanged levenshtein/contains logic, owner name from RPC fields)
-```
+Everything after that block (audit log insert, UI state update, offline cache clear, toast) stays unchanged and runs in both branches.
 
 ## Verification
-
-- Log in as Abhishek, type a beat name owned by Prabhu → red "Duplicate Beat Name Not Allowed" dialog appears, owner shows "Prabhu KVP".
-- Type a brand-new name → no warning, beat creates normally.
-- Type a near-match owned by another user → amber "Similar beat found" with `Cancel` + `Create Anyway`.
-- Own-beat duplicate still flagged as before.
+- 3 empty `Test Beat` rows → permanently removed from DB.
+- Abhishek's duplicate `Udupi` (empty) → permanently removed.
+- `Nagasaki` (7 retailers) → blocked with reason list shown in UI.
