@@ -225,15 +225,36 @@ export const MyBeats = () => {
       if (effectiveUserIds.length > 0) {
         await loadBeats();
         await loadAllRetailers();
-        
+
         if (isOnline) {
           await loadTerritories();
         }
       }
     };
-    
+
     loadData();
   }, [effectiveUserIds, isOnline]);
+
+  // Access-aware load: pull merged beats + stats for the signed-in user
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [mine, stats] = await Promise.all([
+          beatService.getMyBeats(user.id),
+          beatService.getBeatStats(user.id),
+        ]);
+        if (cancelled) return;
+        setMyBeatsRaw(mine);
+        setBeatStats(stats);
+      } catch (e) {
+        console.error('[MyBeats] beatService load failed', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, beats.length]);
+
 
   // Auto-populate retailers list when allRetailers loads and create modal is open
   useEffect(() => {
