@@ -128,9 +128,9 @@ export function CoverageModal({
       if (ids.length) {
         const { data: profs } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .in("user_id", ids);
-        (profs ?? []).forEach((p: any) => profMap.set(p.user_id, p));
+          .select("id, full_name, username, profile_picture_url")
+          .in("id", ids);
+        (profs ?? []).forEach((p: any) => profMap.set(p.id, p));
       }
       setActiveCoverage(
         rows.map((r) => ({ ...r, profile: profMap.get(r.coverage_user_id) ?? null })),
