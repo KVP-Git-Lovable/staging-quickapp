@@ -102,6 +102,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
       setBeatName(beat.name || '');
       setAverageKm(beat.average_km?.toString() || '');
       setAverageTimeMinutes(beat.average_time_minutes?.toString() || '');
+      setCategory(beat.category || '');
       loadRetailers();
       loadTerritories();
       loadBeatTerritory();
