@@ -59,6 +59,7 @@ function initials(name?: string | null) {
 }
 
 export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBeatModalProps) {
+  const { can, loading: permLoading } = usePermissions();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
