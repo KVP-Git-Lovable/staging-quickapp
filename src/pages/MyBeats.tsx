@@ -60,6 +60,8 @@ import type { BeatWithAccess, BeatStats } from "@/services/beatService";
 import { DeactivateBeatWizard } from "@/components/DeactivateBeatWizard";
 import { ShareBeatModal } from "@/components/ShareBeatModal";
 import { CoverageModal } from "@/components/CoverageModal";
+import { TransferOwnershipModal } from "@/components/TransferOwnershipModal";
+import { BeatHistoryDrawer } from "@/components/BeatHistoryDrawer";
 
 
 
@@ -195,6 +197,8 @@ export const MyBeats = () => {
   const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
   const [shareBeat, setShareBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   const [coverageBeat, setCoverageBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
+  const [ownershipTransferBeat, setOwnershipTransferBeat] = useState<{id: string; beat_id: string; name: string; retailer_count: number} | null>(null);
+  const [historyBeat, setHistoryBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
@@ -1790,9 +1794,9 @@ export const MyBeats = () => {
                   }}
                   onShare={() => setShareBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   onAssignCoverage={() => setCoverageBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
-                  onTransferOwnership={() => toast.info('Transfer Ownership — coming soon')}
+                  onTransferOwnership={() => setOwnershipTransferBeat({ id: beat.id, beat_id: beat.id, name: beat.name, retailer_count: beat.retailer_count })}
                   onClone={() => toast.info('Clone Beat — coming soon')}
-                  onHistory={() => toast.info('View History — coming soon')}
+                  onHistory={() => setHistoryBeat({ id: beat.id, beat_id: beat.id, name: beat.name })}
                   isHardDeletable={deletabilityMap[beat.id] === true}
                 />
               ))}
@@ -2453,6 +2457,34 @@ export const MyBeats = () => {
             assignedBy={user.id}
           />
         )}
+
+        {ownershipTransferBeat && user && (
+          <TransferOwnershipModal
+            open={!!ownershipTransferBeat}
+            onOpenChange={(o) => { if (!o) setOwnershipTransferBeat(null); }}
+            beat={{
+              id: ownershipTransferBeat.id,
+              beat_id: ownershipTransferBeat.beat_id,
+              beat_name: ownershipTransferBeat.name,
+              retailer_count: ownershipTransferBeat.retailer_count,
+            }}
+            currentUserId={user.id}
+            onSuccess={() => {
+              setBeats((prev) => prev.filter((b) => b.id !== ownershipTransferBeat.id));
+              loadBeats();
+            }}
+          />
+        )}
+
+        {historyBeat && (
+          <BeatHistoryDrawer
+            open={!!historyBeat}
+            onOpenChange={(o) => { if (!o) setHistoryBeat(null); }}
+            beat={{ id: historyBeat.id, beat_id: historyBeat.beat_id, beat_name: historyBeat.name }}
+          />
+        )}
+
+
 
 
       </div>

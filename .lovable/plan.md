@@ -1,85 +1,168 @@
-## Goal
-Build two modals that drive sharing and coverage on a beat using existing `beatService` functions, and wire them into `MyBeats.tsx` to replace the current "coming soon" toasts.
+Implementation plan for Messages 9, 10, and 11.
 
 ---
 
-## File 1 — `src/components/ShareBeatModal.tsx` (new)
+## Part A — `TransferOwnershipModal` (Message 9)
 
-### Props
+### New file: `src/components/TransferOwnershipModal.tsx`
+
+Props:
+```ts
+{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  beat: { id: string; beat_id: string; beat_name: string; retailer_count: number };
+  currentUserId: string;
+  onSuccess: () => void; // parent removes beat from list / reloads
+}
+```
+
+UI (shadcn `Dialog`):
+- Title: "Transfer Beat — {beat_name}".
+- Destructive alert banner (Alert variant `destructive` or amber tinted via semantic tokens): "This is permanent. Cannot be auto-reversed."
+- User search: same debounced `profiles` (`full_name`/`name` ilike) pattern used in ShareBeatModal — exclude `currentUserId`. Avatar + selected chip with X.
+- "This will" bullet list (rendered after a user is selected):
+  - Move **{beat_name}** to **{selectedUser.name}**
+  - Reassign all **{retailer_count}** retailers to **{selectedUser.name}**
+  - Record full ownership history
+  - Your past orders and visits remain attributed to you
+- Reason: `Input` (required).
+- Footer: `Cancel` + `Transfer Ownership` (destructive style; disabled until user + reason; spinner while submitting).
+
+Confirm action:
+- `await beatService.transferBeatOwnership(beat.id, selectedUser.user_id, currentUserId, reason.trim())`
+- `toast.success(\`Beat transferred to ${name}\`)`, call `onSuccess()`, close.
+
+### Wire-up in `src/pages/MyBeats.tsx`
+- Add state `transferBeat: {id, beat_id, name, retailer_count} | null`.
+- Replace `onTransferOwnership` toast at line ~1789 with `setTransferBeat({...})`.
+- Render modal near other beat dialogs; `onSuccess` calls `loadBeats()` and removes the beat locally (`setBeats(prev => prev.filter(b => b.id !== transferBeat.id))`).
+
+---
+
+## Part B — `BeatHistoryDrawer` (Message 10)
+
+### New file: `src/components/BeatHistoryDrawer.tsx`
+
+Props:
 ```ts
 {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   beat: { id: string; beat_id: string; beat_name: string };
-  grantedBy: string;     // current user id
 }
 ```
 
-### UI
-- Shadcn `Dialog` titled "Share Beat — {beat.beat_name}".
-- **Form** (top):
-  - User search: debounced text input → `supabase.from('profiles').select('user_id, full_name, name, avatar_url').ilike('full_name','%q%').limit(8)`. Show result list; click sets `selectedUser`. Exclude beat owner and already-active sharees.
-  - Access level: `RadioGroup` with `CO_OWNER` ("Co-owner — can view, visit, take orders, edit retailers") and `VIEW_ONLY` ("View only — can view beat and retailers only").
-  - Duration: `RadioGroup` with `permanent` and `until`. When `until`, show shadcn date picker (Popover + Calendar with `pointer-events-auto`).
-  - Reason: optional `Input`.
-  - Footer: `Cancel` + `Grant Access` (disabled until user + access + (date if "until") set, plus submitting spinner).
-- **Current shares list** (below form):
-  - Fetched via `supabase.from('beat_user_access').select('id, user_id, access_type, effective_to, profiles:profiles!beat_user_access_user_id_fkey(full_name, name, avatar_url)').eq('beat_id', beat.beat_id).in('access_type', ['CO_OWNER','VIEW_ONLY']).eq('is_active', true)`. If the FK alias fails, fall back to a separate `profiles` batch fetch.
-  - Each row: `Avatar` (initials), name, access badge (`Co-owner` / `View only`), duration text (`Permanent` if `effective_to` null, else `Until <formatted date>`), `Revoke` button.
+Use shadcn `Sheet` (`side="right"`, `max-w-lg`, scrollable body).
 
-### Actions
-- **Grant**: `await beatService.grantBeatAccess(beat.id, selectedUser.user_id, access, grantedBy, untilDate?.toISOString() ?? null)` → toast success, reset form, refresh shares list.
-- **Revoke**: `await beatService.revokeBeatAccess(beat.id, row.user_id, row.access_type)` → toast, refresh list.
-- All errors → `toast.error(err.message)`, keep dialog open.
+On open: `const history = await beatService.getBeatHistory(beat.id)` → loading spinner while pending.
+
+Body: 3-tab `<Tabs>` (`ownership` | `retailers` | `coverage`).
+
+1. **Ownership** — render `history.ownership` rows:
+   - `format(transferred_at, 'PP p')`
+   - `old_owner_name → new_owner_name` (badge style)
+   - Reason text (muted)
+   - "By {transferred_by}" — resolve to a name via a single batched `profiles` lookup of all unique user ids across the three lists (one query when drawer opens).
+2. **Retailer transfers** — `history.retailerTransfers`:
+   - `retailer_name`, `from_beat_name → to_beat_name`, `format(transferred_at, 'PP')`, "By {name}".
+3. **Coverage log** — `history.coverage`:
+   - Covered by (`coverage_user_id` → name)
+   - `start_date → end_date`
+   - `reason`
+   - Status badge: `is_active && end_date >= today ? 'Active' : 'Ended'`
+   - Sorted desc by `created_at` (already from service).
+
+Empty state per tab: muted "No history yet."
+
+### Wire-up in `MyBeats.tsx`
+- Add state `historyBeat`. Replace `onHistory` toast (line ~1791) with `setHistoryBeat({...})`. Render drawer.
 
 ---
 
-## File 2 — `src/components/CoverageModal.tsx` (new)
+## Part C — Order snapshots (Message 11)
 
-### Props
+The app has one central order-submission helper (`submitOrderWithOfflineSupport` in `src/utils/offlineOrderUtils.ts`) used by all 4 caller sites (`Cart.tsx` ×2, `CounterSales.tsx` ×2). Two additional direct supabase order inserts live in `useOfflineSync.ts` (lines 619 & 994) for queued-order replay.
+
+### Central injection in `submitOrderWithOfflineSupport`
+Right before constructing `normalizedOrder` (around line 40), if `orderData.beat_name_snapshot` is undefined OR `orderData.owner_id_snapshot` is undefined AND `orderData.retailer_id` exists:
+
 ```ts
-{
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  beat: { id: string; beat_id: string; beat_name: string };
-  primaryUserId: string; // beat owner
-  assignedBy: string;    // current user id
+let beat_name_snapshot = orderData.beat_name_snapshot ?? null;
+let owner_id_snapshot  = orderData.owner_id_snapshot  ?? null;
+
+if (orderData.retailer_id && (beat_name_snapshot === null || owner_id_snapshot === null)) {
+  try {
+    // Try IDB cache first for offline safety
+    const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS).catch(() => []);
+    const cachedRetailer = cachedRetailers.find((r: any) => r.id === orderData.retailer_id);
+    let beatTextId  = cachedRetailer?.beat_id ?? null;
+    let beatName    = cachedRetailer?.beat_name ?? null;
+    let ownerId     = null as string | null;
+
+    if (!beatTextId) {
+      const { data: r } = await supabase
+        .from('retailers').select('beat_id, beat_name')
+        .eq('id', orderData.retailer_id).maybeSingle();
+      beatTextId = r?.beat_id ?? null;
+      beatName   = r?.beat_name ?? null;
+    }
+    if (beatTextId) {
+      const { data: b } = await supabase
+        .from('beats').select('owner_id, user_id, beat_name')
+        .eq('beat_id', beatTextId).maybeSingle();
+      ownerId  = b?.owner_id ?? b?.user_id ?? null;
+      beatName = beatName ?? b?.beat_name ?? null;
+    }
+    beat_name_snapshot = beat_name_snapshot ?? beatName;
+    owner_id_snapshot  = owner_id_snapshot  ?? ownerId;
+  } catch { /* keep nulls */ }
+}
+
+// inject into orderData prior to normalizedOrder build
+orderData = { ...orderData, beat_name_snapshot, owner_id_snapshot };
+```
+
+This guarantees every order written via the helper carries both snapshots.
+
+### Queue-sync direct insert paths (`src/hooks/useOfflineSync.ts`)
+Both insert sites operate on data that was queued earlier. Add a thin enrichment helper at module scope:
+
+```ts
+async function ensureOrderSnapshots(order: any) {
+  if (order.beat_name_snapshot !== undefined && order.owner_id_snapshot !== undefined) return order;
+  // reuse same lookup logic as central injection (extract into shared util)
+  return enrichWithBeatSnapshots(order);
 }
 ```
 
-### UI
-- Shadcn `Dialog` titled "Assign Coverage — {beat.beat_name}".
-- **Form**:
-  - Coverage person: same debounced profile search component pattern as ShareBeatModal (exclude `primaryUserId`).
-  - Start date + End date: two shadcn date pickers (Popover + Calendar). End must be ≥ Start.
-  - Temporary permissions: `Select` populated from `supabase.from('permission_set_groups').select('id, name, description').order('name')`. Optional. Helper text: "If selected, {personName} gets these extra permissions only during coverage dates."
-  - Reason: required `Input` (reason is non-null in `assignCoverage`).
-  - Footer: `Cancel` + `Assign Coverage` (disabled until person + start + end + reason).
+Refactor: extract the lookup body from `submitOrderWithOfflineSupport` into a shared exported function `enrichWithBeatSnapshots(order)` inside `offlineOrderUtils.ts`. Call it from both `useOfflineSync.ts` insert sites just before `.insert(data)` / `.insert({...})`.
 
-### Actions
-- **Assign**: `beatService.assignCoverage(beat.id, primaryUserId, coverageUser.user_id, startIso, endIso, reason, permissionSetId ?? '', assignedBy)`.
-  - Caveat: `assignCoverage` always inserts into `coverage_permission_assignments`. If no permission set selected we will pass an empty string today, which will likely fail. **Workaround in this modal**: require a permission set selection (mark dropdown required) to avoid a broken call. Note this clearly in the helper text: "Select a permission set". Updating the service signature to make it optional is out of scope per prior agreement.
-  - Toast success, close dialog, refresh active coverage list.
-- **Active coverage list** (below form): `supabase.from('beat_coverage_assignments').select('id, coverage_user_id, start_date, end_date, profiles:profiles!beat_coverage_assignments_coverage_user_id_fkey(full_name, name, avatar_url)').eq('beat_id', beat.beat_id).eq('is_active', true).order('start_date',{ascending:false})`. Same FK fallback pattern.
-  - Each row: avatar + name + `{start} → {end}` + `End Coverage` button → `beatService.endCoverage(row.id)` → refresh.
+### Caller-side (optional, no code change needed)
+No edits required to `Cart.tsx` / `CounterSales.tsx` since central injection covers them. Documented behavior: callers may pass `beat_name_snapshot`/`owner_id_snapshot` explicitly and it takes precedence; otherwise auto-derived from retailer→beat.
 
----
-
-## Wire-up in `src/pages/MyBeats.tsx`
-- Import `ShareBeatModal` and `CoverageModal`.
-- Add state: `shareBeat`, `coverageBeat` (`{ id, beat_id, name } | null`).
-- Replace existing `onShare`/`onAssignCoverage` props (currently `toast.info`) on `BeatCard` (line 1787-1788) to set the corresponding state with `{ id: beat.id, beat_id: beat.id, name: beat.name }` (since `MyBeats` `beat.id` IS the text key per memory).
-- Render both modals near other dialogs at the bottom of the JSX, gated by `user` and the state being set; pass `grantedBy: user.id`, `primaryUserId: user.id` (current owner viewing their own beat), `assignedBy: user.id`.
+### Idempotency / immutability
+- Fields set only when missing (`?? null` check).
+- No code path performs `UPDATE` on these columns — confirmed by ripgrep scope (no `beat_name_snapshot` writes elsewhere).
+- `seedLoyaltyData.ts` is excluded — seed/demo data only.
 
 ---
 
 ## Out of scope
 - No `beatService.ts` changes.
-- No DB migration, RLS, or table changes.
-- No edits to `types.ts`, `BeatCard.tsx` menu, or permission matrix.
-- No revamp of MyBeats data loading.
+- No DB migration, RLS, or column additions (both snapshot columns already exist).
+- No `BeatCard.tsx` permission matrix or layout changes.
+- No edits to `types.ts`.
+- No changes to order analytics / reporting consumers (they already read whatever is present).
 
-## UI notes
-- Use semantic tokens only; no hardcoded hex.
-- Calendar uses `pointer-events-auto` per shadcn datepicker guidance.
-- `Avatar` initials fallback when `avatar_url` missing.
+## UI / design
+- Semantic tokens only.
+- Calendar in any picker uses `pointer-events-auto`.
+- Sheet drawer width `sm:max-w-lg`, full-height scrollable.
+
+## Verification
+After build:
+1. Confirm Cart and CounterSales submit a sample order; `orders` row contains non-null `beat_name_snapshot` and `owner_id_snapshot` (via Supabase read-query).
+2. Confirm offline queue replay also stamps snapshots (queue an order with no internet → reconnect → verify columns populated).
+3. Open `BeatHistoryDrawer` on a beat with prior transfers/coverage; tabs render data or empty state.
+4. Open `TransferOwnershipModal`, transfer to another user; verify `beats.owner_id` and `beats.user_id` updated and `beat_ownership_history` row written.
