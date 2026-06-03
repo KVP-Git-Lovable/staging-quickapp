@@ -180,6 +180,8 @@ export function CoverageModal({
 
   const handleAssign = async () => {
     if (!selectedUser || !startDate || !endDate) return;
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_coverage", "create")) { toast.error("You don't have permission to assign coverage"); return; }
     setSubmitting(true);
     try {
       await beatService.assignCoverage(
