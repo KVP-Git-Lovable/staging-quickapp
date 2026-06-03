@@ -57,6 +57,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
   const [travelAllowance, setTravelAllowance] = useState('');
   const [averageKm, setAverageKm] = useState('');
   const [averageTimeMinutes, setAverageTimeMinutes] = useState('');
+  const [category, setCategory] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [allRetailers, setAllRetailers] = useState<Retailer[]>([]);
