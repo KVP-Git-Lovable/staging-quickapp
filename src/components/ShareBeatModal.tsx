@@ -249,14 +249,14 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                   <div className="mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover">
                     {searching ? (
                       <div className="p-2 text-sm text-muted-foreground">Searching…</div>
-                    ) : results.filter((r) => !excludedIds.has(r.user_id)).length === 0 ? (
+                    ) : results.filter((r) => !excludedIds.has(r.id)).length === 0 ? (
                       <div className="p-2 text-sm text-muted-foreground">No results</div>
                     ) : (
                       results
-                        .filter((r) => !excludedIds.has(r.user_id))
+                        .filter((r) => !excludedIds.has(r.id))
                         .map((r) => (
                           <button
-                            key={r.user_id}
+                            key={r.id}
                             type="button"
                             onClick={() => {
                               setSelectedUser(r);
@@ -266,13 +266,13 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                             className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
                           >
                             <Avatar className="h-6 w-6">
-                              <AvatarImage src={r.avatar_url ?? undefined} />
+                              <AvatarImage src={r.profile_picture_url ?? undefined} />
                               <AvatarFallback>
-                                {initials(r.full_name || r.name)}
+                                {initials(r.full_name || r.username)}
                               </AvatarFallback>
                             </Avatar>
                             <span className="text-sm">
-                              {r.full_name || r.name || "Unnamed"}
+                              {r.full_name || r.username || "Unnamed"}
                             </span>
                           </button>
                         ))
