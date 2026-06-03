@@ -73,9 +73,9 @@ export function TransferOwnershipModal({
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("user_id, full_name, name, avatar_url")
-          .or(`full_name.ilike.%${q}%,name.ilike.%${q}%`)
-          .neq("user_id", currentUserId)
+          .select("id, full_name, username, profile_picture_url")
+          .or(`full_name.ilike.%${q}%,username.ilike.%${q}%`)
+          .neq("id", currentUserId)
           .limit(8);
         if (error) throw error;
         setResults((data ?? []) as Profile[]);
