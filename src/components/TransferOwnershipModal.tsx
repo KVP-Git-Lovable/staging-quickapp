@@ -142,7 +142,7 @@ export function TransferOwnershipModal({
               <div className="flex items-center justify-between rounded-md border p-2">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedUser.avatar_url ?? undefined} />
+                    <AvatarImage src={selectedUser.profile_picture_url ?? undefined} />
                     <AvatarFallback>{initials(personName)}</AvatarFallback>
                   </Avatar>
                   <div className="text-sm font-medium">{personName}</div>
