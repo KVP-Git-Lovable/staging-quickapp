@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { syncOrdersToVanStock, getTodayDateString } from '@/utils/vanStockSync';
 import { visitStatusCache } from '@/lib/visitStatusCache';
 import { classifySyncError, isRetryableError, getBackoffDelay, SLOW_RETRY_THRESHOLD, type SyncErrorType, type SyncLogEntry } from '@/lib/syncErrorClassifier';
+import { enrichWithBeatSnapshots } from '@/utils/offlineOrderUtils';
 // Removed isSlowConnection import - sync should always attempt when online
 
 // Global lock shared across all hook instances to prevent duplicate queue runners
