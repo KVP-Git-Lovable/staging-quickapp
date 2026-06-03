@@ -197,6 +197,8 @@ export const MyBeats = () => {
   const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
   const [shareBeat, setShareBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   const [coverageBeat, setCoverageBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
+  const [transferBeat, setTransferBeat] = useState<{id: string; beat_id: string; name: string; retailer_count: number} | null>(null);
+  const [historyBeat, setHistoryBeat] = useState<{id: string; beat_id: string; name: string} | null>(null);
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
