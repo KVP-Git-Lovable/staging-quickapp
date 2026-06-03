@@ -245,9 +245,9 @@ export function CoverageModal({
               <div className="flex items-center justify-between rounded-md border p-2">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={selectedUser.avatar_url ?? undefined} />
+                    <AvatarImage src={selectedUser.profile_picture_url ?? undefined} />
                     <AvatarFallback>
-                      {initials(selectedUser.full_name || selectedUser.name)}
+                      {initials(selectedUser.full_name || selectedUser.username)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="text-sm font-medium">{personName}</div>
