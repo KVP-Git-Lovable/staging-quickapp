@@ -394,6 +394,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
     setTravelAllowance('');
     setAverageKm('');
     setAverageTimeMinutes('');
+    setCategory('');
     setSearchTerm('');
     setSelectedRetailers(new Set());
     setRepeatEnabled(false);
