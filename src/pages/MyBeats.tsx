@@ -57,6 +57,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import * as beatService from "@/services/beatService";
 import type { BeatWithAccess, BeatStats } from "@/services/beatService";
+import { DeactivateBeatWizard } from "@/components/DeactivateBeatWizard";
 
 
 
@@ -188,8 +189,8 @@ export const MyBeats = () => {
   const [transferBeat, setTransferBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   
-  // Deactivate state
-  const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string} | null>(null);
+  // Deactivate state (wizard)
+  const [deactivateBeat, setDeactivateBeat] = useState<{id: string; name: string; retailerCount: number} | null>(null);
   
   // Stats detail dialog state
   const [statsDetailDialog, setStatsDetailDialog] = useState<'beats' | 'retailers' | 'unassigned' | 'average' | null>(null);
@@ -949,7 +950,8 @@ export const MyBeats = () => {
         `"${beatName}" contains historical data and cannot be deleted.${reasonText}\n\nDeactivate this beat instead?`
       );
       if (proceed) {
-        setDeactivateBeat({ id: beatId, name: beatName });
+        const rc = beats.find(b => b.id === beatId)?.retailer_count ?? 0;
+        setDeactivateBeat({ id: beatId, name: beatName, retailerCount: rc });
       }
       return;
     }
@@ -1215,20 +1217,10 @@ export const MyBeats = () => {
   };
 
   const handleDeactivateBeat = (beatId: string, beatName: string) => {
-    setDeactivateBeat({ id: beatId, name: beatName });
+    const rc = beats.find(b => b.id === beatId)?.retailer_count ?? 0;
+    setDeactivateBeat({ id: beatId, name: beatName, retailerCount: rc });
   };
 
-  const confirmDeactivateBeat = async () => {
-    if (!deactivateBeat || !user) return;
-    const ok = await beatLifecycle.deactivate(deactivateBeat.id, deactivateBeat.name);
-    if (ok) {
-      // Reflect new state locally; list re-renders against filter.
-      setBeats((prev) => prev.map((b) => (b.id === deactivateBeat.id ? { ...b, is_active: false } : b)));
-      window.dispatchEvent(new CustomEvent('visitDataChanged'));
-      loadBeats();
-    }
-    setDeactivateBeat(null);
-  };
 
 
   const handleAddBeats = () => {
@@ -2419,26 +2411,26 @@ export const MyBeats = () => {
           />
         )}
 
-        {/* Deactivate Confirmation */}
-        <AlertDialog open={!!deactivateBeat} onOpenChange={(v) => { if (!v) setDeactivateBeat(null); }}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2">
-                <Power size={18} className="text-orange-500" />
-                Deactivate Beat
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Deactivate "{deactivateBeat?.name}"? It will be hidden from daily planning but remain in reports.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeactivateBeat} className="bg-orange-500 hover:bg-orange-600">
-                Deactivate
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* Deactivate Beat Wizard */}
+        {deactivateBeat && user && (
+          <DeactivateBeatWizard
+            open={!!deactivateBeat}
+            onOpenChange={(o) => { if (!o) setDeactivateBeat(null); }}
+            beat={{
+              id: deactivateBeat.id,
+              beat_id: deactivateBeat.id,
+              beat_name: deactivateBeat.name,
+            }}
+            retailerCount={deactivateBeat.retailerCount}
+            userId={user.id}
+            onSuccess={() => {
+              setBeats((prev) => prev.map((b) => (b.id === deactivateBeat.id ? { ...b, is_active: false } : b)));
+              window.dispatchEvent(new CustomEvent('visitDataChanged'));
+              loadBeats();
+            }}
+          />
+        )}
+
       </div>
     </Layout>
   );

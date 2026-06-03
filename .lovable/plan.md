@@ -1,64 +1,73 @@
-## Redesign My Beats: stats, tabs, access-aware cards
+## Goal
+Create `DeactivateBeatWizard` to replace the current delete action on My Beats. It guides the user through handling retailers, then deactivates the beat.
 
-Targets two files. No DB changes. Reuses existing `beatService` (created in message 3) and `usePermissions` (created in message 2).
+## New file
+`src/components/DeactivateBeatWizard.tsx`
 
-### File 1 — `src/components/BeatCard.tsx` (extend, do not replace)
+A controlled Dialog with two-step wizard state (`step: 1 | 2`).
 
-Add the new access model and permission-gated dropdown while keeping the existing visual layout (stats grid, metrics, territory, footer).
+### Props
+```ts
+{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  beat: { id: string; beat_id: string; beat_name: string };
+  retailerCount: number;
+  userId: string;
+  onSuccess: () => void;   // parent reloads beats
+}
+```
 
-1. Extend props:
-   - `accessType?: 'OWNED' | 'CO_OWNER' | 'VIEW_ONLY' | 'COVERAGE'` (default `'OWNED'`).
-   - `coverageEndDate?: string | null`, `sharedByName?: string | null`.
-   - New optional callbacks: `onShare`, `onAssignCoverage`, `onTransferOwnership`, `onClone`, `onHistory`.
-   - Keep existing callbacks (`onEdit`, `onDeactivate`, `onReactivate`, `onDelete`, `onDetails`, `onAIInsights`, `onTransfer`).
-2. Header badges:
-   - Replace "Transfer Beat" wording. Add an Access badge next to `#beat_number`:
-     - `OWNED` → `Owner` (default variant)
-     - `CO_OWNER` → `Co-owner` (secondary)
-     - `VIEW_ONLY` → `Viewing` (outline)
-     - `COVERAGE` → `Covering` (warning tone)
-   - Active/Inactive badge stays.
-3. Context line under the title:
-   - If `accessType === 'COVERAGE'` and `coverageEndDate`: render small muted text `Covering until {format date}`.
-   - Else if `sharedByName`: render `Shared by {sharedByName}`.
-4. Dropdown menu — pull `const { can } = usePermissions()` inside the card, then render items per the spec matrix:
-   - **active + OWNED**: Edit, Share, Assign Coverage, Transfer Ownership, Clone, View History, Deactivate.
-   - **active + CO_OWNER**: Edit, View History.
-   - **active + VIEW_ONLY / COVERAGE**: View History only.
-   - **inactive (any)**: Reactivate, View History, Delete (Delete only when `can('action_beat_delete','delete')` AND `retailer_count === 0`).
-   - Each item is wrapped in the matching `can(object, action)` check from the spec. Items with no handler prop are also hidden so existing pages that don't pass the new callbacks don't render dead items.
-5. Bottom action row:
-   - Keep AI Insights / Edit / Analytics / Deactivate-or-Delete buttons unchanged for backward compatibility, but only render Edit/Deactivate/Delete buttons when the user has the matching permission AND is `OWNED`. For non-owner access types, render only AI Insights + Analytics so visiting reps still see the card.
+### Internal data fetched on open
+- Retailers on this beat: `supabase.from('retailers').select('id, name').eq('beat_id', beat.beat_id)`
+- Active destination beats (excluding current): `supabase.from('beats').select('id, beat_id, beat_name').eq('is_active', true).neq('id', beat.id)` (scoped by `user_id = userId` to keep it to user's own beats)
 
-### File 2 — `src/pages/MyBeats.tsx` (surgical edits)
+### Step 1 — Retailer handling
+If `retailerCount === 0`: skip directly to Step 2 (set step=2 in the load effect).
 
-Keep existing loaders for retailers, recommendations, beat plans, modals, pagination, etc. Only swap the header stats row and the beats grid section.
+Otherwise show RadioGroup with 3 options:
+1. `keep` — "Keep retailers attached" (default)
+2. `transfer_all` — "Transfer all retailers" + Select dropdown of destination beats
+3. `transfer_selected` — "Transfer selected retailers" + checkbox list of retailers + Select dropdown of destination beats
 
-1. Imports: add `import { usePermissions } from '@/hooks/usePermissions'` and `import * as beatService from '@/services/beatService'`.
-2. New state:
-   - `myBeatsRaw: BeatWithAccess[]` and `beatStats: BeatStats | null`.
-   - `accessTab: 'mine' | 'shared' | 'covering' | 'inactive' | 'all'` (default `'mine'`).
-3. New loader `loadMyBeatsAndStats()` called from `loadBeats` (or in parallel via `Promise.all`): runs `beatService.getMyBeats(user.id)` + `beatService.getBeatStats(user.id)` and stores results. Errors are caught and logged; failures do not break the existing `loadBeats` flow.
-4. Build a quick lookup `accessByBeatId = new Map<string, BeatWithAccess>()` keyed on `beat.beat_id` (text). Use it to tag existing `beats[]` items with `accessType`, `coverageEndDate`, `sharedByName` before rendering. Beats present in the access query but missing from the existing `beats[]` (e.g. shared from another user the current loader didn't fetch) are merged in with `retailer_count: 0`, `total_retailers: 0`, default metrics — they'll render as cards that still trigger the existing analytics modal.
-5. Replace the existing 6-card stats grid (lines ~1352–1424) with 5 cards driven by `beatStats`:
-   - My Beats (`total`), Active (`active`), Inactive (`inactive`), Shared With Me (`sharedWithMe`), Covering Today (`covering`). Each card click sets `accessTab` to the relevant value (My Beats → `mine`, Active → `mine` + active filter, Inactive → `inactive`, Shared → `shared`, Covering → `covering`). Removes "No Retailer", "Total Retailers", "Avg per Beat", and the orange "Unassigned Retailers" banner (they are not in the new spec). Keep the existing `statsDetailDialog` state and its dialog — unused entries are inert.
-6. Replace the existing `ToggleGroup` (Active/Inactive/All) with a `<Tabs>` block of 5 triggers: `My Beats | Shared With Me | Covering | Inactive | All`, bound to `accessTab`. Keep the heading + count summary above the grid.
-7. Filter logic for the grid:
-   - `mine` → access `OWNED` && `is_active !== false`.
-   - `shared` → access in `['CO_OWNER','VIEW_ONLY']` && `is_active !== false`.
-   - `covering` → access `COVERAGE` && coverage end date `>= today`.
-   - `inactive` → `is_active === false` regardless of access.
-   - `all` → everything in the merged list.
-   - Then apply the existing search filter (`searchTerm`) and `selectedUserIds` filter on top.
-8. `BeatCard` invocation gets the new props (`accessType`, `coverageEndDate`, `sharedByName`) and the new menu callbacks. For the actions that don't yet have UIs (Share / Assign Coverage / Transfer Ownership / Clone / View History), wire each to a small handler that calls `toast.info('Coming soon')` for now; a follow-up message will swap them for real dialogs. `onEdit`, `onTransfer`, `onDeactivate`, `onReactivate`, `onDelete`, `onAIInsights`, `onDetails` keep their existing wiring.
-9. Pagination remains driven by the filtered list (`filteredBeats`).
+Validation to enable Next:
+- `keep` → always valid
+- `transfer_all` → destination chosen
+- `transfer_selected` → ≥1 retailer checked AND destination chosen
 
-### Out of scope
+Buttons: [Cancel] [Next]
 
-- No edits to `EditBeatModal`, `BeatTransferDialog`, `useBeatLifecycle`, recommendations, beat-plans creation, retailer assignment logic, RLS, or DB.
-- No new dialogs for Share / Coverage / Clone / History — those land in later messages.
+### Step 2 — Confirmation summary
+Plain-language summary derived from Step 1 state:
+- "Beat **{beat_name}** will be marked **Inactive**."
+- If transferring: "**{N}** retailer(s) will move to **{destBeatName}**."
+- If keep: "**{retailerCount}** retailer(s) will remain attached."
 
-### Risks / notes
+Buttons: [Back] [Confirm Deactivate] (loading state while submitting)
 
-- `getMyBeats` issues an `or(...)` filter on `effective_to`; if Supabase rejects null comparison, the fallback already coded in the service handles it.
-- Beats that only appear via `beat_user_access` (cross-user shares) won't have `retailer_count` because the existing loader only queries the current user's retailers. They render with count `0` until a dedicated count fetch is added (out of scope here).
+### On Confirm
+1. If mode is `transfer_all` or `transfer_selected`:
+   - `await beatService.transferRetailers(retailerIds, beat.id, destBeatId, userId, 'Beat deactivation')`
+   - `retailerIds` = all retailers (transfer_all) or checked subset
+2. `await beatService.deactivateBeat(beat.id, userId)`
+3. `toast.success('Beat deactivated')`
+4. `onSuccess()` and close dialog
+5. Catch → `toast.error(err.message)`, keep dialog open
+
+## Wire-up in `src/pages/MyBeats.tsx`
+- Import `DeactivateBeatWizard`.
+- Add state: `deactivatingBeat: AnnotatedBeat | null`.
+- Replace whatever currently handles the "Deactivate Beat" menu action on `BeatCard` (the `onDeactivate` / delete callback) so it sets `deactivatingBeat` instead of calling delete.
+- Render `<DeactivateBeatWizard open={!!deactivatingBeat} onOpenChange={(o)=>!o&&setDeactivatingBeat(null)} beat={...} retailerCount={deactivatingBeat?.retailer_count ?? 0} userId={user.id} onSuccess={loadMyBeatsAndStats} />`.
+
+## Out of scope
+- No changes to `beatService` (uses existing `transferRetailers` and `deactivateBeat`).
+- No changes to `BeatCard` menu structure or permissions matrix.
+- No edits to `BeatDeleteDialog` (kept for the separate inactive-beat hard delete path).
+- No DB / RLS / migration changes.
+- No edits to `types.ts`.
+
+## UI/UX notes
+- Use existing shadcn `Dialog`, `RadioGroup`, `Select`, `Checkbox`, `ScrollArea`, `Button`.
+- Use semantic design tokens only; no hardcoded colors.
+- Disable destructive Confirm button while async work is pending.
