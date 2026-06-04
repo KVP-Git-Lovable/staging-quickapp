@@ -234,12 +234,14 @@ export async function searchProducts(
     for (const r of data ?? []) candidates.set(r.id, r);
   }
 
-  // STEP 2 — strong partial match on full cleaned phrase
+  // STEP 2 — strong partial match on full cleaned phrase (name/sku/brand/description)
   const { data: ilikeData, error: ilikeErr } = await supabase
     .from("products")
     .select(baseSelect)
     .eq("is_active", true)
-    .or(`name.ilike.%${cleaned}%,sku.ilike.%${cleaned}%`)
+    .or(
+      `name.ilike.%${cleaned}%,sku.ilike.%${cleaned}%,brand.ilike.%${cleaned}%,description.ilike.%${cleaned}%`,
+    )
     .limit(15);
   if (ilikeErr) console.error("PRODUCT QUERY ERROR (ilike):", ilikeErr);
   for (const r of ilikeData ?? []) candidates.set(r.id, r);
@@ -248,7 +250,7 @@ export async function searchProducts(
   const tokenPool = contentTokens.length > 0 ? contentTokens : tokens;
   if (tokenPool.length > 0) {
     const orClause = tokenPool
-      .map((t) => `name.ilike.%${t}%,sku.ilike.%${t}%`)
+      .map((t) => `name.ilike.%${t}%,sku.ilike.%${t}%,brand.ilike.%${t}%,description.ilike.%${t}%`)
       .join(",");
     const { data: tokData, error: tokErr } = await supabase
       .from("products")
