@@ -25,9 +25,17 @@ Deno.serve(async (req) => {
 
   try {
     const { payload } = await parseBolnaPayload(req);
-    const phone = (payload as any).phone;
-    const productNameRaw = (payload as any).product_name;
-    const quantityRaw = (payload as any).quantity;
+    const stripBraces = (v: unknown) =>
+      typeof v === "string" ? v.replace(/^\{|\}$/g, "").trim() : v;
+    const phone = stripBraces((payload as any).phone);
+    const productNameRaw = stripBraces((payload as any).product_name);
+    let quantityRaw: any = (payload as any).quantity;
+    if (typeof quantityRaw === "string") {
+      const cleaned = quantityRaw.replace(/^\{|\}$/g, "").trim();
+      quantityRaw = cleaned.includes(",")
+        ? cleaned.split(",").map((s) => Number(s.trim()) || 1)
+        : Number(cleaned) || 1;
+    }
 
     if (!phone) return emptyBodyResponse();
     if (!productNameRaw) {
@@ -102,11 +110,12 @@ Deno.serve(async (req) => {
       total_amount: subtotal,
       status: "pending",
       order_source: "Voice",
-      sales_channel: "Voice",
+      sales_channel: "field",
       order_date: today,
       idempotency_key: `bolna-${crypto.randomUUID()}`,
     };
 
+    console.log("VOICE ORDER INSERT:", JSON.stringify(orderRow));
     const { data: orderIns, error: orderErr } = await supabase
       .from("orders")
       .insert(orderRow)
@@ -131,6 +140,7 @@ Deno.serve(async (req) => {
         rate,
         original_rate: rate,
         unit: r.hit.unit ?? "pcs",
+        category: r.hit.category ?? "General",
         quantity: r.quantity,
         total: rate * r.quantity,
         discount_amount: 0,

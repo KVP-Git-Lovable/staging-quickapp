@@ -169,6 +169,7 @@ export type ProductHit = {
   rate: number | null;
   unit: string | null;
   closing_stock: number | null;
+  category: string | null;
   score: number;
 };
 
@@ -190,7 +191,7 @@ export async function searchProducts(
   const aliasKey = ALIASES[cleaned] ?? ALIASES[compact];
   const candidates = new Map<string, any>();
 
-  const baseSelect = "id, name, sku, rate, unit, closing_stock, is_active";
+  const baseSelect = "id, name, sku, rate, unit, closing_stock, category, is_active";
 
   if (aliasKey) {
     const { data } = await supabase
@@ -244,6 +245,7 @@ export async function searchProducts(
       rate: p.rate,
       unit: p.unit,
       closing_stock: p.closing_stock,
+      category: p.category ?? null,
       score,
     };
   });
