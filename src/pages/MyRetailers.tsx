@@ -724,6 +724,42 @@ export const MyRetailers = () => {
           </CardHeader>
         </Card>
 
+        {/* Stats Dashboard — includes retailers without a beat */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-primary">{retailerStats.total.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Total Retailers</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-emerald-600">{retailerStats.active.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Active</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-slate-600">{retailerStats.inactive.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Inactive</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{retailerStats.assigned.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">With Beat</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-amber-600">{retailerStats.unassigned.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Unassigned</div>
+            </CardContent>
+          </Card>
+        </div>
+
+
+
 
         <Card>
           <CardContent className="pt-6 space-y-3">
