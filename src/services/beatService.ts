@@ -106,14 +106,14 @@ export async function getMyBeats(userId: string): Promise<BeatWithAccess[]> {
 
   const byId = new Map<string, BeatWithAccess>();
   for (const b of (ownedRes.data ?? []) as any[]) {
-    byId.set(b.id, { ...b, accessType: 'OWNED' });
+    byId.set(b.beat_id, { ...b, accessType: 'OWNED' });
   }
   for (const row of accessRows) {
-    const beat = row.beats;
-    if (!beat) continue;
-    if (byId.has(beat.id)) continue; // owned wins
+    const beat = row.beats ?? row;
+    if (!beat?.beat_id) continue;
+    if (byId.has(beat.beat_id)) continue; // owned wins
     const at = String(row.access_type).toUpperCase() as AccessType;
-    byId.set(beat.id, { ...beat, accessType: at });
+    byId.set(beat.beat_id, { ...beat, accessType: at });
   }
   return Array.from(byId.values());
 }
