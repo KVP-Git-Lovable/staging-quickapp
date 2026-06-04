@@ -578,7 +578,7 @@ const [productForm, setProductForm] = useState({
         product_number: idx('manufacturer code') >= 0 ? (r[idx('manufacturer code')] || null) : null,
         rate: Number(r[idx('rate')] || 0) || 0,
         unit: r[idx('unit')] || 'piece',
-        base_unit: r[idx('base unit')] || 'kg',
+        base_unit_category: normalizeProductBaseUnitCategory(r[idx('base unit')] || 'kg'),
         conversion_factor: Number(r[idx('conversion factor')] || 1) || 1,
         hsn_code: idx('hsn/sac') >= 0 ? (r[idx('hsn/sac')] || null) : null,
         barcode: idx('barcode') >= 0 ? (r[idx('barcode')] || null) : null,
