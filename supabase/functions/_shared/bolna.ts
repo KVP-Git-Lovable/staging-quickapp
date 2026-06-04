@@ -130,21 +130,44 @@ export const ALIASES: Record<string, string> = {
   "vayu": "VAYU",
   "close in": "CROCIN",
   "closein": "CROCIN",
+  "british coffee": "BRITISH COFFEE",
+  "kadak gold": "KADAK GOLD",
 };
 
+// Unit synonyms — collapse spoken/written variants to canonical tokens.
+const UNIT_SYNONYMS: Array<[RegExp, string]> = [
+  [/\b(grams?|gms?|gm)\b/g, "g"],
+  [/\b(kgs?|kilograms?|kilos?)\b/g, "kg"],
+  [/\b(mls?|milliliters?|millilitres?)\b/g, "ml"],
+  [/\b(ltrs?|liters?|litres?)\b/g, "l"],
+  [/\b(pcs?|pieces?|nos?)\b/g, "pc"],
+];
+
+// Words to drop from token-overlap scoring (noise / units / fillers).
+const STOPWORDS = new Set([
+  "the", "a", "an", "of", "and", "for", "with", "please", "ek", "do",
+  "pack", "packet", "box", "bottle", "g", "kg", "ml", "l", "pc",
+]);
+
 export function normalizeText(s: string): string {
-  return String(s ?? "")
+  let out = String(s ?? "")
     .toLowerCase()
+    .replace(/[-_/]+/g, " ")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+  // Split "50g" → "50 g" so units normalize cleanly.
+  out = out.replace(/(\d)([a-z])/g, "$1 $2").replace(/([a-z])(\d)/g, "$1 $2");
+  for (const [re, rep] of UNIT_SYNONYMS) out = out.replace(re, rep);
+  return out.replace(/\s+/g, " ").trim();
 }
 
-export function buildSearchTerms(name: string): { compact: string; tokens: string[]; cleaned: string } {
+export function buildSearchTerms(name: string): { compact: string; tokens: string[]; cleaned: string; contentTokens: string[] } {
   const cleaned = normalizeText(name);
   const compact = cleaned.replace(/\s+/g, "");
   const tokens = cleaned.split(" ").filter((t) => t.length > 1);
-  return { compact, tokens, cleaned };
+  const contentTokens = tokens.filter((t) => !STOPWORDS.has(t) && !/^\d+$/.test(t));
+  return { compact, tokens, cleaned, contentTokens };
 }
 
 function bigrams(s: string): Set<string> {
@@ -174,25 +197,31 @@ export type ProductHit = {
 };
 
 /**
- * Tolerant product search:
- *   1. alias map
- *   2. ilike '%q%' on name & sku
- *   3. per-token OR
- *   4. JS Dice-coefficient re-ranking
+ * Tolerant product search for voice ordering:
+ *   STEP 1 — alias map (highest priority)
+ *   STEP 2 — strong partial match via normalized ilike
+ *   STEP 3 — token overlap ranking
+ *   STEP 4 — trigram/Dice similarity ranking as fallback
+ *
+ * Prefers "best probable match" over rejection. Only the caller decides
+ * the confidence cutoff.
  */
 export async function searchProducts(
   supabase: any,
   query: string,
   limit = 5,
 ): Promise<ProductHit[]> {
-  const { cleaned, compact, tokens } = buildSearchTerms(query);
+  const { cleaned, compact, tokens, contentTokens } = buildSearchTerms(query);
+  console.log("VOICE PRODUCT QUERY:", query);
+  console.log("NORMALIZED QUERY:", cleaned, "| tokens:", contentTokens);
   if (!cleaned) return [];
 
-  const aliasKey = ALIASES[cleaned] ?? ALIASES[compact];
+  const aliasKey = ALIASES[cleaned] ?? ALIASES[compact] ?? ALIASES[contentTokens.join(" ")];
   const candidates = new Map<string, any>();
 
   const baseSelect = "id, name, sku, rate, unit, closing_stock, category, is_active";
 
+  // STEP 1 — alias hit
   if (aliasKey) {
     const { data } = await supabase
       .from("products")
@@ -203,7 +232,7 @@ export async function searchProducts(
     for (const r of data ?? []) candidates.set(r.id, r);
   }
 
-  // ilike full query
+  // STEP 2 — strong partial match on full cleaned phrase
   const { data: ilikeData } = await supabase
     .from("products")
     .select(baseSelect)
@@ -212,9 +241,10 @@ export async function searchProducts(
     .limit(15);
   for (const r of ilikeData ?? []) candidates.set(r.id, r);
 
-  // per-token OR
-  if (candidates.size < 5 && tokens.length > 0) {
-    const orClause = tokens
+  // STEP 3 — per-token OR (content tokens preferred, fall back to all tokens)
+  const tokenPool = contentTokens.length > 0 ? contentTokens : tokens;
+  if (tokenPool.length > 0) {
+    const orClause = tokenPool
       .map((t) => `name.ilike.%${t}%,sku.ilike.%${t}%`)
       .join(",");
     const { data: tokData } = await supabase
@@ -222,22 +252,46 @@ export async function searchProducts(
       .select(baseSelect)
       .eq("is_active", true)
       .or(orClause)
-      .limit(25);
+      .limit(50);
     for (const r of tokData ?? []) candidates.set(r.id, r);
   }
 
-  // Re-rank by Dice similarity on normalized compact strings.
+  // STEP 4 — re-rank: token overlap (primary) + Dice similarity (secondary).
   const ranked: ProductHit[] = Array.from(candidates.values()).map((p) => {
     const nameNorm = normalizeText(p.name ?? "");
     const skuNorm = normalizeText(p.sku ?? "");
-    let score = Math.max(
+    const nameTokens = nameNorm.split(" ").filter((t) => t.length > 1 && !STOPWORDS.has(t));
+
+    // Token overlap ratio (Jaccard on content tokens).
+    let overlapScore = 0;
+    if (contentTokens.length > 0 && nameTokens.length > 0) {
+      const nameSet = new Set(nameTokens);
+      let inter = 0;
+      for (const t of contentTokens) if (nameSet.has(t)) inter++;
+      const union = new Set([...contentTokens, ...nameTokens]).size;
+      overlapScore = inter / Math.max(1, contentTokens.length); // recall-biased
+      // Reward when all query tokens appear in name (strong partial).
+      if (inter === contentTokens.length) overlapScore = Math.max(overlapScore, 0.85);
+      // Small bonus for tighter sets.
+      overlapScore += 0.05 * (inter / Math.max(1, union));
+    }
+
+    const sim = Math.max(
       diceSimilarity(nameNorm.replace(/\s+/g, ""), compact),
       diceSimilarity(skuNorm.replace(/\s+/g, ""), compact),
     );
-    if (aliasKey && (nameNorm.includes(aliasKey.toLowerCase()) || skuNorm.includes(aliasKey.toLowerCase()))) {
-      score = Math.max(score, 0.99);
+
+    let score = Math.max(overlapScore, sim);
+
+    if (aliasKey) {
+      const a = aliasKey.toLowerCase();
+      if (nameNorm.includes(a) || skuNorm.includes(a)) score = Math.max(score, 0.99);
+    }
+    if (nameNorm.includes(cleaned) || skuNorm.includes(cleaned)) {
+      score = Math.max(score, 0.9);
     }
     if (nameNorm === cleaned || skuNorm === cleaned) score = 1;
+
     return {
       id: p.id,
       name: p.name,
@@ -246,13 +300,18 @@ export async function searchProducts(
       unit: p.unit,
       closing_stock: p.closing_stock,
       category: p.category ?? null,
-      score,
+      score: Math.min(1, score),
     };
   });
 
   ranked.sort((a, b) => b.score - a.score);
+  console.log(
+    "MATCH CANDIDATES:",
+    ranked.slice(0, 5).map((r) => ({ name: r.name, score: Number(r.score.toFixed(3)) })),
+  );
   return ranked.slice(0, limit);
 }
+
 
 export function formatShortDate(d: Date): string {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

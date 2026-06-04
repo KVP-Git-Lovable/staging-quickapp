@@ -69,14 +69,23 @@ Deno.serve(async (req) => {
       }
       const top = hits[0];
       const delta = hits.length > 1 ? top.score - hits[1].score : 1;
+      console.log("FINAL MATCH:", { requested: names[i], picked: top.name, score: top.score, delta });
 
-      if (!isMulti && delta < 0.15 && top.score < 0.9) {
-        // Ambiguous single-product call → ask user to disambiguate.
+      // Voice ordering: prefer "best probable match" over rejection.
+      // Only ask for disambiguation when confidence is low AND multiple
+      // candidates cluster near the top.
+      if (!isMulti && top.score < 0.55 && delta < 0.1) {
         return json(200, {
           success: false,
           multiple_matches: true,
-          matches: hits.map((h) => h.name),
+          matches: hits.slice(0, 3).map((h) => h.name),
         });
+      }
+
+      // Reject only when confidence is genuinely low.
+      if (top.score < 0.35) {
+        failed.push(names[i]);
+        continue;
       }
       resolved.push({ hit: top, quantity: qtyArr[i] });
     }
