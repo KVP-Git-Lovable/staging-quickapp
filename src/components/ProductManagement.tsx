@@ -608,7 +608,7 @@ const [productForm, setProductForm] = useState({
             category_id: productForm.category_id || null,
             rate: productForm.rate,
             unit: productForm.unit,
-            base_unit: productForm.base_unit,
+            base_unit_category: productForm.base_unit,
             conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
@@ -635,7 +635,7 @@ const [productForm, setProductForm] = useState({
             category_id: productForm.category_id || null,
             rate: productForm.rate,
             unit: productForm.unit,
-            base_unit: productForm.base_unit,
+            base_unit_category: productForm.base_unit,
             conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
@@ -708,9 +708,9 @@ const [productForm, setProductForm] = useState({
       });
       setUnitsValue(emptyProductUnitsEditorValue());
       fetchProducts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving product:', error);
-      toast.error('Failed to save product');
+      toast.error(error?.message || 'Failed to save product');
     } finally {
       setSavingProduct(false);
     }
