@@ -59,6 +59,7 @@ export const BeatDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const beatLifecycle = useBeatLifecycle();
   const [beatData, setBeatData] = useState<BeatDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
