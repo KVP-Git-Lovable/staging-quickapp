@@ -12,6 +12,18 @@ verify_jwt = false
 [functions.admin-create-user]
 verify_jwt = false
 
+[functions.voice-order-status]
+verify_jwt = false
+
+[functions.voice-recent-orders]
+verify_jwt = false
+
+[functions.voice-product-query]
+verify_jwt = false
+
+[functions.voice-place-order]
+verify_jwt = false
+
 [functions.sprint-summary]
 verify_jwt = false
 
