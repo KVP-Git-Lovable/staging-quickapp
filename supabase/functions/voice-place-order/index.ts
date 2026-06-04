@@ -25,17 +25,28 @@ Deno.serve(async (req) => {
 
   try {
     const { payload } = await parseBolnaPayload(req);
-    const stripBraces = (v: unknown) =>
-      typeof v === "string" ? v.replace(/^\{|\}$/g, "").trim() : v;
-    const phone = stripBraces((payload as any).phone);
-    const productNameRaw = stripBraces((payload as any).product_name);
-    let quantityRaw: any = (payload as any).quantity;
-    if (typeof quantityRaw === "string") {
-      const cleaned = quantityRaw.replace(/^\{|\}$/g, "").trim();
-      quantityRaw = cleaned.includes(",")
-        ? cleaned.split(",").map((s) => Number(s.trim()) || 1)
-        : Number(cleaned) || 1;
+    console.log("RAW PAYLOAD:", JSON.stringify(payload));
+
+    const cleanValue = (value: any): string => {
+      if (value == null) return "";
+      return String(value)
+        .trim()
+        .replace(/^\{+/, "")
+        .replace(/\}+$/, "")
+        .trim();
+    };
+
+    const phone = cleanValue((payload as any).phone);
+    const productNameRaw = cleanValue((payload as any).product_name);
+    const quantityClean = cleanValue((payload as any).quantity);
+    let quantityRaw: any;
+    if (quantityClean.includes(",")) {
+      quantityRaw = quantityClean.split(",").map((s) => Number(cleanValue(s)) || 1);
+    } else {
+      quantityRaw = Number(quantityClean) || 1;
     }
+
+    console.log("SANITIZED:", { phone, quantity: quantityRaw, product_name: productNameRaw });
 
     if (!phone) return emptyBodyResponse();
     if (!productNameRaw) {
