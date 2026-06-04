@@ -79,6 +79,18 @@ interface Territory {
   region: string;
 }
 
+const PRODUCT_BASE_UNIT_CATEGORIES = ['Weight', 'Volume', 'Quantity'] as const;
+
+const normalizeProductBaseUnitCategory = (value?: string | null) => {
+  const raw = (value || '').trim();
+  if (PRODUCT_BASE_UNIT_CATEGORIES.includes(raw as any)) return raw;
+
+  const normalized = raw.toLowerCase();
+  if (['kg', 'gram', 'grams', 'g', 'mg', 'lb', 'oz', 'ton'].includes(normalized)) return 'Weight';
+  if (['ml', 'litre', 'liter', 'l', 'gal', 'fl_oz'].includes(normalized)) return 'Volume';
+  return 'Quantity';
+};
+
 const ProductManagement = () => {
   const navigate = useNavigate();
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -566,7 +578,7 @@ const [productForm, setProductForm] = useState({
         product_number: idx('manufacturer code') >= 0 ? (r[idx('manufacturer code')] || null) : null,
         rate: Number(r[idx('rate')] || 0) || 0,
         unit: r[idx('unit')] || 'piece',
-        base_unit: r[idx('base unit')] || 'kg',
+        base_unit_category: normalizeProductBaseUnitCategory(r[idx('base unit')] || 'kg'),
         conversion_factor: Number(r[idx('conversion factor')] || 1) || 1,
         hsn_code: idx('hsn/sac') >= 0 ? (r[idx('hsn/sac')] || null) : null,
         barcode: idx('barcode') >= 0 ? (r[idx('barcode')] || null) : null,
@@ -594,6 +606,7 @@ const [productForm, setProductForm] = useState({
     try {
       // Generate QR code if not exists
       const qrCode = productForm.qr_code || generateQRCode('product', productForm.sku, productForm.name);
+      const baseUnitCategory = normalizeProductBaseUnitCategory(unitsValue.baseCategory || productForm.base_unit);
 
       let savedProductId = productForm.id;
 
@@ -608,7 +621,7 @@ const [productForm, setProductForm] = useState({
             category_id: productForm.category_id || null,
             rate: productForm.rate,
             unit: productForm.unit,
-            base_unit_category: productForm.base_unit,
+            base_unit_category: baseUnitCategory,
             conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
@@ -635,7 +648,7 @@ const [productForm, setProductForm] = useState({
             category_id: productForm.category_id || null,
             rate: productForm.rate,
             unit: productForm.unit,
-            base_unit_category: productForm.base_unit,
+            base_unit_category: baseUnitCategory,
             conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
