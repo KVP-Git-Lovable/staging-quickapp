@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, CreditCard } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, CreditCard, Download } from "lucide-react";
+import { RetailerExportDialog } from "@/components/RetailerExportDialog";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { VoiceSearchButton } from "@/components/VoiceSearchButton";
@@ -159,6 +160,7 @@ export const MyRetailers = () => {
   // Delete confirmation dialog state
   const { isOpen: isDeleteOpen, itemId: deleteItemId, itemName: deleteItemName, openDeleteDialog, closeDeleteDialog, setOpen: setDeleteOpen } = useDeleteConfirm();
   const [isBulkDelete, setIsBulkDelete] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
@@ -436,6 +438,20 @@ export const MyRetailers = () => {
       .sort((a, b) => a.beat_name.localeCompare(b.beat_name));
   }, [retailers]);
 
+  // Retailer stats — Total includes retailers not yet assigned to a beat
+  const retailerStats = useMemo(() => {
+    const isUnassigned = (b?: string | null) => !b || b === 'unassigned' || b.trim() === '';
+    let active = 0, inactive = 0, unassigned = 0, assigned = 0;
+    for (const r of retailers) {
+      const status = (r.status || '').toLowerCase();
+      if (status === 'inactive') inactive++; else active++;
+      if (isUnassigned(r.beat_id)) unassigned++; else assigned++;
+    }
+    return { total: retailers.length, active, inactive, unassigned, assigned };
+  }, [retailers]);
+
+
+
   const openEdit = (retailer: Retailer) => {
     setSelectedRetailer(retailer);
     setEditForm({
@@ -708,6 +724,42 @@ export const MyRetailers = () => {
           </CardHeader>
         </Card>
 
+        {/* Stats Dashboard — includes retailers without a beat */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-primary">{retailerStats.total.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Total Retailers</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-emerald-600">{retailerStats.active.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Active</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-slate-600">{retailerStats.inactive.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Inactive</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{retailerStats.assigned.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">With Beat</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-amber-600">{retailerStats.unassigned.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Unassigned</div>
+            </CardContent>
+          </Card>
+        </div>
+
+
+
 
         <Card>
           <CardContent className="pt-6 space-y-3">
@@ -736,6 +788,10 @@ export const MyRetailers = () => {
               <Button onClick={() => setBulkImportModalOpen(true)} variant="outline" size="sm" className="flex items-center gap-1">
                 <Plus size={16} />
                 Bulk Import
+              </Button>
+              <Button onClick={() => setExportOpen(true)} variant="outline" size="sm" className="flex items-center gap-1">
+                <Download size={16} />
+                Export Retailers
               </Button>
               {selectedRetailerIds.length > 0 && (
                 <Button onClick={handleBulkDeleteClick} variant="destructive" size="sm" className="flex items-center gap-1">
@@ -1172,6 +1228,13 @@ export const MyRetailers = () => {
             ? `Are you sure you want to delete ${deleteItemName}? They will be moved to the recycle bin and can be restored later.`
             : `Are you sure you want to delete "${deleteItemName}"? It will be moved to the recycle bin and can be restored later.`
           }
+        />
+
+        <RetailerExportDialog
+          open={exportOpen}
+          onOpenChange={setExportOpen}
+          retailers={filtered as any}
+          filteredCount={filtered.length}
         />
       </section>
     </Layout>
