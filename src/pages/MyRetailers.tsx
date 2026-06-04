@@ -789,6 +789,10 @@ export const MyRetailers = () => {
                 <Plus size={16} />
                 Bulk Import
               </Button>
+              <Button onClick={() => setExportOpen(true)} variant="outline" size="sm" className="flex items-center gap-1">
+                <Download size={16} />
+                Export Retailers
+              </Button>
               {selectedRetailerIds.length > 0 && (
                 <Button onClick={handleBulkDeleteClick} variant="destructive" size="sm" className="flex items-center gap-1">
                   <Trash2 size={16} />
