@@ -160,6 +160,7 @@ export const MyRetailers = () => {
   // Delete confirmation dialog state
   const { isOpen: isDeleteOpen, itemId: deleteItemId, itemName: deleteItemName, openDeleteDialog, closeDeleteDialog, setOpen: setDeleteOpen } = useDeleteConfirm();
   const [isBulkDelete, setIsBulkDelete] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     document.title = "My Retailers | Manage and Assign Beats";
