@@ -103,6 +103,7 @@ const ProductManagement = () => {
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -849,16 +850,28 @@ const [productForm, setProductForm] = useState({
   };
 
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const productStatusMatches = (isActive: boolean | null | undefined) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'active') return isActive !== false;
+    return isActive === false;
+  };
+
+  const activeProductsCount = products.filter(p => p.is_active !== false).length;
+  const inactiveProductsCount = products.filter(p => p.is_active === false).length;
+
+  const filteredProducts = products.filter(product => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      product.name.toLowerCase().includes(q) ||
+      product.sku.toLowerCase().includes(q);
+    return matchesSearch && productStatusMatches(product.is_active);
+  });
 
   const productsPagination = usePagination(filteredProducts, { pageSize: 15 });
 
   useEffect(() => {
     productsPagination.goToPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, statusFilter]);
 
   if (loading) {
     return (
@@ -905,8 +918,15 @@ const [productForm, setProductForm] = useState({
                       className="pl-10 w-80"
                     />
                   </div>
+                  <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'active' | 'inactive' | 'all')}>
+                    <TabsList>
+                      <TabsTrigger value="active">Active ({activeProductsCount})</TabsTrigger>
+                      <TabsTrigger value="inactive">Inactive ({inactiveProductsCount})</TabsTrigger>
+                      <TabsTrigger value="all">All ({products.length})</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                   <Badge variant="secondary" className="rounded-full">
-                    Total: {filteredProducts.length}
+                    Showing: {filteredProducts.length}
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1623,7 +1643,7 @@ const [productForm, setProductForm] = useState({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {variants.filter(v => v.product_id === selectedProductForVariants).map((variant) => (
+                  {variants.filter(v => v.product_id === selectedProductForVariants && productStatusMatches(v.is_active)).map((variant) => (
                     <TableRow key={variant.id}>
                       <TableCell className="font-mono">{variant.sku}</TableCell>
                       <TableCell>
@@ -1693,7 +1713,7 @@ const [productForm, setProductForm] = useState({
               </Table>
             </ScrollArea>
             
-            {variants.filter(v => v.product_id === selectedProductForVariants).length === 0 && (
+            {variants.filter(v => v.product_id === selectedProductForVariants && productStatusMatches(v.is_active)).length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <Grid3X3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No variants created yet</p>

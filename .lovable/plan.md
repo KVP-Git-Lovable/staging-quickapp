@@ -1,43 +1,50 @@
-## Issue
+## Goal
+Add a status filter toggle to **Product Management** so users can switch between viewing **Active**, **Inactive**, or **All** products (and variants). Default view = **Active**.
 
-The page shows `Shared With Me = 1`, but the list below says `No beats created yet`.
+## DB check (no changes needed)
+- `products.is_active` (boolean) — already exists.
+- `product_variants.is_active` (boolean) — already exists.
+- Current fetch in `ProductManagement.tsx` (`fetchProducts`, line 300) already loads **all** products regardless of status (no `is_active` filter applied). Variants load the same way.
+- Purely a **UI filter** — no migration, no RPC change, no edge function change.
 
-## Root cause
+## UI changes (single file: `src/components/ProductManagement.tsx`)
 
-`MyBeats.tsx` is using two different data sources:
+1. **New state** next to `searchQuery`:
+   ```
+   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+   ```
+   Default = `'active'`.
 
-- `beatService.getMyBeats(user.id)` correctly returns owned + shared beats and drives the count card.
-- The visible list is built from `beats[]`, which is loaded only by `user_id` / selected users, so beats shared through `beat_user_access` are not included in the rendered list.
+2. **Toggle control** in the toolbar (same row as the search input near line 903), using shadcn `Tabs` or `ToggleGroup`:
+   - Active (default)
+   - Inactive
+   - All
+   Show counts next to each label, e.g. `Active (128)`.
 
-So the shared beat exists in the access-aware data, but never gets merged into the list shown on screen.
+3. **Extend `filteredProducts`** (line 852) to apply both search and status filter:
+   ```
+   const filteredProducts = products.filter(product => {
+     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
+       || product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+     const matchesStatus =
+       statusFilter === 'all' ? true :
+       statusFilter === 'active' ? product.is_active !== false :
+       product.is_active === false;
+     return matchesSearch && matchesStatus;
+   });
+   ```
+   Treat `is_active = null/undefined` as **active** (matches the system-wide rule in `PRODUCT_DISPLAY_FLOW.md`).
 
-## Fix
+4. **Reset pagination** when `statusFilter` changes (extend existing reset effect at line 861).
 
-Update `src/pages/MyBeats.tsx` only:
+5. **Variants dialog** (line 1626): apply the same status filter to the variant list inside the "View Variants" dialog so it stays consistent with the parent toggle.
 
-1. Add a `displayBeats` memoized list that starts with the existing `beats[]` list.
-2. Merge any missing beats from `myBeatsRaw` using `beat_id` as the key.
-3. Preserve existing fields needed by `BeatCard`:
-   - `id`
-   - `name`
-   - `category`
-   - `created_at`
-   - `travel_allowance`
-   - `average_km`
-   - `average_time_minutes`
-   - `territory_id`
-   - `owner_name`
-   - `is_active`
-4. Change `annotatedBeats` to map over `displayBeats` instead of `beats`.
-5. Keep the existing tab filters unchanged, so:
-   - `My Beats` still shows only `OWNED`
-   - `Shared With Me` shows `CO_OWNER`, `OPERATIONAL`, and `VIEW_ONLY`
-   - `Covering Today` still shows `COVERAGE`
+6. **Empty state copy**: dynamic message based on filter — e.g. "No active products", "No inactive products", "No products found".
 
-## Scope
+## Out of scope
+- No change to Order Entry / Van Stock / Cart filters — they continue to show only active products as defined in `PRODUCT_DISPLAY_FLOW.md`.
+- No change to import/export or activate/deactivate flows.
+- No DB migration.
 
-No DB schema changes, no RLS changes, no UI redesign, and no order/beat business logic changes.
-
-## Expected result
-
-When `Shared With Me` count is `1`, clicking/selecting that tab will show the shared beat in the list instead of the empty state.
+## Files touched
+- `src/components/ProductManagement.tsx` (only file)
