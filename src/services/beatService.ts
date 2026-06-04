@@ -43,10 +43,10 @@ function throwIfError(error: any, context: string) {
   }
 }
 
-async function resolveBeatTextId(beatId: string): Promise<{ id: string; beat_id: string; beat_name: string; user_id: string | null }> {
+async function resolveBeatTextId(beatId: string): Promise<{ beat_id: string; beat_name: string; user_id: string | null }> {
   const { data, error } = await supabase
     .from('beats')
-    .select('id, beat_id, beat_name, user_id')
+    .select('beat_id, beat_name, user_id')
     .eq('beat_id', beatId)
     .maybeSingle();
   throwIfError(error, 'resolveBeatTextId');
