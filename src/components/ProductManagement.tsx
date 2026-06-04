@@ -850,16 +850,28 @@ const [productForm, setProductForm] = useState({
   };
 
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const productStatusMatches = (isActive: boolean | null | undefined) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'active') return isActive !== false;
+    return isActive === false;
+  };
+
+  const activeProductsCount = products.filter(p => p.is_active !== false).length;
+  const inactiveProductsCount = products.filter(p => p.is_active === false).length;
+
+  const filteredProducts = products.filter(product => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      product.name.toLowerCase().includes(q) ||
+      product.sku.toLowerCase().includes(q);
+    return matchesSearch && productStatusMatches(product.is_active);
+  });
 
   const productsPagination = usePagination(filteredProducts, { pageSize: 15 });
 
   useEffect(() => {
     productsPagination.goToPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, statusFilter]);
 
   if (loading) {
     return (
