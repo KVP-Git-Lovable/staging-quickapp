@@ -708,9 +708,9 @@ const [productForm, setProductForm] = useState({
       });
       setUnitsValue(emptyProductUnitsEditorValue());
       fetchProducts();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving product:', error);
-      toast.error('Failed to save product');
+      toast.error(error?.message || 'Failed to save product');
     } finally {
       setSavingProduct(false);
     }
