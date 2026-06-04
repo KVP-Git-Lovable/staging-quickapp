@@ -918,8 +918,15 @@ const [productForm, setProductForm] = useState({
                       className="pl-10 w-80"
                     />
                   </div>
+                  <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'active' | 'inactive' | 'all')}>
+                    <TabsList>
+                      <TabsTrigger value="active">Active ({activeProductsCount})</TabsTrigger>
+                      <TabsTrigger value="inactive">Inactive ({inactiveProductsCount})</TabsTrigger>
+                      <TabsTrigger value="all">All ({products.length})</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                   <Badge variant="secondary" className="rounded-full">
-                    Total: {filteredProducts.length}
+                    Showing: {filteredProducts.length}
                   </Badge>
                 </div>
                 <div className="flex flex-wrap gap-2">
