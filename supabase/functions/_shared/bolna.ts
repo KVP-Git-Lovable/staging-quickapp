@@ -192,7 +192,8 @@ export type ProductHit = {
   rate: number | null;
   unit: string | null;
   closing_stock: number | null;
-  category: string | null;
+  brand: string | null;
+  description: string | null;
   score: number;
 };
 
