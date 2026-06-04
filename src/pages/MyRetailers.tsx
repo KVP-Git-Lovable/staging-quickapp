@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, CreditCard } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, CreditCard, Download } from "lucide-react";
+import { RetailerExportDialog } from "@/components/RetailerExportDialog";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { VoiceSearchButton } from "@/components/VoiceSearchButton";
