@@ -698,11 +698,9 @@ export const BeatDetail = () => {
           .eq('user_id', user.id);
       }
 
-      // Deactivate the beat
-      await supabase
-        .from('beats')
-        .update({ is_active: false })
-        .eq('beat_id', beatData.beat_id);
+      // Permanently delete the beat (pre-check confirmed it's safe)
+      const deleted = await beatLifecycle.deletePermanent(beatData.beat_id, beatData.beat_name);
+      if (!deleted) throw new Error('Failed to permanently delete beat');
 
       // Insert audit log
       try {
