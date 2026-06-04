@@ -220,7 +220,7 @@ export async function searchProducts(
   const aliasKey = ALIASES[cleaned] ?? ALIASES[compact] ?? ALIASES[contentTokens.join(" ")];
   const candidates = new Map<string, any>();
 
-  const baseSelect = "id, name, sku, rate, unit, closing_stock, category, is_active";
+  const baseSelect = "id, name, sku, rate, unit, closing_stock, brand, description, is_active";
 
   // STEP 1 — alias hit
   if (aliasKey) {
