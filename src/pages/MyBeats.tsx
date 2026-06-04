@@ -727,6 +727,9 @@ export const MyBeats = () => {
         average_time_minutes: parseInt(averageTimeMinutes) || 0,
         created_by: user.id,
         owner_id: user.id,
+        owner_name: (user as any).user_metadata?.full_name
+          || (user as any).user_metadata?.name
+          || null,
         user_id: user.id,
         is_active: true,
         territory_id: selectedTerritoryId || null,

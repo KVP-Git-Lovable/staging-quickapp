@@ -269,7 +269,7 @@ export async function transferBeatOwnership(
       transferred_by: transferredBy,
       updated_by: transferredBy,
     })
-    .eq('id', beatId);
+    .eq('beat_id', beatId);
   throwIfError(updErr, 'transferBeatOwnership.update');
 
   const { error: histErr } = await supabase
