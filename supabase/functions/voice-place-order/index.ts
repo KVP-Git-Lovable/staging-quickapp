@@ -140,6 +140,7 @@ Deno.serve(async (req) => {
         rate,
         original_rate: rate,
         unit: r.hit.unit ?? "pcs",
+        category: r.hit.category ?? "General",
         quantity: r.quantity,
         total: rate * r.quantity,
         discount_amount: 0,
