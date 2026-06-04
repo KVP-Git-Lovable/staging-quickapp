@@ -1713,7 +1713,7 @@ const [productForm, setProductForm] = useState({
               </Table>
             </ScrollArea>
             
-            {variants.filter(v => v.product_id === selectedProductForVariants).length === 0 && (
+            {variants.filter(v => v.product_id === selectedProductForVariants && productStatusMatches(v.is_active)).length === 0 && (
               <div className="text-center py-8 text-muted-foreground">
                 <Grid3X3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No variants created yet</p>
