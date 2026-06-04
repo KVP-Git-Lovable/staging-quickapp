@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { BeatVisitCalendar } from "@/components/BeatVisitCalendar";
 import { useBeatMetrics } from "@/hooks/useBeatMetrics";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
+import { useBeatLifecycle } from "@/hooks/useBeatLifecycle";
 import { BeatDeleteDialog } from "@/components/BeatDeleteDialog";
 import { BeatAuditTimeline } from "@/components/BeatAuditTimeline";
 import { EditBeatModal } from "@/components/EditBeatModal";
