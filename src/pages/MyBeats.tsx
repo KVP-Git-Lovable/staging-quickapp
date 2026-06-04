@@ -1416,6 +1416,17 @@ export const MyBeats = () => {
     });
   }, [displayBeats, accessByBeatId]);
 
+  useEffect(() => {
+    const hasActiveOwnedBeat = annotatedBeats.some((beat) => beat.accessType === 'OWNED' && beat.is_active !== false);
+    const hasActiveSharedBeat = annotatedBeats.some((beat) =>
+      ['CO_OWNER', 'OPERATIONAL', 'VIEW_ONLY'].includes(beat.accessType) && beat.is_active !== false
+    );
+
+    if (!hasActiveOwnedBeat && hasActiveSharedBeat) {
+      setAccessTab('shared');
+    }
+  }, [annotatedBeats]);
+
 
   const filteredBeats = annotatedBeats.filter((beat) => {
     // Tab filter
@@ -1864,7 +1875,7 @@ export const MyBeats = () => {
         {/* Beats Section */}
         <div className="mt-6">
             {/* Beats Grid */}
-            {beats.length === 0 ? (
+            {displayBeats.length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <div className="space-y-4">
