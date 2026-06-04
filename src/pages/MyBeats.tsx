@@ -1372,9 +1372,39 @@ export const MyBeats = () => {
     return map;
   }, [myBeatsRaw]);
 
+  // Merge owned beats with shared/coverage beats from beatService (myBeatsRaw)
+  const displayBeats = useMemo(() => {
+    const byId = new Map<string, Beat>();
+    beats.forEach((b) => byId.set(b.id, b));
+
+    myBeatsRaw.forEach((raw, index) => {
+      if (!raw.beat_id || byId.has(raw.beat_id)) return;
+      byId.set(raw.beat_id, {
+        id: raw.beat_id,
+        name: raw.beat_name,
+        retailer_count: 0,
+        total_retailers: 0,
+        category: raw.category || 'General',
+        created_at: raw.created_at,
+        travel_allowance: raw.travel_allowance || 0,
+        average_km: raw.average_km || 0,
+        average_time_minutes: raw.average_time_minutes || 0,
+        beat_number: beats.length + index + 1,
+        retailers: [] as any,
+        territory_id: raw.territory_id || undefined,
+        owner_name: raw.owner_name || undefined,
+        is_active: raw.is_active !== false,
+      } as Beat);
+    });
+
+    return Array.from(byId.values()).sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+  }, [beats, myBeatsRaw]);
+
   // Annotate beats with their accessType for filtering / rendering.
   const annotatedBeats = useMemo(() => {
-    return beats.map((b) => {
+    return displayBeats.map((b) => {
       const acc = accessByBeatId.get(b.id);
       const accessType = (acc?.accessType ?? 'OWNED') as 'OWNED' | 'CO_OWNER' | 'OPERATIONAL' | 'VIEW_ONLY' | 'COVERAGE';
       return {
@@ -1384,7 +1414,8 @@ export const MyBeats = () => {
         sharedByName: (acc as any)?.owner_name ?? null,
       };
     });
-  }, [beats, accessByBeatId]);
+  }, [displayBeats, accessByBeatId]);
+
 
   const filteredBeats = annotatedBeats.filter((beat) => {
     // Tab filter
