@@ -1229,6 +1229,13 @@ export const MyRetailers = () => {
             : `Are you sure you want to delete "${deleteItemName}"? It will be moved to the recycle bin and can be restored later.`
           }
         />
+
+        <RetailerExportDialog
+          open={exportOpen}
+          onOpenChange={setExportOpen}
+          retailers={filtered as any}
+          filteredCount={filtered.length}
+        />
       </section>
     </Layout>
   );
