@@ -1643,7 +1643,7 @@ const [productForm, setProductForm] = useState({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {variants.filter(v => v.product_id === selectedProductForVariants).map((variant) => (
+                  {variants.filter(v => v.product_id === selectedProductForVariants && productStatusMatches(v.is_active)).map((variant) => (
                     <TableRow key={variant.id}>
                       <TableCell className="font-mono">{variant.sku}</TableCell>
                       <TableCell>
