@@ -192,7 +192,8 @@ export type ProductHit = {
   rate: number | null;
   unit: string | null;
   closing_stock: number | null;
-  category: string | null;
+  brand: string | null;
+  description: string | null;
   score: number;
 };
 
@@ -219,7 +220,7 @@ export async function searchProducts(
   const aliasKey = ALIASES[cleaned] ?? ALIASES[compact] ?? ALIASES[contentTokens.join(" ")];
   const candidates = new Map<string, any>();
 
-  const baseSelect = "id, name, sku, rate, unit, closing_stock, category, is_active";
+  const baseSelect = "id, name, sku, rate, unit, closing_stock, brand, description, is_active";
 
   // STEP 1 — alias hit
   if (aliasKey) {
@@ -233,12 +234,14 @@ export async function searchProducts(
     for (const r of data ?? []) candidates.set(r.id, r);
   }
 
-  // STEP 2 — strong partial match on full cleaned phrase
+  // STEP 2 — strong partial match on full cleaned phrase (name/sku/brand/description)
   const { data: ilikeData, error: ilikeErr } = await supabase
     .from("products")
     .select(baseSelect)
     .eq("is_active", true)
-    .or(`name.ilike.%${cleaned}%,sku.ilike.%${cleaned}%`)
+    .or(
+      `name.ilike.%${cleaned}%,sku.ilike.%${cleaned}%,brand.ilike.%${cleaned}%,description.ilike.%${cleaned}%`,
+    )
     .limit(15);
   if (ilikeErr) console.error("PRODUCT QUERY ERROR (ilike):", ilikeErr);
   for (const r of ilikeData ?? []) candidates.set(r.id, r);
@@ -247,7 +250,7 @@ export async function searchProducts(
   const tokenPool = contentTokens.length > 0 ? contentTokens : tokens;
   if (tokenPool.length > 0) {
     const orClause = tokenPool
-      .map((t) => `name.ilike.%${t}%,sku.ilike.%${t}%`)
+      .map((t) => `name.ilike.%${t}%,sku.ilike.%${t}%,brand.ilike.%${t}%,description.ilike.%${t}%`)
       .join(",");
     const { data: tokData, error: tokErr } = await supabase
       .from("products")
@@ -302,12 +305,15 @@ export async function searchProducts(
       rate: p.rate,
       unit: p.unit,
       closing_stock: p.closing_stock,
-      category: p.category ?? null,
+      brand: p.brand ?? null,
+      description: p.description ?? null,
       score: Math.min(1, score),
     };
   });
 
   ranked.sort((a, b) => b.score - a.score);
+  console.log("MATCHES FOUND:", ranked.length);
+  console.log("BEST MATCH:", ranked[0]?.name ?? null);
   console.log(
     "MATCH CANDIDATES:",
     ranked.slice(0, 5).map((r) => ({ name: r.name, score: Number(r.score.toFixed(3)) })),
