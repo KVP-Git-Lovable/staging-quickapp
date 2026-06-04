@@ -635,7 +635,7 @@ const [productForm, setProductForm] = useState({
             category_id: productForm.category_id || null,
             rate: productForm.rate,
             unit: productForm.unit,
-            base_unit: productForm.base_unit,
+            base_unit_category: productForm.base_unit,
             conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
             is_active: productForm.is_active,
