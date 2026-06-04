@@ -286,32 +286,49 @@ const [productForm, setProductForm] = useState({
   };
 
   const fetchProducts = async () => {
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        *,
-        category:product_categories(*)
-      `)
-      .order('name');
-    
-    if (error) {
-      console.error('Error fetching products in ProductManagement:', error);
-      throw error;
+    const pageSize = 1000;
+    let from = 0;
+    const all: any[] = [];
+    while (true) {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`*, category:product_categories(*)`)
+        .order('name')
+        .range(from, from + pageSize - 1);
+      if (error) {
+        console.error('Error fetching products in ProductManagement:', error);
+        throw error;
+      }
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < pageSize) break;
+      from += pageSize;
     }
-    console.log('Fetched products in ProductManagement:', data?.length || 0);
-    setProducts(data || []);
+    console.log('Fetched products in ProductManagement:', all.length);
+    setProducts(all);
   };
 
 
   const fetchVariants = async () => {
-    const { data, error } = await supabase
-      .from('product_variants')
-      .select('*')
-      .order('variant_name');
-    
-    if (error) throw error;
-    setVariants(data || []);
+    const pageSize = 1000;
+    let from = 0;
+    const all: any[] = [];
+    while (true) {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .select('*')
+        .order('variant_name')
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    setVariants(all);
   };
+
+
 
   const handleVariantSubmit = async () => {
     try {
