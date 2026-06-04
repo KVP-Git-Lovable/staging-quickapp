@@ -328,10 +328,7 @@ const [productForm, setProductForm] = useState({
     setVariants(all);
   };
 
-    
-    if (error) throw error;
-    setVariants(data || []);
-  };
+
 
   const handleVariantSubmit = async () => {
     try {
