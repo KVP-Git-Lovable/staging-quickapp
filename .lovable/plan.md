@@ -1,50 +1,34 @@
 ## Goal
-Add a status filter toggle to **Product Management** so users can switch between viewing **Active**, **Inactive**, or **All** products (and variants). Default view = **Active**.
+Restructure the Product Management toolbar into two clean rows.
 
-## DB check (no changes needed)
-- `products.is_active` (boolean) — already exists.
-- `product_variants.is_active` (boolean) — already exists.
-- Current fetch in `ProductManagement.tsx` (`fetchProducts`, line 300) already loads **all** products regardless of status (no `is_active` filter applied). Variants load the same way.
-- Purely a **UI filter** — no migration, no RPC change, no edge function change.
+## Layout
 
-## UI changes (single file: `src/components/ProductManagement.tsx`)
+**Row 1 — Filters (left-aligned):**
+- Search input (`Search products or SKUs...`)
+- Status tabs: `Active (6) | Inactive (8413) | All (8419)`
+- `Showing: N` badge
 
-1. **New state** next to `searchQuery`:
-   ```
-   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
-   ```
-   Default = `'active'`.
+**Row 2 — Actions (right-aligned):**
+- UoM Master · Sync · Import Product Data · Export Products · Delete All · Add Product
 
-2. **Toggle control** in the toolbar (same row as the search input near line 903), using shadcn `Tabs` or `ToggleGroup`:
-   - Active (default)
-   - Inactive
-   - All
-   Show counts next to each label, e.g. `Active (128)`.
+## File
+`src/components/ProductManagement.tsx` — replace the current single flex row (around lines 910–925) that wraps `<div className="flex items-center justify-between">` containing both the filter group and the action buttons.
 
-3. **Extend `filteredProducts`** (line 852) to apply both search and status filter:
-   ```
-   const filteredProducts = products.filter(product => {
-     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase())
-       || product.sku.toLowerCase().includes(searchQuery.toLowerCase());
-     const matchesStatus =
-       statusFilter === 'all' ? true :
-       statusFilter === 'active' ? product.is_active !== false :
-       product.is_active === false;
-     return matchesSearch && matchesStatus;
-   });
-   ```
-   Treat `is_active = null/undefined` as **active** (matches the system-wide rule in `PRODUCT_DISPLAY_FLOW.md`).
+Change to:
+```
+<div className="space-y-3">
+  {/* Row 1: filters */}
+  <div className="flex flex-wrap items-center gap-3">
+    <Search input (w-80) />
+    <Tabs Active / Inactive / All />
+    <Badge Showing: N />
+  </div>
 
-4. **Reset pagination** when `statusFilter` changes (extend existing reset effect at line 861).
+  {/* Row 2: actions */}
+  <div className="flex flex-wrap items-center justify-end gap-2">
+    UoM Master, Sync, Import, Export, Delete All, Add Product
+  </div>
+</div>
+```
 
-5. **Variants dialog** (line 1626): apply the same status filter to the variant list inside the "View Variants" dialog so it stays consistent with the parent toggle.
-
-6. **Empty state copy**: dynamic message based on filter — e.g. "No active products", "No inactive products", "No products found".
-
-## Out of scope
-- No change to Order Entry / Van Stock / Cart filters — they continue to show only active products as defined in `PRODUCT_DISPLAY_FLOW.md`.
-- No change to import/export or activate/deactivate flows.
-- No DB migration.
-
-## Files touched
-- `src/components/ProductManagement.tsx` (only file)
+No logic, state, data fetching, or DB changes — purely a JSX/Tailwind layout refactor of the toolbar block. The action buttons themselves keep their existing handlers/icons/variants untouched.
