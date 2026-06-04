@@ -111,7 +111,7 @@ export function BeatCard({
   const showHistory    = !!onHistory && can('module_my_beats', 'read');
   const showDeactivate = isActive && isOwner && !!onDeactivate && can('action_beat_delete', 'delete');
   const showReactivate = !isActive && !!onReactivate && can('action_beat_reactivate', 'edit');
-  const showDelete     = !isActive && !!onDelete && can('action_beat_delete', 'delete') && (beat.retailer_count || 0) === 0;
+  const showDelete     = !isActive && !!onDelete && can('action_beat_delete', 'delete');
 
   const hasAnyMenuItem =
     showEdit || showShare || showCoverage || showTransfer || showClone ||

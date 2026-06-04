@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { BeatVisitCalendar } from "@/components/BeatVisitCalendar";
 import { useBeatMetrics } from "@/hooks/useBeatMetrics";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
+import { useBeatLifecycle } from "@/hooks/useBeatLifecycle";
 import { BeatDeleteDialog } from "@/components/BeatDeleteDialog";
 import { BeatAuditTimeline } from "@/components/BeatAuditTimeline";
 import { EditBeatModal } from "@/components/EditBeatModal";
@@ -58,6 +59,7 @@ export const BeatDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const beatLifecycle = useBeatLifecycle();
   const [beatData, setBeatData] = useState<BeatDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -510,7 +512,49 @@ export const BeatDetail = () => {
 
   const handleDeleteClick = async () => {
     if (!beatData || !user) return;
-    
+
+    // Pre-check: does this beat have historical references?
+    const { data: check, error: checkError } = await supabase
+      .rpc('can_delete_beat' as any, { p_beat_id: beatData.beat_id });
+
+    if (checkError) {
+      console.error('can_delete_beat error', checkError);
+      toast.error('Could not check beat data. Please try again.');
+      return;
+    }
+
+    const checkResult: any = check || {};
+    if (!checkResult.deletable) {
+      const reasons: string[] = Array.isArray(checkResult.reasons) ? checkResult.reasons : [];
+      const reasonText = reasons.length ? `\n\n• ${reasons.join('\n• ')}` : '';
+      const confirmed = window.confirm(
+        `"${beatData.beat_name}" has historical records and cannot be permanently deleted:${reasonText}\n\nThis beat can only be deactivated (hidden from view). Historical data will be preserved.\n\nDeactivate this beat instead?`
+      );
+      if (!confirmed) return;
+
+      setIsDeleting(true);
+      try {
+        const { error: deactivateError } = await supabase
+          .from('beats')
+          .update({
+            is_active: false,
+            deactivated_at: new Date().toISOString(),
+            deactivated_by: user.id,
+          } as any)
+          .eq('beat_id', beatData.beat_id);
+        if (deactivateError) throw deactivateError;
+        toast.success(`"${beatData.beat_name}" has been deactivated`);
+        window.dispatchEvent(new CustomEvent('beatDeleted', { detail: { beatId: beatData.beat_id } }));
+        navigate('/my-beats');
+      } catch (e) {
+        console.error(e);
+        toast.error('Failed to deactivate beat');
+      } finally {
+        setIsDeleting(false);
+      }
+      return;
+    }
+
     try {
       // Fetch available beats
       const { data: allBeats } = await supabase
@@ -654,11 +698,9 @@ export const BeatDetail = () => {
           .eq('user_id', user.id);
       }
 
-      // Deactivate the beat
-      await supabase
-        .from('beats')
-        .update({ is_active: false })
-        .eq('beat_id', beatData.beat_id);
+      // Permanently delete the beat (pre-check confirmed it's safe)
+      const deleted = await beatLifecycle.deletePermanent(beatData.beat_id, beatData.beat_name);
+      if (!deleted) throw new Error('Failed to permanently delete beat');
 
       // Insert audit log
       try {
