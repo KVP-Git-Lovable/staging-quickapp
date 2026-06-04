@@ -107,6 +107,7 @@ Deno.serve(async (req) => {
       idempotency_key: `bolna-${crypto.randomUUID()}`,
     };
 
+    console.log("VOICE ORDER INSERT:", JSON.stringify(orderRow));
     const { data: orderIns, error: orderErr } = await supabase
       .from("orders")
       .insert(orderRow)
