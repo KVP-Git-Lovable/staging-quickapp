@@ -929,7 +929,7 @@ const [productForm, setProductForm] = useState({
                     Showing: {filteredProducts.length}
                   </Badge>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                   <Button variant="outline" onClick={() => navigate('/admin/uom-master')}>
                     <SlidersHorizontal className="h-4 w-4 mr-2" />
                     UoM Master
