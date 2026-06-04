@@ -305,12 +305,15 @@ export async function searchProducts(
       rate: p.rate,
       unit: p.unit,
       closing_stock: p.closing_stock,
-      category: p.category ?? null,
+      brand: p.brand ?? null,
+      description: p.description ?? null,
       score: Math.min(1, score),
     };
   });
 
   ranked.sort((a, b) => b.score - a.score);
+  console.log("MATCHES FOUND:", ranked.length);
+  console.log("BEST MATCH:", ranked[0]?.name ?? null);
   console.log(
     "MATCH CANDIDATES:",
     ranked.slice(0, 5).map((r) => ({ name: r.name, score: Number(r.score.toFixed(3)) })),
