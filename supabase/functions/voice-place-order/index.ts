@@ -73,6 +73,20 @@ Deno.serve(async (req) => {
     const failed: string[] = [];
 
     for (let i = 0; i < names.length; i++) {
+      if (i === 0) {
+        const probe = await supabase
+          .from("products")
+          .select("id,name,is_active")
+          .ilike("name", `%${names[i].split(" ")[0]}%`)
+          .limit(3);
+        console.log("DEBUG PRODUCT PROBE:", {
+          term: names[i].split(" ")[0],
+          error: probe.error,
+          count: probe.data?.length ?? 0,
+          sample: probe.data?.map((p) => p.name),
+        });
+      }
+      console.log("QUERY:", names[i]);
       const hits = await searchProducts(supabase, names[i], 3);
       if (hits.length === 0) {
         failed.push(names[i]);

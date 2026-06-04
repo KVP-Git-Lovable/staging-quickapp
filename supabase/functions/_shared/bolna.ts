@@ -223,22 +223,24 @@ export async function searchProducts(
 
   // STEP 1 — alias hit
   if (aliasKey) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("products")
       .select(baseSelect)
       .eq("is_active", true)
       .ilike("name", `%${aliasKey}%`)
       .limit(10);
+    if (error) console.error("PRODUCT QUERY ERROR (alias):", error);
     for (const r of data ?? []) candidates.set(r.id, r);
   }
 
   // STEP 2 — strong partial match on full cleaned phrase
-  const { data: ilikeData } = await supabase
+  const { data: ilikeData, error: ilikeErr } = await supabase
     .from("products")
     .select(baseSelect)
     .eq("is_active", true)
     .or(`name.ilike.%${cleaned}%,sku.ilike.%${cleaned}%`)
     .limit(15);
+  if (ilikeErr) console.error("PRODUCT QUERY ERROR (ilike):", ilikeErr);
   for (const r of ilikeData ?? []) candidates.set(r.id, r);
 
   // STEP 3 — per-token OR (content tokens preferred, fall back to all tokens)
@@ -247,12 +249,13 @@ export async function searchProducts(
     const orClause = tokenPool
       .map((t) => `name.ilike.%${t}%,sku.ilike.%${t}%`)
       .join(",");
-    const { data: tokData } = await supabase
+    const { data: tokData, error: tokErr } = await supabase
       .from("products")
       .select(baseSelect)
       .eq("is_active", true)
       .or(orClause)
       .limit(50);
+    if (tokErr) console.error("PRODUCT QUERY ERROR (tokens):", tokErr);
     for (const r of tokData ?? []) candidates.set(r.id, r);
   }
 
