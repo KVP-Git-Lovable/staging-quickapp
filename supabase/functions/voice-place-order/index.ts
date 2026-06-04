@@ -102,7 +102,7 @@ Deno.serve(async (req) => {
       total_amount: subtotal,
       status: "pending",
       order_source: "Voice",
-      sales_channel: "Voice",
+      sales_channel: "field",
       order_date: today,
       idempotency_key: `bolna-${crypto.randomUUID()}`,
     };
