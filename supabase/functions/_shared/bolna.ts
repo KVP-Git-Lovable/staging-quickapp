@@ -245,6 +245,7 @@ export async function searchProducts(
       rate: p.rate,
       unit: p.unit,
       closing_stock: p.closing_stock,
+      category: p.category ?? null,
       score,
     };
   });
