@@ -191,7 +191,7 @@ export async function searchProducts(
   const aliasKey = ALIASES[cleaned] ?? ALIASES[compact];
   const candidates = new Map<string, any>();
 
-  const baseSelect = "id, name, sku, rate, unit, closing_stock, is_active";
+  const baseSelect = "id, name, sku, rate, unit, closing_stock, category, is_active";
 
   if (aliasKey) {
     const { data } = await supabase
