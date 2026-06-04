@@ -438,6 +438,20 @@ export const MyRetailers = () => {
       .sort((a, b) => a.beat_name.localeCompare(b.beat_name));
   }, [retailers]);
 
+  // Retailer stats — Total includes retailers not yet assigned to a beat
+  const retailerStats = useMemo(() => {
+    const isUnassigned = (b?: string | null) => !b || b === 'unassigned' || b.trim() === '';
+    let active = 0, inactive = 0, unassigned = 0, assigned = 0;
+    for (const r of retailers) {
+      const status = (r.status || '').toLowerCase();
+      if (status === 'inactive') inactive++; else active++;
+      if (isUnassigned(r.beat_id)) unassigned++; else assigned++;
+    }
+    return { total: retailers.length, active, inactive, unassigned, assigned };
+  }, [retailers]);
+
+
+
   const openEdit = (retailer: Retailer) => {
     setSelectedRetailer(retailer);
     setEditForm({
