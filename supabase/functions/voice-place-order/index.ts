@@ -25,9 +25,17 @@ Deno.serve(async (req) => {
 
   try {
     const { payload } = await parseBolnaPayload(req);
-    const phone = (payload as any).phone;
-    const productNameRaw = (payload as any).product_name;
-    const quantityRaw = (payload as any).quantity;
+    const stripBraces = (v: unknown) =>
+      typeof v === "string" ? v.replace(/^\{|\}$/g, "").trim() : v;
+    const phone = stripBraces((payload as any).phone);
+    const productNameRaw = stripBraces((payload as any).product_name);
+    let quantityRaw: any = (payload as any).quantity;
+    if (typeof quantityRaw === "string") {
+      const cleaned = quantityRaw.replace(/^\{|\}$/g, "").trim();
+      quantityRaw = cleaned.includes(",")
+        ? cleaned.split(",").map((s) => Number(s.trim()) || 1)
+        : Number(cleaned) || 1;
+    }
 
     if (!phone) return emptyBodyResponse();
     if (!productNameRaw) {
