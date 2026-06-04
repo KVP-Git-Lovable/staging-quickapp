@@ -92,8 +92,6 @@ Deno.serve(async (req) => {
         failed.push(names[i]);
         continue;
       }
-        continue;
-      }
       const top = hits[0];
       const delta = hits.length > 1 ? top.score - hits[1].score : 1;
       console.log("FINAL MATCH:", { requested: names[i], picked: top.name, score: top.score, delta });
