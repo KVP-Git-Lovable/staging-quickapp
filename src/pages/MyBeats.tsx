@@ -1048,17 +1048,11 @@ export const MyBeats = () => {
     setDeletabilityMap((prev) => ({ ...prev, [beatId]: check.deletable }));
 
     if (!check.deletable) {
-      // Block hard delete; route into deactivate confirmation.
-      const reasonText = check.reasons.length
-        ? `\n\nBlocking references:\n• ${check.reasons.join('\n• ')}`
-        : '';
-      const proceed = window.confirm(
-        `"${beatName}" contains historical data and cannot be deleted.${reasonText}\n\nDeactivate this beat instead?`
+      const reasons = check.reasons.length ? check.reasons.join(', ') : 'has historical references';
+      toast.error(
+        `"${beatName}" cannot be permanently deleted — it has historical records (${reasons}). Use Deactivate to hide it instead.`,
+        { duration: 6000 }
       );
-      if (proceed) {
-        const rc = beats.find(b => b.id === beatId)?.retailer_count ?? 0;
-        setDeactivateBeat({ id: beatId, beat_id: beatId, name: beatName, retailerCount: rc });
-      }
       return;
     }
 
