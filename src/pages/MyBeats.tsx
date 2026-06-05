@@ -1594,6 +1594,59 @@ export const MyBeats = () => {
           </Card>
         </div>
 
+        {/* Extended business metrics — 7 cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <Card className="text-center border-l-4 border-l-violet-500">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-violet-600">{beatStats?.totalRetailers ?? 0}</div>
+              <div className="text-sm font-medium">Total Retailers</div>
+              <div className="text-xs text-muted-foreground mt-1">Across all active beats</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center border-l-4 border-l-rose-500">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-rose-600">{beatStats?.emptyBeats ?? 0}</div>
+              <div className="text-sm font-medium">Empty Beats</div>
+              <div className="text-xs text-muted-foreground mt-1">Active but 0 retailers assigned</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center border-l-4 border-l-amber-500">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-amber-600">{beatStats?.noVisits30d ?? 0}</div>
+              <div className="text-sm font-medium">No Visits (30d)</div>
+              <div className="text-xs text-muted-foreground mt-1">Active beats with no visits this month</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center border-l-4 border-l-emerald-500">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-emerald-600">₹{(beatStats?.avgOrderValue ?? 0).toLocaleString()}</div>
+              <div className="text-sm font-medium">Avg Order Value</div>
+              <div className="text-xs text-muted-foreground mt-1">This month across all beats</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center border-l-4 border-l-blue-500">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{beatStats?.ordersThisMonth ?? 0}</div>
+              <div className="text-sm font-medium">Orders This Month</div>
+              <div className="text-xs text-muted-foreground mt-1">All orders across my beats</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center border-l-4 border-l-indigo-500">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-indigo-600">{beatStats?.sharedByMe ?? 0}</div>
+              <div className="text-sm font-medium">Beats Shared By Me</div>
+              <div className="text-xs text-muted-foreground mt-1">Beats I've shared with others</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center border-l-4 border-l-pink-500">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-pink-600">{beatStats?.pendingCoverage ?? 0}</div>
+              <div className="text-sm font-medium">Pending Coverage</div>
+              <div className="text-xs text-muted-foreground mt-1">Beats with upcoming coverage assigned</div>
+            </CardContent>
+          </Card>
+        </div>
+
 
         {/* Stats Detail Dialog */}
         <Dialog open={statsDetailDialog !== null} onOpenChange={(open) => !open && setStatsDetailDialog(null)}>
