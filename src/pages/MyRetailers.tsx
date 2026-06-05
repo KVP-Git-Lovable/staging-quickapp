@@ -422,15 +422,21 @@ export const MyRetailers = () => {
       potential: potentialFilter || undefined,
       retailType: retailTypeFilter || undefined,
     });
-    
-    // If index has results, use them (much faster)
+
+    let results: Retailer[];
     if (indexedResults.length > 0 || (deferredSearch || beatFilter || categoryFilter || potentialFilter || retailTypeFilter)) {
-      return indexedResults.sort((a, b) => a.name.localeCompare(b.name));
+      results = indexedResults.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      results = retailers;
     }
-    
-    // Fallback to full array if no filters applied and index is empty
-    return retailers;
-  }, [retailers, deferredSearch, potentialFilter, categoryFilter, retailTypeFilter, beatFilter]);
+
+    if (statusFilter === 'active') return results.filter(r => (r.status || '').toLowerCase() !== 'inactive');
+    if (statusFilter === 'inactive') return results.filter(r => (r.status || '').toLowerCase() === 'inactive');
+    if (statusFilter === 'assigned') return results.filter(r => r.beat_id && r.beat_id !== 'unassigned' && r.beat_id.trim() !== '');
+    if (statusFilter === 'unassigned') return results.filter(r => !r.beat_id || r.beat_id === 'unassigned' || r.beat_id.trim() === '');
+    if (statusFilter === 'shared') return results.filter(r => user && r.user_id && r.user_id !== user.id);
+    return results;
+  }, [retailers, deferredSearch, potentialFilter, categoryFilter, retailTypeFilter, beatFilter, statusFilter, user]);
 
   // Pagination - 10 items per page
   const {
