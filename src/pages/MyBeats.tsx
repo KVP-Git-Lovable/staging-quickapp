@@ -1596,21 +1596,30 @@ export const MyBeats = () => {
 
         {/* Extended business metrics — 7 cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <Card className="text-center border-l-4 border-l-violet-500">
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-violet-500 border-l-4 border-l-violet-500"
+            onClick={() => setAccessTab('mine')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-violet-600">{beatStats?.totalRetailers ?? 0}</div>
               <div className="text-sm font-medium">Total Retailers</div>
               <div className="text-xs text-muted-foreground mt-1">Across all active beats</div>
             </CardContent>
           </Card>
-          <Card className="text-center border-l-4 border-l-rose-500">
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-rose-500 border-l-4 border-l-rose-500"
+            onClick={() => setAccessTab('mine')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-rose-600">{beatStats?.emptyBeats ?? 0}</div>
               <div className="text-sm font-medium">Empty Beats</div>
               <div className="text-xs text-muted-foreground mt-1">Active but 0 retailers assigned</div>
             </CardContent>
           </Card>
-          <Card className="text-center border-l-4 border-l-amber-500">
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-amber-500 border-l-4 border-l-amber-500"
+            onClick={() => setAccessTab('mine')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-amber-600">{beatStats?.noVisits30d ?? 0}</div>
               <div className="text-sm font-medium">No Visits (30d)</div>
@@ -1631,14 +1640,20 @@ export const MyBeats = () => {
               <div className="text-xs text-muted-foreground mt-1">All orders across my beats</div>
             </CardContent>
           </Card>
-          <Card className="text-center border-l-4 border-l-indigo-500">
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-indigo-500 border-l-4 border-l-indigo-500"
+            onClick={() => setAccessTab('shared')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-indigo-600">{beatStats?.sharedByMe ?? 0}</div>
               <div className="text-sm font-medium">Beats Shared By Me</div>
               <div className="text-xs text-muted-foreground mt-1">Beats I've shared with others</div>
             </CardContent>
           </Card>
-          <Card className="text-center border-l-4 border-l-pink-500">
+          <Card
+            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-pink-500 border-l-4 border-l-pink-500"
+            onClick={() => setAccessTab('covering')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-pink-600">{beatStats?.pendingCoverage ?? 0}</div>
               <div className="text-sm font-medium">Pending Coverage</div>
