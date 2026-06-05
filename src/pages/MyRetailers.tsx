@@ -762,37 +762,55 @@ export const MyRetailers = () => {
 
         {/* Stats Dashboard — includes retailers without a beat */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => setStatusFilter('all')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-primary">{retailerStats.total.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Total Retailers</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'active' ? 'ring-2 ring-emerald-500' : ''}`}
+            onClick={() => setStatusFilter('active')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-emerald-600">{retailerStats.active.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Active</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'inactive' ? 'ring-2 ring-slate-500' : ''}`}
+            onClick={() => setStatusFilter('inactive')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-slate-600">{retailerStats.inactive.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Inactive</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'assigned' ? 'ring-2 ring-blue-500' : ''}`}
+            onClick={() => setStatusFilter('assigned')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-blue-600">{retailerStats.assigned.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">With Beat</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'unassigned' ? 'ring-2 ring-amber-500' : ''}`}
+            onClick={() => setStatusFilter('unassigned')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-amber-600">{retailerStats.unassigned.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Unassigned</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'shared' ? 'ring-2 ring-purple-500' : ''}`}
+            onClick={() => setStatusFilter('shared')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-purple-600">{retailerStats.sharedWithMe.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Shared With Me</div>
@@ -805,6 +823,15 @@ export const MyRetailers = () => {
             </CardContent>
           </Card>
         </div>
+
+        {statusFilter !== 'all' && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Filtered by: <strong className="text-foreground capitalize">{statusFilter}</strong></span>
+            <Button variant="ghost" size="sm" onClick={() => setStatusFilter('all')}>
+              Clear filter ×
+            </Button>
+          </div>
+        )}
 
 
 
