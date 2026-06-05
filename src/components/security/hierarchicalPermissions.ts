@@ -60,6 +60,8 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
       { name: 'field_visit_distributor', label: 'Distributor' },
     ],
     actions: [
+      { name: 'action_visit_create', label: 'Create Visit' },
+      { name: 'action_visit_edit', label: 'Edit Visit' },
       { name: 'action_visit_auto_plan', label: 'Auto Plan' },
       { name: 'action_visit_all_beat', label: 'All Beat' },
       { name: 'action_visit_retailers', label: 'Retailers' },
