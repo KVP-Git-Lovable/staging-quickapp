@@ -258,7 +258,6 @@ export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
         const { data: beatRetailers } = await supabase
           .from('retailers')
           .select('id')
-          .eq('user_id', uid)
           .in('beat_id', beatIds);
         retailerIds.push(...(beatRetailers || []).map(r => r.id));
       }
@@ -270,7 +269,6 @@ export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
         const { data } = await supabase
           .from('retailers')
           .select('*')
-          .eq('user_id', uid)
           .in('id', uniqueRetailerIds);
         retailersData = data || [];
       }
