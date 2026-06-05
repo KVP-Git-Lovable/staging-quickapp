@@ -280,7 +280,7 @@ export const MyBeats = () => {
   const beatLifecycle = useBeatLifecycle();
 
   // Access-aware tab + service data
-  const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all'>('mine');
+  const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all' | 'empty' | 'no-visits' | 'shared-by-me' | 'pending-coverage'>('mine');
   const [myBeatsRaw, setMyBeatsRaw] = useState<BeatWithAccess[]>([]);
   const [beatStats, setBeatStats] = useState<BeatStats | null>(null);
   const { can } = usePermissions();
@@ -1431,6 +1431,7 @@ export const MyBeats = () => {
   const filteredBeats = annotatedBeats.filter((beat) => {
     // Tab filter
     const isActive = beat.is_active !== false;
+    const beatTextId = (beat as any).beat_id ?? beat.id;
     if (accessTab === 'mine' && !(beat.accessType === 'OWNED' && isActive)) return false;
     if (accessTab === 'shared' && !((beat.accessType === 'CO_OWNER' || beat.accessType === 'OPERATIONAL' || beat.accessType === 'VIEW_ONLY') && isActive)) return false;
     if (accessTab === 'covering') {
@@ -1438,6 +1439,10 @@ export const MyBeats = () => {
       if (beat.coverageEndDate && new Date(beat.coverageEndDate) < new Date(new Date().toDateString())) return false;
     }
     if (accessTab === 'inactive' && isActive) return false;
+    if (accessTab === 'empty' && !(beatStats?.emptyBeatIds ?? []).includes(beatTextId)) return false;
+    if (accessTab === 'no-visits' && !(beatStats?.noVisits30dBeatIds ?? []).includes(beatTextId)) return false;
+    if (accessTab === 'shared-by-me' && !(beatStats?.sharedByMeBeatIds ?? []).includes(beatTextId)) return false;
+    if (accessTab === 'pending-coverage' && !(beatStats?.pendingCoverageBeatIds ?? []).includes(beatTextId)) return false;
     // 'all' = no tab filter
     return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
   });
@@ -1546,73 +1551,72 @@ export const MyBeats = () => {
         </Card>
 
 
-        {/* Extended business metrics — 7 cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-violet-500 border-l-4 border-l-violet-500"
-            onClick={() => setAccessTab('mine')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-violet-600">{beatStats?.totalRetailers ?? 0}</div>
-              <div className="text-sm font-medium">Total Retailers</div>
-              <div className="text-xs text-muted-foreground mt-1">Across all active beats</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-rose-500 border-l-4 border-l-rose-500"
-            onClick={() => setAccessTab('mine')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-rose-600">{beatStats?.emptyBeats ?? 0}</div>
-              <div className="text-sm font-medium">Empty Beats</div>
-              <div className="text-xs text-muted-foreground mt-1">Active but 0 retailers assigned</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-amber-500 border-l-4 border-l-amber-500"
-            onClick={() => setAccessTab('mine')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-amber-600">{beatStats?.noVisits30d ?? 0}</div>
-              <div className="text-sm font-medium">No Visits (30d)</div>
-              <div className="text-xs text-muted-foreground mt-1">Active beats with no visits this month</div>
-            </CardContent>
-          </Card>
-          <Card className="text-center border-l-4 border-l-emerald-500">
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-emerald-600">₹{(beatStats?.avgOrderValue ?? 0).toLocaleString()}</div>
-              <div className="text-sm font-medium">Avg Order Value</div>
-              <div className="text-xs text-muted-foreground mt-1">This month across all beats</div>
-            </CardContent>
-          </Card>
-          <Card className="text-center border-l-4 border-l-blue-500">
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-blue-600">{beatStats?.ordersThisMonth ?? 0}</div>
-              <div className="text-sm font-medium">Orders This Month</div>
-              <div className="text-xs text-muted-foreground mt-1">All orders across my beats</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-indigo-500 border-l-4 border-l-indigo-500"
-            onClick={() => setAccessTab('shared')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-indigo-600">{beatStats?.sharedByMe ?? 0}</div>
-              <div className="text-sm font-medium">Beats Shared By Me</div>
-              <div className="text-xs text-muted-foreground mt-1">Beats I've shared with others</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-pink-500 border-l-4 border-l-pink-500"
-            onClick={() => setAccessTab('covering')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-pink-600">{beatStats?.pendingCoverage ?? 0}</div>
-              <div className="text-sm font-medium">Pending Coverage</div>
-              <div className="text-xs text-muted-foreground mt-1">Beats with upcoming coverage assigned</div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Compact stat cards (8) */}
+        {(() => {
+          const cards = [
+            { key: 'active-ret', value: beatStats?.activeRetailers ?? 0, label: 'Active Retailers', color: 'violet', tab: null as any },
+            { key: 'inactive-ret', value: beatStats?.inactiveRetailers ?? 0, label: 'Inactive Retailers', color: 'slate', tab: null as any },
+            { key: 'empty', value: beatStats?.emptyBeats ?? 0, label: 'Empty Beats', color: 'rose', tab: 'empty' },
+            { key: 'no-visits', value: beatStats?.noVisits30d ?? 0, label: 'No Visits (30d)', color: 'amber', tab: 'no-visits' },
+            { key: 'aov', value: `₹${(beatStats?.avgOrderValue ?? 0).toLocaleString()}`, label: 'Avg Order Value', color: 'emerald', tab: null as any },
+            { key: 'orders', value: beatStats?.ordersThisMonth ?? 0, label: 'Orders This Month', color: 'blue', tab: null as any },
+            { key: 'shared-by-me', value: beatStats?.sharedByMe ?? 0, label: 'Shared By Me', color: 'indigo', tab: 'shared-by-me' },
+            { key: 'pending-cov', value: beatStats?.pendingCoverage ?? 0, label: 'Pending Coverage', color: 'pink', tab: 'pending-coverage' },
+          ];
+          const colorMap: Record<string, { border: string; text: string; ring: string }> = {
+            violet:  { border: 'border-l-violet-500',  text: 'text-violet-600',  ring: 'ring-violet-500' },
+            slate:   { border: 'border-l-slate-500',   text: 'text-slate-600',   ring: 'ring-slate-500' },
+            rose:    { border: 'border-l-rose-500',    text: 'text-rose-600',    ring: 'ring-rose-500' },
+            amber:   { border: 'border-l-amber-500',   text: 'text-amber-600',   ring: 'ring-amber-500' },
+            emerald: { border: 'border-l-emerald-500', text: 'text-emerald-600', ring: 'ring-emerald-500' },
+            blue:    { border: 'border-l-blue-500',    text: 'text-blue-600',    ring: 'ring-blue-500' },
+            indigo:  { border: 'border-l-indigo-500',  text: 'text-indigo-600',  ring: 'ring-indigo-500' },
+            pink:    { border: 'border-l-pink-500',    text: 'text-pink-600',    ring: 'ring-pink-500' },
+          };
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+              {cards.map((c) => {
+                const col = colorMap[c.color];
+                const clickable = c.tab !== null;
+                const active = clickable && accessTab === c.tab;
+                return (
+                  <Card
+                    key={c.key}
+                    className={`text-center border-l-2 ${col.border} transition-shadow ${
+                      clickable ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
+                    } ${active ? `ring-2 ${col.ring}` : ''}`}
+                    onClick={clickable ? () => setAccessTab(c.tab) : undefined}
+                  >
+                    <CardContent className="p-2.5">
+                      <div className={`text-lg font-bold ${col.text} leading-tight`}>{c.value}</div>
+                      <div className="text-[11px] font-medium leading-tight mt-0.5">{c.label}</div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        {/* Active filter chip */}
+        {['empty', 'no-visits', 'shared-by-me', 'pending-coverage'].includes(accessTab) && (
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-2">
+              Filtered:{' '}
+              {accessTab === 'empty' && `Empty Beats (${beatStats?.emptyBeats ?? 0})`}
+              {accessTab === 'no-visits' && `No Visits 30d (${beatStats?.noVisits30d ?? 0})`}
+              {accessTab === 'shared-by-me' && `Shared By Me (${beatStats?.sharedByMe ?? 0})`}
+              {accessTab === 'pending-coverage' && `Pending Coverage (${beatStats?.pendingCoverage ?? 0})`}
+              <button
+                onClick={() => setAccessTab('mine')}
+                className="ml-1 text-muted-foreground hover:text-foreground"
+                aria-label="Clear filter"
+              >
+                ✕
+              </button>
+            </Badge>
+          </div>
+        )}
 
 
         {/* Stats Detail Dialog */}
