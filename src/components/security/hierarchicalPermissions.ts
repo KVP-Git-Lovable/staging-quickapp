@@ -130,8 +130,13 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
     actions: [
       { name: 'action_beat_create', label: 'Create Beat' },
       { name: 'action_beat_edit', label: 'Edit Beat' },
-      { name: 'action_beat_delete', label: 'Delete Beat' },
+      { name: 'action_beat_delete', label: 'Delete / Deactivate Beat' },
       { name: 'action_beat_assign_retailers', label: 'Assign Retailers' },
+      { name: 'action_beat_share', label: 'Share Beat (Co-owner / Operational / View Only)' },
+      { name: 'action_beat_coverage', label: 'Assign Leave Coverage' },
+      { name: 'action_beat_transfer', label: 'Transfer Beat Ownership' },
+      { name: 'action_beat_reactivate', label: 'Reactivate Inactive Beat' },
+      { name: 'action_beat_clone', label: 'Clone Beat' },
     ],
     widgets: [
       { name: 'widget_beat_list', label: 'Beat List' },
