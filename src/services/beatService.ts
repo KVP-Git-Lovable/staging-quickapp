@@ -255,7 +255,7 @@ export async function transferBeatOwnership(
   // Snapshot retailers BEFORE update for retailer_owner_history.
   const { data: retailers, error: rFetchErr } = await supabase
     .from('retailers')
-    .select('id, retailer_name')
+    .select('id, name')
     .eq('beat_id', (beat as any).beat_id);
   throwIfError(rFetchErr, 'transferBeatOwnership.fetchRetailers');
 
