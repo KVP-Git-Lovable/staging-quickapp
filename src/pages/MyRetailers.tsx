@@ -110,6 +110,7 @@ export const MyRetailers = () => {
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [retailTypeFilter, setRetailTypeFilter] = useState<string | undefined>();
   const [beatFilter, setBeatFilter] = useState<string | undefined>();
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'assigned' | 'unassigned' | 'shared'>('all');
 
   const [beatDialogOpen, setBeatDialogOpen] = useState(false);
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
