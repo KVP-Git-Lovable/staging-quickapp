@@ -21392,6 +21392,16 @@ export type Database = {
         Args: { p_product_id: string; p_qty: number; p_uom_code: string }
         Returns: number
       }
+      transfer_beat_complete: {
+        Args: {
+          p_beat_id: string
+          p_effective_date?: string
+          p_new_owner_id: string
+          p_reason?: string
+          p_transferred_by: string
+        }
+        Returns: Json
+      }
       transfer_retailer_beat: {
         Args: {
           p_new_beat_id: string
