@@ -264,6 +264,15 @@ export function BeatCard({
               {loading ? '...' : metrics.lastVisitOrderValue ? `₹${(metrics.lastVisitOrderValue / 1000).toFixed(1)}K` : '₹0'}
             </span>
           </div>
+          <div className="flex items-center justify-between p-2 bg-muted/20 rounded">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Package className="h-3 w-3" />
+              <span className="text-xs">Avg Order Value:</span>
+            </div>
+            <span className="font-semibold">
+              {loading ? '...' : metrics.avgBusiness >= 1000 ? `₹${(metrics.avgBusiness / 1000).toFixed(1)}K` : `₹${Math.round(metrics.avgBusiness || 0)}`}
+            </span>
+          </div>
           {metrics.isRecurring && (
             <div className="flex items-center gap-2 p-2 bg-primary/10 rounded border border-primary/20">
               <CalendarDays className="h-3 w-3 text-primary" />
