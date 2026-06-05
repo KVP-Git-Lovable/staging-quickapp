@@ -470,14 +470,17 @@ export const MyRetailers = () => {
   // Retailer stats — Total includes retailers not yet assigned to a beat
   const retailerStats = useMemo(() => {
     const isUnassigned = (b?: string | null) => !b || b === 'unassigned' || b.trim() === '';
-    let active = 0, inactive = 0, unassigned = 0, assigned = 0;
+    let active = 0, inactive = 0, unassigned = 0, assigned = 0, sharedWithMe = 0, myOwned = 0;
     for (const r of retailers) {
       const status = (r.status || '').toLowerCase();
       if (status === 'inactive') inactive++; else active++;
       if (isUnassigned(r.beat_id)) unassigned++; else assigned++;
+      if (user && r.user_id && r.user_id !== user.id) sharedWithMe++;
+      else myOwned++;
     }
-    return { total: retailers.length, active, inactive, unassigned, assigned };
-  }, [retailers]);
+    return { total: retailers.length, active, inactive, unassigned, assigned, sharedWithMe, myOwned };
+  }, [retailers, user]);
+
 
 
 
@@ -782,7 +785,20 @@ export const MyRetailers = () => {
               <div className="text-sm text-muted-foreground">Unassigned</div>
             </CardContent>
           </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-purple-600">{retailerStats.sharedWithMe.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Shared With Me</div>
+            </CardContent>
+          </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-indigo-600">{retailerStats.myOwned.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">My Owned</div>
+            </CardContent>
+          </Card>
         </div>
+
 
 
 
