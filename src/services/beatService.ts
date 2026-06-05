@@ -28,21 +28,9 @@ export interface BeatStats {
   inactive: number;
   sharedWithMe: number;
   covering: number;
-  // Extended business metrics
-  activeRetailers: number;
-  inactiveRetailers: number;
   emptyBeats: number;
-  noVisits30d: number;
-  avgOrderValue: number;
-  ordersThisMonth: number;
-  sharedByMe: number;
-  pendingCoverage: number;
-  // Beat-id sets for in-place filtering
-  emptyBeatIds: string[];
-  noVisits30dBeatIds: string[];
-  sharedByMeBeatIds: string[];
-  pendingCoverageBeatIds: string[];
 }
+
 
 export interface BeatHistory {
   ownership: any[];
