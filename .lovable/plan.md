@@ -1,34 +1,25 @@
-## Goal
-Restructure the Product Management toolbar into two clean rows.
+## Fix `transferBeatOwnership()` in `src/services/beatService.ts`
 
-## Layout
+Two code-only fixes inside one function. No DB/schema changes.
 
-**Row 1 — Filters (left-aligned):**
-- Search input (`Search products or SKUs...`)
-- Status tabs: `Active (6) | Inactive (8413) | All (8419)`
-- `Showing: N` badge
+### Fix 1 — Wrong column name `retailer_name` → `name`
+The `retailers` table column is `name`, not `retailer_name`. The current select silently returns undefined, so per-retailer ownership history rows are written with `retailer_name: undefined`.
 
-**Row 2 — Actions (right-aligned):**
-- UoM Master · Sync · Import Product Data · Export Products · Delete All · Add Product
+- Line 258: change `.select('id, retailer_name')` to `.select('id, name')`
+- Line 301: change `retailer_name: r.retailer_name` to `retailer_name: r.name`
 
-## File
-`src/components/ProductManagement.tsx` — replace the current single flex row (around lines 910–925) that wraps `<div className="flex items-center justify-between">` containing both the filter group and the action buttons.
+### Fix 2 — Retailer update missing ownership fields
+When ownership transfers, only `user_id` is updated on retailers. `owner_id` and `owner_name` remain stale, so downstream views (My Retailers, hierarchy filters) still show the old owner.
 
-Change to:
-```
-<div className="space-y-3">
-  {/* Row 1: filters */}
-  <div className="flex flex-wrap items-center gap-3">
-    <Search input (w-80) />
-    <Tabs Active / Inactive / All />
-    <Badge Showing: N />
-  </div>
+- Lines 291–294: update all three ownership columns:
+  ```ts
+  .update({
+    user_id: newOwnerId,
+    owner_id: newOwnerId,
+    owner_name: newOwnerName,
+  })
+  ```
 
-  {/* Row 2: actions */}
-  <div className="flex flex-wrap items-center justify-end gap-2">
-    UoM Master, Sync, Import, Export, Delete All, Add Product
-  </div>
-</div>
-```
-
-No logic, state, data fetching, or DB changes — purely a JSX/Tailwind layout refactor of the toolbar block. The action buttons themselves keep their existing handlers/icons/variants untouched.
+### Out of scope
+- No changes to `beats` update block, history inserts, or other functions.
+- No migrations.
