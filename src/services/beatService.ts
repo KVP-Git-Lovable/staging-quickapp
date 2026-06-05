@@ -471,12 +471,7 @@ export async function getBeatStats(userId: string): Promise<BeatStats> {
   };
 }
 
-    emptyBeatIds,
-    noVisits30dBeatIds,
-    sharedByMeBeatIds,
-    pendingCoverageBeatIds,
-  };
-}
+
 
 // 12. cloneBeat
 export async function cloneBeat(beatId: string, newBeatName: string, createdBy: string) {
