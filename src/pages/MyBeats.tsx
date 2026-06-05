@@ -1431,6 +1431,7 @@ export const MyBeats = () => {
   const filteredBeats = annotatedBeats.filter((beat) => {
     // Tab filter
     const isActive = beat.is_active !== false;
+    const beatTextId = (beat as any).beat_id ?? beat.id;
     if (accessTab === 'mine' && !(beat.accessType === 'OWNED' && isActive)) return false;
     if (accessTab === 'shared' && !((beat.accessType === 'CO_OWNER' || beat.accessType === 'OPERATIONAL' || beat.accessType === 'VIEW_ONLY') && isActive)) return false;
     if (accessTab === 'covering') {
@@ -1438,6 +1439,10 @@ export const MyBeats = () => {
       if (beat.coverageEndDate && new Date(beat.coverageEndDate) < new Date(new Date().toDateString())) return false;
     }
     if (accessTab === 'inactive' && isActive) return false;
+    if (accessTab === 'empty' && !(beatStats?.emptyBeatIds ?? []).includes(beatTextId)) return false;
+    if (accessTab === 'no-visits' && !(beatStats?.noVisits30dBeatIds ?? []).includes(beatTextId)) return false;
+    if (accessTab === 'shared-by-me' && !(beatStats?.sharedByMeBeatIds ?? []).includes(beatTextId)) return false;
+    if (accessTab === 'pending-coverage' && !(beatStats?.pendingCoverageBeatIds ?? []).includes(beatTextId)) return false;
     // 'all' = no tab filter
     return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
   });
