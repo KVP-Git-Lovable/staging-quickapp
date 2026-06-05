@@ -1545,54 +1545,6 @@ export const MyBeats = () => {
           </CardHeader>
         </Card>
 
-        {/* Stats Dashboard — 5 cards driven by beatService.getBeatStats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-primary"
-            onClick={() => setAccessTab('mine')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-primary">{beatStats?.total ?? 0}</div>
-              <div className="text-sm text-muted-foreground">My Beats</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-emerald-500"
-            onClick={() => setAccessTab('mine')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-emerald-600">{beatStats?.active ?? 0}</div>
-              <div className="text-sm text-muted-foreground">Active</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-slate-500"
-            onClick={() => setAccessTab('inactive')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-slate-600">{beatStats?.inactive ?? 0}</div>
-              <div className="text-sm text-muted-foreground">Inactive</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-blue-500"
-            onClick={() => setAccessTab('shared')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-blue-600">{beatStats?.sharedWithMe ?? 0}</div>
-              <div className="text-sm text-muted-foreground">Shared With Me</div>
-            </CardContent>
-          </Card>
-          <Card
-            className="text-center cursor-pointer hover:shadow-md transition-shadow hover:border-amber-500"
-            onClick={() => setAccessTab('covering')}
-          >
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-amber-600">{beatStats?.covering ?? 0}</div>
-              <div className="text-sm text-muted-foreground">Covering Today</div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Extended business metrics — 7 cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
