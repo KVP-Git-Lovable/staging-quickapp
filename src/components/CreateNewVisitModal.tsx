@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { updateBeatPlanInSnapshot, addRetailerToSnapshot } from "@/lib/myVisitsSnapshot";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { getMyBeats } from "@/services/beatService";
 
 interface Beat {
   id: string;
@@ -88,21 +89,27 @@ export const CreateNewVisitModal = ({ isOpen, onClose, onVisitCreated, initialDa
 
       // If online, fetch fresh data
       if (isOnline) {
-        // Get all beats created by this user
-        const { data: beatsData, error: beatsError } = await supabase
-          .from('beats')
-          .select('id, beat_id, beat_name, category')
-          .eq('created_by', user.id)
-          .eq('is_active', true);
+        // Get all beats accessible to this user (owned + shared + coverage)
+        const myBeats = await getMyBeats(user.id);
+        const beatsData = (myBeats || [])
+          .filter((b: any) => b.is_active !== false)
+          .map((b: any) => ({
+            id: b.id ?? b.beat_id,
+            beat_id: b.beat_id,
+            beat_name: b.beat_name,
+            category: b.category,
+            accessType: b.accessType,
+          }));
 
-        if (beatsError) throw beatsError;
-
-        // Get all retailers grouped by beat
-        const { data: retailers, error } = await supabase
-          .from('retailers')
-          .select('beat_id, category, priority')
-          .eq('user_id', user.id)
-          .eq('status', 'active');
+        // Get all retailers grouped by beat (by beat_id to include shared beats)
+        const beatIdList = beatsData.map(b => b.beat_id).filter(Boolean);
+        const { data: retailers, error } = beatIdList.length
+          ? await supabase
+              .from('retailers')
+              .select('beat_id, category, priority')
+              .in('beat_id', beatIdList)
+              .eq('status', 'active')
+          : { data: [], error: null } as any;
 
         if (error) throw error;
 

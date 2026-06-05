@@ -19,6 +19,7 @@ import { clearMyVisitsSnapshot } from "@/lib/myVisitsSnapshot";
 import { toLocalISODate, getLocalTodayDate, parseLocalDate, formatWeekdayShort } from "@/utils/dateUtils";
 import { UserSelector } from "@/components/UserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
+import { getMyBeats } from "@/services/beatService";
 
 interface Beat {
   id: string; // beat_id
@@ -140,15 +141,9 @@ export const BeatPlanning = () => {
   const loadBeatsFromNetwork = async () => {
     if (!effectiveUserId) return;
     try {
-      // Get user's own beats
-      const { data: beatsData, error: beatsError } = await supabase
-        .from('beats')
-        .select('*')
-        .eq('is_active', true)
-        .eq('created_by', effectiveUserId)
-        .order('created_at', { ascending: true });
-
-      if (beatsError) throw beatsError;
+      // Get user's beats (owned + CO_OWNER + OPERATIONAL + COVERAGE)
+      const myBeats = await getMyBeats(effectiveUserId);
+      const beatsData = (myBeats || []).filter((b: any) => b.is_active !== false);
 
       // Cache beats for offline usage
       if (beatsData?.length) {
@@ -157,11 +152,14 @@ export const BeatPlanning = () => {
         }
       }
 
-      // Get retailer counts for each beat for the current user
-      const { data: retailersData, error: retailersError } = await supabase
-        .from('retailers')
-        .select('beat_id, priority')
-        .eq('user_id', effectiveUserId);
+      // Get retailer counts for each beat (filter by beat_id to include shared beats)
+      const beatIdList = beatsData.map((b: any) => b.beat_id).filter(Boolean);
+      const { data: retailersData, error: retailersError } = beatIdList.length
+        ? await supabase
+            .from('retailers')
+            .select('beat_id, priority')
+            .in('beat_id', beatIdList)
+        : { data: [], error: null } as any;
 
       if (retailersError) throw retailersError;
 
