@@ -688,7 +688,7 @@ export const MyVisits = () => {
         const [visitsResult, plannedRetailersResult] = await Promise.all([
           supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
           plannedBeatIds.length > 0 
-            ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
+            ? supabase.from('retailers').select('id').in('beat_id', plannedBeatIds)
             : Promise.resolve({ data: [], error: null })
         ]);
 
@@ -715,7 +715,7 @@ export const MyVisits = () => {
           
           const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
           plannedRetailersData = cachedRetailers.filter((r: any) =>
-            r.user_id === user.id && plannedBeatIds.includes(r.beat_id)
+            plannedBeatIds.includes(r.beat_id)
           );
         } else {
           throw error;
@@ -751,7 +751,7 @@ export const MyVisits = () => {
       // Try online first, fallback to cache
       try {
         const [retailersResult, ordersForDateResult, allOrdersResult, allVisitsResult] = await Promise.all([
-          supabase.from('retailers').select('*').eq('user_id', user.id).in('id', Array.from(allRetailerIds)),
+          supabase.from('retailers').select('*').in('id', Array.from(allRetailerIds)),
           !isFutureDate 
             ? supabase.from('orders')
                 .select('id, retailer_id, total_amount, created_at')
@@ -795,7 +795,7 @@ export const MyVisits = () => {
           console.log('📦 Loading retailers from cache');
           const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
           retailersData = cachedRetailers.filter((r: any) =>
-            r.user_id === user.id && allRetailerIds.has(r.id)
+            allRetailerIds.has(r.id)
           );
           
           // For offline, we can't get orders, so set empty arrays

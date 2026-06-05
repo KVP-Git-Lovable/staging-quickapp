@@ -217,7 +217,7 @@ export const loadAllVisitsForDateOptimized = async (
             Promise.all([
               supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', date),
               plannedBeatIds.length > 0
-                ? supabase.from('retailers').select('id').eq('user_id', user.id).in('beat_id', plannedBeatIds)
+                ? supabase.from('retailers').select('id').in('beat_id', plannedBeatIds)
                 : Promise.resolve({ data: [], error: null }),
             ]),
             createTimeout(timeoutMs).then(() => null)
@@ -253,7 +253,7 @@ export const loadAllVisitsForDateOptimized = async (
 
             const secondResult = await Promise.race([
               Promise.all([
-                supabase.from('retailers').select('*').eq('user_id', user.id).in('id', allRetailerIds),
+                supabase.from('retailers').select('*').in('id', allRetailerIds),
                 !isFutureDate
                   ? supabase
                       .from('orders')
