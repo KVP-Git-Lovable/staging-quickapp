@@ -1342,6 +1342,7 @@ export type Database = {
           deactivated_at: string | null
           deactivated_by: string | null
           distributor_id: string | null
+          id: string
           is_active: boolean | null
           owner_id: string | null
           owner_name: string | null
@@ -1366,6 +1367,7 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           distributor_id?: string | null
+          id?: string
           is_active?: boolean | null
           owner_id?: string | null
           owner_name?: string | null
@@ -1390,6 +1392,7 @@ export type Database = {
           deactivated_at?: string | null
           deactivated_by?: string | null
           distributor_id?: string | null
+          id?: string
           is_active?: boolean | null
           owner_id?: string | null
           owner_name?: string | null
