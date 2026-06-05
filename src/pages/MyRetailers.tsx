@@ -110,6 +110,7 @@ export const MyRetailers = () => {
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [retailTypeFilter, setRetailTypeFilter] = useState<string | undefined>();
   const [beatFilter, setBeatFilter] = useState<string | undefined>();
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'assigned' | 'unassigned' | 'shared'>('all');
 
   const [beatDialogOpen, setBeatDialogOpen] = useState(false);
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
@@ -421,15 +422,21 @@ export const MyRetailers = () => {
       potential: potentialFilter || undefined,
       retailType: retailTypeFilter || undefined,
     });
-    
-    // If index has results, use them (much faster)
+
+    let results: Retailer[];
     if (indexedResults.length > 0 || (deferredSearch || beatFilter || categoryFilter || potentialFilter || retailTypeFilter)) {
-      return indexedResults.sort((a, b) => a.name.localeCompare(b.name));
+      results = indexedResults.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      results = retailers;
     }
-    
-    // Fallback to full array if no filters applied and index is empty
-    return retailers;
-  }, [retailers, deferredSearch, potentialFilter, categoryFilter, retailTypeFilter, beatFilter]);
+
+    if (statusFilter === 'active') return results.filter(r => (r.status || '').toLowerCase() !== 'inactive');
+    if (statusFilter === 'inactive') return results.filter(r => (r.status || '').toLowerCase() === 'inactive');
+    if (statusFilter === 'assigned') return results.filter(r => r.beat_id && r.beat_id !== 'unassigned' && r.beat_id.trim() !== '');
+    if (statusFilter === 'unassigned') return results.filter(r => !r.beat_id || r.beat_id === 'unassigned' || r.beat_id.trim() === '');
+    if (statusFilter === 'shared') return results.filter(r => user && r.user_id && r.user_id !== user.id);
+    return results;
+  }, [retailers, deferredSearch, potentialFilter, categoryFilter, retailTypeFilter, beatFilter, statusFilter, user]);
 
   // Pagination - 10 items per page
   const {
@@ -755,37 +762,55 @@ export const MyRetailers = () => {
 
         {/* Stats Dashboard — includes retailers without a beat */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+            onClick={() => setStatusFilter('all')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-primary">{retailerStats.total.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Total Retailers</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'active' ? 'ring-2 ring-emerald-500' : ''}`}
+            onClick={() => setStatusFilter('active')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-emerald-600">{retailerStats.active.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Active</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'inactive' ? 'ring-2 ring-slate-500' : ''}`}
+            onClick={() => setStatusFilter('inactive')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-slate-600">{retailerStats.inactive.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Inactive</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'assigned' ? 'ring-2 ring-blue-500' : ''}`}
+            onClick={() => setStatusFilter('assigned')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-blue-600">{retailerStats.assigned.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">With Beat</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'unassigned' ? 'ring-2 ring-amber-500' : ''}`}
+            onClick={() => setStatusFilter('unassigned')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-amber-600">{retailerStats.unassigned.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Unassigned</div>
             </CardContent>
           </Card>
-          <Card className="text-center">
+          <Card
+            className={`text-center cursor-pointer hover:shadow-md transition-all ${statusFilter === 'shared' ? 'ring-2 ring-purple-500' : ''}`}
+            onClick={() => setStatusFilter('shared')}
+          >
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-purple-600">{retailerStats.sharedWithMe.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Shared With Me</div>
@@ -798,6 +823,15 @@ export const MyRetailers = () => {
             </CardContent>
           </Card>
         </div>
+
+        {statusFilter !== 'all' && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Filtered by: <strong className="text-foreground capitalize">{statusFilter}</strong></span>
+            <Button variant="ghost" size="sm" onClick={() => setStatusFilter('all')}>
+              Clear filter ×
+            </Button>
+          </div>
+        )}
 
 
 
