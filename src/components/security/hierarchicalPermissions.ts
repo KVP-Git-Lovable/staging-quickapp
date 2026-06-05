@@ -101,7 +101,7 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
       { name: 'field_retailer_potential', label: 'Potential' },
     ],
     actions: [
-      { name: 'action_retailer_add', label: 'Add Retailer' },
+      { name: 'action_retailer_create', label: 'Add / Create Retailer' },
       { name: 'action_retailer_edit', label: 'Edit Retailer' },
       { name: 'action_retailer_delete', label: 'Delete Retailer' },
       { name: 'action_retailer_bulk_import', label: 'Bulk Import' },
