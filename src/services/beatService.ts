@@ -236,85 +236,17 @@ export async function transferBeatOwnership(
   newOwnerId: string,
   transferredBy: string,
   reason: string,
-  effectiveDate?: string, // ISO date (YYYY-MM-DD); defaults to today
+  effectiveDate?: string,
 ) {
-  const { data: beat, error: bErr } = await supabase
-    .from('beats')
-    .select('id, beat_id, beat_name, owner_id, owner_name, user_id')
-    .eq('beat_id', beatId)
-    .maybeSingle();
-  throwIfError(bErr, 'transferBeatOwnership.fetch');
-  if (!beat) throw new Error('Beat not found');
-
-  const oldOwnerId = (beat as any).owner_id ?? (beat as any).user_id;
-  const oldOwnerName = (beat as any).owner_name ?? (await getProfileName(oldOwnerId));
-  const newOwnerName = await getProfileName(newOwnerId);
-  const nowIso = new Date().toISOString();
-  const effDate = effectiveDate ?? new Date().toISOString().slice(0, 10);
-
-  // Snapshot retailers BEFORE update for retailer_owner_history.
-  const { data: retailers, error: rFetchErr } = await supabase
-    .from('retailers')
-    .select('id, name')
-    .eq('beat_id', (beat as any).beat_id);
-  throwIfError(rFetchErr, 'transferBeatOwnership.fetchRetailers');
-
-  const { error: updErr } = await supabase
-    .from('beats')
-    .update({
-      user_id: newOwnerId,
-      owner_id: newOwnerId,
-      owner_name: newOwnerName,
-      transferred_at: nowIso,
-      transferred_by: transferredBy,
-      updated_by: transferredBy,
-    })
-    .eq('beat_id', beatId);
-  throwIfError(updErr, 'transferBeatOwnership.update');
-
-  const { error: histErr } = await supabase
-    .from('beat_ownership_history')
-    .insert({
-      beat_id: (beat as any).beat_id,
-      beat_name: (beat as any).beat_name,
-      old_owner_id: oldOwnerId,
-      old_owner_name: oldOwnerName,
-      new_owner_id: newOwnerId,
-      new_owner_name: newOwnerName,
-      transferred_by: transferredBy,
-      transferred_at: nowIso,
-      effective_date: effDate,
-      reason,
-    } as any);
-  throwIfError(histErr, 'transferBeatOwnership.history');
-
-  const { error: retErr } = await supabase
-    .from('retailers')
-    .update({ user_id: newOwnerId, owner_id: newOwnerId, owner_name: newOwnerName })
-    .eq('beat_id', (beat as any).beat_id);
-  throwIfError(retErr, 'transferBeatOwnership.retailers');
-
-  // Per-retailer ownership history (batch insert).
-  if (retailers && retailers.length > 0) {
-    const rows = retailers.map((r: any) => ({
-      retailer_id: r.id,
-      retailer_name: r.name,
-      old_user_id: oldOwnerId,
-      old_user_name: oldOwnerName,
-      new_user_id: newOwnerId,
-      new_user_name: newOwnerName,
-      changed_by: transferredBy,
-      reason,
-      beat_id: (beat as any).beat_id,
-    }));
-    const { error: rohErr } = await supabase
-      .from('retailer_owner_history')
-      .insert(rows as any);
-    // Non-fatal: log but don't reverse the transfer.
-    if (rohErr) console.error('transferBeatOwnership.retailerHistory', rohErr);
-  }
-
-  return { ok: true };
+  const { data, error } = await supabase.rpc('transfer_beat_complete' as any, {
+    p_beat_id: beatId,
+    p_new_owner_id: newOwnerId,
+    p_transferred_by: transferredBy,
+    p_reason: reason ?? '',
+    p_effective_date: effectiveDate ?? new Date().toISOString().slice(0, 10),
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 // 6. grantBeatAccess
