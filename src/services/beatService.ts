@@ -28,21 +28,9 @@ export interface BeatStats {
   inactive: number;
   sharedWithMe: number;
   covering: number;
-  // Extended business metrics
-  activeRetailers: number;
-  inactiveRetailers: number;
   emptyBeats: number;
-  noVisits30d: number;
-  avgOrderValue: number;
-  ordersThisMonth: number;
-  sharedByMe: number;
-  pendingCoverage: number;
-  // Beat-id sets for in-place filtering
-  emptyBeatIds: string[];
-  noVisits30dBeatIds: string[];
-  sharedByMeBeatIds: string[];
-  pendingCoverageBeatIds: string[];
 }
+
 
 export interface BeatHistory {
   ownership: any[];
@@ -438,17 +426,11 @@ export async function getBeatHistory(beatId: string): Promise<BeatHistory> {
 // 11. getBeatStats
 export async function getBeatStats(userId: string): Promise<BeatStats> {
   const nowIso = new Date().toISOString();
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-  const monthStartIso = monthStart.toISOString().slice(0, 10);
-  const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const head = (q: any) => q.select('*', { count: 'exact', head: true });
 
   const [
     total, active, inactive, shared, covering,
-    activeBeatsRes, allMyBeatsRes, sharedByMeRes, pendingCoverageRes,
+    activeBeatsRes,
   ] = await Promise.all([
     head(supabase.from('beats')).eq('user_id', userId),
     head(supabase.from('beats')).eq('user_id', userId).eq('is_active', true),
@@ -464,85 +446,20 @@ export async function getBeatStats(userId: string): Promise<BeatStats> {
       .eq('is_active', true)
       .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
     supabase.from('beats').select('beat_id').eq('user_id', userId).eq('is_active', true),
-    supabase.from('beats').select('beat_id').eq('user_id', userId),
-    supabase
-      .from('beat_user_access')
-      .select('beat_id')
-      .eq('granted_by', userId)
-      .neq('user_id', userId)
-      .eq('is_active', true)
-      .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
-    supabase
-      .from('beat_coverage_assignments')
-      .select('beat_id')
-      .eq('primary_user_id', userId)
-      .eq('is_active', true)
-      .gt('start_date', todayIso),
   ]);
 
   const activeBeatIds = (activeBeatsRes.data ?? []).map((b: any) => b.beat_id);
-  const allMyBeatIds = (allMyBeatsRes.data ?? []).map((b: any) => b.beat_id);
 
-  // Retailers across all my beats (active + inactive) — split by status
-  let activeRetailers = 0;
-  let inactiveRetailers = 0;
-  let emptyBeatIds: string[] = [];
-  let noVisits30dBeatIds: string[] = [];
-
-  if (allMyBeatIds.length) {
+  // Empty beats — active beats with no retailers
+  let emptyBeats = 0;
+  if (activeBeatIds.length) {
     const { data: retailerRows } = await supabase
       .from('retailers')
-      .select('id, beat_id, status')
-      .in('beat_id', allMyBeatIds);
-
-    const retailers = retailerRows ?? [];
-    for (const r of retailers as any[]) {
-      if ((r.status ?? 'active') === 'inactive') inactiveRetailers++;
-      else activeRetailers++;
-    }
-
-    // Empty beats — active beats with no retailers
-    const beatsWithRetailers = new Set(retailers.map((r: any) => r.beat_id));
-    emptyBeatIds = activeBeatIds.filter((id) => !beatsWithRetailers.has(id));
-
-    // No-visits-30d — active beats whose retailers had no visits in 30d
-    const activeBeatRetailers = retailers.filter((r: any) => activeBeatIds.includes(r.beat_id));
-    const retailerIds = activeBeatRetailers.map((r: any) => r.id);
-    const visitedBeatIds = new Set<string>();
-    if (retailerIds.length) {
-      const { data: visitRows } = await supabase
-        .from('visits')
-        .select('retailer_id')
-        .in('retailer_id', retailerIds)
-        .gte('check_in_time', thirtyDaysAgoIso)
-        .not('check_in_time', 'is', null);
-      const visitedRetailerIds = new Set((visitRows ?? []).map((v: any) => v.retailer_id));
-      for (const r of activeBeatRetailers as any[]) {
-        if (visitedRetailerIds.has(r.id)) visitedBeatIds.add(r.beat_id);
-      }
-    }
-    noVisits30dBeatIds = activeBeatIds.filter((id) => !visitedBeatIds.has(id));
+      .select('beat_id')
+      .in('beat_id', activeBeatIds);
+    const beatsWithRetailers = new Set((retailerRows ?? []).map((r: any) => r.beat_id));
+    emptyBeats = activeBeatIds.filter((id) => !beatsWithRetailers.has(id)).length;
   }
-
-  // Orders this month (non-cancelled) by this user
-  const { data: orderRows } = await supabase
-    .from('orders')
-    .select('total_amount')
-    .eq('user_id', userId)
-    .gte('order_date', monthStartIso)
-    .is('cancelled_at', null);
-  const orders = orderRows ?? [];
-  const ordersThisMonth = orders.length;
-  const avgOrderValue = ordersThisMonth
-    ? Math.round(orders.reduce((s: number, o: any) => s + Number(o.total_amount || 0), 0) / ordersThisMonth)
-    : 0;
-
-  const sharedByMeBeatIds = Array.from(
-    new Set(((sharedByMeRes.data ?? []) as any[]).map((r) => r.beat_id))
-  );
-  const pendingCoverageBeatIds = Array.from(
-    new Set(((pendingCoverageRes.data ?? []) as any[]).map((r) => r.beat_id))
-  );
 
   return {
     total: total.count ?? 0,
@@ -550,20 +467,11 @@ export async function getBeatStats(userId: string): Promise<BeatStats> {
     inactive: inactive.count ?? 0,
     sharedWithMe: shared.count ?? 0,
     covering: covering.count ?? 0,
-    activeRetailers,
-    inactiveRetailers,
-    emptyBeats: emptyBeatIds.length,
-    noVisits30d: noVisits30dBeatIds.length,
-    avgOrderValue,
-    ordersThisMonth,
-    sharedByMe: sharedByMeBeatIds.length,
-    pendingCoverage: pendingCoverageBeatIds.length,
-    emptyBeatIds,
-    noVisits30dBeatIds,
-    sharedByMeBeatIds,
-    pendingCoverageBeatIds,
+    emptyBeats,
   };
 }
+
+
 
 // 12. cloneBeat
 export async function cloneBeat(beatId: string, newBeatName: string, createdBy: string) {

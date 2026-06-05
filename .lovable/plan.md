@@ -1,93 +1,54 @@
-## Why the cards "don't feel clickable" today
+## Goal
 
-They do call `setAccessTab(...)` but three of the new cards (Total Retailers, Empty Beats, No Visits) all set the same value `'mine'` — which is also the default tab. So clicking changes nothing visibly, and there's no selected-state highlight on the card itself. Avg Order Value and Orders This Month have no click handler at all. We'll fix both: dedicated filter modes + a ring highlight on the active card.
+Trim the My Beats stat dashboard back to 6 clickable cards and remove all related extra data from `getBeatStats()`.
 
-## Changes to `src/services/beatService.ts`
+## Changes
 
-Extend `BeatStats` and `getBeatStats(userId)`:
+### 1. `src/services/beatService.ts` — shrink `BeatStats`
 
-- Drop `totalRetailers`. Add:
-  - `activeRetailers: number` — retailers with status='active' (or null) on any of my beats (active + inactive beats)
-  - `inactiveRetailers: number` — retailers with status='inactive' on any of my beats
-- Return two id sets used by the page to filter the beat list:
-  - `emptyBeatIds: string[]` — active beats with 0 retailers
-  - `noVisits30dBeatIds: string[]` — active beats where no retailer has a `check_in_time` in last 30 days
-  - `sharedByMeBeatIds: string[]` — beat_ids from `beat_user_access` where `granted_by = userId` and active
-  - `pendingCoverageBeatIds: string[]` — beat_ids from `beat_coverage_assignments` where `primary_user_id = userId`, `is_active`, `start_date > today`
-- Counts (`emptyBeats`, `noVisits30d`, `sharedByMe`, `pendingCoverage`) are derived from `.length` of those arrays so the badge and the filter agree.
+Keep only these fields on `BeatStats` and on the object returned by `getBeatStats(userId)`:
 
-Retailers fetched once via `.in('beat_id', allMyBeatIds)` and reused for active/inactive split + empty/no-visit computation (no extra round-trips).
+- `total` — total of user's beats (mine)
+- `active` — active beats from mine
+- `inactive` — inactive beats from mine
+- `sharedWithMe` — count from `beat_user_access` where `user_id = userId`
+- `covering` — beats user is covering today
+- `emptyBeats` — active beats with 0 retailers
 
-## Changes to `src/pages/MyBeats.tsx`
+Remove from the interface and from the function body (including the queries / loops that only feed them):
 
-### 1. Widen `accessTab` type
+- `activeRetailers`, `inactiveRetailers`
+- `noVisits30d`, `noVisits30dBeatIds`
+- `avgOrderValue`, `ordersThisMonth`
+- `sharedByMe`, `sharedByMeBeatIds`
+- `pendingCoverage`, `pendingCoverageBeatIds`
+- `emptyBeatIds` (no longer needed since Empty Beats now just sets `'mine'`)
 
-```ts
-type AccessTab =
-  | 'mine' | 'shared' | 'covering' | 'inactive' | 'all'
-  | 'empty' | 'no-visits' | 'shared-by-me' | 'pending-coverage';
-```
+Drop the now-unused fetches: orders-this-month query, visits-30d query, `beat_coverage_assignments` future-dated query, `beat_user_access granted_by = userId` query, and the retailer status split. Keep the single retailers fetch only if still needed for `emptyBeats` (compare active beat ids against retailer `beat_id` set).
 
-The visible `<Tabs>` component keeps its current 5 options; the extra 4 modes are set only via card clicks and surface a "Filtered by …  ✕ Clear" pill above the list.
+### 2. `src/pages/MyBeats.tsx` — 6-card grid
 
-### 2. Beat list filter switch (around line 1430)
+Replace the current 8-card block with exactly 6 cards, in this order, all clickable:
 
-Add cases for the new modes, using the id sets from `beatStats`:
-
-```ts
-if (accessTab === 'empty')             return beatStats.emptyBeatIds.includes(beat.beat_id);
-if (accessTab === 'no-visits')         return beatStats.noVisits30dBeatIds.includes(beat.beat_id);
-if (accessTab === 'shared-by-me')      return beatStats.sharedByMeBeatIds.includes(beat.beat_id);
-if (accessTab === 'pending-coverage')  return beatStats.pendingCoverageBeatIds.includes(beat.beat_id);
-```
-
-### 3. Compact card layout
-
-Replace the current `grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4` block with a denser grid:
-
-- `grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-2`
-- Card: `p-2.5`, `border-l-2`, no description line
-- Number: `text-lg font-bold`
-- Label: `text-[11px] font-medium leading-tight`
-- Active card: `ring-2 ring-<color>-500`
-
-### 4. The 8 cards (left → right)
-
-| # | Card | Value | Click → setAccessTab(...) |
+| # | Card | Value | onClick |
 |---|---|---|---|
-| 1 | Active Retailers | `activeRetailers` | (no click — informational) |
-| 2 | Inactive Retailers | `inactiveRetailers` | (no click — informational) |
-| 3 | Empty Beats | `emptyBeats` | `'empty'` |
-| 4 | No Visits (30d) | `noVisits30d` | `'no-visits'` |
-| 5 | Avg Order Value | `₹avgOrderValue` | (no click — informational) |
-| 6 | Orders This Month | `ordersThisMonth` | (no click — informational) |
-| 7 | Shared By Me | `sharedByMe` | `'shared-by-me'` |
-| 8 | Pending Coverage | `pendingCoverage` | `'pending-coverage'` |
+| 1 | My Beats | `beatStats.total` | `setAccessTab('mine')` |
+| 2 | Active | `beatStats.active` | `setAccessTab('mine')` |
+| 3 | Inactive | `beatStats.inactive` | `setAccessTab('inactive')` |
+| 4 | Shared With Me | `beatStats.sharedWithMe` | `setAccessTab('shared')` |
+| 5 | Covering Today | `beatStats.covering` | `setAccessTab('covering')` |
+| 6 | Empty Beats | `beatStats.emptyBeats` | `setAccessTab('mine')` |
 
-Informational cards get `cursor-default` and no hover/ring; actionable cards keep `cursor-pointer hover:shadow-md` plus the ring highlight when active.
+All cards: `cursor-pointer`, `hover:shadow-md`, and `ring-2 ring-<color>-500` when their tab matches `accessTab` (Empty Beats highlights together with My Beats / Active since they all map to `'mine'` — that's fine, matches user spec).
 
-### 5. Filter pill above the list
+### 3. Cleanup in `MyBeats.tsx`
 
-When `accessTab` is one of the extra 4 modes, render a small chip:
-
-```
-Filtered: Empty Beats (1)   [✕ Clear]
-```
-
-`Clear` resets to `'mine'`. This makes the click effect obvious because the user can see both the highlighted card AND the chip change.
-
-## Acceptance
-
-- Card grid is ~half the vertical height of the current screenshot.
-- No "Total Retailers" card; Active + Inactive retailer counts appear instead.
-- Clicking Empty Beats / No Visits / Shared By Me / Pending Coverage:
-  - Highlights the clicked card with a colored ring
-  - Shows the "Filtered: …" chip
-  - Shrinks the beat list to only the matching beats
-- Clear chip restores the default `mine` view.
-- Active Retailers, Inactive Retailers, Avg Order Value, Orders This Month remain visually quiet (no pointer cursor, no hover ring).
+- Remove the `'empty' | 'no-visits' | 'shared-by-me' | 'pending-coverage'` entries from the `accessTab` type union and from the `filteredBeats` switch.
+- Remove the "Filtered: … ✕ Clear" chip block above the beat list (no longer reachable).
+- Remove any imports / references to the deleted `beatStats` fields.
+- Grid: `grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2`, same compact card styling as current (`p-2.5`, `border-l-2`, `text-lg font-bold` value, `text-[11px]` label).
 
 ## Out of scope
 
-- No changes to `MyRetailers.tsx` in this pass.
-- No new RPCs; everything is computed in JS from the existing `retailers`, `visits`, `beat_user_access`, `beat_coverage_assignments` queries inside `getBeatStats`.
+- No changes to `MyRetailers.tsx`.
+- No DB / RPC changes.
