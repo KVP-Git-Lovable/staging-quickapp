@@ -253,6 +253,7 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
     ],
     actions: [
       { name: 'action_order_create', label: 'Create Order' },
+      { name: 'action_order_edit', label: 'Edit Order' },
       { name: 'action_order_view_details', label: 'View Details' },
       { name: 'action_order_inventory_sync', label: 'Inventory Sync' },
     ],
