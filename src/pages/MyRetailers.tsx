@@ -711,9 +711,6 @@ export const MyRetailers = () => {
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 flex-wrap">
                 <CardTitle className="text-lg sm:text-xl font-bold whitespace-nowrap">My Retailers</CardTitle>
-                <span className="bg-primary-foreground/20 text-primary-foreground text-sm font-medium px-3 py-1 rounded-full whitespace-nowrap">
-                  {loading ? '...' : retailers.length.toLocaleString()} {retailers.length === 1 ? 'retailer' : 'retailers'}
-                </span>
               </div>
               <CompactMultiUserSelector
                 selectedUserIds={selectedUserIds}
