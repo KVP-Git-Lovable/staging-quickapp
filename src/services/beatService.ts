@@ -290,7 +290,7 @@ export async function transferBeatOwnership(
 
   const { error: retErr } = await supabase
     .from('retailers')
-    .update({ user_id: newOwnerId })
+    .update({ user_id: newOwnerId, owner_id: newOwnerId, owner_name: newOwnerName })
     .eq('beat_id', (beat as any).beat_id);
   throwIfError(retErr, 'transferBeatOwnership.retailers');
 
