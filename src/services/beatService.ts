@@ -298,7 +298,7 @@ export async function transferBeatOwnership(
   if (retailers && retailers.length > 0) {
     const rows = retailers.map((r: any) => ({
       retailer_id: r.id,
-      retailer_name: r.retailer_name,
+      retailer_name: r.name,
       old_user_id: oldOwnerId,
       old_user_name: oldOwnerName,
       new_user_id: newOwnerId,
