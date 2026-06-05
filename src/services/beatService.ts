@@ -28,6 +28,14 @@ export interface BeatStats {
   inactive: number;
   sharedWithMe: number;
   covering: number;
+  // Extended business metrics
+  totalRetailers: number;
+  emptyBeats: number;
+  noVisits30d: number;
+  avgOrderValue: number;
+  ordersThisMonth: number;
+  sharedByMe: number;
+  pendingCoverage: number;
 }
 
 export interface BeatHistory {
