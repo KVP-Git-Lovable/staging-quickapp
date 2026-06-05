@@ -205,7 +205,7 @@ export const MyRetailers = () => {
         try {
           console.log('🔄 Fetching retailers from database for users:', userIds.length);
           
-          // Fetch all data in one go for better UX (avoid partial updates)
+          // Part 1: Fetch owned retailers (paginated)
           let allRetailers: any[] = [];
           let page = 0;
           let hasMore = true;
@@ -232,6 +232,35 @@ export const MyRetailers = () => {
             } else {
               hasMore = false;
             }
+          }
+
+          // Part 2: Fetch retailers from beats shared with the current user
+          try {
+            const nowIso = new Date().toISOString();
+            const { data: sharedAccess } = await supabase
+              .from('beat_user_access')
+              .select('beat_id')
+              .eq('user_id', user.id)
+              .eq('is_active', true)
+              .or(`effective_to.is.null,effective_to.gt.${nowIso}`);
+
+            if (sharedAccess && sharedAccess.length > 0) {
+              const sharedBeatIds = Array.from(new Set(sharedAccess.map((a: any) => a.beat_id).filter(Boolean)));
+              if (sharedBeatIds.length > 0) {
+                const { data: beatRetailers } = await supabase
+                  .from('retailers')
+                  .select('*')
+                  .in('beat_id', sharedBeatIds)
+                  .order('name');
+                if (beatRetailers && beatRetailers.length > 0) {
+                  const map = new Map<string, any>();
+                  [...allRetailers, ...beatRetailers].forEach(r => map.set(r.id, r));
+                  allRetailers = Array.from(map.values());
+                }
+              }
+            }
+          } catch (sharedErr) {
+            console.warn('Shared beat retailers fetch failed (non-fatal):', sharedErr);
           }
           
           console.log('✅ Fetched total retailers:', allRetailers.length);
@@ -881,6 +910,11 @@ export const MyRetailers = () => {
                             {r.verified && (
                               <CheckCircle2 className="h-4 w-4 text-blue-600" />
                             )}
+                            {r.user_id !== user?.id && (
+                              <span className="ml-1 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                                Shared
+                              </span>
+                            )}
                           </h3>
                         </div>
                       <div className="flex items-center gap-1">
@@ -1037,6 +1071,11 @@ export const MyRetailers = () => {
                             {r.name}
                             {r.verified && (
                               <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                            )}
+                            {r.user_id !== user?.id && (
+                              <span className="ml-1 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                                Shared
+                              </span>
                             )}
                           </div>
                         </TableCell>
