@@ -1439,10 +1439,7 @@ export const MyBeats = () => {
       if (beat.coverageEndDate && new Date(beat.coverageEndDate) < new Date(new Date().toDateString())) return false;
     }
     if (accessTab === 'inactive' && isActive) return false;
-    if (accessTab === 'empty' && !(beatStats?.emptyBeatIds ?? []).includes(beatTextId)) return false;
-    if (accessTab === 'no-visits' && !(beatStats?.noVisits30dBeatIds ?? []).includes(beatTextId)) return false;
-    if (accessTab === 'shared-by-me' && !(beatStats?.sharedByMeBeatIds ?? []).includes(beatTextId)) return false;
-    if (accessTab === 'pending-coverage' && !(beatStats?.pendingCoverageBeatIds ?? []).includes(beatTextId)) return false;
+
     // 'all' = no tab filter
     return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
   });
