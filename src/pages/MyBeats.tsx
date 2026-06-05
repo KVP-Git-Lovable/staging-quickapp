@@ -1548,41 +1548,37 @@ export const MyBeats = () => {
         </Card>
 
 
-        {/* Compact stat cards (8) */}
+        {/* Compact stat cards (6) */}
         {(() => {
-          const cards = [
-            { key: 'active-ret', value: beatStats?.activeRetailers ?? 0, label: 'Active Retailers', color: 'violet', tab: null as any },
-            { key: 'inactive-ret', value: beatStats?.inactiveRetailers ?? 0, label: 'Inactive Retailers', color: 'slate', tab: null as any },
-            { key: 'empty', value: beatStats?.emptyBeats ?? 0, label: 'Empty Beats', color: 'rose', tab: 'empty' },
-            { key: 'no-visits', value: beatStats?.noVisits30d ?? 0, label: 'No Visits (30d)', color: 'amber', tab: 'no-visits' },
-            { key: 'aov', value: `₹${(beatStats?.avgOrderValue ?? 0).toLocaleString()}`, label: 'Avg Order Value', color: 'emerald', tab: null as any },
-            { key: 'orders', value: beatStats?.ordersThisMonth ?? 0, label: 'Orders This Month', color: 'blue', tab: null as any },
-            { key: 'shared-by-me', value: beatStats?.sharedByMe ?? 0, label: 'Shared By Me', color: 'indigo', tab: 'shared-by-me' },
-            { key: 'pending-cov', value: beatStats?.pendingCoverage ?? 0, label: 'Pending Coverage', color: 'pink', tab: 'pending-coverage' },
+          type Tab = 'mine' | 'shared' | 'covering' | 'inactive' | 'all';
+          const cards: Array<{ key: string; value: number; label: string; color: string; tab: Tab }> = [
+            { key: 'mine', value: beatStats?.total ?? 0, label: 'My Beats', color: 'blue', tab: 'mine' },
+            { key: 'active', value: beatStats?.active ?? 0, label: 'Active', color: 'emerald', tab: 'mine' },
+            { key: 'inactive', value: beatStats?.inactive ?? 0, label: 'Inactive', color: 'slate', tab: 'inactive' },
+            { key: 'shared', value: beatStats?.sharedWithMe ?? 0, label: 'Shared With Me', color: 'indigo', tab: 'shared' },
+            { key: 'covering', value: beatStats?.covering ?? 0, label: 'Covering Today', color: 'amber', tab: 'covering' },
+            { key: 'empty', value: beatStats?.emptyBeats ?? 0, label: 'Empty Beats', color: 'rose', tab: 'mine' },
           ];
           const colorMap: Record<string, { border: string; text: string; ring: string }> = {
-            violet:  { border: 'border-l-violet-500',  text: 'text-violet-600',  ring: 'ring-violet-500' },
-            slate:   { border: 'border-l-slate-500',   text: 'text-slate-600',   ring: 'ring-slate-500' },
-            rose:    { border: 'border-l-rose-500',    text: 'text-rose-600',    ring: 'ring-rose-500' },
-            amber:   { border: 'border-l-amber-500',   text: 'text-amber-600',   ring: 'ring-amber-500' },
-            emerald: { border: 'border-l-emerald-500', text: 'text-emerald-600', ring: 'ring-emerald-500' },
             blue:    { border: 'border-l-blue-500',    text: 'text-blue-600',    ring: 'ring-blue-500' },
+            emerald: { border: 'border-l-emerald-500', text: 'text-emerald-600', ring: 'ring-emerald-500' },
+            slate:   { border: 'border-l-slate-500',   text: 'text-slate-600',   ring: 'ring-slate-500' },
             indigo:  { border: 'border-l-indigo-500',  text: 'text-indigo-600',  ring: 'ring-indigo-500' },
-            pink:    { border: 'border-l-pink-500',    text: 'text-pink-600',    ring: 'ring-pink-500' },
+            amber:   { border: 'border-l-amber-500',   text: 'text-amber-600',   ring: 'ring-amber-500' },
+            rose:    { border: 'border-l-rose-500',    text: 'text-rose-600',    ring: 'ring-rose-500' },
           };
           return (
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
               {cards.map((c) => {
                 const col = colorMap[c.color];
-                const clickable = c.tab !== null;
-                const active = clickable && accessTab === c.tab;
+                const active = accessTab === c.tab;
                 return (
                   <Card
                     key={c.key}
-                    className={`text-center border-l-2 ${col.border} transition-shadow ${
-                      clickable ? 'cursor-pointer hover:shadow-md' : 'cursor-default'
-                    } ${active ? `ring-2 ${col.ring}` : ''}`}
-                    onClick={clickable ? () => setAccessTab(c.tab) : undefined}
+                    className={`text-center border-l-2 ${col.border} transition-shadow cursor-pointer hover:shadow-md ${
+                      active ? `ring-2 ${col.ring}` : ''
+                    }`}
+                    onClick={() => setAccessTab(c.tab)}
                   >
                     <CardContent className="p-2.5">
                       <div className={`text-lg font-bold ${col.text} leading-tight`}>{c.value}</div>
@@ -1595,25 +1591,6 @@ export const MyBeats = () => {
           );
         })()}
 
-        {/* Active filter chip */}
-        {['empty', 'no-visits', 'shared-by-me', 'pending-coverage'].includes(accessTab) && (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="gap-2">
-              Filtered:{' '}
-              {accessTab === 'empty' && `Empty Beats (${beatStats?.emptyBeats ?? 0})`}
-              {accessTab === 'no-visits' && `No Visits 30d (${beatStats?.noVisits30d ?? 0})`}
-              {accessTab === 'shared-by-me' && `Shared By Me (${beatStats?.sharedByMe ?? 0})`}
-              {accessTab === 'pending-coverage' && `Pending Coverage (${beatStats?.pendingCoverage ?? 0})`}
-              <button
-                onClick={() => setAccessTab('mine')}
-                className="ml-1 text-muted-foreground hover:text-foreground"
-                aria-label="Clear filter"
-              >
-                ✕
-              </button>
-            </Badge>
-          </div>
-        )}
 
 
         {/* Stats Detail Dialog */}
