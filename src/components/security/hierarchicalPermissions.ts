@@ -374,6 +374,9 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
       { name: 'field_scheme_discount', label: 'Discount / Benefit' },
     ],
     actions: [
+      { name: 'action_scheme_create', label: 'Create Scheme' },
+      { name: 'action_scheme_edit', label: 'Edit Scheme' },
+      { name: 'action_scheme_delete', label: 'Delete Scheme' },
       { name: 'action_scheme_view_details', label: 'View Details' },
       { name: 'action_scheme_apply', label: 'Apply Scheme' },
     ],
