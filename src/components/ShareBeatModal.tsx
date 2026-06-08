@@ -86,7 +86,11 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
     setSelectedUser(null);
     setAccess("CO_OWNER");
     setDuration("permanent");
-    setUntilDate(undefined);
+    setUntilDate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return d;
+    });
     setReason("");
     void loadShares();
   }, [open, beat.beat_id]);
