@@ -61,6 +61,7 @@ function initials(name?: string | null) {
 
 export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBeatModalProps) {
   const { can, loading: permLoading } = usePermissions();
+  const { timezone } = useAppTimezone();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
@@ -69,7 +70,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
   const [access, setAccess] = useState<Access>("CO_OWNER");
   const [duration, setDuration] = useState<"permanent" | "until">("permanent");
   const [untilDate, setUntilDate] = useState<Date | undefined>(() => {
-    const d = new Date();
+    const d = getTodayInTimezone(timezone);
     d.setDate(d.getDate() + 30);
     return d;
   });
@@ -88,7 +89,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
     setAccess("CO_OWNER");
     setDuration("permanent");
     setUntilDate(() => {
-      const d = new Date();
+      const d = getTodayInTimezone(timezone);
       d.setDate(d.getDate() + 30);
       return d;
     });
@@ -186,7 +187,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
       setResults([]);
       setDuration("permanent");
       setUntilDate(() => {
-        const d = new Date();
+        const d = getTodayInTimezone(timezone);
         d.setDate(d.getDate() + 30);
         return d;
       });
@@ -384,10 +385,9 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                         onSelect={setUntilDate}
                         initialFocus
                         disabled={(d) => {
-                          const tomorrow = new Date();
-                          tomorrow.setDate(tomorrow.getDate() + 1);
-                          tomorrow.setHours(0, 0, 0, 0);
-                          return d < tomorrow;
+                          const tz_tomorrow = getTodayInTimezone(timezone);
+                          tz_tomorrow.setDate(tz_tomorrow.getDate() + 1);
+                          return d < tz_tomorrow;
                         }}
                         className={cn("p-3 pointer-events-auto")}
                       />

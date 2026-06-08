@@ -387,8 +387,8 @@ export const BeatPlanning = () => {
   );
 
   // Date-aware enrichment: coverage-window gating + computed metrics
-  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const selectedDateStr = getLocalDateString(selectedDate, timezone);
+  const todayStr = getLocalDateString(new Date(), timezone);
   const beatsForDate = filteredBeats.map(beat => {
     const start = beat.coverageStartDate || '';
     const end = beat.coverageEndDate || '';
