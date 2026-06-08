@@ -179,11 +179,11 @@ export const BeatPlanning = () => {
         .lte('plan_date', toLocalISODate(new Date()))
         .order('plan_date', { ascending: false });
 
-      // Create a map of beat_id to last visited date
+      // Create a map of beat_id to last visited ISO date (yyyy-MM-dd)
       const lastVisitedMap = new Map<string, string>();
       (beatPlansData || []).forEach((plan: any) => {
         if (!lastVisitedMap.has(plan.beat_id)) {
-          lastVisitedMap.set(plan.beat_id, new Date(plan.plan_date).toLocaleDateString());
+          lastVisitedMap.set(plan.beat_id, String(plan.plan_date).slice(0, 10));
         }
       });
 
