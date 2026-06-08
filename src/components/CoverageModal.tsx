@@ -48,6 +48,7 @@ interface CoverageRow {
   coverage_user_id: string;
   start_date: string;
   end_date: string;
+  is_active?: boolean;
   profile?: Profile | null;
 }
 
@@ -174,7 +175,7 @@ export function CoverageModal({
       // Fetch ALL coverage rows (upcoming, active, expired) — filter in UI.
       const { data, error } = await supabase
         .from("beat_coverage_assignments")
-        .select("id, coverage_user_id, start_date, end_date")
+        .select("id, coverage_user_id, start_date, end_date, is_active")
         .eq("beat_id", beat.beat_id)
         .order("start_date", { ascending: false });
       if (error) throw error;
@@ -532,11 +533,14 @@ export function CoverageModal({
             ) : (
               (() => {
                 const today = getLocalDateString(new Date(), timezone);
-                const upcomingCoverage = activeCoverage.filter((c) => c.start_date > today);
-                const currentCoverage = activeCoverage.filter(
+                const liveRows = activeCoverage.filter((c) => c.is_active !== false);
+                const endedRows = activeCoverage.filter((c) => c.is_active === false);
+                const upcomingCoverage = liveRows.filter((c) => c.start_date > today);
+                const currentCoverage = liveRows.filter(
                   (c) => c.start_date <= today && c.end_date >= today,
                 );
-                const expiredCoverage = activeCoverage.filter((c) => c.end_date < today);
+                const expiredByDate = liveRows.filter((c) => c.end_date < today);
+                const historyCoverage = [...endedRows, ...expiredByDate];
 
                 const renderRow = (row: CoverageRow, isExpired: boolean) => {
                   const nm = row.profile?.full_name || row.profile?.username || "Unnamed";
@@ -634,10 +638,10 @@ export function CoverageModal({
                         {currentCoverage.map((c) => renderRow(c, false))}
                       </div>
                     )}
-                    {expiredCoverage.length > 0 && (
+                    {historyCoverage.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">⚫ Expired</p>
-                        {expiredCoverage.map((c) => renderRow(c, true))}
+                        <p className="text-xs font-medium text-muted-foreground">⚫ History</p>
+                        {historyCoverage.map((c) => renderRow(c, true))}
                       </div>
                     )}
                   </div>
