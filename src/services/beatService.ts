@@ -367,8 +367,8 @@ export async function assignCoverage(
     user_id: coverageUserId,
     access_type: 'COVERAGE',
     granted_by: assignedBy,
-    effective_from: startDate,
-    effective_to: endDate,
+    effective_from: new Date(startDate).toISOString().split('T')[0],
+    effective_to: new Date(endDate).toISOString().split('T')[0] + 'T18:29:59.000Z',
     is_active: true,
     reason,
   });
