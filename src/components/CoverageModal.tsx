@@ -116,11 +116,11 @@ export function CoverageModal({
   const loadCoverage = async () => {
     setLoadingCoverage(true);
     try {
+      // Fetch ALL coverage rows (upcoming, active, expired) — filter in UI.
       const { data, error } = await supabase
         .from("beat_coverage_assignments")
         .select("id, coverage_user_id, start_date, end_date")
         .eq("beat_id", beat.beat_id)
-        .eq("is_active", true)
         .order("start_date", { ascending: false });
       if (error) throw error;
       const rows = (data ?? []) as any[];
@@ -445,25 +445,35 @@ export function CoverageModal({
             </Button>
           </DialogFooter>
 
-          {/* Active coverage */}
+          {/* Coverage assignments */}
           <div className="space-y-2 border-t pt-4">
-            <Label>Active coverage</Label>
+            <Label>Coverage assignments</Label>
             {loadingCoverage ? (
               <div className="flex justify-center py-4">
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               </div>
             ) : activeCoverage.length === 0 ? (
               <div className="text-sm text-muted-foreground">
-                No active coverage assignments.
+                No coverage assignments.
               </div>
             ) : (
-              <div className="space-y-2">
-                {activeCoverage.map((row) => {
+              (() => {
+                const today = new Date().toISOString().slice(0, 10);
+                const upcomingCoverage = activeCoverage.filter((c) => c.start_date > today);
+                const currentCoverage = activeCoverage.filter(
+                  (c) => c.start_date <= today && c.end_date >= today,
+                );
+                const expiredCoverage = activeCoverage.filter((c) => c.end_date < today);
+
+                const renderRow = (row: CoverageRow, isExpired: boolean) => {
                   const nm = row.profile?.full_name || row.profile?.username || "Unnamed";
                   return (
                     <div
                       key={row.id}
-                      className="flex items-center justify-between rounded-md border p-2"
+                      className={cn(
+                        "flex items-center justify-between rounded-md border p-2",
+                        isExpired && "opacity-60",
+                      )}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Avatar className="h-8 w-8">
@@ -478,19 +488,45 @@ export function CoverageModal({
                           </div>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEnd(row)}
-                      >
-                        End Coverage
-                      </Button>
+                      {!isExpired && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEnd(row)}
+                        >
+                          End Coverage
+                        </Button>
+                      )}
                     </div>
                   );
-                })}
-              </div>
+                };
+
+                return (
+                  <div className="space-y-4">
+                    {upcomingCoverage.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-blue-600">🔵 Upcoming Coverage</p>
+                        {upcomingCoverage.map((c) => renderRow(c, false))}
+                      </div>
+                    )}
+                    {currentCoverage.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-green-600">🟢 Active Now</p>
+                        {currentCoverage.map((c) => renderRow(c, false))}
+                      </div>
+                    )}
+                    {expiredCoverage.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">⚫ Expired</p>
+                        {expiredCoverage.map((c) => renderRow(c, true))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
             )}
           </div>
+
         </div>
       </DialogContent>
     </Dialog>

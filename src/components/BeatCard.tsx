@@ -33,6 +33,7 @@ interface BeatCardProps {
   };
   userId: string;
   accessType?: BeatAccessType;
+  coverageStartDate?: string | null;
   coverageEndDate?: string | null;
   sharedByName?: string | null;
   onEdit: () => void;
@@ -51,7 +52,7 @@ interface BeatCardProps {
   isHardDeletable?: boolean;
 }
 
-function accessBadge(at: BeatAccessType, coverageEndDate?: string | null) {
+function accessBadge(at: BeatAccessType, coverageEndDate?: string | null, coverageStartDate?: string | null) {
   switch (at) {
     case 'OWNED':
       return null; // owner: no badge
@@ -62,10 +63,18 @@ function accessBadge(at: BeatAccessType, coverageEndDate?: string | null) {
     case 'VIEW_ONLY':
       return <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-muted text-muted-foreground">Viewing</Badge>;
     case 'COVERAGE': {
-      const label = coverageEndDate
-        ? `Covering until ${new Date(coverageEndDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+      const today = new Date().toISOString().slice(0, 10);
+      const fmt = (d: string) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      const isUpcoming = !!coverageStartDate && coverageStartDate.slice(0, 10) > today;
+      const label = isUpcoming && coverageStartDate
+        ? `Covering from ${fmt(coverageStartDate)}`
+        : coverageEndDate
+        ? `Covering until ${fmt(coverageEndDate)}`
         : 'Covering';
-      return <Badge className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-800 border-amber-200">{label}</Badge>;
+      const cls = isUpcoming
+        ? 'bg-blue-100 text-blue-800 border-blue-200'
+        : 'bg-amber-100 text-amber-800 border-amber-200';
+      return <Badge className={`text-[10px] px-1.5 py-0.5 ${cls}`}>{label}</Badge>;
     }
   }
 }
@@ -74,6 +83,7 @@ export function BeatCard({
   beat,
   userId,
   accessType = 'OWNED',
+  coverageStartDate,
   coverageEndDate,
   sharedByName,
   onEdit,
@@ -128,9 +138,18 @@ export function BeatCard({
             >
               {beat.name}
             </CardTitle>
-            {accessType === 'COVERAGE' && coverageEndDate ? (
+            {accessType === 'COVERAGE' && (coverageStartDate || coverageEndDate) ? (
               <div className="text-[11px] text-muted-foreground mt-0.5">
-                Covering until {new Date(coverageEndDate).toLocaleDateString()}
+                {(() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const isUpcoming = !!coverageStartDate && coverageStartDate.slice(0, 10) > today;
+                  if (isUpcoming && coverageStartDate) {
+                    return `Covering from ${new Date(coverageStartDate).toLocaleDateString()}`;
+                  }
+                  return coverageEndDate
+                    ? `Covering until ${new Date(coverageEndDate).toLocaleDateString()}`
+                    : 'Covering';
+                })()}
               </div>
             ) : sharedByName ? (
               <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -142,7 +161,7 @@ export function BeatCard({
             <Badge variant="default" className="text-[10px] px-1.5 py-0.5 font-medium">
               #{beat.beat_number}
             </Badge>
-            {accessBadge(accessType, coverageEndDate)}
+            {accessBadge(accessType, coverageEndDate, coverageStartDate)}
             {!isActive && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5">Inactive</Badge>
             )}
