@@ -533,11 +533,14 @@ export function CoverageModal({
             ) : (
               (() => {
                 const today = getLocalDateString(new Date(), timezone);
-                const upcomingCoverage = activeCoverage.filter((c) => c.start_date > today);
-                const currentCoverage = activeCoverage.filter(
+                const liveRows = activeCoverage.filter((c) => c.is_active !== false);
+                const endedRows = activeCoverage.filter((c) => c.is_active === false);
+                const upcomingCoverage = liveRows.filter((c) => c.start_date > today);
+                const currentCoverage = liveRows.filter(
                   (c) => c.start_date <= today && c.end_date >= today,
                 );
-                const expiredCoverage = activeCoverage.filter((c) => c.end_date < today);
+                const expiredByDate = liveRows.filter((c) => c.end_date < today);
+                const historyCoverage = [...endedRows, ...expiredByDate];
 
                 const renderRow = (row: CoverageRow, isExpired: boolean) => {
                   const nm = row.profile?.full_name || row.profile?.username || "Unnamed";
