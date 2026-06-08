@@ -144,6 +144,7 @@ export const AdminDashboard = () => {
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
   const [selectedPhotoUser, setSelectedPhotoUser] = useState<{ photoUrl?: string; name: string } | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(
     allColumns.filter(c => c.default).map(c => c.key)
   );
