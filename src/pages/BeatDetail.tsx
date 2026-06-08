@@ -36,6 +36,8 @@ interface BeatDetailData {
   average_time_minutes?: number;
   territory_id?: string;
   territory_name?: string;
+  owner_user_id?: string | null;
+  owner_name?: string | null;
   retailers: Array<{
     id: string;
     name: string;
@@ -46,6 +48,7 @@ interface BeatDetailData {
     last_visit_date?: string;
     order_value?: number;
     fyOrderValue?: number;
+    user_id?: string;
   }>;
 }
 
@@ -176,12 +179,13 @@ export const BeatDetail = () => {
           territoryName = territory?.name;
         }
 
-        // Get retailers for this beat
+        // Get retailers for this beat — NO user_id filter.
+        // Retailers under a beat can belong to any user (owner, shared/coverage recipients).
+        // RLS already enforces correct access via user_has_beat_access().
         const { data: retailers, error: retailersError } = await supabase
           .from('retailers')
-          .select('id, name, address, phone, category, priority, last_visit_date, order_value')
-          .eq('beat_id', resolvedBeatId)
-          .eq('user_id', user.id);
+          .select('id, name, address, phone, category, priority, last_visit_date, order_value, user_id, created_at')
+          .eq('beat_id', resolvedBeatId);
 
         if (retailersError) {
           console.error('Error fetching retailers:', retailersError);
@@ -237,6 +241,8 @@ export const BeatDetail = () => {
           average_time_minutes: beat?.average_time_minutes,
           territory_id: beat?.territory_id,
           territory_name: territoryName,
+          owner_user_id: (beat as any)?.user_id ?? null,
+          owner_name: (beat as any)?.owner_name ?? null,
           retailers: retailersWithFY
         });
 
@@ -265,22 +271,21 @@ export const BeatDetail = () => {
       const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
       // Count beat visits from beat_plans (how many times this beat was planned/visited)
+      // NO user_id filter — counts across all users with access so shared beats show full activity.
       const { data: beatPlans } = await supabase
         .from('beat_plans')
         .select('plan_date')
         .eq('beat_id', beatId)
-        .eq('user_id', userId)
         .gte('plan_date', threeMonthsAgo.toISOString().split('T')[0])
         .lte('plan_date', now.toISOString().split('T')[0]);
 
       const beatVisitCount = beatPlans?.length || 0;
 
-      // Get last visited date for this beat
+      // Get last visited date for this beat (across all users)
       const { data: lastBeatPlan } = await supabase
         .from('beat_plans')
         .select('plan_date')
         .eq('beat_id', beatId)
-        .eq('user_id', userId)
         .lte('plan_date', now.toISOString().split('T')[0])
         .order('plan_date', { ascending: false })
         .limit(1);
@@ -573,7 +578,6 @@ export const BeatDetail = () => {
         const { data: retailerCounts } = await supabase
           .from('retailers')
           .select('beat_id')
-          .eq('user_id', user.id)
           .in('beat_id', allBeats.map(b => b.beat_id));
 
         const countMap = new Map<string, number>();
@@ -832,6 +836,17 @@ export const BeatDetail = () => {
             </Button>
           </div>
         </div>
+
+        {/* Shared / Coverage ownership banner */}
+        {beatData.owner_user_id && user?.id && beatData.owner_user_id !== user.id && (
+          <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-700">
+              Shared with you by <span className="font-semibold">{beatData.owner_name || 'another user'}</span>. You are viewing this beat's full activity across all users with access.
+            </div>
+          </div>
+        )}
+
 
         {/* Key Performance Highlights */}
         <Card className="shadow-card bg-gradient-to-br from-primary/5 to-primary/10">
