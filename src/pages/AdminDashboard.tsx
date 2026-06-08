@@ -144,6 +144,7 @@ export const AdminDashboard = () => {
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false);
   const [selectedPhotoUser, setSelectedPhotoUser] = useState<{ photoUrl?: string; name: string } | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(
     allColumns.filter(c => c.default).map(c => c.key)
   );
@@ -341,45 +342,75 @@ export const AdminDashboard = () => {
 
   const toggleUserActiveStatus = async (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
-    
+    const newIsActive = newStatus === 'active';
+
     // Optimistically update local state for immediate UI feedback
-    setUsers(prev => prev.map(u => 
-      u.id === userId 
-        ? { ...u, profile: { ...u.profile, user_status: newStatus } as any }
+    setUsers(prev => prev.map(u =>
+      u.id === userId
+        ? { ...u, profile: { ...u.profile, user_status: newStatus, is_active: newIsActive } as any }
         : u
     ));
-    
+
     const { data, error } = await supabase
       .from('profiles')
-      .update({ user_status: newStatus })
+      .update({ user_status: newStatus, is_active: newIsActive })
       .eq('id', userId)
       .select('user_status')
       .single();
-      
+
     if (error || !data) {
       // Revert optimistic update on failure
-      setUsers(prev => prev.map(u => 
-        u.id === userId 
-          ? { ...u, profile: { ...u.profile, user_status: currentStatus } as any }
+      setUsers(prev => prev.map(u =>
+        u.id === userId
+          ? { ...u, profile: { ...u.profile, user_status: currentStatus, is_active: currentStatus !== 'inactive' } as any }
           : u
       ));
       toast.error('Failed to update user status: ' + (error?.message || 'Update failed'));
       return;
     }
-    
+
     // Verify the update actually happened
     if (data.user_status !== newStatus) {
       // Revert if DB didn't update
-      setUsers(prev => prev.map(u => 
-        u.id === userId 
-          ? { ...u, profile: { ...u.profile, user_status: currentStatus } as any }
+      setUsers(prev => prev.map(u =>
+        u.id === userId
+          ? { ...u, profile: { ...u.profile, user_status: currentStatus, is_active: currentStatus !== 'inactive' } as any }
           : u
       ));
       toast.error('Failed to update user status - permission denied');
       return;
     }
-    
-    toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
+
+    // Best-effort sync to distributor_users (if linked)
+    try {
+      await supabase
+        .from('distributor_users')
+        .update({ is_active: newIsActive, user_status: newStatus as any })
+        .eq('auth_user_id', userId);
+    } catch (e) {
+      console.warn('distributor_users sync skipped:', e);
+    }
+
+    // On deactivation — revoke beat access (best-effort)
+    if (!newIsActive) {
+      const today = new Date().toISOString().slice(0, 10);
+      try {
+        await supabase
+          .from('beat_user_access')
+          .update({ is_active: false })
+          .eq('user_id', userId);
+        await supabase
+          .from('beat_coverage_assignments')
+          .update({ is_active: false })
+          .eq('coverage_user_id', userId)
+          .gte('end_date', today);
+      } catch (e) {
+        console.warn('beat access revoke skipped:', e);
+      }
+      toast.success('User deactivated and beat access revoked');
+    } else {
+      toast.success('User activated successfully');
+    }
   };
 
   if (loading) {
@@ -461,12 +492,33 @@ export const AdminDashboard = () => {
                 <div className="space-y-4 mb-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-lg font-semibold">Total Users: {users.length}</h4>
+                      {(() => {
+                        const activeCount = users.filter(u => (u.profile?.user_status || 'active') !== 'inactive').length;
+                        const inactiveCount = users.length - activeCount;
+                        return (
+                          <h4 className="text-lg font-semibold">
+                            Active Users: {activeCount}
+                            <span className="text-muted-foreground text-xs ml-2 font-normal">
+                              ({inactiveCount} inactive)
+                            </span>
+                          </h4>
+                        );
+                      })()}
                       <p className="text-sm text-muted-foreground">
                         {users.filter(u => u.securityProfile).length} users with security profiles assigned
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mr-2">
+                        <Switch
+                          id="show-inactive-users"
+                          checked={showInactive}
+                          onCheckedChange={setShowInactive}
+                        />
+                        <Label htmlFor="show-inactive-users" className="text-sm text-muted-foreground cursor-pointer">
+                          Show inactive users
+                        </Label>
+                      </div>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="outline" size="sm">
@@ -663,6 +715,10 @@ export const AdminDashboard = () => {
                       <TableBody>
                         {sortData(
                           users.filter(user => {
+                            // Hide inactive users unless toggle is on
+                            const status = user.profile?.user_status || 'active';
+                            if (!showInactive && status === 'inactive') return false;
+
                             // Global search
                             if (userSearchQuery.trim()) {
                               const query = userSearchQuery.toLowerCase();
