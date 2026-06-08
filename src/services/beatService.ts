@@ -116,7 +116,12 @@ export async function getMyBeats(userId: string): Promise<BeatWithAccess[]> {
     if (!beat?.beat_id) continue;
     if (byId.has(beat.beat_id)) continue; // owned wins
     const at = String(row.access_type).toUpperCase() as AccessType;
-    byId.set(beat.beat_id, { ...beat, accessType: at });
+    byId.set(beat.beat_id, {
+      ...beat,
+      accessType: at,
+      effective_from: row.effective_from ?? null,
+      effective_to: row.effective_to ?? null,
+    } as any);
   }
   return Array.from(byId.values());
 }
