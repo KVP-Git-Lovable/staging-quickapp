@@ -67,7 +67,11 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
 
   const [access, setAccess] = useState<Access>("CO_OWNER");
   const [duration, setDuration] = useState<"permanent" | "until">("permanent");
-  const [untilDate, setUntilDate] = useState<Date | undefined>(undefined);
+  const [untilDate, setUntilDate] = useState<Date | undefined>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d;
+  });
   const [reason, setReason] = useState("");
 
   const [shares, setShares] = useState<ShareRow[]>([]);
