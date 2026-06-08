@@ -183,7 +183,11 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
       setQuery("");
       setResults([]);
       setDuration("permanent");
-      setUntilDate(undefined);
+      setUntilDate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        return d;
+      });
       setReason("");
       await loadShares();
     } catch (err: any) {
