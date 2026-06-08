@@ -1441,6 +1441,7 @@ export const MyBeats = () => {
       return {
         ...b,
         accessType,
+        coverageStartDate: (acc as any)?.effective_from ?? null,
         coverageEndDate: (acc as any)?.effective_to ?? null,
         sharedByName: (acc as any)?.owner_name ?? null,
       };
