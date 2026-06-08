@@ -36,6 +36,8 @@ interface BeatDetailData {
   average_time_minutes?: number;
   territory_id?: string;
   territory_name?: string;
+  owner_user_id?: string | null;
+  owner_name?: string | null;
   retailers: Array<{
     id: string;
     name: string;
@@ -46,6 +48,7 @@ interface BeatDetailData {
     last_visit_date?: string;
     order_value?: number;
     fyOrderValue?: number;
+    user_id?: string;
   }>;
 }
 
