@@ -445,6 +445,22 @@ export const AddRetailer = () => {
       }
     }
   }, [isEditMode, editingRetailer, user, allUsers, selectedOwnerId]);
+
+  // When the selected beat is owned by someone else (shared / coverage),
+  // auto-assign the owner field to the beat owner so the new retailer stays
+  // with the beat owner after coverage ends. User can still override manually.
+  useEffect(() => {
+    if (isEditMode || !user || !selectedBeat) return;
+    const beat = beats.find(b => b.beat_id === selectedBeat);
+    if (!beat?.user_id) return;
+    const isOwnBeat = beat.user_id === user.id;
+    if (isOwnBeat) return;
+    // Only auto-switch when owner currently points to the current user (i.e. auto-filled, not a manual override)
+    if (selectedOwnerId && selectedOwnerId !== user.id) return;
+    setSelectedOwnerId(beat.user_id);
+    setSelectedOwnerName(beat.owner_name || '');
+  }, [selectedBeat, beats, user, isEditMode]);
+
   
   // Set photo preview when editing
   useEffect(() => {
