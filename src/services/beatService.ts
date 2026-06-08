@@ -74,7 +74,7 @@ export async function getMyBeats(userId: string): Promise<BeatWithAccess[]> {
     supabase.from('beats').select('*').eq('user_id', userId),
     supabase
       .from('beat_user_access')
-      .select('access_type, beat_id, effective_to, is_active, beats:beats!beat_user_access_beat_id_fkey(*)')
+      .select('access_type, beat_id, effective_from, effective_to, is_active, beats:beats!beat_user_access_beat_id_fkey(*)')
       .eq('user_id', userId)
       .eq('is_active', true)
       .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
@@ -86,7 +86,7 @@ export async function getMyBeats(userId: string): Promise<BeatWithAccess[]> {
   if (accessRes.error) {
     const alt = await supabase
       .from('beat_user_access')
-      .select('access_type, beat_id, effective_to, is_active')
+      .select('access_type, beat_id, effective_from, effective_to, is_active')
       .eq('user_id', userId)
       .eq('is_active', true)
       .or(`effective_to.is.null,effective_to.gt.${nowIso}`);
