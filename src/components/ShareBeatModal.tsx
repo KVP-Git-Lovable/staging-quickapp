@@ -79,6 +79,32 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
   const [shares, setShares] = useState<ShareRow[]>([]);
   const [loadingShares, setLoadingShares] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingShareId, setEditingShareId] = useState<string | null>(null);
+  const [editEndDate, setEditEndDate] = useState<string>("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const saveEditDate = async (row: ShareRow) => {
+    if (!editEndDate) { toast.error("Pick an end date"); return; }
+    if (permLoading) { toast.message("Checking permissions…"); return; }
+    if (!can("action_beat_share", "create")) { toast.error("You don't have permission"); return; }
+    setSavingEdit(true);
+    try {
+      const d = new Date(editEndDate);
+      const iso = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59).toISOString();
+      const { error } = await supabase
+        .from("beat_user_access")
+        .update({ effective_to: iso })
+        .eq("id", row.id);
+      if (error) throw error;
+      toast.success("End date updated");
+      setEditingShareId(null);
+      await loadShares();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   // Reset on open
   useEffect(() => {
