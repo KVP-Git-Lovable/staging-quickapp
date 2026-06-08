@@ -116,13 +116,44 @@ export async function getMyBeats(userId: string): Promise<BeatWithAccess[]> {
     if (!beat?.beat_id) continue;
     if (byId.has(beat.beat_id)) continue; // owned wins
     const at = String(row.access_type).toUpperCase() as AccessType;
+    const effFrom = row.effective_from ?? null;
+    const effTo = row.effective_to ?? null;
     byId.set(beat.beat_id, {
       ...beat,
       accessType: at,
-      effective_from: row.effective_from ?? null,
-      effective_to: row.effective_to ?? null,
+      effective_from: effFrom,
+      effective_to: effTo,
+      coverageStartDate: effFrom ? String(effFrom).slice(0, 10) : null,
+      coverageEndDate: effTo ? String(effTo).slice(0, 10) : null,
+      ownerName: beat.owner_name ?? null,
     } as any);
   }
+
+  // Batch fetch AOV per beat from orders
+  const allBeatIds = Array.from(byId.keys());
+  if (allBeatIds.length) {
+    try {
+      const { data: orderRows } = await supabase
+        .from('orders')
+        .select('beat_id, total_amount')
+        .in('beat_id', allBeatIds);
+      const grouped: Record<string, number[]> = {};
+      (orderRows ?? []).forEach((o: any) => {
+        if (!o?.beat_id) return;
+        if (!grouped[o.beat_id]) grouped[o.beat_id] = [];
+        if (o.total_amount != null) grouped[o.beat_id].push(Number(o.total_amount));
+      });
+      for (const [bid, amounts] of Object.entries(grouped)) {
+        const b = byId.get(bid);
+        if (b && amounts.length) {
+          (b as any).avgOrderValue = Math.round(amounts.reduce((a, n) => a + n, 0) / amounts.length);
+        }
+      }
+    } catch (e) {
+      console.warn('[getMyBeats] AOV fetch failed', e);
+    }
+  }
+
   return Array.from(byId.values());
 }
 
