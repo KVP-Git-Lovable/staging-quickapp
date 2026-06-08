@@ -26,8 +26,14 @@ interface Beat {
   name: string; // beat name (same as id unless we have prettier names)
   retailerCount: number;
   lastVisited?: string;
+  lastVisitedDate?: string | null; // yyyy-MM-dd for day-math
   category: "all";
   priority: "high" | "medium" | "low";
+  accessType?: 'OWNED' | 'CO_OWNER' | 'OPERATIONAL' | 'VIEW_ONLY' | 'COVERAGE';
+  coverageStartDate?: string | null;
+  coverageEndDate?: string | null;
+  ownerName?: string | null;
+  avgOrderValue?: number | null;
 }
 
 
