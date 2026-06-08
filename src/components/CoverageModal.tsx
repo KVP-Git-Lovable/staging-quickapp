@@ -398,10 +398,9 @@ export function CoverageModal({
                     onSelect={setStartDate}
                     initialFocus
                     disabled={(d) => {
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      tomorrow.setHours(0, 0, 0, 0);
-                      return d < tomorrow;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return d < today;
                     }}
                     className={cn("p-3 pointer-events-auto")}
                   />
