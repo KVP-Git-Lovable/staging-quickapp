@@ -1,10 +1,11 @@
 import { useNavigate, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Building2, Palette, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, Building2, Palette, FileText, Globe, Loader2 } from "lucide-react";
 import CompanySettings from "@/components/invoice/CompanySettings";
 import HeaderBrandingSettings from "@/components/invoice/HeaderBrandingSettings";
 import DocumentSettings from "@/components/invoice/DocumentSettings";
+import RegionalSettings from "@/components/RegionalSettings";
 import { Layout } from "@/components/Layout";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 
@@ -46,7 +47,7 @@ export default function CompanyProfile() {
         </div>
 
         <Tabs defaultValue="branding" className="space-y-4">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="branding" className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
               Header Branding
@@ -58,6 +59,10 @@ export default function CompanyProfile() {
             <TabsTrigger value="documents" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Document Settings
+            </TabsTrigger>
+            <TabsTrigger value="regional" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Regional
             </TabsTrigger>
           </TabsList>
 
@@ -71,6 +76,10 @@ export default function CompanyProfile() {
 
           <TabsContent value="documents">
             <DocumentSettings />
+          </TabsContent>
+
+          <TabsContent value="regional">
+            <RegionalSettings />
           </TabsContent>
         </Tabs>
       </div>
