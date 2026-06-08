@@ -427,10 +427,11 @@ export async function getBeatHistory(beatId: string): Promise<BeatHistory> {
 // 11. getBeatStats
 export async function getBeatStats(userId: string): Promise<BeatStats> {
   const nowIso = new Date().toISOString();
+  const today = new Date().toISOString().slice(0, 10);
   const head = (q: any) => q.select('*', { count: 'exact', head: true });
 
   const [
-    total, active, inactive, shared, covering,
+    total, active, inactive, shared, covering, upcomingCoverage,
     activeBeatsRes,
   ] = await Promise.all([
     head(supabase.from('beats')).eq('user_id', userId),
@@ -441,11 +442,17 @@ export async function getBeatStats(userId: string): Promise<BeatStats> {
       .in('access_type', ['CO_OWNER', 'VIEW_ONLY', 'OPERATIONAL'])
       .eq('is_active', true)
       .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
-    head(supabase.from('beat_user_access'))
-      .eq('user_id', userId)
-      .eq('access_type', 'COVERAGE')
+    // Beats I'm covering TODAY (today is within start/end date range)
+    head(supabase.from('beat_coverage_assignments'))
+      .eq('coverage_user_id', userId)
       .eq('is_active', true)
-      .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
+      .lte('start_date', today)
+      .gte('end_date', today),
+    // Future coverage I've assigned to others (planned, not yet started)
+    head(supabase.from('beat_coverage_assignments'))
+      .eq('primary_user_id', userId)
+      .eq('is_active', true)
+      .gt('start_date', today),
     supabase.from('beats').select('beat_id').eq('user_id', userId).eq('is_active', true),
   ]);
 
@@ -468,6 +475,7 @@ export async function getBeatStats(userId: string): Promise<BeatStats> {
     inactive: inactive.count ?? 0,
     sharedWithMe: shared.count ?? 0,
     covering: covering.count ?? 0,
+    upcomingCoverage: upcomingCoverage.count ?? 0,
     emptyBeats,
   };
 }
