@@ -250,8 +250,16 @@ export function CoverageModal({
       toast.success("Coverage assigned");
       setSelectedUser(null);
       setQuery("");
-      setStartDate(undefined);
-      setEndDate(undefined);
+      setStartDate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d;
+      });
+      setEndDate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        return d;
+      });
       setReason("");
       setPermissionSetId("");
       await loadCoverage();
