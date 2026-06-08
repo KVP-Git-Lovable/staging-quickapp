@@ -20,6 +20,7 @@ import { toLocalISODate, getLocalTodayDate, parseLocalDate, formatWeekdayShort }
 import { UserSelector } from "@/components/UserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
 import { getMyBeats } from "@/services/beatService";
+import { useAppTimezone, getLocalDateString } from "@/hooks/useAppTimezone";
 
 interface Beat {
   id: string; // beat_id
@@ -63,6 +64,7 @@ const getWeekDays = (selectedWeekStart: Date) => {
 export const BeatPlanning = () => {
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
+  const { timezone } = useAppTimezone();
 
   // Initialize date from URL param or use today
   const initialDate = dateParam ? new Date(dateParam + 'T00:00:00') : new Date();
@@ -387,8 +389,8 @@ export const BeatPlanning = () => {
   );
 
   // Date-aware enrichment: coverage-window gating + computed metrics
-  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const selectedDateStr = getLocalDateString(selectedDate, timezone);
+  const todayStr = getLocalDateString(new Date(), timezone);
   const beatsForDate = filteredBeats.map(beat => {
     const start = beat.coverageStartDate || '';
     const end = beat.coverageEndDate || '';

@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAppTimezone, getTodayInTimezone, getLocalDateString } from "@/hooks/useAppTimezone";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -82,13 +83,15 @@ export function CoverageModal({
   const [searching, setSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
 
+  const { timezone } = useAppTimezone();
+
   const [startDate, setStartDate] = useState<Date | undefined>(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
+    const d = getTodayInTimezone(timezone);
+    d.setDate(d.getDate() + 1);
     return d;
   });
   const [endDate, setEndDate] = useState<Date | undefined>(() => {
-    const d = new Date();
+    const d = getTodayInTimezone(timezone);
     d.setDate(d.getDate() + 30);
     return d;
   });
@@ -142,12 +145,12 @@ export function CoverageModal({
     setResults([]);
     setSelectedUser(null);
     setStartDate(() => {
-      const d = new Date();
-      d.setHours(0, 0, 0, 0);
+      const d = getTodayInTimezone(timezone);
+      d.setDate(d.getDate() + 1);
       return d;
     });
     setEndDate(() => {
-      const d = new Date();
+      const d = getTodayInTimezone(timezone);
       d.setDate(d.getDate() + 30);
       return d;
     });
@@ -242,8 +245,8 @@ export function CoverageModal({
         beat.id,
         primaryUserId,
         selectedUser.id,
-        new Date(startDate!.getFullYear(), startDate!.getMonth(), startDate!.getDate(), 0, 0, 0).toISOString(),
-        new Date(endDate!.getFullYear(), endDate!.getMonth(), endDate!.getDate(), 23, 59, 59).toISOString(),
+        getLocalDateString(startDate!, timezone) + "T00:00:00.000Z",
+        getLocalDateString(endDate!, timezone) + "T23:59:59.000Z",
         reason.trim(),
         permissionSetId,
         assignedBy,
@@ -252,12 +255,12 @@ export function CoverageModal({
       setSelectedUser(null);
       setQuery("");
       setStartDate(() => {
-        const d = new Date();
-        d.setHours(0, 0, 0, 0);
+        const d = getTodayInTimezone(timezone);
+        d.setDate(d.getDate() + 1);
         return d;
       });
       setEndDate(() => {
-        const d = new Date();
+        const d = getTodayInTimezone(timezone);
         d.setDate(d.getDate() + 30);
         return d;
       });
@@ -398,9 +401,9 @@ export function CoverageModal({
                     onSelect={setStartDate}
                     initialFocus
                     disabled={(d) => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      return d < today;
+                      const tz_tomorrow = getTodayInTimezone(timezone);
+                      tz_tomorrow.setDate(tz_tomorrow.getDate() + 1);
+                      return d < tz_tomorrow;
                     }}
                     className={cn("p-3 pointer-events-auto")}
                   />
@@ -528,7 +531,7 @@ export function CoverageModal({
               </div>
             ) : (
               (() => {
-                const today = new Date().toISOString().slice(0, 10);
+                const today = getLocalDateString(new Date(), timezone);
                 const upcomingCoverage = activeCoverage.filter((c) => c.start_date > today);
                 const currentCoverage = activeCoverage.filter(
                   (c) => c.start_date <= today && c.end_date >= today,
