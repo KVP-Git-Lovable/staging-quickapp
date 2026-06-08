@@ -372,7 +372,28 @@ export function CoverageModal({
 
           {/* Permission set */}
           <div className="space-y-2">
-            <Label>Temporary permissions</Label>
+            <div className="flex items-center gap-1.5">
+              <Label>Temporary permissions</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground">
+                      <Info size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm space-y-2 text-xs">
+                    <p className="font-semibold">What are permission sets?</p>
+                    <p>Permission sets grant the coverage person elevated access during the coverage period only. Choose based on what the coverage person needs to do:</p>
+                    <ul className="space-y-1 list-disc pl-4">
+                      <li><strong>Coverage - Basic:</strong> Visit, take orders, update retailers. Cannot edit beat structure.</li>
+                      <li><strong>Coverage - Full Access:</strong> Everything including editing beat structure. Use for trusted colleagues.</li>
+                      <li><strong>Coverage - View Only:</strong> Read-only. Cannot take orders or make changes.</li>
+                    </ul>
+                    <p>Leave blank to give default access based on their existing profile.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <Select value={permissionSetId} onValueChange={setPermissionSetId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a permission set" />
@@ -389,6 +410,11 @@ export function CoverageModal({
                 )}
               </SelectContent>
             </Select>
+            {permissionSetId && permGroups.find((p) => p.id === permissionSetId)?.description && (
+              <p className="text-xs text-muted-foreground rounded-md bg-muted/40 p-2">
+                {permGroups.find((p) => p.id === permissionSetId)?.description}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               {personName} gets these extra permissions only during coverage
               dates.
