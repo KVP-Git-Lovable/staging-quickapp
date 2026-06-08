@@ -2383,6 +2383,8 @@ export type Database = {
           bank_name: string | null
           contact_phone: string | null
           created_at: string | null
+          currency: string
+          date_format: string
           email: string | null
           gstin: string | null
           header_logo_url: string | null
@@ -2396,6 +2398,7 @@ export type Database = {
           qr_upi: string | null
           state: string | null
           terms_conditions: string | null
+          timezone: string
           updated_at: string | null
         }
         Insert: {
@@ -2405,6 +2408,8 @@ export type Database = {
           bank_name?: string | null
           contact_phone?: string | null
           created_at?: string | null
+          currency?: string
+          date_format?: string
           email?: string | null
           gstin?: string | null
           header_logo_url?: string | null
@@ -2418,6 +2423,7 @@ export type Database = {
           qr_upi?: string | null
           state?: string | null
           terms_conditions?: string | null
+          timezone?: string
           updated_at?: string | null
         }
         Update: {
@@ -2427,6 +2433,8 @@ export type Database = {
           bank_name?: string | null
           contact_phone?: string | null
           created_at?: string | null
+          currency?: string
+          date_format?: string
           email?: string | null
           gstin?: string | null
           header_logo_url?: string | null
@@ -2440,6 +2448,7 @@ export type Database = {
           qr_upi?: string | null
           state?: string | null
           terms_conditions?: string | null
+          timezone?: string
           updated_at?: string | null
         }
         Relationships: []
@@ -5785,6 +5794,8 @@ export type Database = {
           coverage_area: string | null
           created_at: string
           credit_limit: number | null
+          currency: string
+          date_format: string
           distribution_experience_years: number | null
           distribution_level: string | null
           distributor_status: string | null
@@ -5820,6 +5831,7 @@ export type Database = {
           terms_conditions: string | null
           territory_id: string | null
           threats: string | null
+          timezone: string
           type_id: string | null
           updated_at: string
           weakness: string | null
@@ -5840,6 +5852,8 @@ export type Database = {
           coverage_area?: string | null
           created_at?: string
           credit_limit?: number | null
+          currency?: string
+          date_format?: string
           distribution_experience_years?: number | null
           distribution_level?: string | null
           distributor_status?: string | null
@@ -5875,6 +5889,7 @@ export type Database = {
           terms_conditions?: string | null
           territory_id?: string | null
           threats?: string | null
+          timezone?: string
           type_id?: string | null
           updated_at?: string
           weakness?: string | null
@@ -5895,6 +5910,8 @@ export type Database = {
           coverage_area?: string | null
           created_at?: string
           credit_limit?: number | null
+          currency?: string
+          date_format?: string
           distribution_experience_years?: number | null
           distribution_level?: string | null
           distributor_status?: string | null
@@ -5930,6 +5947,7 @@ export type Database = {
           terms_conditions?: string | null
           territory_id?: string | null
           threats?: string | null
+          timezone?: string
           type_id?: string | null
           updated_at?: string
           weakness?: string | null

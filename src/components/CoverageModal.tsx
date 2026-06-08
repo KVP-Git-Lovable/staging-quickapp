@@ -84,7 +84,7 @@ export function CoverageModal({
 
   const [startDate, setStartDate] = useState<Date | undefined>(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
     return d;
   });
   const [endDate, setEndDate] = useState<Date | undefined>(() => {
@@ -143,7 +143,7 @@ export function CoverageModal({
     setSelectedUser(null);
     setStartDate(() => {
       const d = new Date();
-      d.setDate(d.getDate() + 1);
+      d.setHours(0, 0, 0, 0);
       return d;
     });
     setEndDate(() => {
@@ -253,7 +253,7 @@ export function CoverageModal({
       setQuery("");
       setStartDate(() => {
         const d = new Date();
-        d.setDate(d.getDate() + 1);
+        d.setHours(0, 0, 0, 0);
         return d;
       });
       setEndDate(() => {
@@ -398,10 +398,9 @@ export function CoverageModal({
                     onSelect={setStartDate}
                     initialFocus
                     disabled={(d) => {
-                      const tomorrow = new Date();
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      tomorrow.setHours(0, 0, 0, 0);
-                      return d < tomorrow;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return d < today;
                     }}
                     className={cn("p-3 pointer-events-auto")}
                   />
