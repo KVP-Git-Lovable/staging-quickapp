@@ -241,6 +241,8 @@ export const BeatDetail = () => {
           average_time_minutes: beat?.average_time_minutes,
           territory_id: beat?.territory_id,
           territory_name: territoryName,
+          owner_user_id: (beat as any)?.user_id ?? null,
+          owner_name: (beat as any)?.owner_name ?? null,
           retailers: retailersWithFY
         });
 
