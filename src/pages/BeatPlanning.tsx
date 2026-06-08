@@ -386,6 +386,28 @@ export const BeatPlanning = () => {
     beat.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Date-aware enrichment: coverage-window gating + computed metrics
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const beatsForDate = filteredBeats.map(beat => {
+    const start = beat.coverageStartDate || '';
+    const end = beat.coverageEndDate || '';
+    const isCoverage = beat.accessType === 'COVERAGE';
+    const isSelectableForDate = !isCoverage
+      ? true
+      : (!!start && !!end && start <= selectedDateStr && end >= selectedDateStr);
+    const isUpcomingCoverage = isCoverage && !!start && start > selectedDateStr;
+    const coverageStartLabel = isUpcomingCoverage
+      ? `Available from ${format(new Date(start), 'MMM d')}`
+      : null;
+    let daysSinceVisit: number | null = null;
+    if (beat.lastVisitedDate) {
+      const ms = new Date(todayStr).getTime() - new Date(beat.lastVisitedDate).getTime();
+      daysSinceVisit = Math.max(0, Math.floor(ms / 86400000));
+    }
+    return { ...beat, isSelectableForDate, isUpcomingCoverage, coverageStartLabel, daysSinceVisit };
+  });
+
   const handleSelectBeat = (beatId: string) => {
     setPlannedBeats(prev => ({
       ...prev,
