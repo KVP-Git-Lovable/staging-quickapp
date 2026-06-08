@@ -131,6 +131,12 @@ export const BeatPlanning = () => {
             category: beat.category || 'all',
             priority: retailerInfo.priority,
             lastVisited: undefined,
+            lastVisitedDate: null,
+            accessType: beat.accessType,
+            coverageStartDate: beat.coverageStartDate ?? null,
+            coverageEndDate: beat.coverageEndDate ?? null,
+            ownerName: beat.ownerName ?? beat.owner_name ?? null,
+            avgOrderValue: beat.avgOrderValue ?? null,
           };
         });
 
