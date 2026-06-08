@@ -224,15 +224,17 @@ export const AddRetailer = () => {
       const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
       console.log('[AddRetailer Cache-First] Total cached beats:', cachedBeats.length);
       
-      const userBeats = cachedBeats.filter((beat: any) => {
-        return beat.created_by === user.id && beat.is_active;
-      });
-      
+      // Include both owned beats and beats shared/covering this user
+      const userBeats = cachedBeats.filter((beat: any) => beat.is_active);
+
       if (userBeats.length > 0) {
         const mappedBeats = userBeats.map((beat: any) => ({
           beat_id: beat.beat_id,
           beat_name: beat.beat_name,
-          id: beat.id
+          id: beat.id,
+          user_id: beat.user_id,
+          owner_name: beat.owner_name ?? null,
+          access_type: beat.access_type,
         }));
         setBeats(mappedBeats);
         cachedBeatsLoaded = true;
