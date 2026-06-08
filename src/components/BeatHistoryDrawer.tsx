@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { History, Loader2 } from "lucide-react";
+import { History, Info, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
@@ -113,6 +113,16 @@ export function BeatHistoryDrawer({ open, onOpenChange, beat }: BeatHistoryDrawe
             Full audit trail for this beat.
           </SheetDescription>
         </SheetHeader>
+
+        <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 flex gap-2">
+          <Info className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Read-only audit timeline</p>
+            <p className="mt-0.5 text-blue-800">
+              Every change to this beat is logged here — ownership transfers, coverage assignments, shares, retailer transfers, edits, and (de)activation. Useful for audits and resolving disputes. Timestamps are shown in your local time.
+            </p>
+          </div>
+        </div>
 
         {denied ? (
           <div className="py-10 text-center text-sm text-muted-foreground">

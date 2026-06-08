@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Loader2, Search, UserPlus, X } from "lucide-react";
+import { AlertTriangle, Info, Loader2, Search, UserPlus, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
@@ -127,6 +127,16 @@ export function TransferOwnershipModal({
             Hand over full ownership of this beat to another user.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 flex gap-2">
+          <Info className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Permanent ownership change</p>
+            <p className="mt-0.5 text-blue-800">
+              Transferring moves this beat — along with all retailers, visits, and orders — to a new owner. The previous owner loses access unless added back via <strong>Share Beat</strong>. The change is recorded in beat history. For short-term absences use <strong>Assign Coverage</strong>; for ongoing joint access use <strong>Share Beat</strong>.
+            </p>
+          </div>
+        </div>
 
         <div className="space-y-4">
           <Alert variant="destructive">

@@ -431,6 +431,17 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
             Edit Beat: {beat?.name}
           </DialogTitle>
         </DialogHeader>
+
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 flex gap-2">
+          <Info className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Edit this beat's details</p>
+            <p className="mt-0.5 text-blue-800">
+              Update name, area, schedule, retailers, and travel settings. Changes apply immediately to all retailers in this beat. To make a copy instead, use <strong>Clone Beat</strong>. To reassign permanently to another rep, use <strong>Transfer Ownership</strong>. For short-term cover, use <strong>Assign Coverage</strong>.
+            </p>
+          </div>
+        </div>
+        
         
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-[60vh] pr-4">

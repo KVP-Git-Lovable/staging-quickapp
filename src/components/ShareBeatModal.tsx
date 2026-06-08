@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, Search, Share2, X } from "lucide-react";
+import { CalendarIcon, Info, Loader2, Search, Share2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
@@ -207,6 +207,16 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
             Grant team members access to this beat.
           </DialogDescription>
         </DialogHeader>
+
+        <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 flex gap-2">
+          <Info className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Ongoing joint access</p>
+            <p className="mt-0.5 text-blue-800">
+              Sharing lets another rep work this beat alongside the owner — both can visit retailers and place orders. The original owner keeps ownership. For temporary leave/absence cover only, use <strong>Assign Coverage</strong>. For a permanent handover, use <strong>Transfer Ownership</strong>.
+            </p>
+          </div>
+        </div>
 
         <div className="space-y-4">
           {/* Search */}
