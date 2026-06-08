@@ -280,7 +280,7 @@ export const MyBeats = () => {
   const beatLifecycle = useBeatLifecycle();
 
   // Access-aware tab + service data
-  const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all'>('mine');
+  const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all' | 'empty'>('mine');
   const [myBeatsRaw, setMyBeatsRaw] = useState<BeatWithAccess[]>([]);
   const [sharedRetailerCounts, setSharedRetailerCounts] = useState<Map<string, number>>(new Map());
   const [beatStats, setBeatStats] = useState<BeatStats | null>(null);
