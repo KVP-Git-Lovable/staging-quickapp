@@ -78,6 +78,8 @@ export const BeatDetail = () => {
   const [upcomingVisitsCount, setUpcomingVisitsCount] = useState(0);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [showHealthInsight, setShowHealthInsight] = useState(false);
+  const [cannotDeleteOpen, setCannotDeleteOpen] = useState(false);
+  const [cannotDeleteReasons, setCannotDeleteReasons] = useState<string[]>([]);
 
   const filteredRetailers = useMemo(() => {
     if (!beatData?.retailers) return [];
