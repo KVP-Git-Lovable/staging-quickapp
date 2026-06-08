@@ -837,6 +837,17 @@ export const BeatDetail = () => {
           </div>
         </div>
 
+        {/* Shared / Coverage ownership banner */}
+        {beatData.owner_user_id && user?.id && beatData.owner_user_id !== user.id && (
+          <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <Info className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-700">
+              Shared with you by <span className="font-semibold">{beatData.owner_name || 'another user'}</span>. You are viewing this beat's full activity across all users with access.
+            </div>
+          </div>
+        )}
+
+
         {/* Key Performance Highlights */}
         <Card className="shadow-card bg-gradient-to-br from-primary/5 to-primary/10">
           <CardHeader className="pb-3">
