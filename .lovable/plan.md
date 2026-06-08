@@ -1,16 +1,10 @@
-Edit `src/components/CoverageModal.tsx` only — no service/business-logic changes.
+Add edit-end-date to each row in **Current shares** (ShareBeatModal), mirroring CoverageModal.
 
-1. **Interface** — add `is_active?: boolean` to `CoverageRow`.
-2. **loadCoverage()** — include `is_active` in the `.select(...)` from `beat_coverage_assignments`.
-3. **Bucketing** (render block ~lines 533–539) — rows where `is_active === false` are pulled out and shown in a renamed **History** section, regardless of dates:
-   ```ts
-   const liveRows = activeCoverage.filter(c => c.is_active !== false);
-   const endedRows = activeCoverage.filter(c => c.is_active === false);
-   const upcomingCoverage = liveRows.filter(c => c.start_date > today);
-   const currentCoverage  = liveRows.filter(c => c.start_date <= today && c.end_date >= today);
-   const expiredByDate    = liveRows.filter(c => c.end_date < today);
-   const historyCoverage  = [...endedRows, ...expiredByDate];
-   ```
-4. **UI** — rename the "⚫ Expired" section to "⚫ History" and render `historyCoverage` there (dimmed, no End Coverage button — passed as `isExpired=true`).
+### Edit `src/components/ShareBeatModal.tsx`
 
-Effect: clicking **End Coverage** → `endCoverage()` flips `is_active=false` (unchanged) → modal re-fetches → row immediately leaves Upcoming/Active and shows under History.
+1. Import `Pencil` from `lucide-react`.
+2. Add state: `editingShareId`, `editEndDate`, `savingEdit`.
+3. Add `saveEditDate(row)` — updates `beat_user_access.effective_to` to `YYYY-MM-DD 23:59:59` ISO; on success `loadShares()`.
+4. Row UI: when editing, show inline `<input type="date">` (min = today) + Save / ✕. Otherwise add a Pencil icon-button next to **Revoke** (works for both permanent and until shares; lets user set/change end date).
+
+No service or DB changes.
