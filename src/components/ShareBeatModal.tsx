@@ -381,7 +381,12 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                         selected={untilDate}
                         onSelect={setUntilDate}
                         initialFocus
-                        disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                        disabled={(d) => {
+                          const tomorrow = new Date();
+                          tomorrow.setDate(tomorrow.getDate() + 1);
+                          tomorrow.setHours(0, 0, 0, 0);
+                          return d < tomorrow;
+                        }}
                         className={cn("p-3 pointer-events-auto")}
                       />
                     </PopoverContent>
