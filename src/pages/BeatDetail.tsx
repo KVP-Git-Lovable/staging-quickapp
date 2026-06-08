@@ -529,32 +529,8 @@ export const BeatDetail = () => {
     const checkResult: any = check || {};
     if (!checkResult.deletable) {
       const reasons: string[] = Array.isArray(checkResult.reasons) ? checkResult.reasons : [];
-      const reasonText = reasons.length ? `\n\n• ${reasons.join('\n• ')}` : '';
-      const confirmed = window.confirm(
-        `"${beatData.beat_name}" has historical records and cannot be permanently deleted:${reasonText}\n\nThis beat can only be deactivated (hidden from view). Historical data will be preserved.\n\nDeactivate this beat instead?`
-      );
-      if (!confirmed) return;
-
-      setIsDeleting(true);
-      try {
-        const { error: deactivateError } = await supabase
-          .from('beats')
-          .update({
-            is_active: false,
-            deactivated_at: new Date().toISOString(),
-            deactivated_by: user.id,
-          } as any)
-          .eq('beat_id', beatData.beat_id);
-        if (deactivateError) throw deactivateError;
-        toast.success(`"${beatData.beat_name}" has been deactivated`);
-        window.dispatchEvent(new CustomEvent('beatDeleted', { detail: { beatId: beatData.beat_id } }));
-        navigate('/my-beats');
-      } catch (e) {
-        console.error(e);
-        toast.error('Failed to deactivate beat');
-      } finally {
-        setIsDeleting(false);
-      }
+      setCannotDeleteReasons(reasons);
+      setCannotDeleteOpen(true);
       return;
     }
 
