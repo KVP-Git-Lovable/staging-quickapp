@@ -1583,14 +1583,14 @@ export const MyBeats = () => {
 
         {/* Compact stat cards (6) */}
         {(() => {
-          type Tab = 'mine' | 'shared' | 'covering' | 'inactive' | 'all';
+          type Tab = 'mine' | 'shared' | 'covering' | 'inactive' | 'all' | 'empty';
           const cards: Array<{ key: string; value: number; label: string; color: string; tab: Tab }> = [
             { key: 'mine', value: beatStats?.total ?? 0, label: 'My Beats', color: 'blue', tab: 'mine' },
             { key: 'active', value: beatStats?.active ?? 0, label: 'Active', color: 'emerald', tab: 'mine' },
             { key: 'inactive', value: beatStats?.inactive ?? 0, label: 'Inactive', color: 'slate', tab: 'inactive' },
             { key: 'shared', value: beatStats?.sharedWithMe ?? 0, label: 'Shared With Me', color: 'indigo', tab: 'shared' },
             { key: 'covering', value: beatStats?.covering ?? 0, label: 'Covering Today', color: 'amber', tab: 'covering' },
-            { key: 'empty', value: beatStats?.emptyBeats ?? 0, label: 'Empty Beats', color: 'rose', tab: 'mine' },
+            { key: 'empty', value: beatStats?.emptyBeats ?? 0, label: 'Empty Beats', color: 'rose', tab: 'empty' },
           ];
           const colorMap: Record<string, { border: string; text: string; ring: string }> = {
             blue:    { border: 'border-l-blue-500',    text: 'text-blue-600',    ring: 'ring-blue-500' },
