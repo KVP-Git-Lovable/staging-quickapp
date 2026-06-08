@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, Search, UserCheck, X } from "lucide-react";
+import { CalendarIcon, Info, Loader2, Search, UserCheck, X } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
@@ -237,6 +238,10 @@ export function CoverageModal({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40 p-3 text-xs text-blue-900 dark:text-blue-100">
+          <strong>Coverage is for leave/absence only.</strong> The coverage person temporarily accesses this beat during the dates you set. Access auto-expires on the end date — no manual removal needed. For permanent joint access, use <strong>Share Beat</strong> instead.
+        </div>
+
         <div className="space-y-4">
           {/* Coverage person */}
           <div className="space-y-2">
@@ -367,7 +372,28 @@ export function CoverageModal({
 
           {/* Permission set */}
           <div className="space-y-2">
-            <Label>Temporary permissions</Label>
+            <div className="flex items-center gap-1.5">
+              <Label>Temporary permissions</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground">
+                      <Info size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-sm space-y-2 text-xs">
+                    <p className="font-semibold">What are permission sets?</p>
+                    <p>Permission sets grant the coverage person elevated access during the coverage period only. Choose based on what the coverage person needs to do:</p>
+                    <ul className="space-y-1 list-disc pl-4">
+                      <li><strong>Coverage - Basic:</strong> Visit, take orders, update retailers. Cannot edit beat structure.</li>
+                      <li><strong>Coverage - Full Access:</strong> Everything including editing beat structure. Use for trusted colleagues.</li>
+                      <li><strong>Coverage - View Only:</strong> Read-only. Cannot take orders or make changes.</li>
+                    </ul>
+                    <p>Leave blank to give default access based on their existing profile.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <Select value={permissionSetId} onValueChange={setPermissionSetId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a permission set" />
@@ -384,6 +410,11 @@ export function CoverageModal({
                 )}
               </SelectContent>
             </Select>
+            {permissionSetId && permGroups.find((p) => p.id === permissionSetId)?.description && (
+              <p className="text-xs text-muted-foreground rounded-md bg-muted/40 p-2">
+                {permGroups.find((p) => p.id === permissionSetId)?.description}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               {personName} gets these extra permissions only during coverage
               dates.
