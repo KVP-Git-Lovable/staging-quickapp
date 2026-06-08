@@ -176,12 +176,13 @@ export const BeatDetail = () => {
           territoryName = territory?.name;
         }
 
-        // Get retailers for this beat
+        // Get retailers for this beat — NO user_id filter.
+        // Retailers under a beat can belong to any user (owner, shared/coverage recipients).
+        // RLS already enforces correct access via user_has_beat_access().
         const { data: retailers, error: retailersError } = await supabase
           .from('retailers')
-          .select('id, name, address, phone, category, priority, last_visit_date, order_value')
-          .eq('beat_id', resolvedBeatId)
-          .eq('user_id', user.id);
+          .select('id, name, address, phone, category, priority, last_visit_date, order_value, user_id, created_at')
+          .eq('beat_id', resolvedBeatId);
 
         if (retailersError) {
           console.error('Error fetching retailers:', retailersError);
