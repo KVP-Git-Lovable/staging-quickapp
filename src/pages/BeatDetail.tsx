@@ -573,7 +573,6 @@ export const BeatDetail = () => {
         const { data: retailerCounts } = await supabase
           .from('retailers')
           .select('beat_id')
-          .eq('user_id', user.id)
           .in('beat_id', allBeats.map(b => b.beat_id));
 
         const countMap = new Map<string, number>();
