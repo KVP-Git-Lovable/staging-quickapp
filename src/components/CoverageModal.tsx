@@ -503,35 +503,81 @@ export function CoverageModal({
 
                 const renderRow = (row: CoverageRow, isExpired: boolean) => {
                   const nm = row.profile?.full_name || row.profile?.username || "Unnamed";
+                  const isEditing = editingCoverageId === row.id;
                   return (
                     <div
                       key={row.id}
                       className={cn(
-                        "flex items-center justify-between rounded-md border p-2",
+                        "flex items-center justify-between rounded-md border p-2 gap-2",
                         isExpired && "opacity-60",
                       )}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={row.profile?.profile_picture_url ?? undefined} />
                           <AvatarFallback>{initials(nm)}</AvatarFallback>
                         </Avatar>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">{nm}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {format(new Date(row.start_date), "PP")} →{" "}
-                            {format(new Date(row.end_date), "PP")}
-                          </div>
+                          {isEditing ? (
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(row.start_date), "MMM d")} →
+                              </span>
+                              <input
+                                type="date"
+                                value={editEndDate}
+                                onChange={(e) => setEditEndDate(e.target.value)}
+                                min={row.start_date}
+                                className="text-xs border rounded px-1.5 py-0.5 bg-background"
+                              />
+                              <Button
+                                size="sm"
+                                className="h-6 text-xs px-2"
+                                disabled={savingEdit}
+                                onClick={() => saveEditDate(row)}
+                              >
+                                {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 text-xs px-2"
+                                onClick={() => setEditingCoverageId(null)}
+                              >
+                                ✕
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">
+                              {format(new Date(row.start_date), "PP")} →{" "}
+                              {format(new Date(row.end_date), "PP")}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      {!isExpired && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEnd(row)}
-                        >
-                          End Coverage
-                        </Button>
+                      {!isExpired && !isEditing && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setEditingCoverageId(row.id);
+                              setEditEndDate(row.end_date);
+                            }}
+                            title="Edit end date"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEnd(row)}
+                          >
+                            End Coverage
+                          </Button>
+                        </div>
                       )}
                     </div>
                   );
