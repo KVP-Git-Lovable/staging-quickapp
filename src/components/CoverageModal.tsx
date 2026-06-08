@@ -141,8 +141,16 @@ export function CoverageModal({
     setQuery("");
     setResults([]);
     setSelectedUser(null);
-    setStartDate(undefined);
-    setEndDate(undefined);
+    setStartDate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return d;
+    });
+    setEndDate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return d;
+    });
     setPermissionSetId("");
     setReason("");
     void loadPermGroups();
