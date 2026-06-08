@@ -82,8 +82,16 @@ export function CoverageModal({
   const [searching, setSearching] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
 
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [startDate, setStartDate] = useState<Date | undefined>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d;
+  });
+  const [endDate, setEndDate] = useState<Date | undefined>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d;
+  });
   const [permissionSetId, setPermissionSetId] = useState<string>("");
   const [reason, setReason] = useState("");
 
@@ -133,8 +141,16 @@ export function CoverageModal({
     setQuery("");
     setResults([]);
     setSelectedUser(null);
-    setStartDate(undefined);
-    setEndDate(undefined);
+    setStartDate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      return d;
+    });
+    setEndDate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return d;
+    });
     setPermissionSetId("");
     setReason("");
     void loadPermGroups();
@@ -225,8 +241,8 @@ export function CoverageModal({
         beat.id,
         primaryUserId,
         selectedUser.id,
-        startDate.toISOString(),
-        endDate.toISOString(),
+        new Date(startDate!.getFullYear(), startDate!.getMonth(), startDate!.getDate(), 0, 0, 0).toISOString(),
+        new Date(endDate!.getFullYear(), endDate!.getMonth(), endDate!.getDate(), 23, 59, 59).toISOString(),
         reason.trim(),
         permissionSetId,
         assignedBy,
@@ -234,8 +250,16 @@ export function CoverageModal({
       toast.success("Coverage assigned");
       setSelectedUser(null);
       setQuery("");
-      setStartDate(undefined);
-      setEndDate(undefined);
+      setStartDate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d;
+      });
+      setEndDate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        return d;
+      });
       setReason("");
       setPermissionSetId("");
       await loadCoverage();
@@ -372,6 +396,12 @@ export function CoverageModal({
                     selected={startDate}
                     onSelect={setStartDate}
                     initialFocus
+                    disabled={(d) => {
+                      const tomorrow = new Date();
+                      tomorrow.setDate(tomorrow.getDate() + 1);
+                      tomorrow.setHours(0, 0, 0, 0);
+                      return d < tomorrow;
+                    }}
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
@@ -398,7 +428,11 @@ export function CoverageModal({
                     selected={endDate}
                     onSelect={setEndDate}
                     initialFocus
-                    disabled={(d) => (startDate ? d < startDate : false)}
+                    disabled={(d) => {
+                      const minDate = startDate ? new Date(startDate) : new Date();
+                      minDate.setHours(0, 0, 0, 0);
+                      return d < minDate;
+                    }}
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>

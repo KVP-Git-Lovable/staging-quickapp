@@ -67,7 +67,11 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
 
   const [access, setAccess] = useState<Access>("CO_OWNER");
   const [duration, setDuration] = useState<"permanent" | "until">("permanent");
-  const [untilDate, setUntilDate] = useState<Date | undefined>(undefined);
+  const [untilDate, setUntilDate] = useState<Date | undefined>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    return d;
+  });
   const [reason, setReason] = useState("");
 
   const [shares, setShares] = useState<ShareRow[]>([]);
@@ -82,7 +86,11 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
     setSelectedUser(null);
     setAccess("CO_OWNER");
     setDuration("permanent");
-    setUntilDate(undefined);
+    setUntilDate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      return d;
+    });
     setReason("");
     void loadShares();
   }, [open, beat.beat_id]);
@@ -166,14 +174,20 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
         selectedUser.id,
         access,
         grantedBy,
-        duration === "until" && untilDate ? untilDate.toISOString() : null,
+        duration === "until" && untilDate
+          ? new Date(untilDate.getFullYear(), untilDate.getMonth(), untilDate.getDate(), 23, 59, 59).toISOString()
+          : null,
       );
       toast.success("Access granted");
       setSelectedUser(null);
       setQuery("");
       setResults([]);
       setDuration("permanent");
-      setUntilDate(undefined);
+      setUntilDate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        return d;
+      });
       setReason("");
       await loadShares();
     } catch (err: any) {
@@ -367,7 +381,12 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                         selected={untilDate}
                         onSelect={setUntilDate}
                         initialFocus
-                        disabled={(d) => d < new Date(new Date().setHours(0, 0, 0, 0))}
+                        disabled={(d) => {
+                          const tomorrow = new Date();
+                          tomorrow.setDate(tomorrow.getDate() + 1);
+                          tomorrow.setHours(0, 0, 0, 0);
+                          return d < tomorrow;
+                        }}
                         className={cn("p-3 pointer-events-auto")}
                       />
                     </PopoverContent>
