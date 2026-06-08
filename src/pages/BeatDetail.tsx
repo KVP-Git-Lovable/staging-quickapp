@@ -23,6 +23,7 @@ import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BeatRetailerExport } from "@/components/BeatRetailerExport";
 import { TargetVsActualCard } from "@/components/performance/TargetVsActualCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface BeatDetailData {
   id?: string; // Database UUID
