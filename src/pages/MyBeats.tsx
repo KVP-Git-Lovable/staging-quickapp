@@ -1949,6 +1949,7 @@ export const MyBeats = () => {
                   beat={beat}
                   userId={user?.id || ''}
                   accessType={beat.accessType}
+                  coverageStartDate={beat.coverageStartDate}
                   coverageEndDate={beat.coverageEndDate}
                   sharedByName={beat.sharedByName}
                   onEdit={() => handleEditBeat(beat)}
