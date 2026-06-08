@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Search, Shield, User } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -16,6 +18,7 @@ interface UserProfile {
   profiles?: {
     full_name: string | null;
     username: string | null;
+    is_active: boolean | null;
   };
   security_profiles?: {
     name: string;
@@ -25,6 +28,7 @@ interface UserProfile {
 export const UserProfileAssignment = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
 
   // Fetch all users with their profiles
   const { data: userProfiles, isLoading } = useQuery({
@@ -45,7 +49,7 @@ export const UserProfileAssignment = () => {
         (data || []).map(async (up: any) => {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name, username')
+            .select('full_name, username, is_active')
             .eq('id', up.user_id)
             .single();
           
@@ -93,11 +97,60 @@ export const UserProfileAssignment = () => {
     }
   });
 
+  // Toggle active mutation
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ userId, currentActive }: { userId: string; currentActive: boolean }) => {
+      const newActive = !currentActive;
+
+      const { error: profErr } = await supabase
+        .from('profiles')
+        .update({ is_active: newActive })
+        .eq('id', userId);
+      if (profErr) throw profErr;
+
+      // Sync to distributor_users if linked
+      await supabase
+        .from('distributor_users')
+        .update({ is_active: newActive, user_status: newActive ? 'active' : 'inactive' })
+        .eq('auth_user_id', userId);
+
+      // If deactivating — revoke beat access
+      if (!newActive) {
+        await supabase
+          .from('beat_user_access')
+          .update({ is_active: false })
+          .eq('user_id', userId);
+
+        const today = new Date().toISOString().slice(0, 10);
+        await supabase
+          .from('beat_coverage_assignments')
+          .update({ is_active: false })
+          .eq('coverage_user_id', userId)
+          .gte('end_date', today);
+      }
+
+      return newActive;
+    },
+    onSuccess: (newActive) => {
+      queryClient.invalidateQueries({ queryKey: ['user-profile-assignments'] });
+      toast.success(
+        newActive
+          ? 'User activated'
+          : 'User deactivated and all beat access revoked'
+      );
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update user status');
+    }
+  });
+
   const handleProfileChange = (userId: string, profileId: string) => {
     updateProfileMutation.mutate({ userId, profileId });
   };
 
-  const filteredUsers = userProfiles?.filter(up => {
+  const isActive = (up: UserProfile) => up.profiles?.is_active !== false;
+
+  const searchedUsers = userProfiles?.filter(up => {
     const searchLower = searchQuery.toLowerCase();
     const fullName = up.profiles?.full_name?.toLowerCase() || '';
     const username = up.profiles?.username?.toLowerCase() || '';
@@ -108,6 +161,11 @@ export const UserProfileAssignment = () => {
            profileName.includes(searchLower);
   });
 
+  const filteredUsers = searchedUsers?.filter(up => showInactive ? true : isActive(up));
+
+  const activeCount = userProfiles?.filter(isActive).length ?? 0;
+  const inactiveCount = (userProfiles?.length ?? 0) - activeCount;
+
   if (isLoading) {
     return <div className="text-center py-8">Loading users...</div>;
   }
@@ -116,9 +174,29 @@ export const UserProfileAssignment = () => {
     <Card>
       <CardHeader>
         <CardTitle>User Profile Assignment</CardTitle>
-        <CardDescription>Assign security profiles to users</CardDescription>
+        <CardDescription>Assign security profiles and manage active status</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Counts + Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm">
+            <span className="font-medium">Active Users: {activeCount}</span>
+            <span className="text-muted-foreground text-xs ml-2">
+              ({inactiveCount} inactive)
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-inactive"
+              checked={showInactive}
+              onCheckedChange={setShowInactive}
+            />
+            <Label htmlFor="show-inactive" className="text-sm text-muted-foreground">
+              Show inactive users
+            </Label>
+          </div>
+        </div>
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -136,46 +214,72 @@ export const UserProfileAssignment = () => {
             <TableRow>
               <TableHead>User</TableHead>
               <TableHead>Current Profile</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredUsers?.map((up) => (
-              <TableRow key={up.user_id}>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <div className="font-medium">{up.profiles?.full_name || 'Unknown'}</div>
-                      <div className="text-sm text-muted-foreground">@{up.profiles?.username || 'N/A'}</div>
+            {filteredUsers?.map((up) => {
+              const active = isActive(up);
+              return (
+                <TableRow key={up.user_id} className={!active ? 'opacity-70' : ''}>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <div className="font-medium">{up.profiles?.full_name || 'Unknown'}</div>
+                        <div className="text-sm text-muted-foreground">@{up.profiles?.username || 'N/A'}</div>
+                      </div>
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="flex items-center gap-1 w-fit">
-                    <Shield className="h-3 w-3" />
-                    {(up.security_profiles as any)?.name || 'No Profile'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Select
-                    value={up.profile_id}
-                    onValueChange={(value) => handleProfileChange(up.user_id, value)}
-                  >
-                    <SelectTrigger className="w-[200px] ml-auto">
-                      <SelectValue placeholder="Select profile" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {profiles?.map((profile) => (
-                        <SelectItem key={profile.id} value={profile.id}>
-                          {profile.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                      <Shield className="h-3 w-3" />
+                      {(up.security_profiles as any)?.name || 'No Profile'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {active ? (
+                      <Badge variant="outline" className="text-green-600 border-green-300 text-xs">
+                        Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-gray-400 border-gray-300 text-xs">
+                        Inactive
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Select
+                        value={up.profile_id}
+                        onValueChange={(value) => handleProfileChange(up.user_id, value)}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select profile" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {profiles?.map((profile) => (
+                            <SelectItem key={profile.id} value={profile.id}>
+                              {profile.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={toggleActiveMutation.isPending}
+                        onClick={() => toggleActiveMutation.mutate({ userId: up.user_id, currentActive: active })}
+                        className={active ? 'text-orange-600 hover:text-orange-700' : 'text-green-600 hover:text-green-700'}
+                      >
+                        {active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
 

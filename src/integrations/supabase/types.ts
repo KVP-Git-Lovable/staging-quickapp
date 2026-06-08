@@ -14288,6 +14288,7 @@ export type Database = {
           instagram_url: string | null
           interests: string[] | null
           invitation_token: string | null
+          is_active: boolean
           learning_goals: string[] | null
           linkedin_url: string | null
           must_change_password: boolean | null
@@ -14323,6 +14324,7 @@ export type Database = {
           instagram_url?: string | null
           interests?: string[] | null
           invitation_token?: string | null
+          is_active?: boolean
           learning_goals?: string[] | null
           linkedin_url?: string | null
           must_change_password?: boolean | null
@@ -14358,6 +14360,7 @@ export type Database = {
           instagram_url?: string | null
           interests?: string[] | null
           invitation_token?: string | null
+          is_active?: boolean
           learning_goals?: string[] | null
           linkedin_url?: string | null
           must_change_password?: boolean | null
