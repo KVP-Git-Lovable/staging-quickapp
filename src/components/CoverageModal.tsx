@@ -428,7 +428,11 @@ export function CoverageModal({
                     selected={endDate}
                     onSelect={setEndDate}
                     initialFocus
-                    disabled={(d) => (startDate ? d < startDate : false)}
+                    disabled={(d) => {
+                      const minDate = startDate ? new Date(startDate) : new Date();
+                      minDate.setHours(0, 0, 0, 0);
+                      return d < minDate;
+                    }}
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
