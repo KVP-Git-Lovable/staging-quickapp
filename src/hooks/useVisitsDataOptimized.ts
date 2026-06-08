@@ -478,13 +478,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       // 2. Visits for today (visitRetailerIds)
       // 3. Explicit retailer IDs in beat_data
       // 4. Offline-created retailers ONLY if their beat_id matches today's beats
-      const filteredRetailers = cachedRetailers.filter(r => 
-        r.user_id === uid && (
-          todayBeatIds.includes(r.beat_id) ||                              // Today's beat plans
-          visitRetailerIds.has(r.id) ||                                    // Has visit today
-          explicitRetailerIds.includes(r.id) ||                            // Explicit in beat_data
-          (r.id?.startsWith('offline_') && todayBeatIds.includes(r.beat_id)) // Offline + today's beat
-        )
+      // FIX: Include retailers belonging to today's beats regardless of owner
+      // (shared beats have retailers owned by the original beat owner, not the current user).
+      // Offline-created retailers still need the user_id check.
+      const filteredRetailers = cachedRetailers.filter(r =>
+        todayBeatIds.includes(r.beat_id) ||                                // Today's beat plans (any owner)
+        (r.user_id === uid && visitRetailerIds.has(r.id)) ||               // Has visit today
+        (r.user_id === uid && explicitRetailerIds.includes(r.id)) ||       // Explicit in beat_data
+        (r.id?.startsWith('offline_') && r.user_id === uid && todayBeatIds.includes(r.beat_id)) // Offline + today's beat
       );
       
       const retailerIds = new Set(filteredRetailers.map(r => r.id));
@@ -715,11 +716,12 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         }
       }
       
+      // FIX: Drop user_id filter — shared/coverage beats have retailers owned by the
+      // original beat owner. RLS still scopes results to what this user can access.
       if (beatIds.length > 0) {
         const { data: beatRetailers } = await supabase
           .from('retailers')
           .select('*')
-          .eq('user_id', uid)
           .in('beat_id', beatIds);
         if (beatRetailers) {
           for (const r of beatRetailers) {
@@ -727,12 +729,11 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
           }
         }
       }
-      
+
       if (allRetailerIds.length > 0) {
         const { data: explicitRetailers } = await supabase
           .from('retailers')
           .select('*')
-          .eq('user_id', uid)
           .in('id', allRetailerIds);
         if (explicitRetailers) {
           for (const r of explicitRetailers) {
