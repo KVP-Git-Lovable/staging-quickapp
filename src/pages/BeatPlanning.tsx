@@ -919,7 +919,10 @@ export const BeatPlanning = () => {
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 justify-end">
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/beat-analytics?beat=${beat.id}`)}>
+                    Analytics
+                  </Button>
                   <Button
                     size="sm"
                     variant={isBeatSelected(beat.id) ? "destructive" : "default"}
@@ -929,16 +932,12 @@ export const BeatPlanning = () => {
                       if (isBeatSelected(beat.id)) handleRemoveBeat(beat.id);
                       else handleSelectBeat(beat.id);
                     }}
-                    className="flex-1"
                   >
                     {isBeatSelected(beat.id)
                       ? 'Remove'
                       : beat.isUpcomingCoverage && beat.coverageStartDate
                         ? `Starts ${format(new Date(beat.coverageStartDate), 'MMM d')}`
                         : 'Select'}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => navigate(`/beat-analytics?beat=${beat.id}`)}>
-                    Analytics
                   </Button>
                 </div>
               </CardContent>
