@@ -174,7 +174,9 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
         selectedUser.id,
         access,
         grantedBy,
-        duration === "until" && untilDate ? untilDate.toISOString() : null,
+        duration === "until" && untilDate
+          ? new Date(untilDate.getFullYear(), untilDate.getMonth(), untilDate.getDate(), 23, 59, 59).toISOString()
+          : null,
       );
       toast.success("Access granted");
       setSelectedUser(null);
