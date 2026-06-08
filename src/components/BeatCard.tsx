@@ -138,9 +138,18 @@ export function BeatCard({
             >
               {beat.name}
             </CardTitle>
-            {accessType === 'COVERAGE' && coverageEndDate ? (
+            {accessType === 'COVERAGE' && (coverageStartDate || coverageEndDate) ? (
               <div className="text-[11px] text-muted-foreground mt-0.5">
-                Covering until {new Date(coverageEndDate).toLocaleDateString()}
+                {(() => {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const isUpcoming = !!coverageStartDate && coverageStartDate.slice(0, 10) > today;
+                  if (isUpcoming && coverageStartDate) {
+                    return `Covering from ${new Date(coverageStartDate).toLocaleDateString()}`;
+                  }
+                  return coverageEndDate
+                    ? `Covering until ${new Date(coverageEndDate).toLocaleDateString()}`
+                    : 'Covering';
+                })()}
               </div>
             ) : sharedByName ? (
               <div className="text-[11px] text-muted-foreground mt-0.5">
