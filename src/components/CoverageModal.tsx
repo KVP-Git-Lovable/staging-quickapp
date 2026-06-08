@@ -116,11 +116,11 @@ export function CoverageModal({
   const loadCoverage = async () => {
     setLoadingCoverage(true);
     try {
+      // Fetch ALL coverage rows (upcoming, active, expired) — filter in UI.
       const { data, error } = await supabase
         .from("beat_coverage_assignments")
         .select("id, coverage_user_id, start_date, end_date")
         .eq("beat_id", beat.beat_id)
-        .eq("is_active", true)
         .order("start_date", { ascending: false });
       if (error) throw error;
       const rows = (data ?? []) as any[];
