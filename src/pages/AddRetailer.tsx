@@ -1749,6 +1749,15 @@ export const AddRetailer = () => {
                     <p className="text-sm text-destructive">{validationErrors.beat}</p>
                   )}
                   <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to</p>
+                  {(() => {
+                    const sb = beats.find(b => b.beat_id === selectedBeat);
+                    if (!sb?.user_id || !user?.id || sb.user_id === user.id) return null;
+                    return (
+                      <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                        This beat is owned by <span className="font-semibold">{sb.owner_name || 'another user'}</span>. The new retailer will be assigned to them; you'll remain recorded as the creator.
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Territory Selection */}
