@@ -207,7 +207,8 @@ export function CoverageModal({
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("id, full_name, username, profile_picture_url")
+          .select("id, full_name, username, profile_picture_url, is_active")
+          .eq("is_active", true)
           .or(`full_name.ilike.%${q}%,username.ilike.%${q}%`)
           .neq("id", primaryUserId)
           .limit(8);
