@@ -42,23 +42,22 @@ export function useAppTimezone(): TimezoneConfig {
   useEffect(() => {
     if (cachedConfig) return;
     if (!inflight) {
-      inflight = supabase
-        .from('companies')
-        .select('timezone, date_format, currency')
-        .limit(1)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data) {
-            const cfg: TimezoneConfig = {
-              timezone: (data as any).timezone || DEFAULT_CONFIG.timezone,
-              dateFormat: (data as any).date_format || DEFAULT_CONFIG.dateFormat,
-              currency: (data as any).currency || DEFAULT_CONFIG.currency,
-            };
-            cachedConfig = cfg;
-            try { localStorage.setItem(TIMEZONE_CACHE_KEY, JSON.stringify(cfg)); } catch {}
-          }
-        })
-        .then(() => { /* swallow */ });
+      inflight = (async () => {
+        const { data } = await supabase
+          .from('companies')
+          .select('timezone, date_format, currency')
+          .limit(1)
+          .maybeSingle();
+        if (data) {
+          const cfg: TimezoneConfig = {
+            timezone: (data as any).timezone || DEFAULT_CONFIG.timezone,
+            dateFormat: (data as any).date_format || DEFAULT_CONFIG.dateFormat,
+            currency: (data as any).currency || DEFAULT_CONFIG.currency,
+          };
+          cachedConfig = cfg;
+          try { localStorage.setItem(TIMEZONE_CACHE_KEY, JSON.stringify(cfg)); } catch {}
+        }
+      })();
     }
     inflight.then(() => {
       if (cachedConfig) setConfig(cachedConfig);
