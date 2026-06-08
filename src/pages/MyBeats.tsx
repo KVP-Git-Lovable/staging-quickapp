@@ -1938,7 +1938,8 @@ export const MyBeats = () => {
                     {accessTab === 'mine' ? 'My Beats' :
                      accessTab === 'shared' ? 'Shared With Me' :
                      accessTab === 'covering' ? 'Covering' :
-                     accessTab === 'inactive' ? 'Inactive Beats' : 'All Beats'}
+                     accessTab === 'inactive' ? 'Inactive Beats' :
+                     accessTab === 'empty' ? 'Empty Beats' : 'All Beats'}
                     {' '}({filteredBeats.length})
                   </h2>
                 </div>
