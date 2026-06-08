@@ -513,6 +513,32 @@ export const BeatDetail = () => {
     setSwot({ strengths, weaknesses, opportunities, threats });
   };
 
+  const handleConfirmDeactivate = async () => {
+    if (!beatData || !user) return;
+    setIsDeleting(true);
+    try {
+      const { error: deactivateError } = await supabase
+        .from('beats')
+        .update({
+          is_active: false,
+          deactivated_at: new Date().toISOString(),
+          deactivated_by: user.id,
+        } as any)
+        .eq('beat_id', beatData.beat_id);
+      if (deactivateError) throw deactivateError;
+      toast.success(`"${beatData.beat_name}" has been deactivated`);
+      window.dispatchEvent(new CustomEvent('beatDeleted', { detail: { beatId: beatData.beat_id } }));
+      setCannotDeleteOpen(false);
+      navigate('/my-beats');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to deactivate beat');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+
   const handleDeleteClick = async () => {
     if (!beatData || !user) return;
 
