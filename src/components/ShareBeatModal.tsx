@@ -463,19 +463,24 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
               <div className="space-y-2">
                 {shares.map((row) => {
                   const nm = row.profile?.full_name || row.profile?.username || "Unnamed";
+                  const isEditing = editingShareId === row.id;
+                  const todayStr = (() => {
+                    const t = getTodayInTimezone(timezone);
+                    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+                  })();
                   return (
                     <div
                       key={row.id}
-                      className="flex items-center justify-between rounded-md border p-2"
+                      className="flex items-center justify-between rounded-md border p-2 gap-2"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={row.profile?.profile_picture_url ?? undefined} />
                           <AvatarFallback>{initials(nm)}</AvatarFallback>
                         </Avatar>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium">{nm}</div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5">
                             <Badge variant="secondary" className="text-[10px]">
                               {row.access_type === "CO_OWNER"
                                 ? "Co-owner"
@@ -483,21 +488,66 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                                 ? "Operational"
                                 : "View only"}
                             </Badge>
-                            <span>
-                              {row.effective_to
-                                ? `Until ${format(new Date(row.effective_to), "PP")}`
-                                : "Permanent"}
-                            </span>
+                            {isEditing ? (
+                              <>
+                                <span>Until</span>
+                                <input
+                                  type="date"
+                                  value={editEndDate}
+                                  onChange={(e) => setEditEndDate(e.target.value)}
+                                  min={todayStr}
+                                  className="text-xs border rounded px-1.5 py-0.5 bg-background"
+                                />
+                                <Button
+                                  size="sm"
+                                  className="h-6 text-xs px-2"
+                                  disabled={savingEdit}
+                                  onClick={() => saveEditDate(row)}
+                                >
+                                  {savingEdit ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-xs px-2"
+                                  onClick={() => setEditingShareId(null)}
+                                >
+                                  ✕
+                                </Button>
+                              </>
+                            ) : (
+                              <span>
+                                {row.effective_to
+                                  ? `Until ${format(new Date(row.effective_to), "PP")}`
+                                  : "Permanent"}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRevoke(row)}
-                      >
-                        Revoke
-                      </Button>
+                      {!isEditing && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => {
+                              setEditingShareId(row.id);
+                              setEditEndDate(row.effective_to ? row.effective_to.slice(0, 10) : "");
+                            }}
+                            title="Edit end date"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRevoke(row)}
+                          >
+                            Revoke
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
