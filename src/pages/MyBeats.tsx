@@ -282,6 +282,7 @@ export const MyBeats = () => {
   // Access-aware tab + service data
   const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all'>('mine');
   const [myBeatsRaw, setMyBeatsRaw] = useState<BeatWithAccess[]>([]);
+  const [sharedRetailerCounts, setSharedRetailerCounts] = useState<Map<string, number>>(new Map());
   const [beatStats, setBeatStats] = useState<BeatStats | null>(null);
   const { can } = usePermissions();
 
@@ -1372,6 +1373,35 @@ export const MyBeats = () => {
     return map;
   }, [myBeatsRaw]);
 
+  // Fetch retailer counts for shared/coverage beats (not owned, so not covered by `beats`)
+  useEffect(() => {
+    const ownedIds = new Set(beats.map((b) => b.id));
+    const sharedIds = myBeatsRaw
+      .map((r) => r.beat_id)
+      .filter((bid): bid is string => !!bid && !ownedIds.has(bid));
+
+    if (sharedIds.length === 0) {
+      if (sharedRetailerCounts.size > 0) setSharedRetailerCounts(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('retailers')
+        .select('beat_id')
+        .in('beat_id', sharedIds);
+      if (cancelled || error || !data) return;
+      const map = new Map<string, number>();
+      for (const row of data as any[]) {
+        if (!row.beat_id) continue;
+        map.set(row.beat_id, (map.get(row.beat_id) || 0) + 1);
+      }
+      setSharedRetailerCounts(map);
+    })();
+    return () => { cancelled = true; };
+  }, [beats, myBeatsRaw]);
+
   // Merge owned beats with shared/coverage beats from beatService (myBeatsRaw)
   const displayBeats = useMemo(() => {
     const byId = new Map<string, Beat>();
@@ -1379,11 +1409,12 @@ export const MyBeats = () => {
 
     myBeatsRaw.forEach((raw, index) => {
       if (!raw.beat_id || byId.has(raw.beat_id)) return;
+      const count = sharedRetailerCounts.get(raw.beat_id) || 0;
       byId.set(raw.beat_id, {
         id: raw.beat_id,
         name: raw.beat_name,
-        retailer_count: 0,
-        total_retailers: 0,
+        retailer_count: count,
+        total_retailers: count,
         category: raw.category || 'General',
         created_at: raw.created_at,
         travel_allowance: raw.travel_allowance || 0,
@@ -1400,7 +1431,7 @@ export const MyBeats = () => {
     return Array.from(byId.values()).sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
-  }, [beats, myBeatsRaw]);
+  }, [beats, myBeatsRaw, sharedRetailerCounts]);
 
   // Annotate beats with their accessType for filtering / rendering.
   const annotatedBeats = useMemo(() => {
