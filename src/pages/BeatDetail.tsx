@@ -23,6 +23,7 @@ import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BeatRetailerExport } from "@/components/BeatRetailerExport";
 import { TargetVsActualCard } from "@/components/performance/TargetVsActualCard";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface BeatDetailData {
   id?: string; // Database UUID
@@ -77,6 +78,8 @@ export const BeatDetail = () => {
   const [upcomingVisitsCount, setUpcomingVisitsCount] = useState(0);
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [showHealthInsight, setShowHealthInsight] = useState(false);
+  const [cannotDeleteOpen, setCannotDeleteOpen] = useState(false);
+  const [cannotDeleteReasons, setCannotDeleteReasons] = useState<string[]>([]);
 
   const filteredRetailers = useMemo(() => {
     if (!beatData?.retailers) return [];
@@ -510,6 +513,32 @@ export const BeatDetail = () => {
     setSwot({ strengths, weaknesses, opportunities, threats });
   };
 
+  const handleConfirmDeactivate = async () => {
+    if (!beatData || !user) return;
+    setIsDeleting(true);
+    try {
+      const { error: deactivateError } = await supabase
+        .from('beats')
+        .update({
+          is_active: false,
+          deactivated_at: new Date().toISOString(),
+          deactivated_by: user.id,
+        } as any)
+        .eq('beat_id', beatData.beat_id);
+      if (deactivateError) throw deactivateError;
+      toast.success(`"${beatData.beat_name}" has been deactivated`);
+      window.dispatchEvent(new CustomEvent('beatDeleted', { detail: { beatId: beatData.beat_id } }));
+      setCannotDeleteOpen(false);
+      navigate('/my-beats');
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to deactivate beat');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+
   const handleDeleteClick = async () => {
     if (!beatData || !user) return;
 
@@ -526,32 +555,8 @@ export const BeatDetail = () => {
     const checkResult: any = check || {};
     if (!checkResult.deletable) {
       const reasons: string[] = Array.isArray(checkResult.reasons) ? checkResult.reasons : [];
-      const reasonText = reasons.length ? `\n\n• ${reasons.join('\n• ')}` : '';
-      const confirmed = window.confirm(
-        `"${beatData.beat_name}" has historical records and cannot be permanently deleted:${reasonText}\n\nThis beat can only be deactivated (hidden from view). Historical data will be preserved.\n\nDeactivate this beat instead?`
-      );
-      if (!confirmed) return;
-
-      setIsDeleting(true);
-      try {
-        const { error: deactivateError } = await supabase
-          .from('beats')
-          .update({
-            is_active: false,
-            deactivated_at: new Date().toISOString(),
-            deactivated_by: user.id,
-          } as any)
-          .eq('beat_id', beatData.beat_id);
-        if (deactivateError) throw deactivateError;
-        toast.success(`"${beatData.beat_name}" has been deactivated`);
-        window.dispatchEvent(new CustomEvent('beatDeleted', { detail: { beatId: beatData.beat_id } }));
-        navigate('/my-beats');
-      } catch (e) {
-        console.error(e);
-        toast.error('Failed to deactivate beat');
-      } finally {
-        setIsDeleting(false);
-      }
+      setCannotDeleteReasons(reasons);
+      setCannotDeleteOpen(true);
       return;
     }
 
@@ -1390,6 +1395,52 @@ export const BeatDetail = () => {
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
       />
+
+      {/* Cannot-delete (deactivate instead) Dialog */}
+      <AlertDialog open={cannotDeleteOpen} onOpenChange={(o) => !isDeleting && setCannotDeleteOpen(o)}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-600">
+              <AlertTriangle size={18} />
+              Cannot permanently delete this beat
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 flex gap-2">
+            <Info size={14} className="mt-0.5 shrink-0" />
+            <div>
+              <div className="font-medium mb-1">Historical data is preserved</div>
+              <div>
+                "{beatData?.beat_name}" has activity records that cannot be deleted. You can
+                deactivate it instead — the beat will be hidden from active views but all
+                historical reports stay intact.
+              </div>
+            </div>
+          </div>
+
+          {cannotDeleteReasons.length > 0 && (
+            <div className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm">
+              <div className="font-medium mb-1">Why it can't be deleted:</div>
+              <ul className="list-disc pl-5 space-y-0.5 text-muted-foreground">
+                {cannotDeleteReasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmDeactivate(); }}
+              disabled={isDeleting}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {isDeleting ? 'Deactivating...' : 'Deactivate beat'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };

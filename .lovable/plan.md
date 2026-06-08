@@ -1,43 +1,44 @@
-## Goal
+# Fix: Native Browser Dialog on Beat Delete
 
-Mirror the help affordances we added to **Assign Coverage** (`CoverageModal.tsx`) — a blue info banner at the top of the dialog plus a contextual `Info` tooltip — across the rest of the beat-menu actions so each modal explains what it does and how it differs from the others.
+## Root cause
 
-## Scope (per modal)
+In `src/pages/BeatDetail.tsx` (line 530), when a beat has historical records and can't be hard-deleted, the code uses:
 
-Each modal gets:
-1. A blue info banner directly under `DialogHeader` (same style as CoverageModal: `bg-blue-50 border-blue-200 text-blue-900` block with a one-line "What this does" + a short note on when to use it vs. its sibling actions).
-2. An `Info` (lucide) icon next to the most confusing field/label, wrapped in `TooltipProvider/Tooltip/TooltipTrigger/TooltipContent`, explaining that field.
+```ts
+const confirmed = window.confirm(`"${beatData.beat_name}" has historical records...`);
+```
 
-Imports added where missing: `Info` from `lucide-react`, `Tooltip*` from `@/components/ui/tooltip`.
+`window.confirm` is a browser-native API, so Chrome renders it as the OS-style "preview--bharat-sales-spark.lovable.app says" popup — unstyled, no branding, no theme. That's the dialog in your screenshot.
 
-### 1. `src/components/EditBeatModal.tsx` — Edit Beat
-- Banner: "Edit this beat's name, area, schedule, and assigned rep. Changes apply immediately to all retailers in this beat. Use Clone Beat if you want a copy instead of modifying the original."
-- Tooltip on the **Assigned Rep** field: explains that changing the rep here permanently reassigns ownership — for short-term cover use Assign Coverage; for permanent handover with audit trail use Transfer Ownership.
+The rest of the app uses shadcn `AlertDialog` / `Dialog` (e.g. `DeleteConfirmDialog.tsx`, `DeactivateBeatWizard.tsx`) for confirmations, so this one path is inconsistent.
 
-### 2. `src/components/ShareBeatModal.tsx` — Share Beat
-- Banner: "Sharing gives another rep ongoing joint access to this beat. Both reps can visit retailers and place orders. For temporary leave/absence cover only, use Assign Coverage instead."
-- Tooltip on the **Permission level / shared user** label: explains the difference between View, Edit, Full — and that the original owner keeps ownership.
+## Fix
 
-### 3. `src/components/TransferOwnershipModal.tsx` — Transfer Ownership
-- Banner: "Transferring permanently moves this beat to a new owner. The previous owner loses access unless also added via Share Beat. Use Assign Coverage for short-term absences; use Share Beat for ongoing joint access."
-- Tooltip on the **New Owner** field: notes the change is logged in beat history, all retailers/visits/orders stay attached, and the transfer cannot be auto-reverted (a new transfer is required).
+Replace the `window.confirm` call with an in-app shadcn `AlertDialog` styled like the rest of the beat modals (with the blue info banner pattern we just rolled out).
 
-### 4. `src/components/BeatHistoryDrawer.tsx` — View History
-- Banner: "Read-only timeline of every change to this beat — ownership transfers, coverage assignments, shares, retailer transfers, edits, and (de)activation. Useful for audits and dispute resolution."
-- Tooltip on the timeline header: explains entry types and that timestamps are in local time.
+### Changes to `src/pages/BeatDetail.tsx`
 
-### 5. Clone Beat (out of scope, noted)
-Clone currently uses `window.prompt(...)` from `MyBeats.tsx` (line 1939) — there is no modal to add a banner to. Leaving as-is unless you want it converted to a proper dialog in a follow-up.
+1. Add state to hold the "cannot delete, deactivate instead?" prompt:
+   - `cannotDeleteOpen: boolean`
+   - `cannotDeleteReasons: string[]`
+
+2. Split `handleDeleteClick` so the pre-check still calls `can_delete_beat`, but instead of `window.confirm(...)` it sets the state and opens the new dialog. The actual deactivation logic moves into a new `handleConfirmDeactivate` handler triggered by the dialog's confirm button.
+
+3. Render a new `<AlertDialog>` (or `<Dialog>`) at the bottom of the component:
+   - Title: "Cannot permanently delete this beat"
+   - Blue info banner (same `bg-blue-50 border-blue-200` pattern as CoverageModal/EditBeatModal) explaining: historical data is preserved; deactivation only hides the beat from active views.
+   - Body lists the reasons returned by `can_delete_beat` as bullet points (retailers assigned, visit records, beat plans, etc.).
+   - Footer: "Cancel" + "Deactivate beat" (orange, matches DeactivateBeatWizard styling), with loading state from `isDeleting`.
+
+4. No changes to RPC, permissions, DB, or the happy-path delete flow (which already uses an in-app modal further down).
 
 ## Out of scope
 
-- No logic changes to any modal — banners/tooltips only.
-- No changes to `BeatCard.tsx` dropdown items.
-- No changes to permissions, RPCs, or DB.
+- No changes to `MyBeats.tsx` clone prompt (separate issue, not asked).
+- No backend / RPC changes.
+- No changes to the existing in-app delete modal that appears when the beat *is* deletable.
 
-## Files changed
+## Technical notes
 
-- `src/components/EditBeatModal.tsx`
-- `src/components/ShareBeatModal.tsx`
-- `src/components/TransferOwnershipModal.tsx`
-- `src/components/BeatHistoryDrawer.tsx`
+- Reuse the existing `AlertDialog` primitives from `@/components/ui/alert-dialog` already imported elsewhere in the project.
+- Keep the `Info` icon + blue banner pattern consistent with the other beat modals updated earlier in this conversation.
