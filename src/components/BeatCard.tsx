@@ -33,6 +33,7 @@ interface BeatCardProps {
   };
   userId: string;
   accessType?: BeatAccessType;
+  coverageStartDate?: string | null;
   coverageEndDate?: string | null;
   sharedByName?: string | null;
   onEdit: () => void;
