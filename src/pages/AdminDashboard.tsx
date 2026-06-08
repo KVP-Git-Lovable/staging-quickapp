@@ -509,6 +509,16 @@ export const AdminDashboard = () => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 mr-2">
+                        <Switch
+                          id="show-inactive-users"
+                          checked={showInactive}
+                          onCheckedChange={setShowInactive}
+                        />
+                        <Label htmlFor="show-inactive-users" className="text-sm text-muted-foreground cursor-pointer">
+                          Show inactive users
+                        </Label>
+                      </div>
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="outline" size="sm">
