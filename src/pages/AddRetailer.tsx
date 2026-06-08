@@ -109,7 +109,7 @@ export const AddRetailer = () => {
   const [distributors, setDistributors] = useState<{id: string, name: string}[]>([]);
   const [beatMappedDistributors, setBeatMappedDistributors] = useState<{id: string, name: string}[]>([]);
   const [selectedBeat, setSelectedBeat] = useState<string>('');
-  const [beats, setBeats] = useState<{beat_id: string, beat_name: string, id?: string}[]>([]);
+  const [beats, setBeats] = useState<{beat_id: string, beat_name: string, id?: string, user_id?: string, owner_name?: string | null, access_type?: string}[]>([]);
   const [isScanningBoard, setIsScanningBoard] = useState(false);
   const [territories, setTerritories] = useState<{id: string, name: string, region: string}[]>([]);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
@@ -224,15 +224,17 @@ export const AddRetailer = () => {
       const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
       console.log('[AddRetailer Cache-First] Total cached beats:', cachedBeats.length);
       
-      const userBeats = cachedBeats.filter((beat: any) => {
-        return beat.created_by === user.id && beat.is_active;
-      });
-      
+      // Include both owned beats and beats shared/covering this user
+      const userBeats = cachedBeats.filter((beat: any) => beat.is_active);
+
       if (userBeats.length > 0) {
         const mappedBeats = userBeats.map((beat: any) => ({
           beat_id: beat.beat_id,
           beat_name: beat.beat_name,
-          id: beat.id
+          id: beat.id,
+          user_id: beat.user_id,
+          owner_name: beat.owner_name ?? null,
+          access_type: beat.access_type,
         }));
         setBeats(mappedBeats);
         cachedBeatsLoaded = true;
@@ -252,44 +254,71 @@ export const AddRetailer = () => {
           setTimeout(() => reject(new Error('Request timeout')), 8000)
         );
         
-        const fetchPromise = supabase
-          .from('beats')
-          .select('beat_id, beat_name, created_by, is_active, id')
-          .eq('created_by', user.id)
-          .eq('is_active', true)
-          .order('beat_name');
+        const nowIso = new Date().toISOString();
+        const fetchPromise = Promise.all([
+          supabase
+            .from('beats')
+            .select('beat_id, beat_name, user_id, created_by, owner_name, is_active, id')
+            .eq('created_by', user.id)
+            .eq('is_active', true),
+          supabase
+            .from('beat_user_access')
+            .select('access_type, beat_id, effective_from, effective_to, is_active, beats:beats!beat_user_access_beat_id_fkey(beat_id, beat_name, user_id, created_by, owner_name, is_active, id)')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
+        ]);
         
-        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]) as any;
+        const [ownedRes, accessRes] = await Promise.race([fetchPromise, timeoutPromise]) as any;
         
-        if (error) throw error;
+        if (ownedRes.error) throw ownedRes.error;
         
-        // Cache beats immediately after loading for offline access
-        if (data && data.length > 0) {
+        const WRITE_ACCESS = new Set(['OWNED', 'CO_OWNER', 'OPERATIONAL', 'COVERAGE']);
+        const byId = new Map<string, any>();
+        for (const b of (ownedRes.data ?? [])) {
+          byId.set(b.beat_id, { ...b, access_type: 'OWNED' });
+        }
+        for (const row of (accessRes?.data ?? [])) {
+          const at = String(row.access_type || '').toUpperCase();
+          if (!WRITE_ACCESS.has(at)) continue;
+          const beat = row.beats;
+          if (!beat?.beat_id || beat.is_active === false) continue;
+          if (byId.has(beat.beat_id)) continue;
+          byId.set(beat.beat_id, { ...beat, access_type: at });
+        }
+        
+        const merged = Array.from(byId.values()).sort((a: any, b: any) =>
+          String(a.beat_name || '').localeCompare(String(b.beat_name || ''))
+        );
+        
+        // Cache merged beats for offline access (include ownership fields)
+        if (merged.length > 0) {
           await offlineStorage.init();
-          console.log('[AddRetailer Online] Caching beats to IndexedDB:', data.length);
-          for (const beat of data) {
+          console.log('[AddRetailer Online] Caching beats to IndexedDB:', merged.length);
+          for (const beat of merged) {
             await offlineStorage.save(STORES.BEATS, {
               id: beat.id,
               beat_id: beat.beat_id,
               beat_name: beat.beat_name,
-              created_by: user.id,
-              is_active: true
+              user_id: beat.user_id,
+              created_by: beat.created_by,
+              owner_name: beat.owner_name ?? null,
+              access_type: beat.access_type,
+              is_active: true,
             });
           }
           console.log('[AddRetailer Online] ✅ Beats cached successfully');
         }
         
-        setBeats(data || []);
-        console.log('[AddRetailer Online] Loaded beats from Supabase:', data?.length || 0);
+        setBeats(merged);
+        console.log('[AddRetailer Online] Loaded beats from Supabase:', merged.length);
         return; // Success - exit function
       } catch (error) {
         console.error('[AddRetailer Online] Failed to load beats (timeout or error):', error);
-        // If we already loaded from cache, don't show error - cache data is displayed
         if (cachedBeatsLoaded) {
           console.log('[AddRetailer] Using cached beats due to network issue');
           return;
         }
-        // Fall through to cache fallback only if cache wasn't loaded
       }
     }
     
@@ -302,20 +331,20 @@ export const AddRetailer = () => {
         const cachedBeats = await offlineStorage.getAll(STORES.BEATS);
         console.log('[AddRetailer] Total cached beats:', cachedBeats.length);
         
-        const userBeats = cachedBeats.filter((beat: any) => {
-          const matches = beat.created_by === user.id && beat.is_active;
-          return matches;
-        });
+        const userBeats = cachedBeats.filter((beat: any) => beat.is_active);
         
         const mappedBeats = userBeats.map((beat: any) => ({
           beat_id: beat.beat_id,
-          beat_name: beat.beat_name
+          beat_name: beat.beat_name,
+          id: beat.id,
+          user_id: beat.user_id,
+          owner_name: beat.owner_name ?? null,
+          access_type: beat.access_type,
         }));
         
         setBeats(mappedBeats);
         console.log('[AddRetailer] Loaded beats from cache:', mappedBeats.length);
         
-        // If cache is empty and we're not definitely offline, show a toast
         if (mappedBeats.length === 0 && connectivityStatus !== 'offline') {
           toast({
             title: "Loading beats...",
@@ -416,6 +445,22 @@ export const AddRetailer = () => {
       }
     }
   }, [isEditMode, editingRetailer, user, allUsers, selectedOwnerId]);
+
+  // When the selected beat is owned by someone else (shared / coverage),
+  // auto-assign the owner field to the beat owner so the new retailer stays
+  // with the beat owner after coverage ends. User can still override manually.
+  useEffect(() => {
+    if (isEditMode || !user || !selectedBeat) return;
+    const beat = beats.find(b => b.beat_id === selectedBeat);
+    if (!beat?.user_id) return;
+    const isOwnBeat = beat.user_id === user.id;
+    if (isOwnBeat) return;
+    // Only auto-switch when owner currently points to the current user (i.e. auto-filled, not a manual override)
+    if (selectedOwnerId && selectedOwnerId !== user.id) return;
+    setSelectedOwnerId(beat.user_id);
+    setSelectedOwnerName(beat.owner_name || '');
+  }, [selectedBeat, beats, user, isEditMode]);
+
   
   // Set photo preview when editing
   useEffect(() => {
@@ -834,8 +879,18 @@ export const AddRetailer = () => {
         setIsSaving(false);
       }
     } else {
-      // Create new retailer
-      payload.user_id = user.id;
+      // Create new retailer — ownership follows the beat owner for shared/coverage beats,
+      // so retailers stay with the beat owner after coverage ends.
+      const selectedBeatRow = beats.find(b => b.beat_id === beatId);
+      const beatOwnerUserId = selectedBeatRow?.user_id ?? user.id;
+      const beatOwnerName = selectedBeatRow?.owner_name ?? null;
+      const isOwnBeat = beatOwnerUserId === user.id;
+
+      payload.created_by = user.id; // audit: who physically added the row
+      payload.user_id = isOwnBeat ? user.id : beatOwnerUserId;
+      // Form-picked owner wins (manual override); otherwise default to beat owner
+      payload.owner_id = selectedOwnerId || (isOwnBeat ? user.id : beatOwnerUserId);
+      payload.owner_name = selectedOwnerName || (isOwnBeat ? null : beatOwnerName);
       payload.status = 'active';
       
       const result = await createRetailer(payload);
@@ -1694,6 +1749,15 @@ export const AddRetailer = () => {
                     <p className="text-sm text-destructive">{validationErrors.beat}</p>
                   )}
                   <p className="text-xs text-muted-foreground">Select which beat this retailer belongs to</p>
+                  {(() => {
+                    const sb = beats.find(b => b.beat_id === selectedBeat);
+                    if (!sb?.user_id || !user?.id || sb.user_id === user.id) return null;
+                    return (
+                      <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                        This beat is owned by <span className="font-semibold">{sb.owner_name || 'another user'}</span>. The new retailer will be assigned to them; you'll remain recorded as the creator.
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 {/* Territory Selection */}
