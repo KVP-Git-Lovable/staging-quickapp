@@ -201,13 +201,20 @@ export const BeatPlanning = () => {
       // Map beats data with retailer counts - show ALL beats even if user has 0 retailers
       const beatsArr: Beat[] = (beatsData || []).map((beat: any) => {
         const retailerInfo = retailerCountMap.get(beat.beat_id) || { count: 0, priority: 'medium' };
+        const lastIso = lastVisitedMap.get(beat.beat_id) ?? null;
         return {
           id: beat.beat_id,
           name: beat.beat_name,
           retailerCount: retailerInfo.count,
           category: beat.category || 'all',
           priority: retailerInfo.priority,
-          lastVisited: lastVisitedMap.get(beat.beat_id),
+          lastVisited: lastIso ? new Date(lastIso).toLocaleDateString() : undefined,
+          lastVisitedDate: lastIso,
+          accessType: beat.accessType,
+          coverageStartDate: beat.coverageStartDate ?? null,
+          coverageEndDate: beat.coverageEndDate ?? null,
+          ownerName: beat.ownerName ?? beat.owner_name ?? null,
+          avgOrderValue: beat.avgOrderValue ?? null,
         };
       });
 
