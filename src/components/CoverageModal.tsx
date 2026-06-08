@@ -175,7 +175,7 @@ export function CoverageModal({
       // Fetch ALL coverage rows (upcoming, active, expired) — filter in UI.
       const { data, error } = await supabase
         .from("beat_coverage_assignments")
-        .select("id, coverage_user_id, start_date, end_date")
+        .select("id, coverage_user_id, start_date, end_date, is_active")
         .eq("beat_id", beat.beat_id)
         .order("start_date", { ascending: false });
       if (error) throw error;
