@@ -1,98 +1,60 @@
-## Goal
+## Problem
 
-When a user adds a retailer to a beat they do **not own** (shared / coverage beat), the retailer should be owned by the **beat owner**, not the current user. This keeps retailers attached to the beat owner after coverage ends — no orphaned retailers.
+The user-management page at `/admin#users` lives in `src/pages/AdminDashboard.tsx` (not the Security Management page edited earlier). It currently:
 
-## Current behaviour (bug)
+- Always shows inactive users — no filter.
+- Counts all users in "Total Users".
+- Per-row Active toggle writes only `profiles.user_status` ('active' / 'inactive') and not `profiles.is_active`, so beat-picker filters that use `is_active` (Share / Coverage / Transfer modals) don't actually hide users deactivated here.
+- Does not revoke beat access on deactivation.
 
-`src/pages/AddRetailer.tsx`:
+## Changes — all in `src/pages/AdminDashboard.tsx`
 
-- Beats dropdown only loads beats where `created_by = user.id` (line 258), so today a covering user can't even add retailers on a shared beat from this page. Once we relax that, the next problem appears:
-- The insert payload always sets `payload.user_id = user.id` (line 838) and uses the form-picked `owner_id`/`owner_name` (lines 806–807) — there's no awareness of who actually owns the beat.
-- `created_by` is never written, so we lose audit of who physically added the row.
+### 1. Add "Show inactive users" filter
 
-The `retailers` table already has all four columns we need: `user_id`, `owner_id`, `owner_name`, `created_by` (confirmed via schema check).
+- Add state: `const [showInactive, setShowInactive] = useState(false);`
+- In the header row (next to Columns / Refresh, around line 469), add a `Switch` + `Label`:
+  - "Show inactive users" — off by default.
+- Apply the filter to the rendered/filtered user list (alongside the existing search filter): when `showInactive` is false, exclude users whose `profile?.user_status === 'inactive'`.
 
-## Fix (single file: `src/pages/AddRetailer.tsx`)
+### 2. Update counts (around line 464)
 
-### 1. Load beats the user can add retailers on (not just owned)
+- Compute:
+  - `activeCount = users.filter(u => u.profile?.user_status !== 'inactive').length`
+  - `inactiveCount = users.length - activeCount`
+- Replace "Total Users: {users.length}" with:
+  - Primary: `Active Users: {activeCount}`
+  - Muted suffix: `({inactiveCount} inactive)`
+- Keep the existing "X users with security profiles assigned" line.
 
-In `loadBeats` (around lines 255–283), replace the strict `created_by = user.id` query with two parallel queries and merge:
+### 3. Make the per-row toggle also update `is_active` and revoke beat access
 
-```ts
-const nowIso = new Date().toISOString();
+Update `toggleUserActiveStatus` (lines 342–383):
 
-const [ownedRes, accessRes] = await Promise.all([
-  supabase
-    .from('beats')
-    .select('beat_id, beat_name, user_id, created_by, owner_name, is_active, id')
-    .eq('created_by', user.id)
-    .eq('is_active', true),
-  supabase
-    .from('beat_user_access')
-    .select('access_type, beat_id, effective_from, effective_to, is_active, beats:beats!beat_user_access_beat_id_fkey(beat_id, beat_name, user_id, created_by, owner_name, is_active, id)')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
-]);
-```
+- On the `profiles` update, set BOTH fields in one call:
+  - `user_status: newStatus` (existing)
+  - `is_active: newStatus === 'active'` (new)
+- Also keep `distributor_users` in sync (best-effort, no throw):
+  - `update({ is_active: newStatus === 'active', user_status: newStatus }).eq('auth_user_id', userId)`
+- When `newStatus === 'inactive'`, after the profile update succeeds, revoke beat access (best-effort):
+  - `beat_user_access`: `.update({ is_active: false }).eq('user_id', userId)`
+  - `beat_coverage_assignments`: `.update({ is_active: false }).eq('coverage_user_id', userId).gte('end_date', today)` where `today = new Date().toISOString().slice(0, 10)`
+- Keep all existing optimistic-update / revert logic intact. Adjust the success toast to mention beat-access revocation when deactivating.
 
-Merge into one deduped list (owned wins). Filter `accessRes` rows to access types that grant write (`OWNED`, `CO_OWNER`, `OPERATIONAL`, `COVERAGE`) — exclude `VIEW_ONLY`. Keep the existing IndexedDB cache path; extend the cached `beats` records with the same fields (`user_id`, `owner_name`).
+### 4. Out of scope (no changes)
 
-Update the `beats` state type (line 112) to include `user_id?: string` and `owner_name?: string | null`.
+- The per-row Active toggle component, the "Inactive" status label, and the filterable Active column already work — leave them.
+- `SecurityManagement → UserProfileAssignment` changes from the previous turn remain in place; they govern the secondary list under Security and are still correct (now redundant rather than conflicting).
+- Beat picker modals (`ShareBeatModal`, `CoverageModal`, `TransferOwnershipModal`) already filter on `is_active = true` — no change needed once step 3 keeps that flag in sync.
 
-### 2. Set retailer ownership based on the selected beat
+## Technical notes
 
-In the create branch (around lines 783–839), compute owner from the selected beat:
-
-```ts
-const selectedBeatRow = beats.find(b => b.beat_id === beatId);
-const beatOwnerUserId = selectedBeatRow?.user_id ?? user.id;
-const beatOwnerName   = selectedBeatRow?.owner_name ?? null;
-const isOwnBeat       = beatOwnerUserId === user.id;
-```
-
-Then in the payload:
-
-```ts
-// Always tracks who physically added it (audit trail)
-payload.created_by = user.id;
-
-// Form-picked owner takes priority (manual override),
-// otherwise: own beat -> current user; shared beat -> beat owner
-payload.owner_id   = selectedOwnerId || (isOwnBeat ? user.id : beatOwnerUserId);
-payload.owner_name = selectedOwnerName || (isOwnBeat ? currentUserName : beatOwnerName);
-
-// user_id (row-owner used by RLS / "my retailers" filters) follows the beat owner
-payload.user_id    = isOwnBeat ? user.id : beatOwnerUserId;
-payload.status     = 'active';
-```
-
-`currentUserName` already exists in the component (used elsewhere for owner pickers); if not, derive from the existing profile fetch.
-
-Leave the **edit** branch (lines 810–826) alone — editing an existing retailer should not silently change ownership.
-
-### 3. UI hint (small, optional but recommended)
-
-When `!isOwnBeat`, show a one-line muted note under the Beat selector:
-
-> "This beat is owned by {beatOwnerName}. The new retailer will be assigned to them; you'll remain recorded as the creator."
-
-Keeps user expectation aligned with what we just changed.
-
-## Out of scope
-
-- No DB migration, no RLS change, no edge function.
-- No change to `BeatDetail.tsx` (already fixed in the previous round).
-- The offline-create path (`createRetailer` in the offline service) already accepts the payload as-is, so the new fields flow through both online and offline inserts.
+- `profiles.user_status` is the canonical text field driving the UI on this page; `profiles.is_active` is the boolean used by RLS-adjacent filters in beat modals. We keep both in sync to avoid splitting the source of truth across pages.
+- `distributor_users.user_status` is a Postgres enum (`user_status` type). The `.update({ user_status: 'active' | 'inactive' })` matches existing values used elsewhere in the project, so no migration is needed.
+- All cross-table updates (distributor_users, beat_user_access, beat_coverage_assignments) are best-effort: we don't fail the toggle if a permission policy blocks one of them, but we do show the result toast.
 
 ## Verification
 
-1. Log in as a user who has a **coverage / shared** assignment on Bejai2.
-2. Bejai2 now appears in the AddRetailer beat dropdown.
-3. Add a retailer "Test Store" on Bejai2.
-4. DB row for "Test Store":
-   - `user_id` = Bejai2 owner (Abhishek), not the current user.
-   - `owner_id` / `owner_name` = Abhishek.
-   - `created_by` = current user.
-5. After coverage expires and the recipient loses access, "Test Store" still belongs to Abhishek and remains visible to him.
-6. Adding a retailer on a beat the user **owns** behaves exactly as before — `user_id` / `owner_id` = current user, `created_by` = current user.
+1. `/admin#users`: deactivate one user → row disappears from list; "Active Users" count drops by 1; "(N inactive)" goes up by 1.
+2. Flip "Show inactive users" on → user reappears with the Inactive label and the toggle off.
+3. Open ShareBeat / Coverage / Transfer Ownership modals → search for that user → they no longer appear in results.
+4. Re-activate from `/admin#users` → user reappears in active list and is searchable again in beat modals.
