@@ -280,7 +280,7 @@ export const MyBeats = () => {
   const beatLifecycle = useBeatLifecycle();
 
   // Access-aware tab + service data
-  const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all'>('mine');
+  const [accessTab, setAccessTab] = useState<'mine' | 'shared' | 'covering' | 'inactive' | 'all' | 'empty'>('mine');
   const [myBeatsRaw, setMyBeatsRaw] = useState<BeatWithAccess[]>([]);
   const [sharedRetailerCounts, setSharedRetailerCounts] = useState<Map<string, number>>(new Map());
   const [beatStats, setBeatStats] = useState<BeatStats | null>(null);
@@ -1471,6 +1471,7 @@ export const MyBeats = () => {
       if (beat.coverageEndDate && new Date(beat.coverageEndDate) < new Date(new Date().toDateString())) return false;
     }
     if (accessTab === 'inactive' && isActive) return false;
+    if (accessTab === 'empty' && !(beat.accessType === 'OWNED' && isActive && (beat.retailer_count ?? 0) === 0)) return false;
 
     // 'all' = no tab filter
     return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
@@ -1582,14 +1583,14 @@ export const MyBeats = () => {
 
         {/* Compact stat cards (6) */}
         {(() => {
-          type Tab = 'mine' | 'shared' | 'covering' | 'inactive' | 'all';
+          type Tab = 'mine' | 'shared' | 'covering' | 'inactive' | 'all' | 'empty';
           const cards: Array<{ key: string; value: number; label: string; color: string; tab: Tab }> = [
             { key: 'mine', value: beatStats?.total ?? 0, label: 'My Beats', color: 'blue', tab: 'mine' },
             { key: 'active', value: beatStats?.active ?? 0, label: 'Active', color: 'emerald', tab: 'mine' },
             { key: 'inactive', value: beatStats?.inactive ?? 0, label: 'Inactive', color: 'slate', tab: 'inactive' },
             { key: 'shared', value: beatStats?.sharedWithMe ?? 0, label: 'Shared With Me', color: 'indigo', tab: 'shared' },
             { key: 'covering', value: beatStats?.covering ?? 0, label: 'Covering Today', color: 'amber', tab: 'covering' },
-            { key: 'empty', value: beatStats?.emptyBeats ?? 0, label: 'Empty Beats', color: 'rose', tab: 'mine' },
+            { key: 'empty', value: beatStats?.emptyBeats ?? 0, label: 'Empty Beats', color: 'rose', tab: 'empty' },
           ];
           const colorMap: Record<string, { border: string; text: string; ring: string }> = {
             blue:    { border: 'border-l-blue-500',    text: 'text-blue-600',    ring: 'ring-blue-500' },
@@ -1937,7 +1938,8 @@ export const MyBeats = () => {
                     {accessTab === 'mine' ? 'My Beats' :
                      accessTab === 'shared' ? 'Shared With Me' :
                      accessTab === 'covering' ? 'Covering' :
-                     accessTab === 'inactive' ? 'Inactive Beats' : 'All Beats'}
+                     accessTab === 'inactive' ? 'Inactive Beats' :
+                     accessTab === 'empty' ? 'Empty Beats' : 'All Beats'}
                     {' '}({filteredBeats.length})
                   </h2>
                 </div>
