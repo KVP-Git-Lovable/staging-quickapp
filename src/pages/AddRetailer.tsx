@@ -879,8 +879,18 @@ export const AddRetailer = () => {
         setIsSaving(false);
       }
     } else {
-      // Create new retailer
-      payload.user_id = user.id;
+      // Create new retailer — ownership follows the beat owner for shared/coverage beats,
+      // so retailers stay with the beat owner after coverage ends.
+      const selectedBeatRow = beats.find(b => b.beat_id === beatId);
+      const beatOwnerUserId = selectedBeatRow?.user_id ?? user.id;
+      const beatOwnerName = selectedBeatRow?.owner_name ?? null;
+      const isOwnBeat = beatOwnerUserId === user.id;
+
+      payload.created_by = user.id; // audit: who physically added the row
+      payload.user_id = isOwnBeat ? user.id : beatOwnerUserId;
+      // Form-picked owner wins (manual override); otherwise default to beat owner
+      payload.owner_id = selectedOwnerId || (isOwnBeat ? user.id : beatOwnerUserId);
+      payload.owner_name = selectedOwnerName || (isOwnBeat ? null : beatOwnerName);
       payload.status = 'active';
       
       const result = await createRetailer(payload);
