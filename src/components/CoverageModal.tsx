@@ -84,7 +84,7 @@ export function CoverageModal({
 
   const [startDate, setStartDate] = useState<Date | undefined>(() => {
     const d = new Date();
-    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
     return d;
   });
   const [endDate, setEndDate] = useState<Date | undefined>(() => {
