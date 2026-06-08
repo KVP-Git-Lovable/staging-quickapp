@@ -638,10 +638,10 @@ export function CoverageModal({
                         {currentCoverage.map((c) => renderRow(c, false))}
                       </div>
                     )}
-                    {expiredCoverage.length > 0 && (
+                    {historyCoverage.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">⚫ Expired</p>
-                        {expiredCoverage.map((c) => renderRow(c, true))}
+                        <p className="text-xs font-medium text-muted-foreground">⚫ History</p>
+                        {historyCoverage.map((c) => renderRow(c, true))}
                       </div>
                     )}
                   </div>
