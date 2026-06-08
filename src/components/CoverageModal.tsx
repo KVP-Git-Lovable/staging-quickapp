@@ -91,6 +91,42 @@ export function CoverageModal({
   const [activeCoverage, setActiveCoverage] = useState<CoverageRow[]>([]);
   const [loadingCoverage, setLoadingCoverage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingCoverageId, setEditingCoverageId] = useState<string | null>(null);
+  const [editEndDate, setEditEndDate] = useState<string>("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const saveEditDate = async (row: CoverageRow) => {
+    if (!editEndDate) {
+      toast.error("Pick an end date");
+      return;
+    }
+    if (editEndDate < row.start_date) {
+      toast.error("End date cannot be before start date");
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const { error: e1 } = await supabase
+        .from("beat_coverage_assignments")
+        .update({ end_date: editEndDate })
+        .eq("id", row.id);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase
+        .from("beat_user_access")
+        .update({ effective_to: new Date(editEndDate + "T23:59:59").toISOString() })
+        .eq("beat_id", beat.beat_id)
+        .eq("user_id", row.coverage_user_id)
+        .eq("access_type", "COVERAGE");
+      if (e2) throw e2;
+      setEditingCoverageId(null);
+      await loadCoverage();
+      toast.success("Coverage dates updated");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update coverage");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
