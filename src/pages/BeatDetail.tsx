@@ -266,22 +266,21 @@ export const BeatDetail = () => {
       const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
       // Count beat visits from beat_plans (how many times this beat was planned/visited)
+      // NO user_id filter — counts across all users with access so shared beats show full activity.
       const { data: beatPlans } = await supabase
         .from('beat_plans')
         .select('plan_date')
         .eq('beat_id', beatId)
-        .eq('user_id', userId)
         .gte('plan_date', threeMonthsAgo.toISOString().split('T')[0])
         .lte('plan_date', now.toISOString().split('T')[0]);
 
       const beatVisitCount = beatPlans?.length || 0;
 
-      // Get last visited date for this beat
+      // Get last visited date for this beat (across all users)
       const { data: lastBeatPlan } = await supabase
         .from('beat_plans')
         .select('plan_date')
         .eq('beat_id', beatId)
-        .eq('user_id', userId)
         .lte('plan_date', now.toISOString().split('T')[0])
         .order('plan_date', { ascending: false })
         .limit(1);
