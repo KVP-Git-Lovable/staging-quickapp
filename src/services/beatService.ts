@@ -28,6 +28,7 @@ export interface BeatStats {
   inactive: number;
   sharedWithMe: number;
   covering: number;
+  upcomingCoverage: number;
   emptyBeats: number;
 }
 
