@@ -1471,6 +1471,7 @@ export const MyBeats = () => {
       if (beat.coverageEndDate && new Date(beat.coverageEndDate) < new Date(new Date().toDateString())) return false;
     }
     if (accessTab === 'inactive' && isActive) return false;
+    if (accessTab === 'empty' && !(beat.accessType === 'OWNED' && isActive && (beat.retailer_count ?? 0) === 0)) return false;
 
     // 'all' = no tab filter
     return beat.name.toLowerCase().includes(beatSearchTerm.toLowerCase());
