@@ -492,7 +492,18 @@ export const AdminDashboard = () => {
                 <div className="space-y-4 mb-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="text-lg font-semibold">Total Users: {users.length}</h4>
+                      {(() => {
+                        const activeCount = users.filter(u => (u.profile?.user_status || 'active') !== 'inactive').length;
+                        const inactiveCount = users.length - activeCount;
+                        return (
+                          <h4 className="text-lg font-semibold">
+                            Active Users: {activeCount}
+                            <span className="text-muted-foreground text-xs ml-2 font-normal">
+                              ({inactiveCount} inactive)
+                            </span>
+                          </h4>
+                        );
+                      })()}
                       <p className="text-sm text-muted-foreground">
                         {users.filter(u => u.securityProfile).length} users with security profiles assigned
                       </p>
