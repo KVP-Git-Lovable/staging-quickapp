@@ -83,6 +83,7 @@ export function BeatCard({
   beat,
   userId,
   accessType = 'OWNED',
+  coverageStartDate,
   coverageEndDate,
   sharedByName,
   onEdit,
