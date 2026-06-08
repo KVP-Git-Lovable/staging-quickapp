@@ -238,6 +238,10 @@ export function CoverageModal({
           </DialogDescription>
         </DialogHeader>
 
+        <div className="rounded-md border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/40 p-3 text-xs text-blue-900 dark:text-blue-100">
+          <strong>Coverage is for leave/absence only.</strong> The coverage person temporarily accesses this beat during the dates you set. Access auto-expires on the end date — no manual removal needed. For permanent joint access, use <strong>Share Beat</strong> instead.
+        </div>
+
         <div className="space-y-4">
           {/* Coverage person */}
           <div className="space-y-2">
