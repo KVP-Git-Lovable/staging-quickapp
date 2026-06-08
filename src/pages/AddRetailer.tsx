@@ -109,7 +109,7 @@ export const AddRetailer = () => {
   const [distributors, setDistributors] = useState<{id: string, name: string}[]>([]);
   const [beatMappedDistributors, setBeatMappedDistributors] = useState<{id: string, name: string}[]>([]);
   const [selectedBeat, setSelectedBeat] = useState<string>('');
-  const [beats, setBeats] = useState<{beat_id: string, beat_name: string, id?: string}[]>([]);
+  const [beats, setBeats] = useState<{beat_id: string, beat_name: string, id?: string, user_id?: string, owner_name?: string | null, access_type?: string}[]>([]);
   const [isScanningBoard, setIsScanningBoard] = useState(false);
   const [territories, setTerritories] = useState<{id: string, name: string, region: string}[]>([]);
   const [selectedTerritoryId, setSelectedTerritoryId] = useState<string | null>(null);
