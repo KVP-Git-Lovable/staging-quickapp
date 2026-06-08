@@ -342,45 +342,75 @@ export const AdminDashboard = () => {
 
   const toggleUserActiveStatus = async (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
-    
+    const newIsActive = newStatus === 'active';
+
     // Optimistically update local state for immediate UI feedback
-    setUsers(prev => prev.map(u => 
-      u.id === userId 
-        ? { ...u, profile: { ...u.profile, user_status: newStatus } as any }
+    setUsers(prev => prev.map(u =>
+      u.id === userId
+        ? { ...u, profile: { ...u.profile, user_status: newStatus, is_active: newIsActive } as any }
         : u
     ));
-    
+
     const { data, error } = await supabase
       .from('profiles')
-      .update({ user_status: newStatus })
+      .update({ user_status: newStatus, is_active: newIsActive })
       .eq('id', userId)
       .select('user_status')
       .single();
-      
+
     if (error || !data) {
       // Revert optimistic update on failure
-      setUsers(prev => prev.map(u => 
-        u.id === userId 
-          ? { ...u, profile: { ...u.profile, user_status: currentStatus } as any }
+      setUsers(prev => prev.map(u =>
+        u.id === userId
+          ? { ...u, profile: { ...u.profile, user_status: currentStatus, is_active: currentStatus !== 'inactive' } as any }
           : u
       ));
       toast.error('Failed to update user status: ' + (error?.message || 'Update failed'));
       return;
     }
-    
+
     // Verify the update actually happened
     if (data.user_status !== newStatus) {
       // Revert if DB didn't update
-      setUsers(prev => prev.map(u => 
-        u.id === userId 
-          ? { ...u, profile: { ...u.profile, user_status: currentStatus } as any }
+      setUsers(prev => prev.map(u =>
+        u.id === userId
+          ? { ...u, profile: { ...u.profile, user_status: currentStatus, is_active: currentStatus !== 'inactive' } as any }
           : u
       ));
       toast.error('Failed to update user status - permission denied');
       return;
     }
-    
-    toast.success(`User ${newStatus === 'active' ? 'activated' : 'deactivated'} successfully`);
+
+    // Best-effort sync to distributor_users (if linked)
+    try {
+      await supabase
+        .from('distributor_users')
+        .update({ is_active: newIsActive, user_status: newStatus as any })
+        .eq('auth_user_id', userId);
+    } catch (e) {
+      console.warn('distributor_users sync skipped:', e);
+    }
+
+    // On deactivation — revoke beat access (best-effort)
+    if (!newIsActive) {
+      const today = new Date().toISOString().slice(0, 10);
+      try {
+        await supabase
+          .from('beat_user_access')
+          .update({ is_active: false })
+          .eq('user_id', userId);
+        await supabase
+          .from('beat_coverage_assignments')
+          .update({ is_active: false })
+          .eq('coverage_user_id', userId)
+          .gte('end_date', today);
+      } catch (e) {
+        console.warn('beat access revoke skipped:', e);
+      }
+      toast.success('User deactivated and beat access revoked');
+    } else {
+      toast.success('User activated successfully');
+    }
   };
 
   if (loading) {
