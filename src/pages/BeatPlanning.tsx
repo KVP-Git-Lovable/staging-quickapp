@@ -863,51 +863,84 @@ export const BeatPlanning = () => {
 
         {/* Beats List */}
         <div className="space-y-3">
-          {filteredBeats.map((beat) => (
-            <Card key={beat.id} className="shadow-card">
+          {beatsForDate.map((beat) => (
+            <Card key={beat.id} className={`shadow-card ${beat.isUpcomingCoverage ? 'opacity-60' : ''}`}>
               <CardContent className="p-4">
-                <div className="flex justify-between items-start mb-3">
+                {/* Header row */}
+                <div className="flex justify-between items-start mb-2">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
                       <h3 className="font-semibold text-foreground">{beat.name}</h3>
-                      <Badge className={getPriorityColor(beat.priority)}>
-                        {beat.priority}
-                      </Badge>
+                      {beat.accessType === 'OWNED' && <Badge className="bg-green-100 text-green-700 text-xs">Mine</Badge>}
+                      {beat.accessType === 'CO_OWNER' && <Badge className="bg-purple-100 text-purple-700 text-xs">Shared · Co-owner</Badge>}
+                      {beat.accessType === 'OPERATIONAL' && <Badge className="bg-blue-100 text-blue-700 text-xs">Shared · Operational</Badge>}
+                      {beat.accessType === 'VIEW_ONLY' && <Badge className="bg-gray-100 text-gray-600 text-xs">View only</Badge>}
+                      {beat.accessType === 'COVERAGE' && !beat.isUpcomingCoverage && beat.coverageEndDate && (
+                        <Badge className="bg-amber-100 text-amber-700 text-xs">
+                          Coverage · Until {format(new Date(beat.coverageEndDate), 'MMM d')}
+                        </Badge>
+                      )}
+                      {beat.isUpcomingCoverage && (
+                        <Badge className="bg-gray-100 text-gray-500 text-xs">
+                          🔒 {beat.coverageStartLabel}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground">
-                        Last visited: {beat.lastVisited || 'Never'}
+                    {beat.accessType && beat.accessType !== 'OWNED' && beat.ownerName && (
+                      <p className="text-xs text-muted-foreground">
+                        {beat.accessType === 'COVERAGE' ? 'Covering for:' : 'Owner:'} {beat.ownerName}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        {beat.retailerCount} Retailers
-                      </p>
-                    </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Last visited: {beat.lastVisited || 'Never'}
+                    </p>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      size="sm"
-                      variant={isBeatSelected(beat.id) ? "destructive" : "default"}
-                      onClick={() => {
-                        if (isBeatSelected(beat.id)) {
-                          handleRemoveBeat(beat.id);
-                        } else {
-                          handleSelectBeat(beat.id);
-                        }
-                      }}
-                    >
-                      {isBeatSelected(beat.id) ? "Remove" : "Select"}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => navigate(`/beat-analytics?beat=${beat.id}`)}
-                      className="text-xs"
-                    >
-                      Analytics
-                    </Button>
+                  <Badge className={getPriorityColor(beat.priority)}>{beat.priority}</Badge>
+                </div>
+
+                {/* Stats row */}
+                <div className="flex gap-3 bg-muted/40 rounded-md p-2 mb-3">
+                  <div className="flex-1 text-center">
+                    <div className="text-sm font-semibold text-blue-600">{beat.retailerCount}</div>
+                    <div className="text-xs text-muted-foreground">Retailers</div>
+                  </div>
+                  <div className="flex-1 text-center">
+                    <div className="text-sm font-semibold text-emerald-600">
+                      {beat.avgOrderValue ? `₹${beat.avgOrderValue.toLocaleString()}` : '—'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Avg Order</div>
+                  </div>
+                  <div className="flex-1 text-center">
+                    <div className="text-sm font-semibold text-amber-600">
+                      {beat.daysSinceVisit !== null ? `${beat.daysSinceVisit}d` : '—'}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Since Visit</div>
                   </div>
                 </div>
 
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={isBeatSelected(beat.id) ? "destructive" : "default"}
+                    disabled={!beat.isSelectableForDate}
+                    title={beat.isUpcomingCoverage ? beat.coverageStartLabel ?? undefined : undefined}
+                    onClick={() => {
+                      if (isBeatSelected(beat.id)) handleRemoveBeat(beat.id);
+                      else handleSelectBeat(beat.id);
+                    }}
+                    className="flex-1"
+                  >
+                    {isBeatSelected(beat.id)
+                      ? 'Remove'
+                      : beat.isUpcomingCoverage && beat.coverageStartDate
+                        ? `Starts ${format(new Date(beat.coverageStartDate), 'MMM d')}`
+                        : 'Select'}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => navigate(`/beat-analytics?beat=${beat.id}`)}>
+                    Analytics
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
