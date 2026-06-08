@@ -715,6 +715,10 @@ export const AdminDashboard = () => {
                       <TableBody>
                         {sortData(
                           users.filter(user => {
+                            // Hide inactive users unless toggle is on
+                            const status = user.profile?.user_status || 'active';
+                            if (!showInactive && status === 'inactive') return false;
+
                             // Global search
                             if (userSearchQuery.trim()) {
                               const query = userSearchQuery.toLowerCase();
