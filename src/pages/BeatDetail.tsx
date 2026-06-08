@@ -1395,6 +1395,52 @@ export const BeatDetail = () => {
         onConfirm={handleConfirmDelete}
         isLoading={isDeleting}
       />
+
+      {/* Cannot-delete (deactivate instead) Dialog */}
+      <AlertDialog open={cannotDeleteOpen} onOpenChange={(o) => !isDeleting && setCannotDeleteOpen(o)}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-orange-600">
+              <AlertTriangle size={18} />
+              Cannot permanently delete this beat
+            </AlertDialogTitle>
+          </AlertDialogHeader>
+
+          <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 flex gap-2">
+            <Info size={14} className="mt-0.5 shrink-0" />
+            <div>
+              <div className="font-medium mb-1">Historical data is preserved</div>
+              <div>
+                "{beatData?.beat_name}" has activity records that cannot be deleted. You can
+                deactivate it instead — the beat will be hidden from active views but all
+                historical reports stay intact.
+              </div>
+            </div>
+          </div>
+
+          {cannotDeleteReasons.length > 0 && (
+            <div className="space-y-1 rounded-md border bg-muted/40 p-3 text-sm">
+              <div className="font-medium mb-1">Why it can't be deleted:</div>
+              <ul className="list-disc pl-5 space-y-0.5 text-muted-foreground">
+                {cannotDeleteReasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleConfirmDeactivate(); }}
+              disabled={isDeleting}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {isDeleting ? 'Deactivating...' : 'Deactivate beat'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
