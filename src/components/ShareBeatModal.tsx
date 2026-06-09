@@ -380,6 +380,26 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
             )}
           </div>
 
+          {existingAccess && (
+            <div className="flex gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+              <div className="space-y-1">
+                <p className="font-semibold">Existing access detected</p>
+                <p>
+                  <strong>{selectedUser?.full_name || selectedUser?.username}</strong> already has{" "}
+                  <strong>{ACCESS_TYPE_LABELS[existingAccess.access_type]}</strong> access to this beat
+                  {existingAccess.effective_to
+                    ? ` until ${format(new Date(existingAccess.effective_to), "MMM d, yyyy")}`
+                    : " (permanent)"}.
+                </p>
+                <p className="text-amber-700">
+                  Granting new access will <strong>replace</strong> the existing{" "}
+                  {ACCESS_TYPE_LABELS[existingAccess.access_type]} access with the new access level you select below.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Access level */}
           <div className="space-y-2">
             <Label>Access level</Label>
