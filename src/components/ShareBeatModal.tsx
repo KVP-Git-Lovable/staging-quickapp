@@ -218,6 +218,9 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
     if (!can("action_beat_share", "create")) { toast.error("You don't have permission to share beats"); return; }
     setSubmitting(true);
     try {
+      if (existingAccess) {
+        await beatService.revokeBeatAccess(beat.id, selectedUser.id, existingAccess.access_type);
+      }
       await beatService.grantBeatAccess(
         beat.id,
         selectedUser.id,
@@ -227,7 +230,9 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
           ? new Date(untilDate.getFullYear(), untilDate.getMonth(), untilDate.getDate(), 23, 59, 59).toISOString()
           : null,
       );
-      toast.success("Access granted");
+      toast.success(existingAccess
+        ? `Access updated: ${ACCESS_TYPE_LABELS[existingAccess.access_type]} → ${ACCESS_TYPE_LABELS[access]}`
+        : "Access granted");
       setSelectedUser(null);
       setQuery("");
       setResults([]);
