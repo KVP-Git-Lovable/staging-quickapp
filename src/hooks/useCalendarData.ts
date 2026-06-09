@@ -222,6 +222,28 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
         });
       });
 
+      // Shared beats — render across every applicable day in the visible month
+      const monthDays = eachDayOfInterval({
+        start: startOfMonth(monthAnchor),
+        end: endOfMonth(monthAnchor),
+      }).map((d) => format(d, "yyyy-MM-dd"));
+      (sharedAccessRes.data || []).forEach((access: any) => {
+        const from = access.effective_from || start;
+        const to = access.effective_to ? access.effective_to.slice(0, 10) : end;
+        monthDays.forEach((dateStr) => {
+          if (dateStr < from || dateStr > to) return;
+          push(dateStr, {
+            beat_id: access.beat_id,
+            beat_name: beatNameById[access.beat_id] || access.beat_id,
+            status: "shared",
+            assignment_type: access.access_type,
+            retailer_count: beatRetailerCount[access.beat_id] || 0,
+            last_served: lastServedByBeat[access.beat_id] ?? null,
+            source: "permanent",
+          });
+        });
+      });
+
       return {
         byDate,
         leaveDates,
