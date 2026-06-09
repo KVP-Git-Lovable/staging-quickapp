@@ -2303,59 +2303,55 @@ export const VisitCard = ({
       const dayEnd = new Date(targetDate);
       dayEnd.setHours(23, 59, 59, 999);
       
-      // Shared-beat awareness: when a teammate is active on this retailer today,
-      // include their orders too so the items panel shows what they ordered.
-      const teammateUserId = visit.teammateActivity?.userId;
-      const allowedUserIds = teammateUserId && teammateUserId !== effectiveUserId
-        ? [effectiveUserId, teammateUserId]
-        : [effectiveUserId];
+      // Shared-beat awareness: include teammate orders for this retailer on this date.
+      // We do NOT pre-filter by user_id — RLS (user_has_beat_access) decides what's visible.
+      // This ensures the items panel works even when teammateActivity prop wasn't populated.
 
       // First try offline storage (instant) - always check this first for responsiveness
       let offlineOrders: any[] = [];
       try {
         const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
-        // Format target date as YYYY-MM-DD for comparison
         const targetDateStr = toLocalISODate(targetDate);
-        
+
         offlineOrders = cachedOrders.filter((o: any) => {
-          if (!allowedUserIds.includes(o.user_id)) return false;
           if (o.retailer_id !== retailerId) return false;
-          // Check by order_date first (exact date match), fallback to created_at
           if (o.order_date) {
             const orderDateStr = o.order_date.split('T')[0];
             return orderDateStr === targetDateStr;
           }
-          // Fallback to created_at timestamp comparison
           const orderDate = new Date(o.created_at);
           return orderDate >= dayStart && orderDate <= dayEnd;
-        });
-        console.log('[VisitCard] Offline orders found:', offlineOrders.length, 'for retailer:', retailerId, 'users:', allowedUserIds.length);
+        }).map((o: any) => ({
+          ...o,
+          _source: o.user_id && o.user_id !== effectiveUserId ? 'teammate' : 'mine',
+        }));
+        console.log('[VisitCard] Offline orders found:', offlineOrders.length, 'for retailer:', retailerId);
       } catch (e) {
         console.log('[VisitCard] Error reading offline orders:', e);
       }
-      
-      // Then try Supabase (if online) with timeout to avoid blocking
+
+      // Then try Supabase (if online). Query by retailer + date only; RLS gates visibility.
       let dbOrders: any[] = [];
       if (navigator.onLine) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-          
-          const { data } = await supabase
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+          const { data, error } = await supabase
             .from('orders')
             .select('id, user_id, created_at, total_amount, is_credit_order, credit_paid_amount, invoice_number, idempotency_key, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
-            .in('user_id', allowedUserIds)
             .eq('retailer_id', retailerId)
             .in('status', ['confirmed', 'delivered'])
             .eq('order_date', selectedDate || toLocalISODate(targetDate))
             .abortSignal(controller.signal);
-          
+
           clearTimeout(timeoutId);
-          // Tag each order with _source so the UI can label teammate rows
+          if (error) console.log('[VisitCard] DB orders query error:', error.message);
           dbOrders = (data || []).map((o: any) => ({
             ...o,
             _source: o.user_id && o.user_id !== effectiveUserId ? 'teammate' : 'mine',
           }));
+          console.log('[VisitCard] DB orders found:', dbOrders.length, 'for retailer:', retailerId, '(own+teammate via RLS)');
         } catch (e: any) {
           if (e.name === 'AbortError') {
             console.log('[VisitCard] DB fetch timed out, using offline data');
