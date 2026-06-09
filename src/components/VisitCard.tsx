@@ -72,6 +72,14 @@ interface Visit {
   retailerLng?: number;
   lastVisitDate?: string;
   priority?: "high" | "medium" | "low";
+  teammateActivity?: {
+    userId: string;
+    name: string;
+    hasOrder: boolean;
+    orderValue: number;
+    visitTime?: string;
+    ownActivity: boolean;
+  };
 }
 interface VisitCardProps {
   visit: Visit;
@@ -2553,6 +2561,22 @@ export const VisitCard = ({
   };
   return <Card className="shadow-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/30 bg-gradient-to-r from-card to-card/50">
       <CardContent className="p-3 sm:p-4">
+        {/* Teammate activity banner (shared beats) */}
+        {visit.teammateActivity && (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1.5 text-xs text-indigo-800 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200">
+            <span className="truncate">
+              <span className="font-semibold">{visit.teammateActivity.name}</span>{' '}
+              {visit.teammateActivity.hasOrder
+                ? `placed an order${visit.teammateActivity.orderValue ? ` of ₹${Math.round(visit.teammateActivity.orderValue).toLocaleString('en-IN')}` : ''} here`
+                : 'visited this retailer'}
+              {visit.teammateActivity.visitTime &&
+                ` · ${new Date(visit.teammateActivity.visitTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`}
+            </span>
+            <span className="shrink-0 rounded-full bg-indigo-200/70 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide dark:bg-indigo-800/60">
+              Teammate
+            </span>
+          </div>
+        )}
         {/* Header - Retailer info and status */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
           <div className="flex-1 min-w-0">

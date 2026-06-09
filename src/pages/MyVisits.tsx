@@ -346,7 +346,26 @@ export const MyVisits = () => {
       const orders = dateFilteredOrders.filter(o => o.retailer_id === retailer.id);
       const totalOrderValue = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
       const hasOrder = orders.length > 0;
-      
+
+      // Teammate activity (shared beats): the most recent teammate visit/order on this retailer
+      const teammateVisit = retailerVisits
+        .filter((v: any) => v?._source === 'teammate')
+        .sort((a: any, b: any) => getVisitTime(b) - getVisitTime(a))[0];
+      const teammateOrders = orders.filter((o: any) => o?._source === 'teammate');
+      const ownOrders = orders.filter((o: any) => o?._source !== 'teammate');
+      const teammateOrderValue = teammateOrders.reduce((s: number, o: any) => s + (o.total_amount || 0), 0);
+      const teammateActor = (teammateVisit as any)?._actor || (teammateOrders[0] as any)?._actor;
+      const teammateActivity = teammateActor
+        ? {
+            userId: teammateActor.user_id as string,
+            name: teammateActor.name as string,
+            hasOrder: teammateOrders.length > 0,
+            orderValue: teammateOrderValue,
+            visitTime: teammateVisit?.check_in_time || teammateVisit?.updated_at || teammateVisit?.created_at,
+            ownActivity: ownOrders.length > 0 || retailerVisits.some((v: any) => v?._source !== 'teammate'),
+          }
+        : undefined;
+
       // Status priority: hasOrder (productive) > actual visit.status > planned
       let status: 'planned' | 'in-progress' | 'productive' | 'unproductive' | 'store-closed' | 'cancelled';
       if (hasOrder) {
@@ -379,6 +398,7 @@ export const MyVisits = () => {
         retailerLng: retailer.longitude != null ? Number(retailer.longitude) : undefined,
         pendingAmount: retailer.pending_amount || 0, // Include pending_amount from hook
         beatId: retailer.beat_id || undefined,
+        teammateActivity,
       };
     });
   }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate]);
