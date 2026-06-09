@@ -99,6 +99,7 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
       const allBeatIds = new Set<string>(Object.keys(beatNameById));
       (dailyRes.data || []).forEach((p: any) => allBeatIds.add(p.beat_id));
       (beatPlansRes.data || []).forEach((p: any) => allBeatIds.add(p.beat_id));
+      (sharedAccessRes.data || []).forEach((a: any) => allBeatIds.add(a.beat_id));
 
       // Fetch missing beat names
       const missing = Array.from(allBeatIds).filter((id) => !beatNameById[id]);
