@@ -332,28 +332,47 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                     ) : (
                       results
                         .filter((r) => !excludedIds.has(r.id))
-                        .map((r) => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedUser(r);
-                              setQuery("");
-                              setResults([]);
-                            }}
-                            className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
-                          >
-                            <Avatar className="h-6 w-6">
-                              <AvatarImage src={r.profile_picture_url ?? undefined} />
-                              <AvatarFallback>
-                                {initials(r.full_name || r.username)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm">
-                              {r.full_name || r.username || "Unnamed"}
-                            </span>
-                          </button>
-                        ))
+                        .map((r) => {
+                          const conflict = conflictMap.get(r.id);
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedUser(r);
+                                setQuery("");
+                                setResults([]);
+                              }}
+                              className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
+                            >
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={r.profile_picture_url ?? undefined} />
+                                <AvatarFallback>
+                                  {initials(r.full_name || r.username)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm truncate">
+                                  {r.full_name || r.username || "Unnamed"}
+                                </div>
+                                {conflict && (
+                                  <div className="text-xs text-amber-600 flex items-center gap-1 mt-0.5">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Already has {ACCESS_TYPE_LABELS[conflict.access_type]} access
+                                    {conflict.effective_to
+                                      ? ` · until ${format(new Date(conflict.effective_to), "MMM d")}`
+                                      : " · permanent"}
+                                  </div>
+                                )}
+                              </div>
+                              {conflict && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs shrink-0">
+                                  Update
+                                </Badge>
+                              )}
+                            </button>
+                          );
+                        })
                     )}
                   </div>
                 )}
