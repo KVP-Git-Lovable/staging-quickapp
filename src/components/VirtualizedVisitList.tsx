@@ -22,6 +22,14 @@ interface Visit {
   retailerLat?: number;
   retailerLng?: number;
   priority?: "high" | "medium" | "low";
+  teammateActivity?: {
+    userId: string;
+    name: string;
+    hasOrder: boolean;
+    orderValue: number;
+    visitTime?: string;
+    ownActivity: boolean;
+  };
 }
 
 interface VirtualizedVisitListProps {
