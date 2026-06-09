@@ -605,8 +605,70 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       }
 
       const newBeatPlans = bpRes.data || [];
-      const newVisits = vRes.data || [];
-      const newOrders = oRes.data || [];
+      let newVisits: any[] = vRes.data || [];
+      let newOrders: any[] = oRes.data || [];
+
+      // === Teammate activity on shared beats ===
+      // Surface visits/orders made by teammates (co-owner / operational / view-only
+      // shares, or the original beat owner if the current user is a sharee) so the
+      // user doesn't double-visit a retailer their teammate already covered today.
+      try {
+        const todayBeatIds: string[] = newBeatPlans.map((bp: any) => bp.beat_id).filter(Boolean);
+        if (todayBeatIds.length > 0) {
+          const teammates = await getBeatTeammates(uid, todayBeatIds, date);
+          if (teammates.userIds.length > 0) {
+            // Retailers belonging to the shared beats (RLS scopes results)
+            const { data: sharedRetailers } = await supabase
+              .from('retailers')
+              .select('id, beat_id')
+              .in('beat_id', todayBeatIds);
+            const sharedRetailerIds = (sharedRetailers || []).map((r: any) => r.id);
+
+            if (sharedRetailerIds.length > 0) {
+              const [tvRes, toRes] = await Promise.all([
+                supabase
+                  .from('visits')
+                  .select('*')
+                  .eq('planned_date', date)
+                  .in('user_id', teammates.userIds)
+                  .in('retailer_id', sharedRetailerIds),
+                supabase
+                  .from('orders')
+                  .select('*')
+                  .eq('order_date', date)
+                  .in('status', ['confirmed', 'delivered'])
+                  .in('user_id', teammates.userIds)
+                  .in('retailer_id', sharedRetailerIds),
+              ]);
+
+              const tagActor = (row: any) => ({
+                ...row,
+                _source: 'teammate',
+                _actor: { user_id: row.user_id, name: teammates.names.get(row.user_id) || 'Teammate' },
+              });
+
+              const ownVisitIds = new Set(newVisits.map((v: any) => v.id));
+              const ownOrderIds = new Set(newOrders.map((o: any) => o.id));
+              const teammateVisits = (tvRes.data || [])
+                .filter((v: any) => !ownVisitIds.has(v.id))
+                .map(tagActor);
+              const teammateOrders = (toRes.data || [])
+                .filter((o: any) => !ownOrderIds.has(o.id))
+                .map(tagActor);
+
+              if (teammateVisits.length || teammateOrders.length) {
+                console.log(
+                  `[SmartSync] Teammate activity: +${teammateVisits.length} visits, +${teammateOrders.length} orders from ${teammates.userIds.length} teammate(s)`
+                );
+                newVisits = [...newVisits, ...teammateVisits];
+                newOrders = [...newOrders, ...teammateOrders];
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[SmartSync] Teammate fetch failed (non-fatal):', e);
+      }
 
       console.log(`[SmartSync] Fetched: ${newBeatPlans.length} beat plans, ${newVisits.length} visits, ${newOrders.length} orders, ${pointsFetched.total} points`);
       
