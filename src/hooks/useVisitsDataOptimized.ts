@@ -33,6 +33,10 @@ interface ProgressStats {
   totalOrders: number;
   totalOrderValue: number;
   totalPlanned: number; // Total planned visits (doesn't change when status changes)
+  // Teammate breakdown (shared beats). All zero when no shared activity exists.
+  teamProductive: number;
+  teamOrders: number;
+  teamOrderValue: number;
 }
 
 // SMART SYNC: Track individual item changes by ID + timestamp
