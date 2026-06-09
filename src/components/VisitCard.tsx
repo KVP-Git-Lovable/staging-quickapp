@@ -2303,6 +2303,13 @@ export const VisitCard = ({
       const dayEnd = new Date(targetDate);
       dayEnd.setHours(23, 59, 59, 999);
       
+      // Shared-beat awareness: when a teammate is active on this retailer today,
+      // include their orders too so the items panel shows what they ordered.
+      const teammateUserId = visit.teammateActivity?.userId;
+      const allowedUserIds = teammateUserId && teammateUserId !== effectiveUserId
+        ? [effectiveUserId, teammateUserId]
+        : [effectiveUserId];
+
       // First try offline storage (instant) - always check this first for responsiveness
       let offlineOrders: any[] = [];
       try {
@@ -2311,16 +2318,18 @@ export const VisitCard = ({
         const targetDateStr = toLocalISODate(targetDate);
         
         offlineOrders = cachedOrders.filter((o: any) => {
+          if (!allowedUserIds.includes(o.user_id)) return false;
+          if (o.retailer_id !== retailerId) return false;
           // Check by order_date first (exact date match), fallback to created_at
           if (o.order_date) {
             const orderDateStr = o.order_date.split('T')[0];
-            return o.user_id === effectiveUserId && o.retailer_id === retailerId && orderDateStr === targetDateStr;
+            return orderDateStr === targetDateStr;
           }
           // Fallback to created_at timestamp comparison
           const orderDate = new Date(o.created_at);
-          return o.user_id === effectiveUserId && o.retailer_id === retailerId && orderDate >= dayStart && orderDate <= dayEnd;
+          return orderDate >= dayStart && orderDate <= dayEnd;
         });
-        console.log('[VisitCard] Offline orders found:', offlineOrders.length, 'for retailer:', retailerId);
+        console.log('[VisitCard] Offline orders found:', offlineOrders.length, 'for retailer:', retailerId, 'users:', allowedUserIds.length);
       } catch (e) {
         console.log('[VisitCard] Error reading offline orders:', e);
       }
@@ -2334,15 +2343,19 @@ export const VisitCard = ({
           
           const { data } = await supabase
             .from('orders')
-            .select('id, created_at, total_amount, is_credit_order, credit_paid_amount, invoice_number, idempotency_key, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
-            .eq('user_id', effectiveUserId)
+            .select('id, user_id, created_at, total_amount, is_credit_order, credit_paid_amount, invoice_number, idempotency_key, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
+            .in('user_id', allowedUserIds)
             .eq('retailer_id', retailerId)
             .in('status', ['confirmed', 'delivered'])
             .eq('order_date', selectedDate || toLocalISODate(targetDate))
             .abortSignal(controller.signal);
           
           clearTimeout(timeoutId);
-          dbOrders = data || [];
+          // Tag each order with _source so the UI can label teammate rows
+          dbOrders = (data || []).map((o: any) => ({
+            ...o,
+            _source: o.user_id && o.user_id !== effectiveUserId ? 'teammate' : 'mine',
+          }));
         } catch (e: any) {
           if (e.name === 'AbortError') {
             console.log('[VisitCard] DB fetch timed out, using offline data');
@@ -2995,6 +3008,11 @@ export const VisitCard = ({
                               <div className="flex items-center gap-2">
                                 <Package size={12} className="text-primary" />
                                 <span className="font-medium">Order {orderIdx + 1}</span>
+                                {(order as any)._source === 'teammate' && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                    by {visit.teammateActivity?.name || 'teammate'}
+                                  </span>
+                                )}
                                 {order.invoice_number && (
                                   <span className="text-muted-foreground">({order.invoice_number})</span>
                                 )}
