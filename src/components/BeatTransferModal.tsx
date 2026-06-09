@@ -32,6 +32,7 @@ const sortByName = (xs: Retailer[]) => [...xs].sort((a, b) => a.name.localeCompa
 
 export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
   const [beats, setBeats] = useState<Beat[]>([]);
+  const [ownableBeatIds, setOwnableBeatIds] = useState<Set<string>>(new Set());
   const [loadingBeats, setLoadingBeats] = useState(false);
 
   const [beatAId, setBeatAId] = useState("");
