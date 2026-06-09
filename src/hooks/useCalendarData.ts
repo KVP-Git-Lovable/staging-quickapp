@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { startOfMonth, endOfMonth, format } from "date-fns";
+import { startOfMonth, endOfMonth, format, eachDayOfInterval } from "date-fns";
 
 const sb = supabase as any;
 
@@ -50,7 +50,7 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
       const start = format(startOfMonth(monthAnchor), "yyyy-MM-dd");
       const end = format(endOfMonth(monthAnchor), "yyyy-MM-dd");
 
-      const [dailyRes, beatPlansRes, ownedBeatsRes, leavesRes, visitsRes] =
+      const [dailyRes, beatPlansRes, ownedBeatsRes, leavesRes, visitsRes, sharedAccessRes] =
         await Promise.all([
           sb
             .from("daily_beat_plans")
@@ -82,6 +82,13 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
             .eq("user_id", repId)
             .gte("planned_date", start)
             .lte("planned_date", end),
+          sb
+            .from("beat_user_access")
+            .select("beat_id, access_type, effective_from, effective_to")
+            .eq("user_id", repId)
+            .eq("is_active", true)
+            .lte("effective_from", end)
+            .or(`effective_to.is.null,effective_to.gte.${start}`),
         ]);
 
       // Beat universe = owned + planned (daily + permanent)
@@ -92,6 +99,7 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
       const allBeatIds = new Set<string>(Object.keys(beatNameById));
       (dailyRes.data || []).forEach((p: any) => allBeatIds.add(p.beat_id));
       (beatPlansRes.data || []).forEach((p: any) => allBeatIds.add(p.beat_id));
+      (sharedAccessRes.data || []).forEach((a: any) => allBeatIds.add(a.beat_id));
 
       // Fetch missing beat names
       const missing = Array.from(allBeatIds).filter((id) => !beatNameById[id]);
@@ -211,6 +219,28 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
           retailer_count: beatRetailerCount[p.beat_id] || 0,
           last_served: lastServedByBeat[p.beat_id] ?? null,
           source: "permanent",
+        });
+      });
+
+      // Shared beats — render across every applicable day in the visible month
+      const monthDays = eachDayOfInterval({
+        start: startOfMonth(monthAnchor),
+        end: endOfMonth(monthAnchor),
+      }).map((d) => format(d, "yyyy-MM-dd"));
+      (sharedAccessRes.data || []).forEach((access: any) => {
+        const from = access.effective_from || start;
+        const to = access.effective_to ? access.effective_to.slice(0, 10) : end;
+        monthDays.forEach((dateStr) => {
+          if (dateStr < from || dateStr > to) return;
+          push(dateStr, {
+            beat_id: access.beat_id,
+            beat_name: beatNameById[access.beat_id] || access.beat_id,
+            status: "shared",
+            assignment_type: access.access_type,
+            retailer_count: beatRetailerCount[access.beat_id] || 0,
+            last_served: lastServedByBeat[access.beat_id] ?? null,
+            source: "permanent",
+          });
         });
       });
 
