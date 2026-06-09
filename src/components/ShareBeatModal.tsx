@@ -89,6 +89,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
   const [editingShareId, setEditingShareId] = useState<string | null>(null);
   const [editEndDate, setEditEndDate] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [existingAccess, setExistingAccess] = useState<ShareRow | null>(null);
 
   const saveEditDate = async (row: ShareRow) => {
     if (!editEndDate) { toast.error("Pick an end date"); return; }
