@@ -190,9 +190,21 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
   }, [query, open]);
 
   const excludedIds = useMemo(
-    () => new Set([grantedBy, ...shares.map((s) => s.user_id)]),
-    [grantedBy, shares],
+    () => new Set([grantedBy]),
+    [grantedBy],
   );
+
+  const conflictMap = useMemo(
+    () => new Map(shares.map((s) => [s.user_id, s])),
+    [shares],
+  );
+
+  useEffect(() => {
+    if (!selectedUser) { setExistingAccess(null); return; }
+    const existing = conflictMap.get(selectedUser.id) ?? null;
+    setExistingAccess(existing);
+    if (existing) setAccess(existing.access_type as Access);
+  }, [selectedUser, conflictMap]);
 
   const canSubmit =
     !!selectedUser &&
