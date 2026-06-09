@@ -3008,6 +3008,11 @@ export const VisitCard = ({
                               <div className="flex items-center gap-2">
                                 <Package size={12} className="text-primary" />
                                 <span className="font-medium">Order {orderIdx + 1}</span>
+                                {(order as any)._source === 'teammate' && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                    by {visit.teammateActivity?.name || 'teammate'}
+                                  </span>
+                                )}
                                 {order.invoice_number && (
                                   <span className="text-muted-foreground">({order.invoice_number})</span>
                                 )}
