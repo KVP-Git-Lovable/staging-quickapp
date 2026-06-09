@@ -70,22 +70,62 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       setCheckedA(new Set()); setCheckedB(new Set());
       setPageA(1); setPageB(1);
       setConfirmOpen(false);
+      setOwnableBeatIds(new Set());
     }
   }, [open]);
 
-  // Load beats on open
+  // Load beats on open — scoped to current user (owned + CO_OWNER/OPERATIONAL access)
   useEffect(() => {
     if (!open) return;
     (async () => {
       setLoadingBeats(true);
-      const { data, error } = await supabase
-        .from("beats")
-        .select("id, beat_id, beat_name")
-        .eq("is_active", true)
-        .order("beat_name", { ascending: true });
-      if (error) toast.error(error.message);
-      setBeats((data as Beat[]) || []);
-      setLoadingBeats(false);
+      try {
+        const { data: userRes, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !userRes?.user) {
+          toast.error("Not authenticated");
+          setBeats([]);
+          setOwnableBeatIds(new Set());
+          return;
+        }
+        const userId = userRes.user.id;
+        const nowIso = new Date().toISOString();
+
+        const [ownedRes, accessRes] = await Promise.all([
+          supabase
+            .from("beats")
+            .select("id, beat_id, beat_name")
+            .eq("is_active", true)
+            .eq("user_id", userId)
+            .order("beat_name", { ascending: true }),
+          supabase
+            .from("beat_user_access")
+            .select("beat_id, access_type, effective_to, beats!beat_user_access_beat_id_fkey(id, beat_id, beat_name, is_active)")
+            .eq("user_id", userId)
+            .eq("is_active", true)
+            .in("access_type", ["CO_OWNER", "OPERATIONAL"])
+            .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
+        ]);
+
+        if (ownedRes.error) toast.error(ownedRes.error.message);
+        if (accessRes.error) toast.error(accessRes.error.message);
+
+        const ownedBeats = (ownedRes.data || []) as Beat[];
+        const sharedBeats = ((accessRes.data || []) as any[])
+          .map((r) => r.beats)
+          .filter((b: any) => b && b.is_active)
+          .map((b: any) => ({ id: b.id, beat_id: b.beat_id, beat_name: b.beat_name })) as Beat[];
+
+        const merged: Beat[] = [...ownedBeats];
+        for (const b of sharedBeats) {
+          if (!merged.some((x) => x.beat_id === b.beat_id)) merged.push(b);
+        }
+        merged.sort((a, b) => a.beat_name.localeCompare(b.beat_name));
+
+        setBeats(merged);
+        setOwnableBeatIds(new Set(ownedBeats.map((b) => b.beat_id)));
+      } finally {
+        setLoadingBeats(false);
+      }
     })();
   }, [open]);
 
