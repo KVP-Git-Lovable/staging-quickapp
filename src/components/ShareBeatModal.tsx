@@ -26,6 +26,13 @@ import { Calendar } from "@/components/ui/calendar";
 
 type Access = "CO_OWNER" | "OPERATIONAL" | "VIEW_ONLY";
 
+const ACCESS_TYPE_LABELS: Record<string, string> = {
+  CO_OWNER: "Co-owner",
+  OPERATIONAL: "Operational",
+  VIEW_ONLY: "View only",
+  COVERAGE: "Coverage",
+};
+
 interface Profile {
   id: string;
   full_name: string | null;
