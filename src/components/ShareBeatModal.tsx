@@ -508,7 +508,11 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
             </Button>
             <Button onClick={handleGrant} disabled={!canSubmit}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Grant Access
+              {submitting
+                ? "Saving…"
+                : existingAccess
+                ? `Replace ${ACCESS_TYPE_LABELS[existingAccess.access_type]} → ${ACCESS_TYPE_LABELS[access]}`
+                : "Grant Access"}
             </Button>
           </DialogFooter>
 
