@@ -52,7 +52,9 @@ const MemoizedVisitCard = memo(VisitCard, (prevProps, nextProps) => {
     prevProps.selectedDate === nextProps.selectedDate &&
     prevProps.skipInitialCheck === nextProps.skipInitialCheck &&
     prevProps.viewingUserId === nextProps.viewingUserId &&
-    prevProps.pointsBreakdown === nextProps.pointsBreakdown
+    prevProps.pointsBreakdown === nextProps.pointsBreakdown &&
+    (prevProps.visit as any).teammateActivity?.userId === (nextProps.visit as any).teammateActivity?.userId &&
+    (prevProps.visit as any).teammateActivity?.orderValue === (nextProps.visit as any).teammateActivity?.orderValue
   );
 });
 
