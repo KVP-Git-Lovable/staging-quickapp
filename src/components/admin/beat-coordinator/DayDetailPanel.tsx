@@ -46,6 +46,7 @@ export function DayDetailPanel({
   repId, repName, selectedDate, monthAnchor,
   onOpenAssign, onOpenLeaveCover, onOpenAIRoute, onOpenRangeAssign, onOpenRescheduleMissed,
 }: Props) {
+  const { can } = usePermissions();
   const { data } = useCalendarData(repId, monthAnchor);
   const beats = data?.byDate[selectedDate] || [];
   const onLeave = data?.leaveDates.has(selectedDate);
