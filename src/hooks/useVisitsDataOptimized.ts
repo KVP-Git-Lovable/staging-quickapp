@@ -5,6 +5,7 @@ import { loadMyVisitsSnapshot, saveMyVisitsSnapshot, clearMyVisitsSnapshot } fro
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { isSlowConnection, getConnectionQuality, getManualSlowMode } from '@/utils/internetSpeedCheck';
 import { getLastChangeTimestamp, clearChangeMarker } from '@/lib/visitChangeMarker';
+import { getBeatTeammates } from '@/lib/beatTeammates';
 
 interface UseVisitsDataOptimizedProps {
   userId: string | undefined;
