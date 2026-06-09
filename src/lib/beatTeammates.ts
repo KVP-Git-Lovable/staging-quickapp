@@ -42,7 +42,7 @@ export async function getBeatTeammates(
   try {
     // Owners of these beats (exclude self)
     const [ownersRes, sharesRes] = await Promise.all([
-      supabase.from('beats').select('id, user_id').in('id', beatIds),
+      supabase.from('beats').select('beat_id, user_id').in('beat_id', beatIds),
       supabase
         .from('beat_user_access')
         .select('beat_id, user_id, effective_from, effective_to, is_active, access_type')
@@ -53,7 +53,7 @@ export async function getBeatTeammates(
     ]);
 
     (ownersRes.data || []).forEach((b: any) => {
-      if (b.user_id && b.user_id !== currentUserId) ensureSet(b.id).add(b.user_id);
+      if (b.user_id && b.user_id !== currentUserId) ensureSet(b.beat_id).add(b.user_id);
     });
 
     (sharesRes.data || []).forEach((row: any) => {
