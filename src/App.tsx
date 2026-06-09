@@ -497,6 +497,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
           <Route path="primary-orders" element={<PrimaryOrdersList />} />
           <Route path="create-primary-order" element={<CreatePrimaryOrder />} />
           <Route path="primary-order/:id" element={<PrimaryOrderDetail />} />
+          <Route path="primary-order/:id/edit" element={<CreatePrimaryOrder />} />
           <Route path="inventory" element={<DistributorInventory />} />
           <Route path="secondary-sales" element={<SecondarySales />} />
           <Route path="packing-list" element={<PackingList />} />
