@@ -1193,6 +1193,11 @@ export const MyVisits = () => {
   const unproductiveVisits = progressStats.unproductive;
   const totalPlannedVisits = progressStats.totalPlanned; // Total planned (doesn't change)
   const totalOrderValue = progressStats.totalOrderValue;
+  // Teammate breakdown (shared beats). Only renders sub-labels when > 0.
+  const teamProductive = (progressStats as any).teamProductive || 0;
+  const teamOrderValue = (progressStats as any).teamOrderValue || 0;
+  const mineProductive = Math.max(productiveVisits - teamProductive, 0);
+  const mineOrderValue = Math.max(totalOrderValue - teamOrderValue, 0);
   const handleViewDetails = (visitId: string) => {
     window.location.href = `/visit/${visitId}`;
   };
@@ -1456,6 +1461,11 @@ export const MyVisits = () => {
                <button onClick={() => handleStatusClick("productive")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "productive" ? "bg-success text-success-foreground shadow-lg shadow-success/25" : "bg-gradient-to-br from-success/10 to-success/20 hover:from-success/20 hover:to-success/30 border border-success/30 text-success"}`}>
                  <div className="text-base sm:text-xl font-bold leading-tight">{productiveVisits}</div>
                  <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">{t('visits.productive')}</div>
+                 {teamProductive > 0 && (
+                   <div className="text-[9px] sm:text-[10px] font-medium mt-0.5 leading-tight opacity-90">
+                     {mineProductive} mine · {teamProductive} team
+                   </div>
+                 )}
                </button>
                <button onClick={() => handleStatusClick("unproductive")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "unproductive" ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"}`}>
                  <div className="text-base sm:text-xl font-bold leading-tight">{unproductiveVisits}</div>
@@ -1466,6 +1476,11 @@ export const MyVisits = () => {
                <button onClick={() => navigate(`/today-summary?date=${selectedDate}`)} className="bg-gradient-to-r from-success/10 to-success/5 p-2 sm:p-3 rounded-lg border border-success/20 cursor-pointer hover:from-success/15 hover:to-success/10 transition-all flex flex-col items-center justify-center text-center min-h-[70px] sm:min-h-[85px]">
                  <div className="text-base sm:text-xl font-bold text-success leading-tight">₹{Math.round(totalOrderValue).toLocaleString()}</div>
                  <div className="text-[9px] sm:text-xs text-success/80 font-medium mt-1 leading-tight">{t('visits.totalOrderValue')}</div>
+                 {teamOrderValue > 0 && (
+                   <div className="text-[9px] sm:text-[10px] font-medium text-success/70 mt-0.5 leading-tight">
+                     ₹{Math.round(mineOrderValue).toLocaleString()} mine · ₹{Math.round(teamOrderValue).toLocaleString()} team
+                   </div>
+                 )}
                </button>
                <button onClick={() => setIsPointsDialogOpen(true)} className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 p-2 sm:p-3 rounded-lg border border-amber-500/20 cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition-all flex flex-col items-center justify-center text-center min-h-[70px] sm:min-h-[85px]">
                  <div className="text-base sm:text-xl font-bold text-amber-600 leading-tight">{pointsEarnedToday}</div>
