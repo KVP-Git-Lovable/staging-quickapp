@@ -245,6 +245,10 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
 
   const handleConfirm = async () => {
     if (!canConfirm || !beatA || !beatB) return;
+    if (!ownableBeatIds.has(beatA.beat_id) || !ownableBeatIds.has(beatB.beat_id)) {
+      toast.error("You can only exchange retailers between beats you own");
+      return;
+    }
     setIsSaving(true);
     try {
       const { data: userData, error: authErr } = await supabase.auth.getUser();
