@@ -49,7 +49,7 @@ const BeatCoordinator = () => {
       </Layout>
     );
   }
-  if (!hasAdminAccess) return <Navigate to="/dashboard" replace />;
+  if (!canAccessCoordinator) return <Navigate to="/dashboard" replace />;
 
   const jumpTo = (
     next: "assign" | "leave" | "ai",
