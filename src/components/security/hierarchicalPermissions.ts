@@ -819,6 +819,21 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
       { name: 'widget_admin_tax_detail', label: 'Tax Master - Detail' },
     ],
   },
+  {
+    name: 'beat_coordinator',
+    label: 'Beat Coordinator',
+    fields: [],
+    actions: [
+      { name: 'action_bc_view_team_calendar', label: 'View Team Calendar' },
+      { name: 'action_bc_plan_team_beat', label: 'Plan Beats for Team Members' },
+      { name: 'action_bc_assign_coverage', label: 'Assign Leave Coverage for Team' },
+      { name: 'action_bc_transfer_rep_beat', label: 'Transfer Beats Between Reps' },
+      { name: 'action_bc_share_rep_beat', label: 'Share Beats on Behalf of Reps' },
+      { name: 'action_bc_reschedule_missed', label: 'Reschedule Missed Beat Visits' },
+      { name: 'action_bc_ai_route', label: 'AI Route Optimization' },
+    ],
+    widgets: [],
+  },
 ];
 
 // Get all module names (for module-level permissions)
