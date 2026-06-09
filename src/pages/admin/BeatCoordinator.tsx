@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, Loader2, Calendar as CalendarIcon, Users as UsersIcon, UserMinus, Sparkles } from "lucide-react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { usePermissions } from "@/hooks/usePermissions";
 
 import { CalendarTab } from "@/components/admin/beat-coordinator/CalendarTab";
 import { BeatAssignmentTab } from "@/components/admin/beat-coordinator/BeatAssignmentTab";
