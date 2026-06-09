@@ -15,7 +15,10 @@ import { AIRoutePlanTab } from "@/components/admin/beat-coordinator/AIRoutePlanT
 const BeatCoordinator = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { hasAdminAccess, loading } = useAdminAccess();
+  const { hasAdminAccess, loading: adminLoading } = useAdminAccess();
+  const { can, loading: permLoading } = usePermissions();
+  const loading = adminLoading || permLoading;
+  const canAccessCoordinator = hasAdminAccess || can('module_beat_coordinator', 'read');
 
   const urlTab = searchParams.get("tab");
   const urlDate = searchParams.get("date") || undefined;
