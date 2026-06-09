@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, Info, Loader2, Pencil, Search, Share2, X } from "lucide-react";
+import { AlertTriangle, CalendarIcon, Info, Loader2, Pencil, Search, Share2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import * as beatService from "@/services/beatService";
@@ -25,6 +25,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 
 type Access = "CO_OWNER" | "OPERATIONAL" | "VIEW_ONLY";
+
+const ACCESS_TYPE_LABELS: Record<string, string> = {
+  CO_OWNER: "Co-owner",
+  OPERATIONAL: "Operational",
+  VIEW_ONLY: "View only",
+  COVERAGE: "Coverage",
+};
 
 interface Profile {
   id: string;
@@ -82,6 +89,7 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
   const [editingShareId, setEditingShareId] = useState<string | null>(null);
   const [editEndDate, setEditEndDate] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [existingAccess, setExistingAccess] = useState<ShareRow | null>(null);
 
   const saveEditDate = async (row: ShareRow) => {
     if (!editEndDate) { toast.error("Pick an end date"); return; }
@@ -182,9 +190,21 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
   }, [query, open]);
 
   const excludedIds = useMemo(
-    () => new Set([grantedBy, ...shares.map((s) => s.user_id)]),
-    [grantedBy, shares],
+    () => new Set([grantedBy]),
+    [grantedBy],
   );
+
+  const conflictMap = useMemo(
+    () => new Map(shares.map((s) => [s.user_id, s])),
+    [shares],
+  );
+
+  useEffect(() => {
+    if (!selectedUser) { setExistingAccess(null); return; }
+    const existing = conflictMap.get(selectedUser.id) ?? null;
+    setExistingAccess(existing);
+    if (existing) setAccess(existing.access_type as Access);
+  }, [selectedUser, conflictMap]);
 
   const canSubmit =
     !!selectedUser &&
@@ -198,6 +218,9 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
     if (!can("action_beat_share", "create")) { toast.error("You don't have permission to share beats"); return; }
     setSubmitting(true);
     try {
+      if (existingAccess) {
+        await beatService.revokeBeatAccess(beat.id, selectedUser.id, existingAccess.access_type);
+      }
       await beatService.grantBeatAccess(
         beat.id,
         selectedUser.id,
@@ -207,7 +230,9 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
           ? new Date(untilDate.getFullYear(), untilDate.getMonth(), untilDate.getDate(), 23, 59, 59).toISOString()
           : null,
       );
-      toast.success("Access granted");
+      toast.success(existingAccess
+        ? `Access updated: ${ACCESS_TYPE_LABELS[existingAccess.access_type]} → ${ACCESS_TYPE_LABELS[access]}`
+        : "Access granted");
       setSelectedUser(null);
       setQuery("");
       setResults([]);
@@ -307,34 +332,73 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                     ) : (
                       results
                         .filter((r) => !excludedIds.has(r.id))
-                        .map((r) => (
-                          <button
-                            key={r.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedUser(r);
-                              setQuery("");
-                              setResults([]);
-                            }}
-                            className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
-                          >
-                            <Avatar className="h-6 w-6">
-                              <AvatarImage src={r.profile_picture_url ?? undefined} />
-                              <AvatarFallback>
-                                {initials(r.full_name || r.username)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm">
-                              {r.full_name || r.username || "Unnamed"}
-                            </span>
-                          </button>
-                        ))
+                        .map((r) => {
+                          const conflict = conflictMap.get(r.id);
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedUser(r);
+                                setQuery("");
+                                setResults([]);
+                              }}
+                              className="flex w-full items-center gap-2 p-2 text-left hover:bg-accent"
+                            >
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={r.profile_picture_url ?? undefined} />
+                                <AvatarFallback>
+                                  {initials(r.full_name || r.username)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm truncate">
+                                  {r.full_name || r.username || "Unnamed"}
+                                </div>
+                                {conflict && (
+                                  <div className="text-xs text-amber-600 flex items-center gap-1 mt-0.5">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Already has {ACCESS_TYPE_LABELS[conflict.access_type]} access
+                                    {conflict.effective_to
+                                      ? ` · until ${format(new Date(conflict.effective_to), "MMM d")}`
+                                      : " · permanent"}
+                                  </div>
+                                )}
+                              </div>
+                              {conflict && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs shrink-0">
+                                  Update
+                                </Badge>
+                              )}
+                            </button>
+                          );
+                        })
                     )}
                   </div>
                 )}
               </div>
             )}
           </div>
+
+          {existingAccess && (
+            <div className="flex gap-2 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-500" />
+              <div className="space-y-1">
+                <p className="font-semibold">Existing access detected</p>
+                <p>
+                  <strong>{selectedUser?.full_name || selectedUser?.username}</strong> already has{" "}
+                  <strong>{ACCESS_TYPE_LABELS[existingAccess.access_type]}</strong> access to this beat
+                  {existingAccess.effective_to
+                    ? ` until ${format(new Date(existingAccess.effective_to), "MMM d, yyyy")}`
+                    : " (permanent)"}.
+                </p>
+                <p className="text-amber-700">
+                  Granting new access will <strong>replace</strong> the existing{" "}
+                  {ACCESS_TYPE_LABELS[existingAccess.access_type]} access with the new access level you select below.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Access level */}
           <div className="space-y-2">
@@ -444,7 +508,11 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
             </Button>
             <Button onClick={handleGrant} disabled={!canSubmit}>
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Grant Access
+              {submitting
+                ? "Saving…"
+                : existingAccess
+                ? `Replace ${ACCESS_TYPE_LABELS[existingAccess.access_type]} → ${ACCESS_TYPE_LABELS[access]}`
+                : "Grant Access"}
             </Button>
           </DialogFooter>
 
