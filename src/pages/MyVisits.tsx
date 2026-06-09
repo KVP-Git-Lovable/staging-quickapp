@@ -1476,6 +1476,11 @@ export const MyVisits = () => {
                <button onClick={() => navigate(`/today-summary?date=${selectedDate}`)} className="bg-gradient-to-r from-success/10 to-success/5 p-2 sm:p-3 rounded-lg border border-success/20 cursor-pointer hover:from-success/15 hover:to-success/10 transition-all flex flex-col items-center justify-center text-center min-h-[70px] sm:min-h-[85px]">
                  <div className="text-base sm:text-xl font-bold text-success leading-tight">₹{Math.round(totalOrderValue).toLocaleString()}</div>
                  <div className="text-[9px] sm:text-xs text-success/80 font-medium mt-1 leading-tight">{t('visits.totalOrderValue')}</div>
+                 {teamOrderValue > 0 && (
+                   <div className="text-[9px] sm:text-[10px] font-medium text-success/70 mt-0.5 leading-tight">
+                     ₹{Math.round(mineOrderValue).toLocaleString()} mine · ₹{Math.round(teamOrderValue).toLocaleString()} team
+                   </div>
+                 )}
                </button>
                <button onClick={() => setIsPointsDialogOpen(true)} className="bg-gradient-to-r from-amber-500/10 to-yellow-500/10 p-2 sm:p-3 rounded-lg border border-amber-500/20 cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition-all flex flex-col items-center justify-center text-center min-h-[70px] sm:min-h-[85px]">
                  <div className="text-base sm:text-xl font-bold text-amber-600 leading-tight">{pointsEarnedToday}</div>
