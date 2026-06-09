@@ -152,13 +152,27 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
   // This is the total count of planned visits for the day
   const totalPlanned = retailers.length;
 
+  // Teammate breakdown — rows tagged with _source === 'teammate' by the smart sync.
+  const teamOrdersList = dateFilteredOrders.filter((o: any) => o?._source === 'teammate');
+  const teamProductiveRetailers = new Set<string>(
+    teamOrdersList.map((o: any) => o.retailer_id).filter(Boolean)
+  );
+  dateFilteredVisits.forEach((v: any) => {
+    if (v?._source === 'teammate' && v.retailer_id && (v.status === 'productive' || !!v.no_order_reason || v.status === 'unproductive')) {
+      teamProductiveRetailers.add(v.retailer_id);
+    }
+  });
+
   return {
     planned,
     productive,
     unproductive,
     totalOrders: dateFilteredOrders.length,
     totalOrderValue: dateFilteredOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
-    totalPlanned
+    totalPlanned,
+    teamProductive: teamProductiveRetailers.size,
+    teamOrders: teamOrdersList.length,
+    teamOrderValue: teamOrdersList.reduce((sum, o: any) => sum + Number(o.total_amount || 0), 0),
   };
 };
 
