@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, Loader2, Calendar as CalendarIcon, Users as UsersIcon, UserMinus, Sparkles } from "lucide-react";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { usePermissions } from "@/hooks/usePermissions";
 
 import { CalendarTab } from "@/components/admin/beat-coordinator/CalendarTab";
 import { BeatAssignmentTab } from "@/components/admin/beat-coordinator/BeatAssignmentTab";
@@ -14,7 +15,10 @@ import { AIRoutePlanTab } from "@/components/admin/beat-coordinator/AIRoutePlanT
 const BeatCoordinator = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { hasAdminAccess, loading } = useAdminAccess();
+  const { hasAdminAccess, loading: adminLoading } = useAdminAccess();
+  const { can, loading: permLoading } = usePermissions();
+  const loading = adminLoading || permLoading;
+  const canAccessCoordinator = hasAdminAccess || can('module_beat_coordinator', 'read');
 
   const urlTab = searchParams.get("tab");
   const urlDate = searchParams.get("date") || undefined;
@@ -45,7 +49,7 @@ const BeatCoordinator = () => {
       </Layout>
     );
   }
-  if (!hasAdminAccess) return <Navigate to="/dashboard" replace />;
+  if (!canAccessCoordinator) return <Navigate to="/dashboard" replace />;
 
   const jumpTo = (
     next: "assign" | "leave" | "ai",

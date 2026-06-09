@@ -4,11 +4,12 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, parseISO } from "date-fns";
-import { AlertTriangle, ArrowRight, Calendar as CalIcon, Users, Split, RotateCcw } from "lucide-react";
+import { AlertTriangle, ArrowRight, Calendar as CalIcon, Users, Split, RotateCcw, UserMinus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useCalendarData, type DayBeatStatus } from "@/hooks/useCalendarData";
 import { formatLastServed } from "@/utils/beatCalendarUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const sb = supabase as any;
 
@@ -45,6 +46,7 @@ export function DayDetailPanel({
   repId, repName, selectedDate, monthAnchor,
   onOpenAssign, onOpenLeaveCover, onOpenAIRoute, onOpenRangeAssign, onOpenRescheduleMissed,
 }: Props) {
+  const { can } = usePermissions();
   const { data } = useCalendarData(repId, monthAnchor);
   const beats = data?.byDate[selectedDate] || [];
   const onLeave = data?.leaveDates.has(selectedDate);
@@ -101,15 +103,26 @@ export function DayDetailPanel({
           </div>
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          <Button size="sm" variant="outline" onClick={onOpenRescheduleMissed}>
-            <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reschedule missed
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => onOpenRangeAssign("split")}>
-            <Split className="h-3.5 w-3.5 mr-1" /> Share beat
-          </Button>
-          <Button size="sm" variant="outline" onClick={onOpenAssign}>
-            <CalIcon className="h-3.5 w-3.5 mr-1" /> Edit plan
-          </Button>
+          {can('action_bc_reschedule_missed', 'edit') && (
+            <Button size="sm" variant="outline" onClick={onOpenRescheduleMissed}>
+              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reschedule missed
+            </Button>
+          )}
+          {can('action_bc_assign_coverage', 'create') && (
+            <Button size="sm" variant="outline" onClick={onOpenLeaveCover}>
+              <UserMinus className="h-3.5 w-3.5 mr-1" /> Cover leave
+            </Button>
+          )}
+          {can('action_bc_share_rep_beat', 'create') && (
+            <Button size="sm" variant="outline" onClick={() => onOpenRangeAssign("split")}>
+              <Split className="h-3.5 w-3.5 mr-1" /> Share beat
+            </Button>
+          )}
+          {can('action_bc_plan_team_beat', 'edit') && (
+            <Button size="sm" variant="outline" onClick={onOpenAssign}>
+              <CalIcon className="h-3.5 w-3.5 mr-1" /> Edit plan
+            </Button>
+          )}
         </div>
       </div>
 
