@@ -50,7 +50,7 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
       const start = format(startOfMonth(monthAnchor), "yyyy-MM-dd");
       const end = format(endOfMonth(monthAnchor), "yyyy-MM-dd");
 
-      const [dailyRes, beatPlansRes, ownedBeatsRes, leavesRes, visitsRes] =
+      const [dailyRes, beatPlansRes, ownedBeatsRes, leavesRes, visitsRes, sharedAccessRes] =
         await Promise.all([
           sb
             .from("daily_beat_plans")
@@ -82,6 +82,13 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
             .eq("user_id", repId)
             .gte("planned_date", start)
             .lte("planned_date", end),
+          sb
+            .from("beat_user_access")
+            .select("beat_id, access_type, effective_from, effective_to")
+            .eq("user_id", repId)
+            .eq("is_active", true)
+            .lte("effective_from", end)
+            .or(`effective_to.is.null,effective_to.gte.${start}`),
         ]);
 
       // Beat universe = owned + planned (daily + permanent)
