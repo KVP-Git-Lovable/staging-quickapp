@@ -13,26 +13,28 @@ const syncAttemptLock = new Map<string, number>(); // orderId -> timestamp
 const LOCK_DURATION_MS = 30000; // 30 seconds lock per order
 
 /**
- * Ensure an order payload carries beat_name_snapshot and owner_id_snapshot.
- * These columns are set ONCE at creation and never updated; they preserve
- * the beat name and owner at the moment the order was taken, even if the
+ * Ensure an order payload carries beat_id, beat_name_snapshot and owner_id_snapshot.
+ * These columns are set ONCE at creation and never updated; they preserve the
+ * beat link, beat name and owner at the moment the order was taken, even if the
  * beat is later renamed or transferred. Safe to call on already-enriched
  * payloads (existing non-undefined values are preserved).
  */
 export async function enrichWithBeatSnapshots(order: any): Promise<any> {
   if (!order || typeof order !== 'object') return order;
+  const hasBeatId = order.beat_id !== undefined && order.beat_id !== null;
   const hasBeat = order.beat_name_snapshot !== undefined && order.beat_name_snapshot !== null;
   const hasOwner = order.owner_id_snapshot !== undefined && order.owner_id_snapshot !== null;
-  if (hasBeat && hasOwner) return order;
+  if (hasBeatId && hasBeat && hasOwner) return order;
   if (!order.retailer_id) {
     return {
       ...order,
+      beat_id: order.beat_id ?? null,
       beat_name_snapshot: order.beat_name_snapshot ?? null,
       owner_id_snapshot: order.owner_id_snapshot ?? null,
     };
   }
 
-  let beatTextId: string | null = null;
+  let beatTextId: string | null = order.beat_id ?? null;
   let beatName: string | null = order.beat_name_snapshot ?? null;
   let ownerId: string | null = order.owner_id_snapshot ?? null;
 
@@ -41,12 +43,12 @@ export async function enrichWithBeatSnapshots(order: any): Promise<any> {
     const cached = await offlineStorage.getAll<any>(STORES.RETAILERS).catch(() => [] as any[]);
     const match = (cached ?? []).find((r: any) => r.id === order.retailer_id);
     if (match) {
-      beatTextId = match.beat_id ?? null;
+      if (!beatTextId) beatTextId = match.beat_id ?? null;
       if (!beatName) beatName = match.beat_name ?? null;
     }
   } catch { /* ignore */ }
 
-  if (!beatTextId) {
+  if (!beatTextId || !beatName) {
     try {
       const { data: r } = await supabase
         .from('retailers')
@@ -54,7 +56,7 @@ export async function enrichWithBeatSnapshots(order: any): Promise<any> {
         .eq('id', order.retailer_id)
         .maybeSingle();
       if (r) {
-        beatTextId = (r as any).beat_id ?? null;
+        if (!beatTextId) beatTextId = (r as any).beat_id ?? null;
         if (!beatName) beatName = (r as any).beat_name ?? null;
       }
     } catch { /* ignore */ }
@@ -76,6 +78,7 @@ export async function enrichWithBeatSnapshots(order: any): Promise<any> {
 
   return {
     ...order,
+    beat_id: order.beat_id ?? beatTextId ?? null,
     beat_name_snapshot: order.beat_name_snapshot ?? beatName ?? null,
     owner_id_snapshot: order.owner_id_snapshot ?? ownerId ?? null,
   };
