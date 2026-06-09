@@ -1461,6 +1461,11 @@ export const MyVisits = () => {
                <button onClick={() => handleStatusClick("productive")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "productive" ? "bg-success text-success-foreground shadow-lg shadow-success/25" : "bg-gradient-to-br from-success/10 to-success/20 hover:from-success/20 hover:to-success/30 border border-success/30 text-success"}`}>
                  <div className="text-base sm:text-xl font-bold leading-tight">{productiveVisits}</div>
                  <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">{t('visits.productive')}</div>
+                 {teamProductive > 0 && (
+                   <div className="text-[9px] sm:text-[10px] font-medium mt-0.5 leading-tight opacity-90">
+                     {mineProductive} mine · {teamProductive} team
+                   </div>
+                 )}
                </button>
                <button onClick={() => handleStatusClick("unproductive")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "unproductive" ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"}`}>
                  <div className="text-base sm:text-xl font-bold leading-tight">{unproductiveVisits}</div>
