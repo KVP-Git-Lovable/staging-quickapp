@@ -688,17 +688,21 @@ export default function RetailManagement() {
                 return (
                   <button
                     onClick={() => setKpiFilter(active ? 'none' : filterKey)}
-                    className={`group text-left rounded-xl border bg-card p-3 transition-all hover:shadow-md hover:-translate-y-0.5 ${active ? `ring-2 ${t.ring} border-transparent` : 'hover:border-foreground/20'}`}
+                    className={`group text-left rounded-lg border bg-card px-2.5 py-2 transition-all hover:shadow-sm hover:-translate-y-0.5 ${active ? `ring-2 ${t.ring} border-transparent` : 'hover:border-foreground/20'}`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className={`h-8 w-8 rounded-lg ${t.soft} ${t.text} flex items-center justify-center`}>
-                        <Icon className="h-4 w-4" />
+                    <div className="flex items-center gap-2">
+                      <div className={`h-7 w-7 rounded-md ${t.soft} ${t.text} flex items-center justify-center shrink-0`}>
+                        <Icon className="h-3.5 w-3.5" />
                       </div>
-                      {active && <span className={`h-1.5 w-1.5 rounded-full ${t.bg}`} />}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide truncate leading-tight">{label}</p>
+                        <div className="flex items-baseline gap-1.5">
+                          <p className={`text-lg font-bold leading-none ${t.text}`}>{value}</p>
+                          {hint && <p className="text-[9px] text-muted-foreground truncate">{hint}</p>}
+                        </div>
+                      </div>
+                      {active && <span className={`h-1.5 w-1.5 rounded-full ${t.bg} shrink-0`} />}
                     </div>
-                    <p className="text-[11px] font-medium text-muted-foreground mt-2 uppercase tracking-wide">{label}</p>
-                    <p className={`text-2xl font-bold leading-tight ${t.text}`}>{value}</p>
-                    {hint && <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>}
                   </button>
                 );
               };
@@ -713,58 +717,71 @@ export default function RetailManagement() {
                   amber:   'from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400',
                 };
                 return (
-                  <div className={`rounded-xl border bg-gradient-to-br ${tones[tone]} p-3`}>
+                  <div className={`rounded-lg border bg-gradient-to-br ${tones[tone]} p-2.5`}>
                     <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-medium uppercase tracking-wide">{label}</p>
-                      <Icon className="h-4 w-4 opacity-80" />
+                      <p className="text-[10px] font-semibold uppercase tracking-wide">{label}</p>
+                      <Icon className="h-3.5 w-3.5 opacity-80" />
                     </div>
-                    <div className="mt-2 flex items-end gap-2">
-                      <p className="text-2xl font-bold leading-none">{value}%</p>
+                    <div className="mt-1 flex items-end gap-2">
+                      <p className="text-xl font-bold leading-none">{value}%</p>
                     </div>
-                    <div className="mt-2 h-1.5 w-full rounded-full bg-background/60 overflow-hidden">
+                    <div className="mt-1.5 h-1 w-full rounded-full bg-background/60 overflow-hidden">
                       <div className="h-full bg-current rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
                     </div>
-                    {hint && <p className="text-[10px] text-muted-foreground mt-1.5">{hint}</p>}
+                    {hint && <p className="text-[9px] text-muted-foreground mt-1">{hint}</p>}
                   </div>
                 );
               };
 
               return (
-                <div className="space-y-3">
-                  {/* Row 1 - Verification Health */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <KpiCard label="Total Retailers" value={stats.total} icon={Users}        tone="slate"   filterKey="total" />
-                    <KpiCard label="Verified"        value={stats.verified} icon={ShieldCheck} tone="emerald" filterKey="verified" hint="Score ≥ 70%" />
-                    <KpiCard label="Unverified"      value={stats.unverified} icon={ShieldAlert} tone="orange" filterKey="unverified" hint="Score < 40%" />
-                    <KpiCard label="Needs Attention" value={stats.needsAttention} icon={AlertTriangle} tone="amber" filterKey="needs_attention" hint="Missing data" />
-                    <KpiCard label="Dropped"         value={stats.dropped} icon={Ban}         tone="rose"    filterKey="dropped" hint="Inactive / rejected" />
+                <div className="space-y-2">
+                  {/* Row 1 - Verification Health (compact) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                    <KpiCard label="Total"           value={stats.total}          icon={Users}        tone="slate"   filterKey="total" />
+                    <KpiCard label="Verified"        value={stats.verified}       icon={ShieldCheck}  tone="emerald" filterKey="verified" hint="≥70%" />
+                    <KpiCard label="Unverified"      value={stats.unverified}     icon={ShieldAlert}  tone="orange"  filterKey="unverified" hint="<40%" />
+                    <KpiCard label="Needs Attention" value={stats.needsAttention} icon={AlertTriangle} tone="amber"  filterKey="needs_attention" />
+                    <KpiCard label="Dropped"         value={stats.dropped}        icon={Ban}          tone="rose"    filterKey="dropped" />
                   </div>
 
-                  {/* Row 2 - Business Health */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <KpiCard label="Orphan Retailers"   value={stats.orphan}            icon={UserX}      tone="rose"   filterKey="orphan"            hint="No orders ever" />
-                    <KpiCard label="Dormant"            value={stats.dormant}           icon={Clock}      tone="amber"  filterKey="dormant"           hint="No order 60d+" />
-                    <KpiCard label="New This Month"     value={stats.newThisMonth}      icon={Sparkles}   tone="violet" filterKey="new_month"         hint="Added MTD" />
-                    <KpiCard label="Duplicate Suspects" value={stats.duplicate}         icon={CopyIcon}   tone="rose"   filterKey="duplicate"         hint="Risk ≥ 70" />
-                    <KpiCard label="Awaiting Approval"  value={stats.awaitingApproval}  icon={Hourglass}  tone="indigo" filterKey="awaiting_approval" hint="Pending review" />
+                  {/* Row 2 - Business Health (compact) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                    <KpiCard label="Orphan"             value={stats.orphan}            icon={UserX}          tone="rose"    filterKey="orphan"            hint="0 orders" />
+                    <KpiCard label="Dormant"            value={stats.dormant}           icon={Clock}          tone="amber"   filterKey="dormant"           hint="60d+" />
+                    <KpiCard label="New MTD"            value={stats.newThisMonth}      icon={Sparkles}       tone="violet"  filterKey="new_month" />
+                    <KpiCard label="Duplicate Suspects" value={stats.duplicate}         icon={CopyIcon}       tone="rose"    filterKey="duplicate"         hint="Risk ≥70" />
+                    <KpiCard label="WhatsApp Verified"  value={stats.whatsappVerified}  icon={MessageCircle}  tone="emerald" filterKey="whatsapp_verified" hint="self-confirmed" />
                   </div>
 
-                  {/* Row 3 - Rates */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    <RateCard label="Activation Rate"   value={activationRate}   icon={TrendingUp} tone="emerald" hint={`${stats.ordered} of ${stats.total} ordered`} />
-                    <RateCard label="Verification Rate" value={verificationRate} icon={ShieldCheck} tone="sky"    hint={`${stats.verified} of ${stats.total} verified`} />
-                    <RateCard label="Avg Quality Score" value={stats.avgScore}   icon={Gauge}      tone="violet"  hint="Across all retailers" />
-                    <RateCard label="Visit→Order Conv." value={conversionRate}   icon={Activity}   tone="amber"   hint={`${stats.ordered} of ${stats.visited} visited`} />
+                  {/* See more — performance rates */}
+                  <div className="flex items-center justify-between">
+                    {kpiFilter !== 'none' ? (
+                      <div className="flex items-center gap-2 rounded-md border bg-primary/5 px-2.5 py-1 text-[11px]">
+                        <span className="text-muted-foreground">
+                          Filtered: <span className="font-semibold text-foreground capitalize">{kpiFilter.replace(/_/g, ' ')}</span> · {filteredRetailers.length}
+                        </span>
+                        <Button size="sm" variant="ghost" className="h-6 px-1.5 text-[11px]" onClick={() => setKpiFilter('none')}>
+                          Clear
+                        </Button>
+                      </div>
+                    ) : <span />}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowRates(s => !s)}
+                    >
+                      {showRates ? 'Hide insights' : 'See more insights'}
+                    </Button>
                   </div>
 
-                  {kpiFilter !== 'none' && (
-                    <div className="flex items-center justify-between rounded-lg border bg-primary/5 px-3 py-2 text-xs">
-                      <span className="text-muted-foreground">
-                        Filtered by <span className="font-semibold text-foreground capitalize">{kpiFilter.replace(/_/g, ' ')}</span> — {filteredRetailers.length} retailer{filteredRetailers.length === 1 ? '' : 's'}
-                      </span>
-                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setKpiFilter('none')}>
-                        Clear
-                      </Button>
+                  {/* Row 3 - Performance Rates (hidden by default) */}
+                  {showRates && (
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                      <RateCard label="Activation Rate"   value={activationRate}   icon={TrendingUp} tone="emerald" hint={`${stats.ordered} of ${stats.total} ordered`} />
+                      <RateCard label="Verification Rate" value={verificationRate} icon={ShieldCheck} tone="sky"    hint={`${stats.verified} of ${stats.total} verified`} />
+                      <RateCard label="Avg Quality Score" value={stats.avgScore}   icon={Gauge}      tone="violet"  hint="Across all retailers" />
+                      <RateCard label="Visit→Order Conv." value={conversionRate}   icon={Activity}   tone="amber"   hint={`${stats.ordered} of ${stats.visited} visited`} />
                     </div>
                   )}
                 </div>
