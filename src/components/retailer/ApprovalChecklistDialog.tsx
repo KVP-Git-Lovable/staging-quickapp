@@ -435,12 +435,12 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
           {missing.length > 0 && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
               <div className="flex items-center gap-2 text-rose-800 font-semibold text-sm mb-1.5">
-                <AlertTriangle className="h-4 w-4" /> Missing Required Items
+                <AlertTriangle className="h-4 w-4" /> Verification incomplete
               </div>
               <ul className="text-xs text-rose-700 space-y-0.5">
                 {missing.map((m) => <li key={m}>⚠ {m}</li>)}
               </ul>
-              <div className="text-[11px] text-rose-700 mt-1.5">Approval is disabled until the core 80% fields are present.</div>
+              <div className="text-[11px] text-rose-700 mt-1.5">Approve is enabled once you manually tick the core 80%: Name, Phone, Address, GPS.</div>
             </div>
           )}
 
