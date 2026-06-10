@@ -767,11 +767,12 @@ export default function RetailManagement() {
                       {isCol('address') && <TableHead className="min-w-[240px]">Address</TableHead>}
                       {isCol('territory') && <TableHead className="min-w-[120px] whitespace-nowrap">Territory</TableHead>}
                       {isCol('status') && <TableHead className="min-w-[100px] whitespace-nowrap">Status</TableHead>}
+                      {isCol('quality') && <TableHead className="min-w-[160px] whitespace-nowrap">Quality Score</TableHead>}
                       {isCol('last_visited') && <TableHead className="min-w-[140px] whitespace-nowrap">Last Visited</TableHead>}
                       {isCol('added_by') && <TableHead className="min-w-[160px] whitespace-nowrap">Added By</TableHead>}
                       {isCol('verification') && <TableHead className="min-w-[140px] whitespace-nowrap">Verification</TableHead>}
                       {isCol('verified_by') && <TableHead className="min-w-[180px] whitespace-nowrap">Verified By</TableHead>}
-                      {isCol('actions') && <TableHead className="w-[140px] text-right whitespace-nowrap">Actions</TableHead>}
+                      {isCol('actions') && <TableHead className="w-[96px] text-right whitespace-nowrap">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
