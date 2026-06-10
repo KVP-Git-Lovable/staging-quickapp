@@ -31,6 +31,8 @@ const STATUS_LABEL: Record<DayBeatStatus, string> = {
   in_progress: "In progress",
   uncovered: "Uncovered",
   shared: "Shared",
+  missed: "Missed",
+  partial: "Partial",
   unplanned: "Unplanned",
 };
 const STATUS_CLS: Record<DayBeatStatus, string> = {
@@ -39,6 +41,8 @@ const STATUS_CLS: Record<DayBeatStatus, string> = {
   in_progress: "border-beat-stale text-beat-stale",
   uncovered: "border-beat-uncovered text-beat-uncovered",
   shared: "border-beat-shared text-beat-shared",
+  missed: "border-beat-missed text-beat-missed",
+  partial: "border-beat-partial text-beat-partial",
   unplanned: "border-muted text-muted-foreground",
 };
 
