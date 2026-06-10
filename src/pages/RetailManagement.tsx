@@ -172,13 +172,18 @@ export default function RetailManagement() {
         verificationStatus = 'needs_attention';
       }
       
+      const verifierProf = r.verified_by ? profileMap.get(r.verified_by) : null;
+      const verifiedByName = verifierProf?.full_name || verifierProf?.username || null;
+
       return {
         ...r,
         beat_name: displayBeatName,
         territory_name: territoryName,
         verification_status: verificationStatus,
+        verified_by_name: verifiedByName,
         profiles: r.user_id ? { full_name: displayName } : null
       };
+
     });
     
     setRetailers(retailersWithDetails as Retailer[]);
