@@ -193,10 +193,11 @@ export default function RetailManagement() {
     setLoading(true);
     
     // Fetch all data in parallel
-    const [retailersRes, territoriesRes, profilesRes] = await Promise.all([
+    const [retailersRes, territoriesRes, profilesRes, ordersRes] = await Promise.all([
       supabase.from("retailers").select("*").order("created_at", { ascending: false }),
       supabase.from("territories").select("id, name").order("name"),
-      supabase.from("profiles").select("id, full_name, username")
+      supabase.from("profiles").select("id, full_name, username"),
+      supabase.from("orders").select("retailer_id, created_at").order("created_at", { ascending: false }).limit(20000),
     ]);
 
     if (retailersRes.error) {
