@@ -740,99 +740,114 @@ export default function RetailManagement() {
                   <TableBody>
                     {paginatedRetailers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={visibleColumns.size} className="text-center text-muted-foreground py-8">
                           No retailers found
                         </TableCell>
                       </TableRow>
                     ) : (
                       paginatedRetailers.map((retailer) => (
                         <TableRow key={retailer.id}>
-                          <TableCell>
-                            <Avatar 
-                              className="w-10 h-10 cursor-pointer"
-                              onClick={() => openPhotoDialog(retailer)}
-                            >
-                              <AvatarImage src={retailer.photo_url || undefined} />
-                              <AvatarFallback>
-                                <ImageIcon className="w-4 w-4" />
-                              </AvatarFallback>
-                            </Avatar>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            <button
-                              onClick={() => navigate(`/retailer/${retailer.id}`)}
-                              className="flex items-center gap-2 hover:text-primary hover:underline text-left"
-                            >
-                              {retailer.name}
-                              <VerifiedTick
-                                verified={retailer.verification_status === 'verified'}
-                                method={retailer.verification_method}
-                                verifiedBy={retailer.verified_by_name}
-                                verifiedAt={retailer.verified_at}
-                              />
-                            </button>
-                          </TableCell>
-                          <TableCell>{retailer.contact_person || '-'}</TableCell>
-                          <TableCell>{retailer.phone || 'N/A'}</TableCell>
-                          <TableCell>
-                            <div className="max-w-[220px]">
-                              <button
-                                onClick={() => openGoogleMaps(retailer.address)}
-                                className="flex items-center gap-1 hover:text-primary hover:underline text-left text-sm group w-full min-w-0"
-                                title={retailer.address || 'Open in Google Maps'}
+                          {isCol('photo') && (
+                            <TableCell>
+                              <Avatar
+                                className="w-10 h-10 cursor-pointer"
+                                onClick={() => openPhotoDialog(retailer)}
                               >
-                                <span className="truncate block min-w-0 flex-1">{retailer.address}</span>
-                                <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <AvatarImage src={retailer.photo_url || undefined} />
+                                <AvatarFallback>
+                                  <ImageIcon className="w-4 w-4" />
+                                </AvatarFallback>
+                              </Avatar>
+                            </TableCell>
+                          )}
+                          {isCol('name') && (
+                            <TableCell className="font-medium">
+                              <button
+                                onClick={() => navigate(`/retailer/${retailer.id}`)}
+                                className="flex items-center gap-2 hover:text-primary hover:underline text-left"
+                              >
+                                <span className="truncate max-w-[220px]">{retailer.name}</span>
+                                <VerifiedTick
+                                  verified={retailer.verification_status === 'verified'}
+                                  method={retailer.verification_method}
+                                  verifiedBy={retailer.verified_by_name}
+                                  verifiedAt={retailer.verified_at}
+                                />
                               </button>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {retailer.territory_name ? (
-                              <Badge variant="outline">{retailer.territory_name}</Badge>
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={retailer.status === 'active' ? 'default' : 'secondary'}>
-                              {retailer.status === 'active' ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {retailer.last_visit_date 
-                              ? format(new Date(retailer.last_visit_date), 'dd MMM yyyy')
-                              : '-'
-                            }
-                          </TableCell>
-                          <TableCell>{retailer.profiles?.full_name || 'Unknown'}</TableCell>
-                          <TableCell>{getStatusBadge(retailer.verification_status)}</TableCell>
-                          <TableCell>
-                            {retailer.verification_status === 'verified' ? (
-                              retailer.verification_method === 'whatsapp' ? (
-                                <div className="flex flex-col text-xs">
-                                  <span className="inline-flex items-center gap-1 font-medium text-green-700">
-                                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                                  </span>
-                                  <span className="text-muted-foreground">via retailer reply{retailer.phone ? ` (${retailer.phone})` : ''}</span>
-                                  {retailer.verified_at && (
-                                    <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
-                                  )}
-                                </div>
+                            </TableCell>
+                          )}
+                          {isCol('contact_person') && <TableCell className="whitespace-nowrap">{retailer.contact_person || '-'}</TableCell>}
+                          {isCol('phone') && <TableCell className="whitespace-nowrap">{retailer.phone || 'N/A'}</TableCell>}
+                          {isCol('address') && (
+                            <TableCell>
+                              <div className="max-w-[260px]">
+                                <button
+                                  onClick={() => openGoogleMaps(retailer.address)}
+                                  className="flex items-center gap-1 hover:text-primary hover:underline text-left text-sm group w-full min-w-0"
+                                  title={retailer.address || 'Open in Google Maps'}
+                                >
+                                  <span className="truncate block min-w-0 flex-1">{retailer.address}</span>
+                                  <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+                              </div>
+                            </TableCell>
+                          )}
+                          {isCol('territory') && (
+                            <TableCell className="whitespace-nowrap">
+                              {retailer.territory_name ? (
+                                <Badge variant="outline">{retailer.territory_name}</Badge>
+                              ) : '-'}
+                            </TableCell>
+                          )}
+                          {isCol('status') && (
+                            <TableCell className="whitespace-nowrap">
+                              <Badge variant={retailer.status === 'active' ? 'default' : 'secondary'}>
+                                {retailer.status === 'active' ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                          )}
+                          {isCol('last_visited') && (
+                            <TableCell className="whitespace-nowrap">
+                              {retailer.last_visit_date
+                                ? format(new Date(retailer.last_visit_date), 'dd MMM yyyy')
+                                : '-'
+                              }
+                            </TableCell>
+                          )}
+                          {isCol('added_by') && <TableCell className="whitespace-nowrap">{retailer.profiles?.full_name || 'Unknown'}</TableCell>}
+                          {isCol('verification') && <TableCell className="whitespace-nowrap">{getStatusBadge(retailer.verification_status)}</TableCell>}
+                          {isCol('verified_by') && (
+                            <TableCell>
+                              {retailer.verification_status === 'verified' ? (
+                                retailer.verification_method === 'whatsapp' ? (
+                                  <div className="flex flex-col text-xs">
+                                    <span className="inline-flex items-center gap-1 font-medium text-green-700">
+                                      <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                                    </span>
+                                    <span className="text-muted-foreground">via retailer reply{retailer.phone ? ` (${retailer.phone})` : ''}</span>
+                                    {retailer.verified_at && (
+                                      <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col text-xs">
+                                    <span className="font-medium truncate max-w-[180px]">{retailer.verified_by_name || 'Admin'}</span>
+                                    <span className="text-muted-foreground capitalize">{retailer.verification_method || 'manual'}</span>
+                                    {retailer.verified_at && (
+                                      <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
+                                    )}
+                                  </div>
+                                )
                               ) : (
-                                <div className="flex flex-col text-xs">
-                                  <span className="font-medium truncate max-w-[160px]">{retailer.verified_by_name || 'Admin'}</span>
-                                  <span className="text-muted-foreground capitalize">{retailer.verification_method || 'manual'}</span>
-                                  {retailer.verified_at && (
-                                    <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
-                                  )}
-                                </div>
-                              )
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-
-                          <TableCell className="text-right">
-                            {getActionButton(retailer)}
-                          </TableCell>
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          )}
+                          {isCol('actions') && (
+                            <TableCell className="text-right">
+                              {getActionButton(retailer)}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))
                     )}
