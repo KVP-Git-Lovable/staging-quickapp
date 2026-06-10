@@ -689,24 +689,39 @@ export default function RetailManagement() {
                     <Columns3 className="h-4 w-4 mr-2" /> Columns ({visibleColumns.size}/{RETAILER_COLUMNS.length})
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-popover z-50">
+                <DropdownMenuContent
+                  align="end"
+                  side="bottom"
+                  sideOffset={6}
+                  avoidCollisions={false}
+                  className="w-56 bg-popover z-50 max-h-[60vh] overflow-y-auto"
+                >
                   <DropdownMenuLabel>Show columns</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {RETAILER_COLUMNS.map(col => (
-                    <DropdownMenuCheckboxItem
-                      key={col.key}
-                      checked={visibleColumns.has(col.key)}
-                      onCheckedChange={() => toggleColumn(col.key)}
-                      disabled={col.alwaysVisible}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      {col.label}{col.alwaysVisible ? ' (locked)' : ''}
-                    </DropdownMenuCheckboxItem>
-                  ))}
+                  {RETAILER_COLUMNS.map(col => {
+                    const checked = visibleColumns.has(col.key);
+                    const locked = !!col.alwaysVisible;
+                    return (
+                      <DropdownMenuItem
+                        key={col.key}
+                        onSelect={(e) => e.preventDefault()}
+                        onClick={() => { if (!locked) toggleColumn(col.key); }}
+                        className={`flex items-center gap-2 ${locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <span
+                          className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded-full border ${checked ? 'border-primary' : 'border-muted-foreground/40'}`}
+                        >
+                          {checked && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                        </span>
+                        <span className="flex-1">{col.label}{locked ? ' (locked)' : ''}</span>
+                      </DropdownMenuItem>
+                    );
+                  })}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={showAllColumns}>Show all</DropdownMenuItem>
                   <DropdownMenuItem onClick={resetColumns}>Reset to default</DropdownMenuItem>
                 </DropdownMenuContent>
+
               </DropdownMenu>
               <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
                 <Download className="h-4 w-4 mr-2" /> Export
