@@ -682,6 +682,38 @@ export default function RetailManagement() {
               </Select>
             </div>
 
+            {/* Table actions: column visibility + export */}
+            <div className="flex items-center justify-end gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Columns3 className="h-4 w-4 mr-2" /> Columns ({visibleColumns.size}/{RETAILER_COLUMNS.length})
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-popover z-50">
+                  <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {RETAILER_COLUMNS.map(col => (
+                    <DropdownMenuCheckboxItem
+                      key={col.key}
+                      checked={visibleColumns.has(col.key)}
+                      onCheckedChange={() => toggleColumn(col.key)}
+                      disabled={col.alwaysVisible}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {col.label}{col.alwaysVisible ? ' (locked)' : ''}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={showAllColumns}>Show all</DropdownMenuItem>
+                  <DropdownMenuItem onClick={resetColumns}>Reset to default</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                <Download className="h-4 w-4 mr-2" /> Export
+              </Button>
+            </div>
+
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
