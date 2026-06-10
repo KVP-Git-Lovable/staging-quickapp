@@ -109,6 +109,8 @@ function Pill({ ok, warn, label }: { ok: boolean; warn?: boolean; label: string 
   );
 }
 
+type SignalKey = "name" | "phone" | "address" | "gps" | "whatsapp" | "photo" | "gst";
+
 export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onCompleted }: Props) {
   const [confirmDup, setConfirmDup] = useState(false);
   const [confirmEvidence, setConfirmEvidence] = useState(false);
@@ -117,11 +119,15 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
   const [saving, setSaving] = useState(false);
   const [dupes, setDupes] = useState<DupMatch[]>([]);
   const [dupLoading, setDupLoading] = useState(false);
+  const [manual, setManual] = useState<Record<SignalKey, boolean>>({
+    name: false, phone: false, address: false, gps: false, whatsapp: false, photo: false, gst: false,
+  });
 
   useEffect(() => {
     if (!open) return;
     setConfirmDup(false); setConfirmEvidence(false); setConfirmApprove(false);
     setNotes(""); setDupes([]);
+    setManual({ name: false, phone: false, address: false, gps: false, whatsapp: false, photo: false, gst: false });
     if (!retailer) return;
 
     (async () => {
@@ -151,10 +157,33 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
     })();
   }, [open, retailer?.id]);
 
-  const signals = useMemo(() => (retailer ? computeSignals(retailer) : null), [retailer]);
+  const auto = useMemo(() => (retailer ? computeSignals(retailer) : null), [retailer]);
 
-  if (!retailer || !signals) return null;
+  const signals = useMemo(() => {
+    if (!auto) return null;
+    const merged: Record<SignalKey, boolean> = {
+      name: auto.name || manual.name,
+      phone: auto.phone || manual.phone,
+      address: auto.address || manual.address,
+      gps: auto.gps || manual.gps,
+      whatsapp: auto.whatsapp || manual.whatsapp,
+      photo: auto.photo || manual.photo,
+      gst: auto.gst || manual.gst,
+    };
+    const score =
+      (merged.name ? WEIGHTS.name : 0) +
+      (merged.phone ? WEIGHTS.phone : 0) +
+      (merged.address ? WEIGHTS.address : 0) +
+      (merged.gps ? WEIGHTS.gps : 0) +
+      (merged.whatsapp ? WEIGHTS.whatsapp : 0) +
+      (merged.photo ? WEIGHTS.photo : 0) +
+      (merged.gst ? WEIGHTS.gst : 0);
+    return { ...merged, score };
+  }, [auto, manual]);
+
+  if (!retailer || !signals || !auto) return null;
   const status = statusFromScore(signals.score);
+  const toggle = (k: SignalKey) => setManual((m) => ({ ...m, [k]: !m[k] }));
 
   // Missing required = core 80% fields not present
   const missing: string[] = [];
