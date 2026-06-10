@@ -29,7 +29,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { RetailerExportDialog } from "@/components/RetailerExportDialog";
 
-type RetailerColKey = 'photo' | 'name' | 'contact_person' | 'phone' | 'address' | 'territory' | 'status' | 'last_visited' | 'added_by' | 'verification' | 'verified_by' | 'actions';
+type RetailerColKey = 'photo' | 'name' | 'contact_person' | 'phone' | 'address' | 'territory' | 'status' | 'quality' | 'last_visited' | 'added_by' | 'verification' | 'verified_by' | 'actions';
 
 const RETAILER_COLUMNS: { key: RetailerColKey; label: string; alwaysVisible?: boolean }[] = [
   { key: 'photo', label: 'Photo' },
@@ -39,6 +39,7 @@ const RETAILER_COLUMNS: { key: RetailerColKey; label: string; alwaysVisible?: bo
   { key: 'address', label: 'Address' },
   { key: 'territory', label: 'Territory' },
   { key: 'status', label: 'Status' },
+  { key: 'quality', label: 'Quality Score' },
   { key: 'last_visited', label: 'Last Visited' },
   { key: 'added_by', label: 'Added By' },
   { key: 'verification', label: 'Verification' },
@@ -46,8 +47,8 @@ const RETAILER_COLUMNS: { key: RetailerColKey; label: string; alwaysVisible?: bo
   { key: 'actions', label: 'Actions', alwaysVisible: true },
 ];
 
-const DEFAULT_VISIBLE_COLS: RetailerColKey[] = ['photo','name','phone','address','territory','status','last_visited','verification','verified_by','actions'];
-const COL_STORAGE_KEY = 'retail-management:visible-columns:v1';
+const DEFAULT_VISIBLE_COLS: RetailerColKey[] = ['photo','name','phone','address','territory','status','quality','last_visited','verification','verified_by','actions'];
+const COL_STORAGE_KEY = 'retail-management:visible-columns:v2';
 
 interface Territory {
   id: string;
