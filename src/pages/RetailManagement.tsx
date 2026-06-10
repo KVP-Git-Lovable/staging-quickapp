@@ -1038,6 +1038,13 @@ export default function RetailManagement() {
         retailer={selectedRetailer}
         onCompleted={loadData}
       />
+
+      <RetailerExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        retailers={filteredRetailers as any}
+        filteredCount={filteredRetailers.length}
+      />
     </Layout>
   );
 }
