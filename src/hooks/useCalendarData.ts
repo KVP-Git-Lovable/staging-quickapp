@@ -10,6 +10,8 @@ export type DayBeatStatus =
   | "assigned"
   | "uncovered"
   | "shared"
+  | "missed"
+  | "partial"
   | "unplanned";
 
 export interface DayBeat {
