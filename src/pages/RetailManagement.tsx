@@ -498,7 +498,7 @@ export default function RetailManagement() {
       case 'dormant': matchesKpi = orders > 0 && (!lastOrder || isBefore(lastOrder, sixtyAgo)); break;
       case 'new_month': matchesKpi = r.created_at ? isAfter(new Date(r.created_at), monthStart) : false; break;
       case 'duplicate': matchesKpi = dupRisk >= 70; break;
-      case 'awaiting_approval': matchesKpi = (r.approval_status ?? '').toLowerCase() === 'pending' || r.verification_status === 'pending'; break;
+      case 'whatsapp_verified': matchesKpi = !!r.whatsapp_verified || r.verification_method === 'whatsapp'; break;
       case 'visited_not_ordered': matchesKpi = !!r.last_visit_date && orders === 0; break;
       case 'total':
       case 'none':
