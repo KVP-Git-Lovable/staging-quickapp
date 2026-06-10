@@ -134,6 +134,7 @@ export default function RetailManagement() {
   const [verifiedFilter, setVerifiedFilter] = useState<VerificationStatusFilter>('all');
   const [lastVisitedFilter, setLastVisitedFilter] = useState<LastVisitedFilter>('all');
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>('none');
+  const [showRates, setShowRates] = useState(false);
   
   // Dialogs
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
