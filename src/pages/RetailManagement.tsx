@@ -623,15 +623,17 @@ export default function RetailManagement() {
                           </TableCell>
                           <TableCell>{retailer.contact_person || '-'}</TableCell>
                           <TableCell>{retailer.phone || 'N/A'}</TableCell>
-                          <TableCell className="max-w-[180px]">
-                            <button
-                              onClick={() => openGoogleMaps(retailer.address)}
-                              className="flex items-center gap-1 hover:text-primary hover:underline text-left text-sm group"
-                              title="Open in Google Maps"
-                            >
-                              <span className="truncate">{retailer.address}</span>
-                              <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </button>
+                          <TableCell>
+                            <div className="max-w-[220px]">
+                              <button
+                                onClick={() => openGoogleMaps(retailer.address)}
+                                className="flex items-center gap-1 hover:text-primary hover:underline text-left text-sm group w-full min-w-0"
+                                title={retailer.address || 'Open in Google Maps'}
+                              >
+                                <span className="truncate block min-w-0 flex-1">{retailer.address}</span>
+                                <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </button>
+                            </div>
                           </TableCell>
                           <TableCell>
                             {retailer.territory_name ? (
