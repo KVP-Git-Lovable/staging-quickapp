@@ -8,6 +8,7 @@ import { MonthGrid } from "./MonthGrid";
 import { DayDetailPanel } from "./DayDetailPanel";
 import { DateRangeAssignDrawer } from "./DateRangeAssignDrawer";
 import { RescheduleMissedDrawer } from "./RescheduleMissedDrawer";
+import { MonthlyKPIBar } from "./MonthlyKPIBar";
 
 interface Props {
   onOpenAssign: (repId?: string | null) => void;
