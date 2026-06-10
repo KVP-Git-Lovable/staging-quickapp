@@ -59,6 +59,10 @@ interface Retailer {
     full_name: string;
   } | null;
   contact_person?: string | null;
+  owner_name?: string | null;
+  verified_by_name?: string | null;
+  verified_at?: string | null;
+  verification_method?: string | null;
 }
 
 type VerificationStatusFilter = 'all' | 'verified' | 'pending' | 'needs_attention' | 'dropped';
