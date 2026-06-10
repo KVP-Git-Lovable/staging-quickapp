@@ -659,44 +659,112 @@ export default function RetailManagement() {
           </TabsList>
 
           <TabsContent value="retailers" className="space-y-4 mt-4">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Retailers</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-green-600">Verified</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.verified}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-amber-600">Needs Attention</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600">{stats.needsAttention}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-red-600">Dropped</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats.dropped}</div>
-            </CardContent>
-          </Card>
-        </div>
+            {/* KPI Dashboard */}
+            {(() => {
+              const KpiCard = ({
+                label, value, icon: Icon, tone, filterKey, hint,
+              }: {
+                label: string; value: number | string; icon: any;
+                tone: 'slate'|'emerald'|'amber'|'rose'|'violet'|'sky'|'indigo'|'orange';
+                filterKey: KpiFilter; hint?: string;
+              }) => {
+                const tones: Record<string, { bg: string; text: string; ring: string; soft: string }> = {
+                  slate:   { bg: 'bg-slate-500',   text: 'text-slate-600 dark:text-slate-300',   ring: 'ring-slate-500/30',   soft: 'bg-slate-500/10' },
+                  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-500/30', soft: 'bg-emerald-500/10' },
+                  amber:   { bg: 'bg-amber-500',   text: 'text-amber-600 dark:text-amber-400',   ring: 'ring-amber-500/30',   soft: 'bg-amber-500/10' },
+                  rose:    { bg: 'bg-rose-500',    text: 'text-rose-600 dark:text-rose-400',     ring: 'ring-rose-500/30',    soft: 'bg-rose-500/10' },
+                  violet:  { bg: 'bg-violet-500',  text: 'text-violet-600 dark:text-violet-400', ring: 'ring-violet-500/30',  soft: 'bg-violet-500/10' },
+                  sky:     { bg: 'bg-sky-500',     text: 'text-sky-600 dark:text-sky-400',       ring: 'ring-sky-500/30',     soft: 'bg-sky-500/10' },
+                  indigo:  { bg: 'bg-indigo-500',  text: 'text-indigo-600 dark:text-indigo-400', ring: 'ring-indigo-500/30',  soft: 'bg-indigo-500/10' },
+                  orange:  { bg: 'bg-orange-500',  text: 'text-orange-600 dark:text-orange-400', ring: 'ring-orange-500/30',  soft: 'bg-orange-500/10' },
+                };
+                const t = tones[tone];
+                const active = kpiFilter === filterKey;
+                return (
+                  <button
+                    onClick={() => setKpiFilter(active ? 'none' : filterKey)}
+                    className={`group text-left rounded-xl border bg-card p-3 transition-all hover:shadow-md hover:-translate-y-0.5 ${active ? `ring-2 ${t.ring} border-transparent` : 'hover:border-foreground/20'}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className={`h-8 w-8 rounded-lg ${t.soft} ${t.text} flex items-center justify-center`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      {active && <span className={`h-1.5 w-1.5 rounded-full ${t.bg}`} />}
+                    </div>
+                    <p className="text-[11px] font-medium text-muted-foreground mt-2 uppercase tracking-wide">{label}</p>
+                    <p className={`text-2xl font-bold leading-tight ${t.text}`}>{value}</p>
+                    {hint && <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>}
+                  </button>
+                );
+              };
+
+              const RateCard = ({
+                label, value, icon: Icon, tone, hint,
+              }: { label: string; value: number; icon: any; tone: 'emerald'|'sky'|'violet'|'amber'; hint?: string }) => {
+                const tones: Record<string, string> = {
+                  emerald: 'from-emerald-500/15 to-emerald-500/5 text-emerald-600 dark:text-emerald-400',
+                  sky:     'from-sky-500/15 to-sky-500/5 text-sky-600 dark:text-sky-400',
+                  violet:  'from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400',
+                  amber:   'from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400',
+                };
+                return (
+                  <div className={`rounded-xl border bg-gradient-to-br ${tones[tone]} p-3`}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-medium uppercase tracking-wide">{label}</p>
+                      <Icon className="h-4 w-4 opacity-80" />
+                    </div>
+                    <div className="mt-2 flex items-end gap-2">
+                      <p className="text-2xl font-bold leading-none">{value}%</p>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-background/60 overflow-hidden">
+                      <div className="h-full bg-current rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+                    </div>
+                    {hint && <p className="text-[10px] text-muted-foreground mt-1.5">{hint}</p>}
+                  </div>
+                );
+              };
+
+              return (
+                <div className="space-y-3">
+                  {/* Row 1 - Verification Health */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <KpiCard label="Total Retailers" value={stats.total} icon={Users}        tone="slate"   filterKey="total" />
+                    <KpiCard label="Verified"        value={stats.verified} icon={ShieldCheck} tone="emerald" filterKey="verified" hint="Score ≥ 70%" />
+                    <KpiCard label="Unverified"      value={stats.unverified} icon={ShieldAlert} tone="orange" filterKey="unverified" hint="Score < 40%" />
+                    <KpiCard label="Needs Attention" value={stats.needsAttention} icon={AlertTriangle} tone="amber" filterKey="needs_attention" hint="Missing data" />
+                    <KpiCard label="Dropped"         value={stats.dropped} icon={Ban}         tone="rose"    filterKey="dropped" hint="Inactive / rejected" />
+                  </div>
+
+                  {/* Row 2 - Business Health */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <KpiCard label="Orphan Retailers"   value={stats.orphan}            icon={UserX}      tone="rose"   filterKey="orphan"            hint="No orders ever" />
+                    <KpiCard label="Dormant"            value={stats.dormant}           icon={Clock}      tone="amber"  filterKey="dormant"           hint="No order 60d+" />
+                    <KpiCard label="New This Month"     value={stats.newThisMonth}      icon={Sparkles}   tone="violet" filterKey="new_month"         hint="Added MTD" />
+                    <KpiCard label="Duplicate Suspects" value={stats.duplicate}         icon={CopyIcon}   tone="rose"   filterKey="duplicate"         hint="Risk ≥ 70" />
+                    <KpiCard label="Awaiting Approval"  value={stats.awaitingApproval}  icon={Hourglass}  tone="indigo" filterKey="awaiting_approval" hint="Pending review" />
+                  </div>
+
+                  {/* Row 3 - Rates */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <RateCard label="Activation Rate"   value={activationRate}   icon={TrendingUp} tone="emerald" hint={`${stats.ordered} of ${stats.total} ordered`} />
+                    <RateCard label="Verification Rate" value={verificationRate} icon={ShieldCheck} tone="sky"    hint={`${stats.verified} of ${stats.total} verified`} />
+                    <RateCard label="Avg Quality Score" value={stats.avgScore}   icon={Gauge}      tone="violet"  hint="Across all retailers" />
+                    <RateCard label="Visit→Order Conv." value={conversionRate}   icon={Activity}   tone="amber"   hint={`${stats.ordered} of ${stats.visited} visited`} />
+                  </div>
+
+                  {kpiFilter !== 'none' && (
+                    <div className="flex items-center justify-between rounded-lg border bg-primary/5 px-3 py-2 text-xs">
+                      <span className="text-muted-foreground">
+                        Filtered by <span className="font-semibold text-foreground capitalize">{kpiFilter.replace(/_/g, ' ')}</span> — {filteredRetailers.length} retailer{filteredRetailers.length === 1 ? '' : 's'}
+                      </span>
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setKpiFilter('none')}>
+                        Clear
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
         <Card>
           <CardHeader>
