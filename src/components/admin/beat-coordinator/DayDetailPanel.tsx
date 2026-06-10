@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCalendarData, type DayBeatStatus } from "@/hooks/useCalendarData";
 import { formatLastServed } from "@/utils/beatCalendarUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useDayRetailerDetail } from "@/hooks/useDayRetailerDetail";
 
 const sb = supabase as any;
 
