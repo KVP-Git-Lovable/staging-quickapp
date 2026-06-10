@@ -711,6 +711,10 @@ export const MyRetailers = () => {
       toast({ title: 'Failed to save', description: error.message, variant: 'destructive' });
       return;
     }
+    if (data?.id) {
+      const { maybeTriggerWhatsAppVerification } = await import('@/utils/retailerVerificationTrigger');
+      maybeTriggerWhatsAppVerification(data.id, payload.phone);
+    }
     toast({ title: 'Added', description: `${newForm.name} saved successfully. Fill in additional details now.` });
     setAddOpen(false);
     setNewForm({ name: '', phone: '', address: '', entity_type: 'retailer', beat_id: '' });

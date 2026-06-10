@@ -14,13 +14,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Layout } from "@/components/Layout";
-import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink } from "lucide-react";
+import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { CameraCapture } from "@/components/CameraCapture";
 import { format, subMonths, isAfter, isBefore, startOfMonth } from "date-fns";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/PaginationControls";
+import { ApprovalChecklistDialog } from "@/components/retailer/ApprovalChecklistDialog";
+import { VerifiedTick } from "@/components/retailer/VerifiedTick";
+import { VerificationPolicyCard } from "@/components/retailer/VerificationPolicyCard";
 
 interface Territory {
   id: string;
@@ -57,6 +60,10 @@ interface Retailer {
     full_name: string;
   } | null;
   contact_person?: string | null;
+  owner_name?: string | null;
+  verified_by_name?: string | null;
+  verified_at?: string | null;
+  verification_method?: string | null;
 }
 
 type VerificationStatusFilter = 'all' | 'verified' | 'pending' | 'needs_attention' | 'dropped';
@@ -86,11 +93,15 @@ export default function RetailManagement() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   
-  // Verification checkboxes
+  // Verification checkboxes (legacy partial-verification dialog)
   const [verifyAddress, setVerifyAddress] = useState(false);
   const [verifyContact, setVerifyContact] = useState(false);
   const [verifyTerritory, setVerifyTerritory] = useState(false);
   const [verificationNote, setVerificationNote] = useState("");
+
+  // New approval-checklist dialog
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [sendingWhatsAppId, setSendingWhatsAppId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "Retail Management | Admin Panel";
@@ -404,8 +415,32 @@ export default function RetailManagement() {
     }
   };
 
+  const openApprovalDialog = (retailer: Retailer) => {
+    setSelectedRetailer(retailer);
+    setApprovalDialogOpen(true);
+  };
+
+  const sendWhatsAppVerification = async (retailer: Retailer) => {
+    if (!retailer.phone) {
+      toast({ title: "No phone number", description: "Add a phone number first.", variant: "destructive" });
+      return;
+    }
+    setSendingWhatsAppId(retailer.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-retailer-verification-whatsapp', {
+        body: { retailer_id: retailer.id },
+      });
+      if (error) throw error;
+      if (!(data as any)?.success) throw new Error((data as any)?.error || 'Send failed');
+      toast({ title: "WhatsApp sent", description: `Verification request sent to ${retailer.phone}` });
+    } catch (e: any) {
+      toast({ title: "Failed to send WhatsApp", description: e.message, variant: "destructive" });
+    } finally {
+      setSendingWhatsAppId(null);
+    }
+  };
+
   const getActionButton = (retailer: Retailer) => {
-    // If inactive or dropped, no action needed
     if (retailer.status === 'inactive' || retailer.verification_status === 'dropped') {
       return (
         <Badge variant="outline" className="text-muted-foreground">
@@ -413,21 +448,35 @@ export default function RetailManagement() {
         </Badge>
       );
     }
-    
+
     if (retailer.verification_status === 'verified') {
       return (
-        <Button variant="outline" size="sm" onClick={() => openVerifyDialog(retailer)}>
-          <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
-          Verified
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="outline" size="sm" onClick={() => openApprovalDialog(retailer)}>
+            <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
+            Verified
+          </Button>
+        </div>
       );
     }
-    
+
     return (
-      <Button size="sm" onClick={() => openVerifyDialog(retailer)}>
-        <CheckCircle2 className="h-4 w-4 mr-1" />
-        Verify
-      </Button>
+      <div className="flex items-center justify-end gap-1">
+        <Button size="sm" onClick={() => openApprovalDialog(retailer)}>
+          <CheckCircle2 className="h-4 w-4 mr-1" />
+          Approve
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => sendWhatsAppVerification(retailer)}
+          disabled={!retailer.phone || sendingWhatsAppId === retailer.id}
+          title={retailer.phone ? "Send WhatsApp verification" : "No phone on file"}
+        >
+          <MessageCircle className="h-4 w-4 mr-1" />
+          {sendingWhatsAppId === retailer.id ? '...' : 'WhatsApp'}
+        </Button>
+      </div>
     );
   };
 
@@ -447,6 +496,8 @@ export default function RetailManagement() {
             <p className="text-muted-foreground">Verify and manage all retailers across the system</p>
           </div>
         </div>
+
+        <VerificationPolicyCard />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -616,9 +667,12 @@ export default function RetailManagement() {
                               className="flex items-center gap-2 hover:text-primary hover:underline text-left"
                             >
                               {retailer.name}
-                              {retailer.verification_status === 'verified' && (
-                                <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                              )}
+                              <VerifiedTick
+                                verified={retailer.verification_status === 'verified'}
+                                method={retailer.verification_method}
+                                verifiedBy={retailer.verified_by_name}
+                                verifiedAt={retailer.verified_at}
+                              />
                             </button>
                           </TableCell>
                           <TableCell>{retailer.contact_person || '-'}</TableCell>
@@ -837,6 +891,14 @@ export default function RetailManagement() {
         onCapture={handlePhotoCapture}
         title="Capture Retailer Photo"
         description="Take a clear photo of the retailer's store front"
+      />
+
+      {/* New approval checklist dialog */}
+      <ApprovalChecklistDialog
+        open={approvalDialogOpen}
+        onOpenChange={setApprovalDialogOpen}
+        retailer={selectedRetailer}
+        onCompleted={loadData}
       />
     </Layout>
   );

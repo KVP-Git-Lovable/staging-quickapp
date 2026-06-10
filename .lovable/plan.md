@@ -1,63 +1,121 @@
-# Edit Primary Order + Detailed Totals (UI fix)
+## Goal
 
-Make the distributor portal's "Edit Order" button actually work, and bring the totals panel up to parity with the rep Cart (subtotal → discount → taxable → CGST → SGST → round-off → grand total).
+Upgrade retailer verification in Retail Management with two distinct flows, a verifier audit trail, a blue tick across the app, and a policy that limits how many orders a Rep can book on an unverified retailer.
 
-## Scope (UI/presentation only — no schema changes)
+---
 
-Single file change: `src/pages/distributor-portal/CreatePrimaryOrder.tsx`
-Plus a routing line in `src/App.tsx`.
+## 1. Manual Approval — Confirmation Checklist Dialog
 
-## 1. Reuse CreatePrimaryOrder for Create + Edit
+Today the "Verify" dialog already has 3 checkboxes (Address, Contact, Territory) and silently marks `verified=true` when all three are ticked. We will replace it with a stricter **Approve Retailer** confirmation dialog.
 
-- Read `:id` via `useParams`. If present → **edit mode**.
-- On mount in edit mode: fetch `primary_orders` + `primary_order_items` for the id, then hydrate `orderItems`, `expectedDeliveryDate`, `notes`. Block edit if `status !== 'draft'` (toast + redirect back to detail) — same constraint already implied by the Detail page (Edit button only shows for draft).
-- Header: show "Edit Primary Order — {order_number}" vs "New Primary Order".
-- `saveOrder()` branches:
-  - Create: existing insert path.
-  - Edit: `update` header (subtotal/discount/tax/total/notes/expected_delivery_date/status), `delete` existing `primary_order_items` for `order_id`, then re-`insert` from current `orderItems` (simple, atomic-enough for draft edits).
-- After save, navigate back to `/distributor-portal/primary-order/:id`.
+**Dialog content (each item shows the actual value from the retailer row so admin can eyeball it):**
+- ☐ Retailer Name is genuine — shows `name`
+- ☐ Address is genuine & matches GPS — shows `address` + "Open in Maps" link
+- ☐ Phone Number is genuine — shows `phone` with "Call" + "WhatsApp" quick links
+- ☐ Owner Name is genuine — shows `owner_name`
+- ☐ Beat / Territory assignment is correct — shows `beat_name` / `territory_name`
+- ☐ GST / Shop Type details look genuine (optional, only shown when present)
+- Notes textarea (optional)
 
-## 2. Detailed Totals Panel (matches rep Cart visually)
+**Approve button** is disabled until **all mandatory items** are ticked. On approve:
+- Set `verification_status = 'verified'`, `verified = true`
+- Record `verified_by = auth.uid()`, `verified_by_name`, `verified_at = now()`, `verification_method = 'manual'`, `verification_notes`
+- Write a row to a new `retailer_verification_audit` table (who, when, which items, notes, method)
 
-Replace the current flat `subtotal + 18% tax` block with a structured summary card:
+**Reject / Needs Attention** button stays — same behaviour as today but also logged in the audit table.
 
-```text
-Subtotal (gross)              ₹ …
-  – Item discount             −₹ …
-  – Scheme discount           −₹ …      (if any)
-Taxable value                  ₹ …
-  CGST (½ of GST%)             ₹ …
-  SGST (½ of GST%)             ₹ …
-Round-off                      ±₹ …
-─────────────────────────────────────
-Grand Total                    ₹ …
+**Visible verifier badge:** retailer detail panel + row tooltip show "Verified by {name} on {date} (Manual)".
+
+---
+
+## 2. Automated WhatsApp Verification
+
+When a Rep adds a new retailer (and phone is present), the system sends a WhatsApp confirmation message via Twilio (already wired in `send-invoice-whatsapp`; we add a new function `send-retailer-verification-whatsapp`).
+
+**Flow:**
+1. On retailer insert (DB trigger or client-side post-insert call) → enqueue WhatsApp send.
+2. Edge function sends template message:
+   > "Hi {owner_name}, {company} added your shop *{retailer_name}* at {address}. Reply **YES** to confirm or **NO** if details are wrong."
+3. Store a row in `retailer_verification_requests` (retailer_id, phone, sent_at, status='sent', token).
+4. Inbound webhook (`whatsapp-inbound` edge function — new): match the reply to the latest pending request by phone, then:
+   - **YES** → mark retailer `verified=true`, `verification_status='verified'`, `verification_method='whatsapp'`, `verified_at=now()`, `verified_by_name='WhatsApp Self-Confirm'`.
+   - **NO** → mark `verification_status='needs_attention'` and notify the Rep + admin.
+5. Resend / manual-trigger button in Retail Management for admins ("Send WhatsApp Verification").
+
+**Twilio inbound webhook URL** will be the deployed `whatsapp-inbound` function; user configures it once in Twilio console (we surface the URL in chat after deploy).
+
+---
+
+## 3. Blue Tick Everywhere
+
+`VirtualizedRetailerTable` already renders a `CheckCircle2` blue tick when `verified===true`. Extend the same indicator to:
+- Rep mobile retailer list / retailer card
+- Order entry retailer picker
+- Visit detail header
+- Distributor portal retailer ledger header
+
+Single helper `<VerifiedTick retailer={...} />` with tooltip "Verified via {method} by {name} on {date}".
+
+---
+
+## 4. Unverified-Order Policy
+
+New admin-configurable policy table `retailer_verification_policy` (single row per company):
+
+| field | meaning |
+|---|---|
+| `enabled` | master switch |
+| `max_orders_unverified` | e.g. 3 — Rep can book up to N orders before retailer must be verified |
+| `block_after_limit` | hard block vs soft warning |
+| `grace_days` | optional days after creation before policy kicks in |
+| `require_verification_for_credit` | block credit/PDC orders entirely if not verified |
+
+**Enforcement points (client + RPC guard):**
+- Order Entry "Place Order" → call `can_place_order_for_retailer(retailer_id)` RPC which counts existing orders and returns `{allowed, reason, remaining}`.
+- If blocked: toast "Retailer not verified. {remaining_count_used}/{limit} unverified orders used. Please request verification." with a CTA to trigger WhatsApp verification.
+
+**Admin UI:** new "Verification Policy" card inside Admin Controls → Retail Management section.
+
+---
+
+## 5. Schema changes (single migration)
+
+```sql
+ALTER TABLE retailers
+  ADD COLUMN verified_by uuid,
+  ADD COLUMN verified_by_name text,
+  ADD COLUMN verified_at timestamptz,
+  ADD COLUMN verification_method text CHECK (verification_method IN ('manual','whatsapp')),
+  ADD COLUMN verification_notes text,
+  ADD COLUMN unverified_order_count integer NOT NULL DEFAULT 0;
+
+CREATE TABLE retailer_verification_audit (...);          -- who/when/items/notes/method
+CREATE TABLE retailer_verification_requests (...);       -- WhatsApp sends + replies
+CREATE TABLE retailer_verification_policy (...);         -- per-company policy
+
+CREATE FUNCTION can_place_order_for_retailer(p_retailer_id uuid) RETURNS jsonb ...;
+CREATE TRIGGER bump_unverified_order_count AFTER INSERT ON orders ...;
 ```
 
-Implementation details:
+RLS: admins manage policy; reps read policy + own retailers' audit; webhook uses service role.
 
-- Add `discount_amount` (number) and `gst_percent` (number, default product-level or fallback 18) to each `OrderItem`.
-- Per-line: small inline "Disc ₹" input + read-only "GST %" pulled from `products.gst_rate` (or fallback 18 if column not populated for that row).
-- `calculateTotals()` returns `{ subtotal, totalItemDiscount, taxable, cgst, sgst, roundOff, grandTotal }`. CGST = SGST = taxable × gst%/200 (per item, then summed).
-- Persist breakdown into `primary_orders` columns that already exist: `subtotal`, `discount_amount`, `tax_amount`, `total_amount`. Per-item `discount_amount` / `tax_amount` / `tax_rate` already exist on `primary_order_items` (26 cols) — fill them.
+---
 
-## 3. Schemes summary (read-only display, no engine wiring)
+## 6. Files to touch
 
-Out-of-scope per your selection — we'll show a placeholder "Schemes" line that reads `0` for now (only the **detailed totals panel** was selected). Easy to wire `product_schemes` later by reusing `schemeEngine` from the rep Cart.
+- `src/pages/RetailManagement.tsx` — replace verify dialog with new ApprovalChecklistDialog; add "Send WhatsApp" action; show verifier line.
+- `src/components/retailer/ApprovalChecklistDialog.tsx` *(new)*
+- `src/components/retailer/VerifiedTick.tsx` *(new)* — replaces ad-hoc `CheckCircle2`
+- `src/components/VirtualizedRetailerTable.tsx` — use VerifiedTick (with tooltip)
+- `src/pages/AdminControls.tsx` — Verification Policy card
+- `src/hooks/useRetailerVerificationPolicy.ts` *(new)*
+- Order Entry pages — call `can_place_order_for_retailer` before submit
+- `supabase/functions/send-retailer-verification-whatsapp/index.ts` *(new)*
+- `supabase/functions/whatsapp-inbound/index.ts` *(new, verify_jwt=false)*
+- One migration as above
 
-## 4. Routing
+---
 
-In `src/App.tsx` near line 499 add:
-```tsx
-<Route path="primary-order/:id/edit" element={<CreatePrimaryOrder />} />
-```
+## Open question
 
-## Out of scope
-
-- Per-item scheme auto-apply (would require porting `useOfflineSchemes` + `schemeEngine` into distributor context).
-- Editing non-draft orders.
-- Backend/RPC changes.
-
-## Files touched
-
-- `src/pages/distributor-portal/CreatePrimaryOrder.tsx` (edit-mode hydration, totals panel, per-line discount + GST inputs)
-- `src/App.tsx` (one route line)
+For the auto WhatsApp flow, should the verification message be sent **automatically the moment a Rep adds a new retailer**, or only when an **admin / Rep clicks "Send WhatsApp Verification"**? I'd recommend auto on creation + manual resend button, but confirm before I build.
