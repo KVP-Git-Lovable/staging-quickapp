@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCalendarData, type DayBeatStatus } from "@/hooks/useCalendarData";
 import { formatLastServed } from "@/utils/beatCalendarUtils";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useDayRetailerDetail } from "@/hooks/useDayRetailerDetail";
 
 const sb = supabase as any;
 
@@ -31,6 +32,8 @@ const STATUS_LABEL: Record<DayBeatStatus, string> = {
   in_progress: "In progress",
   uncovered: "Uncovered",
   shared: "Shared",
+  missed: "Missed",
+  partial: "Partial",
   unplanned: "Unplanned",
 };
 const STATUS_CLS: Record<DayBeatStatus, string> = {
@@ -39,6 +42,8 @@ const STATUS_CLS: Record<DayBeatStatus, string> = {
   in_progress: "border-beat-stale text-beat-stale",
   uncovered: "border-beat-uncovered text-beat-uncovered",
   shared: "border-beat-shared text-beat-shared",
+  missed: "border-beat-missed text-beat-missed",
+  partial: "border-beat-partial text-beat-partial",
   unplanned: "border-muted text-muted-foreground",
 };
 
@@ -52,6 +57,7 @@ export function DayDetailPanel({
   const onLeave = data?.leaveDates.has(selectedDate);
   const uncoveredBeats = beats.filter((b) => b.status === "uncovered");
   const dateLabel = format(parseISO(selectedDate), "EEE d MMM");
+  const { data: retailerRows = [] } = useDayRetailerDetail({ repId, date: selectedDate });
 
   const splitBeatIds = useMemo(
     () => beats.filter((b) => b.status === "shared" || b.assignment_type === "split").map((b) => b.beat_id),
@@ -205,6 +211,44 @@ export function DayDetailPanel({
           );
         })}
       </ul>
+
+      {retailerRows.length > 0 && (
+        <div className="border rounded-md">
+          <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/40 flex items-center justify-between">
+            <span>Retailers on this day</span>
+            <span>
+              {retailerRows.filter((r) => r.visit_status === "completed").length}/{retailerRows.length} visited ·
+              ₹{Math.round(retailerRows.reduce((s, r) => s + r.order_value, 0)).toLocaleString("en-IN")}
+            </span>
+          </div>
+          <div className="divide-y max-h-64 overflow-y-auto">
+            {retailerRows.map((r) => {
+              const tone =
+                r.visit_status === "completed" ? "text-beat-served" :
+                r.visit_status === "pending" ? "text-beat-stale" :
+                r.visit_status === "not_visited" ? "text-beat-missed" : "text-muted-foreground";
+              return (
+                <div key={r.id} className="px-3 py-1.5 flex items-center gap-2 text-xs">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{r.name}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{r.beat_name}</div>
+                  </div>
+                  <span className={cn("text-[10px] font-medium", tone)}>
+                    {r.visit_status === "completed" ? "Visited" :
+                      r.visit_status === "pending" ? "Pending" :
+                      r.visit_status === "not_visited" ? "Not visited" : "Skipped"}
+                  </span>
+                  {r.order_count > 0 && (
+                    <span className="text-[10px] tabular-nums font-medium">
+                      ₹{Math.round(r.order_value).toLocaleString("en-IN")}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Quick scenario pills */}
       <div className="flex flex-wrap gap-1.5 pt-1">

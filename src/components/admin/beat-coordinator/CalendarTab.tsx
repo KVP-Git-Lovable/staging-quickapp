@@ -8,6 +8,7 @@ import { MonthGrid } from "./MonthGrid";
 import { DayDetailPanel } from "./DayDetailPanel";
 import { DateRangeAssignDrawer } from "./DateRangeAssignDrawer";
 import { RescheduleMissedDrawer } from "./RescheduleMissedDrawer";
+import { MonthlyKPIBar } from "./MonthlyKPIBar";
 
 interface Props {
   onOpenAssign: (repId?: string | null) => void;
@@ -53,7 +54,9 @@ export function CalendarTab({ onOpenAssign, onOpenLeaveCover, onOpenAIRoute }: P
   };
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
+    <div className="space-y-3">
+      <MonthlyKPIBar repId={selectedRepId} monthAnchor={monthAnchor} />
+      <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
       <div className="lg:sticky lg:top-[140px] lg:self-start lg:max-h-[calc(100vh-160px)]">
         <RepSidebar
           selectedRepId={selectedRepId}
@@ -102,6 +105,7 @@ export function CalendarTab({ onOpenAssign, onOpenLeaveCover, onOpenAIRoute }: P
         initialType={rangeType}
         restrictToOwnerId={rangeType === "permanent" ? selectedRepId : null}
       />
+      </div>
     </div>
   );
 }

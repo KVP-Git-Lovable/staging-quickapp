@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, isSameMonth,
   addMonths, subMonths, startOfWeek, endOfWeek,
@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCalendarData, type DayBeatStatus } from "@/hooks/useCalendarData";
+import { BeatDayDetailDialog } from "./BeatDayDetailDialog";
 
 interface Props {
   repId: string | null;
@@ -25,6 +26,8 @@ const STATUS_BG: Record<DayBeatStatus, string> = {
   in_progress: "bg-beat-stale/15 text-beat-stale border-beat-stale/30",
   uncovered: "bg-beat-uncovered/15 text-beat-uncovered border-beat-uncovered/40",
   shared: "bg-beat-shared/15 text-beat-shared border-beat-shared/30",
+  missed: "bg-beat-missed/15 text-beat-missed border-beat-missed/40",
+  partial: "bg-beat-partial/15 text-beat-partial border-beat-partial/40",
   unplanned: "bg-muted text-muted-foreground border-border",
 };
 
@@ -32,6 +35,7 @@ export function MonthGrid({
   repId, repName, selectedDate, onSelectDate, monthAnchor, onMonthChange, onOpenRangeAssign,
 }: Props) {
   const { data, isLoading } = useCalendarData(repId, monthAnchor);
+  const [chipDetail, setChipDetail] = useState<{ date: string; beatId: string; beatName: string } | null>(null);
 
   // Mon–Sat only (6 cols). Build weeks excluding Sundays.
   const days = useMemo(() => {
@@ -119,13 +123,21 @@ export function MonthGrid({
                 {chips.slice(0, 2).map((c) => {
                   const isSplit = c.status === "shared" || c.assignment_type === "split";
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={c.beat_id}
-                      className={cn("text-[10px] px-1.5 py-0.5 rounded border truncate", STATUS_BG[c.status])}
-                      title={`${c.beat_name} · ${c.status}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setChipDetail({ date: dateStr, beatId: c.beat_id, beatName: c.beat_name });
+                      }}
+                      className={cn(
+                        "w-full text-left text-[10px] px-1.5 py-0.5 rounded border truncate hover:ring-1 hover:ring-primary/40 transition",
+                        STATUS_BG[c.status],
+                      )}
+                      title={`${c.beat_name} · ${c.status} — click for retailer details`}
                     >
                       {isSplit ? "⇌ " : ""}{c.beat_name}
-                    </div>
+                    </button>
                   );
                 })}
                 {chips.length > 2 && (
@@ -144,7 +156,8 @@ export function MonthGrid({
         {[
           ["bg-beat-assigned", "Assigned"],
           ["bg-beat-served", "Served"],
-          ["bg-beat-stale", "In progress / Stale"],
+          ["bg-beat-partial", "Partial"],
+          ["bg-beat-missed", "Missed"],
           ["bg-beat-uncovered", "Uncovered"],
           ["bg-beat-shared", "Shared"],
         ].map(([bg, lbl]) => (
@@ -156,6 +169,15 @@ export function MonthGrid({
 
       {isLoading && <div className="mt-3 text-xs text-muted-foreground">Loading…</div>}
       {!repId && <div className="mt-3 text-xs text-muted-foreground">Select a rep to see their plan.</div>}
+
+      <BeatDayDetailDialog
+        open={!!chipDetail}
+        onClose={() => setChipDetail(null)}
+        repId={repId}
+        date={chipDetail?.date || selectedDate}
+        beatId={chipDetail?.beatId || null}
+        beatName={chipDetail?.beatName}
+      />
     </Card>
   );
 }

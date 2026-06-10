@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import {
   optimizeRouteByDistance, calculateDistance, formatDistance,
 } from "@/utils/gpsRouteOptimizer";
+import { WeeklyAIPlanCard } from "./WeeklyAIPlanCard";
 
 const sb = supabase as any;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -447,7 +448,9 @@ export function AIRoutePlanTab({ initialRepId, initialDate }: Props) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-3">
+    <div className="space-y-3">
+      <WeeklyAIPlanCard repId={rep || null} repName={selectedRep?.full_name} />
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-3">
       {/* LEFT PANEL */}
       <div className="space-y-3">
         <Card>
@@ -698,6 +701,7 @@ export function AIRoutePlanTab({ initialRepId, initialDate }: Props) {
             )}
           </>
         )}
+      </div>
       </div>
     </div>
   );

@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.whatsapp-retailer-verify-inbound]
 verify_jwt = false
+
+[functions.ai-weekly-route-plan]
+verify_jwt = false
+
+[functions.ai-coverage-suggestion]
+verify_jwt = false
