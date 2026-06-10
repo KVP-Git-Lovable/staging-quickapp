@@ -105,6 +105,7 @@ export function CalendarTab({ onOpenAssign, onOpenLeaveCover, onOpenAIRoute }: P
         initialType={rangeType}
         restrictToOwnerId={rangeType === "permanent" ? selectedRepId : null}
       />
+      </div>
     </div>
   );
 }
