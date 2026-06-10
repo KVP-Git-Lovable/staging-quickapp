@@ -95,6 +95,10 @@ interface Retailer {
   approval_status?: string | null;
   order_count?: number;
   last_order_date?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  whatsapp_verified?: boolean | null;
+  gst_number?: string | null;
 }
 
 type VerificationStatusFilter = 'all' | 'verified' | 'pending' | 'needs_attention' | 'dropped';
@@ -952,6 +956,7 @@ export default function RetailManagement() {
                                   method={retailer.verification_method}
                                   verifiedBy={retailer.verified_by_name}
                                   verifiedAt={retailer.verified_at}
+                                  score={retailer.verification_score ?? 0}
                                 />
                               </button>
                             </TableCell>
