@@ -426,7 +426,8 @@ export function useMasterDataCache() {
 
       // Retailers
       onProgress('retailers', 'loading');
-      const { data: retailers } = await supabase.from('retailers').select('*').eq('user_id', user.id);
+      // FIX: No user_id filter - includes shared beat retailers via RLS
+      const { data: retailers } = await supabase.from('retailers').select('*');
       if (retailers) {
         await offlineStorage.replaceAll(STORES.RETAILERS, retailers);
       }

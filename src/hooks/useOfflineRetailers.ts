@@ -188,7 +188,9 @@ export function useOfflineRetailers() {
 
         // Own retailers
         const ownQuery = userId
-          ? supabase.from('retailers').select('*').eq('user_id', userId)
+          ? supabase.from('retailers').select('*')
+              // RLS handles access - includes owned + shared beat retailers
+              // Old: .eq('user_id', userId) -- was missing shared beat retailers
           : supabase.from('retailers').select('*');
 
         // Accessible (shared) beats via beat_user_access

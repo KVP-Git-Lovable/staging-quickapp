@@ -236,7 +236,8 @@ export const useVisitsData = ({ userId, selectedDate }: UseVisitsDataProps) => {
       const [bpRes, vRes, oRes] = await Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date),
-        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).eq('status', 'confirmed')
+        // FIX: No user_id filter - RLS scopes via beat_access + owner_id_snapshot
+        supabase.from('orders').select('*').eq('order_date', date).in('status', ['confirmed','delivered'])
       ]);
 
       clearTimeout(timeout);
