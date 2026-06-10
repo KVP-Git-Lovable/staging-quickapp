@@ -511,44 +511,62 @@ export default function RetailManagement() {
   };
 
   const getActionButton = (retailer: Retailer) => {
-    if (retailer.status === 'inactive' || retailer.verification_status === 'dropped') {
-      return (
-        <Badge variant="outline" className="text-muted-foreground">
-          No Action
-        </Badge>
-      );
-    }
-
-    if (retailer.verification_status === 'verified') {
-      return (
-        <div className="flex items-center justify-end gap-1">
-          <Button variant="outline" size="sm" onClick={() => openApprovalDialog(retailer)}>
-            <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
-            Verified
-          </Button>
-        </div>
-      );
-    }
-
+    const isDropped = retailer.status === 'inactive' || retailer.verification_status === 'dropped';
+    const isVerified = retailer.verification_status === 'verified';
     return (
       <div className="flex items-center justify-end gap-1">
-        <Button size="sm" onClick={() => openApprovalDialog(retailer)}>
-          <CheckCircle2 className="h-4 w-4 mr-1" />
-          Approve
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => sendWhatsAppVerification(retailer)}
-          disabled={!retailer.phone || sendingWhatsAppId === retailer.id}
-          title={retailer.phone ? "Send WhatsApp verification" : "No phone on file"}
-        >
-          <MessageCircle className="h-4 w-4 mr-1" />
-          {sendingWhatsAppId === retailer.id ? '...' : 'WhatsApp'}
-        </Button>
+        {!isDropped && !isVerified && (
+          <Button
+            size="icon"
+            variant="default"
+            className="h-8 w-8"
+            title="Approve retailer"
+            onClick={() => openApprovalDialog(retailer)}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+          </Button>
+        )}
+        {isVerified && (
+          <span title="Verified" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-8 w-8" title="More actions">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
+            {!isDropped && !isVerified && (
+              <DropdownMenuItem onClick={() => openApprovalDialog(retailer)}>
+                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" /> Approve
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              disabled={!retailer.phone || sendingWhatsAppId === retailer.id}
+              onClick={() => sendWhatsAppVerification(retailer)}
+            >
+              <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+              {sendingWhatsAppId === retailer.id ? 'Sending…' : 'WhatsApp verify'}
+            </DropdownMenuItem>
+            {retailer.phone && (
+              <DropdownMenuItem onClick={() => { window.location.href = `tel:${retailer.phone}`; }}>
+                <PhoneIcon className="h-4 w-4 mr-2 text-sky-600" /> Call
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => navigate(`/retailer/${retailer.id}`)}>
+              <Pencil className="h-4 w-4 mr-2" /> Edit / Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openPhotoDialog(retailer)}>
+              <Camera className="h-4 w-4 mr-2" /> Photo
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   };
+
 
   return (
     <Layout>
