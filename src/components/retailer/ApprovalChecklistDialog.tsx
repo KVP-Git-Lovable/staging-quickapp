@@ -360,7 +360,7 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
           {/* Section 4: Field Validation (click any card to mark as verified) */}
           <div className="text-[11px] text-muted-foreground -mb-1">
-            Tip: Click any unchecked field to manually verify it. Auto-verified fields are locked.
+            Tip: All boxes start unchecked. Tick each item you have personally verified — score updates live. Approve requires the core 80% (Name, Phone, Address, GPS).
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <FieldCard
