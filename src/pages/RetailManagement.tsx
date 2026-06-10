@@ -549,23 +549,21 @@ export default function RetailManagement() {
     <Layout>
       <div className="container mx-auto p-4 space-y-4">
         <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => navigate('/admin-controls')} 
-            variant="ghost" 
-            size="sm"
-          >
-            <ArrowLeft size={20} />
-          </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Retail Management</h1>
             <p className="text-muted-foreground">Verify and manage all retailers across the system</p>
           </div>
         </div>
 
-        <VerificationPolicyCard />
+        <Tabs defaultValue="retailers" className="w-full">
+          <TabsList>
+            <TabsTrigger value="retailers">All Retailers</TabsTrigger>
+            <TabsTrigger value="policy">Verification Policy</TabsTrigger>
+          </TabsList>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <TabsContent value="retailers" className="space-y-4 mt-4">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Total Retailers</CardTitle>
