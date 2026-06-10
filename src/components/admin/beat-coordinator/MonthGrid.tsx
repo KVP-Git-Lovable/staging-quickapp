@@ -35,6 +35,7 @@ export function MonthGrid({
   repId, repName, selectedDate, onSelectDate, monthAnchor, onMonthChange, onOpenRangeAssign,
 }: Props) {
   const { data, isLoading } = useCalendarData(repId, monthAnchor);
+  const [chipDetail, setChipDetail] = useState<{ date: string; beatId: string; beatName: string } | null>(null);
 
   // Mon–Sat only (6 cols). Build weeks excluding Sundays.
   const days = useMemo(() => {
