@@ -14799,6 +14799,47 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_audit_log: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          changed_by_name: string | null
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          retailer_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          retailer_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          retailer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_audit_log_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retailer_beat_assignments: {
         Row: {
           assigned_by: string | null
@@ -14885,6 +14926,112 @@ export type Database = {
           transferred_by?: string
         }
         Relationships: []
+      }
+      retailer_change_requests: {
+        Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_name: string | null
+          created_at: string
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          reason: string | null
+          requested_at: string
+          requested_by: string | null
+          requested_by_name: string | null
+          retailer_id: string
+          updated_at: string
+        }
+        Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_name?: string | null
+          created_at?: string
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          reason?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          requested_by_name?: string | null
+          retailer_id: string
+          updated_at?: string
+        }
+        Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_name?: string | null
+          created_at?: string
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          reason?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          requested_by_name?: string | null
+          retailer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_change_requests_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailer_creation_points: {
+        Row: {
+          activity: string
+          awarded_at: string
+          id: string
+          points: number
+          retailer_id: string
+          reversal_reason: string | null
+          reversed: boolean
+          reversed_at: string | null
+          user_id: string
+        }
+        Insert: {
+          activity: string
+          awarded_at?: string
+          id?: string
+          points: number
+          retailer_id: string
+          reversal_reason?: string | null
+          reversed?: boolean
+          reversed_at?: string | null
+          user_id: string
+        }
+        Update: {
+          activity?: string
+          awarded_at?: string
+          id?: string
+          points?: number
+          retailer_id?: string
+          reversal_reason?: string | null
+          reversed?: boolean
+          reversed_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_creation_points_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       retailer_credit_scores: {
         Row: {
@@ -16312,6 +16459,7 @@ export type Database = {
         Row: {
           account_holder_name: string | null
           address: string
+          alternate_phone: string | null
           avg_monthly_orders_3m: number | null
           avg_order_per_visit_3m: number | null
           bank_account: string | null
@@ -16325,7 +16473,11 @@ export type Database = {
           created_at: string
           created_by: string | null
           distributor_id: string | null
+          duplicate_of: string | null
+          duplicate_risk_score: number
           entity_type: string
+          first_order_placed: boolean
+          first_visit_completed: boolean
           gst_number: string | null
           id: string
           ifsc: string | null
@@ -16353,7 +16505,11 @@ export type Database = {
           priority: string | null
           productive_visits_3m: number | null
           qr_upi: string | null
+          quality_last_calculated_at: string | null
+          quality_status: string
           retail_type: string | null
+          retailer_confirmed: boolean
+          shop_front_visible: boolean
           state: string | null
           status: string | null
           terms_conditions: string | null
@@ -16366,16 +16522,19 @@ export type Database = {
           verification_contact: boolean | null
           verification_method: string | null
           verification_notes: string | null
+          verification_score: number
           verification_status: string | null
           verification_territory: boolean | null
           verified: boolean
           verified_at: string | null
           verified_by: string | null
           verified_by_name: string | null
+          whatsapp_verified: boolean
         }
         Insert: {
           account_holder_name?: string | null
           address: string
+          alternate_phone?: string | null
           avg_monthly_orders_3m?: number | null
           avg_order_per_visit_3m?: number | null
           bank_account?: string | null
@@ -16389,7 +16548,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           distributor_id?: string | null
+          duplicate_of?: string | null
+          duplicate_risk_score?: number
           entity_type?: string
+          first_order_placed?: boolean
+          first_visit_completed?: boolean
           gst_number?: string | null
           id?: string
           ifsc?: string | null
@@ -16417,7 +16580,11 @@ export type Database = {
           priority?: string | null
           productive_visits_3m?: number | null
           qr_upi?: string | null
+          quality_last_calculated_at?: string | null
+          quality_status?: string
           retail_type?: string | null
+          retailer_confirmed?: boolean
+          shop_front_visible?: boolean
           state?: string | null
           status?: string | null
           terms_conditions?: string | null
@@ -16430,16 +16597,19 @@ export type Database = {
           verification_contact?: boolean | null
           verification_method?: string | null
           verification_notes?: string | null
+          verification_score?: number
           verification_status?: string | null
           verification_territory?: boolean | null
           verified?: boolean
           verified_at?: string | null
           verified_by?: string | null
           verified_by_name?: string | null
+          whatsapp_verified?: boolean
         }
         Update: {
           account_holder_name?: string | null
           address?: string
+          alternate_phone?: string | null
           avg_monthly_orders_3m?: number | null
           avg_order_per_visit_3m?: number | null
           bank_account?: string | null
@@ -16453,7 +16623,11 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           distributor_id?: string | null
+          duplicate_of?: string | null
+          duplicate_risk_score?: number
           entity_type?: string
+          first_order_placed?: boolean
+          first_visit_completed?: boolean
           gst_number?: string | null
           id?: string
           ifsc?: string | null
@@ -16481,7 +16655,11 @@ export type Database = {
           priority?: string | null
           productive_visits_3m?: number | null
           qr_upi?: string | null
+          quality_last_calculated_at?: string | null
+          quality_status?: string
           retail_type?: string | null
+          retailer_confirmed?: boolean
+          shop_front_visible?: boolean
           state?: string | null
           status?: string | null
           terms_conditions?: string | null
@@ -16494,12 +16672,14 @@ export type Database = {
           verification_contact?: boolean | null
           verification_method?: string | null
           verification_notes?: string | null
+          verification_score?: number
           verification_status?: string | null
           verification_territory?: boolean | null
           verified?: boolean
           verified_at?: string | null
           verified_by?: string | null
           verified_by_name?: string | null
+          whatsapp_verified?: boolean
         }
         Relationships: [
           {
@@ -16507,6 +16687,13 @@ export type Database = {
             columns: ["distributor_id"]
             isOneToOne: false
             referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailers_duplicate_of_fkey"
+            columns: ["duplicate_of"]
+            isOneToOne: false
+            referencedRelation: "retailers"
             referencedColumns: ["id"]
           },
           {
@@ -20821,6 +21008,10 @@ export type Database = {
         Args: { p_beat_id: string; p_reason?: string; p_retailer_id: string }
         Returns: Json
       }
+      award_retailer_points: {
+        Args: { p_activity: string; p_points: number; p_retailer_id: string }
+        Returns: undefined
+      }
       calculate_beat_adherence: {
         Args: { p_end: string; p_start: string; p_user_id: string }
         Returns: number
@@ -20843,6 +21034,10 @@ export type Database = {
       }
       calculate_productive_visits: {
         Args: { p_end: string; p_start: string; p_user_id: string }
+        Returns: number
+      }
+      calculate_retailer_quality_score: {
+        Args: { p_retailer_id: string }
         Returns: number
       }
       calculate_revenue_contribution: {
@@ -20964,6 +21159,18 @@ export type Database = {
       delete_packing_list_atomic: {
         Args: { p_packing_list_id: string }
         Returns: Json
+      }
+      detect_retailer_duplicates: {
+        Args: {
+          p_address: string
+          p_gst: string
+          p_lat: number
+          p_lng: number
+          p_name: string
+          p_phone: string
+          p_retailer_id: string
+        }
+        Returns: number
       }
       dispatch_batch_stock: {
         Args: {
@@ -21497,6 +21704,10 @@ export type Database = {
       resolve_effective_leave_policy: {
         Args: { p_leave_type_id: string; p_user_id: string }
         Returns: Json
+      }
+      reverse_retailer_points: {
+        Args: { p_reason: string; p_retailer_id: string }
+        Returns: undefined
       }
       revoke_retailer_access: {
         Args: { p_share_id: string }
