@@ -702,6 +702,7 @@ export function AIRoutePlanTab({ initialRepId, initialDate }: Props) {
           </>
         )}
       </div>
+      </div>
     </div>
   );
 }
