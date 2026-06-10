@@ -364,11 +364,16 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             ))}
           </div>
 
-          {/* Section 4: Field Validation */}
+          {/* Section 4: Field Validation (click any card to mark as verified) */}
+          <div className="text-[11px] text-muted-foreground -mb-1">
+            Tip: Click any field card below to manually mark it as verified. The score updates instantly.
+          </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <FieldCard
               icon={User} title="Shop Name" value={retailer.name}
               ok={signals.name} weight={WEIGHTS.name}
+              manual={manual.name} autoOk={auto.name}
+              onToggle={() => toggle("name")}
               checks={[
                 { label: "Name provided", ok: signals.name },
                 { label: "No exact duplicate", ok: !highRiskDup, warn: dupes.length > 0 && !highRiskDup },
@@ -377,6 +382,8 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             <FieldCard
               icon={Phone} title="Phone" value={retailer.phone || "—"}
               ok={signals.phone} weight={WEIGHTS.phone}
+              manual={manual.phone} autoOk={auto.phone}
+              onToggle={() => toggle("phone")}
               checks={[
                 { label: "10+ digits", ok: signals.phone },
                 { label: "WhatsApp verified", ok: signals.whatsapp, warn: !signals.whatsapp },
@@ -384,23 +391,27 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
               ]}
               extra={retailer.phone ? (
                 <div className="flex gap-3 mt-1">
-                  <a href={`tel:${retailer.phone}`} className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline"><Phone className="h-3 w-3" />Call</a>
-                  <a href={`https://wa.me/${retailer.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline"><MessageCircle className="h-3 w-3" />WhatsApp</a>
+                  <a onClick={(e) => e.stopPropagation()} href={`tel:${retailer.phone}`} className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline"><Phone className="h-3 w-3" />Call</a>
+                  <a onClick={(e) => e.stopPropagation()} href={`https://wa.me/${retailer.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline"><MessageCircle className="h-3 w-3" />WhatsApp</a>
                 </div>
               ) : null}
             />
             <FieldCard
               icon={MapPin} title="Address" value={retailer.address || "—"}
               ok={signals.address} weight={WEIGHTS.address}
+              manual={manual.address} autoOk={auto.address}
+              onToggle={() => toggle("address")}
               checks={[{ label: "Address provided", ok: signals.address }]}
               extra={retailer.address ? (
-                <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(retailer.address)}`} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline">Open in Maps <ExternalLink className="h-3 w-3" /></a>
+                <a onClick={(e) => e.stopPropagation()} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(retailer.address)}`} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline">Open in Maps <ExternalLink className="h-3 w-3" /></a>
               ) : null}
             />
             <FieldCard
               icon={MapPinned} title="GPS Location"
-              value={signals.gps ? `${retailer.latitude?.toFixed(5)}, ${retailer.longitude?.toFixed(5)}` : "Not captured"}
+              value={auto.gps ? `${retailer.latitude?.toFixed(5)}, ${retailer.longitude?.toFixed(5)}` : "Not captured"}
               ok={signals.gps} weight={WEIGHTS.gps}
+              manual={manual.gps} autoOk={auto.gps}
+              onToggle={() => toggle("gps")}
               checks={[
                 { label: "Coordinates captured", ok: signals.gps },
                 { label: `Beat: ${retailer.beat_name || "—"}`, ok: !!retailer.beat_name, warn: !retailer.beat_name },
@@ -409,17 +420,22 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             <FieldCard
               icon={Camera} title="Shop Photo" value={retailer.photo_url ? "Uploaded" : "Not uploaded"}
               ok={signals.photo} weight={WEIGHTS.photo}
+              manual={manual.photo} autoOk={auto.photo}
+              onToggle={() => toggle("photo")}
               checks={[{ label: "Front photo present", ok: signals.photo, warn: !signals.photo }]}
               extra={retailer.photo_url ? (
-                <a href={retailer.photo_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline">View photo <ExternalLink className="h-3 w-3" /></a>
+                <a onClick={(e) => e.stopPropagation()} href={retailer.photo_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline">View photo <ExternalLink className="h-3 w-3" /></a>
               ) : null}
             />
             <FieldCard
               icon={FileText} title="GST" value={retailer.gst_number || "—"}
               ok={signals.gst} weight={WEIGHTS.gst}
+              manual={manual.gst} autoOk={auto.gst}
+              onToggle={() => toggle("gst")}
               checks={[{ label: "GST number provided", ok: signals.gst, warn: !signals.gst }]}
             />
           </div>
+
 
           {/* Missing Information Alert */}
           {missing.length > 0 && (
