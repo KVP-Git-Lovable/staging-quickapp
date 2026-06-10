@@ -1615,8 +1615,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         return;
       }
       
-      if (retailer.user_id !== currentUserId) {
-        console.log('[LocalEvent] Retailer skipped - user mismatch:', retailer.user_id, '!==', currentUserId);
+      // FIX: Allow shared-beat retailers (beat owner's retailers on plans of current user)
+      const _plannedBeatIds = (cacheRef.current.get(currentDate)?.beatPlans || []).map((bp: any) => bp.beat_id);
+      if (retailer.user_id !== currentUserId && !_plannedBeatIds.includes(retailer.beat_id)) {
+        console.log('[LocalEvent] Retailer skipped - not owned and not in planned beats');
         return;
       }
       
