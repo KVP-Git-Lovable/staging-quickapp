@@ -23,6 +23,7 @@ import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { ApprovalChecklistDialog } from "@/components/retailer/ApprovalChecklistDialog";
 import { VerifiedTick } from "@/components/retailer/VerifiedTick";
+import { VerificationPolicyCard } from "@/components/retailer/VerificationPolicyCard";
 
 interface Territory {
   id: string;
