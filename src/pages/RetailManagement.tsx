@@ -92,10 +92,26 @@ interface Retailer {
   verification_score?: number | null;
   quality_status?: string | null;
   duplicate_risk_score?: number | null;
+  approval_status?: string | null;
+  order_count?: number;
+  last_order_date?: string | null;
 }
 
 type VerificationStatusFilter = 'all' | 'verified' | 'pending' | 'needs_attention' | 'dropped';
 type LastVisitedFilter = 'all' | 'this_month' | 'last_month' | '3_months' | '6_months';
+type KpiFilter =
+  | 'none'
+  | 'total'
+  | 'verified'
+  | 'unverified'
+  | 'needs_attention'
+  | 'dropped'
+  | 'orphan'
+  | 'dormant'
+  | 'new_month'
+  | 'duplicate'
+  | 'awaiting_approval'
+  | 'visited_not_ordered';
 
 export default function RetailManagement() {
   const { hasAdminAccess, loading: authLoading } = useAdminAccess();
