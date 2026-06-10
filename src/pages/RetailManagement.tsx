@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Layout } from "@/components/Layout";
-import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle, Columns3, Download } from "lucide-react";
+import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle, Columns3, Download, MoreVertical, Phone as PhoneIcon, Pencil } from "lucide-react";
+import { QualityBadge, ScoreBar, DuplicateRiskBadge } from "@/components/retailer/QualityBadge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -28,7 +29,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { RetailerExportDialog } from "@/components/RetailerExportDialog";
 
-type RetailerColKey = 'photo' | 'name' | 'contact_person' | 'phone' | 'address' | 'territory' | 'status' | 'last_visited' | 'added_by' | 'verification' | 'verified_by' | 'actions';
+type RetailerColKey = 'photo' | 'name' | 'contact_person' | 'phone' | 'address' | 'territory' | 'status' | 'quality' | 'last_visited' | 'added_by' | 'verification' | 'verified_by' | 'actions';
 
 const RETAILER_COLUMNS: { key: RetailerColKey; label: string; alwaysVisible?: boolean }[] = [
   { key: 'photo', label: 'Photo' },
@@ -38,6 +39,7 @@ const RETAILER_COLUMNS: { key: RetailerColKey; label: string; alwaysVisible?: bo
   { key: 'address', label: 'Address' },
   { key: 'territory', label: 'Territory' },
   { key: 'status', label: 'Status' },
+  { key: 'quality', label: 'Quality Score' },
   { key: 'last_visited', label: 'Last Visited' },
   { key: 'added_by', label: 'Added By' },
   { key: 'verification', label: 'Verification' },
@@ -45,8 +47,8 @@ const RETAILER_COLUMNS: { key: RetailerColKey; label: string; alwaysVisible?: bo
   { key: 'actions', label: 'Actions', alwaysVisible: true },
 ];
 
-const DEFAULT_VISIBLE_COLS: RetailerColKey[] = ['photo','name','phone','address','territory','status','last_visited','verification','verified_by','actions'];
-const COL_STORAGE_KEY = 'retail-management:visible-columns:v1';
+const DEFAULT_VISIBLE_COLS: RetailerColKey[] = ['photo','name','phone','address','territory','status','quality','last_visited','verification','verified_by','actions'];
+const COL_STORAGE_KEY = 'retail-management:visible-columns:v2';
 
 interface Territory {
   id: string;
@@ -87,6 +89,9 @@ interface Retailer {
   verified_by_name?: string | null;
   verified_at?: string | null;
   verification_method?: string | null;
+  verification_score?: number | null;
+  quality_status?: string | null;
+  duplicate_risk_score?: number | null;
 }
 
 type VerificationStatusFilter = 'all' | 'verified' | 'pending' | 'needs_attention' | 'dropped';
@@ -506,44 +511,62 @@ export default function RetailManagement() {
   };
 
   const getActionButton = (retailer: Retailer) => {
-    if (retailer.status === 'inactive' || retailer.verification_status === 'dropped') {
-      return (
-        <Badge variant="outline" className="text-muted-foreground">
-          No Action
-        </Badge>
-      );
-    }
-
-    if (retailer.verification_status === 'verified') {
-      return (
-        <div className="flex items-center justify-end gap-1">
-          <Button variant="outline" size="sm" onClick={() => openApprovalDialog(retailer)}>
-            <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
-            Verified
-          </Button>
-        </div>
-      );
-    }
-
+    const isDropped = retailer.status === 'inactive' || retailer.verification_status === 'dropped';
+    const isVerified = retailer.verification_status === 'verified';
     return (
       <div className="flex items-center justify-end gap-1">
-        <Button size="sm" onClick={() => openApprovalDialog(retailer)}>
-          <CheckCircle2 className="h-4 w-4 mr-1" />
-          Approve
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => sendWhatsAppVerification(retailer)}
-          disabled={!retailer.phone || sendingWhatsAppId === retailer.id}
-          title={retailer.phone ? "Send WhatsApp verification" : "No phone on file"}
-        >
-          <MessageCircle className="h-4 w-4 mr-1" />
-          {sendingWhatsAppId === retailer.id ? '...' : 'WhatsApp'}
-        </Button>
+        {!isDropped && !isVerified && (
+          <Button
+            size="icon"
+            variant="default"
+            className="h-8 w-8"
+            title="Approve retailer"
+            onClick={() => openApprovalDialog(retailer)}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+          </Button>
+        )}
+        {isVerified && (
+          <span title="Verified" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-8 w-8" title="More actions">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
+            {!isDropped && !isVerified && (
+              <DropdownMenuItem onClick={() => openApprovalDialog(retailer)}>
+                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" /> Approve
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              disabled={!retailer.phone || sendingWhatsAppId === retailer.id}
+              onClick={() => sendWhatsAppVerification(retailer)}
+            >
+              <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+              {sendingWhatsAppId === retailer.id ? 'Sending…' : 'WhatsApp verify'}
+            </DropdownMenuItem>
+            {retailer.phone && (
+              <DropdownMenuItem onClick={() => { window.location.href = `tel:${retailer.phone}`; }}>
+                <PhoneIcon className="h-4 w-4 mr-2 text-sky-600" /> Call
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={() => navigate(`/retailer/${retailer.id}`)}>
+              <Pencil className="h-4 w-4 mr-2" /> Edit / Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openPhotoDialog(retailer)}>
+              <Camera className="h-4 w-4 mr-2" /> Photo
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     );
   };
+
 
   return (
     <Layout>
@@ -744,11 +767,12 @@ export default function RetailManagement() {
                       {isCol('address') && <TableHead className="min-w-[240px]">Address</TableHead>}
                       {isCol('territory') && <TableHead className="min-w-[120px] whitespace-nowrap">Territory</TableHead>}
                       {isCol('status') && <TableHead className="min-w-[100px] whitespace-nowrap">Status</TableHead>}
+                      {isCol('quality') && <TableHead className="min-w-[160px] whitespace-nowrap">Quality Score</TableHead>}
                       {isCol('last_visited') && <TableHead className="min-w-[140px] whitespace-nowrap">Last Visited</TableHead>}
                       {isCol('added_by') && <TableHead className="min-w-[160px] whitespace-nowrap">Added By</TableHead>}
                       {isCol('verification') && <TableHead className="min-w-[140px] whitespace-nowrap">Verification</TableHead>}
                       {isCol('verified_by') && <TableHead className="min-w-[180px] whitespace-nowrap">Verified By</TableHead>}
-                      {isCol('actions') && <TableHead className="w-[140px] text-right whitespace-nowrap">Actions</TableHead>}
+                      {isCol('actions') && <TableHead className="w-[96px] text-right whitespace-nowrap">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -818,6 +842,15 @@ export default function RetailManagement() {
                               <Badge variant={retailer.status === 'active' ? 'default' : 'secondary'}>
                                 {retailer.status === 'active' ? 'Active' : 'Inactive'}
                               </Badge>
+                            </TableCell>
+                          )}
+                          {isCol('quality') && (
+                            <TableCell className="whitespace-nowrap">
+                              <div className="flex flex-col gap-1">
+                                <QualityBadge status={retailer.quality_status} score={retailer.verification_score ?? 0} />
+                                <ScoreBar score={retailer.verification_score ?? 0} />
+                                <DuplicateRiskBadge risk={retailer.duplicate_risk_score ?? 0} />
+                              </div>
                             </TableCell>
                           )}
                           {isCol('last_visited') && (
