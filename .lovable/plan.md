@@ -1,26 +1,38 @@
-## Add "Verified By" column to Retail Management table
+## Retail Management table: spacing, column visibility, and export
 
-Add a new column showing who verified each retailer and via which method.
+All changes are limited to `src/pages/RetailManagement.tsx`. The reusable export dialog (`src/components/RetailerExportDialog.tsx`) already exists with field-selection — we just wire it in.
 
-### Changes
+### 1. Column visibility control
 
-**1. Data fetch (`src/pages/RetailManagement.tsx` retailers query)**
-- Include `verified_by`, `verification_method`, `verified_at` in the select.
-- Join/lookup approver name from `profiles` (full_name) keyed by `verified_by`. Use a single batched fetch of profile names for the page's visible rows (avoids N+1) and build an `id → name` map.
+- Define a `RETAILER_COLUMNS` array with `{ key, label, alwaysVisible? }` for each of the 12 columns (Photo, Retailer Name, Contact Person, Phone, Address, Territory, Status, Last Visited, Added By, Verification, Verified By, Actions).
+- Add `visibleColumns` state (Set of keys), persisted to `localStorage` under `retail-management:visible-columns` so the user's choice survives reloads. Default = all visible except `contact_person` and `added_by` (denser default).
+- Mark `name` and `actions` as `alwaysVisible` (can't be hidden).
+- Add a **"Columns"** dropdown button in the toolbar (next to filters) using shadcn `DropdownMenu` + `DropdownMenuCheckboxItem`, one item per column. Includes "Show all" / "Reset" actions.
+- Render each `<TableHead>` and matching `<TableCell>` conditionally via `visibleColumns.has(key)`. Update `colSpan` of the empty-state row to `visibleColumns.size`.
 
-**2. Table column (`src/components/retailer/VirtualizedRetailerTable.tsx`)**
-- Add a new header "Verified By" between Status and Last Visited.
-- Cell rendering rules:
-  - If `verified = false` → render muted dash "—".
-  - If `verified = true` and `verification_method = 'manual'` → show approver full name + small "Manual" badge. Tooltip with `verified_at` date.
-  - If `verification_method = 'whatsapp'` → show "WhatsApp" with a green WhatsApp icon + sub-line "via retailer reply". Tooltip shows phone number replied from and `verified_at`.
-  - If `verification_method = 'auto'` or other → show method label.
-- Keep column width compact (~160px) and truncate long names.
+### 2. Proper column spacing
 
-**3. Reuse existing tick**
-- The blue `VerifiedTick` stays in the Name column. The new column adds the human-readable attribution next to it.
+- Wrap the table container with `min-w-full` and set explicit widths/min-widths on key columns to avoid squashing:
+  - Photo: `w-[64px]`
+  - Retailer Name: `min-w-[200px]`
+  - Phone: `min-w-[130px] whitespace-nowrap`
+  - Address: `min-w-[240px]`
+  - Territory / Status / Verification: `min-w-[120px]`
+  - Last Visited / Added By / Verified By: `min-w-[160px] whitespace-nowrap`
+  - Actions: `w-[140px] text-right`
+- Keep the existing `overflow-x-auto` wrapper so the table scrolls horizontally on small screens instead of wrapping awkwardly.
+- Add `whitespace-nowrap` to header cells; allow address to wrap with `break-words`.
+
+### 3. Export with field selection
+
+- Import `RetailerExportDialog` and add an **"Export"** button (with `Download` icon) in the toolbar near the Columns dropdown.
+- Add `exportOpen` state; clicking Export sets it true.
+- Pass the **currently filtered** retailers (`filteredRetailers`) and `filteredCount` so export respects active filters, not pagination.
+- The dialog already supports per-field selection (default + optional columns), XLSX/CSV format, and select-all/clear/reset — no changes needed there.
 
 ### Technical notes
-- Profile name map fetched once per retailers page via `supabase.from('profiles').select('id, full_name').in('id', uniqueVerifierIds)`.
-- No schema changes; all needed columns already exist on `retailers`.
-- No changes to verification flows or policies.
+
+- No schema/data changes. No changes to verification flows, RLS, or any other page.
+- Uses existing shadcn `DropdownMenu`, `Checkbox`, `Button` primitives.
+- LocalStorage key is namespaced to avoid colliding with other tables.
+- The Verified By column added previously stays intact; it's just one of the toggleable columns.

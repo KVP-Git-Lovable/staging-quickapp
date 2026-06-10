@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Layout } from "@/components/Layout";
-import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle } from "lucide-react";
+import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle, Columns3, Download } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -24,6 +24,28 @@ import { PaginationControls } from "@/components/ui/PaginationControls";
 import { ApprovalChecklistDialog } from "@/components/retailer/ApprovalChecklistDialog";
 import { VerifiedTick } from "@/components/retailer/VerifiedTick";
 import { VerificationPolicyCard } from "@/components/retailer/VerificationPolicyCard";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { RetailerExportDialog } from "@/components/RetailerExportDialog";
+
+type RetailerColKey = 'photo' | 'name' | 'contact_person' | 'phone' | 'address' | 'territory' | 'status' | 'last_visited' | 'added_by' | 'verification' | 'verified_by' | 'actions';
+
+const RETAILER_COLUMNS: { key: RetailerColKey; label: string; alwaysVisible?: boolean }[] = [
+  { key: 'photo', label: 'Photo' },
+  { key: 'name', label: 'Retailer Name', alwaysVisible: true },
+  { key: 'contact_person', label: 'Contact Person' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'address', label: 'Address' },
+  { key: 'territory', label: 'Territory' },
+  { key: 'status', label: 'Status' },
+  { key: 'last_visited', label: 'Last Visited' },
+  { key: 'added_by', label: 'Added By' },
+  { key: 'verification', label: 'Verification' },
+  { key: 'verified_by', label: 'Verified By' },
+  { key: 'actions', label: 'Actions', alwaysVisible: true },
+];
+
+const DEFAULT_VISIBLE_COLS: RetailerColKey[] = ['photo','name','phone','address','territory','status','last_visited','verification','verified_by','actions'];
+const COL_STORAGE_KEY = 'retail-management:visible-columns:v1';
 
 interface Territory {
   id: string;
@@ -102,6 +124,43 @@ export default function RetailManagement() {
   // New approval-checklist dialog
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [sendingWhatsAppId, setSendingWhatsAppId] = useState<string | null>(null);
+
+  // Column visibility + export
+  const [visibleColumns, setVisibleColumns] = useState<Set<RetailerColKey>>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(COL_STORAGE_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw) as RetailerColKey[];
+        const set = new Set<RetailerColKey>(parsed);
+        RETAILER_COLUMNS.forEach(c => { if (c.alwaysVisible) set.add(c.key); });
+        return set;
+      }
+    } catch {}
+    return new Set<RetailerColKey>(DEFAULT_VISIBLE_COLS);
+  });
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const toggleColumn = (key: RetailerColKey) => {
+    const def = RETAILER_COLUMNS.find(c => c.key === key);
+    if (def?.alwaysVisible) return;
+    setVisibleColumns(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+  const resetColumns = () => {
+    const next = new Set<RetailerColKey>(DEFAULT_VISIBLE_COLS);
+    try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(Array.from(next))); } catch {}
+    setVisibleColumns(next);
+  };
+  const showAllColumns = () => {
+    const next = new Set<RetailerColKey>(RETAILER_COLUMNS.map(c => c.key));
+    try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(Array.from(next))); } catch {}
+    setVisibleColumns(next);
+  };
+  const isCol = (k: RetailerColKey) => visibleColumns.has(k);
 
   useEffect(() => {
     document.title = "Retail Management | Admin Panel";
@@ -623,6 +682,38 @@ export default function RetailManagement() {
               </Select>
             </div>
 
+            {/* Table actions: column visibility + export */}
+            <div className="flex items-center justify-end gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Columns3 className="h-4 w-4 mr-2" /> Columns ({visibleColumns.size}/{RETAILER_COLUMNS.length})
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-popover z-50">
+                  <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {RETAILER_COLUMNS.map(col => (
+                    <DropdownMenuCheckboxItem
+                      key={col.key}
+                      checked={visibleColumns.has(col.key)}
+                      onCheckedChange={() => toggleColumn(col.key)}
+                      disabled={col.alwaysVisible}
+                      onSelect={(e) => e.preventDefault()}
+                    >
+                      {col.label}{col.alwaysVisible ? ' (locked)' : ''}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={showAllColumns}>Show all</DropdownMenuItem>
+                  <DropdownMenuItem onClick={resetColumns}>Reset to default</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                <Download className="h-4 w-4 mr-2" /> Export
+              </Button>
+            </div>
+
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -632,117 +723,131 @@ export default function RetailManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Photo</TableHead>
-                      <TableHead>Retailer Name</TableHead>
-                      <TableHead>Contact Person</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead>Territory</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Last Visited</TableHead>
-                      <TableHead>Added By</TableHead>
-                      <TableHead>Verification</TableHead>
-                      <TableHead>Verified By</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-
+                      {isCol('photo') && <TableHead className="w-[72px]">Photo</TableHead>}
+                      {isCol('name') && <TableHead className="min-w-[220px] whitespace-nowrap">Retailer Name</TableHead>}
+                      {isCol('contact_person') && <TableHead className="min-w-[140px] whitespace-nowrap">Contact Person</TableHead>}
+                      {isCol('phone') && <TableHead className="min-w-[130px] whitespace-nowrap">Phone</TableHead>}
+                      {isCol('address') && <TableHead className="min-w-[240px]">Address</TableHead>}
+                      {isCol('territory') && <TableHead className="min-w-[120px] whitespace-nowrap">Territory</TableHead>}
+                      {isCol('status') && <TableHead className="min-w-[100px] whitespace-nowrap">Status</TableHead>}
+                      {isCol('last_visited') && <TableHead className="min-w-[140px] whitespace-nowrap">Last Visited</TableHead>}
+                      {isCol('added_by') && <TableHead className="min-w-[160px] whitespace-nowrap">Added By</TableHead>}
+                      {isCol('verification') && <TableHead className="min-w-[140px] whitespace-nowrap">Verification</TableHead>}
+                      {isCol('verified_by') && <TableHead className="min-w-[180px] whitespace-nowrap">Verified By</TableHead>}
+                      {isCol('actions') && <TableHead className="w-[140px] text-right whitespace-nowrap">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedRetailers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={visibleColumns.size} className="text-center text-muted-foreground py-8">
                           No retailers found
                         </TableCell>
                       </TableRow>
                     ) : (
                       paginatedRetailers.map((retailer) => (
                         <TableRow key={retailer.id}>
-                          <TableCell>
-                            <Avatar 
-                              className="w-10 h-10 cursor-pointer"
-                              onClick={() => openPhotoDialog(retailer)}
-                            >
-                              <AvatarImage src={retailer.photo_url || undefined} />
-                              <AvatarFallback>
-                                <ImageIcon className="w-4 w-4" />
-                              </AvatarFallback>
-                            </Avatar>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            <button
-                              onClick={() => navigate(`/retailer/${retailer.id}`)}
-                              className="flex items-center gap-2 hover:text-primary hover:underline text-left"
-                            >
-                              {retailer.name}
-                              <VerifiedTick
-                                verified={retailer.verification_status === 'verified'}
-                                method={retailer.verification_method}
-                                verifiedBy={retailer.verified_by_name}
-                                verifiedAt={retailer.verified_at}
-                              />
-                            </button>
-                          </TableCell>
-                          <TableCell>{retailer.contact_person || '-'}</TableCell>
-                          <TableCell>{retailer.phone || 'N/A'}</TableCell>
-                          <TableCell>
-                            <div className="max-w-[220px]">
-                              <button
-                                onClick={() => openGoogleMaps(retailer.address)}
-                                className="flex items-center gap-1 hover:text-primary hover:underline text-left text-sm group w-full min-w-0"
-                                title={retailer.address || 'Open in Google Maps'}
+                          {isCol('photo') && (
+                            <TableCell>
+                              <Avatar
+                                className="w-10 h-10 cursor-pointer"
+                                onClick={() => openPhotoDialog(retailer)}
                               >
-                                <span className="truncate block min-w-0 flex-1">{retailer.address}</span>
-                                <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <AvatarImage src={retailer.photo_url || undefined} />
+                                <AvatarFallback>
+                                  <ImageIcon className="w-4 w-4" />
+                                </AvatarFallback>
+                              </Avatar>
+                            </TableCell>
+                          )}
+                          {isCol('name') && (
+                            <TableCell className="font-medium">
+                              <button
+                                onClick={() => navigate(`/retailer/${retailer.id}`)}
+                                className="flex items-center gap-2 hover:text-primary hover:underline text-left"
+                              >
+                                <span className="truncate max-w-[220px]">{retailer.name}</span>
+                                <VerifiedTick
+                                  verified={retailer.verification_status === 'verified'}
+                                  method={retailer.verification_method}
+                                  verifiedBy={retailer.verified_by_name}
+                                  verifiedAt={retailer.verified_at}
+                                />
                               </button>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {retailer.territory_name ? (
-                              <Badge variant="outline">{retailer.territory_name}</Badge>
-                            ) : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={retailer.status === 'active' ? 'default' : 'secondary'}>
-                              {retailer.status === 'active' ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {retailer.last_visit_date 
-                              ? format(new Date(retailer.last_visit_date), 'dd MMM yyyy')
-                              : '-'
-                            }
-                          </TableCell>
-                          <TableCell>{retailer.profiles?.full_name || 'Unknown'}</TableCell>
-                          <TableCell>{getStatusBadge(retailer.verification_status)}</TableCell>
-                          <TableCell>
-                            {retailer.verification_status === 'verified' ? (
-                              retailer.verification_method === 'whatsapp' ? (
-                                <div className="flex flex-col text-xs">
-                                  <span className="inline-flex items-center gap-1 font-medium text-green-700">
-                                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                                  </span>
-                                  <span className="text-muted-foreground">via retailer reply{retailer.phone ? ` (${retailer.phone})` : ''}</span>
-                                  {retailer.verified_at && (
-                                    <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
-                                  )}
-                                </div>
+                            </TableCell>
+                          )}
+                          {isCol('contact_person') && <TableCell className="whitespace-nowrap">{retailer.contact_person || '-'}</TableCell>}
+                          {isCol('phone') && <TableCell className="whitespace-nowrap">{retailer.phone || 'N/A'}</TableCell>}
+                          {isCol('address') && (
+                            <TableCell>
+                              <div className="max-w-[260px]">
+                                <button
+                                  onClick={() => openGoogleMaps(retailer.address)}
+                                  className="flex items-center gap-1 hover:text-primary hover:underline text-left text-sm group w-full min-w-0"
+                                  title={retailer.address || 'Open in Google Maps'}
+                                >
+                                  <span className="truncate block min-w-0 flex-1">{retailer.address}</span>
+                                  <ExternalLink className="h-3 w-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+                              </div>
+                            </TableCell>
+                          )}
+                          {isCol('territory') && (
+                            <TableCell className="whitespace-nowrap">
+                              {retailer.territory_name ? (
+                                <Badge variant="outline">{retailer.territory_name}</Badge>
+                              ) : '-'}
+                            </TableCell>
+                          )}
+                          {isCol('status') && (
+                            <TableCell className="whitespace-nowrap">
+                              <Badge variant={retailer.status === 'active' ? 'default' : 'secondary'}>
+                                {retailer.status === 'active' ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </TableCell>
+                          )}
+                          {isCol('last_visited') && (
+                            <TableCell className="whitespace-nowrap">
+                              {retailer.last_visit_date
+                                ? format(new Date(retailer.last_visit_date), 'dd MMM yyyy')
+                                : '-'
+                              }
+                            </TableCell>
+                          )}
+                          {isCol('added_by') && <TableCell className="whitespace-nowrap">{retailer.profiles?.full_name || 'Unknown'}</TableCell>}
+                          {isCol('verification') && <TableCell className="whitespace-nowrap">{getStatusBadge(retailer.verification_status)}</TableCell>}
+                          {isCol('verified_by') && (
+                            <TableCell>
+                              {retailer.verification_status === 'verified' ? (
+                                retailer.verification_method === 'whatsapp' ? (
+                                  <div className="flex flex-col text-xs">
+                                    <span className="inline-flex items-center gap-1 font-medium text-green-700">
+                                      <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                                    </span>
+                                    <span className="text-muted-foreground">via retailer reply{retailer.phone ? ` (${retailer.phone})` : ''}</span>
+                                    {retailer.verified_at && (
+                                      <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-col text-xs">
+                                    <span className="font-medium truncate max-w-[180px]">{retailer.verified_by_name || 'Admin'}</span>
+                                    <span className="text-muted-foreground capitalize">{retailer.verification_method || 'manual'}</span>
+                                    {retailer.verified_at && (
+                                      <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
+                                    )}
+                                  </div>
+                                )
                               ) : (
-                                <div className="flex flex-col text-xs">
-                                  <span className="font-medium truncate max-w-[160px]">{retailer.verified_by_name || 'Admin'}</span>
-                                  <span className="text-muted-foreground capitalize">{retailer.verification_method || 'manual'}</span>
-                                  {retailer.verified_at && (
-                                    <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
-                                  )}
-                                </div>
-                              )
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-
-                          <TableCell className="text-right">
-                            {getActionButton(retailer)}
-                          </TableCell>
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          )}
+                          {isCol('actions') && (
+                            <TableCell className="text-right">
+                              {getActionButton(retailer)}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))
                     )}
@@ -932,6 +1037,13 @@ export default function RetailManagement() {
         onOpenChange={setApprovalDialogOpen}
         retailer={selectedRetailer}
         onCompleted={loadData}
+      />
+
+      <RetailerExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        retailers={filteredRetailers as any}
+        filteredCount={filteredRetailers.length}
       />
     </Layout>
   );
