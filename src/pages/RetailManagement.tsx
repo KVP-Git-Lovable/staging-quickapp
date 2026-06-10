@@ -844,6 +844,15 @@ export default function RetailManagement() {
                               </Badge>
                             </TableCell>
                           )}
+                          {isCol('quality') && (
+                            <TableCell className="whitespace-nowrap">
+                              <div className="flex flex-col gap-1">
+                                <QualityBadge status={retailer.quality_status} score={retailer.verification_score ?? 0} />
+                                <ScoreBar score={retailer.verification_score ?? 0} />
+                                <DuplicateRiskBadge risk={retailer.duplicate_risk_score ?? 0} />
+                              </div>
+                            </TableCell>
+                          )}
                           {isCol('last_visited') && (
                             <TableCell className="whitespace-nowrap">
                               {retailer.last_visit_date
