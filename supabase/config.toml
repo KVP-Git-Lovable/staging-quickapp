@@ -35,3 +35,9 @@ verify_jwt = false
 
 [functions.set-distributor-portal-password]
 verify_jwt = false
+
+[functions.send-retailer-verification-whatsapp]
+verify_jwt = false
+
+[functions.whatsapp-retailer-verify-inbound]
+verify_jwt = false
