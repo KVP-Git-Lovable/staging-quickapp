@@ -125,6 +125,43 @@ export default function RetailManagement() {
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
   const [sendingWhatsAppId, setSendingWhatsAppId] = useState<string | null>(null);
 
+  // Column visibility + export
+  const [visibleColumns, setVisibleColumns] = useState<Set<RetailerColKey>>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(COL_STORAGE_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw) as RetailerColKey[];
+        const set = new Set<RetailerColKey>(parsed);
+        RETAILER_COLUMNS.forEach(c => { if (c.alwaysVisible) set.add(c.key); });
+        return set;
+      }
+    } catch {}
+    return new Set<RetailerColKey>(DEFAULT_VISIBLE_COLS);
+  });
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const toggleColumn = (key: RetailerColKey) => {
+    const def = RETAILER_COLUMNS.find(c => c.key === key);
+    if (def?.alwaysVisible) return;
+    setVisibleColumns(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+  const resetColumns = () => {
+    const next = new Set<RetailerColKey>(DEFAULT_VISIBLE_COLS);
+    try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(Array.from(next))); } catch {}
+    setVisibleColumns(next);
+  };
+  const showAllColumns = () => {
+    const next = new Set<RetailerColKey>(RETAILER_COLUMNS.map(c => c.key));
+    try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(Array.from(next))); } catch {}
+    setVisibleColumns(next);
+  };
+  const isCol = (k: RetailerColKey) => visibleColumns.has(k);
+
   useEffect(() => {
     document.title = "Retail Management | Admin Panel";
   }, []);
