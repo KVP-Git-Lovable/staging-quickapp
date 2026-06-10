@@ -475,9 +475,34 @@ export default function RetailManagement() {
     } else if (lastVisitedFilter !== 'all' && !r.last_visit_date) {
       matchesLastVisited = false;
     }
-    
-    return matchesSearch && matchesTerritory && matchesCategory && 
-           matchesSalesMember && matchesVerified && matchesLastVisited;
+
+    // KPI smart filter
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const sixtyAgo = subMonths(now, 2);
+    let matchesKpi = true;
+    const score = r.verification_score ?? 0;
+    const dupRisk = r.duplicate_risk_score ?? 0;
+    const orders = r.order_count ?? 0;
+    const lastOrder = r.last_order_date ? new Date(r.last_order_date) : null;
+    switch (kpiFilter) {
+      case 'verified': matchesKpi = r.verification_status === 'verified' || score >= 70; break;
+      case 'unverified': matchesKpi = r.verification_status === 'pending' || (score > 0 && score < 40) || (!r.verification_status); break;
+      case 'needs_attention': matchesKpi = r.verification_status === 'needs_attention'; break;
+      case 'dropped': matchesKpi = r.verification_status === 'dropped'; break;
+      case 'orphan': matchesKpi = orders === 0; break;
+      case 'dormant': matchesKpi = orders > 0 && (!lastOrder || isBefore(lastOrder, sixtyAgo)); break;
+      case 'new_month': matchesKpi = r.created_at ? isAfter(new Date(r.created_at), monthStart) : false; break;
+      case 'duplicate': matchesKpi = dupRisk >= 70; break;
+      case 'awaiting_approval': matchesKpi = (r.approval_status ?? '').toLowerCase() === 'pending' || r.verification_status === 'pending'; break;
+      case 'visited_not_ordered': matchesKpi = !!r.last_visit_date && orders === 0; break;
+      case 'total':
+      case 'none':
+      default: matchesKpi = true;
+    }
+
+    return matchesSearch && matchesTerritory && matchesCategory &&
+           matchesSalesMember && matchesVerified && matchesLastVisited && matchesKpi;
   });
 
   // Pagination - 10 items per page
@@ -495,12 +520,31 @@ export default function RetailManagement() {
     hasPrevPage,
   } = usePagination(filteredRetailers, { pageSize: 10 });
 
+  // Compute extended stats
+  const _now = new Date();
+  const _monthStart = startOfMonth(_now);
+  const _sixtyAgo = subMonths(_now, 2);
   const stats = {
     total: retailers.length,
-    verified: retailers.filter(r => r.verification_status === 'verified').length,
+    verified: retailers.filter(r => r.verification_status === 'verified' || (r.verification_score ?? 0) >= 70).length,
+    unverified: retailers.filter(r => r.verification_status === 'pending' || ((r.verification_score ?? 0) < 40 && (r.verification_score ?? 0) > 0) || !r.verification_status).length,
     needsAttention: retailers.filter(r => r.verification_status === 'needs_attention').length,
     dropped: retailers.filter(r => r.verification_status === 'dropped').length,
+    orphan: retailers.filter(r => (r.order_count ?? 0) === 0).length,
+    dormant: retailers.filter(r => (r.order_count ?? 0) > 0 && (!r.last_order_date || isBefore(new Date(r.last_order_date), _sixtyAgo))).length,
+    newThisMonth: retailers.filter(r => r.created_at && isAfter(new Date(r.created_at), _monthStart)).length,
+    duplicate: retailers.filter(r => (r.duplicate_risk_score ?? 0) >= 70).length,
+    awaitingApproval: retailers.filter(r => ((r.approval_status ?? '').toLowerCase() === 'pending') || r.verification_status === 'pending').length,
+    visitedNotOrdered: retailers.filter(r => !!r.last_visit_date && (r.order_count ?? 0) === 0).length,
+    ordered: retailers.filter(r => (r.order_count ?? 0) > 0).length,
+    visited: retailers.filter(r => !!r.last_visit_date).length,
+    avgScore: retailers.length
+      ? Math.round(retailers.reduce((s, r) => s + (r.verification_score ?? 0), 0) / retailers.length)
+      : 0,
   };
+  const activationRate = stats.total ? Math.round((stats.ordered / stats.total) * 100) : 0;
+  const verificationRate = stats.total ? Math.round((stats.verified / stats.total) * 100) : 0;
+  const conversionRate = stats.visited ? Math.round((stats.ordered / stats.visited) * 100) : 0;
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
