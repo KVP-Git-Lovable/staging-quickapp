@@ -1,26 +1,26 @@
+## Problem
+
+In `ApprovalChecklistDialog.tsx`, each FieldCard shows `ok = autoOk || manual`. When the underlying retailer data already satisfies the check (e.g. name present, phone valid, address present, GPS captured), `autoOk` is `true`. Clicking the checkbox only flips the `manual` flag — which has no visible effect because `ok` stays `true`. Result: the card looks "stuck checked" and the user thinks the UI is broken.
+
 ## Goal
-Clean up the Columns picker in `/retail-management` so each row has a single radio-style dot indicator shown once, and the dropdown opens cleanly below the trigger without overflowing the page header.
 
-## Changes (single file: `src/pages/RetailManagement.tsx`)
+Make the checkbox state honest and intuitive:
+- If the field is auto-verified from data → show as checked, **lock it** (disabled), and label it "Auto-verified" so the user understands why it can't be unchecked.
+- If the field is NOT auto-verified → checkbox is freely toggleable (check = manual override grants the weight, uncheck = removes it).
 
-1. **Replace `DropdownMenuCheckboxItem` rows with custom rows** that render a radio-style indicator (filled dot when selected, empty ring when not) followed by the label. The indicator appears exactly once per row, on the left, using `lucide-react` `Circle` / `Dot` (or a small `div` ring with inner dot).
-   - Use `DropdownMenuItem` with `onSelect={(e) => e.preventDefault()}` and `onClick={() => toggleColumn(col.key)}` so the menu stays open on toggle.
-   - Locked columns (`alwaysVisible`) render with `opacity-50 pointer-events-none` and an always-filled dot.
+## Changes (single file: `src/components/retailer/ApprovalChecklistDialog.tsx`)
 
-2. **Anchor dropdown below the trigger with scroll**:
-   - `DropdownMenuContent` props: `align="end"`, `side="bottom"`, `sideOffset={6}`, `avoidCollisions={false}`.
-   - Add `max-h-[60vh] overflow-y-auto` to the content so long lists scroll inside the menu instead of pushing above the header.
+1. **FieldCard component**
+   - Disable the checkbox and remove the card's click/keyboard handler when `autoOk === true`.
+   - Show a small "Auto-verified" pill (instead of "Manually verified by you") when `autoOk` is true.
+   - Keep "Manually verified by you" only when `manual && !autoOk`.
+   - Adjust hover/cursor styling: `cursor-default` when auto-verified, `cursor-pointer` otherwise.
 
-3. **Keep existing behavior intact**: `Show all`, `Reset to default`, label "Show columns", separators, and the `(locked)` suffix for always-visible columns. No changes to state, persistence, table rendering, export, tabs, or any other page logic.
+2. **Tip text above the grid**
+   - Update to: "Click any unchecked field to manually verify it. Auto-verified fields are locked."
 
-## Visual spec for the row indicator
-```
-( • )  Phone          ← selected
-(   )  Added By       ← unselected
-( • )  Actions (locked)   ← disabled, dimmed
-```
-A 14px circular ring; when selected, a 6px filled dot is centered inside. Uses `border-primary` for the ring and `bg-primary` for the dot, so it matches the existing theme.
+3. **No scoring or data changes** — auto fields already contribute their weight; manual override only adds weight for fields not auto-satisfied.
 
 ## Out of scope
-- No schema, RLS, or data changes.
-- No changes to filters, table columns, export dialog, verification flow, or tabs.
+- No changes to weights, approval gating, duplicate logic, or DB writes.
+- No changes to risk-indicator pills at the top (those are read-only by design).

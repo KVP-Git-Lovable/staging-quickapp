@@ -366,7 +366,7 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
           {/* Section 4: Field Validation (click any card to mark as verified) */}
           <div className="text-[11px] text-muted-foreground -mb-1">
-            Tip: Click any field card below to manually mark it as verified. The score updates instantly.
+            Tip: Click any unchecked field to manually verify it. Auto-verified fields are locked.
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <FieldCard
@@ -531,13 +531,17 @@ function FieldCard({
   onToggle?: () => void;
 }) {
   const verifiedByUser = !!manual && !autoOk;
+  const locked = !!autoOk;
+  const handleToggle = locked ? undefined : onToggle;
   return (
     <div
-      role={onToggle ? "button" : undefined}
-      tabIndex={onToggle ? 0 : undefined}
-      onClick={onToggle}
-      onKeyDown={(e) => { if (onToggle && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onToggle(); } }}
-      className={`rounded-lg border p-3 transition-all cursor-pointer select-none hover:shadow-sm ${
+      role={handleToggle ? "button" : undefined}
+      tabIndex={handleToggle ? 0 : undefined}
+      onClick={handleToggle}
+      onKeyDown={(e) => { if (handleToggle && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); handleToggle(); } }}
+      className={`rounded-lg border p-3 transition-all select-none ${
+        handleToggle ? "cursor-pointer hover:shadow-sm" : "cursor-default"
+      } ${
         ok
           ? verifiedByUser
             ? "bg-blue-50/40 border-blue-300 ring-1 ring-blue-200"
@@ -549,7 +553,8 @@ function FieldCard({
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           <Checkbox
             checked={ok}
-            onCheckedChange={() => onToggle?.()}
+            disabled={locked}
+            onCheckedChange={() => handleToggle?.()}
             onClick={(e) => e.stopPropagation()}
             aria-label={`Mark ${title} verified`}
             className="h-3.5 w-3.5"
@@ -569,11 +574,15 @@ function FieldCard({
           </li>
         ))}
       </ul>
-      {verifiedByUser && (
+      {locked ? (
+        <div className="mt-1.5 text-[10px] text-emerald-700 font-medium flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3" /> Auto-verified · locked
+        </div>
+      ) : verifiedByUser ? (
         <div className="mt-1.5 text-[10px] text-blue-700 font-medium flex items-center gap-1">
           <CheckCircle2 className="h-3 w-3" /> Manually verified by you
         </div>
-      )}
+      ) : null}
 
       {extra}
     </div>
