@@ -49,6 +49,15 @@
     --input: 220 13% 91%;
     --ring: 220 39% 11%;
 
+    /* Beat coordinator status colors */
+    --beat-assigned: 221 83% 53%;
+    --beat-served: 142 71% 45%;
+    --beat-stale: 38 92% 50%;
+    --beat-uncovered: 0 84% 60%;
+    --beat-shared: 262 83% 58%;
+    --beat-missed: 0 84% 55%;
+    --beat-partial: 38 92% 50%;
+
     /* KVP Corporate Gradient - Navy to Gold */
     --gradient-primary: linear-gradient(135deg, hsl(220 39% 11%), hsl(220 25% 25%), hsl(35 65% 55%));
     --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(210 40% 98%));
