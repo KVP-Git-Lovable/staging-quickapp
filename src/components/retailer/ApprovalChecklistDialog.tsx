@@ -181,10 +181,10 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
   // Missing required = core 80% fields not present
   const missing: string[] = [];
-  if (!signals.name) missing.push("Retailer name");
-  if (!signals.phone) missing.push("Valid phone number");
-  if (!signals.address) missing.push("Address");
-  if (!signals.gps) missing.push("GPS location");
+  if (!signals.name) missing.push("Tick Shop Name to confirm");
+  if (!signals.phone) missing.push("Tick Phone to confirm");
+  if (!signals.address) missing.push("Tick Address to confirm");
+  if (!signals.gps) missing.push("Tick GPS Location to confirm");
 
   const highRiskDup = dupes.some((d) => d.risk === "high");
   const allConfirmed = confirmDup && confirmEvidence && confirmApprove;
