@@ -123,13 +123,21 @@ export function MonthGrid({
                 {chips.slice(0, 2).map((c) => {
                   const isSplit = c.status === "shared" || c.assignment_type === "split";
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={c.beat_id}
-                      className={cn("text-[10px] px-1.5 py-0.5 rounded border truncate", STATUS_BG[c.status])}
-                      title={`${c.beat_name} · ${c.status}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setChipDetail({ date: dateStr, beatId: c.beat_id, beatName: c.beat_name });
+                      }}
+                      className={cn(
+                        "w-full text-left text-[10px] px-1.5 py-0.5 rounded border truncate hover:ring-1 hover:ring-primary/40 transition",
+                        STATUS_BG[c.status],
+                      )}
+                      title={`${c.beat_name} · ${c.status} — click for retailer details`}
                     >
                       {isSplit ? "⇌ " : ""}{c.beat_name}
-                    </div>
+                    </button>
                   );
                 })}
                 {chips.length > 2 && (
