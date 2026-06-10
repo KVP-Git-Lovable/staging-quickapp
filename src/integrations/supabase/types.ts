@@ -16297,41 +16297,158 @@ export type Database = {
       }
       retailer_verification_policy: {
         Row: {
+          approval_level: string
+          approval_required: boolean
+          auto_approve_score: number
+          auto_reject_dup_risk: number
           auto_whatsapp_on_create: boolean
           block_after_limit: boolean
           company_id: string | null
           created_at: string
+          dup_action: string
+          dup_check_address: boolean
+          dup_check_gps: boolean
+          dup_check_gst: boolean
+          dup_check_mobile: boolean
+          dup_check_name: boolean
+          dup_risk_threshold: number
           enabled: boolean
+          expire_pending_days: number
+          gp_created: number
+          gp_first_order: number
+          gp_first_visit: number
+          gp_gps: number
+          gp_mobile: number
+          gp_photo: number
+          gp_revoke_on_fraud: boolean
+          gp_whatsapp: number
           grace_days: number
           id: string
           max_orders_unverified: number
+          pts_address: number
+          pts_first_order: number
+          pts_first_visit: number
+          pts_gps: number
+          pts_gst: number
+          pts_mobile: number
+          pts_owner: number
+          pts_shop_photo: number
+          pts_whatsapp: number
+          req_first_visit: boolean
+          req_gps: boolean
+          req_gst: boolean
+          req_mobile: boolean
+          req_owner_name: boolean
+          req_shop_photo: boolean
+          req_whatsapp: boolean
           require_verification_for_credit: boolean
+          threshold_gold: number
+          threshold_partial: number
+          threshold_verified: number
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          approval_level?: string
+          approval_required?: boolean
+          auto_approve_score?: number
+          auto_reject_dup_risk?: number
           auto_whatsapp_on_create?: boolean
           block_after_limit?: boolean
           company_id?: string | null
           created_at?: string
+          dup_action?: string
+          dup_check_address?: boolean
+          dup_check_gps?: boolean
+          dup_check_gst?: boolean
+          dup_check_mobile?: boolean
+          dup_check_name?: boolean
+          dup_risk_threshold?: number
           enabled?: boolean
+          expire_pending_days?: number
+          gp_created?: number
+          gp_first_order?: number
+          gp_first_visit?: number
+          gp_gps?: number
+          gp_mobile?: number
+          gp_photo?: number
+          gp_revoke_on_fraud?: boolean
+          gp_whatsapp?: number
           grace_days?: number
           id?: string
           max_orders_unverified?: number
+          pts_address?: number
+          pts_first_order?: number
+          pts_first_visit?: number
+          pts_gps?: number
+          pts_gst?: number
+          pts_mobile?: number
+          pts_owner?: number
+          pts_shop_photo?: number
+          pts_whatsapp?: number
+          req_first_visit?: boolean
+          req_gps?: boolean
+          req_gst?: boolean
+          req_mobile?: boolean
+          req_owner_name?: boolean
+          req_shop_photo?: boolean
+          req_whatsapp?: boolean
           require_verification_for_credit?: boolean
+          threshold_gold?: number
+          threshold_partial?: number
+          threshold_verified?: number
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          approval_level?: string
+          approval_required?: boolean
+          auto_approve_score?: number
+          auto_reject_dup_risk?: number
           auto_whatsapp_on_create?: boolean
           block_after_limit?: boolean
           company_id?: string | null
           created_at?: string
+          dup_action?: string
+          dup_check_address?: boolean
+          dup_check_gps?: boolean
+          dup_check_gst?: boolean
+          dup_check_mobile?: boolean
+          dup_check_name?: boolean
+          dup_risk_threshold?: number
           enabled?: boolean
+          expire_pending_days?: number
+          gp_created?: number
+          gp_first_order?: number
+          gp_first_visit?: number
+          gp_gps?: number
+          gp_mobile?: number
+          gp_photo?: number
+          gp_revoke_on_fraud?: boolean
+          gp_whatsapp?: number
           grace_days?: number
           id?: string
           max_orders_unverified?: number
+          pts_address?: number
+          pts_first_order?: number
+          pts_first_visit?: number
+          pts_gps?: number
+          pts_gst?: number
+          pts_mobile?: number
+          pts_owner?: number
+          pts_shop_photo?: number
+          pts_whatsapp?: number
+          req_first_visit?: boolean
+          req_gps?: boolean
+          req_gst?: boolean
+          req_mobile?: boolean
+          req_owner_name?: boolean
+          req_shop_photo?: boolean
+          req_whatsapp?: boolean
           require_verification_for_credit?: boolean
+          threshold_gold?: number
+          threshold_partial?: number
+          threshold_verified?: number
           updated_at?: string
           updated_by?: string | null
         }
