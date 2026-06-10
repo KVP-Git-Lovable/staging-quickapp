@@ -321,10 +321,10 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <Pill ok={!highRiskDup} warn={dupes.length > 0 && !highRiskDup} label={`Duplicate Risk: ${highRiskDup ? "HIGH" : dupes.length ? "MED" : "LOW"}`} />
-              <Pill ok={signals.phone} label={`Phone: ${signals.phone ? "VALID" : "MISSING"}`} />
-              <Pill ok={signals.whatsapp} warn label={`WhatsApp: ${signals.whatsapp ? "VERIFIED" : "PENDING"}`} />
-              <Pill ok={signals.gps} label={`GPS: ${signals.gps ? "CAPTURED" : "MISSING"}`} />
-              <Pill ok={signals.photo} warn label={`Shop Photo: ${signals.photo ? "YES" : "NO"}`} />
+              <Pill ok={auto.phone} label={`Phone: ${auto.phone ? "VALID" : "MISSING"}`} />
+              <Pill ok={auto.whatsapp} warn label={`WhatsApp: ${auto.whatsapp ? "VERIFIED" : "PENDING"}`} />
+              <Pill ok={auto.gps} label={`GPS: ${auto.gps ? "CAPTURED" : "MISSING"}`} />
+              <Pill ok={auto.photo} warn label={`Shop Photo: ${auto.photo ? "YES" : "NO"}`} />
               <Pill ok={!!(retailer.owner_name || retailer.contact_person)} warn label={`Owner: ${(retailer.owner_name || retailer.contact_person) ? "YES" : "NO"}`} />
             </div>
           </div>
