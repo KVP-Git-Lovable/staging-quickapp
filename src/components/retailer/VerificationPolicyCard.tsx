@@ -113,7 +113,6 @@ const NumberField = ({
 
 export function VerificationPolicyCard() {
   const { policy, loading, save } = useRetailerVerificationPolicy();
-  const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Draft>(policy);
   const [tab, setTab] = useState("basics");
