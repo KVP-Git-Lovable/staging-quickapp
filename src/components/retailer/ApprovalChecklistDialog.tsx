@@ -159,17 +159,11 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
   const auto = useMemo(() => (retailer ? computeSignals(retailer) : null), [retailer]);
 
+  // Manual-only verification: DB data is evidence, NOT auto-verified.
+  // The approver must explicitly tick each box.
   const signals = useMemo(() => {
     if (!auto) return null;
-    const merged: Record<SignalKey, boolean> = {
-      name: auto.name || manual.name,
-      phone: auto.phone || manual.phone,
-      address: auto.address || manual.address,
-      gps: auto.gps || manual.gps,
-      whatsapp: auto.whatsapp || manual.whatsapp,
-      photo: auto.photo || manual.photo,
-      gst: auto.gst || manual.gst,
-    };
+    const merged: Record<SignalKey, boolean> = { ...manual };
     const score =
       (merged.name ? WEIGHTS.name : 0) +
       (merged.phone ? WEIGHTS.phone : 0) +
