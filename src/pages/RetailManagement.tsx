@@ -172,13 +172,18 @@ export default function RetailManagement() {
         verificationStatus = 'needs_attention';
       }
       
+      const verifierProf = r.verified_by ? profileMap.get(r.verified_by) : null;
+      const verifiedByName = verifierProf?.full_name || verifierProf?.username || null;
+
       return {
         ...r,
         beat_name: displayBeatName,
         territory_name: territoryName,
         verification_status: verificationStatus,
+        verified_by_name: verifiedByName,
         profiles: r.user_id ? { full_name: displayName } : null
       };
+
     });
     
     setRetailers(retailersWithDetails as Retailer[]);
@@ -637,13 +642,15 @@ export default function RetailManagement() {
                       <TableHead>Last Visited</TableHead>
                       <TableHead>Added By</TableHead>
                       <TableHead>Verification</TableHead>
+                      <TableHead>Verified By</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
+
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedRetailers.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                           No retailers found
                         </TableCell>
                       </TableRow>
@@ -707,6 +714,32 @@ export default function RetailManagement() {
                           </TableCell>
                           <TableCell>{retailer.profiles?.full_name || 'Unknown'}</TableCell>
                           <TableCell>{getStatusBadge(retailer.verification_status)}</TableCell>
+                          <TableCell>
+                            {retailer.verification_status === 'verified' ? (
+                              retailer.verification_method === 'whatsapp' ? (
+                                <div className="flex flex-col text-xs">
+                                  <span className="inline-flex items-center gap-1 font-medium text-green-700">
+                                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                                  </span>
+                                  <span className="text-muted-foreground">via retailer reply{retailer.phone ? ` (${retailer.phone})` : ''}</span>
+                                  {retailer.verified_at && (
+                                    <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex flex-col text-xs">
+                                  <span className="font-medium truncate max-w-[160px]">{retailer.verified_by_name || 'Admin'}</span>
+                                  <span className="text-muted-foreground capitalize">{retailer.verification_method || 'manual'}</span>
+                                  {retailer.verified_at && (
+                                    <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
+                                  )}
+                                </div>
+                              )
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+
                           <TableCell className="text-right">
                             {getActionButton(retailer)}
                           </TableCell>
