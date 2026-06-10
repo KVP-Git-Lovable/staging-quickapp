@@ -182,6 +182,7 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
           byDate[date].push(chip);
       };
 
+      const todayStr = format(new Date(), "yyyy-MM-dd");
       const deriveStatus = (
         date: string,
         beatId: string,
@@ -193,11 +194,15 @@ export function useCalendarData(repId: string | null, monthAnchor: Date) {
         const total = totalByKey.get(k) || 0;
         const completed = completedByKey.get(k) || 0;
         const onLeave = leaveDates.has(date);
+        const isPast = date < todayStr;
+        const planned = hasDaily || hasPermanent;
         if (onLeave && !hasDaily) return "uncovered";
         if (assignmentType === "split") return "shared";
-        if (completed > 0 && completed === total) return "served";
-        if (completed > 0) return "in_progress";
-        if (hasDaily || hasPermanent) return "assigned";
+        const retailerTotal = beatRetailerCount[beatId] || 0;
+        if (completed > 0 && (completed === total || (retailerTotal > 0 && completed >= retailerTotal))) return "served";
+        if (completed > 0) return isPast ? "partial" : "in_progress";
+        if (isPast && planned) return "missed";
+        if (planned) return "assigned";
         return "unplanned";
       };
 
