@@ -156,7 +156,8 @@ export function MonthGrid({
         {[
           ["bg-beat-assigned", "Assigned"],
           ["bg-beat-served", "Served"],
-          ["bg-beat-stale", "In progress / Stale"],
+          ["bg-beat-partial", "Partial"],
+          ["bg-beat-missed", "Missed"],
           ["bg-beat-uncovered", "Uncovered"],
           ["bg-beat-shared", "Shared"],
         ].map(([bg, lbl]) => (
@@ -168,6 +169,15 @@ export function MonthGrid({
 
       {isLoading && <div className="mt-3 text-xs text-muted-foreground">Loading…</div>}
       {!repId && <div className="mt-3 text-xs text-muted-foreground">Select a rep to see their plan.</div>}
+
+      <BeatDayDetailDialog
+        open={!!chipDetail}
+        onClose={() => setChipDetail(null)}
+        repId={repId}
+        date={chipDetail?.date || selectedDate}
+        beatId={chipDetail?.beatId || null}
+        beatName={chipDetail?.beatName}
+      />
     </Card>
   );
 }
