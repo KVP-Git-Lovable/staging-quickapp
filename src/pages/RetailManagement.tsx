@@ -870,6 +870,12 @@ export default function RetailManagement() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="policy" className="mt-4">
+            <VerificationPolicyCard />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Verification Dialog */}
