@@ -229,6 +229,16 @@ export default function RetailManagement() {
     const beatsRes = await supabase.from("beats").select("beat_id, beat_name");
     const beatMap = new Map((beatsRes.data || []).map((b: any) => [b.beat_id, b.beat_name]));
     
+    // Build order aggregation per retailer
+    const orderAgg = new Map<string, { count: number; last: string | null }>();
+    (ordersRes.data || []).forEach((o: any) => {
+      if (!o.retailer_id) return;
+      const cur = orderAgg.get(o.retailer_id) || { count: 0, last: null };
+      cur.count += 1;
+      if (!cur.last || (o.created_at && o.created_at > cur.last)) cur.last = o.created_at;
+      orderAgg.set(o.retailer_id, cur);
+    });
+
     // Calculate 6 months ago for auto-drop
     const sixMonthsAgo = subMonths(new Date(), 6);
 
@@ -237,26 +247,27 @@ export default function RetailManagement() {
       const displayName = prof?.full_name || prof?.username || 'Unknown';
       const displayBeatName = r.beat_name || (r.beat_id ? beatMap.get(r.beat_id) : null) || r.beat_id;
       const territoryName = r.territory_id ? territoryMap.get(r.territory_id) : null;
-      
+
       // Calculate verification status
       let verificationStatus = r.verification_status || 'pending';
-      
+
       // Auto-drop logic: if inactive OR last visit > 6 months
       const isInactive = r.status === 'inactive';
       const lastVisit = r.last_visit_date ? new Date(r.last_visit_date) : null;
       const isStale = lastVisit ? isBefore(lastVisit, sixMonthsAgo) : false;
-      
+
       if (isInactive || isStale) {
         verificationStatus = 'dropped';
       } else if (r.verification_address && r.verification_contact && r.verification_territory) {
         verificationStatus = 'verified';
       } else if (r.verification_address || r.verification_contact || r.verification_territory) {
-        // At least one but not all verified
         verificationStatus = 'needs_attention';
       }
-      
+
       const verifierProf = r.verified_by ? profileMap.get(r.verified_by) : null;
       const verifiedByName = verifierProf?.full_name || verifierProf?.username || null;
+
+      const agg = orderAgg.get(r.id);
 
       return {
         ...r,
@@ -264,9 +275,10 @@ export default function RetailManagement() {
         territory_name: territoryName,
         verification_status: verificationStatus,
         verified_by_name: verifiedByName,
-        profiles: r.user_id ? { full_name: displayName } : null
+        profiles: r.user_id ? { full_name: displayName } : null,
+        order_count: agg?.count ?? 0,
+        last_order_date: agg?.last ?? null,
       };
-
     });
     
     setRetailers(retailersWithDetails as Retailer[]);
