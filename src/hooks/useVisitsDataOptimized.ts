@@ -770,10 +770,27 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
 
       // FIX #2: ALWAYS fetch ALL retailers by beat_id (not just from visits/orders)
       // This ensures new retailers added to beats are always included
-      const beatIds = newBeatPlans.map(bp => bp.beat_id);
+      const planBeatIds = newBeatPlans.map(bp => bp.beat_id);
       const visitRetailerIds = newVisits.map(v => v.retailer_id);
       const orderRetailerIds = newOrders.map(o => o.retailer_id);
-      
+
+      // FIX: Include shared/coverage beats so their retailers also load
+      let sharedBeatIds: string[] = [];
+      try {
+        const nowIso = new Date().toISOString();
+        const { data: sharedAccessRows } = await supabase
+          .from('beat_user_access')
+          .select('beat_id')
+          .eq('user_id', uid)
+          .eq('is_active', true)
+          .or(`effective_to.is.null,effective_to.gt.${nowIso}`);
+        sharedBeatIds = (sharedAccessRows || []).map((r: any) => r.beat_id).filter(Boolean);
+      } catch (e) {
+        console.warn('[SmartSync] shared beat lookup failed', e);
+      }
+
+      const beatIds = [...new Set([...planBeatIds, ...sharedBeatIds])];
+
       // Get explicit retailer IDs from beat_data
       const explicitRetailerIds: string[] = [];
       for (const bp of newBeatPlans) {
@@ -1235,10 +1252,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       let allRetailerIds = [...new Set([...visitRetailerIds, ...orderRetailerIds, ...explicitRetailerIds])];
 
       if (beatIds.length > 0) {
+        // FIX: Drop user_id filter — RLS user_has_beat_access() handles shared beats.
         const { data: beatRetailers } = await supabase
           .from('retailers')
           .select('id')
-          .eq('user_id', uid)
           .in('beat_id', beatIds);
         if (beatRetailers) {
           allRetailerIds = [...new Set([...allRetailerIds, ...beatRetailers.map(r => r.id)])];
@@ -1247,10 +1264,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
 
       let retailersData: any[] = [];
       if (allRetailerIds.length > 0) {
+        // FIX: Drop user_id filter — RLS enforces correct access for shared beats.
         const { data } = await supabase
           .from('retailers')
           .select('*')
-          .eq('user_id', uid)
           .in('id', allRetailerIds);
         retailersData = data || [];
       }
@@ -1339,14 +1356,35 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
     if (effectiveUserId) {
       const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
       
-      // FIX: If no beat plans exist (all cleared), also clear retailers
+      // FIX: If no beat plans exist (all cleared), also clear retailers — BUT
+      // only when the user truly has no beats at all. Shared/coverage users have
+      // beats via beat_user_access that won't appear in offline beat_plans.
       if (offlineData && offlineData.beatPlans.length === 0) {
-        console.log('[InvalidateData] No beat plans found - clearing all data for date:', selectedDate);
-        setBeatPlans([]);
-        setVisits([]);
-        setRetailers([]);
-        setOrders([]);
-        cacheRef.current.set(selectedDate, { beatPlans: [], visits: [], retailers: [], orders: [] });
+        let hasSharedBeats = false;
+        try {
+          const { data: sharedBeats } = await supabase
+            .from('beat_user_access')
+            .select('beat_id')
+            .eq('user_id', effectiveUserId)
+            .eq('is_active', true)
+            .limit(1);
+          hasSharedBeats = !!(sharedBeats && sharedBeats.length > 0);
+        } catch (e) {
+          console.warn('[InvalidateData] shared beat check failed', e);
+        }
+
+        if (!hasSharedBeats) {
+          console.log('[InvalidateData] No beat plans and no shared beats - clearing all data for date:', selectedDate);
+          setBeatPlans([]);
+          setVisits([]);
+          setRetailers([]);
+          setOrders([]);
+          cacheRef.current.set(selectedDate, { beatPlans: [], visits: [], retailers: [], orders: [] });
+        } else {
+          // Has shared beats — clear beat plans only; retailers/visits/orders will refresh from DB.
+          console.log('[InvalidateData] No beat plans but shared beats exist - keeping retailers');
+          setBeatPlans([]);
+        }
       } else if (offlineData) {
         setBeatPlans(offlineData.beatPlans);
         setVisits(offlineData.visits);
