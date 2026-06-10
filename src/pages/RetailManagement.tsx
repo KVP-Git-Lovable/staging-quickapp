@@ -714,6 +714,32 @@ export default function RetailManagement() {
                           </TableCell>
                           <TableCell>{retailer.profiles?.full_name || 'Unknown'}</TableCell>
                           <TableCell>{getStatusBadge(retailer.verification_status)}</TableCell>
+                          <TableCell>
+                            {retailer.verification_status === 'verified' ? (
+                              retailer.verification_method === 'whatsapp' ? (
+                                <div className="flex flex-col text-xs">
+                                  <span className="inline-flex items-center gap-1 font-medium text-green-700">
+                                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                                  </span>
+                                  <span className="text-muted-foreground">via retailer reply{retailer.phone ? ` (${retailer.phone})` : ''}</span>
+                                  {retailer.verified_at && (
+                                    <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex flex-col text-xs">
+                                  <span className="font-medium truncate max-w-[160px]">{retailer.verified_by_name || 'Admin'}</span>
+                                  <span className="text-muted-foreground capitalize">{retailer.verification_method || 'manual'}</span>
+                                  {retailer.verified_at && (
+                                    <span className="text-muted-foreground">{format(new Date(retailer.verified_at), 'dd MMM yyyy')}</span>
+                                  )}
+                                </div>
+                              )
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+
                           <TableCell className="text-right">
                             {getActionButton(retailer)}
                           </TableCell>
