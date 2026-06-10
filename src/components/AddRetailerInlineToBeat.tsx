@@ -612,6 +612,11 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
       return;
     }
 
+    if (data?.id) {
+      const { maybeTriggerWhatsAppVerification } = await import('@/utils/retailerVerificationTrigger');
+      maybeTriggerWhatsAppVerification(data.id, payload.phone);
+    }
+
     toast({ title: 'Retailer Added', description: `${retailerData.name} added to ${beatName}` });
     
     // Also cache the new retailer for offline access
