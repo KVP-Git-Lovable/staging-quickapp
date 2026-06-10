@@ -513,7 +513,6 @@ export function VerificationPolicyCard() {
             </div>
           </div>
         </CardContent>
-      )}
     </Card>
   );
 }
