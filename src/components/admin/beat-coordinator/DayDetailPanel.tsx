@@ -57,6 +57,7 @@ export function DayDetailPanel({
   const onLeave = data?.leaveDates.has(selectedDate);
   const uncoveredBeats = beats.filter((b) => b.status === "uncovered");
   const dateLabel = format(parseISO(selectedDate), "EEE d MMM");
+  const { data: retailerRows = [] } = useDayRetailerDetail({ repId, date: selectedDate });
 
   const splitBeatIds = useMemo(
     () => beats.filter((b) => b.status === "shared" || b.assignment_type === "split").map((b) => b.beat_id),
