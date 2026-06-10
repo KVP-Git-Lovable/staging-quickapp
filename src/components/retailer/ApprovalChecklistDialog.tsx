@@ -366,21 +366,21 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             <FieldCard
               icon={User} title="Shop Name" value={retailer.name}
               ok={signals.name} weight={WEIGHTS.name}
-              manual={manual.name} autoOk={auto.name}
+              manual={manual.name}
               onToggle={() => toggle("name")}
               checks={[
-                { label: "Name provided", ok: signals.name },
+                { label: auto.name ? "Name provided" : "Name missing", ok: auto.name },
                 { label: "No exact duplicate", ok: !highRiskDup, warn: dupes.length > 0 && !highRiskDup },
               ]}
             />
             <FieldCard
               icon={Phone} title="Phone" value={retailer.phone || "—"}
               ok={signals.phone} weight={WEIGHTS.phone}
-              manual={manual.phone} autoOk={auto.phone}
+              manual={manual.phone}
               onToggle={() => toggle("phone")}
               checks={[
-                { label: "10+ digits", ok: signals.phone },
-                { label: "WhatsApp verified", ok: signals.whatsapp, warn: !signals.whatsapp },
+                { label: auto.phone ? "10+ digits" : "Invalid / missing", ok: auto.phone },
+                { label: auto.whatsapp ? "WhatsApp verified" : "WhatsApp not verified", ok: auto.whatsapp, warn: !auto.whatsapp },
                 { label: "Not used elsewhere", ok: !dupes.some(d => d.phone === retailer.phone), warn: dupes.some(d => d.phone === retailer.phone) },
               ]}
               extra={retailer.phone ? (
@@ -393,9 +393,9 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             <FieldCard
               icon={MapPin} title="Address" value={retailer.address || "—"}
               ok={signals.address} weight={WEIGHTS.address}
-              manual={manual.address} autoOk={auto.address}
+              manual={manual.address}
               onToggle={() => toggle("address")}
-              checks={[{ label: "Address provided", ok: signals.address }]}
+              checks={[{ label: auto.address ? "Address provided" : "Address missing", ok: auto.address }]}
               extra={retailer.address ? (
                 <a onClick={(e) => e.stopPropagation()} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(retailer.address)}`} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline">Open in Maps <ExternalLink className="h-3 w-3" /></a>
               ) : null}
@@ -404,19 +404,19 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
               icon={MapPinned} title="GPS Location"
               value={auto.gps ? `${retailer.latitude?.toFixed(5)}, ${retailer.longitude?.toFixed(5)}` : "Not captured"}
               ok={signals.gps} weight={WEIGHTS.gps}
-              manual={manual.gps} autoOk={auto.gps}
+              manual={manual.gps}
               onToggle={() => toggle("gps")}
               checks={[
-                { label: "Coordinates captured", ok: signals.gps },
+                { label: auto.gps ? "Coordinates captured" : "Coordinates missing", ok: auto.gps },
                 { label: `Beat: ${retailer.beat_name || "—"}`, ok: !!retailer.beat_name, warn: !retailer.beat_name },
               ]}
             />
             <FieldCard
               icon={Camera} title="Shop Photo" value={retailer.photo_url ? "Uploaded" : "Not uploaded"}
               ok={signals.photo} weight={WEIGHTS.photo}
-              manual={manual.photo} autoOk={auto.photo}
+              manual={manual.photo}
               onToggle={() => toggle("photo")}
-              checks={[{ label: "Front photo present", ok: signals.photo, warn: !signals.photo }]}
+              checks={[{ label: auto.photo ? "Front photo present" : "Photo not uploaded", ok: auto.photo, warn: !auto.photo }]}
               extra={retailer.photo_url ? (
                 <a onClick={(e) => e.stopPropagation()} href={retailer.photo_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline">View photo <ExternalLink className="h-3 w-3" /></a>
               ) : null}
@@ -424,9 +424,9 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             <FieldCard
               icon={FileText} title="GST" value={retailer.gst_number || "—"}
               ok={signals.gst} weight={WEIGHTS.gst}
-              manual={manual.gst} autoOk={auto.gst}
+              manual={manual.gst}
               onToggle={() => toggle("gst")}
-              checks={[{ label: "GST number provided", ok: signals.gst, warn: !signals.gst }]}
+              checks={[{ label: auto.gst ? "GST number provided" : "GST not provided", ok: auto.gst, warn: !auto.gst }]}
             />
           </div>
 
