@@ -723,19 +723,18 @@ export default function RetailManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Photo</TableHead>
-                      <TableHead>Retailer Name</TableHead>
-                      <TableHead>Contact Person</TableHead>
-                      <TableHead>Phone</TableHead>
-                      <TableHead>Address</TableHead>
-                      <TableHead>Territory</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Last Visited</TableHead>
-                      <TableHead>Added By</TableHead>
-                      <TableHead>Verification</TableHead>
-                      <TableHead>Verified By</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-
+                      {isCol('photo') && <TableHead className="w-[72px]">Photo</TableHead>}
+                      {isCol('name') && <TableHead className="min-w-[220px] whitespace-nowrap">Retailer Name</TableHead>}
+                      {isCol('contact_person') && <TableHead className="min-w-[140px] whitespace-nowrap">Contact Person</TableHead>}
+                      {isCol('phone') && <TableHead className="min-w-[130px] whitespace-nowrap">Phone</TableHead>}
+                      {isCol('address') && <TableHead className="min-w-[240px]">Address</TableHead>}
+                      {isCol('territory') && <TableHead className="min-w-[120px] whitespace-nowrap">Territory</TableHead>}
+                      {isCol('status') && <TableHead className="min-w-[100px] whitespace-nowrap">Status</TableHead>}
+                      {isCol('last_visited') && <TableHead className="min-w-[140px] whitespace-nowrap">Last Visited</TableHead>}
+                      {isCol('added_by') && <TableHead className="min-w-[160px] whitespace-nowrap">Added By</TableHead>}
+                      {isCol('verification') && <TableHead className="min-w-[140px] whitespace-nowrap">Verification</TableHead>}
+                      {isCol('verified_by') && <TableHead className="min-w-[180px] whitespace-nowrap">Verified By</TableHead>}
+                      {isCol('actions') && <TableHead className="w-[140px] text-right whitespace-nowrap">Actions</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
