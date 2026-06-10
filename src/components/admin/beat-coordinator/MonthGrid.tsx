@@ -25,6 +25,8 @@ const STATUS_BG: Record<DayBeatStatus, string> = {
   in_progress: "bg-beat-stale/15 text-beat-stale border-beat-stale/30",
   uncovered: "bg-beat-uncovered/15 text-beat-uncovered border-beat-uncovered/40",
   shared: "bg-beat-shared/15 text-beat-shared border-beat-shared/30",
+  missed: "bg-beat-missed/15 text-beat-missed border-beat-missed/40",
+  partial: "bg-beat-partial/15 text-beat-partial border-beat-partial/40",
   unplanned: "bg-muted text-muted-foreground border-border",
 };
 
