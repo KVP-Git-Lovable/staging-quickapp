@@ -841,17 +841,31 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const beatsChanged = oldBeatIds !== newBeatIds;
       
       if (retailersActuallyChanged || beatsChanged) {
-        // When beats change, do a FULL REPLACEMENT instead of granular update
-        // This ensures retailers from removed beats are properly cleared
         if (beatsChanged) {
-          console.log(`[SmartSync] Beats changed: "${oldBeatIds}" -> "${newBeatIds}", REPLACING retailers`);
-          setRetailers(allRetailers);
+          // SAFETY: Never replace retailers with an empty array if we had retailers before.
+          // This prevents a race condition where a momentary empty beat_plans fetch
+          // (e.g. network delay, timezone boundary) wipes all retailers from the UI.
+          // Only do a full replacement if the new list is non-empty OR we have genuinely
+          // cleared all beats (newBeatIds is also empty meaning user removed all plans).
+          const hadRetailers = (currentCache.retailers || []).length > 0;
+          const newListEmpty = allRetailers.length === 0;
+          const beatsGenuinelyCleared = newBeatIds === '' && oldBeatIds !== '';
+          
+          if (newListEmpty && hadRetailers && !beatsGenuinelyCleared) {
+            // Likely a race/transient empty fetch — skip to avoid flickering to 0
+            console.log(`[SmartSync] Skipping empty retailer replacement (transient) old=${currentCache.retailers?.length}`);
+          } else {
+            console.log(`[SmartSync] Beats changed: "${oldBeatIds}" -> "${newBeatIds}", REPLACING retailers (${allRetailers.length})`);
+            setRetailers(allRetailers);
+            currentCache.retailers = allRetailers;
+            uiUpdated = true;
+          }
         } else {
           applyGranularUpdate(setRetailers, rChanges);
+          currentCache.retailers = allRetailers;
+          uiUpdated = true;
         }
-        currentCache.retailers = allRetailers;
-        uiUpdated = true;
-        console.log(`[SmartSync] Retailers updated: ${allRetailers.length} total (${rChanges.added.length} added, ${rChanges.removed.length} removed)`);
+        console.log(`[SmartSync] Retailers updated: ${allRetailers.length} total`);
       }
 
       // Update cache with timestamp and points
@@ -1030,12 +1044,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         const snapshotBeatIds = (snapshot.beatPlans || []).map((bp: any) => bp.beat_id);
         const snapshotVisitRetailerIds = new Set((snapshot.visits || []).map((v: any) => v.retailer_id));
         
-        // Filter retailers to only those from current beat plans or with visits today
+        // Filter retailers to those from current beat plans OR with visits today OR from shared beats
+        // Include all retailers where user has beat access (not just owned beats)
         const filteredSnapshotRetailers = (snapshot.retailers || []).filter((r: any) => 
           snapshotBeatIds.includes(r.beat_id) || snapshotVisitRetailerIds.has(r.id)
         );
+        // If snapshot has retailers but none match beat plans (shared beat scenario),
+        // keep all snapshot retailers to avoid clearing shared-beat retailers
+        const keepAll = filteredSnapshotRetailers.length === 0 && (snapshot.retailers || []).length > 0 && snapshotBeatIds.length > 0;
+        const snapshotRetailersToUse = keepAll ? (snapshot.retailers || []) : filteredSnapshotRetailers;
         
-        if (filteredSnapshotRetailers.length !== (snapshot.retailers || []).length) {
+        if (snapshotRetailersToUse.length !== (snapshot.retailers || []).length) {
           console.log(`[LoadData] Filtered snapshot retailers: ${snapshot.retailers?.length || 0} -> ${filteredSnapshotRetailers.length} (matching beat plans)`);
         }
         
@@ -1043,7 +1062,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
         
         // Merge: Add any offline retailers not in snapshot (only if they match beat plans)
-        let mergedRetailers = [...filteredSnapshotRetailers];
+        let mergedRetailers = [...snapshotRetailersToUse];
         if (offlineData?.retailers?.length) {
           const snapshotRetailerIds = new Set(mergedRetailers.map(r => r.id));
           const newRetailers = offlineData.retailers.filter(r => 
