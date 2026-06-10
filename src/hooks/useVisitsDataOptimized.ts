@@ -1368,39 +1368,69 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
     lastSyncTimeRef.current.delete(selectedDate);
     isFetchingRef.current = false;
     
-    // Reload from local first
+    // ALWAYS verify with DB before clearing state.
+    // invalidateData is called from many places (points modal close, auto-plan, etc.)
+    // If we clear state based on stale offline storage, we get the "flash to 0" bug.
+    if (effectiveUserId) {
+      // First check DB directly - do NOT trust offline storage alone
+      let dbHasPlans = false;
+      try {
+        const { data: dbPlans } = await supabase
+          .from('beat_plans')
+          .select('beat_id')
+          .eq('user_id', effectiveUserId)
+          .eq('plan_date', selectedDate)
+          .limit(1);
+        dbHasPlans = !!(dbPlans && dbPlans.length > 0);
+      } catch (e) {
+        console.warn('[InvalidateData] DB plan check failed, keeping current state');
+        // On error, keep current state — do not clear
+        return;
+      }
+
+      if (dbHasPlans) {
+        // User has plans in DB — just trigger a smart sync, don't clear anything
+        console.log('[InvalidateData] DB has plans for today — triggering sync without clearing');
+        // Force smart sync by resetting last sync time
+        lastSyncTimeRef.current.delete(selectedDate);
+        return;
+      }
+
+      // No plans in DB — check shared beats before clearing
+      const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
+      let hasSharedBeats = false;
+      try {
+        const { data: sharedBeats } = await supabase
+          .from('beat_user_access')
+          .select('beat_id')
+          .eq('user_id', effectiveUserId)
+          .eq('is_active', true)
+          .limit(1);
+        hasSharedBeats = !!(sharedBeats && sharedBeats.length > 0);
+      } catch (e) {
+        console.warn('[InvalidateData] shared beat check failed', e);
+      }
+
+      if (!hasSharedBeats) {
+        console.log('[InvalidateData] No beat plans and no shared beats - clearing all data for date:', selectedDate);
+        setBeatPlans([]);
+        setVisits([]);
+        setRetailers([]);
+        setOrders([]);
+        cacheRef.current.set(selectedDate, { beatPlans: [], visits: [], retailers: [], orders: [] });
+      } else {
+        // Has shared beats — keep retailers, just clear beat plans
+        console.log('[InvalidateData] No own plans but shared beats exist - keeping retailers');
+        setBeatPlans([]);
+      }
+      return;
+    }
+
+    // Legacy path — load from offline storage
     if (effectiveUserId) {
       const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
-      
-      // FIX: If no beat plans exist (all cleared), also clear retailers — BUT
-      // only when the user truly has no beats at all. Shared/coverage users have
-      // beats via beat_user_access that won't appear in offline beat_plans.
       if (offlineData && offlineData.beatPlans.length === 0) {
-        let hasSharedBeats = false;
-        try {
-          const { data: sharedBeats } = await supabase
-            .from('beat_user_access')
-            .select('beat_id')
-            .eq('user_id', effectiveUserId)
-            .eq('is_active', true)
-            .limit(1);
-          hasSharedBeats = !!(sharedBeats && sharedBeats.length > 0);
-        } catch (e) {
-          console.warn('[InvalidateData] shared beat check failed', e);
-        }
-
-        if (!hasSharedBeats) {
-          console.log('[InvalidateData] No beat plans and no shared beats - clearing all data for date:', selectedDate);
-          setBeatPlans([]);
-          setVisits([]);
-          setRetailers([]);
-          setOrders([]);
-          cacheRef.current.set(selectedDate, { beatPlans: [], visits: [], retailers: [], orders: [] });
-        } else {
-          // Has shared beats — clear beat plans only; retailers/visits/orders will refresh from DB.
-          console.log('[InvalidateData] No beat plans but shared beats exist - keeping retailers');
-          setBeatPlans([]);
-        }
+        // Already handled above
       } else if (offlineData) {
         setBeatPlans(offlineData.beatPlans);
         setVisits(offlineData.visits);
