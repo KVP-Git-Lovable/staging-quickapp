@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, isSameMonth,
   addMonths, subMonths, startOfWeek, endOfWeek,
@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCalendarData, type DayBeatStatus } from "@/hooks/useCalendarData";
+import { BeatDayDetailDialog } from "./BeatDayDetailDialog";
 
 interface Props {
   repId: string | null;
