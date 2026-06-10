@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Layout } from "@/components/Layout";
-import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle } from "lucide-react";
+import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle, Columns3, Download } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { CameraCapture } from "@/components/CameraCapture";
@@ -24,6 +24,28 @@ import { PaginationControls } from "@/components/ui/PaginationControls";
 import { ApprovalChecklistDialog } from "@/components/retailer/ApprovalChecklistDialog";
 import { VerifiedTick } from "@/components/retailer/VerifiedTick";
 import { VerificationPolicyCard } from "@/components/retailer/VerificationPolicyCard";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { RetailerExportDialog } from "@/components/RetailerExportDialog";
+
+type RetailerColKey = 'photo' | 'name' | 'contact_person' | 'phone' | 'address' | 'territory' | 'status' | 'last_visited' | 'added_by' | 'verification' | 'verified_by' | 'actions';
+
+const RETAILER_COLUMNS: { key: RetailerColKey; label: string; alwaysVisible?: boolean }[] = [
+  { key: 'photo', label: 'Photo' },
+  { key: 'name', label: 'Retailer Name', alwaysVisible: true },
+  { key: 'contact_person', label: 'Contact Person' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'address', label: 'Address' },
+  { key: 'territory', label: 'Territory' },
+  { key: 'status', label: 'Status' },
+  { key: 'last_visited', label: 'Last Visited' },
+  { key: 'added_by', label: 'Added By' },
+  { key: 'verification', label: 'Verification' },
+  { key: 'verified_by', label: 'Verified By' },
+  { key: 'actions', label: 'Actions', alwaysVisible: true },
+];
+
+const DEFAULT_VISIBLE_COLS: RetailerColKey[] = ['photo','name','phone','address','territory','status','last_visited','verification','verified_by','actions'];
+const COL_STORAGE_KEY = 'retail-management:visible-columns:v1';
 
 interface Territory {
   id: string;
