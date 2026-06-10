@@ -92,11 +92,15 @@ export default function RetailManagement() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
   
-  // Verification checkboxes
+  // Verification checkboxes (legacy partial-verification dialog)
   const [verifyAddress, setVerifyAddress] = useState(false);
   const [verifyContact, setVerifyContact] = useState(false);
   const [verifyTerritory, setVerifyTerritory] = useState(false);
   const [verificationNote, setVerificationNote] = useState("");
+
+  // New approval-checklist dialog
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [sendingWhatsAppId, setSendingWhatsAppId] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "Retail Management | Admin Panel";
