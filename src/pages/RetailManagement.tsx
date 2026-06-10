@@ -889,6 +889,14 @@ export default function RetailManagement() {
         title="Capture Retailer Photo"
         description="Take a clear photo of the retailer's store front"
       />
+
+      {/* New approval checklist dialog */}
+      <ApprovalChecklistDialog
+        open={approvalDialogOpen}
+        onOpenChange={setApprovalDialogOpen}
+        retailer={selectedRetailer}
+        onCompleted={loadData}
+      />
     </Layout>
   );
 }
