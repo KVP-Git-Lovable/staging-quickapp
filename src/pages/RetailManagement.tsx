@@ -24,6 +24,7 @@ import { PaginationControls } from "@/components/ui/PaginationControls";
 import { ApprovalChecklistDialog } from "@/components/retailer/ApprovalChecklistDialog";
 import { VerifiedTick } from "@/components/retailer/VerifiedTick";
 import { VerificationPolicyCard } from "@/components/retailer/VerificationPolicyCard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { RetailerExportDialog } from "@/components/RetailerExportDialog";
 
