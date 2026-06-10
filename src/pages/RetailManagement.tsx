@@ -952,6 +952,7 @@ export default function RetailManagement() {
                                   method={retailer.verification_method}
                                   verifiedBy={retailer.verified_by_name}
                                   verifiedAt={retailer.verified_at}
+                                  score={retailer.verification_score ?? 0}
                                 />
                               </button>
                             </TableCell>
