@@ -538,7 +538,7 @@ export default function RetailManagement() {
     dormant: retailers.filter(r => (r.order_count ?? 0) > 0 && (!r.last_order_date || isBefore(new Date(r.last_order_date), _sixtyAgo))).length,
     newThisMonth: retailers.filter(r => r.created_at && isAfter(new Date(r.created_at), _monthStart)).length,
     duplicate: retailers.filter(r => (r.duplicate_risk_score ?? 0) >= 70).length,
-    awaitingApproval: retailers.filter(r => ((r.approval_status ?? '').toLowerCase() === 'pending') || r.verification_status === 'pending').length,
+    whatsappVerified: retailers.filter(r => !!r.whatsapp_verified || r.verification_method === 'whatsapp').length,
     visitedNotOrdered: retailers.filter(r => !!r.last_visit_date && (r.order_count ?? 0) === 0).length,
     ordered: retailers.filter(r => (r.order_count ?? 0) > 0).length,
     visited: retailers.filter(r => !!r.last_visit_date).length,
