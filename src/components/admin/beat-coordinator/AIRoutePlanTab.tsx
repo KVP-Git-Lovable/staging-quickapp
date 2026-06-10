@@ -448,7 +448,9 @@ export function AIRoutePlanTab({ initialRepId, initialDate }: Props) {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-3">
+    <div className="space-y-3">
+      <WeeklyAIPlanCard repId={rep || null} repName={selectedRep?.full_name} />
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-3">
       {/* LEFT PANEL */}
       <div className="space-y-3">
         <Card>
