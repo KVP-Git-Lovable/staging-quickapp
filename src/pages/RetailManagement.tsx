@@ -89,6 +89,9 @@ interface Retailer {
   verified_by_name?: string | null;
   verified_at?: string | null;
   verification_method?: string | null;
+  verification_score?: number | null;
+  quality_status?: string | null;
+  duplicate_risk_score?: number | null;
 }
 
 type VerificationStatusFilter = 'all' | 'verified' | 'pending' | 'needs_attention' | 'dropped';
