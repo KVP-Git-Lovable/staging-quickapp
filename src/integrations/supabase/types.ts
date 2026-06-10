@@ -16104,6 +16104,139 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_verification_audit: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          method: string
+          notes: string | null
+          performed_by: string | null
+          performed_by_name: string | null
+          retailer_id: string
+          verified_items: Json
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          method: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          retailer_id: string
+          verified_items?: Json
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          retailer_id?: string
+          verified_items?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_verification_audit_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      retailer_verification_policy: {
+        Row: {
+          auto_whatsapp_on_create: boolean
+          block_after_limit: boolean
+          company_id: string | null
+          created_at: string
+          enabled: boolean
+          grace_days: number
+          id: string
+          max_orders_unverified: number
+          require_verification_for_credit: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_whatsapp_on_create?: boolean
+          block_after_limit?: boolean
+          company_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          grace_days?: number
+          id?: string
+          max_orders_unverified?: number
+          require_verification_for_credit?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_whatsapp_on_create?: boolean
+          block_after_limit?: boolean
+          company_id?: string | null
+          created_at?: string
+          enabled?: boolean
+          grace_days?: number
+          id?: string
+          max_orders_unverified?: number
+          require_verification_for_credit?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      retailer_verification_requests: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          phone: string
+          reply_received_at: string | null
+          reply_text: string | null
+          retailer_id: string
+          sent_at: string
+          status: string
+          twilio_sid: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          phone: string
+          reply_received_at?: string | null
+          reply_text?: string | null
+          retailer_id: string
+          sent_at?: string
+          status?: string
+          twilio_sid?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          phone?: string
+          reply_received_at?: string | null
+          reply_text?: string | null
+          retailer_id?: string
+          sent_at?: string
+          status?: string
+          twilio_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_verification_requests_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retailer_visit_logs: {
         Row: {
           action_type: string | null
@@ -16226,13 +16359,19 @@ export type Database = {
           terms_conditions: string | null
           territory_id: string | null
           total_visits_3m: number | null
+          unverified_order_count: number
           updated_at: string
           user_id: string
           verification_address: boolean | null
           verification_contact: boolean | null
+          verification_method: string | null
+          verification_notes: string | null
           verification_status: string | null
           verification_territory: boolean | null
           verified: boolean
+          verified_at: string | null
+          verified_by: string | null
+          verified_by_name: string | null
         }
         Insert: {
           account_holder_name?: string | null
@@ -16284,13 +16423,19 @@ export type Database = {
           terms_conditions?: string | null
           territory_id?: string | null
           total_visits_3m?: number | null
+          unverified_order_count?: number
           updated_at?: string
           user_id: string
           verification_address?: boolean | null
           verification_contact?: boolean | null
+          verification_method?: string | null
+          verification_notes?: string | null
           verification_status?: string | null
           verification_territory?: boolean | null
           verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_by_name?: string | null
         }
         Update: {
           account_holder_name?: string | null
@@ -16342,13 +16487,19 @@ export type Database = {
           terms_conditions?: string | null
           territory_id?: string | null
           total_visits_3m?: number | null
+          unverified_order_count?: number
           updated_at?: string
           user_id?: string
           verification_address?: boolean | null
           verification_contact?: boolean | null
+          verification_method?: string | null
+          verification_notes?: string | null
           verification_status?: string | null
           verification_territory?: boolean | null
           verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_by_name?: string | null
         }
         Relationships: [
           {
@@ -20728,6 +20879,10 @@ export type Database = {
         Returns: boolean
       }
       can_delete_beat: { Args: { p_beat_id: string }; Returns: Json }
+      can_place_order_for_retailer: {
+        Args: { p_retailer_id: string }
+        Returns: Json
+      }
       can_view_distributor: {
         Args: { _distributor_id: string }
         Returns: boolean
