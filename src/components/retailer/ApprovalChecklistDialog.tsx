@@ -517,7 +517,7 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 }
 
 function FieldCard({
-  icon: Icon, title, value, ok, weight, checks, extra,
+  icon: Icon, title, value, ok, weight, checks, extra, manual, autoOk, onToggle,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
@@ -526,14 +526,39 @@ function FieldCard({
   weight: number;
   checks: { label: string; ok: boolean; warn?: boolean }[];
   extra?: React.ReactNode;
+  manual?: boolean;
+  autoOk?: boolean;
+  onToggle?: () => void;
 }) {
+  const verifiedByUser = !!manual && !autoOk;
   return (
-    <div className={`rounded-lg border p-3 ${ok ? "bg-white" : "bg-rose-50/30 border-rose-200"}`}>
+    <div
+      role={onToggle ? "button" : undefined}
+      tabIndex={onToggle ? 0 : undefined}
+      onClick={onToggle}
+      onKeyDown={(e) => { if (onToggle && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onToggle(); } }}
+      className={`rounded-lg border p-3 transition-all cursor-pointer select-none hover:shadow-sm ${
+        ok
+          ? verifiedByUser
+            ? "bg-blue-50/40 border-blue-300 ring-1 ring-blue-200"
+            : "bg-emerald-50/40 border-emerald-200"
+          : "bg-rose-50/30 border-rose-200 hover:border-rose-300"
+      }`}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          <Checkbox
+            checked={ok}
+            onCheckedChange={() => onToggle?.()}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Mark ${title} verified`}
+            className="h-3.5 w-3.5"
+          />
           <Icon className="h-3.5 w-3.5" />{title}
         </div>
-        <Badge variant="outline" className="text-[10px]">+{weight}%</Badge>
+        <Badge variant="outline" className={`text-[10px] ${ok ? "bg-emerald-100 text-emerald-700 border-emerald-300" : ""}`}>
+          {ok ? `✓ +${weight}%` : `+${weight}%`}
+        </Badge>
       </div>
       <div className="mt-1 text-sm font-medium break-words">{value}</div>
       <ul className="mt-1.5 space-y-0.5">
@@ -544,6 +569,12 @@ function FieldCard({
           </li>
         ))}
       </ul>
+      {verifiedByUser && (
+        <div className="mt-1.5 text-[10px] text-blue-700 font-medium flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3" /> Manually verified by you
+        </div>
+      )}
+
       {extra}
     </div>
   );
