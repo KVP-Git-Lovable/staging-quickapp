@@ -86,7 +86,6 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
 				},
 				'beat-assigned': 'hsl(var(--beat-assigned))',
 				'beat-served': 'hsl(var(--beat-served))',
@@ -94,7 +93,8 @@ export default {
 				'beat-uncovered': 'hsl(var(--beat-uncovered))',
 				'beat-shared': 'hsl(var(--beat-shared))',
 				'beat-missed': 'hsl(var(--beat-missed))',
-				'beat-partial': 'hsl(var(--beat-partial))',
+				'beat-partial': 'hsl(var(--beat-partial))'
+			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
