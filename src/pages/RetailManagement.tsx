@@ -664,9 +664,12 @@ export default function RetailManagement() {
                               className="flex items-center gap-2 hover:text-primary hover:underline text-left"
                             >
                               {retailer.name}
-                              {retailer.verification_status === 'verified' && (
-                                <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                              )}
+                              <VerifiedTick
+                                verified={retailer.verification_status === 'verified'}
+                                method={retailer.verification_method}
+                                verifiedBy={retailer.verified_by_name}
+                                verifiedAt={retailer.verified_at}
+                              />
                             </button>
                           </TableCell>
                           <TableCell>{retailer.contact_person || '-'}</TableCell>
