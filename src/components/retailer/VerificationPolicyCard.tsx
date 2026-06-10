@@ -113,7 +113,6 @@ const NumberField = ({
 
 export function VerificationPolicyCard() {
   const { policy, loading, save } = useRetailerVerificationPolicy();
-  const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Draft>(policy);
   const [tab, setTab] = useState("basics");
@@ -169,10 +168,7 @@ export function VerificationPolicyCard() {
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader
-        className="cursor-pointer flex flex-row items-center justify-between gap-3 bg-gradient-to-r from-primary/5 via-violet-500/5 to-transparent"
-        onClick={() => setOpen((o) => !o)}
-      >
+      <CardHeader className="flex flex-row items-center justify-between gap-3 bg-gradient-to-r from-primary/5 via-violet-500/5 to-transparent">
         <div className="flex items-center gap-3 min-w-0">
           <div className="h-10 w-10 rounded-xl bg-primary/10 ring-1 ring-primary/20 flex items-center justify-center shrink-0">
             <ShieldCheck className="h-5 w-5 text-primary" />
@@ -192,13 +188,9 @@ export function VerificationPolicyCard() {
             </CardDescription>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="shrink-0">
-          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </Button>
       </CardHeader>
 
-      {open && (
-        <CardContent className="space-y-4 pt-4">
+      <CardContent className="space-y-4 pt-4">
           {/* Master switch */}
           <div className="rounded-xl border bg-gradient-to-br from-primary/5 to-transparent p-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -521,7 +513,6 @@ export function VerificationPolicyCard() {
             </div>
           </div>
         </CardContent>
-      )}
     </Card>
   );
 }
