@@ -642,7 +642,9 @@ export default function RetailManagement() {
                       <TableHead>Last Visited</TableHead>
                       <TableHead>Added By</TableHead>
                       <TableHead>Verification</TableHead>
+                      <TableHead>Verified By</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
+
                     </TableRow>
                   </TableHeader>
                   <TableBody>
