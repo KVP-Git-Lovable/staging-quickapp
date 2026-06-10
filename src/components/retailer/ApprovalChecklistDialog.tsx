@@ -159,17 +159,11 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
   const auto = useMemo(() => (retailer ? computeSignals(retailer) : null), [retailer]);
 
+  // Manual-only verification: DB data is evidence, NOT auto-verified.
+  // The approver must explicitly tick each box.
   const signals = useMemo(() => {
     if (!auto) return null;
-    const merged: Record<SignalKey, boolean> = {
-      name: auto.name || manual.name,
-      phone: auto.phone || manual.phone,
-      address: auto.address || manual.address,
-      gps: auto.gps || manual.gps,
-      whatsapp: auto.whatsapp || manual.whatsapp,
-      photo: auto.photo || manual.photo,
-      gst: auto.gst || manual.gst,
-    };
+    const merged: Record<SignalKey, boolean> = { ...manual };
     const score =
       (merged.name ? WEIGHTS.name : 0) +
       (merged.phone ? WEIGHTS.phone : 0) +
@@ -187,10 +181,10 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
   // Missing required = core 80% fields not present
   const missing: string[] = [];
-  if (!signals.name) missing.push("Retailer name");
-  if (!signals.phone) missing.push("Valid phone number");
-  if (!signals.address) missing.push("Address");
-  if (!signals.gps) missing.push("GPS location");
+  if (!signals.name) missing.push("Tick Shop Name to confirm");
+  if (!signals.phone) missing.push("Tick Phone to confirm");
+  if (!signals.address) missing.push("Tick Address to confirm");
+  if (!signals.gps) missing.push("Tick GPS Location to confirm");
 
   const highRiskDup = dupes.some((d) => d.risk === "high");
   const allConfirmed = confirmDup && confirmEvidence && confirmApprove;
@@ -327,10 +321,10 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <Pill ok={!highRiskDup} warn={dupes.length > 0 && !highRiskDup} label={`Duplicate Risk: ${highRiskDup ? "HIGH" : dupes.length ? "MED" : "LOW"}`} />
-              <Pill ok={signals.phone} label={`Phone: ${signals.phone ? "VALID" : "MISSING"}`} />
-              <Pill ok={signals.whatsapp} warn label={`WhatsApp: ${signals.whatsapp ? "VERIFIED" : "PENDING"}`} />
-              <Pill ok={signals.gps} label={`GPS: ${signals.gps ? "CAPTURED" : "MISSING"}`} />
-              <Pill ok={signals.photo} warn label={`Shop Photo: ${signals.photo ? "YES" : "NO"}`} />
+              <Pill ok={auto.phone} label={`Phone: ${auto.phone ? "VALID" : "MISSING"}`} />
+              <Pill ok={auto.whatsapp} warn label={`WhatsApp: ${auto.whatsapp ? "VERIFIED" : "PENDING"}`} />
+              <Pill ok={auto.gps} label={`GPS: ${auto.gps ? "CAPTURED" : "MISSING"}`} />
+              <Pill ok={auto.photo} warn label={`Shop Photo: ${auto.photo ? "YES" : "NO"}`} />
               <Pill ok={!!(retailer.owner_name || retailer.contact_person)} warn label={`Owner: ${(retailer.owner_name || retailer.contact_person) ? "YES" : "NO"}`} />
             </div>
           </div>
@@ -366,27 +360,27 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
           {/* Section 4: Field Validation (click any card to mark as verified) */}
           <div className="text-[11px] text-muted-foreground -mb-1">
-            Tip: Click any unchecked field to manually verify it. Auto-verified fields are locked.
+            Tip: All boxes start unchecked. Tick each item you have personally verified — score updates live. Approve requires the core 80% (Name, Phone, Address, GPS).
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <FieldCard
               icon={User} title="Shop Name" value={retailer.name}
               ok={signals.name} weight={WEIGHTS.name}
-              manual={manual.name} autoOk={auto.name}
+              manual={manual.name}
               onToggle={() => toggle("name")}
               checks={[
-                { label: "Name provided", ok: signals.name },
+                { label: auto.name ? "Name provided" : "Name missing", ok: auto.name },
                 { label: "No exact duplicate", ok: !highRiskDup, warn: dupes.length > 0 && !highRiskDup },
               ]}
             />
             <FieldCard
               icon={Phone} title="Phone" value={retailer.phone || "—"}
               ok={signals.phone} weight={WEIGHTS.phone}
-              manual={manual.phone} autoOk={auto.phone}
+              manual={manual.phone}
               onToggle={() => toggle("phone")}
               checks={[
-                { label: "10+ digits", ok: signals.phone },
-                { label: "WhatsApp verified", ok: signals.whatsapp, warn: !signals.whatsapp },
+                { label: auto.phone ? "10+ digits" : "Invalid / missing", ok: auto.phone },
+                { label: auto.whatsapp ? "WhatsApp verified" : "WhatsApp not verified", ok: auto.whatsapp, warn: !auto.whatsapp },
                 { label: "Not used elsewhere", ok: !dupes.some(d => d.phone === retailer.phone), warn: dupes.some(d => d.phone === retailer.phone) },
               ]}
               extra={retailer.phone ? (
@@ -399,9 +393,9 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             <FieldCard
               icon={MapPin} title="Address" value={retailer.address || "—"}
               ok={signals.address} weight={WEIGHTS.address}
-              manual={manual.address} autoOk={auto.address}
+              manual={manual.address}
               onToggle={() => toggle("address")}
-              checks={[{ label: "Address provided", ok: signals.address }]}
+              checks={[{ label: auto.address ? "Address provided" : "Address missing", ok: auto.address }]}
               extra={retailer.address ? (
                 <a onClick={(e) => e.stopPropagation()} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(retailer.address)}`} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline">Open in Maps <ExternalLink className="h-3 w-3" /></a>
               ) : null}
@@ -410,19 +404,19 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
               icon={MapPinned} title="GPS Location"
               value={auto.gps ? `${retailer.latitude?.toFixed(5)}, ${retailer.longitude?.toFixed(5)}` : "Not captured"}
               ok={signals.gps} weight={WEIGHTS.gps}
-              manual={manual.gps} autoOk={auto.gps}
+              manual={manual.gps}
               onToggle={() => toggle("gps")}
               checks={[
-                { label: "Coordinates captured", ok: signals.gps },
+                { label: auto.gps ? "Coordinates captured" : "Coordinates missing", ok: auto.gps },
                 { label: `Beat: ${retailer.beat_name || "—"}`, ok: !!retailer.beat_name, warn: !retailer.beat_name },
               ]}
             />
             <FieldCard
               icon={Camera} title="Shop Photo" value={retailer.photo_url ? "Uploaded" : "Not uploaded"}
               ok={signals.photo} weight={WEIGHTS.photo}
-              manual={manual.photo} autoOk={auto.photo}
+              manual={manual.photo}
               onToggle={() => toggle("photo")}
-              checks={[{ label: "Front photo present", ok: signals.photo, warn: !signals.photo }]}
+              checks={[{ label: auto.photo ? "Front photo present" : "Photo not uploaded", ok: auto.photo, warn: !auto.photo }]}
               extra={retailer.photo_url ? (
                 <a onClick={(e) => e.stopPropagation()} href={retailer.photo_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary inline-flex items-center gap-1 hover:underline">View photo <ExternalLink className="h-3 w-3" /></a>
               ) : null}
@@ -430,9 +424,9 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
             <FieldCard
               icon={FileText} title="GST" value={retailer.gst_number || "—"}
               ok={signals.gst} weight={WEIGHTS.gst}
-              manual={manual.gst} autoOk={auto.gst}
+              manual={manual.gst}
               onToggle={() => toggle("gst")}
-              checks={[{ label: "GST number provided", ok: signals.gst, warn: !signals.gst }]}
+              checks={[{ label: auto.gst ? "GST number provided" : "GST not provided", ok: auto.gst, warn: !auto.gst }]}
             />
           </div>
 
@@ -441,12 +435,12 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
           {missing.length > 0 && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
               <div className="flex items-center gap-2 text-rose-800 font-semibold text-sm mb-1.5">
-                <AlertTriangle className="h-4 w-4" /> Missing Required Items
+                <AlertTriangle className="h-4 w-4" /> Verification incomplete
               </div>
               <ul className="text-xs text-rose-700 space-y-0.5">
                 {missing.map((m) => <li key={m}>⚠ {m}</li>)}
               </ul>
-              <div className="text-[11px] text-rose-700 mt-1.5">Approval is disabled until the core 80% fields are present.</div>
+              <div className="text-[11px] text-rose-700 mt-1.5">Approve is enabled once you manually tick the core 80%: Name, Phone, Address, GPS.</div>
             </div>
           )}
 
@@ -517,7 +511,7 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 }
 
 function FieldCard({
-  icon: Icon, title, value, ok, weight, checks, extra, manual, autoOk, onToggle,
+  icon: Icon, title, value, ok, weight, checks, extra, manual, onToggle,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
@@ -527,41 +521,34 @@ function FieldCard({
   checks: { label: string; ok: boolean; warn?: boolean }[];
   extra?: React.ReactNode;
   manual?: boolean;
-  autoOk?: boolean;
   onToggle?: () => void;
 }) {
-  const verifiedByUser = !!manual && !autoOk;
-  const locked = !!autoOk;
-  const handleToggle = locked ? undefined : onToggle;
   return (
     <div
-      role={handleToggle ? "button" : undefined}
-      tabIndex={handleToggle ? 0 : undefined}
-      onClick={handleToggle}
-      onKeyDown={(e) => { if (handleToggle && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); handleToggle(); } }}
+      role={onToggle ? "button" : undefined}
+      tabIndex={onToggle ? 0 : undefined}
+      onClick={onToggle}
+      onKeyDown={(e) => { if (onToggle && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onToggle(); } }}
       className={`rounded-lg border p-3 transition-all select-none ${
-        handleToggle ? "cursor-pointer hover:shadow-sm" : "cursor-default"
+        onToggle ? "cursor-pointer hover:shadow-sm" : "cursor-default"
       } ${
         ok
-          ? verifiedByUser
-            ? "bg-blue-50/40 border-blue-300 ring-1 ring-blue-200"
-            : "bg-emerald-50/40 border-emerald-200"
-          : "bg-rose-50/30 border-rose-200 hover:border-rose-300"
+          ? "bg-blue-50/40 border-blue-300 ring-1 ring-blue-200"
+          : "bg-muted/20 border-border hover:border-primary/40"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           <Checkbox
             checked={ok}
-            disabled={locked}
-            onCheckedChange={() => handleToggle?.()}
+            onCheckedChange={() => onToggle?.()}
             onClick={(e) => e.stopPropagation()}
             aria-label={`Mark ${title} verified`}
             className="h-3.5 w-3.5"
           />
           <Icon className="h-3.5 w-3.5" />{title}
         </div>
-        <Badge variant="outline" className={`text-[10px] ${ok ? "bg-emerald-100 text-emerald-700 border-emerald-300" : ""}`}>
+        <Badge variant="outline" className={`text-[10px] ${ok ? "bg-blue-100 text-blue-700 border-blue-300" : ""}`}>
           {ok ? `✓ +${weight}%` : `+${weight}%`}
         </Badge>
       </div>
@@ -574,15 +561,15 @@ function FieldCard({
           </li>
         ))}
       </ul>
-      {locked ? (
-        <div className="mt-1.5 text-[10px] text-emerald-700 font-medium flex items-center gap-1">
-          <CheckCircle2 className="h-3 w-3" /> Auto-verified · locked
-        </div>
-      ) : verifiedByUser ? (
+      {ok ? (
         <div className="mt-1.5 text-[10px] text-blue-700 font-medium flex items-center gap-1">
           <CheckCircle2 className="h-3 w-3" /> Manually verified by you
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-1.5 text-[10px] text-muted-foreground flex items-center gap-1">
+          Click to mark verified
+        </div>
+      )}
 
       {extra}
     </div>

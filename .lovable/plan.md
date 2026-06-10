@@ -1,26 +1,35 @@
-## Problem
+## Plan
 
-In `ApprovalChecklistDialog.tsx`, each FieldCard shows `ok = autoOk || manual`. When the underlying retailer data already satisfies the check (e.g. name present, phone valid, address present, GPS captured), `autoOk` is `true`. Clicking the checkbox only flips the `manual` flag — which has no visible effect because `ok` stays `true`. Result: the card looks "stuck checked" and the user thinks the UI is broken.
+I’ll change the approval checklist so DB data is treated as evidence only, not as already verified.
 
-## Goal
+### What will change
 
-Make the checkbox state honest and intuitive:
-- If the field is auto-verified from data → show as checked, **lock it** (disabled), and label it "Auto-verified" so the user understands why it can't be unchecked.
-- If the field is NOT auto-verified → checkbox is freely toggleable (check = manual override grants the weight, uncheck = removes it).
+1. **All checklist boxes start unchecked**
+   - Shop Name, Phone, Address, GPS, WhatsApp, Photo, GST will all start unchecked every time the dialog opens.
+   - No field will be locked just because data exists in the database.
 
-## Changes (single file: `src/components/retailer/ApprovalChecklistDialog.tsx`)
+2. **Approver must manually tick each box**
+   - Clicking a card or checkbox will check/uncheck it.
+   - The verification score will increase only from manually selected boxes.
+   - Partial verification will work naturally: tick only the items you personally verified.
 
-1. **FieldCard component**
-   - Disable the checkbox and remove the card's click/keyboard handler when `autoOk === true`.
-   - Show a small "Auto-verified" pill (instead of "Manually verified by you") when `autoOk` is true.
-   - Keep "Manually verified by you" only when `manual && !autoOk`.
-   - Adjust hover/cursor styling: `cursor-default` when auto-verified, `cursor-pointer` otherwise.
+3. **Keep DB data visible as evidence**
+   - The name, phone, address, GPS, WhatsApp status, photo, and GST values will still show on the card.
+   - Supporting lines will say things like “Data present” / “Missing” instead of implying “Auto-verified”.
 
-2. **Tip text above the grid**
-   - Update to: "Click any unchecked field to manually verify it. Auto-verified fields are locked."
+4. **Approval gate remains risk-based**
+   - To approve as verified, the manually checked score must reach the core 80%: Name + Phone + Address + GPS.
+   - If only some boxes are checked, the retailer remains partially verified / unverified based on score.
 
-3. **No scoring or data changes** — auto fields already contribute their weight; manual override only adds weight for fields not auto-satisfied.
+5. **Update labels and saved audit data**
+   - Remove “Auto-verified · locked”.
+   - Show “Manually verified by you” only after the approver ticks a box.
+   - Save the final score and checked items based on manual confirmation, not DB presence.
 
-## Out of scope
-- No changes to weights, approval gating, duplicate logic, or DB writes.
-- No changes to risk-indicator pills at the top (those are read-only by design).
+### Technical details
+
+- Update `src/components/retailer/ApprovalChecklistDialog.tsx` only.
+- Change `signals` calculation from `auto || manual` to manual-only scoring.
+- Keep `auto` only for evidence display and warnings.
+- Remove the FieldCard locked/disabled behavior.
+- Update missing/approval copy so it says manual verification is required for core fields.
