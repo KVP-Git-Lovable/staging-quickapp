@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import {
   optimizeRouteByDistance, calculateDistance, formatDistance,
 } from "@/utils/gpsRouteOptimizer";
+import { WeeklyAIPlanCard } from "./WeeklyAIPlanCard";
 
 const sb = supabase as any;
 const today = () => new Date().toISOString().slice(0, 10);
