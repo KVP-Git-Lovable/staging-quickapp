@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Layout } from "@/components/Layout";
-import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle, Columns3, Download, MoreVertical, Phone as PhoneIcon, Pencil } from "lucide-react";
+import { Search, CheckCircle2, AlertTriangle, XCircle, ArrowLeft, Camera, Image as ImageIcon, MapPin, User, MapPinned, ExternalLink, MessageCircle, Columns3, Download, MoreVertical, Phone as PhoneIcon, Pencil, Users, ShieldCheck, ShieldAlert, Ban, UserX, Clock, Sparkles, Copy as CopyIcon, Hourglass, TrendingUp, Activity, Gauge } from "lucide-react";
 import { QualityBadge, ScoreBar, DuplicateRiskBadge } from "@/components/retailer/QualityBadge";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
@@ -92,10 +92,26 @@ interface Retailer {
   verification_score?: number | null;
   quality_status?: string | null;
   duplicate_risk_score?: number | null;
+  approval_status?: string | null;
+  order_count?: number;
+  last_order_date?: string | null;
 }
 
 type VerificationStatusFilter = 'all' | 'verified' | 'pending' | 'needs_attention' | 'dropped';
 type LastVisitedFilter = 'all' | 'this_month' | 'last_month' | '3_months' | '6_months';
+type KpiFilter =
+  | 'none'
+  | 'total'
+  | 'verified'
+  | 'unverified'
+  | 'needs_attention'
+  | 'dropped'
+  | 'orphan'
+  | 'dormant'
+  | 'new_month'
+  | 'duplicate'
+  | 'awaiting_approval'
+  | 'visited_not_ordered';
 
 export default function RetailManagement() {
   const { hasAdminAccess, loading: authLoading } = useAdminAccess();
@@ -113,6 +129,7 @@ export default function RetailManagement() {
   const [salesMemberFilter, setSalesMemberFilter] = useState<string>("all");
   const [verifiedFilter, setVerifiedFilter] = useState<VerificationStatusFilter>('all');
   const [lastVisitedFilter, setLastVisitedFilter] = useState<LastVisitedFilter>('all');
+  const [kpiFilter, setKpiFilter] = useState<KpiFilter>('none');
   
   // Dialogs
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
@@ -176,10 +193,11 @@ export default function RetailManagement() {
     setLoading(true);
     
     // Fetch all data in parallel
-    const [retailersRes, territoriesRes, profilesRes] = await Promise.all([
+    const [retailersRes, territoriesRes, profilesRes, ordersRes] = await Promise.all([
       supabase.from("retailers").select("*").order("created_at", { ascending: false }),
       supabase.from("territories").select("id, name").order("name"),
-      supabase.from("profiles").select("id, full_name, username")
+      supabase.from("profiles").select("id, full_name, username"),
+      supabase.from("orders").select("retailer_id, created_at").order("created_at", { ascending: false }).limit(20000),
     ]);
 
     if (retailersRes.error) {
@@ -211,6 +229,16 @@ export default function RetailManagement() {
     const beatsRes = await supabase.from("beats").select("beat_id, beat_name");
     const beatMap = new Map((beatsRes.data || []).map((b: any) => [b.beat_id, b.beat_name]));
     
+    // Build order aggregation per retailer
+    const orderAgg = new Map<string, { count: number; last: string | null }>();
+    (ordersRes.data || []).forEach((o: any) => {
+      if (!o.retailer_id) return;
+      const cur = orderAgg.get(o.retailer_id) || { count: 0, last: null };
+      cur.count += 1;
+      if (!cur.last || (o.created_at && o.created_at > cur.last)) cur.last = o.created_at;
+      orderAgg.set(o.retailer_id, cur);
+    });
+
     // Calculate 6 months ago for auto-drop
     const sixMonthsAgo = subMonths(new Date(), 6);
 
@@ -219,26 +247,27 @@ export default function RetailManagement() {
       const displayName = prof?.full_name || prof?.username || 'Unknown';
       const displayBeatName = r.beat_name || (r.beat_id ? beatMap.get(r.beat_id) : null) || r.beat_id;
       const territoryName = r.territory_id ? territoryMap.get(r.territory_id) : null;
-      
+
       // Calculate verification status
       let verificationStatus = r.verification_status || 'pending';
-      
+
       // Auto-drop logic: if inactive OR last visit > 6 months
       const isInactive = r.status === 'inactive';
       const lastVisit = r.last_visit_date ? new Date(r.last_visit_date) : null;
       const isStale = lastVisit ? isBefore(lastVisit, sixMonthsAgo) : false;
-      
+
       if (isInactive || isStale) {
         verificationStatus = 'dropped';
       } else if (r.verification_address && r.verification_contact && r.verification_territory) {
         verificationStatus = 'verified';
       } else if (r.verification_address || r.verification_contact || r.verification_territory) {
-        // At least one but not all verified
         verificationStatus = 'needs_attention';
       }
-      
+
       const verifierProf = r.verified_by ? profileMap.get(r.verified_by) : null;
       const verifiedByName = verifierProf?.full_name || verifierProf?.username || null;
+
+      const agg = orderAgg.get(r.id);
 
       return {
         ...r,
@@ -246,9 +275,10 @@ export default function RetailManagement() {
         territory_name: territoryName,
         verification_status: verificationStatus,
         verified_by_name: verifiedByName,
-        profiles: r.user_id ? { full_name: displayName } : null
+        profiles: r.user_id ? { full_name: displayName } : null,
+        order_count: agg?.count ?? 0,
+        last_order_date: agg?.last ?? null,
       };
-
     });
     
     setRetailers(retailersWithDetails as Retailer[]);
@@ -445,9 +475,34 @@ export default function RetailManagement() {
     } else if (lastVisitedFilter !== 'all' && !r.last_visit_date) {
       matchesLastVisited = false;
     }
-    
-    return matchesSearch && matchesTerritory && matchesCategory && 
-           matchesSalesMember && matchesVerified && matchesLastVisited;
+
+    // KPI smart filter
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const sixtyAgo = subMonths(now, 2);
+    let matchesKpi = true;
+    const score = r.verification_score ?? 0;
+    const dupRisk = r.duplicate_risk_score ?? 0;
+    const orders = r.order_count ?? 0;
+    const lastOrder = r.last_order_date ? new Date(r.last_order_date) : null;
+    switch (kpiFilter) {
+      case 'verified': matchesKpi = r.verification_status === 'verified' || score >= 70; break;
+      case 'unverified': matchesKpi = r.verification_status === 'pending' || (score > 0 && score < 40) || (!r.verification_status); break;
+      case 'needs_attention': matchesKpi = r.verification_status === 'needs_attention'; break;
+      case 'dropped': matchesKpi = r.verification_status === 'dropped'; break;
+      case 'orphan': matchesKpi = orders === 0; break;
+      case 'dormant': matchesKpi = orders > 0 && (!lastOrder || isBefore(lastOrder, sixtyAgo)); break;
+      case 'new_month': matchesKpi = r.created_at ? isAfter(new Date(r.created_at), monthStart) : false; break;
+      case 'duplicate': matchesKpi = dupRisk >= 70; break;
+      case 'awaiting_approval': matchesKpi = (r.approval_status ?? '').toLowerCase() === 'pending' || r.verification_status === 'pending'; break;
+      case 'visited_not_ordered': matchesKpi = !!r.last_visit_date && orders === 0; break;
+      case 'total':
+      case 'none':
+      default: matchesKpi = true;
+    }
+
+    return matchesSearch && matchesTerritory && matchesCategory &&
+           matchesSalesMember && matchesVerified && matchesLastVisited && matchesKpi;
   });
 
   // Pagination - 10 items per page
@@ -465,12 +520,31 @@ export default function RetailManagement() {
     hasPrevPage,
   } = usePagination(filteredRetailers, { pageSize: 10 });
 
+  // Compute extended stats
+  const _now = new Date();
+  const _monthStart = startOfMonth(_now);
+  const _sixtyAgo = subMonths(_now, 2);
   const stats = {
     total: retailers.length,
-    verified: retailers.filter(r => r.verification_status === 'verified').length,
+    verified: retailers.filter(r => r.verification_status === 'verified' || (r.verification_score ?? 0) >= 70).length,
+    unverified: retailers.filter(r => r.verification_status === 'pending' || ((r.verification_score ?? 0) < 40 && (r.verification_score ?? 0) > 0) || !r.verification_status).length,
     needsAttention: retailers.filter(r => r.verification_status === 'needs_attention').length,
     dropped: retailers.filter(r => r.verification_status === 'dropped').length,
+    orphan: retailers.filter(r => (r.order_count ?? 0) === 0).length,
+    dormant: retailers.filter(r => (r.order_count ?? 0) > 0 && (!r.last_order_date || isBefore(new Date(r.last_order_date), _sixtyAgo))).length,
+    newThisMonth: retailers.filter(r => r.created_at && isAfter(new Date(r.created_at), _monthStart)).length,
+    duplicate: retailers.filter(r => (r.duplicate_risk_score ?? 0) >= 70).length,
+    awaitingApproval: retailers.filter(r => ((r.approval_status ?? '').toLowerCase() === 'pending') || r.verification_status === 'pending').length,
+    visitedNotOrdered: retailers.filter(r => !!r.last_visit_date && (r.order_count ?? 0) === 0).length,
+    ordered: retailers.filter(r => (r.order_count ?? 0) > 0).length,
+    visited: retailers.filter(r => !!r.last_visit_date).length,
+    avgScore: retailers.length
+      ? Math.round(retailers.reduce((s, r) => s + (r.verification_score ?? 0), 0) / retailers.length)
+      : 0,
   };
+  const activationRate = stats.total ? Math.round((stats.ordered / stats.total) * 100) : 0;
+  const verificationRate = stats.total ? Math.round((stats.verified / stats.total) * 100) : 0;
+  const conversionRate = stats.visited ? Math.round((stats.ordered / stats.visited) * 100) : 0;
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
@@ -585,44 +659,112 @@ export default function RetailManagement() {
           </TabsList>
 
           <TabsContent value="retailers" className="space-y-4 mt-4">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">Total Retailers</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-green-600">Verified</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.verified}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-amber-600">Needs Attention</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600">{stats.needsAttention}</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-red-600">Dropped</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats.dropped}</div>
-            </CardContent>
-          </Card>
-        </div>
+            {/* KPI Dashboard */}
+            {(() => {
+              const KpiCard = ({
+                label, value, icon: Icon, tone, filterKey, hint,
+              }: {
+                label: string; value: number | string; icon: any;
+                tone: 'slate'|'emerald'|'amber'|'rose'|'violet'|'sky'|'indigo'|'orange';
+                filterKey: KpiFilter; hint?: string;
+              }) => {
+                const tones: Record<string, { bg: string; text: string; ring: string; soft: string }> = {
+                  slate:   { bg: 'bg-slate-500',   text: 'text-slate-600 dark:text-slate-300',   ring: 'ring-slate-500/30',   soft: 'bg-slate-500/10' },
+                  emerald: { bg: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', ring: 'ring-emerald-500/30', soft: 'bg-emerald-500/10' },
+                  amber:   { bg: 'bg-amber-500',   text: 'text-amber-600 dark:text-amber-400',   ring: 'ring-amber-500/30',   soft: 'bg-amber-500/10' },
+                  rose:    { bg: 'bg-rose-500',    text: 'text-rose-600 dark:text-rose-400',     ring: 'ring-rose-500/30',    soft: 'bg-rose-500/10' },
+                  violet:  { bg: 'bg-violet-500',  text: 'text-violet-600 dark:text-violet-400', ring: 'ring-violet-500/30',  soft: 'bg-violet-500/10' },
+                  sky:     { bg: 'bg-sky-500',     text: 'text-sky-600 dark:text-sky-400',       ring: 'ring-sky-500/30',     soft: 'bg-sky-500/10' },
+                  indigo:  { bg: 'bg-indigo-500',  text: 'text-indigo-600 dark:text-indigo-400', ring: 'ring-indigo-500/30',  soft: 'bg-indigo-500/10' },
+                  orange:  { bg: 'bg-orange-500',  text: 'text-orange-600 dark:text-orange-400', ring: 'ring-orange-500/30',  soft: 'bg-orange-500/10' },
+                };
+                const t = tones[tone];
+                const active = kpiFilter === filterKey;
+                return (
+                  <button
+                    onClick={() => setKpiFilter(active ? 'none' : filterKey)}
+                    className={`group text-left rounded-xl border bg-card p-3 transition-all hover:shadow-md hover:-translate-y-0.5 ${active ? `ring-2 ${t.ring} border-transparent` : 'hover:border-foreground/20'}`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className={`h-8 w-8 rounded-lg ${t.soft} ${t.text} flex items-center justify-center`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      {active && <span className={`h-1.5 w-1.5 rounded-full ${t.bg}`} />}
+                    </div>
+                    <p className="text-[11px] font-medium text-muted-foreground mt-2 uppercase tracking-wide">{label}</p>
+                    <p className={`text-2xl font-bold leading-tight ${t.text}`}>{value}</p>
+                    {hint && <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>}
+                  </button>
+                );
+              };
+
+              const RateCard = ({
+                label, value, icon: Icon, tone, hint,
+              }: { label: string; value: number; icon: any; tone: 'emerald'|'sky'|'violet'|'amber'; hint?: string }) => {
+                const tones: Record<string, string> = {
+                  emerald: 'from-emerald-500/15 to-emerald-500/5 text-emerald-600 dark:text-emerald-400',
+                  sky:     'from-sky-500/15 to-sky-500/5 text-sky-600 dark:text-sky-400',
+                  violet:  'from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400',
+                  amber:   'from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400',
+                };
+                return (
+                  <div className={`rounded-xl border bg-gradient-to-br ${tones[tone]} p-3`}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-medium uppercase tracking-wide">{label}</p>
+                      <Icon className="h-4 w-4 opacity-80" />
+                    </div>
+                    <div className="mt-2 flex items-end gap-2">
+                      <p className="text-2xl font-bold leading-none">{value}%</p>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full rounded-full bg-background/60 overflow-hidden">
+                      <div className="h-full bg-current rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+                    </div>
+                    {hint && <p className="text-[10px] text-muted-foreground mt-1.5">{hint}</p>}
+                  </div>
+                );
+              };
+
+              return (
+                <div className="space-y-3">
+                  {/* Row 1 - Verification Health */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <KpiCard label="Total Retailers" value={stats.total} icon={Users}        tone="slate"   filterKey="total" />
+                    <KpiCard label="Verified"        value={stats.verified} icon={ShieldCheck} tone="emerald" filterKey="verified" hint="Score ≥ 70%" />
+                    <KpiCard label="Unverified"      value={stats.unverified} icon={ShieldAlert} tone="orange" filterKey="unverified" hint="Score < 40%" />
+                    <KpiCard label="Needs Attention" value={stats.needsAttention} icon={AlertTriangle} tone="amber" filterKey="needs_attention" hint="Missing data" />
+                    <KpiCard label="Dropped"         value={stats.dropped} icon={Ban}         tone="rose"    filterKey="dropped" hint="Inactive / rejected" />
+                  </div>
+
+                  {/* Row 2 - Business Health */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <KpiCard label="Orphan Retailers"   value={stats.orphan}            icon={UserX}      tone="rose"   filterKey="orphan"            hint="No orders ever" />
+                    <KpiCard label="Dormant"            value={stats.dormant}           icon={Clock}      tone="amber"  filterKey="dormant"           hint="No order 60d+" />
+                    <KpiCard label="New This Month"     value={stats.newThisMonth}      icon={Sparkles}   tone="violet" filterKey="new_month"         hint="Added MTD" />
+                    <KpiCard label="Duplicate Suspects" value={stats.duplicate}         icon={CopyIcon}   tone="rose"   filterKey="duplicate"         hint="Risk ≥ 70" />
+                    <KpiCard label="Awaiting Approval"  value={stats.awaitingApproval}  icon={Hourglass}  tone="indigo" filterKey="awaiting_approval" hint="Pending review" />
+                  </div>
+
+                  {/* Row 3 - Rates */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <RateCard label="Activation Rate"   value={activationRate}   icon={TrendingUp} tone="emerald" hint={`${stats.ordered} of ${stats.total} ordered`} />
+                    <RateCard label="Verification Rate" value={verificationRate} icon={ShieldCheck} tone="sky"    hint={`${stats.verified} of ${stats.total} verified`} />
+                    <RateCard label="Avg Quality Score" value={stats.avgScore}   icon={Gauge}      tone="violet"  hint="Across all retailers" />
+                    <RateCard label="Visit→Order Conv." value={conversionRate}   icon={Activity}   tone="amber"   hint={`${stats.ordered} of ${stats.visited} visited`} />
+                  </div>
+
+                  {kpiFilter !== 'none' && (
+                    <div className="flex items-center justify-between rounded-lg border bg-primary/5 px-3 py-2 text-xs">
+                      <span className="text-muted-foreground">
+                        Filtered by <span className="font-semibold text-foreground capitalize">{kpiFilter.replace(/_/g, ' ')}</span> — {filteredRetailers.length} retailer{filteredRetailers.length === 1 ? '' : 's'}
+                      </span>
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setKpiFilter('none')}>
+                        Clear
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
         <Card>
           <CardHeader>
