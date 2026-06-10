@@ -414,8 +414,32 @@ export default function RetailManagement() {
     }
   };
 
+  const openApprovalDialog = (retailer: Retailer) => {
+    setSelectedRetailer(retailer);
+    setApprovalDialogOpen(true);
+  };
+
+  const sendWhatsAppVerification = async (retailer: Retailer) => {
+    if (!retailer.phone) {
+      toast({ title: "No phone number", description: "Add a phone number first.", variant: "destructive" });
+      return;
+    }
+    setSendingWhatsAppId(retailer.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-retailer-verification-whatsapp', {
+        body: { retailer_id: retailer.id },
+      });
+      if (error) throw error;
+      if (!(data as any)?.success) throw new Error((data as any)?.error || 'Send failed');
+      toast({ title: "WhatsApp sent", description: `Verification request sent to ${retailer.phone}` });
+    } catch (e: any) {
+      toast({ title: "Failed to send WhatsApp", description: e.message, variant: "destructive" });
+    } finally {
+      setSendingWhatsAppId(null);
+    }
+  };
+
   const getActionButton = (retailer: Retailer) => {
-    // If inactive or dropped, no action needed
     if (retailer.status === 'inactive' || retailer.verification_status === 'dropped') {
       return (
         <Badge variant="outline" className="text-muted-foreground">
@@ -423,21 +447,35 @@ export default function RetailManagement() {
         </Badge>
       );
     }
-    
+
     if (retailer.verification_status === 'verified') {
       return (
-        <Button variant="outline" size="sm" onClick={() => openVerifyDialog(retailer)}>
-          <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
-          Verified
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button variant="outline" size="sm" onClick={() => openApprovalDialog(retailer)}>
+            <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />
+            Verified
+          </Button>
+        </div>
       );
     }
-    
+
     return (
-      <Button size="sm" onClick={() => openVerifyDialog(retailer)}>
-        <CheckCircle2 className="h-4 w-4 mr-1" />
-        Verify
-      </Button>
+      <div className="flex items-center justify-end gap-1">
+        <Button size="sm" onClick={() => openApprovalDialog(retailer)}>
+          <CheckCircle2 className="h-4 w-4 mr-1" />
+          Approve
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => sendWhatsAppVerification(retailer)}
+          disabled={!retailer.phone || sendingWhatsAppId === retailer.id}
+          title={retailer.phone ? "Send WhatsApp verification" : "No phone on file"}
+        >
+          <MessageCircle className="h-4 w-4 mr-1" />
+          {sendingWhatsAppId === retailer.id ? '...' : 'WhatsApp'}
+        </Button>
+      </div>
     );
   };
 
