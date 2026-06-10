@@ -148,9 +148,10 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
     if (!countedRetailers.has(r.id)) planned++;
   });
 
-  // Total planned = all retailers in the beat (doesn't change when visit status changes)
-  // This is the total count of planned visits for the day
-  const totalPlanned = retailers.length;
+  // Total planned = all retailers in the beat
+  // SAFETY: If retailers array is momentarily empty (transient sync), use visited retailer count
+  // This prevents totalPlanned from flashing to 0 during sync cycles
+  const totalPlanned = retailers.length > 0 ? retailers.length : countedRetailers.size;
 
   // Teammate breakdown — rows tagged with _source === 'teammate' by the smart sync.
   const teamOrdersList = dateFilteredOrders.filter((o: any) => o?._source === 'teammate');
@@ -445,7 +446,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       console.warn(`[ProgressStats] ⚠️ ${wrongDateVisits.length} visits with wrong dates found, expected: ${selectedDate}`);
     }
     
-    return calculateStats(visits, orders, retailers, selectedDate);
+    // SAFETY: Never show 0 planned when retailers is temporarily empty during sync.
+    // Use visits as fallback to keep stats visible during transient empty-retailer state.
+    const safeRetailers = retailers.length > 0
+      ? retailers
+      : visits.filter((v: any) => v.planned_date === selectedDate && !v._source)
+               .map((v: any) => ({ id: v.retailer_id }));
+    return calculateStats(visits, orders, safeRetailers, selectedDate);
   }, [visits, orders, retailers, selectedDate]);
 
   // Check if date is today using centralized date logic
@@ -612,7 +619,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const [bpRes, vRes, oRes, pointsFetched] = await Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date).abortSignal(controller.signal),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date).abortSignal(controller.signal),
-        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
+        // Fetch own orders AND orders on own beats (beat owner sees all orders on their beats)
+        supabase.from('orders').select('*').eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
         fetchPointsForDate(uid, date)
       ]);
       clearTimeout(timeoutId);
@@ -1234,7 +1242,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const [bpRes, vRes, oRes, pointsFetched] = await Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date).abortSignal(controller.signal),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date).abortSignal(controller.signal),
-        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
+        // Fetch own orders AND orders on own beats (beat owner sees all orders on their beats)
+        supabase.from('orders').select('*').eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
         fetchPointsForDate(uid, date)
       ]);
       clearTimeout(timeoutId);
