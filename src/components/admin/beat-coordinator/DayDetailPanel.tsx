@@ -212,6 +212,44 @@ export function DayDetailPanel({
         })}
       </ul>
 
+      {retailerRows.length > 0 && (
+        <div className="border rounded-md">
+          <div className="px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/40 flex items-center justify-between">
+            <span>Retailers on this day</span>
+            <span>
+              {retailerRows.filter((r) => r.visit_status === "completed").length}/{retailerRows.length} visited ·
+              ₹{Math.round(retailerRows.reduce((s, r) => s + r.order_value, 0)).toLocaleString("en-IN")}
+            </span>
+          </div>
+          <div className="divide-y max-h-64 overflow-y-auto">
+            {retailerRows.map((r) => {
+              const tone =
+                r.visit_status === "completed" ? "text-beat-served" :
+                r.visit_status === "pending" ? "text-beat-stale" :
+                r.visit_status === "not_visited" ? "text-beat-missed" : "text-muted-foreground";
+              return (
+                <div key={r.id} className="px-3 py-1.5 flex items-center gap-2 text-xs">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{r.name}</div>
+                    <div className="text-[10px] text-muted-foreground truncate">{r.beat_name}</div>
+                  </div>
+                  <span className={cn("text-[10px] font-medium", tone)}>
+                    {r.visit_status === "completed" ? "Visited" :
+                      r.visit_status === "pending" ? "Pending" :
+                      r.visit_status === "not_visited" ? "Not visited" : "Skipped"}
+                  </span>
+                  {r.order_count > 0 && (
+                    <span className="text-[10px] tabular-nums font-medium">
+                      ₹{Math.round(r.order_value).toLocaleString("en-IN")}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Quick scenario pills */}
       <div className="flex flex-wrap gap-1.5 pt-1">
         {[
