@@ -114,7 +114,7 @@ type KpiFilter =
   | 'dormant'
   | 'new_month'
   | 'duplicate'
-  | 'awaiting_approval'
+  | 'whatsapp_verified'
   | 'visited_not_ordered';
 
 export default function RetailManagement() {
