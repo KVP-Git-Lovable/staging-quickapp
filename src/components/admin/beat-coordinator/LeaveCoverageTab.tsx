@@ -898,26 +898,6 @@ export function LeaveCoverageTab({ initialDate, initialRepId }: Props = {}) {
           <CardTitle>Coverage created on {planDate}</CardTitle>
           <CardDescription>{(existingCover as any[]).length} assignment(s)</CardDescription>
         </CardHeader>
-                    {aiSuggestions[aid] && aiSuggestions[aid].length > 0 && (
-              <div className="mx-6 mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
-                  <Sparkles className="h-3.5 w-3.5" /> AI Coverage Suggestions
-                </p>
-                <div className="space-y-1.5">
-                  {aiSuggestions[aid].map((s: any, i: number) => (
-                    <div key={i} className="flex items-center justify-between bg-white rounded p-2 text-xs border border-purple-100">
-                      <div>
-                        <span className="font-medium">{i+1}. {s.name || s.full_name}</span>
-                        {s.reason && <span className="text-muted-foreground ml-2">— {s.reason}</span>}
-                      </div>
-                      {s.score !== undefined && (
-                        <span className="text-purple-600 font-semibold ml-2">{s.score}/10</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             <CardContent>
           {(existingCover as any[]).length === 0 ? (
             <p className="text-sm text-muted-foreground">No coverage assignments yet.</p>
