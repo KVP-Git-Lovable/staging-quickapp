@@ -313,9 +313,21 @@ export const MyVisits = () => {
     return hasLoadedOnce ? "No beats planned" : "";
   }, [optimizedBeatPlans, hasLoadedOnce]);
   
+  // Track previous retailers to prevent flash-to-0 during sync
+  const prevRetailersRef = React.useRef<any[]>([]);
+
   // Process retailers from optimized data - single source of truth
   const retailers = useMemo(() => {
-    if (optimizedRetailers.length === 0) return [];
+    // SAFETY: Never return [] if we previously had retailers.
+    // optimizedRetailers can momentarily be [] during any hook re-sync cycle.
+    // Returning [] causes the entire visit list to vanish. Use previous value instead.
+    if (optimizedRetailers.length === 0) {
+      if (prevRetailersRef.current.length > 0) {
+        console.log('[MyVisits] optimizedRetailers temporarily empty — using previous', prevRetailersRef.current.length);
+        return prevRetailersRef.current;
+      }
+      return [];
+    }
     
     // CRITICAL FIX: Filter visits and orders by selectedDate to prevent stale data
     const dateFilteredVisits = optimizedVisits.filter(v => v.planned_date === selectedDate);
@@ -327,6 +339,9 @@ export const MyVisits = () => {
       console.warn(`[MyVisits] ⚠️ ${wrongDateVisits.length} visits with wrong dates in state, expected: ${selectedDate}`);
     }
     
+    // Store for fallback on next render
+    // (wrapped in a microtask to avoid mutating ref during render)
+    Promise.resolve().then(() => { prevRetailersRef.current = optimizedRetailers; });
     return optimizedRetailers.map(retailer => {
       // Get the BEST visit for this retailer (handles duplicates)
       const retailerVisits = dateFilteredVisits.filter(v => v.retailer_id === retailer.id);
@@ -751,9 +766,15 @@ export const MyVisits = () => {
       }
 
       if (allRetailerIds.size === 0) {
-        // NOTE: retailers is now derived via useMemo from optimized hook - no need to set state
-        setRetailerStats(new Map());
-        setInitialRetailerOrder([]);
+        // SAFETY: Don't early-return if we have planned beats but retailers haven't loaded yet.
+        // This was causing stats to clear when beatPlans hadn't synced yet.
+        // Only return early if there are truly no planned beats AND no visit retailers.
+        const hasBeatPlans = plannedBeatIds.length > 0;
+        if (!hasBeatPlans) {
+          setRetailerStats(new Map());
+          setInitialRetailerOrder([]);
+        }
+        // If hasBeatPlans but allRetailerIds is 0 — retailers still loading, don't clear
         return;
       }
 
@@ -773,19 +794,19 @@ export const MyVisits = () => {
         const [retailersResult, ordersForDateResult, allOrdersResult, allVisitsResult] = await Promise.all([
           supabase.from('retailers').select('*').in('id', Array.from(allRetailerIds)),
           !isFutureDate 
-            ? supabase.from('orders')
+            ? // No user_id filter — RLS includes teammate orders on shared beats
+          supabase.from('orders')
                 .select('id, retailer_id, total_amount, created_at')
-                .eq('user_id', user.id)
-                .eq('status', 'confirmed')
+                .in('status', ['confirmed', 'delivered'])
                 .in('retailer_id', Array.from(allRetailerIds))
                 .gte('created_at', dateStart.toISOString())
                 .lte('created_at', dateEnd.toISOString())
             : Promise.resolve({ data: [], error: null }),
           !isFutureDate
-            ? supabase.from('orders')
+            ? // No user_id filter — includes all orders on shared beats
+          supabase.from('orders')
                 .select('retailer_id, total_amount, created_at')
-                .eq('user_id', user.id)
-                .eq('status', 'confirmed')
+                .in('status', ['confirmed', 'delivered'])
                 .in('retailer_id', Array.from(allRetailerIds))
                 .lte('created_at', date + 'T23:59:59.999Z')
             : Promise.resolve({ data: [], error: null }),
