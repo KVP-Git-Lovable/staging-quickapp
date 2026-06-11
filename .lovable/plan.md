@@ -1,33 +1,13 @@
-## Goal
-Gate the "welcome WhatsApp" template (`HXa4311ea6f7d67093fe5426e224645038`) — currently fired unconditionally on every Add Retailer — behind a new toggle in **Retail Management → Verification Policy**. The manual **WhatsApp verify** action in the retailer row's 3-dot menu (uses the existing `send-retailer-verification-whatsapp` function) is untouched and keeps working as-is.
+## Diagnosis
+The crash is frontend-only, not an RLS or beat-plan insert failure.
 
-## Changes
+`MyVisits` keeps a fallback list while future-date data loads, but the fallback ref is populated with raw database retailer rows (`name`, `phone`) and later returned where the UI expects transformed visit rows (`retailerName`, `phone`). The search/sort logic then calls `retailerName.toLowerCase()`, producing the reported error.
 
-### 1. DB migration — add policy flag
-Add a new boolean column to `retailer_verification_policy`:
-- `welcome_whatsapp_on_create boolean NOT NULL DEFAULT true`
+The database already has an insert policy for users creating their own `beat_plans`, so no database change is required.
 
-(Separate from the existing `auto_whatsapp_on_create`, which controls the verification yes/no template. This new flag controls the welcome template only, so the two channels stay independent.)
-
-### 2. `src/hooks/useRetailerVerificationPolicy.ts`
-- Add `welcome_whatsapp_on_create: boolean` to `RetailerVerificationPolicy` interface.
-- Add `welcome_whatsapp_on_create: true` to `DEFAULT_POLICY`.
-
-### 3. `src/components/retailer/VerificationPolicyCard.tsx`
-- Add a new `<ToggleRow>` directly under the existing "Auto-send WhatsApp on retailer create" toggle (line ~270):
-  - Label: **"Send welcome WhatsApp on retailer create"**
-  - Hint: "Sends a welcome message with name, phone, and address to the retailer."
-  - Bound to `draft.welcome_whatsapp_on_create`.
-
-### 4. `src/utils/retailerWelcomeWhatsAppTrigger.ts`
-- Convert helper to async: before invoking the edge function, read `retailer_verification_policy.welcome_whatsapp_on_create` (mirrors the policy check pattern in `retailerVerificationTrigger.ts`).
-- If flag is false/missing → silently skip.
-- Otherwise invoke `send-retailer-welcome-whatsapp` fire-and-forget as today. All errors still swallowed with `console.warn`.
-
-### 5. Callers (no behaviour change beyond gating)
-`src/pages/MyRetailers.tsx` and `src/components/AddRetailerInlineToBeat.tsx` already call `sendRetailerWelcomeWhatsApp(...)` right after the verification trigger. No code changes needed — they continue to fire-and-forget; the gating now happens inside the helper.
-
-## Out of scope
-- No edits to the welcome edge function itself (`send-retailer-welcome-whatsapp`).
-- No edits to the manual "WhatsApp verify" menu action in `RetailManagement.tsx` — it stays a manual trigger using the verification template.
-- No changes to the existing `auto_whatsapp_on_create` verification flow.
+## Implementation
+1. Update the My Visits retailer memo so the fallback cache stores only fully transformed visit-list records, never raw retailer rows.
+2. Clear or scope the fallback appropriately when changing dates so retailers from the prior date cannot leak into a future date while loading.
+3. Make search and sorting null-safe as a final guard against malformed cached/offline retailer data.
+4. Add a focused regression test covering: select a future date → temporary empty sync state → choose/add a beat, confirming the page remains rendered.
+5. Validate the future-date interaction and confirm no `toLowerCase` runtime error occurs.
