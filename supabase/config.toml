@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.ai-coverage-suggestion]
 verify_jwt = false
+
+[functions.send-retailer-welcome-whatsapp]
+verify_jwt = false
