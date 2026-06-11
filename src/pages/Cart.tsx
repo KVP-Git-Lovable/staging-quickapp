@@ -519,24 +519,32 @@ export const Cart = () => {
   };
   const handleCameraCapture = async (blob: Blob) => {
     try {
-      const fileName = `payment-${Date.now()}.jpg`;
+      const { data: { session } } = await supabase.auth.getSession();
+      const authenticatedUserId = session?.user?.id || userId;
+      if (!authenticatedUserId) {
+        throw new Error("Please sign in again before uploading a payment proof");
+      }
+
+      // expense-bills is private and its RLS policy requires the first folder
+      // segment to match the authenticated user's ID.
+      const fileName = `${authenticatedUserId}/payment-${Date.now()}.jpg`;
       
       // Check if we're online
       if (connectivityStatus === 'online' && navigator.onLine) {
         // Online: Upload to Supabase storage
-        const { data, error } = await supabase.storage.from('expense-bills').upload(fileName, blob);
+        const { error } = await supabase.storage.from('expense-bills').upload(fileName, blob, {
+          contentType: blob.type || 'image/jpeg'
+        });
         if (error) throw error;
         
-        const { data: { publicUrl } } = supabase.storage.from('expense-bills').getPublicUrl(fileName);
-        
         if (cameraMode === "cheque") {
-          setChequePhotoUrl(publicUrl);
+          setChequePhotoUrl(fileName);
           toast({ title: "Cheque photo captured successfully" });
         } else if (cameraMode === "upi") {
-          setUpiPhotoUrl(publicUrl);
+          setUpiPhotoUrl(fileName);
           toast({ title: "Payment confirmation captured successfully" });
         } else if (cameraMode === "neft") {
-          setNeftPhotoUrl(publicUrl);
+          setNeftPhotoUrl(fileName);
           toast({ title: "NEFT confirmation captured successfully" });
         }
       } else {
@@ -574,7 +582,7 @@ export const Cart = () => {
         title: "Photo Capture Failed",
         description: connectivityStatus === 'offline' 
           ? "Photo saved locally, will sync when online" 
-          : "Failed to upload photo. Please try again.",
+          : error instanceof Error ? error.message : "Failed to upload photo. Please try again.",
         variant: connectivityStatus === 'offline' ? "default" : "destructive"
       });
     }
