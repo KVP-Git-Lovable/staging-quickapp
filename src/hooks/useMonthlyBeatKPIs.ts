@@ -42,10 +42,12 @@ export function useMonthlyBeatKPIs(repId: string | null, monthAnchor: Date) {
           .select("planned_date, retailer_id, status")
           .eq("user_id", repId)
           .gte("planned_date", start).lte("planned_date", end),
+        // No user_id filter — include all orders on rep's beats (own + teammate)
+        // RLS scopes via beat_access + owner_id_snapshot
         supabase.from("orders")
-          .select("order_date, retailer_id, total_amount")
-          .eq("user_id", repId)
-          .gte("order_date", start).lte("order_date", end),
+          .select("order_date, retailer_id, total_amount, beat_id")
+          .gte("order_date", start).lte("order_date", end)
+          .in("status", ["confirmed", "delivered"]),
       ]);
 
       // unique (date, beat_id) pairs

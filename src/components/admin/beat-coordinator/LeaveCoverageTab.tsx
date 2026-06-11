@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, Bell, ChevronLeft, ChevronRight, Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, Bell, ChevronLeft, ChevronRight, Loader2, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -99,6 +99,9 @@ export function LeaveCoverageTab({ initialDate, initialRepId }: Props = {}) {
   }, [subordinateIds, user?.id]);
 
   // All active reps (used to render names + pick cover)
+  const [aiSuggesting, setAiSuggesting] = useState<string | null>(null); // aid being suggested
+  const [aiSuggestions, setAiSuggestions] = useState<Record<string, any[]>>({});
+
   const { data: reps = [] } = useQuery<RepRow[]>({
     queryKey: ["bc-reps", teamScope],
     queryFn: async () => {
@@ -497,6 +500,52 @@ export function LeaveCoverageTab({ initialDate, initialRepId }: Props = {}) {
   }, [existingCover, ownerByRetailer]);
 
   // ── Render ─────────────────────────────────────────────────────────
+  const handleAISuggestCoverage = async (aid: string) => {
+    setAiSuggesting(aid);
+    try {
+      const absentRep = repMap[aid] || aid;
+      const repBeats = (retailerByRep[aid] || []).reduce((acc: any[], r: any) => {
+        if (!acc.find((b: any) => b.beat_id === r.beat_id)) {
+          acc.push({ beat_id: r.beat_id, beat_name: r.beat_name || r.beat_id, retailer_count: 0 });
+        }
+        return acc;
+      }, []);
+
+      // Build candidates from subordinates excluding the absent rep
+      const candidates = reps
+        .filter((r: RepRow) => r.id !== aid)
+        .map((r: RepRow) => ({
+          user_id: r.id,
+          full_name: r.full_name,
+          current_workload: 0,
+          proximity_km: null,
+          covered_recent_count: 0,
+        }));
+
+      const { data, error } = await supabase.functions.invoke("ai-coverage-suggestion", {
+        body: {
+          leaveRepName: absentRep,
+          beatsToCover: repBeats,
+          dateRange: { start: planDate, end: planDate },
+          candidates,
+        },
+      });
+
+      if (error) throw error;
+      const suggestions = data?.suggestions || [];
+      setAiSuggestions((prev) => ({ ...prev, [aid]: suggestions }));
+      if (suggestions.length > 0) {
+        toast.success(`AI found ${suggestions.length} coverage suggestion(s)`);
+      } else {
+        toast.info("No strong suggestions found — please assign manually");
+      }
+    } catch (e: any) {
+      toast.error("AI suggestion failed: " + (e?.message || "unknown error"));
+    } finally {
+      setAiSuggesting(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Alert banner */}
@@ -653,7 +702,19 @@ export function LeaveCoverageTab({ initialDate, initialRepId }: Props = {}) {
                       ` · No route history found — please select manually`}
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                    onClick={() => handleAISuggestCoverage(aid)}
+                    disabled={aiSuggesting === aid}
+                  >
+                    {aiSuggesting === aid
+                      ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                      : <Sparkles className="h-3.5 w-3.5 mr-1" />}
+                    AI Suggest
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => skipUncovered(aid)}>
                     Skip — leave day
                   </Button>
@@ -837,7 +898,27 @@ export function LeaveCoverageTab({ initialDate, initialRepId }: Props = {}) {
           <CardTitle>Coverage created on {planDate}</CardTitle>
           <CardDescription>{(existingCover as any[]).length} assignment(s)</CardDescription>
         </CardHeader>
-        <CardContent>
+                    {aiSuggestions[aid] && aiSuggestions[aid].length > 0 && (
+              <div className="mx-6 mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-xs font-semibold text-purple-700 mb-2 flex items-center gap-1">
+                  <Sparkles className="h-3.5 w-3.5" /> AI Coverage Suggestions
+                </p>
+                <div className="space-y-1.5">
+                  {aiSuggestions[aid].map((s: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between bg-white rounded p-2 text-xs border border-purple-100">
+                      <div>
+                        <span className="font-medium">{i+1}. {s.name || s.full_name}</span>
+                        {s.reason && <span className="text-muted-foreground ml-2">— {s.reason}</span>}
+                      </div>
+                      {s.score !== undefined && (
+                        <span className="text-purple-600 font-semibold ml-2">{s.score}/10</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <CardContent>
           {(existingCover as any[]).length === 0 ? (
             <p className="text-sm text-muted-foreground">No coverage assignments yet.</p>
           ) : (
