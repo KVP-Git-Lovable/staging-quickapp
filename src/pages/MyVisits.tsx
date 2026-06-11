@@ -313,8 +313,13 @@ export const MyVisits = () => {
     return hasLoadedOnce ? "No beats planned" : "";
   }, [optimizedBeatPlans, hasLoadedOnce]);
   
-  // Track previous retailers to prevent flash-to-0 during sync
-  const prevRetailersRef = React.useRef<any[]>([]);
+  // Track transformed retailers per date to prevent flash-to-0 during same-date sync.
+  // Raw database rows must never enter this cache because the visit list expects
+  // fields such as retailerName rather than name.
+  const prevRetailersRef = React.useRef<{ date: string; items: any[] }>({
+    date: selectedDate,
+    items: [],
+  });
 
   // Process retailers from optimized data - single source of truth
   const retailers = useMemo(() => {
@@ -322,9 +327,9 @@ export const MyVisits = () => {
     // optimizedRetailers can momentarily be [] during any hook re-sync cycle.
     // Returning [] causes the entire visit list to vanish. Use previous value instead.
     if (optimizedRetailers.length === 0) {
-      if (prevRetailersRef.current.length > 0) {
-        console.log('[MyVisits] optimizedRetailers temporarily empty — using previous', prevRetailersRef.current.length);
-        return prevRetailersRef.current;
+      if (prevRetailersRef.current.date === selectedDate && prevRetailersRef.current.items.length > 0) {
+        console.log('[MyVisits] optimizedRetailers temporarily empty — using previous', prevRetailersRef.current.items.length);
+        return prevRetailersRef.current.items;
       }
       return [];
     }
@@ -339,10 +344,7 @@ export const MyVisits = () => {
       console.warn(`[MyVisits] ⚠️ ${wrongDateVisits.length} visits with wrong dates in state, expected: ${selectedDate}`);
     }
     
-    // Store for fallback on next render
-    // (wrapped in a microtask to avoid mutating ref during render)
-    Promise.resolve().then(() => { prevRetailersRef.current = optimizedRetailers; });
-    return optimizedRetailers.map(retailer => {
+    const transformedRetailers = optimizedRetailers.map(retailer => {
       // Get the BEST visit for this retailer (handles duplicates)
       const retailerVisits = dateFilteredVisits.filter(v => v.retailer_id === retailer.id);
       const getVisitTime = (v: any) => new Date(v.updated_at || v.created_at || 0).getTime();
@@ -416,6 +418,13 @@ export const MyVisits = () => {
         teammateActivity,
       };
     });
+
+    // Store only the transformed shape, scoped to this date. Deferring avoids
+    // mutating a ref during render while retaining the same-date anti-flicker behavior.
+    Promise.resolve().then(() => {
+      prevRetailersRef.current = { date: selectedDate, items: transformedRetailers };
+    });
+    return transformedRetailers;
   }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
@@ -1080,8 +1089,11 @@ export const MyVisits = () => {
   const filteredVisits = useMemo(() => {
     // REMOVED: Don't return empty array when loading - show cached data while refreshing in background
     // if (dataLoading) return [];
+    const normalizedSearch = searchTerm.toLowerCase();
     const filtered = allVisits.filter(visit => {
-      const matchesSearch = visit.retailerName.toLowerCase().includes(searchTerm.toLowerCase()) || visit.phone.includes(searchTerm);
+      const retailerName = String(visit.retailerName || '');
+      const phone = String(visit.phone || '');
+      const matchesSearch = retailerName.toLowerCase().includes(normalizedSearch) || phone.includes(searchTerm);
       let matchesStatus = true;
       if (statusFilter === 'planned') {
         // Show planned, in-progress, and cancelled visits
@@ -1192,11 +1204,11 @@ export const MyVisits = () => {
         }
 
         // Fall back to A-Z only if no date info available
-        return a.retailerName.toLowerCase().localeCompare(b.retailerName.toLowerCase());
+        return String(a.retailerName || '').toLowerCase().localeCompare(String(b.retailerName || '').toLowerCase());
       }
 
-      const nameA = a.retailerName.toLowerCase();
-      const nameB = b.retailerName.toLowerCase();
+      const nameA = String(a.retailerName || '').toLowerCase();
+      const nameB = String(b.retailerName || '').toLowerCase();
 
       if (sortOrder === 'asc') {
         return nameA.localeCompare(nameB);
