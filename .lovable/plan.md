@@ -1,36 +1,33 @@
-# Send Welcome WhatsApp on Add Retailer
-
 ## Goal
-Whenever a retailer is added, send a WhatsApp template message (Twilio ContentSid `HXa4311ea6f7d67093fe5426e224645038`) to the retailer's phone with:
-- `{{1}}` = retailer name
-- `{{2}}` = retailer phone
-- `{{3}}` = retailer address
-
-Use the same Twilio account/sender (`whatsapp:+917411681616`) and `TWILIO_AUTH_TOKEN` already used by existing WhatsApp functions. No other features touched.
+Gate the "welcome WhatsApp" template (`HXa4311ea6f7d67093fe5426e224645038`) — currently fired unconditionally on every Add Retailer — behind a new toggle in **Retail Management → Verification Policy**. The manual **WhatsApp verify** action in the retailer row's 3-dot menu (uses the existing `send-retailer-verification-whatsapp` function) is untouched and keeps working as-is.
 
 ## Changes
 
-### 1. New edge function `supabase/functions/send-retailer-welcome-whatsapp/index.ts`
-- Accepts `{ retailer_id }`.
-- Loads `name, phone, address` from `retailers` via service-role client.
-- Normalises phone (reuse logic from `send-retailer-verification-whatsapp`: 10 digits → +91, etc.).
-- POSTs to Twilio Messages API with:
-  - `To: whatsapp:<normalised phone>`
-  - `From: whatsapp:+917411681616`
-  - `ContentSid: HXa4311ea6f7d67093fe5426e224645038`
-  - `ContentVariables: {"1": name, "2": phone, "3": address}`
-- Returns JSON success/failure. CORS + OPTIONS handled. Registered in `supabase/config.toml` with `verify_jwt = false` (matches sibling functions).
+### 1. DB migration — add policy flag
+Add a new boolean column to `retailer_verification_policy`:
+- `welcome_whatsapp_on_create boolean NOT NULL DEFAULT true`
 
-### 2. New util `src/utils/retailerWelcomeWhatsAppTrigger.ts`
-- Exports `sendRetailerWelcomeWhatsApp(retailerId, phone)`.
-- Fire-and-forget invoke of `send-retailer-welcome-whatsapp`; swallow errors with a `console.warn` so it never blocks the create flow (mirrors `maybeTriggerWhatsAppVerification` style — but no policy check, since user wants it on every add).
+(Separate from the existing `auto_whatsapp_on_create`, which controls the verification yes/no template. This new flag controls the welcome template only, so the two channels stay independent.)
 
-### 3. Wire into existing "Add retailer" flows
-Call the new helper right after a successful insert in the same two places that already fire the verification trigger:
-- `src/pages/MyRetailers.tsx`
-- `src/components/AddRetailerInlineToBeat.tsx`
+### 2. `src/hooks/useRetailerVerificationPolicy.ts`
+- Add `welcome_whatsapp_on_create: boolean` to `RetailerVerificationPolicy` interface.
+- Add `welcome_whatsapp_on_create: true` to `DEFAULT_POLICY`.
 
-No business-logic changes; just an additional fire-and-forget call alongside the existing verification trigger.
+### 3. `src/components/retailer/VerificationPolicyCard.tsx`
+- Add a new `<ToggleRow>` directly under the existing "Auto-send WhatsApp on retailer create" toggle (line ~270):
+  - Label: **"Send welcome WhatsApp on retailer create"**
+  - Hint: "Sends a welcome message with name, phone, and address to the retailer."
+  - Bound to `draft.welcome_whatsapp_on_create`.
+
+### 4. `src/utils/retailerWelcomeWhatsAppTrigger.ts`
+- Convert helper to async: before invoking the edge function, read `retailer_verification_policy.welcome_whatsapp_on_create` (mirrors the policy check pattern in `retailerVerificationTrigger.ts`).
+- If flag is false/missing → silently skip.
+- Otherwise invoke `send-retailer-welcome-whatsapp` fire-and-forget as today. All errors still swallowed with `console.warn`.
+
+### 5. Callers (no behaviour change beyond gating)
+`src/pages/MyRetailers.tsx` and `src/components/AddRetailerInlineToBeat.tsx` already call `sendRetailerWelcomeWhatsApp(...)` right after the verification trigger. No code changes needed — they continue to fire-and-forget; the gating now happens inside the helper.
 
 ## Out of scope
-- No DB schema changes, no policy changes, no edits to retailer creation logic itself, no changes to invoice/verification flows.
+- No edits to the welcome edge function itself (`send-retailer-welcome-whatsapp`).
+- No edits to the manual "WhatsApp verify" menu action in `RetailManagement.tsx` — it stays a manual trigger using the verification template.
+- No changes to the existing `auto_whatsapp_on_create` verification flow.

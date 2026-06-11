@@ -16347,6 +16347,7 @@ export type Database = {
           threshold_verified: number
           updated_at: string
           updated_by: string | null
+          welcome_whatsapp_on_create: boolean
         }
         Insert: {
           approval_level?: string
@@ -16399,6 +16400,7 @@ export type Database = {
           threshold_verified?: number
           updated_at?: string
           updated_by?: string | null
+          welcome_whatsapp_on_create?: boolean
         }
         Update: {
           approval_level?: string
@@ -16451,6 +16453,7 @@ export type Database = {
           threshold_verified?: number
           updated_at?: string
           updated_by?: string | null
+          welcome_whatsapp_on_create?: boolean
         }
         Relationships: []
       }
