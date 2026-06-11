@@ -9,6 +9,7 @@ export interface RetailerVerificationPolicy {
   grace_days: number;
   require_verification_for_credit: boolean;
   auto_whatsapp_on_create: boolean;
+  welcome_whatsapp_on_create: boolean;
 
   // Verification requirements
   req_mobile: boolean;
@@ -70,6 +71,7 @@ const DEFAULT_POLICY: RetailerVerificationPolicy = {
   grace_days: 0,
   require_verification_for_credit: false,
   auto_whatsapp_on_create: true,
+  welcome_whatsapp_on_create: true,
   req_mobile: true,
   req_whatsapp: false,
   req_gps: true,

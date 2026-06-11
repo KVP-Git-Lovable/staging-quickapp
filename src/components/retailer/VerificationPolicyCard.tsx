@@ -268,6 +268,12 @@ export function VerificationPolicyCard() {
                 checked={draft.auto_whatsapp_on_create}
                 onChange={(v) => upd("auto_whatsapp_on_create", v)}
               />
+              <ToggleRow
+                label="Send welcome WhatsApp on retailer create"
+                hint="Sends a welcome message with name, phone, and address to the retailer."
+                checked={draft.welcome_whatsapp_on_create}
+                onChange={(v) => upd("welcome_whatsapp_on_create", v)}
+              />
             </TabsContent>
 
             {/* REQUIREMENTS */}
