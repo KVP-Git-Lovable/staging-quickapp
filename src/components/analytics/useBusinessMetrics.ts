@@ -493,21 +493,22 @@ export const useBusinessMetrics = () => {
         .select('product_name, unit, quantity, total')
         .in('order_id', orderIds);
 
-      // Group by product
+      // Group by product and display weight quantities as KG, not PC/ML.
       const productMap = new Map<string, ProductDetail>();
       
       items?.forEach(item => {
-        const key = `${item.product_name}-${item.unit || 'pcs'}`;
+        const displayQty = getDisplayQuantity(item.quantity, item.unit);
+        const key = `${item.product_name}-${displayQty.unit}`;
         if (!productMap.has(key)) {
           productMap.set(key, {
             product_name: item.product_name || 'Unknown',
-            unit: item.unit || 'pcs',
+            unit: displayQty.unit,
             quantity: 0,
             revenue: 0
           });
         }
         const p = productMap.get(key)!;
-        p.quantity += Number(item.quantity || 0);
+        p.quantity += displayQty.quantity;
         p.revenue += Number(item.total || 0);
       });
 
