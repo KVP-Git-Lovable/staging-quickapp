@@ -657,8 +657,8 @@ const CustomerCatalog = () => {
                   </div>
 
                   {/* Unit — pinned to the product's active unit from the unit master */}
-                  <Select value={row.unit} onValueChange={(v) => updateRow(row.id, 'unit', v)} disabled>
-                    <SelectTrigger className="h-8 sm:h-9 text-[11px] sm:text-xs font-medium text-foreground w-full bg-card border-border/40 px-1 rounded-lg [&>svg]:hidden">
+                  <Select value={row.unit} onValueChange={(v) => updateRow(row.id, 'unit', v)}>
+                    <SelectTrigger className="h-8 sm:h-9 text-[11px] sm:text-xs font-medium text-foreground w-full bg-card border-border/40 px-1 rounded-lg">
                       <SelectValue>
                         {(row.product?.unit || row.unit || 'Pcs').toUpperCase()}
                       </SelectValue>
