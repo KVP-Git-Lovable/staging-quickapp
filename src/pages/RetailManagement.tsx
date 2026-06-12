@@ -99,6 +99,8 @@ interface Retailer {
   latitude?: number | null;
   longitude?: number | null;
   whatsapp_verified?: boolean | null;
+  portal_enabled?: boolean | null;
+  portal_pin?: string | null;
   gst_number?: string | null;
 }
 
