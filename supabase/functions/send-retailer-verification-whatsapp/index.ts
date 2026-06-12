@@ -59,7 +59,7 @@ serve(async (req) => {
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
     if (!authToken) throw new Error("TWILIO_AUTH_TOKEN not configured");
 
-    const ownerLabel = retailer.owner_name || retailer.contact_person || "there";
+    const ownerLabel = retailer.owner_name || retailer.contact_name || "there";
     const body = `Hi ${ownerLabel}, please confirm your shop details:\n\n` +
       `Shop: ${retailer.name}\n` +
       `Address: ${retailer.address || "—"}\n\n` +
