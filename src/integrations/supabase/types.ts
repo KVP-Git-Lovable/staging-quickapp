@@ -7349,6 +7349,7 @@ export type Database = {
         Row: {
           action_id: string
           earned_at: string
+          game_id: string | null
           id: string
           metadata: Json | null
           points: number
@@ -7359,6 +7360,7 @@ export type Database = {
         Insert: {
           action_id: string
           earned_at?: string
+          game_id?: string | null
           id?: string
           metadata?: Json | null
           points: number
@@ -7369,6 +7371,7 @@ export type Database = {
         Update: {
           action_id?: string
           earned_at?: string
+          game_id?: string | null
           id?: string
           metadata?: Json | null
           points?: number
@@ -7382,6 +7385,13 @@ export type Database = {
             columns: ["action_id"]
             isOneToOne: false
             referencedRelation: "gamification_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gamification_points_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
             referencedColumns: ["id"]
           },
         ]
