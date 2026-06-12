@@ -142,6 +142,8 @@ const DEFAULT_CONFIG: Omit<TargetConfig, 'fy_year'> = {
   plan_status: 'draft',
 };
 
+const EMPTY_PLAN_METRICS: import('@/hooks/useTargetMetrics').PlanEnabledMetric[] = [];
+
 const STATUS_CONFIG: Record<PlanStatus, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
   draft: { label: 'Draft', icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
   active: { label: 'Active', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30' },
