@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { compressImageFile, compressToTargetSize } from "@/utils/imageCompression";
 import { useTranslation } from "react-i18next";
 import { Layout } from "@/components/Layout";
-import { Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine, Check, ChevronsUpDown, WifiOff, ChevronDown, Pencil, ArrowLeft, User } from "lucide-react";
+import { Plus, MapPin, Phone, Store, Camera, Tag, X, ScanLine, Check, ChevronsUpDown, WifiOff, ChevronDown, Pencil, ArrowLeft, User, MessageCircle, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
