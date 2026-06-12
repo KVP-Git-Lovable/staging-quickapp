@@ -57,7 +57,8 @@ export async function clearUserScopedCaches(options: {
 
   try {
     USER_SCOPED_LOCAL_KEYS.forEach((key) => localStorage.removeItem(key));
-    Object.keys(localStorage)
+    Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+      .filter((key): key is string => !!key)
       .filter((key) => USER_SCOPED_LOCAL_PREFIXES.some((prefix) => key.startsWith(prefix)))
       .forEach((key) => localStorage.removeItem(key));
   } catch {
