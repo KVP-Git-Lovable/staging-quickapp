@@ -16499,6 +16499,7 @@ export type Database = {
           qr_upi: string | null
           quality_last_calculated_at: string | null
           retail_type: string | null
+          retailer_confirmed: boolean
           shop_front_visible: boolean
           state: string | null
           status: string | null
@@ -16571,6 +16572,7 @@ export type Database = {
           qr_upi?: string | null
           quality_last_calculated_at?: string | null
           retail_type?: string | null
+          retailer_confirmed?: boolean
           shop_front_visible?: boolean
           state?: string | null
           status?: string | null
@@ -16643,6 +16645,7 @@ export type Database = {
           qr_upi?: string | null
           quality_last_calculated_at?: string | null
           retail_type?: string | null
+          retailer_confirmed?: boolean
           shop_front_visible?: boolean
           state?: string | null
           status?: string | null
