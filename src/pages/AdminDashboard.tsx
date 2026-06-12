@@ -18,6 +18,7 @@ import { Users, UserPlus, Shield, BarChart3, Settings, Database, ArrowLeft, Penc
 import { Switch } from '@/components/ui/switch';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { clearUserScopedCaches } from '@/utils/userScopedCache';
+import { setCachedUser } from '@/utils/cachedAuthIntegrity';
 
 import { CreateUserWizard } from '@/components/admin/create-user';
 import UserInvitationForm from '@/components/UserInvitationForm';
@@ -876,6 +877,11 @@ export const AdminDashboard = () => {
                                           
                                           if (setSessionError) {
                                             throw new Error(setSessionError.message || 'Failed to set session');
+                                          }
+
+                                          if (response.data.user?.id) {
+                                            setCachedUser(response.data.user);
+                                            localStorage.setItem('cached_user_id', response.data.user.id);
                                           }
                                           
                                           toast.success(`Logged in as ${response.data.user?.email || user.email}`, { id: 'login-as-user' });
