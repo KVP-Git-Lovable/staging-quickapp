@@ -110,6 +110,14 @@ export function useMasterDataCache() {
     try {
       onProgress?.('beats', 'loading');
       console.log('[Cache] Syncing active beats...');
+
+      // Re-check session — auth may have dropped between hook init and this call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id || session.user.id !== user.id) {
+        console.warn('[Cache] Skipping beats sync — session not ready / user changed');
+        onProgress?.('beats', 'error');
+        return;
+      }
       
       const { data: beats, error } = await supabase
         .from('beats')
@@ -128,8 +136,15 @@ export function useMasterDataCache() {
         console.log(`[Cache] ✅ ${beats.length} active beats cached`);
       }
       onProgress?.('beats', 'done');
-    } catch (error) {
-      console.error('[Cache] Error caching beats, keeping existing cache:', error);
+    } catch (error: any) {
+      // SECURITY: On permission errors (42501) the cached data may belong to another
+      // user — clear it instead of preserving to avoid cross-user data leakage.
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on beats — clearing stale cache');
+        await offlineStorage.clear(STORES.BEATS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching beats, keeping existing cache:', error);
+      }
       onProgress?.('beats', 'error');
     }
   }, [user]);
