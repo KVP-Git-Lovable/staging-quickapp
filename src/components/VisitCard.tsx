@@ -2759,8 +2759,8 @@ export const VisitCard = ({
 
         <div className="space-y-2">
           {/* First row - Check In, Order, Feedback, AI */}
-          <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isLocationEnabled ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            {!locationFeatureLoading && isLocationEnabled && (
+          <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isLocationEnabled && canCheckIn ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            {!locationFeatureLoading && isLocationEnabled && canCheckIn && (
               <Button
                 size="sm"
                 className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`}
