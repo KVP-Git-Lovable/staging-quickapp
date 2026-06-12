@@ -380,12 +380,12 @@ export const ProductBreakdownDialog = ({
                 data.map((product, idx) => {
                   const isGrams = ['grams', 'gram', 'g'].includes((product.unit || '').toLowerCase().trim());
                   const displayQty = isGrams ? product.quantity / 1000 : product.quantity;
-                  const displayUnit = isGrams ? 'KG' : (product.unit || 'pcs');
+                  const displayUnit = 'PC'; // Always show as PC
                   return (
                     <TableRow key={idx}>
                       <TableCell className="font-medium">{product.product_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{displayUnit}</TableCell>
-                      <TableCell className="text-right">{isGrams ? displayQty.toFixed(1) : displayQty.toLocaleString()}</TableCell>
+                      <TableCell className="text-muted-foreground">{product.unit || 'PC'}</TableCell>
+                      <TableCell className="text-right">{displayQty.toLocaleString()}</TableCell>
                       <TableCell className="text-right font-semibold">₹{product.revenue.toLocaleString()}</TableCell>
                     </TableRow>
                   );
