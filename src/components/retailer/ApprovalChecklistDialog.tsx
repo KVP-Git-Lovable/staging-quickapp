@@ -102,8 +102,8 @@ function Pill({ ok, warn, label }: { ok: boolean; warn?: boolean; label: string 
     : "bg-rose-50 text-rose-700 border-rose-200";
   const Icon = ok ? CheckCircle2 : warn ? AlertTriangle : XCircle;
   return (
-    <div className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs ${cls}`}>
-      <span className="font-medium">{label}</span>
+    <div className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs min-w-0 ${cls}`}>
+      <span className="font-medium truncate">{label}</span>
       <Icon className="h-3.5 w-3.5 shrink-0" />
     </div>
   );
