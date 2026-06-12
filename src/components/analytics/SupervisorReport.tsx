@@ -2570,7 +2570,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                     >
                       <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] sm:text-sm mb-0.5 sm:mb-1">
                         <Scale className="h-3 w-3 sm:h-4 sm:w-4" />
-                        Total KG
+                        Total PCs
                       </div>
                       <div className="text-sm sm:text-2xl font-bold">{formatKg(detailsSummary.totalKg)}</div>
                     </Card>
