@@ -323,7 +323,7 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
               {/* Chart Section */}
               {!hideChart && (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Top 10 products by Qty (KG)</p>
+                  <p className="text-sm text-muted-foreground">Top 10 products by Qty (PCs)</p>
                   <ResponsiveContainer width="100%" height={isMobile ? 280 : 350}>
                     {chartType === 'pie' ? (
                       <PieChart margin={isMobile ? { top: 20, right: 20, bottom: 20, left: 20 } : undefined}>
