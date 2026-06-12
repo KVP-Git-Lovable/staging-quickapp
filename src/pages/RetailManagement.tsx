@@ -594,21 +594,16 @@ export default function RetailManagement() {
     const isVerified = retailer.verification_status === 'verified';
     return (
       <div className="flex items-center justify-end gap-1">
-        {!isDropped && !isVerified && (
+        {!isDropped && (
           <Button
             size="icon"
-            variant="default"
+            variant={isVerified ? "ghost" : "default"}
             className="h-8 w-8"
-            title="Approve retailer"
+            title={isVerified ? "Edit verification" : "Approve retailer"}
             onClick={() => openApprovalDialog(retailer)}
           >
-            <CheckCircle2 className="h-4 w-4" />
+            <CheckCircle2 className={`h-4 w-4 ${isVerified ? "text-emerald-600" : ""}`} />
           </Button>
-        )}
-        {isVerified && (
-          <span title="Verified" className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <CheckCircle2 className="h-4 w-4" />
-          </span>
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -617,9 +612,10 @@ export default function RetailManagement() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 bg-popover z-50">
-            {!isDropped && !isVerified && (
+            {!isDropped && (
               <DropdownMenuItem onClick={() => openApprovalDialog(retailer)}>
-                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" /> Approve
+                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-600" /> 
+                {isVerified ? "Edit Verification" : "Approve"}
               </DropdownMenuItem>
             )}
             <DropdownMenuItem
