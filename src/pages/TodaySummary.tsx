@@ -830,16 +830,16 @@ export const TodaySummary = () => {
         return 0; // For pieces and other units, don't count towards KG
       };
       
-      // Count items (pieces) instead of weight
-      // Each order_item = 1 piece (PC)
+      // Sum total quantity (pieces) across all order items
       let totalItemsCount = 0;
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          totalItemsCount += 1; // Count each item as 1 piece
+          const qty = Number(item.quantity) || 0;
+          totalItemsCount += qty;
         });
       });
-      
-      const totalKgSoldFormatted = `${totalItemsCount} PC`; // Display as pieces
+
+      const totalKgSoldFormatted = `${totalItemsCount} PC`;
 
       // Calculate distance from van_stock (start_km to end_km)
       let totalDistance = 0;
