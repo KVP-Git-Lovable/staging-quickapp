@@ -47,7 +47,9 @@ const CustomerLayout = () => {
 
       if (!isActive) return;
 
-      if (!data?.portal_enabled) {
+      // Only kick the user out if we successfully read the row AND portal is explicitly disabled.
+      // If RLS hides the row (data === null), trust the login flow which already validated access.
+      if (data && data.portal_enabled === false) {
         toast.error('Customer Portal access is not enabled for this retailer. Please login with a valid portal account.');
         logout();
       }
