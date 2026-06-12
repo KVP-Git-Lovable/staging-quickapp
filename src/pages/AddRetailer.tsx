@@ -126,6 +126,9 @@ export const AddRetailer = () => {
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
   const [selectedOwnerName, setSelectedOwnerName] = useState<string>('');
   const [ownerComboOpen, setOwnerComboOpen] = useState(false);
+  const [contactDialog, setContactDialog] = useState<{ retailerId: string; phone: string; name: string } | null>(null);
+  const [contactSending, setContactSending] = useState<null | 'whatsapp' | 'call'>(null);
+
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
