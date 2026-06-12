@@ -10,6 +10,9 @@ const USER_SCOPED_LOCAL_PREFIXES = [
 ];
 
 const USER_SCOPED_LOCAL_KEYS = [
+  'cached_user',
+  'cached_user_id',
+  'cached_user_sig',
   'visit_status_cache',
   'cached_profile',
   'cached_role',
