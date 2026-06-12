@@ -272,7 +272,7 @@ export const VisitCard = ({
     isVanSalesEnabled
   } = useVanSales();
   const { can } = usePermissions();
-  const canCheckIn = can('action_attendance_check_in');
+  const canCheckIn = can('action_attendance_check_in', 'read');
   const {
     isCheckInMandatory
   } = useCheckInMandatory();
