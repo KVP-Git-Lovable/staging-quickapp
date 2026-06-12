@@ -96,6 +96,20 @@ import FeedbackManagement from "./pages/FeedbackManagement";
 import CompetitionMaster from "./pages/CompetitionMaster";
 import CompetitorDetail from "./pages/CompetitorDetail";
 import NotFound from "./pages/NotFound";
+
+// Customer Portal Pages
+import CustomerLogin from "./pages/customer-portal/CustomerLogin";
+import CustomerLayout from "./pages/customer-portal/CustomerLayout";
+import CustomerHome from "./pages/customer-portal/CustomerHome";
+import CustomerCatalog from "./pages/customer-portal/CustomerCatalog";
+import CustomerCart from "./pages/customer-portal/CustomerCart";
+import CustomerOrders from "./pages/customer-portal/CustomerOrders";
+import CustomerOrderDetail from "./pages/customer-portal/CustomerOrderDetail";
+import CustomerOrderSuccess from "./pages/customer-portal/CustomerOrderSuccess";
+import CustomerChat from "./pages/customer-portal/CustomerChat";
+import CustomerSchemes from "./pages/customer-portal/CustomerSchemes";
+import CustomerReports from "./pages/customer-portal/CustomerReports";
+import CustomerNotifications from "./pages/customer-portal/CustomerNotifications";
 import UserRoles from "./pages/UserRoles";
 import BrandingRequests from "./pages/BrandingRequests";
 import { BeatDetail } from "./pages/BeatDetail";
@@ -540,6 +554,23 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/templates" element={<ProtectedRoute><TemplatesPage /></ProtectedRoute>} />
         <Route path="/templates/:id" element={<ProtectedRoute><TemplateBuilderPage /></ProtectedRoute>} />
         */}
+
+        {/* Customer Portal Routes */}
+        <Route path="/customer-portal" element={<Navigate to="/customer-portal/login" replace />} />
+        <Route path="/customer-portal/login" element={<CustomerLogin />} />
+        <Route path="/customer-portal" element={<CustomerLayout />}>
+          <Route path="home" element={<CustomerHome />} />
+          <Route path="catalog" element={<CustomerCatalog />} />
+          <Route path="cart" element={<CustomerCart />} />
+          <Route path="orders" element={<CustomerOrders />} />
+          <Route path="orders/:orderId" element={<CustomerOrderDetail />} />
+          <Route path="order-success/:orderId" element={<CustomerOrderSuccess />} />
+          <Route path="chat" element={<CustomerChat />} />
+          <Route path="schemes" element={<CustomerSchemes />} />
+          <Route path="reports" element={<CustomerReports />} />
+          <Route path="notifications" element={<CustomerNotifications />} />
+        </Route>
+        <Route path="/customer-portal/*" element={<Navigate to="/customer-portal/login" replace />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
