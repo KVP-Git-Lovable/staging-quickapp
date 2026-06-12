@@ -1296,7 +1296,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           productGroups[productName] = {
             product_name: productName,
             quantity: 0,
-            unit: 'KG',
+            unit: 'PC',
             total: 0
           };
         }
@@ -1587,8 +1587,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       // --- Section 1: Business Summary ---
       addSectionHeader('Business Summary');
       addKeyValue('Total Order Value', `₹${businessSummary.totalRevenue.toLocaleString()}`);
-      addKeyValue('Total Quantity (KG)', `${businessSummary.totalKg.toLocaleString()} KG`);
-      addKeyValue('Total Pieces', businessSummary.totalPieces.toLocaleString());
+      addKeyValue('Total Quantity (PC)', `${businessSummary.totalPieces.toLocaleString()} PC`);
+      addKeyValue('Total KG', businessSummary.totalKg.toLocaleString());
       addKeyValue('Total Orders', businessSummary.totalOrders.toLocaleString());
       addKeyValue('Total Beats', businessSummary.totalBeats.toLocaleString());
       addKeyValue('Total Retailers', businessSummary.totalRetailers.toLocaleString());
@@ -1607,7 +1607,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         autoTable(pdf, {
           startY: y,
           margin: { left: margin, right: margin },
-          head: [['#', 'User Name', 'Total KG', 'Total Order Value']],
+          head: [['#', 'User Name', 'Total PC', 'Total Order Value']],
           body: orderTableData,
           styles: { fontSize: 9, cellPadding: 4 },
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -1941,33 +1941,11 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                <div>
                  <p className="text-[10px] md:text-sm opacity-90">Total Quantity</p>
                  <p className="text-xl md:text-3xl lg:text-4xl font-bold">
-                   {businessSummary.quantityByUnit && Object.keys(businessSummary.quantityByUnit).length > 0
-                     ? (() => {
-                         // Only show piece/pc units, ignore weight units (Grams, KG, etc)
-                         const pieceUnits: [string, number][] = [];
-                         
-                         Object.entries(businessSummary.quantityByUnit).forEach(([unit, qty]) => {
-                           const unitLower = unit.toLowerCase();
-                           // Only include piece/pc units
-                           if (unitLower === 'piece' || unitLower === 'pc' || unitLower === 'pcs') {
-                             pieceUnits.push([unit, qty as number]);
-                           }
-                         });
-                         
-                         // If we have piece units, show them
-                         if (pieceUnits.length > 0) {
-                           return pieceUnits
-                             .sort(([, a], [, b]) => b - a)
-                             .map(([unit, qty]) => `${(qty as number).toFixed(0)} PC`)
-                             .join(' + ');
-                         } else {
-                           // Fallback: use total pieces from calculation
-                           return businessSummary.totalPieces > 0 
-                             ? `${businessSummary.totalPieces} PC` 
-                             : 'No Data';
-                         }
-                       })()
-                     : `${businessSummary.totalPieces > 0 ? businessSummary.totalPieces + ' PC' : 'No Data'}`
+                   {businessSummary.totalPieces > 0
+                     ? `${businessSummary.totalPieces} PC`
+                     : businessSummary.totalKg > 0
+                     ? `${businessSummary.totalKg.toFixed(1)} KG`
+                     : 'No Data'
                    }
                  </p>
                  <p className="text-[8px] md:text-xs opacity-75 mt-0.5 md:mt-1">
@@ -2598,9 +2576,9 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                     >
                       <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] sm:text-sm mb-0.5 sm:mb-1">
                         <Scale className="h-3 w-3 sm:h-4 sm:w-4" />
-                        Total KG
+                        Total PC
                       </div>
-                      <div className="text-sm sm:text-2xl font-bold">{detailsSummary.totalKg.toFixed(1)}</div>
+                      <div className="text-sm sm:text-2xl font-bold">{detailsSummary.totalPieces || 0}</div>
                     </Card>
                     <Card 
                       className="p-1.5 sm:p-4 cursor-pointer transition-colors hover:bg-muted/50"

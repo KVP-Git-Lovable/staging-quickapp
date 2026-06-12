@@ -182,6 +182,7 @@ export const useBusinessMetrics = () => {
       // Calculate total KG and Revenue using the same logic as SQL Report - Product and Revenue Performance
       let totalKg = 0;
       let totalPieces = 0;
+      let itemCount = 0; // Count number of items as pieces
       let rpcTotalRevenue = 0;
       let useRpcRevenue = false;
       const quantityByUnit: { [unit: string]: number } = {};
@@ -203,6 +204,9 @@ export const useBusinessMetrics = () => {
               
               // Track quantity by actual unit
               quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
+              
+              // Count items
+              itemCount += 1;
               
               // Same logic as SQL Report: only convert weight-based units to KG
               const unitLower = unit.toLowerCase();
@@ -227,6 +231,9 @@ export const useBusinessMetrics = () => {
             // Track quantity by actual unit
             quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
             
+            // Count items as pieces
+            itemCount += 1;
+            
             const unitLower = unit.toLowerCase();
             if (unitLower === 'kg' || unitLower.includes('kilo')) {
               totalKg += qty;
@@ -238,6 +245,9 @@ export const useBusinessMetrics = () => {
           });
         });
       }
+      
+      // Use item count as total pieces for display
+      totalPieces = itemCount;
       
       // Use RPC revenue when available, otherwise use orders sum
       const finalRevenue = useRpcRevenue ? rpcTotalRevenue : totalRevenue;
