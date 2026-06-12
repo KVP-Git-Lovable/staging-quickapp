@@ -264,7 +264,7 @@ const CustomerCatalog = () => {
       while (true) {
         let query = supabase
           .from('products')
-          .select('id, name, sku, product_number, rate, unit, category_id, closing_stock')
+          .select('id, name, sku, product_number, rate, unit, category_id, closing_stock, default_sales_uom_id, default_sales_uom:uom_master!products_default_sales_uom_id_fkey(code, name)')
           .eq('is_active', true)
           .order('name')
           .range(from, from + pageSize - 1);
@@ -283,7 +283,8 @@ const CustomerCatalog = () => {
         name: p.name,
         sku: p.sku || p.product_number || undefined,
         rate: Number(p.rate ?? 0),
-        unit: p.unit || 'pc',
+        // Prefer the active UOM mapped via Unit of Measure Master; fall back to legacy `unit` text.
+        unit: p.default_sales_uom?.code || p.default_sales_uom?.name || p.unit || 'pc',
         category_id: p.category_id || undefined,
         closing_stock: Number(p.closing_stock ?? 0),
       })) as Product[];
