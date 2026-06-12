@@ -26,21 +26,24 @@ const CustomerLogin = () => {
   const [choices, setChoices] = useState<RetailerChoice[]>([]);
   const navigate = useNavigate();
 
+  // Safety net: clear stale SW caches on first portal load
   useEffect(() => {
+    // Clear ALL caches to ensure fresh routing
     if ('caches' in window) {
       caches.keys().then(names => {
         names.forEach(n => caches.delete(n));
       });
     }
+    // Unregister stale service workers
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
         regs.forEach(r => r.unregister());
       });
     }
   }, []);
-
   const { login, retailer } = useCustomerPortalAuth();
 
+  // If already logged in, redirect
   if (retailer) {
     navigate('/customer-portal/home', { replace: true });
     return null;
@@ -120,6 +123,7 @@ const CustomerLogin = () => {
         return;
       }
 
+      // Multiple portal-enabled retailers share this phone — prompt user to pick
       setChoices(data as RetailerChoice[]);
     } catch (err: any) {
       console.error('Login error:', err);

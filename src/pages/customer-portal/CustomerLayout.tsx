@@ -80,6 +80,7 @@ const CustomerLayout = () => {
     refetchInterval: 10000,
   });
 
+  // Active schemes count for badge
   const { data: activeSchemeCount = 0 } = useQuery({
     queryKey: ['customer-active-scheme-count'],
     queryFn: async () => {
@@ -117,6 +118,7 @@ const CustomerLayout = () => {
       />
       <Outlet context={{ retailer, cartCount }} />
 
+      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border z-50 safe-area-bottom">
         <div className="flex justify-around items-end h-16 max-w-lg mx-auto relative">
           {navItems.map((item) => {
@@ -133,7 +135,11 @@ const CustomerLayout = () => {
                   className="flex flex-col items-center justify-center flex-1 -mt-5 relative"
                 >
                   <div
-                    className={`h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-all ${isActive ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-primary/30 scale-110' : 'bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-primary/20'}`}
+                    className={`h-14 w-14 rounded-full flex items-center justify-center shadow-lg transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-primary/30 scale-110'
+                        : 'bg-gradient-to-br from-primary/90 to-primary/70 text-primary-foreground shadow-primary/20'
+                    }`}
                   >
                     <Icon size={24} strokeWidth={2} />
                   </div>
@@ -148,7 +154,9 @@ const CustomerLayout = () => {
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors relative ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 transition-colors relative ${
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                }`}
               >
                 <div className="relative">
                   <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />

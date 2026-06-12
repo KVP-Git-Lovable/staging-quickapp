@@ -59,8 +59,10 @@ const CustomerCart = () => {
   const [localQuantities, setLocalQuantities] = useState<Record<string, number>>({});
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
+  // Resolve price book (cached, shared with catalog)
   const { data: priceBookId } = useRetailerPriceBook(retailer.distributor_id);
 
+  // Fetch cart items + products + categories in one query chain
   const { data: items = [], isLoading: loading, refetch } = useQuery({
     queryKey: ['customer-cart', retailer.id, priceBookId],
     queryFn: async () => {
@@ -75,6 +77,7 @@ const CustomerCart = () => {
 
       const productIds = [...new Set(cartData.map((c: any) => c.product_id))];
 
+      // Parallel: products + price entries + categories
       const [productsRes, priceEntries] = await Promise.all([
         supabase.from('products').select('id, name, rate, category_id, gst_percentage').in('id', productIds),
         priceBookId
@@ -87,6 +90,7 @@ const CustomerCart = () => {
       const priceMap: Record<string, number> = {};
       for (const e of ((priceEntries as any).data || [])) priceMap[e.product_id] = e.final_price;
 
+      // Fetch category names for order items
       const categoryIds = [...new Set((productsRes.data || []).map((p: any) => p.category_id).filter(Boolean))];
       let categoryMap: Record<string, string> = {};
       if (categoryIds.length > 0) {
@@ -116,6 +120,7 @@ const CustomerCart = () => {
     refetchOnWindowFocus: true,
   });
 
+  // Realtime: refresh cart when items are added/updated/removed for this retailer
   useEffect(() => {
     if (!retailer?.id) return;
     const channel = customerPortalSupabase
@@ -138,6 +143,7 @@ const CustomerCart = () => {
     };
   }, [retailer?.id, queryClient]);
 
+  // Fetch active schemes
   const { data: schemes = [] } = useQuery({
     queryKey: ['cart-schemes'],
     queryFn: async () => {
@@ -147,7 +153,7 @@ const CustomerCart = () => {
       while (true) {
         const { data, error } = await supabase
           .from('product_schemes')
-          .select('id, name, scheme_type, product_id, category_id, condition_quantity, buy_quantity, buy_quantity_unit, discount_percentage, discount_amount, free_quantity, is_active, start_date, end_date, show_in_portal')
+          .select('id, name, scheme_type, product_id, category_id, condition_quantity, buy_quantity, buy_quantity_unit, discount_percentage, discount_amount, free_quantity, is_active, start_date, end_date')
           .eq('is_active', true)
           .eq('show_in_portal', true)
           .range(from, from + pageSize - 1);
@@ -157,8 +163,10 @@ const CustomerCart = () => {
         if (data.length < pageSize) break;
         from += pageSize;
       }
+      const data = all;
+
       const now = new Date();
-      return (all || []).filter((s: any) => {
+      return (data || []).filter((s: any) => {
         if (s.start_date && now < new Date(s.start_date)) return false;
         if (s.end_date) {
           const end = new Date(s.end_date);
@@ -179,11 +187,15 @@ const CustomerCart = () => {
     ) || null;
   };
 
+  // Optimistic quantity update with debounced DB write
   const getQuantity = (item: CartItem) => localQuantities[item.id] ?? item.quantity;
 
   const updateQuantity = useCallback((itemId: string, newQty: number) => {
     if (newQty < 1) return;
+    // Optimistic local update
     setLocalQuantities(prev => ({ ...prev, [itemId]: newQty }));
+
+    // Debounce DB write
     if (debounceTimers.current[itemId]) clearTimeout(debounceTimers.current[itemId]);
     debounceTimers.current[itemId] = setTimeout(async () => {
       try {
@@ -191,6 +203,7 @@ const CustomerCart = () => {
           .from('customer_portal_cart')
           .update({ quantity: newQty })
           .eq('id', itemId);
+
         if (error) throw error;
       } catch (error) {
         console.error('Failed to update cart quantity:', error);
@@ -206,6 +219,7 @@ const CustomerCart = () => {
   }, [refetch]);
 
   const removeItem = async (itemId: string) => {
+    // Optimistic removal from query cache
     queryClient.setQueryData(['customer-cart', retailer.id, priceBookId], (old: CartItem[] | undefined) =>
       (old || []).filter(i => i.id !== itemId)
     );
@@ -220,8 +234,189 @@ const CustomerCart = () => {
     }
   };
 
+  const submitOrder = async () => {
+    const currentItems = items.map(i => ({ ...i, quantity: getQuantity(i) }));
+    if (currentItems.length === 0) return;
+    setSubmitting(true);
+    try {
+      const subtotalSnapshot = currentItems.reduce(
+        (sum, i) => sum + i.quantity * getConvertedPrice(i.product_price, i.unit),
+        0,
+      );
+      // Per-line tax from product master
+      const perItemTax = currentItems.map((item) => {
+        const lineSub = item.quantity * getConvertedPrice(item.product_price, item.unit);
+        const lineDisc = computeLineDiscount(item, lineSub);
+        const taxable = Math.max(0, lineSub - lineDisc);
+        const gstPct = item.gst_percentage || 0;
+        const tax = taxable * (gstPct / 100);
+        return { lineSub, taxable, tax, cgst: tax / 2, sgst: tax / 2 };
+      });
+      const taxAmountSnapshot = perItemTax.reduce((s, x) => s + x.tax, 0);
+      const cgstSnapshot = taxAmountSnapshot / 2;
+      const sgstSnapshot = taxAmountSnapshot / 2;
+      const totalAmount = subtotalSnapshot - discountTotal + taxAmountSnapshot;
+
+      let userId: string | null = retailer.owner_id || null;
+      if (!userId) {
+        const { data: r } = await customerPortalSupabase
+          .from('retailers')
+          .select('owner_id, user_id')
+          .eq('id', retailer.id)
+          .maybeSingle();
+        userId = r?.owner_id || r?.user_id || null;
+      }
+
+      const today = getLocalTodayDate();
+      if (!userId) {
+        toast.error('Unable to place order: retailer has no assigned sales representative.');
+        return;
+      }
+
+      // Auto-create visit
+      let visitId: string | null = null;
+      const { data: existingVisit } = await customerPortalSupabase.from('visits').select('id')
+        .eq('user_id', userId).eq('retailer_id', retailer.id).eq('planned_date', today).maybeSingle();
+      if (existingVisit) {
+        visitId = existingVisit.id;
+      } else {
+        const { data: newVisit, error: visitError } = await customerPortalSupabase.from('visits').insert({
+          user_id: userId, retailer_id: retailer.id, planned_date: today,
+          status: 'planned', visit_type: 'portal_order',
+        }).select('id').single();
+
+        if (visitError) throw visitError;
+        visitId = newVisit?.id ?? null;
+      }
+
+      // Resolve distributor_id for the retailer
+      let distributorId: string | null = retailer.distributor_id || null;
+      if (!distributorId) {
+        const { data: mapping } = await customerPortalSupabase
+          .from('distributor_retailer_mappings')
+          .select('distributor_id')
+          .eq('retailer_id', retailer.id)
+          .limit(1)
+          .maybeSingle();
+        distributorId = mapping?.distributor_id || null;
+      }
+      if (!distributorId) {
+        const { data: ret } = await customerPortalSupabase
+          .from('retailers')
+          .select('distributor_id')
+          .eq('id', retailer.id)
+          .maybeSingle();
+        distributorId = ret?.distributor_id || null;
+      }
+      // Fallback: resolve via beat's distributor
+      if (!distributorId && retailer.beat_id) {
+        const { data: beat } = await customerPortalSupabase
+          .from('beats')
+          .select('distributor_id')
+          .eq('id', retailer.beat_id)
+          .maybeSingle();
+        distributorId = beat?.distributor_id || null;
+      }
+      if (!distributorId) {
+        console.warn('[CustomerCart] No distributor resolved for retailer', retailer.id, '- order will have NULL distributor_id');
+      }
+
+      const orderPayload = {
+        retailer_id: retailer.id, retailer_name: retailer.name,
+        total_amount: totalAmount, subtotal: subtotalSnapshot,
+        discount_amount: discountTotal,
+        status: 'confirmed', order_source: 'portal_order',
+        beat_id: retailer.beat_id || null, territory_id: retailer.territory_id || null,
+        user_id: userId, order_date: today, visit_id: visitId,
+        distributor_id: distributorId,
+      };
+
+      const createOrder = (payload: typeof orderPayload & { invoice_number?: string }) =>
+        customerPortalSupabase.from('orders').insert([payload] as any).select('id').single();
+
+      let { data: order, error: orderError } = await createOrder(orderPayload);
+      if (orderError?.code === '23505' && orderError?.message?.includes('orders_invoice_number_unique')) {
+        const fallback = `INV${new Date().getFullYear()}-${Date.now()}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+        const retry = await createOrder({ ...orderPayload, invoice_number: fallback });
+        order = retry.data;
+        orderError = retry.error;
+      }
+      if (orderError) throw orderError;
+
+      const orderItems = currentItems.map((item, idx) => {
+        const effectivePrice = getConvertedPrice(item.product_price, item.unit);
+        const tax = perItemTax[idx];
+        return {
+          order_id: order!.id, product_id: item.product_id,
+          product_name: item.product_name, category: item.product_category,
+          quantity: item.quantity, rate: effectivePrice,
+          total: item.quantity * effectivePrice, unit: item.unit,
+          cgst_amount: tax.cgst,
+          sgst_amount: tax.sgst,
+          discount_amount: Math.max(0, tax.lineSub - tax.taxable),
+        };
+      });
+
+      const { error: itemsError } = await customerPortalSupabase.from('order_items').insert(orderItems);
+      if (itemsError) throw itemsError;
+
+      const { error: clearCartError } = await customerPortalSupabase
+        .from('customer_portal_cart')
+        .delete()
+        .eq('retailer_id', retailer.id);
+
+      if (clearCartError) throw clearCartError;
+
+      queryClient.invalidateQueries({ queryKey: ['customer-cart-count'] });
+      queryClient.invalidateQueries({ queryKey: ['customer-cart'] });
+      toast.success('Order placed successfully!');
+
+      // Navigate immediately to success page — don't block on WhatsApp send
+      navigate(`/customer-portal/order-success/${order!.id}`, {
+        state: {
+          total: totalAmount,
+          savings: discountTotal,
+          orderDate: today,
+          displayId: order!.id.slice(0, 8).toUpperCase(),
+        },
+      });
+
+      // Fire WhatsApp confirmation in the background (non-blocking)
+      (() => {
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          fetch(`${supabaseUrl}/functions/v1/send-order-confirmation-whatsapp`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': anonKey,
+            },
+            body: JSON.stringify({ orderId: order!.id, retailerId: retailer.id }),
+            keepalive: true,
+          })
+            .then(async (res) => {
+              const result = await res.json().catch(() => ({}));
+              console.log('WhatsApp confirmation result:', res.status, result);
+            })
+            .catch((whatsappErr) => {
+              console.error('WhatsApp confirmation failed:', whatsappErr);
+            });
+        } catch (whatsappErr) {
+          console.error('WhatsApp confirmation dispatch failed:', whatsappErr);
+        }
+      })();
+    } catch (err: any) {
+      console.error('Submit order error:', err);
+      toast.error(err?.message || 'Failed to place order');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const subtotal = items.reduce((sum, i) => sum + getQuantity(i) * getConvertedPrice(i.product_price, i.unit), 0);
 
+  // Calculate scheme discounts
   const discountTotal = items.reduce((sum, item) => {
     const qty = getQuantity(item);
     const scheme = getItemScheme(item);
@@ -234,6 +429,7 @@ const CustomerCart = () => {
     return sum;
   }, 0);
 
+  // Per-line GST sourced from product master, split equally into CGST + SGST
   const computeLineDiscount = (item: CartItem, lineTotal: number): number => {
     const scheme = getItemScheme(item);
     if (!scheme) return 0;
@@ -258,6 +454,8 @@ const CustomerCart = () => {
 
   return (
     <div className="px-4 pt-4 pb-24 max-w-lg mx-auto">
+      
+
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -276,10 +474,16 @@ const CustomerCart = () => {
           <div className="space-y-1.5 mb-3">
             {items.map(item => {
               const qty = getQuantity(item);
+              const scheme = getItemScheme(item);
+              const reqQty = scheme ? (scheme.condition_quantity || scheme.buy_quantity || 0) : 0;
+              const unitLabel = scheme?.buy_quantity_unit || item.unit || 'units';
+              const isUnlocked = scheme && reqQty > 0 && qty >= reqQty;
+              const isClose = scheme && reqQty > 0 && qty > 0 && qty < reqQty;
               const unitDisplay = isGramUnit(item.unit) ? 'g' : (item.unit || 'pcs');
               const convPrice = getConvertedPrice(item.product_price, item.unit);
+
               return (
-                <Card key={item.id} className="px-2.5 py-2">
+                <Card key={item.id} className={`px-2.5 py-2 ${isUnlocked ? 'border-l-[3px] border-l-emerald-500' : ''}`}>
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-xs text-foreground truncate leading-tight">{item.product_name}</h3>
@@ -306,10 +510,44 @@ const CustomerCart = () => {
                       </Button>
                     </div>
                   </div>
+                  {isUnlocked && (
+                    <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-px rounded whitespace-nowrap">
+                      <Gift size={9} /> {scheme.name}{scheme.discount_percentage ? ` · ${scheme.discount_percentage}% off` : ''}{scheme.discount_amount ? ` · ₹${scheme.discount_amount} off` : ''}{scheme.scheme_type === 'buy_x_get_y' && scheme.free_quantity ? ` · Get ${scheme.free_quantity} free` : ''}
+                    </div>
+                  )}
+                  {isClose && (
+                    <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-px rounded whitespace-nowrap">
+                      💡 +{reqQty - qty} {unitLabel} → {scheme.name}
+                    </div>
+                  )}
                 </Card>
               );
             })}
           </div>
+
+          {/* Scheme summary */}
+          {(() => {
+            const appliedSchemes = items.filter(item => {
+              const s = getItemScheme(item);
+              const req = s ? (s.condition_quantity || s.buy_quantity || 0) : 0;
+              return s && req > 0 && getQuantity(item) >= req;
+            }).map(item => getItemScheme(item)!);
+            
+            if (appliedSchemes.length > 0) {
+              return (
+                <Card className="px-2.5 py-2 mb-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20">
+                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                    <Gift size={11} /> {appliedSchemes.length} offer{appliedSchemes.length > 1 ? 's' : ''} applied
+                  </p>
+                  {appliedSchemes.map(s => (
+                    <p key={s.id} className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">• {s.name}</p>
+                  ))}
+                </Card>
+              );
+            }
+            return null;
+          })()}
+
           <Card className="px-3 py-2.5 mb-3 bg-primary/5 border-primary/20">
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">Subtotal</span>
@@ -338,7 +576,8 @@ const CustomerCart = () => {
               <span className="text-lg font-bold text-primary">₹{grandTotal.toFixed(2)}</span>
             </div>
           </Card>
-          <Button className="w-full h-12 text-sm font-semibold gap-2" disabled={submitting}>
+
+          <Button className="w-full h-12 text-sm font-semibold gap-2" onClick={submitOrder} disabled={submitting}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send size={16} />}
             {submitting ? 'Placing Order...' : `Place Order · ${items.length} item${items.length > 1 ? 's' : ''}`}
           </Button>
