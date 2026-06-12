@@ -80,7 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (prev && prev !== newUserId) {
         devLog('[Auth] User identity changed', prev, '→', newUserId, '— purging stale per-user caches');
         const hasUnsynced = await offlineStorage.hasUnsyncedItems().catch(() => false);
-        const stores = [
+        const stores: string[] = [
           STORES.BEATS,
           STORES.BEAT_PLANS,
           STORES.RETAILERS,
