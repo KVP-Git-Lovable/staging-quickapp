@@ -292,6 +292,17 @@ export default function DistributorMaster() {
             <p className="text-sm text-muted-foreground">Manage your DMS network structure</p>
           </div>
           <div className="flex items-center gap-2">
+            {hiddenIds.size > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2"
+                onClick={() => setShowHidden(v => !v)}
+              >
+                {showHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showHidden ? 'Hide hidden' : `Show hidden (${hiddenIds.size})`}
+              </Button>
+            )}
             <Button 
               variant="outline"
               onClick={() => setShowRemapDialog(true)}
