@@ -198,78 +198,20 @@ export const useBusinessMetrics = () => {
       const totalRevenue = orders?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
       const pendingPayments = orders?.reduce((sum, o) => sum + Number(o.credit_pending_amount || 0), 0) || 0;
       
-      // Calculate total KG and Revenue using the same logic as SQL Report - Product and Revenue Performance
+      // Calculate total KG and Revenue directly from order_items so analytics matches DB units.
       let totalKg = 0;
       let totalPieces = 0;
-      let itemCount = 0; // Count number of items as pieces
-      let rpcTotalRevenue = 0;
-      let useRpcRevenue = false;
       const quantityByUnit: { [unit: string]: number } = {};
-      
-      // If user names are provided, use the RPC to get product revenue data
-      if (userNames && userNames.length > 0) {
-        useRpcRevenue = true;
-        for (const userName of userNames) {
-          const { data: productData } = await (supabase as any).rpc('get_product_revenue_performance', {
-            user_full_name: userName,
-            start_date: fromDate,
-            end_date: toDate
-          });
-          
-          if (productData) {
-            productData.forEach((row: any) => {
-              const qty = Number(row.quantity_sold || 0);
-              const unit = (row.unit || 'Unknown').trim();
-              
-              // Track quantity by actual unit
-              quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
-              
-              // Count items
-              itemCount += 1;
-              
-              // Same logic as SQL Report: only convert weight-based units to KG
-              const unitLower = unit.toLowerCase();
-              if (unitLower === 'kg' || unitLower.includes('kilo')) {
-                totalKg += qty;
-              } else if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') {
-                totalKg += qty / 1000;
-              }
-              // Ignore pieces/pcs - not included in KG calculation
-              // Sum revenue from RPC
-              rpcTotalRevenue += Number(row.revenue || 0);
-            });
-          }
-        }
-      } else {
-        // Fallback: use order_items directly
-        orders?.forEach(order => {
-          (order.order_items as any[])?.forEach((item: any) => {
-            const unit = (item.unit || 'Unknown').trim();
-            const qty = Number(item.quantity || 0);
-            
-            // Track quantity by actual unit
-            quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
-            
-            // Count items as pieces
-            itemCount += 1;
-            
-            const unitLower = unit.toLowerCase();
-            if (unitLower === 'kg' || unitLower.includes('kilo')) {
-              totalKg += qty;
-            } else if (unitLower === 'grams' || unitLower === 'g' || unitLower === 'gram') {
-              totalKg += qty / 1000;
-            } else {
-              totalPieces += qty;
-            }
-          });
+
+      orders?.forEach(order => {
+        (order.order_items as any[])?.forEach((item: any) => {
+          const unit = (item.unit || 'Unknown').trim();
+          const qty = Number(item.quantity || 0);
+          quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
+          totalKg += getKgQuantity(qty, unit);
         });
-      }
-      
-      // Use item count as total pieces for display
-      totalPieces = itemCount;
-      
-      // Use RPC revenue when available, otherwise use orders sum
-      const finalRevenue = useRpcRevenue ? rpcTotalRevenue : totalRevenue;
+      });
+      totalPieces = Math.round(totalKg * 100) / 100;
 
       setSummary({
         totalBeats: totalBeatsCount,
@@ -277,7 +219,7 @@ export const useBusinessMetrics = () => {
         totalOrders,
         totalKg,
         totalPieces,
-        totalRevenue: finalRevenue,
+        totalRevenue,
         pendingPayments,
         quantityByUnit
       });
