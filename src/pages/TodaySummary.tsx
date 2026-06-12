@@ -830,23 +830,16 @@ export const TodaySummary = () => {
         return 0; // For pieces and other units, don't count towards KG
       };
       
-      const formatKg = (totalGrams: number): string => {
-        const kg = Math.floor(totalGrams);
-        const grams = Math.round((totalGrams - kg) * 1000);
-        if (grams === 0) {
-          return `${kg} KG`;
-        }
-        return `${kg} KG ${grams} g`;
-      };
-      
-      let totalKgFromOrders = 0;
+      // Count items (pieces) instead of weight
+      // Each order_item = 1 piece (PC)
+      let totalItemsCount = 0;
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          totalKgFromOrders += convertToKg(item.quantity, item.unit || 'piece');
+          totalItemsCount += 1; // Count each item as 1 piece
         });
       });
       
-      const totalKgSoldFormatted = formatKg(totalKgFromOrders);
+      const totalKgSoldFormatted = `${totalItemsCount} PC`; // Display as pieces
 
       // Calculate distance from van_stock (start_km to end_km)
       let totalDistance = 0;
@@ -1155,10 +1148,9 @@ export const TodaySummary = () => {
       const productOrderMap = new Map();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const existing = productOrderMap.get(item.product_name) || { kgSold: 0, value: 0, orderCount: 0 };
-          const itemKg = convertToKg(item.quantity, item.unit || 'piece');
+          const existing = productOrderMap.get(item.product_name) || { itemCount: 0, value: 0, orderCount: 0 };
           productOrderMap.set(item.product_name, {
-            kgSold: existing.kgSold + itemKg,
+            itemCount: existing.itemCount + 1, // Count each item as 1 piece
             value: existing.value + Number(item.total || 0),
             orderCount: existing.orderCount + 1
           });
@@ -1168,8 +1160,8 @@ export const TodaySummary = () => {
       const productGroupedData = Array.from(productOrderMap.entries())
         .map(([product, data]) => ({ 
           product, 
-          kgSold: data.kgSold,
-          kgFormatted: data.kgSold > 0 ? formatKg(data.kgSold) : 'N/A',
+          kgSold: data.itemCount, // Now represents item count (PC)
+          kgFormatted: `${data.itemCount} PC`, // Format as pieces
           value: data.value,
           orders: data.orderCount
         }))
@@ -1527,7 +1519,7 @@ export const TodaySummary = () => {
   };
 
   const openKgBreakdownDialog = () => {
-    setDialogTitle("Total KG Sold - Product-wise Breakdown");
+    setDialogTitle("Total Items Sold - Product-wise Breakdown");
     setDialogContentType("kgBreakdown");
     setDialogFilter(null);
     setDialogOpen(true);
@@ -1617,7 +1609,7 @@ export const TodaySummary = () => {
         ['Unproductive', summaryData.unproductiveVisits.toString()],
         ['Total Order Value', `Rs. ${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`],
         ['Orders Placed', summaryData.totalOrders.toString()],
-        ['Total KG Sold (Unit)', summaryData.totalKgSoldFormatted],
+        ['Total Items Sold (PC)', summaryData.totalKgSoldFormatted],
         ['Avg Order Value', `Rs. ${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`],
         ['Points Earned', pointsEarnedToday.toString()]
       ];
@@ -2071,7 +2063,7 @@ export const TodaySummary = () => {
                 <div className="text-lg font-bold text-warning">
                   {loading ? "Loading..." : summaryData.totalKgSoldFormatted}
                 </div>
-                <div className="text-sm text-muted-foreground">Total KG Sold (Unit)</div>
+                <div className="text-sm text-muted-foreground">Total Items Sold (PC)</div>
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-lg font-bold">
@@ -2504,13 +2496,13 @@ export const TodaySummary = () => {
               {dialogContentType === "kgBreakdown" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Total KG: {summaryData.totalKgSoldFormatted} • {productGroupedOrders.length} products
+                    Total Items: {summaryData.totalKgSoldFormatted} • {productGroupedOrders.length} products
                   </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Product</TableHead>
-                        <TableHead className="text-right">KG Sold</TableHead>
+                        <TableHead className="text-right">Items Sold (PC)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2526,7 +2518,7 @@ export const TodaySummary = () => {
                       ) : (
                         <TableRow>
                           <TableCell colSpan={2} className="text-center text-muted-foreground">
-                            No KG-based products sold today
+                            No items sold today
                           </TableCell>
                         </TableRow>
                       )}
