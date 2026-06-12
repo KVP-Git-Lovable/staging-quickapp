@@ -30,7 +30,9 @@ const Index = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('common');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const { todayData, performance, urgentItems, isLoading, lastUpdated, refresh } = useHomeDashboard(userProfile?.id, selectedDate);
+  const dashboardUserId = user?.id;
+  const activeUserProfile = userProfile?.id === user?.id ? userProfile : null;
+  const { todayData, performance, urgentItems, isLoading, lastUpdated, refresh } = useHomeDashboard(dashboardUserId, selectedDate);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);
   const isOnline = navigator.onLine;
   const signedProfilePicture = useSignedUrl(profilePictureUrl);
@@ -88,12 +90,12 @@ const Index = () => {
   const meta = (user?.user_metadata as any) || {};
   const metaName: string | null = meta.full_name || meta.name || meta.username || null;
   const displayName =
-    (userProfile?.full_name && userProfile.full_name.trim()) ||
-    (userProfile?.username && userProfile.username.trim()) ||
+    (activeUserProfile?.full_name && activeUserProfile.full_name.trim()) ||
+    (activeUserProfile?.username && activeUserProfile.username.trim()) ||
     (metaName && metaName.trim()) ||
     getEmailName(user?.email) ||
     'User';
-  const roleDisplay = userProfile?.designation || (userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'Field Executive');
+  const roleDisplay = activeUserProfile?.designation || (userRole ? userRole.charAt(0).toUpperCase() + userRole.slice(1) : 'Field Executive');
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -256,13 +258,13 @@ const Index = () => {
               )}
 
               {/* AI Insights Section - Tomorrow + Current Week + Next Week */}
-              {showAIInsights && userProfile?.id && <AIInsightsSection userId={userProfile.id} />}
+              {showAIInsights && dashboardUserId && <AIInsightsSection userId={dashboardUserId} />}
 
               {/* Performance Calendar */}
               {showPerfCalendar && userProfile?.id && <PerformanceCalendar />}
 
               {/* Pending Payments - Moved below calendar */}
-              {showPendingPay && userProfile?.id && <PendingPayments userId={userProfile.id} />}
+              {showPendingPay && dashboardUserId && <PendingPayments userId={dashboardUserId} />}
 
               {/* Quick Navigation */}
               {showQuickNav && <QuickNavGrid items={quickNavItems} />}
@@ -275,10 +277,10 @@ const Index = () => {
       </div>
 
       {/* Profile Setup Modal */}
-      {userProfile && (
+      {activeUserProfile && (
         <ProfileSetupModal
-          userId={userProfile.id}
-          fullName={userProfile.full_name || ''}
+          userId={activeUserProfile.id}
+          fullName={activeUserProfile.full_name || ''}
           onComplete={refreshProfilePicture}
         />
       )}
