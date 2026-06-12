@@ -236,7 +236,8 @@ export default function DistributorMaster() {
         </div>
       </CardContent>
     </Card>
-  );
+    );
+  };
 
   const TabContent = ({ type }: { type: string }) => {
     const list = getDistributorsByType(type);
