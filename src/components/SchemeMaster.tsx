@@ -269,7 +269,24 @@ export const SchemeMaster = () => {
 
   const handleSchemeSubmit = async () => {
     try {
+      // Validate BOGO: must have buy qty, free qty, and free product set or it silently no-ops.
+      if (schemeForm.scheme_type === 'buy_x_get_y_free' || schemeForm.scheme_type === 'buy_get_free') {
+        const missing: string[] = [];
+        if (!schemeForm.buy_quantity || schemeForm.buy_quantity <= 0) missing.push('Buy quantity');
+        if (!schemeForm.free_quantity || schemeForm.free_quantity <= 0) missing.push('Free quantity');
+        if (!schemeForm.free_product_id) missing.push('Free product');
+        if (missing.length) {
+          toast({
+            title: 'Scheme incomplete',
+            description: `Please set: ${missing.join(', ')}. Without these the offer will not apply at checkout.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
       let schemeId = schemeForm.id;
+
       
       // Determine product_id and target_product_ids based on mode
       const isMultiProduct = schemeForm.multi_product_mode && (schemeForm.target_product_ids || []).length > 0;
