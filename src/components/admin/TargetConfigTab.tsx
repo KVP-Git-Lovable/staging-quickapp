@@ -142,6 +142,8 @@ const DEFAULT_CONFIG: Omit<TargetConfig, 'fy_year'> = {
   plan_status: 'draft',
 };
 
+const EMPTY_PLAN_METRICS: import('@/hooks/useTargetMetrics').PlanEnabledMetric[] = [];
+
 const STATUS_CONFIG: Record<PlanStatus, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
   draft: { label: 'Draft', icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
   active: { label: 'Active', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30' },
@@ -177,8 +179,9 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   const deleteParamMutation = useDeleteParameterDefinition();
   const [showCreateParamDialog, setShowCreateParamDialog] = useState(false);
 
-  // Fetch plan-enabled metrics
-  const { data: planEnabledMetrics = [] } = usePlanEnabledMetrics(config.id);
+  // Fetch plan-enabled metrics (use stable reference to avoid effect loops)
+  const { data: planEnabledMetricsData } = usePlanEnabledMetrics(config.id);
+  const planEnabledMetrics = planEnabledMetricsData ?? EMPTY_PLAN_METRICS;
 
   // Save plan metrics mutation
   const savePlanMetricsMutation = useSavePlanMetrics();
@@ -254,7 +257,7 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   // Sync plan-enabled metrics to local state
   useEffect(() => {
     if (planEnabledMetrics.length > 0) {
-      const ids = new Set(planEnabledMetrics.map(m => m.metric_id));
+      const ids = new Set<string>(planEnabledMetrics.map(m => m.metric_id));
       setEnabledMetricIds(ids);
       const targets: Record<string, number> = {};
       planEnabledMetrics.forEach(m => { targets[m.metric_id] = m.total_target; });
