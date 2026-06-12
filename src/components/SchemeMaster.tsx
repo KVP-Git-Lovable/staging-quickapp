@@ -276,13 +276,12 @@ export const SchemeMaster = () => {
         if (!schemeForm.free_quantity || schemeForm.free_quantity <= 0) missing.push('Free quantity');
         if (!schemeForm.free_product_id) missing.push('Free product');
         if (missing.length) {
-          toast({
-            title: 'Scheme incomplete',
+          toast.error('Scheme incomplete', {
             description: `Please set: ${missing.join(', ')}. Without these the offer will not apply at checkout.`,
-            variant: 'destructive',
           });
           return;
         }
+
       }
 
       let schemeId = schemeForm.id;
