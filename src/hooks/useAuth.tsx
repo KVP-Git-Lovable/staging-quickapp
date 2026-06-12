@@ -296,12 +296,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       const currentUser = session?.user ?? null;
-      setUser(currentUser);
       
       if (session?.user) {
         await purgeStaleUserDataIfIdentityChanged(session.user.id);
+        setUserProfile(null);
+        setUserRole(null);
+        setSecurityProfileName(null);
+        setUser(currentUser);
         setCachedUser(session.user);
         localStorage.setItem('cached_user_id', session.user.id);
+      } else {
+        setUser(null);
         
         try {
           const role = await fetchUserRole(session.user.id);
