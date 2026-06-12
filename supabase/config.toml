@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.send-retailer-welcome-whatsapp]
 verify_jwt = false
+
+[functions.verify-retailer-call]
+verify_jwt = false
