@@ -2663,6 +2663,10 @@ export const VisitCard = ({
                   <Phone size={12} className="mr-1" />
                   Phone Order
                 </Badge>}
+              {visit.visitType === 'portal_order' && <Badge className="bg-indigo-500 text-white hover:bg-indigo-600 text-xs px-2 py-1">
+                  <Globe size={12} className="mr-1" />
+                  Portal Order
+                </Badge>}
               {isJointSalesVisit && hasJointSalesFeedback && <Badge 
                   className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1 cursor-pointer"
                   onClick={(e) => { e.stopPropagation(); setShowJointSalesFeedbackView(true); }}
