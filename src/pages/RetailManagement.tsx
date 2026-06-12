@@ -628,10 +628,10 @@ export default function RetailManagement() {
             <DropdownMenuItem
               onClick={async () => {
                 if (!retailer.phone) {
-                  toast.error("Retailer phone number not available.");
+                  toast({ title: "Retailer phone number not available.", variant: "destructive" });
                   return;
                 }
-                toast.message("Calling retailer via Bolna…");
+                toast({ title: "Calling retailer via Bolna…" });
                 try {
                   const { data, error } = await supabase.functions.invoke(
                     "bolna-outbound-call",
@@ -641,10 +641,10 @@ export default function RetailManagement() {
                   if (!data?.success) {
                     throw new Error(data?.error || "Failed to initiate outbound call.");
                   }
-                  toast.success("Call initiated.");
+                  toast({ title: "Call initiated." });
                 } catch (e: any) {
                   console.error("[bolna-call] failed:", e);
-                  toast.error(e?.message || "Failed to initiate outbound call.");
+                  toast({ title: e?.message || "Failed to initiate outbound call.", variant: "destructive" });
                 }
               }}
             >
