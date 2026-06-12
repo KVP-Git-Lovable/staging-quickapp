@@ -84,13 +84,13 @@ serve(async (req) => {
         .from("retailers")
         .update({
           verified: true,
-          verification_status: "verified",
           verification_method: "whatsapp",
           verification_address: true,
           verification_contact: true,
           verified_at: new Date().toISOString(),
           verified_by_name: "WhatsApp",
           whatsapp_verified: true,
+          retailer_confirmed: true,
           verification_score: newScore,
         })
         .eq("id", request.retailer_id);
@@ -126,7 +126,6 @@ serve(async (req) => {
       .from("retailers")
       .update({
         verified: false,
-        verification_status: "needs_attention",
         verification_method: "whatsapp",
         whatsapp_verified: false,
         verification_notes: `Rejected by customer via WhatsApp on ${new Date().toISOString().slice(0,10)}: ${bodyRaw.slice(0, 200)}`,

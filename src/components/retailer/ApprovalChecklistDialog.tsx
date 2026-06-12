@@ -218,7 +218,6 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
       };
       if (action === "verified") {
         patch.verified = true;
-        patch.verification_status = "verified";
         patch.verification_address = signals.address;
         patch.verification_contact = signals.phone;
         patch.verification_territory = true;
@@ -226,15 +225,14 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
         patch.verified_by = uid;
         patch.verified_by_name = verifierName;
         patch.verified_at = new Date().toISOString();
+        patch.retailer_confirmed = true;
       } else if (action === "needs_attention") {
         patch.verified = false;
-        patch.verification_status = "needs_attention";
       } else if (action === "rejected") {
         patch.verified = false;
-        patch.verification_status = "dropped";
+        patch.status = "inactive";
       } else if (action === "duplicate") {
         patch.verified = false;
-        patch.verification_status = "needs_attention";
         patch.duplicate_risk_score = Math.max(retailer.duplicate_risk_score ?? 0, 90);
       }
 

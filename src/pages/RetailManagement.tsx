@@ -71,7 +71,7 @@ interface Retailer {
   beat_name: string | null;
   photo_url: string | null;
   verified: boolean;
-  verification_status: string | null;
+  verification_status?: string | null; // derived (not a real column)
   verification_address: boolean;
   verification_contact: boolean;
   verification_territory: boolean;
@@ -253,20 +253,21 @@ export default function RetailManagement() {
       const displayBeatName = r.beat_name || (r.beat_id ? beatMap.get(r.beat_id) : null) || r.beat_id;
       const territoryName = r.territory_id ? territoryMap.get(r.territory_id) : null;
 
-      // Calculate verification status
-      let verificationStatus = r.verification_status || 'pending';
-
-      // Auto-drop logic: if inactive OR last visit > 6 months
+      // Derive verification status from existing columns (no verification_status column exists)
+      let verificationStatus: 'verified' | 'pending' | 'needs_attention' | 'dropped' = 'pending';
       const isInactive = r.status === 'inactive';
       const lastVisit = r.last_visit_date ? new Date(r.last_visit_date) : null;
       const isStale = lastVisit ? isBefore(lastVisit, sixMonthsAgo) : false;
+      const vscore = Number(r.verification_score ?? 0);
 
       if (isInactive || isStale) {
         verificationStatus = 'dropped';
-      } else if (r.verification_address && r.verification_contact && r.verification_territory) {
+      } else if (r.verified === true || vscore >= 70) {
         verificationStatus = 'verified';
-      } else if (r.verification_address || r.verification_contact || r.verification_territory) {
+      } else if (r.verification_address || r.verification_contact || r.verification_territory || vscore >= 40) {
         verificationStatus = 'needs_attention';
+      } else {
+        verificationStatus = 'pending';
       }
 
       const verifierProf = r.verified_by ? profileMap.get(r.verified_by) : null;
@@ -324,7 +325,6 @@ export default function RetailManagement() {
         verification_address: verifyAddress,
         verification_contact: verifyContact,
         verification_territory: verifyTerritory,
-        verification_status: newStatus,
         verified: allVerified
       })
       .eq("id", selectedRetailer.id);
@@ -453,7 +453,7 @@ export default function RetailManagement() {
     // Sales member filter
     const matchesSalesMember = salesMemberFilter === 'all' || r.user_id === salesMemberFilter;
     
-    // Verification status filter
+    // Verification status filter (derived value already set on r.verification_status above)
     const matchesVerified = verifiedFilter === 'all' || r.verification_status === verifiedFilter;
     
     // Last visited filter
