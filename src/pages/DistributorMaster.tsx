@@ -98,6 +98,24 @@ export default function DistributorMaster() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("direct_distributor");
   const [showRemapDialog, setShowRemapDialog] = useState(false);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('hiddenDistributorIds') || '[]')); }
+    catch { return new Set(); }
+  });
+  const [showHidden, setShowHidden] = useState(false);
+
+  const persistHidden = (s: Set<string>) => {
+    localStorage.setItem('hiddenDistributorIds', JSON.stringify([...s]));
+  };
+  const hideDistributor = (id: string, name: string) => {
+    const next = new Set(hiddenIds); next.add(id); setHiddenIds(next); persistHidden(next);
+    toast.success(`${name} hidden`, {
+      action: { label: 'Undo', onClick: () => unhideDistributor(id) },
+    });
+  };
+  const unhideDistributor = (id: string) => {
+    const next = new Set(hiddenIds); next.delete(id); setHiddenIds(next); persistHidden(next);
+  };
 
   useEffect(() => {
     loadDistributors();
