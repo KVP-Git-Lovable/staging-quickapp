@@ -97,12 +97,14 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
     products: number;
     totalKg: number;
     productivityPercent: number | null;
+    quantityByUnit: { [unit: string]: number }; // Track quantities by actual unit
   } | null>(null);
   const [allUsersSummary, setAllUsersSummary] = useState<{
     retailers: number;
     beats: number;
     products: number;
     totalKg: number;
+    quantityByUnit: { [unit: string]: number };
   } | null>(null);
   const [expandedBox, setExpandedBox] = useState<string | null>(null);
   const [retailersList, setRetailersList] = useState<{
@@ -824,6 +826,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       const BATCH_SIZE = 200;
       const productSet = new Set<string>();
       let totalKg = 0;
+      const quantityByUnit: { [unit: string]: number } = {};
 
       for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
         const batchIds = orderIds.slice(i, i + BATCH_SIZE);
@@ -842,10 +845,16 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
             productSet.add(item.product_name);
           }
           const qty = Number(item.quantity || 0);
-          const unit = (item.unit || '').toLowerCase().trim();
-          if (unit === 'kg' || unit.includes('kilo')) {
+          const unit = (item.unit || 'Unknown').trim();
+          
+          // Track quantity by actual unit
+          quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
+          
+          // Also calculate KG for backward compatibility
+          const unitLower = unit.toLowerCase();
+          if (unitLower === 'kg' || unitLower.includes('kilo')) {
             totalKg += qty;
-          } else if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+          } else if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') {
             totalKg += qty / 1000;
           }
           // Ignore pieces/pcs - not included in KG calculation
@@ -856,7 +865,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         retailers: retailersCount || 0,
         beats: beatsCount || 0,
         products: productSet.size,
-        totalKg: Math.round(totalKg * 100) / 100
+        totalKg: Math.round(totalKg * 100) / 100,
+        quantityByUnit
       });
     } catch (error) {
       console.error('Error fetching all users summary:', error);
@@ -1929,7 +1939,15 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                <div>
                  <p className="text-[10px] md:text-sm opacity-90">Total Quantity</p>
                  <p className="text-xl md:text-3xl lg:text-4xl font-bold">
-                   {businessSummary.totalKg.toFixed(1)} KG
+                   {businessSummary.quantityByUnit && Object.keys(businessSummary.quantityByUnit).length > 0
+                     ? (() => {
+                         const units = Object.entries(businessSummary.quantityByUnit)
+                           .map(([unit, qty]) => `${(qty as number).toFixed(1)} ${unit}`)
+                           .join(' + ');
+                         return units;
+                       })()
+                     : `${businessSummary.totalKg.toFixed(1)} KG`
+                   }
                  </p>
                  <p className="text-[8px] md:text-xs opacity-75 mt-0.5 md:mt-1">
                    {format(dateRange.from, 'MMM dd')} - {format(dateRange.to, 'MMM dd, yyyy')}
