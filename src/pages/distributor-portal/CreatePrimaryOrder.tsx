@@ -168,6 +168,8 @@ const CreatePrimaryOrder = () => {
   useEffect(() => {
     if (selectedCategory === 'all') {
       setFilteredProducts(products);
+    } else if (selectedCategory === 'uncategorized') {
+      setFilteredProducts(products.filter((p) => !p.category_id));
     } else {
       setFilteredProducts(products.filter((p) => p.category_id === selectedCategory));
     }
@@ -215,6 +217,10 @@ const CreatePrimaryOrder = () => {
           ...p,
           category_id: p.product_categories?.id,
           category_name: p.product_categories?.name,
+          // products table uses `rate` (not `price`) — map it so order entry has a unit price
+          price: Number(p.rate ?? p.price ?? 0),
+          // prefer explicit selling unit, fall back to base_unit, then pieces
+          unit: p.unit || p.base_unit || 'pieces',
           priceBookPrice: pe?.final_price,
         };
       });
@@ -491,6 +497,7 @@ const CreatePrimaryOrder = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="uncategorized">Uncategorized</SelectItem>
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
