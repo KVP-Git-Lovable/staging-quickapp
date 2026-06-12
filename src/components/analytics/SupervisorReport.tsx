@@ -539,7 +539,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       const userId = userProfile.id;
 
       // Fetch all data in parallel using the user's SQL query logic
-      const [retailersResult, beatsResult, ordersResult, productRevenueResult, productivityResult] = await Promise.all([
+      const [retailersResult, beatsResult, ordersResult, productivityResult] = await Promise.all([
         // Retailers created by user in date range
         supabase
           .from('retailers')
@@ -573,13 +573,6 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           .lte('order_date', toDate)
           .order('order_date', { ascending: true }),
         
-        // Use the same RPC as Product and Revenue Performance report
-        (supabase as any).rpc('get_product_revenue_performance', {
-          user_full_name: userName,
-          start_date: fromDate,
-          end_date: toDate
-        }),
-        
         // Get productivity summary using the RPC
         (supabase as any).rpc('get_productivity_summary', {
           user_full_name: userName,
@@ -591,21 +584,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       // Get beats count from beats table
       const totalBeatsCreated = beatsResult.count || 0;
 
-      // Calculate products and total KG from the RPC result (same logic as SQL Report)
-      const productData = productRevenueResult.data || [];
-      const totalProductsSold = productData.length; // Count of distinct products
-      let totalQuantityKgFromRpc = 0;
-      
-      productData.forEach((row: any) => {
-        const qty = Number(row.quantity_sold || 0);
-        const unit = (row.unit || '').toLowerCase();
-        // Same conversion logic as Analytics.tsx line 2391-2393
-        if (unit === 'grams') {
-          totalQuantityKgFromRpc += qty / 1000;
-        } else {
-          totalQuantityKgFromRpc += qty;
-        }
-      });
+      // Quantity is calculated from order_items DB units. Grams/Gram/G display as KG.
 
       // Calculate Overall Productivity % (productive / planned) using beat_plans
       const productivityData = productivityResult.data || [];
