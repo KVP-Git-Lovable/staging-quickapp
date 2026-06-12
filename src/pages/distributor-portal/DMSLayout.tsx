@@ -33,6 +33,8 @@ import {
   ShieldCheck,
   MessageSquare,
   Activity,
+  Network,
+  PackageCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -61,6 +63,8 @@ const mainNavItems: NavItem[] = [
   { label: 'Retailer Ledger', icon: FileText, path: '/distributor-portal/retailer-ledger' },
   { label: 'Inventory', icon: Package, path: '/distributor-portal/inventory' },
   { label: 'Stock Health', icon: Activity, path: '/distributor-portal/stock-health' },
+  { label: 'Network', icon: Network, path: '/distributor-portal/network' },
+  { label: 'Packing Lists', icon: PackageCheck, path: '/distributor-portal/packing-lists' },
   { label: 'Primary Price Book', icon: FileText, path: '/distributor-portal/price-book' },
   { label: 'Schemes', icon: Target, path: '/distributor-portal/schemes' },
 ];
