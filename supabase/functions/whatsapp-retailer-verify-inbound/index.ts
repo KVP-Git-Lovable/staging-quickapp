@@ -72,6 +72,14 @@ serve(async (req) => {
     }
 
     if (isYes) {
+      // Preserve a higher existing score if one is already recorded
+      const { data: existing } = await supabase
+        .from("retailers")
+        .select("verification_score")
+        .eq("id", request.retailer_id)
+        .maybeSingle();
+      const newScore = Math.max(80, Number(existing?.verification_score) || 0);
+
       await supabase
         .from("retailers")
         .update({
@@ -81,9 +89,12 @@ serve(async (req) => {
           verification_address: true,
           verification_contact: true,
           verified_at: new Date().toISOString(),
-          verified_by_name: "WhatsApp Self-Confirm",
+          verified_by_name: "WhatsApp",
+          whatsapp_verified: true,
+          verification_score: newScore,
         })
         .eq("id", request.retailer_id);
+
 
       await supabase
         .from("retailer_verification_requests")
@@ -109,8 +120,15 @@ serve(async (req) => {
     // isNo
     await supabase
       .from("retailers")
-      .update({ verification_status: "needs_attention" })
+      .update({
+        verified: false,
+        verification_status: "needs_attention",
+        verification_method: "whatsapp",
+        whatsapp_verified: false,
+        verification_notes: `Rejected by customer via WhatsApp on ${new Date().toISOString().slice(0,10)}: ${bodyRaw.slice(0, 200)}`,
+      })
       .eq("id", request.retailer_id);
+
 
     await supabase
       .from("retailer_verification_requests")
