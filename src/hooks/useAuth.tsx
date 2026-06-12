@@ -6,7 +6,7 @@ import { setCachedUser, clearCachedAuth, clearCachedPermissions } from '@/utils/
 import { devLog, devError } from '@/utils/devLog';
 import { monitoring } from '@/services/MonitoringService';
 import { Preferences } from '@capacitor/preferences';
-import { offlineStorage } from '@/lib/offlineStorage';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { clearRetailerIndex } from '@/lib/retailerIndex';
 import { requestLocationPermission, requestStoragePermission } from '@/utils/permissions';
 import i18n from '@/i18n/config';
