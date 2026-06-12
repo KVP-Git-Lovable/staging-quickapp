@@ -21627,6 +21627,20 @@ export type Database = {
         Returns: Json
       }
       pm_is_project_member: { Args: { project_uuid: string }; Returns: boolean }
+      portal_login_by_phone: {
+        Args: { p_phone: string }
+        Returns: {
+          address: string
+          beat_id: string
+          distributor_id: string
+          id: string
+          name: string
+          owner_id: string
+          parent_name: string
+          phone: string
+          territory_id: string
+        }[]
+      }
       preview_inventory_allocation: {
         Args: {
           p_distributor_id: string
