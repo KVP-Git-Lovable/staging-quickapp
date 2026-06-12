@@ -53,6 +53,25 @@ interface PendingPaymentDetail {
   user_name?: string;
 }
 
+const getKgQuantity = (quantity: unknown, unit: unknown) => {
+  const qty = Number(quantity || 0);
+  const unitLower = String(unit || '').trim().toLowerCase();
+
+  if (unitLower === 'kg' || unitLower.includes('kilo')) return qty;
+  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return qty / 1000;
+  return 0;
+};
+
+const getDisplayQuantity = (quantity: unknown, unit: unknown) => {
+  const qty = Number(quantity || 0);
+  const rawUnit = String(unit || '').trim();
+  const unitLower = rawUnit.toLowerCase();
+
+  if (unitLower === 'kg' || unitLower.includes('kilo')) return { quantity: qty, unit: 'KG' };
+  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return { quantity: qty / 1000, unit: 'KG' };
+  return { quantity: qty, unit: rawUnit || 'Unit' };
+};
+
 export const useBusinessMetrics = () => {
   const [summary, setSummary] = useState<BusinessSummary>({
     totalBeats: 0,
