@@ -1,0 +1,1 @@
+CREATE POLICY "Field staff can insert distributors" ON public.distributors FOR INSERT TO authenticated WITH CHECK (get_distributor_id_for_auth_user() IS NULL);
