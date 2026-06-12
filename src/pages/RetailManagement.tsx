@@ -1202,7 +1202,7 @@ export default function RetailManagement() {
                 retailerPhone={selectedRetailer.phone}
                 portalEnabled={selectedRetailer.portal_enabled ?? false}
                 portalPin={selectedRetailer.portal_pin ?? null}
-                onPortalUpdate={loadRetailers}
+                onPortalUpdate={loadData}
               />
             )}
           </div>
