@@ -625,11 +625,31 @@ export default function RetailManagement() {
               <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
               {sendingWhatsAppId === retailer.id ? 'Sending…' : 'WhatsApp verify'}
             </DropdownMenuItem>
-            {retailer.phone && (
-              <DropdownMenuItem onClick={() => { window.location.href = `tel:${retailer.phone}`; }}>
-                <PhoneIcon className="h-4 w-4 mr-2 text-sky-600" /> Call
-              </DropdownMenuItem>
-            )}
+            <DropdownMenuItem
+              onClick={async () => {
+                if (!retailer.phone) {
+                  toast({ title: "Retailer phone number not available.", variant: "destructive" });
+                  return;
+                }
+                toast({ title: "Calling retailer via Bolna…" });
+                try {
+                  const { data, error } = await supabase.functions.invoke(
+                    "bolna-outbound-call",
+                    { body: { retailer_id: retailer.id } },
+                  );
+                  if (error) throw error;
+                  if (!data?.success) {
+                    throw new Error(data?.error || "Failed to initiate outbound call.");
+                  }
+                  toast({ title: "Call initiated." });
+                } catch (e: any) {
+                  console.error("[bolna-call] failed:", e);
+                  toast({ title: e?.message || "Failed to initiate outbound call.", variant: "destructive" });
+                }
+              }}
+            >
+              <PhoneIcon className="h-4 w-4 mr-2 text-sky-600" /> Call
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate(`/retailer/${retailer.id}`)}>
               <Pencil className="h-4 w-4 mr-2" /> Edit / Details
             </DropdownMenuItem>
