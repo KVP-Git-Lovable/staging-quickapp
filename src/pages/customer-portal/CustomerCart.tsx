@@ -329,6 +329,7 @@ const CustomerCart = () => {
         beat_id: retailer.beat_id || null, territory_id: retailer.territory_id || null,
         user_id: userId, order_date: today, visit_id: visitId,
         distributor_id: distributorId,
+        idempotency_key: (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `portal-${retailer.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       };
 
       const createOrder = (payload: typeof orderPayload & { invoice_number?: string }) =>
