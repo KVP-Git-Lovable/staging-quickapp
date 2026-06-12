@@ -833,11 +833,43 @@ export const TodaySummary = () => {
       // Sum total quantity (pieces) across all order items
       let totalItemsCount = 0;
       todayOrders?.forEach(order => {
-        order.order_items?.forEach((item: any) => {
-          const qty = Number(item.quantity) || 0;
-          totalItemsCount += qty;
+        const items = order.order_items || order.items || [];
+        items.forEach((item: any) => {
+          totalItemsCount += Number(item.quantity) || 0;
         });
       });
+
+      // Fallback: if local/snapshot orders had no items, fetch quantities from DB
+      if (totalItemsCount === 0 && (todayOrders?.length || 0) > 0 && navigator.onLine) {
+        try {
+          const orderIds = todayOrders.map((o: any) => o.id).filter(Boolean);
+          if (orderIds.length > 0) {
+            const { data: itemsRows } = await supabase
+              .from('order_items')
+              .select('order_id, quantity')
+              .in('order_id', orderIds);
+            if (itemsRows && itemsRows.length > 0) {
+              totalItemsCount = itemsRows.reduce((s: number, r: any) => s + (Number(r.quantity) || 0), 0);
+              // Backfill onto orders so downstream maps (productSales, ordersData) also have items
+              const byOrder: Record<string, any[]> = {};
+              const { data: fullItems } = await supabase
+                .from('order_items')
+                .select('*')
+                .in('order_id', orderIds);
+              (fullItems || []).forEach((it: any) => {
+                (byOrder[it.order_id] = byOrder[it.order_id] || []).push(it);
+              });
+              todayOrders.forEach((o: any) => {
+                if ((!o.order_items || o.order_items.length === 0) && byOrder[o.id]) {
+                  o.order_items = byOrder[o.id];
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('[SUMMARY] Failed to backfill order_items for PC count', e);
+        }
+      }
 
       const totalKgSoldFormatted = `${totalItemsCount} PC`;
 
