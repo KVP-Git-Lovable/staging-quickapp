@@ -400,7 +400,10 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                             {(() => {
                               const unit = (row.unit || '').toLowerCase();
                               if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-                                return `${(row.quantity_sold / 1000).toFixed(2)} KG`;
+                                return `${(row.quantity_sold / 1000).toFixed(2)} PCs`;
+                              }
+                              if (unit === 'kg' || unit.includes('kilo')) {
+                                return `${row.quantity_sold.toFixed(1)} PCs`;
                               }
                               return `${row.quantity_sold.toFixed(1)} ${row.unit}`;
                             })()}
