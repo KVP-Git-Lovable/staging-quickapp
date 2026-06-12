@@ -16305,6 +16305,53 @@ export type Database = {
           },
         ]
       }
+      retailer_verification_requests: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          phone: string
+          reply_received_at: string | null
+          reply_text: string | null
+          retailer_id: string
+          sent_at: string
+          status: string
+          twilio_sid: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          phone: string
+          reply_received_at?: string | null
+          reply_text?: string | null
+          retailer_id: string
+          sent_at?: string
+          status?: string
+          twilio_sid?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          phone?: string
+          reply_received_at?: string | null
+          reply_text?: string | null
+          retailer_id?: string
+          sent_at?: string
+          status?: string
+          twilio_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_verification_requests_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retailer_visit_logs: {
         Row: {
           action_type: string | null
