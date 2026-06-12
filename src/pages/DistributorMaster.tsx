@@ -160,9 +160,11 @@ export default function DistributorMaster() {
     return status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown';
   };
 
-  const DistributorCard = ({ distributor }: { distributor: Distributor }) => (
+  const DistributorCard = ({ distributor }: { distributor: Distributor }) => {
+    const isHidden = hiddenIds.has(distributor.id);
+    return (
     <Card 
-      className="cursor-pointer hover:shadow-md transition-shadow"
+      className={`cursor-pointer hover:shadow-md transition-shadow ${isHidden ? 'opacity-60' : ''}`}
       onClick={() => navigate(`/distributor/${distributor.id}`)}
     >
       <CardContent className="p-4">
@@ -178,9 +180,24 @@ export default function DistributorMaster() {
             </div>
             <p className="text-sm text-muted-foreground mt-1">{distributor.contact_person}</p>
           </div>
-          <Badge className={`flex-shrink-0 ${statusColors[distributor.status] || 'bg-muted text-muted-foreground'}`}>
-            {formatStatus(distributor.status)}
-          </Badge>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Badge className={`${statusColors[distributor.status] || 'bg-muted text-muted-foreground'}`}>
+              {formatStatus(distributor.status)}
+            </Badge>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              title={isHidden ? 'Unhide' : 'Hide from list'}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isHidden) unhideDistributor(distributor.id);
+                else hideDistributor(distributor.id, distributor.name);
+              }}
+            >
+              {isHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
