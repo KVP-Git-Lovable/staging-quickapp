@@ -960,7 +960,7 @@ export const TodaySummary = () => {
         totalOrders: totalOrdersCount,
         totalOrderValue,
         avgOrderValue,
-        totalKgSold: totalKgFromOrders,
+        totalKgSold: totalItemsCount,
         totalKgSoldFormatted,
         visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
         orderConversionRate: completedVisits.length > 0 ? Math.round((productiveCount / completedVisits.length) * 100) : 0,
@@ -1019,7 +1019,7 @@ export const TodaySummary = () => {
         .map(([name, data]) => ({ 
           name, 
           kgSold: data.kgSold,
-          kgFormatted: data.kgSold > 0 ? formatKg(data.kgSold) : 'N/A',
+          kgFormatted: data.kgSold > 0 ? `${data.kgSold.toFixed(2)} KG` : 'N/A',
           revenue: data.revenue 
         }))
         .sort((a, b) => b.revenue - a.revenue);
