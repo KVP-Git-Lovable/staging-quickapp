@@ -2124,7 +2124,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                       <Tooltip 
                         formatter={(value: number, name: string, props: any) => {
                           const entry = props.payload;
-                          return [`${value.toLocaleString()} KG`, name];
+                          return [`${value.toLocaleString()} PCs`, name];
                         }}
                         labelFormatter={() => ''}
                       />
