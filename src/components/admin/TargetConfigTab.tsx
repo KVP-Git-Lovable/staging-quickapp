@@ -177,8 +177,9 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   const deleteParamMutation = useDeleteParameterDefinition();
   const [showCreateParamDialog, setShowCreateParamDialog] = useState(false);
 
-  // Fetch plan-enabled metrics
-  const { data: planEnabledMetrics = [] } = usePlanEnabledMetrics(config.id);
+  // Fetch plan-enabled metrics (use stable reference to avoid effect loops)
+  const { data: planEnabledMetricsData } = usePlanEnabledMetrics(config.id);
+  const planEnabledMetrics = planEnabledMetricsData ?? EMPTY_PLAN_METRICS;
 
   // Save plan metrics mutation
   const savePlanMetricsMutation = useSavePlanMetrics();
