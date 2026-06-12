@@ -245,7 +245,7 @@ export const useBusinessMetrics = () => {
       while (ordersHasMore) {
         let ordersQuery = supabase
           .from('orders')
-          .select('id, total_amount, user_id, order_date, retailer_id, beat_id, beat_name_snapshot, retailers(id, name, beat_name, beat_id), beats(beat_name)')
+          .select('id, total_amount, user_id, order_date, retailer_id, beat_id, beat_name_snapshot, retailers(id, name, beat_name, beat_id)')
           .eq('status', 'confirmed')
           .gte('order_date', fromDate)
           .lte('order_date', toDate)
@@ -277,7 +277,13 @@ export const useBusinessMetrics = () => {
 
       const { data: visits } = await visitsQuery;
 
-      // Group by beat using order snapshot first, then current beat references.
+      const orderBeatIds = [...new Set((orders || []).map((order: any) => order.beat_id).filter(Boolean))];
+      const { data: orderBeats } = orderBeatIds.length > 0
+        ? await supabase.from('beats').select('beat_id, beat_name').in('beat_id', orderBeatIds)
+        : { data: [] as any[] };
+      const orderBeatNameMap = new Map((orderBeats || []).map((beat: any) => [beat.beat_id, beat.beat_name]));
+
+      // Group by beat using order snapshot first, then order beat_id/current retailer references.
       const beatMap = new Map<string, BeatDetail>();
 
       // Process visits to count visits per beat
@@ -297,7 +303,7 @@ export const useBusinessMetrics = () => {
 
       // Process orders to count orders and revenue per beat
       orders?.forEach(order => {
-        const beatName = order.beat_name_snapshot || (order.beats as any)?.beat_name || (order.retailers as any)?.beat_name || 'Unassigned';
+        const beatName = order.beat_name_snapshot || orderBeatNameMap.get(order.beat_id) || (order.retailers as any)?.beat_name || 'Unassigned';
         if (!beatMap.has(beatName)) {
           beatMap.set(beatName, {
             beat_name: beatName,
@@ -338,8 +344,7 @@ export const useBusinessMetrics = () => {
             total_amount,
             credit_pending_amount,
             beat_name_snapshot,
-            retailers(id, name, beat_name),
-            beats(beat_name)
+            retailers(id, name, beat_name)
           `)
           .eq('status', 'confirmed')
           .gte('order_date', fromDate)
@@ -370,7 +375,7 @@ export const useBusinessMetrics = () => {
           retailerMap.set(retailer.id, {
             id: retailer.id,
             name: retailer.name || 'Unknown',
-            beat_name: order.beat_name_snapshot || (order.beats as any)?.beat_name || retailer.beat_name || '-',
+            beat_name: order.beat_name_snapshot || retailer.beat_name || '-',
             orders_count: 0,
             revenue: 0,
             pending_amount: 0
