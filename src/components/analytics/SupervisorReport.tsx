@@ -708,17 +708,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
             allProducts.add(item.product_id);
           }
           
-          const qty = Number(item.quantity || 0);
-          const unit = (item.unit || '').toLowerCase();
-          let kg = 0;
-          
-          // Match SQL logic: if unit is 'Grams', divide by 1000
-          if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-            kg = qty / 1000;
-          } else {
-            // For KG or other units, use quantity directly
-            kg = qty;
-          }
+          const kg = toKgQuantity(item.quantity, item.unit);
           
           dateGroups[dateKey].totalKg += kg;
           totalQuantityKg += kg;
@@ -740,8 +730,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       setDetailsSummary({
         retailers: totalRetailersCreated,
         beats: totalBeatsCreated,
-        products: totalProductsSold, // Use RPC result count
-        totalKg: Math.round(totalQuantityKgFromRpc * 100) / 100, // Use RPC calculated KG, round to 2 decimals
+        products: allProducts.size,
+        totalKg: Math.round(totalQuantityKg * 100) / 100,
         productivityPercent,
         quantityByUnit: {},
       });
