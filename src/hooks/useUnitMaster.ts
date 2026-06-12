@@ -11,7 +11,8 @@ export interface Unit {
 }
 
 /**
- * Fetch all units from uom_master table.
+ * Fetch all ENABLED units from uom_master table.
+ * Only returns units where enabled_units.enabled = true
  * Units are cached in component state.
  */
 export function useUnitMaster() {
@@ -25,14 +26,35 @@ export function useUnitMaster() {
     (async () => {
       try {
         setLoading(true);
+        // Join uom_master with enabled_units to get only enabled units
         const { data, error: fetchError } = await supabase
           .from('uom_master')
-          .select('id, code, name, category, is_base, is_system')
+          .select(`
+            id,
+            code,
+            name,
+            category,
+            is_base,
+            is_system,
+            enabled_units!inner(enabled)
+          `)
+          .eq('enabled_units.enabled', true)
           .order('name');
 
         if (fetchError) throw fetchError;
+        
         if (!cancelled && data) {
-          setUnits(data as Unit[]);
+          // Map the result to flatten the structure
+          const mappedUnits = data.map(item => ({
+            id: item.id,
+            code: item.code,
+            name: item.name,
+            category: item.category,
+            is_base: item.is_base,
+            is_system: item.is_system,
+          })) as Unit[];
+          
+          setUnits(mappedUnits);
         }
       } catch (err) {
         if (!cancelled) {
