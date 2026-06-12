@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, CreditCard, Download, Copy as CopyIcon } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, CreditCard, Download } from "lucide-react";
 import { RetailerExportDialog } from "@/components/RetailerExportDialog";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/PaginationControls";
@@ -27,7 +27,6 @@ import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BulkImportRetailersModal } from "@/components/BulkImportRetailersModal";
 import { RetailerAnalytics } from "@/components/RetailerAnalytics";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
-import { DuplicateRiskBadge } from "@/components/retailer/QualityBadge";
 import { VirtualizedRetailerTable } from "@/components/VirtualizedRetailerTable";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -479,15 +478,16 @@ export const MyRetailers = () => {
   // Retailer stats — Total includes retailers not yet assigned to a beat
   const retailerStats = useMemo(() => {
     const isUnassigned = (b?: string | null) => !b || b === 'unassigned' || b.trim() === '';
-    let active = 0, inactive = 0, unassigned = 0, assigned = 0, sharedWithMe = 0, myOwned = 0;
+    let active = 0, inactive = 0, unassigned = 0, assigned = 0, sharedWithMe = 0, myOwned = 0, duplicates = 0;
     for (const r of retailers) {
       const status = (r.status || '').toLowerCase();
       if (status === 'inactive') inactive++; else active++;
       if (isUnassigned(r.beat_id)) unassigned++; else assigned++;
       if (user && r.user_id && r.user_id !== user.id) sharedWithMe++;
       else myOwned++;
+      if ((r.duplicate_risk_score ?? 0) >= 70) duplicates++;
     }
-    return { total: retailers.length, active, inactive, unassigned, assigned, sharedWithMe, myOwned };
+    return { total: retailers.length, active, inactive, unassigned, assigned, sharedWithMe, myOwned, duplicates };
   }, [retailers, user]);
 
 
@@ -830,6 +830,13 @@ export const MyRetailers = () => {
               <div className="text-sm text-muted-foreground">My Owned</div>
             </CardContent>
           </Card>
+          <Card className="text-center">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-rose-600">{retailerStats.duplicates.toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Duplicate Suspects</div>
+              <div className="text-xs text-muted-foreground mt-1">Risk ≥70</div>
+            </CardContent>
+          </Card>
         </div>
 
         {statusFilter !== 'all' && (
@@ -1035,14 +1042,6 @@ export const MyRetailers = () => {
                           <span>{r.category}</span>
                         </div>
                       )}
-                      {/* Duplicate Risk Badge */}
-                      {(r.duplicate_risk_score ?? 0) > 0 && (
-                        <div className="flex items-center gap-2 pt-2 border-t">
-                          <CopyIcon className="h-4 w-4 text-rose-600" />
-                          <span className="text-muted-foreground text-sm">Duplicate Risk:</span>
-                          <DuplicateRiskBadge risk={r.duplicate_risk_score ?? 0} />
-                        </div>
-                      )}
                       {/* Credit Score Display */}
                       <div className="pt-2 border-t">
                         <CreditScoreDisplay retailerId={r.id} variant="compact" showCreditLimit />
@@ -1108,7 +1107,6 @@ export const MyRetailers = () => {
                     <TableHead>Phone Number</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Beat</TableHead>
-                    <TableHead>Duplicate Risk</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1180,13 +1178,6 @@ export const MyRetailers = () => {
                         >
                           {isBeatExpanded ? beatDisplay : shortBeat}
                         </TableCell>
-                        <TableCell>
-                          {(r.duplicate_risk_score ?? 0) > 0 ? (
-                            <DuplicateRiskBadge risk={r.duplicate_risk_score ?? 0} />
-                          ) : (
-                            <span className="text-xs text-emerald-600">Low</span>
-                          )}
-                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button 
@@ -1217,7 +1208,7 @@ export const MyRetailers = () => {
                   })}
                   {paginatedRetailers.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={selectedUserIds.length > 1 ? 8 : 7} className="text-center py-12">
+                      <TableCell colSpan={selectedUserIds.length > 1 ? 7 : 6} className="text-center py-12">
                         {loading || isUserChanging ? (
                           <div className="space-y-2">
                             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
