@@ -418,7 +418,7 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                       <TableRow>
                         <TableCell className="text-[10px] sm:text-xs font-semibold py-1 px-1.5 sm:py-1.5 sm:px-3 whitespace-nowrap">Total ({filteredSkuData.length} SKUs)</TableCell>
                         <TableCell className="text-[10px] sm:text-xs text-right font-semibold py-1 px-1.5 sm:py-1.5 sm:px-3 whitespace-nowrap">
-                          {totalQuantityKG.toFixed(2)} KG
+                          {totalQuantityKG.toFixed(2)} PCs
                         </TableCell>
                         <TableCell className="text-[10px] sm:text-xs text-right font-bold text-primary py-1 px-1.5 sm:py-1.5 sm:px-3 whitespace-nowrap">
                           ₹{totalRevenue.toLocaleString()}
