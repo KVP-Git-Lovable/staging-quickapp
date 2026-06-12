@@ -197,6 +197,11 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const parsedCache = JSON.parse(cached);
+        if (parsedCache.userId && parsedCache.userId !== userId) {
+          console.warn('[useHomeDashboard] Ignoring cache for different user');
+          localStorage.removeItem(CACHE_KEY);
+          return defaultState;
+        }
         console.log('[useHomeDashboard] Loaded from localStorage cache, lastUpdated:', parsedCache.lastUpdated);
 
         // Never reuse stale attendance from cache (cache is not date-scoped)
@@ -242,9 +247,22 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
   };
 
   const [data, setData] = useState<HomeDashboardData>(getInitialState);
+  const previousUserIdRef = useRef<string | undefined>(userId);
 
   const dateStr = toLocalISODate(selectedDate);
   const isToday = dateStr === getLocalTodayDate();
+
+  useEffect(() => {
+    if (previousUserIdRef.current !== userId) {
+      console.log('[useHomeDashboard] User changed — resetting dashboard state');
+      attendanceLockedRef.current = false;
+      lockedAttendanceRef.current = null;
+      isRefreshingRef.current = false;
+      setHasInitiallyLoaded(false);
+      setData({ ...getDefaultState(), isLoading: !!userId });
+    }
+    previousUserIdRef.current = userId;
+  }, [userId]);
 
   // Save data to localStorage cache
   const saveToCache = useCallback((newData: HomeDashboardData) => {
@@ -252,6 +270,8 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     try {
       const cacheData = {
         ...newData,
+        userId,
+        date: dateStr,
         lastUpdated: new Date().toISOString()
       };
       localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
@@ -259,11 +279,11 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     } catch (e) {
       console.error('[useHomeDashboard] Error saving cache:', e);
     }
-  }, [userId, CACHE_KEY]);
+  }, [userId, CACHE_KEY, dateStr]);
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) {
-      setData(prev => ({ ...prev, isLoading: false }));
+      setData({ ...getDefaultState(), isLoading: false });
       return;
     }
     

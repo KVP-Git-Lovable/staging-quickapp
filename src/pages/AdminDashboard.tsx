@@ -17,6 +17,8 @@ import { toast } from 'sonner';
 import { Users, UserPlus, Shield, BarChart3, Settings, Database, ArrowLeft, Pencil, Search, Columns3, X, LogIn } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { clearUserScopedCaches } from '@/utils/userScopedCache';
+import { setCachedUser } from '@/utils/cachedAuthIntegrity';
 
 import { CreateUserWizard } from '@/components/admin/create-user';
 import UserInvitationForm from '@/components/UserInvitationForm';
@@ -864,6 +866,9 @@ export const AdminDashboard = () => {
                                         }
                                         
                                         if (response.data?.session) {
+                                          const previousUserId = localStorage.getItem('cached_user_id');
+                                          await clearUserScopedCaches({ previousUserId, preserveUnsynced: true });
+
                                           // Set the new session using the tokens from the edge function
                                           const { error: setSessionError } = await supabase.auth.setSession({
                                             access_token: response.data.session.access_token,
@@ -872,6 +877,11 @@ export const AdminDashboard = () => {
                                           
                                           if (setSessionError) {
                                             throw new Error(setSessionError.message || 'Failed to set session');
+                                          }
+
+                                          if (response.data.user?.id) {
+                                            setCachedUser(response.data.user);
+                                            localStorage.setItem('cached_user_id', response.data.user.id);
                                           }
                                           
                                           toast.success(`Logged in as ${response.data.user?.email || user.email}`, { id: 'login-as-user' });
