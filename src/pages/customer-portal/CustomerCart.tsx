@@ -332,7 +332,7 @@ const CustomerCart = () => {
       };
 
       const createOrder = (payload: typeof orderPayload & { invoice_number?: string }) =>
-        customerPortalSupabase.from('orders').insert(payload).select('id').single();
+        customerPortalSupabase.from('orders').insert([payload] as any).select('id').single();
 
       let { data: order, error: orderError } = await createOrder(orderPayload);
       if (orderError?.code === '23505' && orderError?.message?.includes('orders_invoice_number_unique')) {
