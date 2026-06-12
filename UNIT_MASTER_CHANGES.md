@@ -73,3 +73,46 @@ Verify in admin panel:
 5. Confirm toggled units don't appear in dropdown
 6. Toggle units back ON
 7. Confirm they reappear in dropdown
+
+---
+
+## Session 2: Unlock All Units
+
+**Migration Applied:** `unlock_all_units_remove_base_constraint`
+**Date:** 2026-06-12 (Session 2)
+
+### Problem
+6 units were marked as `is_base=true` and showed as **LOCKED** in the admin panel:
+- MG (Milligram) - Weight category
+- MM (Millimeter) - Length category
+- PIECE (Piece) - Quantity category
+- ML (Millilitre) - Volume category
+- PALLET (Pallet) - Packaging category
+- PIECE_E (Piece) - Electronics category
+
+These couldn't be toggled off because they were treated as conversion reference points.
+
+### Solution
+Removed the `is_base` flag from all units in `uom_master` table.
+
+**Why this works:**
+- Base unit logic is NOW in `product_uom_mapping` (conversion factors)
+- Units no longer need `is_base=true` flag to function as conversion references
+- All units are now fully toggleable on/off
+- Conversion system continues to work normally
+
+### Result
+✅ ALL 41 units are now UNLOCKED
+✅ ALL units show toggle switches (no locks)
+✅ Admin can enable/disable ANY unit
+✅ No constraints preventing unit management
+
+**Status of previously locked units:**
+```
+MG (Milligram)    → ✅ UNLOCKED (enabled)
+MM (Millimeter)   → ✅ UNLOCKED (enabled)
+PIECE (Quantity)  → ✅ UNLOCKED (enabled)
+ML (Millilitre)   → ✅ UNLOCKED (disabled - can be toggled on)
+PALLET            → ✅ UNLOCKED (disabled - can be toggled on)
+PIECE_E           → ✅ UNLOCKED (disabled - can be toggled on)
+```
