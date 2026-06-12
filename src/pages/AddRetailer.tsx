@@ -24,6 +24,7 @@ import { useOfflineRetailers } from "@/hooks/useOfflineRetailers";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { useCompanyData } from "@/hooks/useCompanyData";
 
 export const AddRetailer = () => {
   const { t } = useTranslation();
@@ -31,6 +32,8 @@ export const AddRetailer = () => {
   const location = useLocation();
   const { user } = useAuth();
   const connectivityStatus = useConnectivity();
+  const { company, headerName } = useCompanyData();
+  const companyDisplayName = headerName || company?.name || "";
   const returnTo = location.state?.returnTo || '/my-retailers';
   const plannedBeats = location.state?.plannedBeats || [];
   
@@ -77,7 +80,7 @@ export const AddRetailer = () => {
       category: "",
       notes: "",
       parentType: "Distributor",
-      parentName: "BHARATH BEVERAGES",
+      parentName: "",
       selectedDistributors: [] as string[],
       locationTag: "",
       retailType: "",
@@ -501,6 +504,17 @@ export const AddRetailer = () => {
       console.error('Error loading credit config:', error);
     }
   };
+
+  // Auto-fill parent name with company brand when Parent Type is Company
+  useEffect(() => {
+    if (
+      retailerData.parentType === "Company" &&
+      companyDisplayName &&
+      !retailerData.parentName
+    ) {
+      setRetailerData(prev => ({ ...prev, parentName: companyDisplayName }));
+    }
+  }, [retailerData.parentType, companyDisplayName, retailerData.parentName]);
 
   const handleInputChange = (field: string, value: string | string[]) => {
     setRetailerData(prev => ({ ...prev, [field]: value }));
@@ -1837,6 +1851,12 @@ export const AddRetailer = () => {
                     value={retailerData.parentType} 
                     onValueChange={(value) => {
                       handleInputChange("parentType", value);
+                      if (value === "Company") {
+                        handleInputChange("parentName", companyDisplayName);
+                      } else if (retailerData.parentType === "Company") {
+                        // switching away from Company → clear the auto-filled company name
+                        handleInputChange("parentName", "");
+                      }
                       if (validationErrors.parentType) {
                         setValidationErrors(prev => ({ ...prev, parentType: '' }));
                       }
