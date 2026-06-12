@@ -119,7 +119,8 @@ export const useBusinessMetrics = () => {
       const fromDate = format(dateRange.from, 'yyyy-MM-dd');
       const toDate = format(dateRange.to, 'yyyy-MM-dd');
 
-      // Fetch confirmed orders with items - paginated to avoid 1000-row default limit
+      // Fetch confirmed orders first, then map line items separately. Embedding order_items
+      // here is fragile when PostgREST relationship metadata is stale, and caused 0 totals.
       const BATCH_SIZE = 1000;
       let allOrders: any[] = [];
       let offset = 0;
@@ -134,7 +135,8 @@ export const useBusinessMetrics = () => {
             credit_pending_amount,
             retailer_id,
             user_id,
-            order_items(quantity, unit)
+            beat_id,
+            beat_name_snapshot
           `)
           .eq('status', 'confirmed')
           .gte('order_date', fromDate)
@@ -158,42 +160,39 @@ export const useBusinessMetrics = () => {
       }
 
       const orders = allOrders;
+      const orderIds = orders.map(o => o.id).filter(Boolean);
+      const retailerIds = [...new Set(orders.map(o => o.retailer_id).filter(Boolean))];
+      const orderBeatKeys = new Set<string>();
+      orders.forEach((order: any) => {
+        const beatKey = order.beat_id || order.beat_name_snapshot;
+        if (beatKey) orderBeatKeys.add(String(beatKey));
+      });
 
-      // Fetch beats created by selected users within date range
-      // Fetch beats and retailers in parallel
-      const [beatsResult, retailersResult] = await Promise.all([
-        (async () => {
-          let beatsQuery = supabase
-            .from('beats')
-            .select('id, created_by')
-            .gte('created_at', `${fromDate}T00:00:00`)
-            .lte('created_at', `${toDate}T23:59:59`);
-          if (userIds.length > 0) {
-            beatsQuery = beatsQuery.in('created_by', userIds);
-          }
-          return beatsQuery;
-        })(),
-        (async () => {
-          let retailersQuery = supabase
-            .from('retailers')
-            .select('id, user_id')
-            .gte('created_at', `${fromDate}T00:00:00`)
-            .lte('created_at', `${toDate}T23:59:59`);
-          if (userIds.length > 0) {
-            retailersQuery = retailersQuery.in('user_id', userIds);
-          }
-          return retailersQuery;
-        })()
-      ]);
+      let orderItems: any[] = [];
+      for (let i = 0; i < orderIds.length; i += 200) {
+        const { data: items, error: itemsError } = await supabase
+          .from('order_items')
+          .select('order_id, quantity, unit')
+          .in('order_id', orderIds.slice(i, i + 200));
+        if (itemsError) throw itemsError;
+        orderItems = orderItems.concat(items || []);
+      }
 
-      if (beatsResult.error) throw beatsResult.error;
-      if (retailersResult.error) throw retailersResult.error;
+      let linkedRetailers: any[] = [];
+      for (let i = 0; i < retailerIds.length; i += 200) {
+        const { data: retailerBatch } = await supabase
+          .from('retailers')
+          .select('id, beat_id, beat_name')
+          .in('id', retailerIds.slice(i, i + 200));
+        linkedRetailers = linkedRetailers.concat(retailerBatch || []);
+      }
+      linkedRetailers.forEach((retailer: any) => {
+        const beatKey = retailer.beat_id || retailer.beat_name;
+        if (beatKey) orderBeatKeys.add(String(beatKey));
+      });
 
-      const beats = beatsResult.data;
-      const retailers = retailersResult.data;
-
-      const totalBeatsCount = beats?.length || 0;
-      const totalRetailersCount = retailers?.length || 0;
+      const totalBeatsCount = orderBeatKeys.size;
+      const totalRetailersCount = retailerIds.length;
       const totalOrders = orders?.length || 0;
       const totalRevenue = orders?.reduce((sum, o) => sum + Number(o.total_amount || 0), 0) || 0;
       const pendingPayments = orders?.reduce((sum, o) => sum + Number(o.credit_pending_amount || 0), 0) || 0;
@@ -203,13 +202,11 @@ export const useBusinessMetrics = () => {
       let totalPieces = 0;
       const quantityByUnit: { [unit: string]: number } = {};
 
-      orders?.forEach(order => {
-        (order.order_items as any[])?.forEach((item: any) => {
-          const unit = (item.unit || 'Unknown').trim();
-          const qty = Number(item.quantity || 0);
-          quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
-          totalKg += getKgQuantity(qty, unit);
-        });
+      orderItems.forEach((item: any) => {
+        const unit = (item.unit || 'Unknown').trim();
+        const qty = Number(item.quantity || 0);
+        quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
+        totalKg += getKgQuantity(qty, unit);
       });
       totalPieces = Math.round(totalKg * 100) / 100;
 

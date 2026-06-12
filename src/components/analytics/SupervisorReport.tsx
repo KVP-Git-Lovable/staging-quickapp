@@ -385,12 +385,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       while (hasMore) {
         let query = supabase
           .from('orders')
-          .select(`
-            id,
-            user_id,
-            total_amount,
-            order_items(quantity, unit)
-          `)
+          .select('id, user_id, total_amount')
           .eq('status', 'confirmed')
           .gte('order_date', fromDate)
           .lte('order_date', toDate)
@@ -460,6 +455,25 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         userNameMap[p.id] = p.full_name || 'Unknown';
       });
 
+      const orderIds = ordersData.map(o => o.id).filter(Boolean);
+      const orderItemsByOrderId: Record<string, any[]> = {};
+      for (let i = 0; i < orderIds.length; i += 200) {
+        const { data: items, error: itemsError } = await supabase
+          .from('order_items')
+          .select('order_id, quantity, unit')
+          .in('order_id', orderIds.slice(i, i + 200));
+
+        if (itemsError) {
+          console.error('Error fetching order items for summary:', itemsError);
+          continue;
+        }
+
+        (items || []).forEach((item: any) => {
+          if (!orderItemsByOrderId[item.order_id]) orderItemsByOrderId[item.order_id] = [];
+          orderItemsByOrderId[item.order_id].push(item);
+        });
+      }
+
       // Group by user and calculate totals (total_amount and total_kg)
       const userTotals: Record<string, { total_order_value: number; total_kg: number }> = {};
       ordersData.forEach((order) => {
@@ -470,7 +484,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         
         // Calculate KG from order_items
         let orderKg = 0;
-        (order.order_items as any[])?.forEach((item: any) => {
+        (orderItemsByOrderId[order.id] || []).forEach((item: any) => {
           orderKg += toKgQuantity(item.quantity, item.unit);
         });
         
@@ -488,7 +502,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           total_order_value: data.total_order_value,
           total_kg: Math.round(data.total_kg * 100) / 100 
         }))
-        .sort((a, b) => b.total_kg - a.total_kg);
+        .sort((a, b) => (b.total_kg - a.total_kg) || (b.total_order_value - a.total_order_value));
 
       setSummaryData(summaryArray);
       setSelectedUserDetails(null);
@@ -1926,17 +1940,14 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                <div>
                  <p className="text-[10px] md:text-sm opacity-90">Total Quantity</p>
                  <p className="text-xl md:text-3xl lg:text-4xl font-bold">
-                    {businessSummary.totalKg > 0
-                      ? formatKg(businessSummary.totalKg)
-                     : 'No Data'
-                   }
+                    {businessSummary.totalOrders > 0 ? formatKg(businessSummary.totalKg) : 'No Data'}
                  </p>
                  <p className="text-[8px] md:text-xs opacity-75 mt-0.5 md:mt-1">
                    {format(dateRange.from, 'MMM dd')} - {format(dateRange.to, 'MMM dd, yyyy')}
                  </p>
                </div>
                <div className="md:text-right space-y-0.5 md:space-y-1 mt-1 md:mt-0">
-                  {businessSummary.totalKg > 0 && (
+                  {businessSummary.totalOrders > 0 && (
                     <p className="text-[9px] md:text-sm opacity-90">{businessSummary.totalOrders} confirmed orders</p>
                  )}
                  <p className="text-[9px] md:text-sm opacity-90">{businessSummary.totalBeats} Beats</p>
