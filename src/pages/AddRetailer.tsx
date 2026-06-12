@@ -913,6 +913,19 @@ export const AddRetailer = () => {
       const result = await createRetailer(payload);
       setIsSaving(false);
 
+      // Fire WhatsApp verification + welcome triggers when newly created online
+      if (!isEditMode && result.success && !result.offline && result.data?.id && payload.phone) {
+        try {
+          const { maybeTriggerWhatsAppVerification } = await import('@/utils/retailerVerificationTrigger');
+          maybeTriggerWhatsAppVerification(result.data.id, payload.phone);
+          const { sendRetailerWelcomeWhatsApp } = await import('@/utils/retailerWelcomeWhatsAppTrigger');
+          sendRetailerWelcomeWhatsApp(result.data.id, payload.phone);
+        } catch (e) {
+          console.warn('[AddRetailer] WhatsApp trigger failed:', e);
+        }
+      }
+
+
       if (result.success) {
         const message = result.offline 
           ? `${retailerData.name} saved offline. Will sync when online.`
