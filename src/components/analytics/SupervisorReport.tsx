@@ -1594,7 +1594,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         autoTable(pdf, {
           startY: y,
           margin: { left: margin, right: margin },
-          head: [['#', 'User Name', 'Total KG', 'Total Order Value']],
+          head: [['#', 'User Name', 'Total PCs', 'Total Order Value']],
           body: orderTableData,
           styles: { fontSize: 9, cellPadding: 4 },
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
