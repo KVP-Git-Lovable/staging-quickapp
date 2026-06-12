@@ -2020,6 +2020,99 @@ export const AddRetailer = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Post-save contact action dialog */}
+        <Dialog
+          open={!!contactDialog}
+          onOpenChange={(open) => {
+            if (!open) {
+              setContactDialog(null);
+              navigate(returnTo, { replace: true });
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Notify {contactDialog?.name}</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Choose how to reach the retailer at {contactDialog?.phone}.
+            </p>
+            <div className="grid gap-2 py-2">
+              <Button
+                variant="default"
+                className="justify-start"
+                disabled={contactSending !== null}
+                onClick={async () => {
+                  if (!contactDialog) return;
+                  setContactSending('whatsapp');
+                  try {
+                    const { triggerRetailerWelcomeMessage } = await import('@/utils/retailerWelcomeMessage');
+                    await triggerRetailerWelcomeMessage(contactDialog.retailerId, contactDialog.phone);
+                    toast({ title: 'WhatsApp sent', description: `Message sent to ${contactDialog.phone}` });
+                  } catch (e: any) {
+                    toast({ title: 'Failed to send WhatsApp', description: e?.message || 'Try again', variant: 'destructive' });
+                  } finally {
+                    setContactSending(null);
+                    setContactDialog(null);
+                    navigate(returnTo, { replace: true });
+                  }
+                }}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                {contactSending === 'whatsapp' ? 'Sending…' : 'Send WhatsApp'}
+              </Button>
+              <Button
+                variant="secondary"
+                className="justify-start"
+                onClick={() => {
+                  toast({ title: 'Coming soon', description: 'SMS sending will be available shortly.' });
+                }}
+              >
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Send SMS
+              </Button>
+              <Button
+                variant="secondary"
+                className="justify-start"
+                disabled={contactSending !== null}
+                onClick={async () => {
+                  if (!contactDialog) return;
+                  setContactSending('call');
+                  toast({ title: 'Calling retailer via Bolna…' });
+                  try {
+                    const { data, error } = await supabase.functions.invoke('bolna-outbound-call', {
+                      body: { retailer_id: contactDialog.retailerId },
+                    });
+                    if (error) throw error;
+                    if (!(data as any)?.success) throw new Error((data as any)?.error || 'Failed to initiate outbound call.');
+                    toast({ title: 'Call initiated.' });
+                  } catch (e: any) {
+                    toast({ title: e?.message || 'Failed to initiate outbound call.', variant: 'destructive' });
+                  } finally {
+                    setContactSending(null);
+                    setContactDialog(null);
+                    navigate(returnTo, { replace: true });
+                  }
+                }}
+              >
+                <Phone className="h-4 w-4 mr-2" />
+                {contactSending === 'call' ? 'Calling…' : 'Initiate Call'}
+              </Button>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setContactDialog(null);
+                  navigate(returnTo, { replace: true });
+                }}
+              >
+                Skip
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
     </Layout>
