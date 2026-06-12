@@ -1002,19 +1002,27 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         .select(`
           id,
           retailer_id,
+          beat_id,
+          beat_name_snapshot,
           total_amount,
-          retailers!inner(id, beat_name)
+          retailers(id, beat_name)
         `)
         .eq('user_id', userProfile.id)
         .eq('status', 'confirmed')
-        .gte('created_at', `${fromDate}T00:00:00`)
-        .lt('created_at', `${nextDay}T00:00:00`);
+        .gte('order_date', fromDate)
+        .lte('order_date', toDate);
 
       if (ordersError || !orders || orders.length === 0) {
         setOrderDetailsBeatBreakdown([]);
         setOrderDetailsBeatLoading(false);
         return;
       }
+
+      const orderBeatIds = [...new Set((orders || []).map((order: any) => order.beat_id).filter(Boolean))];
+      const { data: beats } = orderBeatIds.length > 0
+        ? await supabase.from('beats').select('beat_id, beat_name').in('beat_id', orderBeatIds)
+        : { data: [] as any[] };
+      const beatNameById = new Map((beats || []).map((beat: any) => [beat.beat_id, beat.beat_name]));
 
       // Group by beat_name and calculate: order_count, total_retailers, total_value
       const beatGroups: Record<string, { 
@@ -1024,7 +1032,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       }> = {};
       
       orders.forEach((order: any) => {
-        const beatName = order.retailers?.beat_name || 'Unassigned';
+        const beatName = order.beat_name_snapshot || beatNameById.get(order.beat_id) || order.retailers?.beat_name || 'Unassigned';
         const retailerId = order.retailers?.id || order.retailer_id;
         // Use total_amount directly (includes taxes and charges)
         const orderTotal = Number(order.total_amount || 0);
