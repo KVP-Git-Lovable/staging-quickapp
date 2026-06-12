@@ -6,7 +6,7 @@ import { setCachedUser, clearCachedAuth, clearCachedPermissions } from '@/utils/
 import { devLog, devError } from '@/utils/devLog';
 import { monitoring } from '@/services/MonitoringService';
 import { Preferences } from '@capacitor/preferences';
-import { offlineStorage } from '@/lib/offlineStorage';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { clearRetailerIndex } from '@/lib/retailerIndex';
 import { requestLocationPermission, requestStoragePermission } from '@/utils/permissions';
 import i18n from '@/i18n/config';
@@ -67,6 +67,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [securityProfileName, setSecurityProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+
+  /**
+   * SECURITY: Purge per-user IndexedDB stores when the authenticated user changes.
+   * Without this, beats/beat_plans/retailers/visits cached from the previous user
+   * leak into the new user's My Visits screen (e.g. wrong beat shown in header).
+   * Only runs when the new user id differs from the previously-seen one.
+   */
+  const purgeStaleUserDataIfIdentityChanged = async (newUserId: string) => {
+    try {
+      const prev = localStorage.getItem('cached_user_id');
+      if (prev && prev !== newUserId) {
+        devLog('[Auth] User identity changed', prev, '→', newUserId, '— purging stale per-user caches');
+        const hasUnsynced = await offlineStorage.hasUnsyncedItems().catch(() => false);
+        const stores: string[] = [
+          STORES.BEATS,
+          STORES.BEAT_PLANS,
+          STORES.RETAILERS,
+          STORES.VISITS,
+          STORES.SYNC_METADATA,
+        ];
+        if (!hasUnsynced) stores.push(STORES.ORDERS);
+        await Promise.all(stores.map((s) => offlineStorage.clear(s).catch(() => undefined)));
+        // Also clear ephemeral visit-status & snapshot caches keyed to the previous user
+        try {
+          localStorage.removeItem('visit_status_cache');
+          Object.keys(localStorage)
+            .filter((k) => k.startsWith('myvisits_snapshot_'))
+            .forEach((k) => localStorage.removeItem(k));
+        } catch {}
+        try {
+          await Preferences.remove({ key: `myvisits_snapshot_${prev}` });
+        } catch {}
+        clearRetailerIndex();
+      }
+    } catch (e) {
+      devError('[Auth] Error purging stale user data on identity change:', e);
+    }
+  };
+
 
   const onPasswordChanged = () => {
     setMustChangePassword(false);
@@ -225,6 +264,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const currentUser = session?.user ?? null;
         
         if (currentUser) {
+          await purgeStaleUserDataIfIdentityChanged(currentUser.id);
           setUser(currentUser);
           setCachedUser(currentUser);
           localStorage.setItem('cached_user_id', currentUser.id);
@@ -275,6 +315,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(currentUser);
       
       if (session?.user) {
+        await purgeStaleUserDataIfIdentityChanged(session.user.id);
         setCachedUser(session.user);
         localStorage.setItem('cached_user_id', session.user.id);
         

@@ -110,6 +110,14 @@ export function useMasterDataCache() {
     try {
       onProgress?.('beats', 'loading');
       console.log('[Cache] Syncing active beats...');
+
+      // Re-check session — auth may have dropped between hook init and this call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id || session.user.id !== user.id) {
+        console.warn('[Cache] Skipping beats sync — session not ready / user changed');
+        onProgress?.('beats', 'error');
+        return;
+      }
       
       const { data: beats, error } = await supabase
         .from('beats')
@@ -128,8 +136,15 @@ export function useMasterDataCache() {
         console.log(`[Cache] ✅ ${beats.length} active beats cached`);
       }
       onProgress?.('beats', 'done');
-    } catch (error) {
-      console.error('[Cache] Error caching beats, keeping existing cache:', error);
+    } catch (error: any) {
+      // SECURITY: On permission errors (42501) the cached data may belong to another
+      // user — clear it instead of preserving to avoid cross-user data leakage.
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on beats — clearing stale cache');
+        await offlineStorage.clear(STORES.BEATS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching beats, keeping existing cache:', error);
+      }
       onProgress?.('beats', 'error');
     }
   }, [user]);
@@ -182,6 +197,13 @@ export function useMasterDataCache() {
     try {
       onProgress?.('retailers', 'loading');
       console.log('[Cache] Syncing retailers...');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id || session.user.id !== user.id) {
+        console.warn('[Cache] Skipping retailers sync — session not ready / user changed');
+        onProgress?.('retailers', 'error');
+        return;
+      }
       
       const { data: retailers, error } = await supabase
         .from('retailers')
@@ -196,8 +218,13 @@ export function useMasterDataCache() {
         console.log(`[Cache] ✅ ${retailers.length} retailers cached`);
       }
       onProgress?.('retailers', 'done');
-    } catch (error) {
-      console.error('[Cache] Error caching retailers, keeping existing cache:', error);
+    } catch (error: any) {
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on retailers — clearing stale cache');
+        await offlineStorage.clear(STORES.RETAILERS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching retailers, keeping existing cache:', error);
+      }
       onProgress?.('retailers', 'error');
     }
   }, [user]);
@@ -209,6 +236,13 @@ export function useMasterDataCache() {
     try {
       onProgress?.('beatPlans', 'loading');
       console.log('[Cache] Syncing upcoming beat plans...');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id || session.user.id !== user.id) {
+        console.warn('[Cache] Skipping beat plans sync — session not ready / user changed');
+        onProgress?.('beatPlans', 'error');
+        return 0;
+      }
       
       // Get only today and next 3 days
       const today = new Date();
@@ -234,8 +268,13 @@ export function useMasterDataCache() {
       }
       onProgress?.('beatPlans', 'done');
       return beatPlans?.length || 0;
-    } catch (error) {
-      console.error('[Cache] Error caching beat plans, keeping existing cache:', error);
+    } catch (error: any) {
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on beat_plans — clearing stale cache');
+        await offlineStorage.clear(STORES.BEAT_PLANS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching beat plans, keeping existing cache:', error);
+      }
       onProgress?.('beatPlans', 'error');
       return 0;
     }
@@ -269,8 +308,13 @@ export function useMasterDataCache() {
       }
       onProgress?.('visits', 'done');
       return visits?.length || 0;
-    } catch (error) {
-      console.error('[Cache] Error caching visits:', error);
+    } catch (error: any) {
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on visits — clearing stale cache');
+        await offlineStorage.clear(STORES.VISITS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching visits:', error);
+      }
       onProgress?.('visits', 'error');
       return 0;
     }
@@ -305,8 +349,13 @@ export function useMasterDataCache() {
       }
       onProgress?.('orders', 'done');
       return orders?.length || 0;
-    } catch (error) {
-      console.error('[Cache] Error caching orders:', error);
+    } catch (error: any) {
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on orders — clearing stale cache');
+        await offlineStorage.clear(STORES.ORDERS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching orders:', error);
+      }
       onProgress?.('orders', 'error');
       return 0;
     }
