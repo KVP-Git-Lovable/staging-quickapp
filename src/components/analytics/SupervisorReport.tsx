@@ -1232,17 +1232,13 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         return;
       }
 
-      // Calculate next day for date range query (matches SQL: created_at < date + 1 day)
-      const nextDay = format(new Date(new Date(rawDate).getTime() + 86400000), 'yyyy-MM-dd');
-
       // Fetch orders for that specific date
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select('id')
         .eq('user_id', userProfile.id)
         .eq('status', 'confirmed')
-        .gte('created_at', `${rawDate}T00:00:00`)
-        .lt('created_at', `${nextDay}T00:00:00`);
+        .eq('order_date', rawDate);
 
       if (ordersError || !orders || orders.length === 0) {
         setProductDayDetails([]);
@@ -1264,7 +1260,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         return;
       }
 
-      // Group by product_name and count items as pieces (PC)
+      // Group by product_name and show stored weight quantities as KG.
       const productGroups: Record<string, { 
         product_name: string; 
         quantity: number; 
@@ -1279,13 +1275,12 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           productGroups[productName] = {
             product_name: productName,
             quantity: 0,
-            unit: 'PC',
+            unit: 'KG',
             total: 0
           };
         }
 
-        // Count each order_item as 1 piece (PC), regardless of unit or quantity
-        productGroups[productName].quantity += 1;
+        productGroups[productName].quantity += toKgQuantity(item.quantity, item.unit);
         productGroups[productName].total += Number(item.total || 0);
       });
 
