@@ -28,6 +28,7 @@ interface UserOrderSummary {
   full_name: string;
   total_order_value: number;
   total_kg: number;
+  user_id?: string;
 }
 
 interface UserOrderDetails {
@@ -1564,7 +1565,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       pdf.setTextColor(100, 100, 100);
       pdf.text(`Period: ${format(dateRange.from, 'MMM dd, yyyy')} – ${format(dateRange.to, 'MMM dd, yyyy')}`, margin, y);
       y += 14;
-      const userFilterText = selectedUserIds.length === 0
+      const userFilterText = selectedUsers.length === 0
         ? 'All Users'
         : selectedUsers.length <= 5
           ? selectedUsers.join(', ')
