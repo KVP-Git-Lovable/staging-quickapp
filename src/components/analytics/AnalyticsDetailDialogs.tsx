@@ -377,19 +377,14 @@ export const ProductBreakdownDialog = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                data.map((product, idx) => {
-                  const isGrams = ['grams', 'gram', 'g'].includes((product.unit || '').toLowerCase().trim());
-                  const displayQty = isGrams ? product.quantity / 1000 : product.quantity;
-                  const displayUnit = 'PC'; // Always show as PC
-                  return (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium">{product.product_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{product.unit || 'PC'}</TableCell>
-                      <TableCell className="text-right">{displayQty.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-semibold">₹{product.revenue.toLocaleString()}</TableCell>
-                    </TableRow>
-                  );
-                })
+                data.map((product, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="font-medium">{product.product_name}</TableCell>
+                    <TableCell className="text-muted-foreground">{product.unit || 'KG'}</TableCell>
+                    <TableCell className="text-right">{product.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
+                    <TableCell className="text-right font-semibold">₹{product.revenue.toLocaleString()}</TableCell>
+                  </TableRow>
+                ))
               )}
             </TableBody>
           </Table>
