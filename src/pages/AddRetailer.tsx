@@ -1840,6 +1840,12 @@ export const AddRetailer = () => {
                     value={retailerData.parentType} 
                     onValueChange={(value) => {
                       handleInputChange("parentType", value);
+                      if (value === "Company") {
+                        handleInputChange("parentName", companyDisplayName);
+                      } else if (retailerData.parentType === "Company") {
+                        // switching away from Company → clear the auto-filled company name
+                        handleInputChange("parentName", "");
+                      }
                       if (validationErrors.parentType) {
                         setValidationErrors(prev => ({ ...prev, parentType: '' }));
                       }
