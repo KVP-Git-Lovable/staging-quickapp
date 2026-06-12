@@ -215,6 +215,10 @@ const CreatePrimaryOrder = () => {
           ...p,
           category_id: p.product_categories?.id,
           category_name: p.product_categories?.name,
+          // products table uses `rate` (not `price`) — map it so order entry has a unit price
+          price: Number(p.rate ?? p.price ?? 0),
+          // prefer explicit selling unit, fall back to base_unit, then pieces
+          unit: p.unit || p.base_unit || 'pieces',
           priceBookPrice: pe?.final_price,
         };
       });
