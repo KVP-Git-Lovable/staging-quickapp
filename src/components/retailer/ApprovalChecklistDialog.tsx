@@ -102,8 +102,8 @@ function Pill({ ok, warn, label }: { ok: boolean; warn?: boolean; label: string 
     : "bg-rose-50 text-rose-700 border-rose-200";
   const Icon = ok ? CheckCircle2 : warn ? AlertTriangle : XCircle;
   return (
-    <div className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs ${cls}`}>
-      <span className="font-medium">{label}</span>
+    <div className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs min-w-0 ${cls}`}>
+      <span className="font-medium truncate">{label}</span>
       <Icon className="h-3.5 w-3.5 shrink-0" />
     </div>
   );
@@ -298,7 +298,7 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-0 w-[calc(100vw-2rem)]">
         <DialogHeader className="px-5 pt-5 pb-3 border-b">
           <DialogTitle className="flex items-center gap-2 text-base">
             <ShieldCheck className="h-5 w-5 text-blue-600" />
