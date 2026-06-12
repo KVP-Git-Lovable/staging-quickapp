@@ -120,8 +120,15 @@ serve(async (req) => {
     // isNo
     await supabase
       .from("retailers")
-      .update({ verification_status: "needs_attention" })
+      .update({
+        verified: false,
+        verification_status: "needs_attention",
+        verification_method: "whatsapp",
+        whatsapp_verified: false,
+        verification_notes: `Rejected by customer via WhatsApp on ${new Date().toISOString().slice(0,10)}: ${bodyRaw.slice(0, 200)}`,
+      })
       .eq("id", request.retailer_id);
+
 
     await supabase
       .from("retailer_verification_requests")
