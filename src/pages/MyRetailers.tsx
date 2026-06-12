@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, CreditCard, Download } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Calendar, Users, Check, ShoppingCart, Phone, CheckCircle2, CreditCard, Download, Copy as CopyIcon } from "lucide-react";
 import { RetailerExportDialog } from "@/components/RetailerExportDialog";
 import { usePagination } from "@/hooks/usePagination";
 import { PaginationControls } from "@/components/ui/PaginationControls";
@@ -27,6 +27,7 @@ import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { BulkImportRetailersModal } from "@/components/BulkImportRetailersModal";
 import { RetailerAnalytics } from "@/components/RetailerAnalytics";
 import { CreditScoreDisplay } from "@/components/CreditScoreDisplay";
+import { DuplicateRiskBadge } from "@/components/retailer/QualityBadge";
 import { VirtualizedRetailerTable } from "@/components/VirtualizedRetailerTable";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -64,6 +65,7 @@ interface Retailer {
   verified?: boolean;
   user_id?: string;
   owner_name?: string;
+  duplicate_risk_score?: number | null;
 }
 
 export const MyRetailers = () => {
@@ -1033,6 +1035,14 @@ export const MyRetailers = () => {
                           <span>{r.category}</span>
                         </div>
                       )}
+                      {/* Duplicate Risk Badge */}
+                      {(r.duplicate_risk_score ?? 0) > 0 && (
+                        <div className="flex items-center gap-2 pt-2 border-t">
+                          <CopyIcon className="h-4 w-4 text-rose-600" />
+                          <span className="text-muted-foreground text-sm">Duplicate Risk:</span>
+                          <DuplicateRiskBadge risk={r.duplicate_risk_score ?? 0} />
+                        </div>
+                      )}
                       {/* Credit Score Display */}
                       <div className="pt-2 border-t">
                         <CreditScoreDisplay retailerId={r.id} variant="compact" showCreditLimit />
@@ -1098,6 +1108,7 @@ export const MyRetailers = () => {
                     <TableHead>Phone Number</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Beat</TableHead>
+                    <TableHead>Duplicate Risk</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1169,6 +1180,13 @@ export const MyRetailers = () => {
                         >
                           {isBeatExpanded ? beatDisplay : shortBeat}
                         </TableCell>
+                        <TableCell>
+                          {(r.duplicate_risk_score ?? 0) > 0 ? (
+                            <DuplicateRiskBadge risk={r.duplicate_risk_score ?? 0} />
+                          ) : (
+                            <span className="text-xs text-emerald-600">Low</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button 
@@ -1199,7 +1217,7 @@ export const MyRetailers = () => {
                   })}
                   {paginatedRetailers.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={selectedUserIds.length > 1 ? 7 : 6} className="text-center py-12">
+                      <TableCell colSpan={selectedUserIds.length > 1 ? 8 : 7} className="text-center py-12">
                         {loading || isUserChanging ? (
                           <div className="space-y-2">
                             <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
