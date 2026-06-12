@@ -114,7 +114,11 @@ serve(async (req) => {
         performed_by_name: "WhatsApp Self-Confirm",
       });
 
-      return twiml("Thank you! Your shop details are confirmed. ✅");
+      return twiml(
+        "Thank you for confirming your details with us. Your response has been successfully recorded.\n\n" +
+        "We appreciate your time and cooperation. If you have any questions or require assistance, please feel free to contact us.\n\n" +
+        "Wishing you a great day and successful business ahead! ✅"
+      );
     }
 
     // isNo
