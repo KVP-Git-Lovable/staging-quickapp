@@ -1,82 +1,66 @@
+## Goal
+Add a Hide option for each distributor card on the Distributor Master list. Hidden distributors disappear from the list by default and can be brought back via a "Show hidden" toggle. Reversible, list-screen only — selection dropdowns, detail pages, orders, beats, etc. remain unchanged.
 
-## Background
+## Scope
+- File touched: `src/pages/DistributorMaster.tsx` only.
+- No DB schema changes. Hidden IDs stored in `localStorage` (per-user, per-device) under key `hiddenDistributorIds`.
+- Detail page (`/distributor/:id`), dropdowns, mappings, reports — untouched.
 
-The `retailers` table has NO `verification_status` column (confirmed via schema query — only `verified`, `verification_score`, `verification_method`, `verified_by`, `whatsapp_verified`, `retailer_confirmed`, `verified_at`, `verification_address/contact/territory` exist). Code and DB functions still reference `verification_status`, causing the sync error `record "r" has no field "verification_status"`.
+## UX
 
-We will standardize on the existing columns and drop all `verification_status` usage from code, edge functions, and DB functions/triggers.
+Header (next to the existing "Remap" / Filter controls):
+- New ghost toggle: `Eye` icon → "Show hidden (N)" / "Hide hidden". Only renders when N > 0.
 
-## Status mapping (replaces `verification_status`)
+Each `DistributorCard`:
+- Small `EyeOff` icon button in the top-right corner (next to the status badge), `stopPropagation` so it doesn't open the detail page.
+- Clicking it hides the distributor immediately, with a toast: "Distributor hidden — Undo". Undo restores it.
+- When "Show hidden" mode is on, hidden cards render with `opacity-60` and the action becomes an `Eye` (Unhide) button.
 
-Derived purely from existing columns:
-- `verified` → `verified = true` (or `verification_score >= 70`)
-- `unverified / pending` → `verified = false AND verification_score < 40`
-- `needs_attention` → `verified = false AND verification_method = 'whatsapp' AND whatsapp_verified = false` (i.e., customer replied NO) — tracked via existing `verification_notes`
-- `dropped` → `status = 'inactive'`
+Empty state already handled by existing code (filter naturally produces 0 results).
 
-No new columns needed.
+## Implementation sketch
 
-## Step 1 — Fix the immediate sync error (DB)
+```tsx
+// new local state
+const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => {
+  try { return new Set(JSON.parse(localStorage.getItem('hiddenDistributorIds') || '[]')); }
+  catch { return new Set(); }
+});
+const [showHidden, setShowHidden] = useState(false);
 
-Migration to recreate any DB function/trigger that references `r.verification_status` or `NEW.verification_status`, using the mapping above. Functions to fix:
-- `calculate_retailer_quality_score` (latest migration `20260612073108`)
-- The retailer audit trigger from `20260610085615` (drops the `verification_status` audit branch)
+const persist = (s: Set<string>) => {
+  localStorage.setItem('hiddenDistributorIds', JSON.stringify([...s]));
+};
 
-## Step 2 — Remove `verification_status` from frontend
-
-### `src/pages/RetailManagement.tsx`
-- Drop the `verification_status` field from the local `Retailer` type (line 74).
-- Replace all 15 read/write sites (lines 257, 281, 327, 457, 494–497, 534–537, 593–594, 973, 1030, 1033) with derived status using the mapping above. Introduce a single helper `getVerificationStatus(r)` returning `'verified' | 'pending' | 'needs_attention' | 'dropped'`.
-- Remove writes to `verification_status` in the inline status update (lines 281, 327) — instead update `verified`, `verification_score`, and `status` directly.
-
-### `src/components/retailer/ApprovalChecklistDialog.tsx`
-- Lines 221/231/234/237: remove `patch.verification_status = …`. Replace with:
-  - verified branch → `patch.verified = true; patch.verification_score = max(80, current); patch.verified_at = now; patch.verified_by_name = currentUser`
-  - needs_attention branch → `patch.verified = false; patch.verification_notes = '...'`
-  - dropped branch → `patch.status = 'inactive'`
-
-## Step 3 — Auto-send WhatsApp after AddRetailer
-
-In `src/pages/AddRetailer.tsx`, after successful insert, call the existing helper:
-```ts
-import { maybeTriggerWhatsAppVerification } from '@/utils/retailerVerificationTrigger';
-await maybeTriggerWhatsAppVerification(newRetailerId, phone);
+const hide = (id: string) => {
+  const next = new Set(hiddenIds); next.add(id); setHiddenIds(next); persist(next);
+  toast.success('Distributor hidden', {
+    action: { label: 'Undo', onClick: () => unhide(id) },
+  });
+};
+const unhide = (id: string) => {
+  const next = new Set(hiddenIds); next.delete(id); setHiddenIds(next); persist(next);
+};
 ```
-This already respects the `retailer_verification_policy.auto_whatsapp_on_create` flag and is fire-and-forget — consolidates with the RetailManagement "WhatsApp Verify" button (which uses the same edge function).
 
-## Step 4 — Auto-fill on WhatsApp YES (already 90% done)
+In `getDistributorsByType`, append:
+```ts
+const matchesHidden = showHidden ? true : !hiddenIds.has(d.id);
+return matchesType && matchesSearch && matchesStatus && matchesHidden;
+```
 
-`supabase/functions/whatsapp-retailer-verify-inbound/index.ts` already updates `verified=true, whatsapp_verified=true, verification_method='whatsapp', verification_score=max(80,…), verified_at=now, verified_by_name='WhatsApp', verification_address=true, verification_contact=true`. Changes:
-- Remove the `verification_status: "verified"` and `verification_status: "needs_attention"` fields (lines 87, 129) — they cause the same sync error.
-- Add `retailer_confirmed = true` on YES.
-- Keep the new thank-you reply text already in place.
+In `DistributorCard` add an icon button in the top-right that calls `hide(distributor.id)` or `unhide(...)` depending on `hiddenIds.has(distributor.id)`, with `e.stopPropagation()`.
 
-## Step 5 — Partial verification editing in ApprovalChecklistDialog
-
-When opening the dialog for a retailer with `verification_score > 0 AND verification_score < 100`:
-- Pre-check items already satisfied (whatsapp_verified, verification_address, verification_contact, retailer_confirmed, photo present, owner_name present, etc.).
-- Show header "Continue verification — X% complete".
-- On save, recompute score from currently checked items (use the same weights as `calculate_retailer_quality_score`) and update `verification_score` + the corresponding boolean columns. No locked state below 100%.
-
-## Step 6 — Offline queue for verification messages
-
-In `src/hooks/useOfflineRetailers.ts` (the actual offline retailer hook — `useOfflineSync.ts` cited in the report doesn't exist; this is the right place):
-- After local save in `createRetailer`, also enqueue a `SEND_VERIFICATION` job with `{ retailer_id, phone, retry_count: 0 }`.
-- In the offline sync processor (`src/lib/offlineStorage.ts` queue handler), add a handler for `SEND_VERIFICATION` that, once the parent `CREATE_RETAILER` has succeeded and we are online, invokes `send-retailer-verification-whatsapp`.
-- Ordering: process `SEND_VERIFICATION` only after the matching `CREATE_RETAILER` has a server-confirmed row (use the retailer_id which is the same UUID).
-
-## Step 7 — Consolidate WhatsApp send paths
-
-Both AddRetailer and RetailManagement's `sendWhatsAppVerification()` (line 572) will route through `maybeTriggerWhatsAppVerification` (or directly through `supabase.functions.invoke('send-retailer-verification-whatsapp')`). One edge function, one trigger helper, two entry points.
-
-## Technical notes
-
-- No schema changes other than recreating two DB functions / one trigger to drop `verification_status` references.
-- `src/integrations/supabase/types.ts` is auto-regenerated; no manual edit.
-- All status filtering/KPI logic moves to a single derived helper to avoid drift.
-- Edge function changes: only `whatsapp-retailer-verify-inbound` (remove 2 field writes, add `retailer_confirmed`).
-- Offline queue uses existing IndexedDB sync queue infra — no new store.
+In the header row, render the toggle:
+```tsx
+{hiddenIds.size > 0 && (
+  <Button variant="ghost" size="sm" onClick={() => setShowHidden(v => !v)}>
+    {showHidden ? <EyeOff/> : <Eye/>} {showHidden ? 'Hide hidden' : `Show hidden (${hiddenIds.size})`}
+  </Button>
+)}
+```
 
 ## Out of scope
-
-- No UI redesign of RetailManagement or AddRetailer beyond the "Continue verification" affordance.
-- No changes to Bolna calling, attendance, or other modules.
+- Cross-device sync of hidden list (would require a new `user_hidden_distributors` table — can be added later if needed).
+- Hiding from dropdowns / order flows / reports.
+- Bulk hide/unhide UI.
