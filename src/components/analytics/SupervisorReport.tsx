@@ -2133,7 +2133,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                   ) : (
                     <BarChart data={pieChartData} layout="vertical" margin={{ left: isMobile ? 10 : 20, right: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis type="number" tickFormatter={(value) => `${value.toLocaleString()} KG`} />
+                      <XAxis type="number" tickFormatter={(value) => `${value.toLocaleString()} PCs`} />
                       <YAxis 
                         type="category" 
                         dataKey="name" 
