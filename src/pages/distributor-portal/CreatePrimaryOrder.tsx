@@ -168,6 +168,8 @@ const CreatePrimaryOrder = () => {
   useEffect(() => {
     if (selectedCategory === 'all') {
       setFilteredProducts(products);
+    } else if (selectedCategory === 'uncategorized') {
+      setFilteredProducts(products.filter((p) => !p.category_id));
     } else {
       setFilteredProducts(products.filter((p) => p.category_id === selectedCategory));
     }
