@@ -445,7 +445,7 @@ const CustomerCatalog = () => {
         return {
           ...row,
           product,
-          unit: (isGramUnit(product.unit) || (product.unit || '').toLowerCase() === 'kg') ? 'KG' : (product.unit || 'KG'),
+          unit: product.unit || 'pieces',
           stock: 0,
           quantity: row.quantity || 0,
         };
