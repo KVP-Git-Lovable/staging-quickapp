@@ -918,43 +918,44 @@ export const AddRetailer = () => {
       const result = await createRetailer(payload);
       setIsSaving(false);
 
-      // Send welcome message using approved template when retailer is created
-      if (!isEditMode && result.success && result.data?.id && payload.phone) {
-        try {
-          const { triggerRetailerWelcomeMessage } = await import('@/utils/retailerWelcomeMessage');
-          triggerRetailerWelcomeMessage(result.data.id, payload.phone);
-        } catch (e) {
-          console.warn('[AddRetailer] Welcome message trigger failed or queued:', e);
-        }
-      }
-
+      // Note: Welcome message no longer auto-sent. User chooses WhatsApp/SMS/Call from post-save dialog.
 
       if (result.success) {
-        // SIMPLE FLOW: Show "Waiting for customer confirmation" message
         let title = 'Retailer Created';
-        let description = `${retailerData.name} created. WhatsApp message sent - waiting for customer confirmation...`;
-        
+        let description = `${retailerData.name} created successfully.`;
+
         if (result.offline) {
           title = 'Retailer Saved Offline';
-          description = `${retailerData.name} saved offline. WhatsApp will be sent when online.`;
+          description = `${retailerData.name} saved offline. You can notify the customer once back online.`;
         }
-        
-        toast({ 
+
+        toast({
           title,
           description,
           action: result.offline ? <WifiOff className="h-4 w-4" /> : undefined
         });
-        
-        navigate(returnTo, { replace: true });
+
+        // Open contact-action dialog so user picks WhatsApp / SMS / Call.
+        // Offline rows have no id yet — just navigate back.
+        if (!isEditMode && result.data?.id && payload.phone && !result.offline) {
+          setContactDialog({
+            retailerId: result.data.id,
+            phone: payload.phone,
+            name: retailerData.name,
+          });
+        } else {
+          navigate(returnTo, { replace: true });
+        }
       } else {
-        toast({ 
-          title: 'Failed to save', 
-          description: 'Could not save retailer', 
-          variant: 'destructive' 
+        toast({
+          title: 'Failed to save',
+          description: 'Could not save retailer',
+          variant: 'destructive'
         });
       }
     }
   };
+
 
   const handleSaveWithBeat = async () => {
     if (!retailerData.name || !retailerData.phone || !retailerData.address) {
