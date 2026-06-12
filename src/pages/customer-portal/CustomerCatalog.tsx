@@ -445,7 +445,7 @@ const CustomerCatalog = () => {
         return {
           ...row,
           product,
-          unit: (isGramUnit(product.unit) || (product.unit || '').toLowerCase() === 'kg') ? 'KG' : (product.unit || 'KG'),
+          unit: product.unit || 'pieces',
           stock: 0,
           quantity: row.quantity || 0,
         };
@@ -629,24 +629,17 @@ const CustomerCatalog = () => {
                     </Popover>
                   </div>
 
-                  {/* Unit */}
-                  <Select value={row.unit} onValueChange={(v) => updateRow(row.id, 'unit', v)}>
+                  {/* Unit — pinned to the product's active unit from the unit master */}
+                  <Select value={row.unit} onValueChange={(v) => updateRow(row.id, 'unit', v)} disabled>
                     <SelectTrigger className="h-8 sm:h-9 text-[11px] sm:text-xs font-medium text-foreground w-full bg-card border-border/40 px-1 rounded-lg [&>svg]:hidden">
-                      <SelectValue />
+                      <SelectValue>
+                        {(row.product?.unit || row.unit || 'Pcs').toUpperCase()}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="bg-card z-50 rounded-xl">
-                      {(() => {
-                        const prodUnit = (row.product?.unit || '').toLowerCase().trim();
-                        if (prodUnit === 'grams' || prodUnit === 'g' || prodUnit === 'gram' || prodUnit === 'kg') {
-                          return (
-                            <>
-                              <SelectItem value="KG" className="text-xs">KG</SelectItem>
-                              <SelectItem value="grams" className="text-xs">Grams</SelectItem>
-                            </>
-                          );
-                        }
-                        return <SelectItem value={row.product?.unit || 'pieces'} className="text-xs">{row.product?.unit || 'Pcs'}</SelectItem>;
-                      })()}
+                      <SelectItem value={row.product?.unit || row.unit || 'pieces'} className="text-xs">
+                        {(row.product?.unit || row.unit || 'Pcs').toUpperCase()}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
 
