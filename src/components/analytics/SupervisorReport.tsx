@@ -55,6 +55,17 @@ interface SupervisorReportProps {
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#84cc16'];
 
+const toKgQuantity = (quantity: unknown, unit: unknown) => {
+  const qty = Number(quantity || 0);
+  const unitLower = String(unit || '').trim().toLowerCase();
+
+  if (unitLower === 'kg' || unitLower.includes('kilo')) return qty;
+  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return qty / 1000;
+  return 0;
+};
+
+const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} KG`;
+
 export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeReady = true }: SupervisorReportProps) => {
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
