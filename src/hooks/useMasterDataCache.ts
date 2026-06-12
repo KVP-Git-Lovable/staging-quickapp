@@ -236,6 +236,13 @@ export function useMasterDataCache() {
     try {
       onProgress?.('beatPlans', 'loading');
       console.log('[Cache] Syncing upcoming beat plans...');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id || session.user.id !== user.id) {
+        console.warn('[Cache] Skipping beat plans sync — session not ready / user changed');
+        onProgress?.('beatPlans', 'error');
+        return 0;
+      }
       
       // Get only today and next 3 days
       const today = new Date();
@@ -261,8 +268,13 @@ export function useMasterDataCache() {
       }
       onProgress?.('beatPlans', 'done');
       return beatPlans?.length || 0;
-    } catch (error) {
-      console.error('[Cache] Error caching beat plans, keeping existing cache:', error);
+    } catch (error: any) {
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on beat_plans — clearing stale cache');
+        await offlineStorage.clear(STORES.BEAT_PLANS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching beat plans, keeping existing cache:', error);
+      }
       onProgress?.('beatPlans', 'error');
       return 0;
     }
