@@ -505,6 +505,17 @@ export const AddRetailer = () => {
     }
   };
 
+  // Auto-fill parent name with company brand when Parent Type is Company
+  useEffect(() => {
+    if (
+      retailerData.parentType === "Company" &&
+      companyDisplayName &&
+      !retailerData.parentName
+    ) {
+      setRetailerData(prev => ({ ...prev, parentName: companyDisplayName }));
+    }
+  }, [retailerData.parentType, companyDisplayName, retailerData.parentName]);
+
   const handleInputChange = (field: string, value: string | string[]) => {
     setRetailerData(prev => ({ ...prev, [field]: value }));
     // Clear validation error when user fills the field
