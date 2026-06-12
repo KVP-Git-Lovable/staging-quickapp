@@ -471,15 +471,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         // Calculate KG from order_items
         let orderKg = 0;
         (order.order_items as any[])?.forEach((item: any) => {
-          const qty = Number(item.quantity || 0);
-          const unit = (item.unit || '').toLowerCase().trim();
-          
-          if (unit === 'kg' || unit.includes('kilo')) {
-            orderKg += qty;
-          } else if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-            orderKg += qty / 1000;
-          }
-          // Ignore pieces/pcs - not included in KG
+          orderKg += toKgQuantity(item.quantity, item.unit);
         });
         
         if (!userTotals[userName]) {
