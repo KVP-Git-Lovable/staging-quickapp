@@ -164,7 +164,9 @@ export function RetailerCustomerPortalSection({
     }
   };
 
-  const portalUrl = `${window.location.origin}/customer-portal/login`;
+  const portalUrl = retailerPhone
+    ? `${window.location.origin}/customer-portal/login?phone=${encodeURIComponent(retailerPhone)}${portalData.portalPin ? `&pin=${encodeURIComponent(portalData.portalPin)}` : ''}&retailerId=${encodeURIComponent(retailerId)}&auto=1`
+    : `${window.location.origin}/customer-portal/login`;
 
   return (
     <Card>
