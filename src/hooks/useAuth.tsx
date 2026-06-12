@@ -315,6 +315,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(currentUser);
       
       if (session?.user) {
+        await purgeStaleUserDataIfIdentityChanged(session.user.id);
         setCachedUser(session.user);
         localStorage.setItem('cached_user_id', session.user.id);
         
