@@ -1283,7 +1283,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         return;
       }
 
-      // Group by product_name and convert to KG (matching SQL query)
+      // Group by product_name and count items as pieces (PC)
       const productGroups: Record<string, { 
         product_name: string; 
         quantity: number; 
@@ -1303,27 +1303,13 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           };
         }
 
-        // Convert Grams to KG, otherwise use quantity directly (matching SQL: CASE WHEN unit = 'Grams' THEN quantity / 1000.0 ELSE quantity END)
-        const qty = Number(item.quantity || 0);
-        const unit = (item.unit || '').toLowerCase();
-        let kgQty = 0;
-        
-        if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-          kgQty = qty / 1000;
-        } else {
-          kgQty = qty;
-        }
-
-        productGroups[productName].quantity += kgQty;
+        // Count each order_item as 1 piece (PC), regardless of unit or quantity
+        productGroups[productName].quantity += 1;
         productGroups[productName].total += Number(item.total || 0);
       });
 
-      // Round to 2 decimal places and sort by revenue DESC
+      // Sort by revenue DESC (quantity is now item count, no decimals needed)
       const productArray = Object.values(productGroups)
-        .map(p => ({
-          ...p,
-          quantity: Math.round(p.quantity * 100) / 100
-        }))
         .sort((a, b) => b.total - a.total);
 
       setProductDayDetails(productArray);
@@ -1627,37 +1613,36 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       const fromDate = format(dateRange.from, 'yyyy-MM-dd');
       const toDate = format(dateRange.to, 'yyyy-MM-dd');
 
-      // Fetch SKU data for all selected users
-      const skuAllData: { product_name: string; unit: string; quantity_sold: number; revenue: number }[] = [];
-      const userNamesForSku = selectedUsers.length > 0 ? selectedUsers : summaryData.map(u => u.full_name);
+      // Fetch raw order_items to count items per product (not sum quantities)
+      const selectedUserIds = selectedUsers.length > 0 
+        ? summaryData.filter(u => selectedUsers.includes(u.full_name)).map(u => u.user_id)
+        : summaryData.map(u => u.user_id);
 
-      // Batch RPC calls
-      const skuPromises = userNamesForSku.map(name =>
-        (supabase as any).rpc('get_product_revenue_performance', {
-          user_full_name: name,
-          start_date: fromDate,
-          end_date: toDate
-        })
-      );
-      const skuResults = await Promise.all(skuPromises);
-      
-      // Aggregate SKU data across users
-      const skuMap = new Map<string, { unit: string; quantity_sold: number; revenue: number }>();
-      skuResults.forEach(({ data }: any) => {
-        if (data) {
-          (data as any[]).forEach((row: any) => {
-            const key = `${row.product_name}||${row.unit}`;
-            const existing = skuMap.get(key);
-            if (existing) {
-              existing.quantity_sold += Number(row.quantity_sold || 0);
-              existing.revenue += Number(row.revenue || 0);
-            } else {
-              skuMap.set(key, {
-                unit: row.unit || '',
-                quantity_sold: Number(row.quantity_sold || 0),
-                revenue: Number(row.revenue || 0)
-              });
-            }
+      let skuQuery = supabase
+        .from('order_items')
+        .select('product_name, unit, total, order_id')
+        .gte('order_date', fromDate)
+        .lte('order_date', toDate);
+
+      if (selectedUserIds.length > 0) {
+        skuQuery = skuQuery.in('user_id', selectedUserIds);
+      }
+
+      const { data: allOrderItems = [] } = await skuQuery;
+
+      // Group by product and count items (each row = 1 item/piece)
+      const skuMap = new Map<string, { unit: string; itemCount: number; revenue: number }>();
+      allOrderItems.forEach((item: any) => {
+        const key = `${item.product_name}||${item.unit}`;
+        const existing = skuMap.get(key);
+        if (existing) {
+          existing.itemCount += 1; // Count items, not quantities
+          existing.revenue += Number(item.total || 0);
+        } else {
+          skuMap.set(key, {
+            unit: item.unit || 'PC',
+            itemCount: 1,
+            revenue: Number(item.total || 0)
           });
         }
       });
@@ -1666,8 +1651,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         .sort((a, b) => b[1].revenue - a[1].revenue)
         .map(([key, v]) => [
           key.split('||')[0],
-          v.unit,
-          v.quantity_sold.toLocaleString(),
+          'PC', // Always show as PC
+          v.itemCount.toString(),
           `₹${v.revenue.toLocaleString()}`
         ]);
 
