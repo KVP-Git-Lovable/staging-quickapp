@@ -279,7 +279,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
     } catch (e) {
       console.error('[useHomeDashboard] Error saving cache:', e);
     }
-  }, [userId, CACHE_KEY]);
+  }, [userId, CACHE_KEY, dateStr]);
 
   const loadDashboardData = useCallback(async () => {
     if (!userId) {
