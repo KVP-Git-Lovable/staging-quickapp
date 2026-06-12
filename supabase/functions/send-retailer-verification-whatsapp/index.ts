@@ -12,21 +12,30 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function normalisePhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const digits = raw.replace(/\D/g, "");
   if (!digits) return null;
-  // Assume India if exactly 10 digits
   if (digits.length === 10) return `+91${digits}`;
   if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
   return `+${digits}`;
 }
 
+function normaliseWhatsAppSender(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let v = raw.trim();
+  if (v.startsWith("whatsapp:")) v = v.slice("whatsapp:".length);
+  const digits = v.replace(/\D/g, "");
+  if (!digits) return null;
+  return `+${digits}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -55,9 +64,15 @@ serve(async (req) => {
       );
     }
 
-    const accountSid = "AC2bed17b2742df7031ebc7de2d726b62f";
+    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    const fromNumber = normaliseWhatsAppSender(
+      Deno.env.get("TWILIO_WHATSAPP_NUMBER") ?? Deno.env.get("TWILIO_FROM_NUMBER")
+    );
+
+    if (!accountSid) throw new Error("TWILIO_ACCOUNT_SID not configured");
     if (!authToken) throw new Error("TWILIO_AUTH_TOKEN not configured");
+    if (!fromNumber) throw new Error("TWILIO_WHATSAPP_NUMBER not configured");
 
     const ownerLabel = retailer.owner_name || retailer.contact_name || "there";
     const body = `Hi ${ownerLabel}, please confirm your shop details:\n\n` +
@@ -70,7 +85,7 @@ serve(async (req) => {
 
     const formBody = new URLSearchParams({
       To: `whatsapp:${phone}`,
-      From: "whatsapp:+917411681616",
+      From: `whatsapp:${fromNumber}`,
       Body: body,
     });
 
@@ -82,7 +97,7 @@ serve(async (req) => {
       },
       body: formBody,
     });
-    const result = await resp.json();
+    const result = await resp.json().catch(() => ({}));
 
     const status = resp.ok ? "sent" : "failed";
     await supabase.from("retailer_verification_requests").insert({
@@ -95,9 +110,10 @@ serve(async (req) => {
 
     if (!resp.ok) {
       console.error("Twilio error:", result);
+      const msg = result?.message || result?.error_message || `Twilio HTTP ${resp.status}`;
       return new Response(
-        JSON.stringify({ success: false, error: result }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: msg, twilio: result }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -109,7 +125,7 @@ serve(async (req) => {
     console.error("send-retailer-verification-whatsapp failed:", err);
     return new Response(
       JSON.stringify({ success: false, error: (err as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
