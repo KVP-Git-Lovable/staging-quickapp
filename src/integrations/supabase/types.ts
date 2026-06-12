@@ -16305,6 +16305,30 @@ export type Database = {
           },
         ]
       }
+      retailer_verification_policy: {
+        Row: {
+          auto_whatsapp_on_create: boolean
+          company_id: string | null
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          auto_whatsapp_on_create?: boolean
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          auto_whatsapp_on_create?: boolean
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       retailer_verification_requests: {
         Row: {
           created_at: string
