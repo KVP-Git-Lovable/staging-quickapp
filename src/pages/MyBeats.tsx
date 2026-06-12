@@ -416,8 +416,8 @@ export const MyBeats = () => {
       const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
       
       // Filter cached beats by selected users
-      const userCachedBeats = cachedBeats.filter((b: any) => 
-        effectiveUserIds.includes(b.user_id ?? b.created_by)
+      const userCachedBeats = cachedBeats.filter((b: any) =>
+        effectiveUserIds.includes(b.user_id)
       );
       
       if (userCachedBeats.length > 0) {
