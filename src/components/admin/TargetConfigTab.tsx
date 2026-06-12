@@ -257,7 +257,7 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   // Sync plan-enabled metrics to local state
   useEffect(() => {
     if (planEnabledMetrics.length > 0) {
-      const ids = new Set(planEnabledMetrics.map(m => m.metric_id));
+      const ids = new Set<string>(planEnabledMetrics.map(m => m.metric_id));
       setEnabledMetricIds(ids);
       const targets: Record<string, number> = {};
       planEnabledMetrics.forEach(m => { targets[m.metric_id] = m.total_target; });
