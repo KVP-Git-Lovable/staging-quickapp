@@ -1289,7 +1289,16 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 </CardContent>
               </Card>
 
+              {/* Customer Portal */}
+              <RetailerCustomerPortalSection
+                retailerId={formData.id}
+                retailerPhone={formData.phone}
+                portalEnabled={(formData as any).portal_enabled}
+                portalPin={(formData as any).portal_pin}
+              />
+
               {/* Distributor Mapping */}
+
               <Card>
                 <CardHeader className="py-2 px-3">
                   <CardTitle className="text-sm flex items-center gap-2"><Building className="h-4 w-4" /> Distributor Mapping</CardTitle>
