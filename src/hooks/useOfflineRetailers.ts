@@ -58,9 +58,12 @@ export function useOfflineRetailers() {
       // STEP 3: Online with good connection - sync in background (non-blocking)
       setTimeout(async () => {
         try {
+          // Sanitize retailerData - remove non-existent columns that might cause sync errors
+          const { quality_status, verification_status, ...sanitizedData } = retailerData;
+          
           const { data, error } = await supabase
             .from('retailers')
-            .insert({ ...retailerData, id: retailerId })
+            .insert({ ...sanitizedData, id: retailerId })
             .select()
             .single();
 
@@ -136,9 +139,12 @@ export function useOfflineRetailers() {
       // STEP 4: Sync in background (non-blocking)
       setTimeout(async () => {
         try {
+          // Sanitize updates - remove non-existent columns
+          const { quality_status, verification_status, ...sanitizedUpdates } = updates;
+          
           const { data, error } = await supabase
             .from('retailers')
-            .update(updates)
+            .update(sanitizedUpdates)
             .eq('id', retailerId)
             .select()
             .single();
