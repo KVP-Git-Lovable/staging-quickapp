@@ -1561,8 +1561,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       // --- Section 1: Business Summary ---
       addSectionHeader('Business Summary');
       addKeyValue('Total Order Value', `₹${businessSummary.totalRevenue.toLocaleString()}`);
-      addKeyValue('Total Quantity (PC)', `${businessSummary.totalPieces.toLocaleString()} PC`);
-      addKeyValue('Total KG', businessSummary.totalKg.toLocaleString());
+      addKeyValue('Total Quantity (KG)', formatKg(businessSummary.totalKg));
       addKeyValue('Total Orders', businessSummary.totalOrders.toLocaleString());
       addKeyValue('Total Beats', businessSummary.totalBeats.toLocaleString());
       addKeyValue('Total Retailers', businessSummary.totalRetailers.toLocaleString());
@@ -1581,7 +1580,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         autoTable(pdf, {
           startY: y,
           margin: { left: margin, right: margin },
-          head: [['#', 'User Name', 'Total PC', 'Total Order Value']],
+          head: [['#', 'User Name', 'Total KG', 'Total Order Value']],
           body: orderTableData,
           styles: { fontSize: 9, cellPadding: 4 },
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -1624,23 +1623,23 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       if (orderIds.length > 0) {
         const { data: items = [] } = await supabase
           .from('order_items')
-          .select('product_name, unit, total')
+          .select('product_name, quantity, unit, total')
           .in('order_id', orderIds);
         allOrderItems = items;
       }
 
-      // Group by product and count items (each row = 1 item/piece)
-      const skuMap = new Map<string, { unit: string; itemCount: number; revenue: number }>();
+      // Group by product and show stored weight quantities as KG.
+      const skuMap = new Map<string, { unit: string; quantityKg: number; revenue: number }>();
       allOrderItems.forEach((item: any) => {
-        const key = `${item.product_name}||${item.unit}`;
+        const key = `${item.product_name}||KG`;
         const existing = skuMap.get(key);
         if (existing) {
-          existing.itemCount += 1; // Count items, not quantities
+          existing.quantityKg += toKgQuantity(item.quantity, item.unit);
           existing.revenue += Number(item.total || 0);
         } else {
           skuMap.set(key, {
-            unit: item.unit || 'PC',
-            itemCount: 1,
+            unit: 'KG',
+            quantityKg: toKgQuantity(item.quantity, item.unit),
             revenue: Number(item.total || 0)
           });
         }
@@ -1650,8 +1649,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         .sort((a, b) => b[1].revenue - a[1].revenue)
         .map(([key, v]) => [
           key.split('||')[0],
-          'PC', // Always show as PC
-          v.itemCount.toString(),
+          v.unit,
+          v.quantityKg.toLocaleString(undefined, { maximumFractionDigits: 2 }),
           `₹${v.revenue.toLocaleString()}`
         ]);
 
