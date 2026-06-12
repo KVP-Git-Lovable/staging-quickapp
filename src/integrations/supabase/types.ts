@@ -16474,7 +16474,6 @@ export type Database = {
           productive_visits_3m: number | null
           qr_upi: string | null
           quality_last_calculated_at: string | null
-          quality_status: string
           retail_type: string | null
           retailer_confirmed: boolean
           shop_front_visible: boolean
@@ -16548,7 +16547,6 @@ export type Database = {
           productive_visits_3m?: number | null
           qr_upi?: string | null
           quality_last_calculated_at?: string | null
-          quality_status?: string
           retail_type?: string | null
           retailer_confirmed?: boolean
           shop_front_visible?: boolean
@@ -16622,7 +16620,6 @@ export type Database = {
           productive_visits_3m?: number | null
           qr_upi?: string | null
           quality_last_calculated_at?: string | null
-          quality_status?: string
           retail_type?: string | null
           retailer_confirmed?: boolean
           shop_front_visible?: boolean
