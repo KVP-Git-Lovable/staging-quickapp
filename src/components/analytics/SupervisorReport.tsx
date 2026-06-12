@@ -1575,7 +1575,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       // --- Section 1: Business Summary ---
       addSectionHeader('Business Summary');
       addKeyValue('Total Order Value', `₹${businessSummary.totalRevenue.toLocaleString()}`);
-      addKeyValue('Total Quantity (KG)', formatKg(businessSummary.totalKg));
+      addKeyValue('Total Quantity (PCs)', formatKg(businessSummary.totalKg));
       addKeyValue('Total Orders', businessSummary.totalOrders.toLocaleString());
       addKeyValue('Total Beats', businessSummary.totalBeats.toLocaleString());
       addKeyValue('Total Retailers', businessSummary.totalRetailers.toLocaleString());
