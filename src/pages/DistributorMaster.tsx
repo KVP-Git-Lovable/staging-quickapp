@@ -151,7 +151,8 @@ export default function DistributorMaster() {
         d.contact_person?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         d.phone?.includes(searchQuery);
       const matchesStatus = statusFilter === "all" || d.status === statusFilter;
-      return matchesType && matchesSearch && matchesStatus;
+      const matchesHidden = showHidden ? true : !hiddenIds.has(d.id);
+      return matchesType && matchesSearch && matchesStatus && matchesHidden;
     });
   };
 
