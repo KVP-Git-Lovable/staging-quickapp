@@ -1195,7 +1195,18 @@ export default function RetailManagement() {
                 </div>
               </>
             )}
+
+            {selectedRetailer && (
+              <RetailerCustomerPortalSection
+                retailerId={selectedRetailer.id}
+                retailerPhone={selectedRetailer.phone}
+                portalEnabled={selectedRetailer.portal_enabled ?? false}
+                portalPin={selectedRetailer.portal_pin ?? null}
+                onPortalUpdate={loadRetailers}
+              />
+            )}
           </div>
+          
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setVerifyDialogOpen(false)}>
