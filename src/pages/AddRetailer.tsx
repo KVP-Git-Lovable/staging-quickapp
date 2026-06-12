@@ -910,30 +910,38 @@ export const AddRetailer = () => {
       payload.owner_name = selectedOwnerName || (isOwnBeat ? null : beatOwnerName);
       payload.status = 'active';
       
+      // SIMPLE FLOW: Retailer starts unverified, waiting for WhatsApp confirmation
+      payload.retailer_confirmed = false;  // Waiting for WhatsApp confirmation
+      payload.verified = false;             // Not verified yet
+      payload.verification_method = null;   // Will be set to 'whatsapp' when customer confirms
+      
       const result = await createRetailer(payload);
       setIsSaving(false);
 
-      // Fire WhatsApp verification + welcome triggers when newly created online
-      if (!isEditMode && result.success && !result.offline && result.data?.id && payload.phone) {
+      // Send WhatsApp verification immediately when newly created
+      if (!isEditMode && result.success && result.data?.id && payload.phone) {
         try {
           const { maybeTriggerWhatsAppVerification } = await import('@/utils/retailerVerificationTrigger');
           maybeTriggerWhatsAppVerification(result.data.id, payload.phone);
-          const { sendRetailerWelcomeWhatsApp } = await import('@/utils/retailerWelcomeWhatsAppTrigger');
-          sendRetailerWelcomeWhatsApp(result.data.id, payload.phone);
         } catch (e) {
-          console.warn('[AddRetailer] WhatsApp trigger failed:', e);
+          console.warn('[AddRetailer] WhatsApp trigger failed or queued:', e);
         }
       }
 
 
       if (result.success) {
-        const message = result.offline 
-          ? `${retailerData.name} saved offline. Will sync when online.`
-          : `${retailerData.name} saved successfully.`;
+        // SIMPLE FLOW: Show "Waiting for customer confirmation" message
+        let title = 'Retailer Created';
+        let description = `${retailerData.name} created. WhatsApp message sent - waiting for customer confirmation...`;
+        
+        if (result.offline) {
+          title = 'Retailer Saved Offline';
+          description = `${retailerData.name} saved offline. WhatsApp will be sent when online.`;
+        }
         
         toast({ 
-          title: result.offline ? 'Retailer Saved Offline' : 'Retailer Added', 
-          description: message,
+          title,
+          description,
           action: result.offline ? <WifiOff className="h-4 w-4" /> : undefined
         });
         
