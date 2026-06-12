@@ -1,113 +1,38 @@
+# Bring back "Initiate Customer Portal" in Retail Management
 
-## Goal
-Let the existing Bolna agent (Tanipriya, +918031151880) verify retailers by phone during an outbound call: fetch details → read them aloud → on "yes/confirm/correct" set `verified = true`.
+## What we're porting
 
-## Schema note (verified via DB)
-The `retailers` table uses `phone` (not `phone_number`). The function will accept `phone_number` in the request body per the spec but query the `phone` column internally, with the same E.164/last-10-digit fallback used by `_shared/bolna.ts` so it tolerates mixed stored formats.
+The exact feature already built in your `Nayak Distributors Test2` project: a "Customer Portal" card on the retailer detail view with:
 
-## 1. New edge function: `supabase/functions/verify-retailer-call/index.ts`
+- Status badge (Active / Inactive)
+- Portal Orders count + Last Portal Order summary
+- Login phone + 4-digit PIN (with copy button) when active
+- Buttons: **Initiate Customer Portal**, **Reset PIN**, **Deactivate**
+- "Open Portal" link to `/customer-portal/login` (opens in new tab)
 
-- Public (no JWT) — added to `supabase/config.toml` as `[functions.verify-retailer-call] verify_jwt = false`, matching the other Bolna voice functions.
-- CORS via the shared `corsHeaders` from `_shared/bolna.ts`.
-- Uses `SUPABASE_SERVICE_ROLE_KEY` so it can update `verified` regardless of RLS.
-- Parses Bolna's wrapped payload shapes using the existing `parseBolnaPayload` helper.
+State is stored on the existing `retailers` table via `portal_enabled` (boolean) and `portal_pin` (text). Both columns already exist in this project's DB — confirmed — so no migration is needed.
 
-Body contract:
-```json
-{ "phone_number": "+919741435887", "action": "fetch" | "confirm" }
-```
+## Files to add / change
 
-Behavior:
-- `action: "fetch"` → look up retailer with phone normalization (E.164, `+91`, `91`, last-10 ilike fallback). Returns:
-  ```json
-  { "success": true, "retailer": { "id", "name", "address", "phone_number", "verified" } }
-  ```
-  If not found → `{ "success": false, "not_found": true, "message": "We could not locate your retailer information. Please contact support." }`
-- `action: "confirm"` → same lookup, then `update({ verified: true }).eq('id', retailer.id)`. Returns:
-  ```json
-  { "success": true, "message": "Retailer verified successfully" }
-  ```
-- Invalid/missing action or phone → `{ success: false, error: "..." }` with HTTP 200 (Bolna-friendly).
-- All responses HTTP 200 with JSON; errors logged via `console.error`.
+1. **NEW** `src/components/retailer/RetailerCustomerPortalSection.tsx`
+  Port the component verbatim from the other project (300 lines, self-contained, uses only shadcn UI + supabase client + sonner/toast). Reads/writes `retailers.portal_enabled`, `retailers.portal_pin`, and counts `orders` where `order_source = 'portal_order'`.
+2. **EDIT** `src/pages/RetailManagement.tsx`
+  In the retailer detail dialog (the dialog opened by clicking a row name / Edit), mount `<RetailerCustomerPortalSection retailerId={selected.id} retailerPhone={selected.phone} portalEnabled={selected.portal_enabled} portalPin={selected.portal_pin} onPortalUpdate={loadRetailers} />` inside the dialog body, near the verification card. No other UI on the page changes.
+3. **EDIT** `src/pages/RetailManagement.tsx` select list
+  The current fetch is `select('*')`, so `portal_enabled` and `portal_pin` already come through — no query change needed. Just thread them onto the `Retailer` type used in that file.
 
-No DB migration needed — `phone` and `verified` already exist.
+## Out of scope
 
-## 2. Bolna custom-tool JSON (deliverable to paste into Bolna dashboard)
+- No changes to `VirtualizedRetailerTable.tsx` row actions (no per-row globe button this round — the action lives inside the detail dialog, matching the other project).
+- No edits to `RetailerDetailModal.tsx`. Retail Management uses its own dialog; we mount the section there only.
+- No new edge functions, no migrations, no RLS changes, no WhatsApp / Bolna / distributor-portal work.
+- Customer portal pages themselves are not built here — the "Open Portal" link points at `/customer-portal/login` which is hosted in the separate Nayak project (same pattern as the source project).  
+4.No change to existing WhatsApp or Bolna flow.
 
-Two tools, both using the exact wrapper format requested:
+## Verification
 
-### Tool A — `fetch_retailer`
-```json
-{
-  "name": "fetch_retailer",
-  "description": "Fetch retailer details from Supabase using the caller's phone number. Call this first, then read the returned name, address and phone number to the retailer and ask them to confirm.",
-  "pre_call_message": "Let me pull up your retailer details.",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "phone_number": { "type": "string", "description": "Caller phone in E.164, e.g. +919741435887" }
-    },
-    "required": ["phone_number"]
-  },
-  "key": "custom_task",
-  "value": {
-    "method": "POST",
-    "param": { "phone_number": "{{phone_number}}", "action": "fetch" },
-    "url": "https://aoxdosjkwqyuvccuwhzc.supabase.co/functions/v1/verify-retailer-call",
-    "api_token": null,
-    "headers": {
-      "Content-Type": "application/json",
-      "apikey": "<VITE_SUPABASE_PUBLISHABLE_KEY>"
-    }
-  }
-}
-```
-
-### Tool B — `confirm_retailer`
-```json
-{
-  "name": "confirm_retailer",
-  "description": "Mark the retailer as verified after they say yes / confirm / correct to the read-back details.",
-  "pre_call_message": "Confirming your details now.",
-  "parameters": {
-    "type": "object",
-    "properties": {
-      "phone_number": { "type": "string" }
-    },
-    "required": ["phone_number"]
-  },
-  "key": "custom_task",
-  "value": {
-    "method": "POST",
-    "param": { "phone_number": "{{phone_number}}", "action": "confirm" },
-    "url": "https://aoxdosjkwqyuvccuwhzc.supabase.co/functions/v1/verify-retailer-call",
-    "api_token": null,
-    "headers": {
-      "Content-Type": "application/json",
-      "apikey": "<VITE_SUPABASE_PUBLISHABLE_KEY>"
-    }
-  }
-}
-```
-
-(The anon key is already publishable and lives in `.env`; I'll paste the literal value into the JSON delivered to you so it's ready to drop into Bolna.)
-
-## 3. Bolna agent prompt snippet (deliverable)
-
-Script to paste into the Tanipriya agent's system prompt:
-
-> When the call connects, call `fetch_retailer` with the caller's phone.
-> - If `success` is false / `not_found`: say "We could not locate your retailer information. Please contact support." then end.
-> - Otherwise say: "Please confirm your retailer details. Your store name is {{name}}. Your address is {{address}}. Your registered phone number is {{phone_number}}. Are these details correct?"
-> - If the retailer says yes / confirm / correct / right / haan / sahi → call `confirm_retailer`, then say "Thank you, your details are now verified."
-> - If they say no / wrong / galat → ask "Please tell us what is incorrect and our representative will contact you." then end.
-
-## 4. Out of scope (not touched)
-- No UI changes.
-- No changes to `bolna-outbound-call`, WhatsApp flows, or any other function.
-- No schema migration.
-
-## Deliverables after approval
-1. `supabase/functions/verify-retailer-call/index.ts`
-2. `supabase/config.toml` entry for `verify_jwt = false`
-3. The two ready-to-paste Bolna tool JSON blobs (with the actual anon key filled in) + the agent prompt snippet, posted in chat.
+1. Open Retail Management → click a retailer with a phone → detail dialog shows the new "Customer Portal" card with badge "Inactive" and an "Initiate Customer Portal" button.
+2. Click Initiate → PIN appears, badge flips to Active, toast shows the PIN, `retailers.portal_enabled=true` in DB.
+3. Reset PIN updates `portal_pin` and shows new PIN. Deactivate clears both.
+4. For a retailer with no phone, Initiate button is disabled and helper text shows.
+5. Portal Orders count reflects `orders.order_source = 'portal_order'` rows for that retailer.

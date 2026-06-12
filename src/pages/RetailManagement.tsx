@@ -25,6 +25,7 @@ import { PaginationControls } from "@/components/ui/PaginationControls";
 import { ApprovalChecklistDialog } from "@/components/retailer/ApprovalChecklistDialog";
 import { VerifiedTick } from "@/components/retailer/VerifiedTick";
 import { VerificationPolicyCard } from "@/components/retailer/VerificationPolicyCard";
+import { RetailerCustomerPortalSection } from "@/components/retailer/RetailerCustomerPortalSection";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { RetailerExportDialog } from "@/components/RetailerExportDialog";
@@ -98,6 +99,8 @@ interface Retailer {
   latitude?: number | null;
   longitude?: number | null;
   whatsapp_verified?: boolean | null;
+  portal_enabled?: boolean | null;
+  portal_pin?: string | null;
   gst_number?: string | null;
 }
 
@@ -1109,7 +1112,7 @@ export default function RetailManagement() {
 
       {/* Verification Dialog */}
       <Dialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Verify Retailer</DialogTitle>
             <DialogDescription>
@@ -1192,7 +1195,18 @@ export default function RetailManagement() {
                 </div>
               </>
             )}
+
+            {selectedRetailer && (
+              <RetailerCustomerPortalSection
+                retailerId={selectedRetailer.id}
+                retailerPhone={selectedRetailer.phone}
+                portalEnabled={selectedRetailer.portal_enabled ?? false}
+                portalPin={selectedRetailer.portal_pin ?? null}
+                onPortalUpdate={loadData}
+              />
+            )}
           </div>
+          
           
           <DialogFooter>
             <Button variant="outline" onClick={() => setVerifyDialogOpen(false)}>

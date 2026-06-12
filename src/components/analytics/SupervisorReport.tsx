@@ -754,7 +754,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         beats: totalBeatsCreated,
         products: totalProductsSold, // Use RPC result count
         totalKg: Math.round(totalQuantityKgFromRpc * 100) / 100, // Use RPC calculated KG, round to 2 decimals
-        productivityPercent
+        productivityPercent,
+        quantityByUnit: {},
       });
     } catch (error) {
       console.error('Error fetching user details:', error);
@@ -816,7 +817,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           retailers: retailersCount || 0,
           beats: beatsCount || 0,
           products: 0,
-          totalKg: 0
+          totalKg: 0,
+          quantityByUnit: {},
         });
         return;
       }
