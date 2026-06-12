@@ -343,7 +343,7 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                         </Pie>
                         <Tooltip 
                           formatter={(value: number, name: string, props: any) => [
-                            `${value.toFixed(2)} KG | ₹${props.payload.revenue.toLocaleString()}`,
+                            `${value.toFixed(2)} PCs | ₹${props.payload.revenue.toLocaleString()}`,
                             props.payload.fullName
                           ]}
                         />
