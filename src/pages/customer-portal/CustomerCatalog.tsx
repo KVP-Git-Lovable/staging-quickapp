@@ -254,9 +254,32 @@ const CustomerCatalog = () => {
 
   const { data: priceBookId } = useRetailerPriceBook(retailer.distributor_id);
 
+  // Fetch the globally enabled sales units from the Unit of Measure Master.
+  // The customer portal should only display units that are actually enabled.
+  const { data: enabledUnits = [] } = useQuery({
+    queryKey: ['enabled-sales-units'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('enabled_units')
+        .select('uom_id, is_default_sales, is_default, display_order, uom_master:uom_master!enabled_units_uom_id_fkey(code, name)')
+        .eq('enabled', true)
+        .order('display_order', { ascending: true });
+      if (error) throw error;
+      return (data || []) as any[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Pick the single active display unit: default-sales > default > first enabled.
+  const activeUnitCode = useMemo(() => {
+    if (!enabledUnits.length) return null;
+    const def = enabledUnits.find((u: any) => u.is_default_sales) || enabledUnits.find((u: any) => u.is_default) || enabledUnits[0];
+    return (def?.uom_master?.code || def?.uom_master?.name || null) as string | null;
+  }, [enabledUnits]);
+
   // Fetch products for selected category
   const { data: products = [], isLoading: productsLoading } = useQuery({
-    queryKey: ['catalog-products', selectedCategory],
+    queryKey: ['catalog-products', selectedCategory, activeUnitCode],
     queryFn: async () => {
       const pageSize = 1000;
       let from = 0;
@@ -283,14 +306,16 @@ const CustomerCatalog = () => {
         name: p.name,
         sku: p.sku || p.product_number || undefined,
         rate: Number(p.rate ?? 0),
-        // Prefer the active UOM mapped via Unit of Measure Master; fall back to legacy `unit` text.
-        unit: p.default_sales_uom?.code || p.default_sales_uom?.name || p.unit || 'pc',
+        // Always prefer the globally enabled unit from the Unit of Measure Master.
+        // Fall back to the product's default sales UOM, then legacy `unit` text.
+        unit: activeUnitCode || p.default_sales_uom?.code || p.default_sales_uom?.name || p.unit || 'pc',
         category_id: p.category_id || undefined,
         closing_stock: Number(p.closing_stock ?? 0),
       })) as Product[];
     },
     staleTime: 2 * 60 * 1000,
   });
+
 
   // Price book entries for all loaded products
   const productIds = useMemo(() => products.map(p => p.id), [products]);
