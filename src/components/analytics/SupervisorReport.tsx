@@ -1941,25 +1941,31 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                  <p className="text-xl md:text-3xl lg:text-4xl font-bold">
                    {businessSummary.quantityByUnit && Object.keys(businessSummary.quantityByUnit).length > 0
                      ? (() => {
-                         // Get all units and their quantities
-                         const unitEntries = Object.entries(businessSummary.quantityByUnit)
-                           .sort(([, a], [, b]) => (b as number) - (a as number)); // Sort by quantity desc
+                         // Only show piece/pc units, ignore weight units (Grams, KG, etc)
+                         const pieceUnits: [string, number][] = [];
                          
-                         // If we have multiple units, show all; if one unit, just show that
-                         if (unitEntries.length === 1) {
-                           const [unit, qty] = unitEntries[0];
-                           return `${(qty as number).toFixed(1)} ${unit}`;
-                         } else {
-                           // Show primary unit (highest quantity) prominently
-                           const primaryUnit = unitEntries[0];
-                           const primaryDisplay = `${(primaryUnit[1] as number).toFixed(1)} ${primaryUnit[0]}`;
-                           const otherUnits = unitEntries.slice(1)
-                             .map(([unit, qty]) => `${(qty as number).toFixed(1)} ${unit}`)
+                         Object.entries(businessSummary.quantityByUnit).forEach(([unit, qty]) => {
+                           const unitLower = unit.toLowerCase();
+                           // Only include piece/pc units
+                           if (unitLower === 'piece' || unitLower === 'pc' || unitLower === 'pcs') {
+                             pieceUnits.push([unit, qty as number]);
+                           }
+                         });
+                         
+                         // If we have piece units, show them
+                         if (pieceUnits.length > 0) {
+                           return pieceUnits
+                             .sort(([, a], [, b]) => b - a)
+                             .map(([unit, qty]) => `${(qty as number).toFixed(0)} PC`)
                              .join(' + ');
-                           return `${primaryDisplay}${otherUnits ? ' + ' + otherUnits : ''}`;
+                         } else {
+                           // Fallback: use total pieces from calculation
+                           return businessSummary.totalPieces > 0 
+                             ? `${businessSummary.totalPieces} PC` 
+                             : 'No Data';
                          }
                        })()
-                     : `${businessSummary.totalKg.toFixed(1)} KG`
+                     : `${businessSummary.totalPieces > 0 ? businessSummary.totalPieces + ' PC' : 'No Data'}`
                    }
                  </p>
                  <p className="text-[8px] md:text-xs opacity-75 mt-0.5 md:mt-1">
