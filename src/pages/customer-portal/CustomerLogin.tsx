@@ -135,41 +135,24 @@ const CustomerLogin = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('retailers')
-        .select('id, name, phone, address, beat_id, territory_id, distributor_id, owner_id, parent_name, portal_enabled')
-        .in('phone', phoneVariants)
-        .eq('portal_enabled', true)
-        .order('name', { ascending: true });
+      const { data, error } = await (supabase as any)
+        .rpc('portal_login_by_phone', { p_phone: cleanPhone });
 
       if (error) throw error;
 
-      if (!data || data.length === 0) {
-        const { data: existingRetailer, error: lookupError } = await supabase
-          .from('retailers')
-          .select('id')
-          .in('phone', phoneVariants)
-          .limit(1)
-          .maybeSingle();
-
-        if (lookupError) throw lookupError;
-
-        if (existingRetailer) {
-          toast.error('Customer Portal access is not enabled for this retailer. Please contact your admin.');
-          return;
-        }
-
+      const rows = (data as any[]) || [];
+      if (rows.length === 0) {
         toast.error('Phone number not found. Please use your registered number.');
         return;
       }
 
-      if (data.length === 1) {
-        await finalizeLogin(data[0] as RetailerChoice, cleanPhone);
+      if (rows.length === 1) {
+        await finalizeLogin(rows[0] as RetailerChoice, cleanPhone);
         return;
       }
 
-      // Multiple portal-enabled retailers share this phone — prompt user to pick
-      setChoices(data as RetailerChoice[]);
+      // Multiple retailers share this phone — prompt user to pick
+      setChoices(rows as RetailerChoice[]);
     } catch (err: any) {
       console.error('Login error:', err);
       toast.error('Something went wrong. Please try again.');
