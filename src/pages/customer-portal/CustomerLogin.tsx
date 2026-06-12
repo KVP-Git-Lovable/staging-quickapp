@@ -25,6 +25,8 @@ const CustomerLogin = () => {
   const [loading, setLoading] = useState(false);
   const [choices, setChoices] = useState<RetailerChoice[]>([]);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const autoTriedRef = useRef(false);
 
   // Safety net: clear stale SW caches on first portal load
   useEffect(() => {
