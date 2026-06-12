@@ -27,6 +27,7 @@ import { PaymentMarkingModal } from "./PaymentMarkingModal";
 import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
 import { VanSalesModal } from "./VanSalesModal";
 import { useVanSales } from "@/hooks/useVanSales";
+import { usePermissions } from "@/hooks/usePermissions";
 import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
 import { hasRecentUploadErrors, hasRecentUploadAttempts } from "@/utils/uploadErrorChecker";
 import { CameraCapture } from "./CameraCapture";
