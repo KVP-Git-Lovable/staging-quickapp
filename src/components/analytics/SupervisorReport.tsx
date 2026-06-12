@@ -1941,10 +1941,23 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                  <p className="text-xl md:text-3xl lg:text-4xl font-bold">
                    {businessSummary.quantityByUnit && Object.keys(businessSummary.quantityByUnit).length > 0
                      ? (() => {
-                         const units = Object.entries(businessSummary.quantityByUnit)
-                           .map(([unit, qty]) => `${(qty as number).toFixed(1)} ${unit}`)
-                           .join(' + ');
-                         return units;
+                         // Get all units and their quantities
+                         const unitEntries = Object.entries(businessSummary.quantityByUnit)
+                           .sort(([, a], [, b]) => (b as number) - (a as number)); // Sort by quantity desc
+                         
+                         // If we have multiple units, show all; if one unit, just show that
+                         if (unitEntries.length === 1) {
+                           const [unit, qty] = unitEntries[0];
+                           return `${(qty as number).toFixed(1)} ${unit}`;
+                         } else {
+                           // Show primary unit (highest quantity) prominently
+                           const primaryUnit = unitEntries[0];
+                           const primaryDisplay = `${(primaryUnit[1] as number).toFixed(1)} ${primaryUnit[0]}`;
+                           const otherUnits = unitEntries.slice(1)
+                             .map(([unit, qty]) => `${(qty as number).toFixed(1)} ${unit}`)
+                             .join(' + ');
+                           return `${primaryDisplay}${otherUnits ? ' + ' + otherUnits : ''}`;
+                         }
                        })()
                      : `${businessSummary.totalKg.toFixed(1)} KG`
                    }

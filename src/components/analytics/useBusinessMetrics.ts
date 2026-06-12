@@ -10,6 +10,7 @@ interface BusinessSummary {
   totalPieces: number;
   totalRevenue: number;
   pendingPayments: number;
+  quantityByUnit: { [unit: string]: number }; // Track quantities by actual unit
 }
 
 interface BeatDetail {
@@ -60,7 +61,8 @@ export const useBusinessMetrics = () => {
     totalKg: 0,
     totalPieces: 0,
     totalRevenue: 0,
-    pendingPayments: 0
+    pendingPayments: 0,
+    quantityByUnit: {}
   });
   const [isLoading, setIsLoading] = useState(false);
   
@@ -182,6 +184,7 @@ export const useBusinessMetrics = () => {
       let totalPieces = 0;
       let rpcTotalRevenue = 0;
       let useRpcRevenue = false;
+      const quantityByUnit: { [unit: string]: number } = {};
       
       // If user names are provided, use the RPC to get product revenue data
       if (userNames && userNames.length > 0) {
@@ -196,11 +199,16 @@ export const useBusinessMetrics = () => {
           if (productData) {
             productData.forEach((row: any) => {
               const qty = Number(row.quantity_sold || 0);
-              const unit = (row.unit || '').toLowerCase().trim();
+              const unit = (row.unit || 'Unknown').trim();
+              
+              // Track quantity by actual unit
+              quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
+              
               // Same logic as SQL Report: only convert weight-based units to KG
-              if (unit === 'kg' || unit.includes('kilo')) {
+              const unitLower = unit.toLowerCase();
+              if (unitLower === 'kg' || unitLower.includes('kilo')) {
                 totalKg += qty;
-              } else if (unit === 'grams' || unit === 'gram' || unit === 'g') {
+              } else if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') {
                 totalKg += qty / 1000;
               }
               // Ignore pieces/pcs - not included in KG calculation
@@ -213,12 +221,16 @@ export const useBusinessMetrics = () => {
         // Fallback: use order_items directly
         orders?.forEach(order => {
           (order.order_items as any[])?.forEach((item: any) => {
-            const unit = (item.unit || '').toLowerCase().trim();
+            const unit = (item.unit || 'Unknown').trim();
             const qty = Number(item.quantity || 0);
             
-            if (unit === 'kg' || unit.includes('kilo')) {
+            // Track quantity by actual unit
+            quantityByUnit[unit] = (quantityByUnit[unit] || 0) + qty;
+            
+            const unitLower = unit.toLowerCase();
+            if (unitLower === 'kg' || unitLower.includes('kilo')) {
               totalKg += qty;
-            } else if (unit === 'grams' || unit === 'g' || unit === 'gram') {
+            } else if (unitLower === 'grams' || unitLower === 'g' || unitLower === 'gram') {
               totalKg += qty / 1000;
             } else {
               totalPieces += qty;
@@ -237,7 +249,8 @@ export const useBusinessMetrics = () => {
         totalKg,
         totalPieces,
         totalRevenue: finalRevenue,
-        pendingPayments
+        pendingPayments,
+        quantityByUnit
       });
     } catch (error) {
       console.error('Error fetching business summary:', error);
