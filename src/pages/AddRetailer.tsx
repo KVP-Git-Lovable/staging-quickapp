@@ -225,7 +225,10 @@ export const AddRetailer = () => {
       console.log('[AddRetailer Cache-First] Total cached beats:', cachedBeats.length);
       
       // Include both owned beats and beats shared/covering this user
-      const userBeats = cachedBeats.filter((beat: any) => beat.is_active);
+      const userBeats = cachedBeats.filter((beat: any) =>
+        beat.is_active !== false &&
+        (beat.user_id === user.id || beat.access_type)
+      );
 
       if (userBeats.length > 0) {
         const mappedBeats = userBeats.map((beat: any) => ({
