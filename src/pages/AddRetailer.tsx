@@ -259,7 +259,7 @@ export const AddRetailer = () => {
           supabase
             .from('beats')
             .select('beat_id, beat_name, user_id, created_by, owner_name, is_active, id')
-            .eq('created_by', user.id)
+            .eq('user_id', user.id)
             .eq('is_active', true),
           supabase
             .from('beat_user_access')
