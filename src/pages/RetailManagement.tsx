@@ -1112,7 +1112,7 @@ export default function RetailManagement() {
 
       {/* Verification Dialog */}
       <Dialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Verify Retailer</DialogTitle>
             <DialogDescription>
