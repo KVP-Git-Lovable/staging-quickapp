@@ -24,6 +24,7 @@ import { useOfflineRetailers } from "@/hooks/useOfflineRetailers";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
+import { useCompanyData } from "@/hooks/useCompanyData";
 
 export const AddRetailer = () => {
   const { t } = useTranslation();
