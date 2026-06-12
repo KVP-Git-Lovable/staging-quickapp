@@ -197,6 +197,13 @@ export function useMasterDataCache() {
     try {
       onProgress?.('retailers', 'loading');
       console.log('[Cache] Syncing retailers...');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id || session.user.id !== user.id) {
+        console.warn('[Cache] Skipping retailers sync — session not ready / user changed');
+        onProgress?.('retailers', 'error');
+        return;
+      }
       
       const { data: retailers, error } = await supabase
         .from('retailers')
@@ -211,8 +218,13 @@ export function useMasterDataCache() {
         console.log(`[Cache] ✅ ${retailers.length} retailers cached`);
       }
       onProgress?.('retailers', 'done');
-    } catch (error) {
-      console.error('[Cache] Error caching retailers, keeping existing cache:', error);
+    } catch (error: any) {
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on retailers — clearing stale cache');
+        await offlineStorage.clear(STORES.RETAILERS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching retailers, keeping existing cache:', error);
+      }
       onProgress?.('retailers', 'error');
     }
   }, [user]);
