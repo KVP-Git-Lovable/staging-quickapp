@@ -1124,12 +1124,12 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
     // Fetch orders with order_items for confirmed orders
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
-      .select('id, created_at')
+      .select('id, order_date, total_amount')
       .eq('user_id', userProfile.id)
       .eq('status', 'confirmed')
-      .gte('created_at', `${fromDate}T00:00:00`)
-      .lt('created_at', `${format(new Date(new Date(toDate).getTime() + 86400000), 'yyyy-MM-dd')}T00:00:00`)
-      .order('created_at', { ascending: true });
+      .gte('order_date', fromDate)
+      .lte('order_date', toDate)
+      .order('order_date', { ascending: true });
 
     if (ordersError || !orders || orders.length === 0) {
       setProductKgList([]);
@@ -1149,16 +1149,23 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       return;
     }
 
-    // Create a map of order_id to created_at date
+    // Create a map of order_id to order_date and revenue from the order header
     const orderDateMap: Record<string, string> = {};
     orders.forEach(o => {
-      orderDateMap[o.id] = format(new Date(o.created_at), 'yyyy-MM-dd');
+      orderDateMap[o.id] = o.order_date;
     });
 
     // Group by date
     const dateGroups: Record<string, { quantity_kg: number; revenue: number }> = {};
     let grandTotalKg = 0;
-    let grandTotalRevenue = 0;
+    let grandTotalRevenue = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+
+    orders.forEach(o => {
+      if (!dateGroups[o.order_date]) {
+        dateGroups[o.order_date] = { quantity_kg: 0, revenue: 0 };
+      }
+      dateGroups[o.order_date].revenue += Number(o.total_amount || 0);
+    });
 
     orderItems.forEach(item => {
       const dateKey = orderDateMap[item.order_id];
@@ -1168,20 +1175,10 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         dateGroups[dateKey] = { quantity_kg: 0, revenue: 0 };
       }
 
-      const qty = Number(item.quantity || 0);
-      const unit = (item.unit || '').toLowerCase();
-      let kg = 0;
-
-      if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-        kg = qty / 1000;
-      } else {
-        kg = qty;
-      }
+      const kg = toKgQuantity(item.quantity, item.unit);
 
       dateGroups[dateKey].quantity_kg += kg;
-      dateGroups[dateKey].revenue += Number(item.total || 0);
       grandTotalKg += kg;
-      grandTotalRevenue += Number(item.total || 0);
     });
 
     // Convert to array and add total row
