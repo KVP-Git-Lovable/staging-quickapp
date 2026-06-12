@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useUnitMaster } from "@/hooks/useUnitMaster";
 
 interface EditOrderDialogProps {
   orderId: string;
@@ -37,6 +38,9 @@ export default function EditOrderDialog({ orderId, retailerName, open, onOpenCha
   const [orderData, setOrderData] = useState<any>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [orderDiscount, setOrderDiscount] = useState(0);
+  
+  // Fetch units from uom_master
+  const { units } = useUnitMaster();
 
   useEffect(() => {
     if (open && orderId) {
@@ -345,14 +349,11 @@ export default function EditOrderDialog({ orderId, retailerName, open, onOpenCha
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Piece">Piece</SelectItem>
-                                <SelectItem value="KG">KG</SelectItem>
-                                <SelectItem value="Gram">Gram</SelectItem>
-                                <SelectItem value="Liter">Liter</SelectItem>
-                                <SelectItem value="ML">ML</SelectItem>
-                                <SelectItem value="Box">Box</SelectItem>
-                                <SelectItem value="Case">Case</SelectItem>
-                                <SelectItem value="Pack">Pack</SelectItem>
+                                {units.map((u) => (
+                                  <SelectItem key={u.id} value={u.name}>
+                                    {u.name} ({u.code})
+                                  </SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </TableCell>

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { useUnitMaster } from "@/hooks/useUnitMaster";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -132,6 +133,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
   const [orderRows, setOrderRows] = useState<OrderRow[]>(getInitialOrderRows);
   const [hasInitialized, setHasInitialized] = useState(false);
+  
+  // Fetch units from uom_master
+  const { units } = useUnitMaster();
   
   // Use ref to always have access to the latest orderRows for addToCart
   const orderRowsRef = useRef<OrderRow[]>(orderRows);
@@ -1148,8 +1152,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                           <SelectValue placeholder="Unit" />
                         </SelectTrigger>
                         <SelectContent className="bg-background z-50">
-                          <SelectItem value="KG" className="text-xs md:text-sm">KG</SelectItem>
-                          <SelectItem value="Grams" className="text-xs md:text-sm">Grams</SelectItem>
+                          {units.map((u) => (
+                            <SelectItem key={u.id} value={u.name} className="text-xs md:text-sm">
+                              {u.name} ({u.code})
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
