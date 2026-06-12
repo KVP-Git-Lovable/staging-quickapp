@@ -571,7 +571,7 @@ export const BeatDetail = () => {
         .from('beats')
         .select('beat_id, beat_name')
         .eq('is_active', true)
-        .eq('created_by', user.id)
+        .eq('user_id', user.id)
         .neq('beat_id', beatData.beat_id);
 
       if (allBeats) {
