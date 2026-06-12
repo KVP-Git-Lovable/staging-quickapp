@@ -356,7 +356,7 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                         <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
                         <Tooltip 
                           formatter={(value: number, name: string, props: any) => [
-                            `${value.toFixed(2)} KG | ₹${props.payload.revenue.toLocaleString()}`,
+                            `${value.toFixed(2)} PCs | ₹${props.payload.revenue.toLocaleString()}`,
                             props.payload.fullName
                           ]}
                         />
