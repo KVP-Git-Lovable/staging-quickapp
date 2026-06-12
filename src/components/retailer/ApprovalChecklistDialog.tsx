@@ -159,12 +159,12 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
 
   const auto = useMemo(() => (retailer ? computeSignals(retailer) : null), [retailer]);
 
-  // Manual-only verification: DB data is evidence, NOT auto-verified.
-  // The approver must explicitly tick each box.
+  // Show actual DB verification_score if it exists (e.g., from WhatsApp verification)
+  // Allow manual verification to increment further by ticking boxes
   const signals = useMemo(() => {
     if (!auto) return null;
     const merged: Record<SignalKey, boolean> = { ...manual };
-    const score =
+    const manualScore =
       (merged.name ? WEIGHTS.name : 0) +
       (merged.phone ? WEIGHTS.phone : 0) +
       (merged.address ? WEIGHTS.address : 0) +
@@ -172,8 +172,14 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
       (merged.whatsapp ? WEIGHTS.whatsapp : 0) +
       (merged.photo ? WEIGHTS.photo : 0) +
       (merged.gst ? WEIGHTS.gst : 0);
-    return { ...merged, score };
-  }, [auto, manual]);
+    
+    // Use stored verification_score from DB if it exists (from WhatsApp, etc)
+    // Allow manual verification to increase it further
+    const baseScore = retailer.verification_score ?? 0;
+    const totalScore = Math.max(baseScore, manualScore);
+    
+    return { ...merged, score: totalScore, baseScore, manualScore };
+  }, [auto, manual, retailer]);
 
   if (!retailer || !signals || !auto) return null;
   const status = statusFromScore(signals.score);
@@ -301,7 +307,10 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
                   />
                 </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">
-                  Core 80% = Name · Phone · Address · GPS. WhatsApp / Photo / GST contribute the remaining 20%.
+                  {signals.baseScore > 0 
+                    ? `Current: ${signals.baseScore}% (verified via WhatsApp/system). Tick boxes to increase further.`
+                    : `Core 80% = Name · Phone · Address · GPS. WhatsApp / Photo / GST contribute the remaining 20%.`
+                  }
                 </p>
               </div>
               <div className="text-right text-xs space-y-1 shrink-0">
