@@ -308,8 +308,13 @@ export function useMasterDataCache() {
       }
       onProgress?.('visits', 'done');
       return visits?.length || 0;
-    } catch (error) {
-      console.error('[Cache] Error caching visits:', error);
+    } catch (error: any) {
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on visits — clearing stale cache');
+        await offlineStorage.clear(STORES.VISITS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching visits:', error);
+      }
       onProgress?.('visits', 'error');
       return 0;
     }
