@@ -1926,8 +1926,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                <div>
                  <p className="text-[10px] md:text-sm opacity-90">Total Quantity</p>
                  <p className="text-xl md:text-3xl lg:text-4xl font-bold">
-                   {businessSummary.totalPieces > 0
-                     ? `${businessSummary.totalPieces} PC`
+                    {businessSummary.totalKg > 0
+                      ? formatKg(businessSummary.totalKg)
                      : 'No Data'
                    }
                  </p>
@@ -1936,8 +1936,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                  </p>
                </div>
                <div className="md:text-right space-y-0.5 md:space-y-1 mt-1 md:mt-0">
-                 {businessSummary.totalPieces > 0 && (
-                   <p className="text-[9px] md:text-sm opacity-90">+ {businessSummary.totalPieces} pcs</p>
+                  {businessSummary.totalKg > 0 && (
+                    <p className="text-[9px] md:text-sm opacity-90">{businessSummary.totalOrders} confirmed orders</p>
                  )}
                  <p className="text-[9px] md:text-sm opacity-90">{businessSummary.totalBeats} Beats</p>
                </div>
@@ -2181,7 +2181,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                         <thead className="sticky top-0 bg-muted/50 z-10">
                           <tr className="bg-muted/50 border-b">
                             <th className={cn("text-left font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Full Name</th>
-                            <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Qty (PC)</th>
+                            <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Qty (KG)</th>
                             <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Total Order Value</th>
                           </tr>
                         </thead>
@@ -2205,7 +2205,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                 </div>
                               </td>
                               <td className={cn("text-right font-semibold text-primary align-middle whitespace-nowrap", isMobile ? "py-0.5 px-2" : "p-4")}>
-                                {row.total_kg.toLocaleString()}
+                                {formatKg(row.total_kg)}
                               </td>
                               <td className={cn("text-right font-semibold align-middle whitespace-nowrap", isMobile ? "py-0.5 px-2" : "p-4")}>
                                 ₹{row.total_order_value.toLocaleString()}
@@ -2559,9 +2559,9 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                     >
                       <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] sm:text-sm mb-0.5 sm:mb-1">
                         <Scale className="h-3 w-3 sm:h-4 sm:w-4" />
-                        Total PC
+                        Total KG
                       </div>
-                      <div className="text-sm sm:text-2xl font-bold">{detailsSummary.totalPieces || 0}</div>
+                      <div className="text-sm sm:text-2xl font-bold">{formatKg(detailsSummary.totalKg)}</div>
                     </Card>
                     <Card 
                       className="p-1.5 sm:p-4 cursor-pointer transition-colors hover:bg-muted/50"
@@ -2665,7 +2665,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                           <TableHeader className="sticky top-0 bg-muted/50 z-10">
                             <TableRow>
                               <TableHead className="text-xs py-1.5 px-2 whitespace-nowrap">Date</TableHead>
-                              <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Qty (PC)</TableHead>
+                              <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Qty (KG)</TableHead>
                               <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Revenue</TableHead>
                             </TableRow>
                           </TableHeader>
