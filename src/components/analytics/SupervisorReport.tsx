@@ -98,6 +98,8 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
     totalKg: number;
     productivityPercent: number | null;
     quantityByUnit: { [unit: string]: number }; // Track quantities by actual unit
+    totalPieces?: number;
+
   } | null>(null);
   const [allUsersSummary, setAllUsersSummary] = useState<{
     retailers: number;
