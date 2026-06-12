@@ -918,13 +918,19 @@ export const AddRetailer = () => {
       const result = await createRetailer(payload);
       setIsSaving(false);
 
-      // Send WhatsApp verification immediately when newly created
+      // Send WhatsApp verification + welcome immediately when newly created
       if (!isEditMode && result.success && result.data?.id && payload.phone) {
         try {
           const { maybeTriggerWhatsAppVerification } = await import('@/utils/retailerVerificationTrigger');
+          const { triggerRetailerWelcomeMessage } = await import('@/utils/retailerWelcomeMessage');
+          
+          // Send verification message
           maybeTriggerWhatsAppVerification(result.data.id, payload.phone);
+          
+          // Send welcome message using approved template
+          triggerRetailerWelcomeMessage(result.data.id, payload.phone);
         } catch (e) {
-          console.warn('[AddRetailer] WhatsApp trigger failed or queued:', e);
+          console.warn('[AddRetailer] WhatsApp triggers failed or queued:', e);
         }
       }
 

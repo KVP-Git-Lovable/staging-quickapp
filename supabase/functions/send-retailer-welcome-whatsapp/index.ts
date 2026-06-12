@@ -1,6 +1,9 @@
-// Sends a WhatsApp welcome template message to a newly-created retailer.
-// Body: { retailer_id: string }
-// Uses Twilio Content template HXa4311ea6f7d67093fe5426e224645038.
+// Sends a welcome message to a newly registered retailer using an approved WhatsApp template.
+// Uses Twilio Programmable Messaging with ContentSid for approved templates.
+//
+// Expects body: { retailer_id: string }
+//
+// On success records a row in retailer_verification_requests.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -9,6 +12,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function normalisePhone(raw: string | null | undefined): string | null {
@@ -20,9 +24,18 @@ function normalisePhone(raw: string | null | undefined): string | null {
   return `+${digits}`;
 }
 
+function normaliseWhatsAppSender(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let v = raw.trim();
+  if (v.startsWith("whatsapp:")) v = v.slice("whatsapp:".length);
+  const digits = v.replace(/\D/g, "");
+  if (!digits) return null;
+  return `+${digits}`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -36,7 +49,7 @@ serve(async (req) => {
 
     const { data: retailer, error } = await supabase
       .from("retailers")
-      .select("id, name, address, phone")
+      .select("id, name, phone, owner_name, contact_name")
       .eq("id", retailer_id)
       .maybeSingle();
 
@@ -51,24 +64,26 @@ serve(async (req) => {
       );
     }
 
-    const accountSid = "AC2bed17b2742df7031ebc7de2d726b62f";
+    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    if (!authToken) throw new Error("TWILIO_AUTH_TOKEN not configured");
+    const fromNumber = normaliseWhatsAppSender(
+      Deno.env.get("TWILIO_WHATSAPP_NUMBER") ?? Deno.env.get("TWILIO_FROM_NUMBER")
+    );
+    const contentSid = Deno.env.get("TWILIO_WELCOME_TEMPLATE_SID");
 
-    const contentVariables = JSON.stringify({
-      "1": retailer.name ?? "",
-      "2": retailer.phone ?? "",
-      "3": retailer.address ?? "",
-    });
+    if (!accountSid) throw new Error("TWILIO_ACCOUNT_SID not configured");
+    if (!authToken) throw new Error("TWILIO_AUTH_TOKEN not configured");
+    if (!fromNumber) throw new Error("TWILIO_WHATSAPP_NUMBER not configured");
+    if (!contentSid) throw new Error("TWILIO_WELCOME_TEMPLATE_SID not configured");
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
     const base64Auth = btoa(`${accountSid}:${authToken}`);
 
+    // Use ContentSid for approved template instead of Body
     const formBody = new URLSearchParams({
       To: `whatsapp:${phone}`,
-      From: "whatsapp:+917411681616",
-      ContentSid: "HXa4311ea6f7d67093fe5426e224645038",
-      ContentVariables: contentVariables,
+      From: `whatsapp:${fromNumber}`,
+      ContentSid: contentSid,
     });
 
     const resp = await fetch(twilioUrl, {
@@ -79,13 +94,23 @@ serve(async (req) => {
       },
       body: formBody,
     });
-    const result = await resp.json();
+    const result = await resp.json().catch(() => ({}));
+
+    const status = resp.ok ? "sent" : "failed";
+    await supabase.from("retailer_verification_requests").insert({
+      retailer_id,
+      phone,
+      status,
+      twilio_sid: result.sid ?? null,
+      error_message: resp.ok ? null : JSON.stringify(result).slice(0, 500),
+    });
 
     if (!resp.ok) {
-      console.error("Twilio error:", result);
+      console.error("Twilio template error:", result);
+      const msg = result?.message || result?.error_message || `Twilio HTTP ${resp.status}`;
       return new Response(
-        JSON.stringify({ success: false, error: result }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ success: false, error: msg, twilio: result }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -97,7 +122,7 @@ serve(async (req) => {
     console.error("send-retailer-welcome-whatsapp failed:", err);
     return new Response(
       JSON.stringify({ success: false, error: (err as Error).message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
