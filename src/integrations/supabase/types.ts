@@ -16305,215 +16305,6 @@ export type Database = {
           },
         ]
       }
-      retailer_verification_policy: {
-        Row: {
-          approval_level: string
-          approval_required: boolean
-          auto_approve_score: number
-          auto_reject_dup_risk: number
-          auto_whatsapp_on_create: boolean
-          block_after_limit: boolean
-          company_id: string | null
-          created_at: string
-          dup_action: string
-          dup_check_address: boolean
-          dup_check_gps: boolean
-          dup_check_gst: boolean
-          dup_check_mobile: boolean
-          dup_check_name: boolean
-          dup_risk_threshold: number
-          enabled: boolean
-          expire_pending_days: number
-          gp_created: number
-          gp_first_order: number
-          gp_first_visit: number
-          gp_gps: number
-          gp_mobile: number
-          gp_photo: number
-          gp_revoke_on_fraud: boolean
-          gp_whatsapp: number
-          grace_days: number
-          id: string
-          max_orders_unverified: number
-          pts_address: number
-          pts_first_order: number
-          pts_first_visit: number
-          pts_gps: number
-          pts_gst: number
-          pts_mobile: number
-          pts_owner: number
-          pts_shop_photo: number
-          pts_whatsapp: number
-          req_first_visit: boolean
-          req_gps: boolean
-          req_gst: boolean
-          req_mobile: boolean
-          req_owner_name: boolean
-          req_shop_photo: boolean
-          req_whatsapp: boolean
-          require_verification_for_credit: boolean
-          threshold_gold: number
-          threshold_partial: number
-          threshold_verified: number
-          updated_at: string
-          updated_by: string | null
-          welcome_whatsapp_on_create: boolean
-        }
-        Insert: {
-          approval_level?: string
-          approval_required?: boolean
-          auto_approve_score?: number
-          auto_reject_dup_risk?: number
-          auto_whatsapp_on_create?: boolean
-          block_after_limit?: boolean
-          company_id?: string | null
-          created_at?: string
-          dup_action?: string
-          dup_check_address?: boolean
-          dup_check_gps?: boolean
-          dup_check_gst?: boolean
-          dup_check_mobile?: boolean
-          dup_check_name?: boolean
-          dup_risk_threshold?: number
-          enabled?: boolean
-          expire_pending_days?: number
-          gp_created?: number
-          gp_first_order?: number
-          gp_first_visit?: number
-          gp_gps?: number
-          gp_mobile?: number
-          gp_photo?: number
-          gp_revoke_on_fraud?: boolean
-          gp_whatsapp?: number
-          grace_days?: number
-          id?: string
-          max_orders_unverified?: number
-          pts_address?: number
-          pts_first_order?: number
-          pts_first_visit?: number
-          pts_gps?: number
-          pts_gst?: number
-          pts_mobile?: number
-          pts_owner?: number
-          pts_shop_photo?: number
-          pts_whatsapp?: number
-          req_first_visit?: boolean
-          req_gps?: boolean
-          req_gst?: boolean
-          req_mobile?: boolean
-          req_owner_name?: boolean
-          req_shop_photo?: boolean
-          req_whatsapp?: boolean
-          require_verification_for_credit?: boolean
-          threshold_gold?: number
-          threshold_partial?: number
-          threshold_verified?: number
-          updated_at?: string
-          updated_by?: string | null
-          welcome_whatsapp_on_create?: boolean
-        }
-        Update: {
-          approval_level?: string
-          approval_required?: boolean
-          auto_approve_score?: number
-          auto_reject_dup_risk?: number
-          auto_whatsapp_on_create?: boolean
-          block_after_limit?: boolean
-          company_id?: string | null
-          created_at?: string
-          dup_action?: string
-          dup_check_address?: boolean
-          dup_check_gps?: boolean
-          dup_check_gst?: boolean
-          dup_check_mobile?: boolean
-          dup_check_name?: boolean
-          dup_risk_threshold?: number
-          enabled?: boolean
-          expire_pending_days?: number
-          gp_created?: number
-          gp_first_order?: number
-          gp_first_visit?: number
-          gp_gps?: number
-          gp_mobile?: number
-          gp_photo?: number
-          gp_revoke_on_fraud?: boolean
-          gp_whatsapp?: number
-          grace_days?: number
-          id?: string
-          max_orders_unverified?: number
-          pts_address?: number
-          pts_first_order?: number
-          pts_first_visit?: number
-          pts_gps?: number
-          pts_gst?: number
-          pts_mobile?: number
-          pts_owner?: number
-          pts_shop_photo?: number
-          pts_whatsapp?: number
-          req_first_visit?: boolean
-          req_gps?: boolean
-          req_gst?: boolean
-          req_mobile?: boolean
-          req_owner_name?: boolean
-          req_shop_photo?: boolean
-          req_whatsapp?: boolean
-          require_verification_for_credit?: boolean
-          threshold_gold?: number
-          threshold_partial?: number
-          threshold_verified?: number
-          updated_at?: string
-          updated_by?: string | null
-          welcome_whatsapp_on_create?: boolean
-        }
-        Relationships: []
-      }
-      retailer_verification_requests: {
-        Row: {
-          created_at: string
-          error_message: string | null
-          id: string
-          phone: string
-          reply_received_at: string | null
-          reply_text: string | null
-          retailer_id: string
-          sent_at: string
-          status: string
-          twilio_sid: string | null
-        }
-        Insert: {
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          phone: string
-          reply_received_at?: string | null
-          reply_text?: string | null
-          retailer_id: string
-          sent_at?: string
-          status?: string
-          twilio_sid?: string | null
-        }
-        Update: {
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          phone?: string
-          reply_received_at?: string | null
-          reply_text?: string | null
-          retailer_id?: string
-          sent_at?: string
-          status?: string
-          twilio_sid?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "retailer_verification_requests_retailer_id_fkey"
-            columns: ["retailer_id"]
-            isOneToOne: false
-            referencedRelation: "retailers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       retailer_visit_logs: {
         Row: {
           action_type: string | null
@@ -16638,7 +16429,6 @@ export type Database = {
           quality_last_calculated_at: string | null
           quality_status: string
           retail_type: string | null
-          retailer_confirmed: boolean
           shop_front_visible: boolean
           state: string | null
           status: string | null
@@ -16653,7 +16443,6 @@ export type Database = {
           verification_method: string | null
           verification_notes: string | null
           verification_score: number
-          verification_status: string | null
           verification_territory: boolean | null
           verified: boolean
           verified_at: string | null
@@ -16713,7 +16502,6 @@ export type Database = {
           quality_last_calculated_at?: string | null
           quality_status?: string
           retail_type?: string | null
-          retailer_confirmed?: boolean
           shop_front_visible?: boolean
           state?: string | null
           status?: string | null
@@ -16728,7 +16516,6 @@ export type Database = {
           verification_method?: string | null
           verification_notes?: string | null
           verification_score?: number
-          verification_status?: string | null
           verification_territory?: boolean | null
           verified?: boolean
           verified_at?: string | null
@@ -16788,7 +16575,6 @@ export type Database = {
           quality_last_calculated_at?: string | null
           quality_status?: string
           retail_type?: string | null
-          retailer_confirmed?: boolean
           shop_front_visible?: boolean
           state?: string | null
           status?: string | null
@@ -16803,7 +16589,6 @@ export type Database = {
           verification_method?: string | null
           verification_notes?: string | null
           verification_score?: number
-          verification_status?: string | null
           verification_territory?: boolean | null
           verified?: boolean
           verified_at?: string | null
