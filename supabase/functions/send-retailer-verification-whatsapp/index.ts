@@ -1,9 +1,9 @@
-// Sends a WhatsApp confirmation message to a retailer asking them to verify
-// their shop details. Uses Twilio Programmable Messaging.
+// Sends a WhatsApp template message to a newly-created retailer using the
+// approved Twilio Content template HXa4311ea6f7d67093fe5426e224645038.
+// Template variables: {1} retailer name, {2} phone, {3} address.
 //
-// Expects body: { retailer_id: string }
-//
-// On success records a row in retailer_verification_requests.
+// Body: { retailer_id: string }
+// Records a row in retailer_verification_requests on every attempt.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -15,21 +15,15 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const TEMPLATE_CONTENT_SID = "HXa4311ea6f7d67093fe5426e224645038";
+const WHATSAPP_FROM = "whatsapp:+917411681616";
+
 function normalisePhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const digits = raw.replace(/\D/g, "");
   if (!digits) return null;
   if (digits.length === 10) return `+91${digits}`;
   if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
-  return `+${digits}`;
-}
-
-function normaliseWhatsAppSender(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  let v = raw.trim();
-  if (v.startsWith("whatsapp:")) v = v.slice("whatsapp:".length);
-  const digits = v.replace(/\D/g, "");
-  if (!digits) return null;
   return `+${digits}`;
 }
 
@@ -49,7 +43,7 @@ serve(async (req) => {
 
     const { data: retailer, error } = await supabase
       .from("retailers")
-      .select("id, name, address, phone, owner_name, contact_name")
+      .select("id, name, address, phone")
       .eq("id", retailer_id)
       .maybeSingle();
 
@@ -64,29 +58,25 @@ serve(async (req) => {
       );
     }
 
-    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    const accountSid =
+      Deno.env.get("TWILIO_ACCOUNT_SID") ?? "AC2bed17b2742df7031ebc7de2d726b62f";
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    const fromNumber = normaliseWhatsAppSender(
-      Deno.env.get("TWILIO_WHATSAPP_NUMBER") ?? Deno.env.get("TWILIO_FROM_NUMBER")
-    );
-
-    if (!accountSid) throw new Error("TWILIO_ACCOUNT_SID not configured");
     if (!authToken) throw new Error("TWILIO_AUTH_TOKEN not configured");
-    if (!fromNumber) throw new Error("TWILIO_WHATSAPP_NUMBER not configured");
 
-    const ownerLabel = retailer.owner_name || retailer.contact_name || "there";
-    const body = `Hi ${ownerLabel}, please confirm your shop details:\n\n` +
-      `Shop: ${retailer.name}\n` +
-      `Address: ${retailer.address || "—"}\n\n` +
-      `Reply *YES* to confirm or *NO* if any detail is wrong.`;
+    const contentVariables = JSON.stringify({
+      "1": retailer.name ?? "",
+      "2": retailer.phone ?? "",
+      "3": retailer.address ?? "",
+    });
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
     const base64Auth = btoa(`${accountSid}:${authToken}`);
 
     const formBody = new URLSearchParams({
       To: `whatsapp:${phone}`,
-      From: `whatsapp:${fromNumber}`,
-      Body: body,
+      From: WHATSAPP_FROM,
+      ContentSid: TEMPLATE_CONTENT_SID,
+      ContentVariables: contentVariables,
     });
 
     const resp = await fetch(twilioUrl, {
@@ -109,7 +99,7 @@ serve(async (req) => {
     });
 
     if (!resp.ok) {
-      console.error("Twilio error:", result);
+      console.error("Twilio template send error:", result);
       const msg = result?.message || result?.error_message || `Twilio HTTP ${resp.status}`;
       return new Response(
         JSON.stringify({ success: false, error: msg, twilio: result }),
@@ -117,6 +107,7 @@ serve(async (req) => {
       );
     }
 
+    console.log(`✅ Verification template sent to ${phone}, sid=${result.sid}`);
     return new Response(
       JSON.stringify({ success: true, sid: result.sid }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
