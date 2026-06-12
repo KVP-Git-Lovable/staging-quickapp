@@ -18,7 +18,9 @@ import {
   ArrowRightLeft,
   Store,
   Network,
-  Layers3
+  Layers3,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
