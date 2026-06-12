@@ -1652,7 +1652,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           existing.revenue += Number(item.total || 0);
         } else {
           skuMap.set(key, {
-            unit: 'KG',
+            unit: 'PCs',
             quantityKg: toKgQuantity(item.quantity, item.unit),
             revenue: Number(item.total || 0)
           });
