@@ -16429,7 +16429,6 @@ export type Database = {
           quality_last_calculated_at: string | null
           quality_status: string
           retail_type: string | null
-          retailer_confirmed: boolean
           shop_front_visible: boolean
           state: string | null
           status: string | null
@@ -16444,7 +16443,6 @@ export type Database = {
           verification_method: string | null
           verification_notes: string | null
           verification_score: number
-          verification_status: string | null
           verification_territory: boolean | null
           verified: boolean
           verified_at: string | null
@@ -16504,7 +16502,6 @@ export type Database = {
           quality_last_calculated_at?: string | null
           quality_status?: string
           retail_type?: string | null
-          retailer_confirmed?: boolean
           shop_front_visible?: boolean
           state?: string | null
           status?: string | null
@@ -16519,7 +16516,6 @@ export type Database = {
           verification_method?: string | null
           verification_notes?: string | null
           verification_score?: number
-          verification_status?: string | null
           verification_territory?: boolean | null
           verified?: boolean
           verified_at?: string | null
@@ -16579,7 +16575,6 @@ export type Database = {
           quality_last_calculated_at?: string | null
           quality_status?: string
           retail_type?: string | null
-          retailer_confirmed?: boolean
           shop_front_visible?: boolean
           state?: string | null
           status?: string | null
@@ -16594,7 +16589,6 @@ export type Database = {
           verification_method?: string | null
           verification_notes?: string | null
           verification_score?: number
-          verification_status?: string | null
           verification_territory?: boolean | null
           verified?: boolean
           verified_at?: string | null
