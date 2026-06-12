@@ -1427,31 +1427,36 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         return;
       }
 
-      // Calculate next day for date range query
-      const nextDay = format(new Date(new Date(toDate).getTime() + 86400000), 'yyyy-MM-dd');
-
       // Fetch orders with retailer info and total_amount for this beat
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select(`
           id,
           retailer_id,
+          beat_id,
+          beat_name_snapshot,
           total_amount,
-          retailers!inner(id, name, beat_name)
+          retailers(id, name, beat_name)
         `)
         .eq('user_id', userProfile.id)
         .eq('status', 'confirmed')
-        .gte('created_at', `${fromDate}T00:00:00`)
-        .lt('created_at', `${nextDay}T00:00:00`);
+        .gte('order_date', fromDate)
+        .lte('order_date', toDate);
 
       if (ordersError || !orders || orders.length === 0) {
         setRetailerDetailsData([]);
         return;
       }
 
+      const orderBeatIds = [...new Set((orders || []).map((order: any) => order.beat_id).filter(Boolean))];
+      const { data: beats } = orderBeatIds.length > 0
+        ? await supabase.from('beats').select('beat_id, beat_name').in('beat_id', orderBeatIds)
+        : { data: [] as any[] };
+      const beatNameById = new Map((beats || []).map((beat: any) => [beat.beat_id, beat.beat_name]));
+
       // Filter orders for this specific beat
       const beatOrders = orders.filter((order: any) => {
-        const orderBeatName = order.retailers?.beat_name || 'Unassigned';
+        const orderBeatName = order.beat_name_snapshot || beatNameById.get(order.beat_id) || order.retailers?.beat_name || 'Unassigned';
         return orderBeatName === beatName;
       });
 
