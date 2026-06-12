@@ -212,6 +212,9 @@ import GoodsReceiptNew from "./pages/distributor-portal/GoodsReceiptNew";
 import PriceBookView from "./pages/distributor-portal/PriceBookView";
 import PrimarySchemesView from "./pages/distributor-portal/PrimarySchemesView";
 import PrimaryReturnCreate from "./pages/distributor-portal/PrimaryReturnCreate";
+import DistributorNetwork from "./pages/distributor-portal/DistributorNetwork";
+import NetworkChildDetail from "./pages/distributor-portal/NetworkChildDetail";
+import DistributorPackingLists from "./pages/distributor-portal/DistributorPackingLists";
 import DeliveryRun from "./pages/DeliveryRun";
 import PackingListManagementPage from "./pages/PackingListManagement";
 import MyDeliveriesPage from "./pages/MyDeliveries";
@@ -539,6 +542,9 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
           <Route path="price-book" element={<PriceBookView />} />
           <Route path="schemes" element={<PrimarySchemesView />} />
           <Route path="create-return" element={<PrimaryReturnCreate />} />
+          <Route path="packing-lists" element={<DistributorPackingLists />} />
+          <Route path="network" element={<DistributorNetwork />} />
+          <Route path="network/:childId" element={<NetworkChildDetail />} />
         </Route>
 
         {/* D-1 Delivery Module Routes - Main App */}
