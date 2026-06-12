@@ -1613,22 +1613,35 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       const fromDate = format(dateRange.from, 'yyyy-MM-dd');
       const toDate = format(dateRange.to, 'yyyy-MM-dd');
 
-      // Fetch raw order_items to count items per product (not sum quantities)
+      // Get selected user IDs
       const selectedUserIds = selectedUsers.length > 0 
         ? summaryData.filter(u => selectedUsers.includes(u.full_name)).map(u => u.user_id)
         : summaryData.map(u => u.user_id);
 
-      let skuQuery = supabase
-        .from('order_items')
-        .select('product_name, unit, total, order_id')
+      // Step 1: Fetch orders for selected users and date range
+      let ordersQuery = supabase
+        .from('orders')
+        .select('id')
         .gte('order_date', fromDate)
-        .lte('order_date', toDate);
+        .lte('order_date', toDate)
+        .eq('status', 'confirmed');
 
       if (selectedUserIds.length > 0) {
-        skuQuery = skuQuery.in('user_id', selectedUserIds);
+        ordersQuery = ordersQuery.in('user_id', selectedUserIds);
       }
 
-      const { data: allOrderItems = [] } = await skuQuery;
+      const { data: orders = [] } = await ordersQuery;
+      const orderIds = orders.map((o: any) => o.id);
+
+      // Step 2: Fetch order_items for these orders
+      let allOrderItems: any[] = [];
+      if (orderIds.length > 0) {
+        const { data: items = [] } = await supabase
+          .from('order_items')
+          .select('product_name, unit, total')
+          .in('order_id', orderIds);
+        allOrderItems = items;
+      }
 
       // Group by product and count items (each row = 1 item/piece)
       const skuMap = new Map<string, { unit: string; itemCount: number; revenue: number }>();
