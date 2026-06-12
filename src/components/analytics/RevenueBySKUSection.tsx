@@ -323,7 +323,7 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
               {/* Chart Section */}
               {!hideChart && (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Top 10 products by Qty (KG)</p>
+                  <p className="text-sm text-muted-foreground">Top 10 products by Qty (PCs)</p>
                   <ResponsiveContainer width="100%" height={isMobile ? 280 : 350}>
                     {chartType === 'pie' ? (
                       <PieChart margin={isMobile ? { top: 20, right: 20, bottom: 20, left: 20 } : undefined}>
@@ -343,7 +343,7 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                         </Pie>
                         <Tooltip 
                           formatter={(value: number, name: string, props: any) => [
-                            `${value.toFixed(2)} KG | ₹${props.payload.revenue.toLocaleString()}`,
+                            `${value.toFixed(2)} PCs | ₹${props.payload.revenue.toLocaleString()}`,
                             props.payload.fullName
                           ]}
                         />
@@ -352,11 +352,11 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                     ) : (
                       <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                        <XAxis type="number" tickFormatter={(value) => `${value.toFixed(1)} KG`} />
+                        <XAxis type="number" tickFormatter={(value) => `${value.toFixed(1)} PCs`} />
                         <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
                         <Tooltip 
                           formatter={(value: number, name: string, props: any) => [
-                            `${value.toFixed(2)} KG | ₹${props.payload.revenue.toLocaleString()}`,
+                            `${value.toFixed(2)} PCs | ₹${props.payload.revenue.toLocaleString()}`,
                             props.payload.fullName
                           ]}
                         />
@@ -400,7 +400,10 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                             {(() => {
                               const unit = (row.unit || '').toLowerCase();
                               if (unit === 'grams' || unit === 'gram' || unit === 'g') {
-                                return `${(row.quantity_sold / 1000).toFixed(2)} KG`;
+                                return `${(row.quantity_sold / 1000).toFixed(2)} PCs`;
+                              }
+                              if (unit === 'kg' || unit.includes('kilo')) {
+                                return `${row.quantity_sold.toFixed(1)} PCs`;
                               }
                               return `${row.quantity_sold.toFixed(1)} ${row.unit}`;
                             })()}
@@ -415,7 +418,7 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                       <TableRow>
                         <TableCell className="text-[10px] sm:text-xs font-semibold py-1 px-1.5 sm:py-1.5 sm:px-3 whitespace-nowrap">Total ({filteredSkuData.length} SKUs)</TableCell>
                         <TableCell className="text-[10px] sm:text-xs text-right font-semibold py-1 px-1.5 sm:py-1.5 sm:px-3 whitespace-nowrap">
-                          {totalQuantityKG.toFixed(2)} KG
+                          {totalQuantityKG.toFixed(2)} PCs
                         </TableCell>
                         <TableCell className="text-[10px] sm:text-xs text-right font-bold text-primary py-1 px-1.5 sm:py-1.5 sm:px-3 whitespace-nowrap">
                           ₹{totalRevenue.toLocaleString()}
