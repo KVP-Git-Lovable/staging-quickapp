@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe } from "lucide-react";
 import { compressImageFile } from "@/utils/imageCompression";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -2662,6 +2662,10 @@ export const VisitCard = ({
               {skipCheckInReason === 'phone-order' && <Badge className="bg-blue-500 text-white hover:bg-blue-600 text-xs px-2 py-1">
                   <Phone size={12} className="mr-1" />
                   Phone Order
+                </Badge>}
+              {visit.visitType === 'portal_order' && <Badge className="bg-indigo-500 text-white hover:bg-indigo-600 text-xs px-2 py-1">
+                  <Globe size={12} className="mr-1" />
+                  Portal Order
                 </Badge>}
               {isJointSalesVisit && hasJointSalesFeedback && <Badge 
                   className="bg-purple-500 text-white hover:bg-purple-600 text-xs px-2 py-1 cursor-pointer"

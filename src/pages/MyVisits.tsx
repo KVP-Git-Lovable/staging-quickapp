@@ -402,7 +402,7 @@ export const MyVisits = () => {
         contactName: retailer.contact_name || '',
         retailerCategory: retailer.category || '',
         status,
-        visitType: 'Regular Visit',
+        visitType: visit?.visit_type || 'Regular Visit',
         createdAt: retailer.created_at || undefined,
         visitId: visit?.id,
         hasOrder,
