@@ -301,8 +301,11 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
     
     const fetchKey = `${userIdsKey}-${dateRangeKey}-${usersKey}`;
     
-    // Skip if already fetching, if the key hasn't changed, if users not loaded, or if scope not ready
-    if (isFetchingRef.current || fetchKey === prevFetchKeyRef.current || users.length === 0 || !isScopeReady) {
+    // Skip if already fetching, if the key hasn't changed, or if scope not ready.
+    // NOTE: Do NOT gate on `users.length` — the orders fetch only needs `selectedUserIds`,
+    // and the profiles list can arrive later. Gating on users caused the dashboard to
+    // stay at 0 when the profiles request hadn't resolved before scope became ready.
+    if (isFetchingRef.current || fetchKey === prevFetchKeyRef.current || !isScopeReady) {
       return;
     }
     
