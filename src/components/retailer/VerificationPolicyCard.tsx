@@ -262,15 +262,22 @@ export function VerificationPolicyCard() {
                 checked={draft.require_verification_for_credit}
                 onChange={(v) => upd("require_verification_for_credit", v)}
               />
+
+              <SectionHeader
+                icon={ShieldCheck}
+                title="WhatsApp messaging"
+                description="Control automated WhatsApp messages sent when a sales user adds a new retailer."
+                accent="emerald"
+              />
               <ToggleRow
                 label="Auto-send WhatsApp on retailer create"
-                hint="Sends a verification link with shop details for confirmation."
+                hint="Turn off to stop the verification WhatsApp when a sales user adds a retailer."
                 checked={draft.auto_whatsapp_on_create}
                 onChange={(v) => upd("auto_whatsapp_on_create", v)}
               />
               <ToggleRow
                 label="Send welcome WhatsApp on retailer create"
-                hint="Sends a welcome message with name, phone, and address to the retailer."
+                hint="Sends a welcome message with name, phone, and address to the retailer. Turn off to disable."
                 checked={draft.welcome_whatsapp_on_create}
                 onChange={(v) => upd("welcome_whatsapp_on_create", v)}
               />

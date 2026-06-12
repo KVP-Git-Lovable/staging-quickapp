@@ -1,36 +1,34 @@
-## Goal
-Make the Check-In/Out button in `VisitCard` respect the per-role `action_attendance_check_in` permission from Security & Access, instead of being controlled only by the global `isLocationEnabled` feature flag.
+# WhatsApp toggle in Retailer Verification Policy
 
-## Changes
+## What I checked
 
-**File:** `src/components/VisitCard.tsx`
+- **Policy UI** (`src/components/retailer/VerificationPolicyCard.tsx`, Retail Management → Verification Policy tab) already has two toggles:
+  - "Auto-send WhatsApp on retailer create" → `auto_whatsapp_on_create`
+  - "Send welcome WhatsApp on retailer create" → `welcome_whatsapp_on_create`
+  
+  They are buried at the bottom of the **Basics** tab under the "Order restrictions" header, which is why they look missing.
 
-1. Add import alongside other hook imports:
-   ```ts
-   import { usePermissions } from '@/hooks/usePermissions';
-   ```
+- **Send logic** (`src/utils/retailerVerificationTrigger.ts` and `src/utils/retailerWelcomeWhatsAppTrigger.ts`) reads those flags before invoking the edge function and returns early if false. Both client paths (`AddRetailerInlineToBeat.tsx`, `MyRetailers.tsx`) go through these helpers.
 
-2. Inside the `VisitCard` component (next to other hook calls like `useVanSales`, `useCheckInMandatory`):
-   ```ts
-   const { can } = usePermissions();
-   const canCheckIn = can('action_attendance_check_in');
-   ```
+- **DB triggers** on `public.retailers`: none send WhatsApp. So the only WA paths are the two helpers above — gating them is sufficient.
 
-3. Update the Check-In/Out button render block (~line 2760) to also gate on the permission, and update the surrounding grid-cols computation so the layout collapses to `grid-cols-3` when the button is hidden:
-   ```tsx
-   <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isLocationEnabled && canCheckIn ? 'grid-cols-4' : 'grid-cols-3'}`}>
-     {!locationFeatureLoading && isLocationEnabled && canCheckIn && (
-       <Button ...>Check-In/Out</Button>
-     )}
-     ...
-   </div>
-   ```
+- **Current DB row**: both flags are `true`, which is why messages still fire today.
 
-## Behaviour after fix
-- Users with `action_attendance_check_in` permission: button visible (when location feature flag is on).
-- Users without the permission: button hidden, row collapses to 3 columns so layout doesn't break.
-- Global location feature flag still acts as a master switch.
+## The problem
 
-## Out of scope
-- No change to `action_attendance_check_out` wiring (button is a single combined Check-In/Out toggle; check-in permission controls visibility as requested).
-- No change to permission definitions or Security & Access UI.
+The toggles exist but live under a misleading section, so admins can't find them and assume the policy isn't there. Once found, they already work.
+
+## Fix
+
+1. In `VerificationPolicyCard.tsx` Basics tab, lift the two WhatsApp toggles out of "Order restrictions" into their own clearly labeled section:
+   - New `SectionHeader`: **"WhatsApp messaging"** with description "Control automated WhatsApp messages sent when a sales user adds a new retailer."
+   - Place the two existing `ToggleRow`s under it.
+   - Add a short hint under "Auto-send WhatsApp on retailer create": "Turn off to stop the verification WhatsApp when a sales user adds a retailer."
+   
+2. No backend / trigger changes — gating already works. After the user toggles off and saves, the next retailer added by a sales user will not receive the WhatsApp.
+
+## How to verify
+
+- Open Retail Management → Verification Policy → Basics. Both toggles appear under a new "WhatsApp messaging" section.
+- Turn both off, click Save.
+- Add a retailer via sales flow → no WhatsApp is sent (confirmed by inspecting `retailer_verification_requests` — no new row, and edge function logs show no invocation).
