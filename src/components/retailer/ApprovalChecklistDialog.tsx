@@ -131,6 +131,23 @@ export function ApprovalChecklistDialog({ open, onOpenChange, retailer, onComple
     if (!retailer) return;
 
     (async () => {
+      // STEP 1: Fetch latest retailer data to ensure verification_score is up-to-date
+      try {
+        const { data: freshRetailer } = await supabase
+          .from("retailers")
+          .select("*")
+          .eq("id", retailer.id)
+          .maybeSingle();
+        
+        if (freshRetailer) {
+          // Update retailer with fresh data
+          Object.assign(retailer, freshRetailer);
+        }
+      } catch (err) {
+        console.warn("Failed to refresh retailer data:", err);
+      }
+
+      // STEP 2: Fetch duplicate matches
       setDupLoading(true);
       try {
         const orFilter: string[] = [];
