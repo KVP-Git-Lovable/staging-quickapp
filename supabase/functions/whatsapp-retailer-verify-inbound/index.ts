@@ -84,13 +84,13 @@ serve(async (req) => {
         .from("retailers")
         .update({
           verified: true,
-          verification_status: "verified",
           verification_method: "whatsapp",
           verification_address: true,
           verification_contact: true,
           verified_at: new Date().toISOString(),
           verified_by_name: "WhatsApp",
           whatsapp_verified: true,
+          retailer_confirmed: true,
           verification_score: newScore,
         })
         .eq("id", request.retailer_id);
