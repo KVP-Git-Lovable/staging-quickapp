@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +25,8 @@ const CustomerLogin = () => {
   const [loading, setLoading] = useState(false);
   const [choices, setChoices] = useState<RetailerChoice[]>([]);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const autoTriedRef = useRef(false);
 
   // Safety net: clear stale SW caches on first portal load
   useEffect(() => {
@@ -48,6 +50,49 @@ const CustomerLogin = () => {
     navigate('/customer-portal/home', { replace: true });
     return null;
   }
+
+  // Auto-login when launched from "Open Portal" with phone/retailerId in URL
+  useEffect(() => {
+    if (autoTriedRef.current) return;
+    const auto = searchParams.get('auto');
+    const qPhone = searchParams.get('phone');
+    const qRetailerId = searchParams.get('retailerId');
+    if (auto !== '1' || !qPhone) return;
+    autoTriedRef.current = true;
+
+    const digitsOnly = qPhone.replace(/\D/g, '');
+    const cleanPhone = digitsOnly.startsWith('91') && digitsOnly.length === 12
+      ? digitsOnly.slice(2)
+      : digitsOnly;
+    setPhone(cleanPhone);
+    const phoneVariants = [cleanPhone, `+91${cleanPhone}`, `91${cleanPhone}`];
+
+    (async () => {
+      setLoading(true);
+      try {
+        let query = supabase
+          .from('retailers')
+          .select('id, name, phone, address, beat_id, territory_id, distributor_id, owner_id, parent_name, portal_enabled')
+          .eq('portal_enabled', true);
+        query = qRetailerId
+          ? query.eq('id', qRetailerId)
+          : query.in('phone', phoneVariants);
+        const { data, error } = await query.limit(1).maybeSingle();
+        if (error) throw error;
+        if (data) {
+          await finalizeLogin(data as RetailerChoice, cleanPhone);
+        } else {
+          toast.error('Portal access not found for this retailer.');
+        }
+      } catch (err: any) {
+        console.error('Auto-login error:', err);
+        toast.error('Unable to open portal. Please login manually.');
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const finalizeLogin = async (r: RetailerChoice, cleanPhone: string) => {
     let distributorId = r.distributor_id || undefined;
