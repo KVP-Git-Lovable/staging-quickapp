@@ -352,7 +352,7 @@ export const RevenueBySKUSection = ({ selectedUsers, dateRange, filteredUserName
                     ) : (
                       <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                        <XAxis type="number" tickFormatter={(value) => `${value.toFixed(1)} KG`} />
+                        <XAxis type="number" tickFormatter={(value) => `${value.toFixed(1)} PCs`} />
                         <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
                         <Tooltip 
                           formatter={(value: number, name: string, props: any) => [
