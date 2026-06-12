@@ -64,7 +64,7 @@ const toKgQuantity = (quantity: unknown, unit: unknown) => {
   return 0;
 };
 
-const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} KG`;
+const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} PCs`;
 
 export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeReady = true }: SupervisorReportProps) => {
   const isMobile = useIsMobile();
