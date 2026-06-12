@@ -88,7 +88,7 @@ export const TodaySummary = () => {
     totalOrderValue: 0,
     avgOrderValue: 0,
     totalKgSold: 0,
-    totalKgSoldFormatted: "0 KG",
+    totalKgSoldFormatted: "0 PC",
     visitEfficiency: 0,
     orderConversionRate: 0,
     distanceCovered: 0,
@@ -1064,7 +1064,7 @@ export const TodaySummary = () => {
           retailer: order.retailer_name,
           amount: totalAmount,
           kgSold: kgSum,
-          kgFormatted: kgSum > 0 ? formatKg(kgSum) : '0 KG',
+          kgFormatted: kgSum > 0 ? `${kgSum.toFixed(2)} KG` : '0 PC',
           creditAmount: creditAmount,
           cashInHand: totalAmount - creditAmount,
           paymentMethod: paymentMethod
