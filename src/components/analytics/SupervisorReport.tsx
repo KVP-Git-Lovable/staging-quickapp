@@ -502,7 +502,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           total_order_value: data.total_order_value,
           total_kg: Math.round(data.total_kg * 100) / 100 
         }))
-        .sort((a, b) => b.total_kg - a.total_kg);
+        .sort((a, b) => (b.total_kg - a.total_kg) || (b.total_order_value - a.total_order_value));
 
       setSummaryData(summaryArray);
       setSelectedUserDetails(null);
@@ -1940,17 +1940,14 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                <div>
                  <p className="text-[10px] md:text-sm opacity-90">Total Quantity</p>
                  <p className="text-xl md:text-3xl lg:text-4xl font-bold">
-                    {businessSummary.totalKg > 0
-                      ? formatKg(businessSummary.totalKg)
-                     : 'No Data'
-                   }
+                    {businessSummary.totalOrders > 0 ? formatKg(businessSummary.totalKg) : 'No Data'}
                  </p>
                  <p className="text-[8px] md:text-xs opacity-75 mt-0.5 md:mt-1">
                    {format(dateRange.from, 'MMM dd')} - {format(dateRange.to, 'MMM dd, yyyy')}
                  </p>
                </div>
                <div className="md:text-right space-y-0.5 md:space-y-1 mt-1 md:mt-0">
-                  {businessSummary.totalKg > 0 && (
+                  {businessSummary.totalOrders > 0 && (
                     <p className="text-[9px] md:text-sm opacity-90">{businessSummary.totalOrders} confirmed orders</p>
                  )}
                  <p className="text-[9px] md:text-sm opacity-90">{businessSummary.totalBeats} Beats</p>
