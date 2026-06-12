@@ -14063,6 +14063,7 @@ export type Database = {
         Row: {
           barcode: string | null
           barcode_image_url: string | null
+          base_unit: string | null
           base_unit_category: string | null
           brand: string | null
           category_id: string | null
@@ -14089,14 +14090,17 @@ export type Database = {
           price_basis_uom_id: string | null
           product_number: string | null
           qr_code: string | null
+          rate: number | null
           reorder_level: number | null
           sku: string
           sku_image_url: string | null
+          unit: string | null
           updated_at: string
         }
         Insert: {
           barcode?: string | null
           barcode_image_url?: string | null
+          base_unit?: string | null
           base_unit_category?: string | null
           brand?: string | null
           category_id?: string | null
@@ -14123,14 +14127,17 @@ export type Database = {
           price_basis_uom_id?: string | null
           product_number?: string | null
           qr_code?: string | null
+          rate?: number | null
           reorder_level?: number | null
           sku: string
           sku_image_url?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Update: {
           barcode?: string | null
           barcode_image_url?: string | null
+          base_unit?: string | null
           base_unit_category?: string | null
           brand?: string | null
           category_id?: string | null
@@ -14157,9 +14164,11 @@ export type Database = {
           price_basis_uom_id?: string | null
           product_number?: string | null
           qr_code?: string | null
+          rate?: number | null
           reorder_level?: number | null
           sku?: string
           sku_image_url?: string | null
+          unit?: string | null
           updated_at?: string
         }
         Relationships: [
