@@ -64,7 +64,7 @@ const toKgQuantity = (quantity: unknown, unit: unknown) => {
   return 0;
 };
 
-const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} KG`;
+const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} PCs`;
 
 export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeReady = true }: SupervisorReportProps) => {
   const isMobile = useIsMobile();
@@ -1289,7 +1289,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           productGroups[productName] = {
             product_name: productName,
             quantity: 0,
-            unit: 'KG',
+            unit: 'PCs',
             total: 0
           };
         }
@@ -1575,7 +1575,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       // --- Section 1: Business Summary ---
       addSectionHeader('Business Summary');
       addKeyValue('Total Order Value', `₹${businessSummary.totalRevenue.toLocaleString()}`);
-      addKeyValue('Total Quantity (KG)', formatKg(businessSummary.totalKg));
+      addKeyValue('Total Quantity (PCs)', formatKg(businessSummary.totalKg));
       addKeyValue('Total Orders', businessSummary.totalOrders.toLocaleString());
       addKeyValue('Total Beats', businessSummary.totalBeats.toLocaleString());
       addKeyValue('Total Retailers', businessSummary.totalRetailers.toLocaleString());
@@ -1594,7 +1594,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         autoTable(pdf, {
           startY: y,
           margin: { left: margin, right: margin },
-          head: [['#', 'User Name', 'Total KG', 'Total Order Value']],
+          head: [['#', 'User Name', 'Total PCs', 'Total Order Value']],
           body: orderTableData,
           styles: { fontSize: 9, cellPadding: 4 },
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -1652,7 +1652,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           existing.revenue += Number(item.total || 0);
         } else {
           skuMap.set(key, {
-            unit: 'KG',
+            unit: 'PCs',
             quantityKg: toKgQuantity(item.quantity, item.unit),
             revenue: Number(item.total || 0)
           });
@@ -2124,7 +2124,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                       <Tooltip 
                         formatter={(value: number, name: string, props: any) => {
                           const entry = props.payload;
-                          return [`${value.toLocaleString()} KG`, name];
+                          return [`${value.toLocaleString()} PCs`, name];
                         }}
                         labelFormatter={() => ''}
                       />
@@ -2133,7 +2133,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                   ) : (
                     <BarChart data={pieChartData} layout="vertical" margin={{ left: isMobile ? 10 : 20, right: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis type="number" tickFormatter={(value) => `${value.toLocaleString()} KG`} />
+                      <XAxis type="number" tickFormatter={(value) => `${value.toLocaleString()} PCs`} />
                       <YAxis 
                         type="category" 
                         dataKey="name" 
@@ -2147,7 +2147,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                         }}
                       />
                       <Tooltip 
-                        formatter={(value: number, name: string) => [`${value.toLocaleString()} KG`, name]}
+                        formatter={(value: number, name: string) => [`${value.toLocaleString()} PCs`, name]}
                         labelFormatter={() => ''}
                       />
                       <Bar 
@@ -2570,7 +2570,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                     >
                       <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] sm:text-sm mb-0.5 sm:mb-1">
                         <Scale className="h-3 w-3 sm:h-4 sm:w-4" />
-                        Total KG
+                        Total PCs
                       </div>
                       <div className="text-sm sm:text-2xl font-bold">{formatKg(detailsSummary.totalKg)}</div>
                     </Card>

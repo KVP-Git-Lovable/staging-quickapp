@@ -67,8 +67,8 @@ const getDisplayQuantity = (quantity: unknown, unit: unknown) => {
   const rawUnit = String(unit || '').trim();
   const unitLower = rawUnit.toLowerCase();
 
-  if (unitLower === 'kg' || unitLower.includes('kilo')) return { quantity: qty, unit: 'KG' };
-  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return { quantity: qty / 1000, unit: 'KG' };
+  if (unitLower === 'kg' || unitLower.includes('kilo')) return { quantity: qty, unit: 'PCs' };
+  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return { quantity: qty / 1000, unit: 'PCs' };
   return { quantity: qty, unit: rawUnit || 'Unit' };
 };
 

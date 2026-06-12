@@ -1,38 +1,31 @@
-# Bring back "Initiate Customer Portal" in Retail Management
+## Goal
+Rename the user-facing label "KG" to "PCs" everywhere in the Analytics screen. Calculations, data, and DB conversions stay exactly the same — only the displayed text/unit string changes.
 
-## What we're porting
+## Scope of changes (display strings only)
 
-The exact feature already built in your `Nayak Distributors Test2` project: a "Customer Portal" card on the retailer detail view with:
+1. `src/components/analytics/SupervisorReport.tsx`
+   - `formatKg` → output `"... PCs"` instead of `"... KG"`.
+   - Summary cards: "Total KG" card title → "Total PCs".
+   - Table column headers: "Total KG" → "Total PCs".
+   - Product/SKU table unit cell (currently hardcoded `'KG'`) → `'PCs'`.
+   - PDF export labels: `'Total Quantity (KG)'` → `'Total Quantity (PCs)'`; PDF table head `'Total KG'` → `'Total PCs'`; SKU export unit value `'KG'` → `'PCs'`.
+   - Tooltips/legends showing "KG" → "PCs".
 
-- Status badge (Active / Inactive)
-- Portal Orders count + Last Portal Order summary
-- Login phone + 4-digit PIN (with copy button) when active
-- Buttons: **Initiate Customer Portal**, **Reset PIN**, **Deactivate**
-- "Open Portal" link to `/customer-portal/login` (opens in new tab)
+2. `src/components/analytics/AnalyticsDetailDialogs.tsx`
+   - Fallback unit cell `'KG'` → `'PCs'`.
 
-State is stored on the existing `retailers` table via `portal_enabled` (boolean) and `portal_pin` (text). Both columns already exist in this project's DB — confirmed — so no migration is needed.
+3. `src/components/analytics/useBusinessMetrics.ts`
+   - The `formatQuantity` helper returns `unit: 'KG'` for kg/gram inputs → return `'PCs'` instead (label only; numeric value unchanged).
 
-## Files to add / change
+Internal variable names (`totalKg`, `total_kg`, `toKgQuantity`, `getKgQuantity`, `quantity_kg`) will be left as-is to keep the diff minimal and avoid regressions. Only user-visible strings change.
 
-1. **NEW** `src/components/retailer/RetailerCustomerPortalSection.tsx`
-  Port the component verbatim from the other project (300 lines, self-contained, uses only shadcn UI + supabase client + sonner/toast). Reads/writes `retailers.portal_enabled`, `retailers.portal_pin`, and counts `orders` where `order_source = 'portal_order'`.
-2. **EDIT** `src/pages/RetailManagement.tsx`
-  In the retailer detail dialog (the dialog opened by clicking a row name / Edit), mount `<RetailerCustomerPortalSection retailerId={selected.id} retailerPhone={selected.phone} portalEnabled={selected.portal_enabled} portalPin={selected.portal_pin} onPortalUpdate={loadRetailers} />` inside the dialog body, near the verification card. No other UI on the page changes.
-3. **EDIT** `src/pages/RetailManagement.tsx` select list
-  The current fetch is `select('*')`, so `portal_enabled` and `portal_pin` already come through — no query change needed. Just thread them onto the `Retailer` type used in that file.
+## What is NOT changed
+- No DB migration.
+- No change to gram→KG numeric conversion (÷1000 still happens; values stay identical).
+- No change to Customer Portal, Order Entry, Cart, Packing List, Invoices, or any other module — only the Analytics components above.
+- Sorting, totals, charts, and CSV/PDF numbers stay the same.
 
-## Out of scope
-
-- No changes to `VirtualizedRetailerTable.tsx` row actions (no per-row globe button this round — the action lives inside the detail dialog, matching the other project).
-- No edits to `RetailerDetailModal.tsx`. Retail Management uses its own dialog; we mount the section there only.
-- No new edge functions, no migrations, no RLS changes, no WhatsApp / Bolna / distributor-portal work.
-- Customer portal pages themselves are not built here — the "Open Portal" link points at `/customer-portal/login` which is hosted in the separate Nayak project (same pattern as the source project).  
-4.No change to existing WhatsApp or Bolna flow.
-
-## Verification
-
-1. Open Retail Management → click a retailer with a phone → detail dialog shows the new "Customer Portal" card with badge "Inactive" and an "Initiate Customer Portal" button.
-2. Click Initiate → PIN appears, badge flips to Active, toast shows the PIN, `retailers.portal_enabled=true` in DB.
-3. Reset PIN updates `portal_pin` and shows new PIN. Deactivate clears both.
-4. For a retailer with no phone, Initiate button is disabled and helper text shows.
-5. Portal Orders count reflects `orders.order_source = 'portal_order'` rows for that retailer.
+## Side effects / risk
+- Purely cosmetic. Numbers in the cards will read e.g. `12.5 PCs` where the underlying value is 12.5 kg (i.e. 12,500 g). If users expect "PCs" to mean discrete pieces, the number may look small — flagging so you're aware. If that's a problem, we'd need option 2 (treat raw values as PCs) instead.
+- PDF/CSV exports will say "PCs" in headers and totals.
+- No impact on other screens, RLS, edge functions, or stored data.

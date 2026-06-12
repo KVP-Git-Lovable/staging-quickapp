@@ -380,7 +380,7 @@ export const ProductBreakdownDialog = ({
                 data.map((product, idx) => (
                   <TableRow key={idx}>
                     <TableCell className="font-medium">{product.product_name}</TableCell>
-                    <TableCell className="text-muted-foreground">{product.unit || 'KG'}</TableCell>
+                    <TableCell className="text-muted-foreground">{product.unit || 'PCs'}</TableCell>
                     <TableCell className="text-right">{product.quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
                     <TableCell className="text-right font-semibold">₹{product.revenue.toLocaleString()}</TableCell>
                   </TableRow>
