@@ -349,8 +349,13 @@ export function useMasterDataCache() {
       }
       onProgress?.('orders', 'done');
       return orders?.length || 0;
-    } catch (error) {
-      console.error('[Cache] Error caching orders:', error);
+    } catch (error: any) {
+      if (error?.code === '42501') {
+        console.warn('[Cache] Permission denied on orders — clearing stale cache');
+        await offlineStorage.clear(STORES.ORDERS).catch(() => undefined);
+      } else {
+        console.error('[Cache] Error caching orders:', error);
+      }
       onProgress?.('orders', 'error');
       return 0;
     }
