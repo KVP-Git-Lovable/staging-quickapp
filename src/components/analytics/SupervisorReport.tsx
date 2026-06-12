@@ -1289,7 +1289,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           productGroups[productName] = {
             product_name: productName,
             quantity: 0,
-            unit: 'KG',
+            unit: 'PCs',
             total: 0
           };
         }
