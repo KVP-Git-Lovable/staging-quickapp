@@ -308,7 +308,8 @@ const CustomerCatalog = () => {
         rate: Number(p.rate ?? 0),
         // Always prefer the globally enabled unit from the Unit of Measure Master.
         // Fall back to the product's default sales UOM, then legacy `unit` text.
-        unit: activeUnitCode || p.default_sales_uom?.code || p.default_sales_uom?.name || p.unit || 'pc',
+        // Hardcoded to PC per request — display unit always shows Pieces in customer portal catalog.
+        unit: 'PC',
         category_id: p.category_id || undefined,
         closing_stock: Number(p.closing_stock ?? 0),
       })) as Product[];
