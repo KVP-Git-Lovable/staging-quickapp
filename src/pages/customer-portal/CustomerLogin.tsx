@@ -70,17 +70,15 @@ const CustomerLogin = () => {
     (async () => {
       setLoading(true);
       try {
-        let query = supabase
-          .from('retailers')
-          .select('id, name, phone, address, beat_id, territory_id, distributor_id, owner_id, parent_name, portal_enabled')
-          .eq('portal_enabled', true);
-        query = qRetailerId
-          ? query.eq('id', qRetailerId)
-          : query.in('phone', phoneVariants);
-        const { data, error } = await query.limit(1).maybeSingle();
+        const { data, error } = await (supabase as any)
+          .rpc('portal_login_by_phone', { p_phone: cleanPhone });
         if (error) throw error;
-        if (data) {
-          await finalizeLogin(data as RetailerChoice, cleanPhone);
+        const rows = (data as any[]) || [];
+        const match = qRetailerId
+          ? rows.find((r: any) => r.id === qRetailerId) || rows[0]
+          : rows[0];
+        if (match) {
+          await finalizeLogin(match as RetailerChoice, cleanPhone);
         } else {
           toast.error('Portal access not found for this retailer.');
         }
