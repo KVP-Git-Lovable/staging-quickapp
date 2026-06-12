@@ -108,7 +108,7 @@ export const BeatPlanning = () => {
       const cachedBeats = await offlineStorage.getAll<any>(STORES.BEATS);
       const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
 
-      const userBeats = cachedBeats.filter((b: any) => b.is_active !== false && b.created_by === effectiveUserId);
+      const userBeats = cachedBeats.filter((b: any) => b.is_active !== false && b.user_id === effectiveUserId);
 
       const userRetailers = cachedRetailers.filter((r: any) => r.user_id === effectiveUserId);
 
