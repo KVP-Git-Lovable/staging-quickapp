@@ -1325,33 +1325,38 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         return;
       }
 
-      // Calculate next day for date range query
-      const nextDay = format(new Date(new Date(toDate).getTime() + 86400000), 'yyyy-MM-dd');
-
       // Fetch orders with retailer beat info and total_amount
       const { data: orders, error: ordersError } = await supabase
         .from('orders')
         .select(`
           id,
           retailer_id,
+          beat_id,
+          beat_name_snapshot,
           total_amount,
-          retailers!inner(beat_name, beat_id)
+          retailers(beat_name, beat_id)
         `)
         .eq('user_id', userProfile.id)
         .eq('status', 'confirmed')
-        .gte('created_at', `${fromDate}T00:00:00`)
-        .lt('created_at', `${nextDay}T00:00:00`);
+        .gte('order_date', fromDate)
+        .lte('order_date', toDate);
 
       if (ordersError || !orders || orders.length === 0) {
         setBeatBreakdownData([]);
         return;
       }
 
+      const orderBeatIds = [...new Set((orders || []).map((order: any) => order.beat_id).filter(Boolean))];
+      const { data: beats } = orderBeatIds.length > 0
+        ? await supabase.from('beats').select('beat_id, beat_name').in('beat_id', orderBeatIds)
+        : { data: [] as any[] };
+      const beatNameById = new Map((beats || []).map((beat: any) => [beat.beat_id, beat.beat_name]));
+
       // Group by beat_name and calculate totals using total_amount directly
       const beatTotals: Record<string, { total_value: number; order_count: number }> = {};
       
       orders.forEach((order: any) => {
-        const beatName = order.retailers?.beat_name || 'Unassigned';
+        const beatName = order.beat_name_snapshot || beatNameById.get(order.beat_id) || order.retailers?.beat_name || 'Unassigned';
         // Use total_amount directly (includes taxes and charges)
         const orderTotal = Number(order.total_amount || 0);
         
