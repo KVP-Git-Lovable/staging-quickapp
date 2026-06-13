@@ -1104,13 +1104,12 @@ export const TodaySummary = () => {
       const productSalesMap = new Map<string, { name: string; qty: number; unit: string; revenue: number; kgSold: number }>();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const rawUnit = (item.unit || 'PC').toString().trim() || 'PC';
-          const key = `${item.product_name}|${rawUnit.toLowerCase()}`;
-          const existing = productSalesMap.get(key) || { name: item.product_name, qty: 0, unit: rawUnit, revenue: 0, kgSold: 0 };
-          const qty = Number(item.quantity) || 0;
+          const { qty, unit, rawUnit } = getItemDisplayQtyUnit(item);
+          const key = `${item.product_name}|${unit.toLowerCase()}`;
+          const existing = productSalesMap.get(key) || { name: item.product_name, qty: 0, unit, revenue: 0, kgSold: 0 };
           productSalesMap.set(key, {
             name: item.product_name,
-            unit: rawUnit,
+            unit,
             qty: existing.qty + qty,
             revenue: existing.revenue + Number(item.total || 0),
             kgSold: existing.kgSold + convertToKg(qty, rawUnit),
@@ -1123,7 +1122,7 @@ export const TodaySummary = () => {
           name: d.name,
           qty: d.qty,
           unit: d.unit,
-          qtyFormatted: `${formatQty(d.qty)} ${d.unit.toUpperCase()}`,
+          qtyFormatted: `${formatQty(d.qty)} ${d.unit}`,
           revenue: d.revenue,
           kgSold: d.kgSold,
           kgFormatted: d.kgSold > 0 ? `${d.kgSold.toFixed(2)} KG` : 'N/A',
