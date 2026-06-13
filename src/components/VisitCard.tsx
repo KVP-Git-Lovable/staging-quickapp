@@ -1854,44 +1854,27 @@ export const VisitCard = ({
         longitude: number;
       };
       try {
-        current = await new Promise<{
-          latitude: number;
-          longitude: number;
-        }>((resolve, reject) => {
-          const timeoutId = setTimeout(() => {
-            reject(new Error('Location request timed out. Please ensure location services are enabled.'));
-          }, 15000);
-          navigator.geolocation.getCurrentPosition(position => {
-            clearTimeout(timeoutId);
-            resolve({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            });
-          }, error => {
-            clearTimeout(timeoutId);
-            let errorMessage = 'Unable to get your location.';
-            switch (error.code) {
-              case error.PERMISSION_DENIED:
-                errorMessage = 'Location permission denied. Please enable location access in your device settings.';
-                break;
-              case error.POSITION_UNAVAILABLE:
-                errorMessage = 'Location information is unavailable. Please check your GPS settings.';
-                break;
-              case error.TIMEOUT:
-                errorMessage = 'Location request timed out. Please try again.';
-                break;
-            }
-            reject(new Error(errorMessage));
-          }, {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0
-          });
-        });
+        current = await getResilientLocation();
       } catch (locationError: any) {
+        let errorMessage = 'Failed to get location. Please enable location services.';
+        if (locationError && typeof locationError === 'object' && 'code' in locationError) {
+          switch (locationError.code) {
+            case 1:
+              errorMessage = 'Location permission denied. Please enable location access for this site in your browser and device settings.';
+              break;
+            case 2:
+              errorMessage = 'Location unavailable. Please check that GPS is ON (Android: Settings → Location → High accuracy).';
+              break;
+            case 3:
+              errorMessage = "Couldn't get a GPS fix. Move near a window or outdoors, enable Precise location for this site in Chrome, then tap Capture Location again.";
+              break;
+          }
+        } else if (locationError?.message) {
+          errorMessage = locationError.message;
+        }
         toast({
           title: 'Location Error',
-          description: locationError.message || 'Failed to get location. Please enable location services.',
+          description: errorMessage,
           variant: 'destructive'
         });
         return;
