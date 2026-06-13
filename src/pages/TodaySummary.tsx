@@ -830,7 +830,7 @@ export const TodaySummary = () => {
         return 0; // For pieces and other units, don't count towards KG
       };
       
-      // Sum total quantity (pieces) across all order items
+      // Check whether item rows are present on the merged orders
       let totalItemsCount = 0;
       todayOrders?.forEach(order => {
         const items = order.order_items || order.items || [];
@@ -871,7 +871,79 @@ export const TodaySummary = () => {
         }
       }
 
-      const totalKgSoldFormatted = `${totalItemsCount} PC`;
+      const normalizeUnitLabel = (unit?: string) => (unit || '').toLowerCase().replace(/\./g, '').trim();
+      const isWeightLikeUnit = (unit?: string) => ['kg', 'kilogram', 'kilograms', 'g', 'gm', 'gram', 'grams'].includes(normalizeUnitLabel(unit));
+      const formatQty = (q: number): string => {
+        if (!Number.isFinite(q)) return '0';
+        return Number.isInteger(q) ? String(q) : q.toFixed(2).replace(/\.?0+$/, '');
+      };
+      const formatUnitLabel = (unit?: string): string => {
+        const normalized = normalizeUnitLabel(unit);
+        if (['pc', 'pcs', 'piece', 'pieces'].includes(normalized)) return 'Piece';
+        if (['g', 'gm', 'gram', 'grams'].includes(normalized)) return 'Grams';
+        if (['kg', 'kilogram', 'kilograms'].includes(normalized)) return 'KG';
+        if (['ml', 'milliliter', 'milliliters', 'millilitre', 'millilitres'].includes(normalized)) return 'ML';
+        if (['l', 'ltr', 'liter', 'liters', 'litre', 'litres'].includes(normalized)) return 'L';
+        return (unit || 'Piece').toString().trim();
+      };
+
+      const allOrderItems = (todayOrders || []).flatMap((order: any) => order.order_items || order.items || []);
+      const productMastersById = new Map<string, { unit: string; rate: number }>();
+      const productMastersByName = new Map<string, { unit: string; rate: number }>();
+      const cleanProductName = (name?: string) => (name || '').replace(/\s*\(FREE\)$/i, '').trim();
+      if (navigator.onLine && allOrderItems.length > 0) {
+        try {
+          const productIds = Array.from(new Set(allOrderItems.map((item: any) => item.product_id).filter(Boolean)));
+          const productNames = Array.from(new Set(allOrderItems.map((item: any) => cleanProductName(item.product_name)).filter(Boolean)));
+          const [byIdResult, byNameResult] = await Promise.all([
+            productIds.length > 0
+              ? supabase.from('products').select('id, name, unit, base_unit, rate').in('id', productIds)
+              : Promise.resolve({ data: [] as any[] }),
+            productNames.length > 0
+              ? supabase.from('products').select('id, name, unit, base_unit, rate').in('name', productNames)
+              : Promise.resolve({ data: [] as any[] }),
+          ]);
+          [...(byIdResult.data || []), ...(byNameResult.data || [])].forEach((product: any) => {
+            const masterUnit = product.unit || product.base_unit;
+            if (masterUnit) {
+              const master = { unit: masterUnit, rate: Number(product.rate) || 0 };
+              productMastersById.set(product.id, master);
+              productMastersByName.set(product.name, master);
+            }
+          });
+        } catch (e) {
+          console.warn('[SUMMARY] Failed to load product master units', e);
+        }
+      }
+
+      const getItemDisplayQtyUnit = (item: any) => {
+        const rawUnit = (item.unit || 'Piece').toString().trim() || 'Piece';
+        const master = productMastersById.get(item.product_id) || productMastersByName.get(cleanProductName(item.product_name));
+        const masterUnit = master?.unit;
+        let qty = Number(item.quantity) || 0;
+        let unit = rawUnit;
+        if (masterUnit && !isWeightLikeUnit(masterUnit) && isWeightLikeUnit(rawUnit)) {
+          unit = masterUnit;
+          const masterRate = Number(master?.rate) || 0;
+          const storedRate = Number(item.original_rate || item.rate) || 0;
+          if (masterRate > 0 && storedRate > 0) {
+            qty = (qty * storedRate) / masterRate;
+          } else if (masterRate > 0 && Number(item.total) > 0) {
+            qty = Number(item.total) / masterRate;
+          }
+        }
+        return { qty, unit: formatUnitLabel(unit), rawUnit };
+      };
+
+      const totalByUnit = new Map<string, number>();
+      allOrderItems.forEach((item: any) => {
+        const { qty, unit } = getItemDisplayQtyUnit(item);
+        totalByUnit.set(unit, (totalByUnit.get(unit) || 0) + qty);
+      });
+      const totalKgSoldFormatted = Array.from(totalByUnit.entries())
+        .map(([unit, qty]) => `${formatQty(qty)} ${unit}`)
+        .join(', ') || '0 Piece';
+      totalItemsCount = Array.from(totalByUnit.values()).reduce((sum, qty) => sum + qty, 0);
 
       // Calculate distance from van_stock (start_km to end_km)
       let totalDistance = 0;
@@ -1038,13 +1110,12 @@ export const TodaySummary = () => {
       const productSalesMap = new Map<string, { name: string; qty: number; unit: string; revenue: number; kgSold: number }>();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const rawUnit = (item.unit || 'PC').toString().trim() || 'PC';
-          const key = `${item.product_name}|${rawUnit.toLowerCase()}`;
-          const existing = productSalesMap.get(key) || { name: item.product_name, qty: 0, unit: rawUnit, revenue: 0, kgSold: 0 };
-          const qty = Number(item.quantity) || 0;
+          const { qty, unit, rawUnit } = getItemDisplayQtyUnit(item);
+          const key = `${item.product_name}|${unit.toLowerCase()}`;
+          const existing = productSalesMap.get(key) || { name: item.product_name, qty: 0, unit, revenue: 0, kgSold: 0 };
           productSalesMap.set(key, {
             name: item.product_name,
-            unit: rawUnit,
+            unit,
             qty: existing.qty + qty,
             revenue: existing.revenue + Number(item.total || 0),
             kgSold: existing.kgSold + convertToKg(qty, rawUnit),
@@ -1052,17 +1123,12 @@ export const TodaySummary = () => {
         });
       });
 
-      const formatQty = (q: number): string => {
-        if (!Number.isFinite(q)) return '0';
-        return Number.isInteger(q) ? String(q) : q.toFixed(2).replace(/\.?0+$/, '');
-      };
-
       const productSalesData = Array.from(productSalesMap.values())
         .map(d => ({
           name: d.name,
           qty: d.qty,
           unit: d.unit,
-          qtyFormatted: `${formatQty(d.qty)} ${d.unit.toUpperCase()}`,
+          qtyFormatted: `${formatQty(d.qty)} ${d.unit}`,
           revenue: d.revenue,
           kgSold: d.kgSold,
           kgFormatted: d.kgSold > 0 ? `${d.kgSold.toFixed(2)} KG` : 'N/A',
@@ -1105,11 +1171,20 @@ export const TodaySummary = () => {
           });
         } catch (e) {}
         
+        const orderQtyByUnit = new Map<string, number>();
+        order.order_items?.forEach((item: any) => {
+          const { qty, unit } = getItemDisplayQtyUnit(item);
+          orderQtyByUnit.set(unit, (orderQtyByUnit.get(unit) || 0) + qty);
+        });
+        const qtyFormatted = Array.from(orderQtyByUnit.entries())
+          .map(([unit, qty]) => `${formatQty(qty)} ${unit}`)
+          .join(', ') || '0 Piece';
+
         return {
           retailer: order.retailer_name,
           amount: totalAmount,
           kgSold: kgSum,
-          kgFormatted: kgSum > 0 ? `${kgSum.toFixed(2)} KG` : '0 PC',
+          kgFormatted: qtyFormatted,
           creditAmount: creditAmount,
           cashInHand: totalAmount - creditAmount,
           paymentMethod: paymentMethod
@@ -1193,9 +1268,13 @@ export const TodaySummary = () => {
       const productOrderMap = new Map();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const existing = productOrderMap.get(item.product_name) || { itemCount: 0, value: 0, orderCount: 0 };
-          productOrderMap.set(item.product_name, {
-            itemCount: existing.itemCount + 1, // Count each item as 1 piece
+          const { qty, unit } = getItemDisplayQtyUnit(item);
+          const key = `${item.product_name}|${unit.toLowerCase()}`;
+          const existing = productOrderMap.get(key) || { productName: item.product_name, itemCount: 0, unit, value: 0, orderCount: 0 };
+          productOrderMap.set(key, {
+            productName: item.product_name,
+            unit,
+            itemCount: existing.itemCount + qty,
             value: existing.value + Number(item.total || 0),
             orderCount: existing.orderCount + 1
           });
@@ -1203,10 +1282,10 @@ export const TodaySummary = () => {
       });
 
       const productGroupedData = Array.from(productOrderMap.entries())
-        .map(([product, data]) => ({ 
-          product, 
-          kgSold: data.itemCount, // Now represents item count (PC)
-          kgFormatted: `${data.itemCount} PC`, // Format as pieces
+        .map(([_, data]) => ({ 
+          product: data.productName, 
+          kgSold: data.itemCount,
+          kgFormatted: `${formatQty(data.itemCount)} ${data.unit}`,
           value: data.value,
           orders: data.orderCount
         }))
@@ -1654,7 +1733,7 @@ export const TodaySummary = () => {
         ['Unproductive', summaryData.unproductiveVisits.toString()],
         ['Total Order Value', `Rs. ${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`],
         ['Orders Placed', summaryData.totalOrders.toString()],
-        ['Total Items Sold (PC)', summaryData.totalKgSoldFormatted],
+        ['Total Qty Sold', summaryData.totalKgSoldFormatted],
         ['Avg Order Value', `Rs. ${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`],
         ['Points Earned', pointsEarnedToday.toString()]
       ];
@@ -2108,7 +2187,7 @@ export const TodaySummary = () => {
                 <div className="text-lg font-bold text-warning">
                   {loading ? "Loading..." : summaryData.totalKgSoldFormatted}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Items Sold (PC)</div>
+                <div className="text-sm text-muted-foreground">Total Qty Sold</div>
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-lg font-bold">
@@ -2547,7 +2626,7 @@ export const TodaySummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Product</TableHead>
-                        <TableHead className="text-right">Items Sold (PC)</TableHead>
+                        <TableHead className="text-right">Qty Sold</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2581,7 +2660,7 @@ export const TodaySummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Product</TableHead>
-                        <TableHead className="text-right">KG</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
                         <TableHead className="text-right">Value</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -2615,7 +2694,7 @@ export const TodaySummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Retailer</TableHead>
-                        <TableHead className="text-right">KG</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                       </TableRow>
                     </TableHeader>

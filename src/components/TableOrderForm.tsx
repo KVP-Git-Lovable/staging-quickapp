@@ -79,6 +79,26 @@ interface TableOrderFormProps {
   onStockUpdate?: (productId: string, stockQuantity: number, productName: string) => void;
 }
 
+const normalizeUnitForOrder = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
+
+const isLegacyWeightDefault = (u?: string) => {
+  const unit = normalizeUnitForOrder(u);
+  return ["kg", "kilogram", "kilograms", "g", "gm", "gram", "grams"].includes(unit);
+};
+
+const getDefaultOrderUnit = (product?: Product, requestedUnit?: string) => {
+  const explicitUnit = normalizeUnitForOrder(requestedUnit);
+  if (explicitUnit && !["kg", "kilogram", "kilograms"].includes(explicitUnit)) {
+    return requestedUnit || product?.unit || "KG";
+  }
+  return product?.unit || product?.base_unit || requestedUnit || "KG";
+};
+
+const shouldReplaceWeightDefault = (unit?: string, product?: Product) => {
+  const masterUnit = normalizeUnitForOrder(product?.unit || product?.base_unit);
+  return Boolean(masterUnit && !isLegacyWeightDefault(masterUnit) && isLegacyWeightDefault(unit));
+};
+
 // Expose this handle type for refs
 export interface TableOrderFormHandle {
   applyVoiceAutoFill: (results: VoiceAutoFillResult[]) => void;
@@ -321,8 +341,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             return existingKey === rowKey;
           });
           
-          // Normalize unit to KG or Grams
-          const unit = result.unit?.toUpperCase() === 'GRAMS' ? 'Grams' : 'KG';
+          const unit = getDefaultOrderUnit(product, result.unit);
           
           // Calculate total price
           const rate = getPricePerUnit(product, variant, unit);
@@ -423,10 +442,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               if (row.variant && row.variant.id) {
                 liveVariant = liveProduct.variants?.find(v => v.id === row.variant.id);
               }
+              const relinkedUnit = shouldReplaceWeightDefault(row.unit, liveProduct)
+                ? getDefaultOrderUnit(liveProduct)
+                : row.unit;
               return {
                 ...row,
                 product: liveProduct,
-                variant: liveVariant
+                variant: liveVariant,
+                unit: relinkedUnit
               };
             }
           }
@@ -703,13 +726,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       setOrderRows(prev =>
         prev.map(row => {
           if (row.id === rowId) {
-            // Always default to KG when product is selected
+            const defaultUnit = getDefaultOrderUnit(option.product);
             return {
               ...row,
               productCode: option.sku,
               product: option.product,
               variant: option.variant,
-              unit: 'KG',
+              unit: defaultUnit,
               total: 0,
             };
           }
@@ -762,7 +785,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         product: product,
         quantity: quantity || 1,
         closingStock: product.closing_stock,
-        unit: "KG",
+        unit: getDefaultOrderUnit(product),
         total: product.rate * (quantity || 1),
       };
       setOrderRows(prev => [...prev, newRow]);
@@ -814,7 +837,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             if (result) {
               updatedRow.product = result.product;
               updatedRow.variant = result.variant;
-              updatedRow.unit = 'KG'; // Always default to KG when product selected
+              updatedRow.unit = getDefaultOrderUnit(result.product);
               updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
               updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity, updatedRow.unit);
             } else {
