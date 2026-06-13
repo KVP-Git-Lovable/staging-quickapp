@@ -261,6 +261,7 @@ export function useUserTargetProgress(
 
           const totalRevenue = ordersData?.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0) || 0;
           setActual(totalRevenue);
+        } else {
           // Sum quantities AS-IS in the unit they were captured in. Targets are now
           // configured per the product master unit (Piece), so no KG/grams conversion.
           const { data: ordersData } = await supabase
