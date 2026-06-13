@@ -1118,11 +1118,6 @@ export const TodaySummary = () => {
         });
       });
 
-      const formatQty = (q: number): string => {
-        if (!Number.isFinite(q)) return '0';
-        return Number.isInteger(q) ? String(q) : q.toFixed(2).replace(/\.?0+$/, '');
-      };
-
       const productSalesData = Array.from(productSalesMap.values())
         .map(d => ({
           name: d.name,
