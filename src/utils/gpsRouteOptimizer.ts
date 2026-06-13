@@ -116,32 +116,58 @@ export function optimizeRouteByDistance<T extends DeliveryPoint>(
 }
 
 /**
- * Get current GPS location
+ * Resilient GPS location capture with 3-stage fallback strategy.
+ * Stage 1: fast cached fix (low accuracy, recent cache OK)
+ * Stage 2: high accuracy fresh fix
+ * Stage 3: low accuracy fallback (cell/Wi-Fi positioning)
+ *
+ * Only PERMISSION_DENIED short-circuits; TIMEOUT / POSITION_UNAVAILABLE roll to the next stage.
+ */
+export function getResilientLocation(): Promise<Coordinates> {
+  const tryOnce = (opts: PositionOptions): Promise<Coordinates> =>
+    new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (position) =>
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          }),
+        (error) => reject(error),
+        opts
+      );
+    });
+
+  const stages: PositionOptions[] = [
+    { enableHighAccuracy: false, timeout: 5000, maximumAge: 60_000 },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    { enableHighAccuracy: false, timeout: 20000, maximumAge: 120_000 },
+  ];
+
+  return (async () => {
+    let lastError: any = new Error('Unable to get location');
+    for (const opts of stages) {
+      try {
+        return await tryOnce(opts);
+      } catch (err: any) {
+        lastError = err;
+        if (err && typeof err === 'object' && 'code' in err && err.code === 1) {
+          throw err; // permission denied — won't recover by retrying
+        }
+      }
+    }
+    throw lastError;
+  })();
+}
+
+/**
+ * Get current GPS location (legacy single-shot — now backed by the resilient helper).
  */
 export function getCurrentLocation(): Promise<Coordinates> {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation is not supported'));
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        });
-      },
-      (error) => {
-        reject(error);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      }
-    );
-  });
+  return getResilientLocation();
 }
 
 /**

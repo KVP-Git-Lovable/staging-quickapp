@@ -1,5 +1,6 @@
 import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe } from "lucide-react";
 import { compressImageFile } from "@/utils/imageCompression";
+import { getResilientLocation } from "@/utils/gpsRouteOptimizer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1463,14 +1464,10 @@ export const VisitCard = ({
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
-  const getPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 30000,
-      maximumAge: 10000
-    });
-  });
+  const getPosition = async (): Promise<{ coords: { latitude: number; longitude: number } }> => {
+    const c = await getResilientLocation();
+    return { coords: { latitude: c.latitude, longitude: c.longitude } };
+  };
   // FAST ensureVisit: Returns cached/temp ID immediately, syncs in background
   const ensureVisit = async (userId: string, retailerId: string, date: string): Promise<string> => {
     // STEP 1: INSTANT - Check local cache first (always, regardless of network)
@@ -1769,14 +1766,9 @@ export const VisitCard = ({
   };
   const autoCheckOutPreviousVisit = async (userId: string, currentRetailerId: string, today: string) => {
     try {
-      // Get current location for auto check-out
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        });
-      });
+      // Get current location for auto check-out (resilient: cached → high-accuracy → low-accuracy)
+      const c = await getResilientLocation();
+      const position = { coords: { latitude: c.latitude, longitude: c.longitude } } as GeolocationPosition;
       const currentLocation = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude
@@ -1862,44 +1854,27 @@ export const VisitCard = ({
         longitude: number;
       };
       try {
-        current = await new Promise<{
-          latitude: number;
-          longitude: number;
-        }>((resolve, reject) => {
-          const timeoutId = setTimeout(() => {
-            reject(new Error('Location request timed out. Please ensure location services are enabled.'));
-          }, 15000);
-          navigator.geolocation.getCurrentPosition(position => {
-            clearTimeout(timeoutId);
-            resolve({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude
-            });
-          }, error => {
-            clearTimeout(timeoutId);
-            let errorMessage = 'Unable to get your location.';
-            switch (error.code) {
-              case error.PERMISSION_DENIED:
-                errorMessage = 'Location permission denied. Please enable location access in your device settings.';
-                break;
-              case error.POSITION_UNAVAILABLE:
-                errorMessage = 'Location information is unavailable. Please check your GPS settings.';
-                break;
-              case error.TIMEOUT:
-                errorMessage = 'Location request timed out. Please try again.';
-                break;
-            }
-            reject(new Error(errorMessage));
-          }, {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0
-          });
-        });
+        current = await getResilientLocation();
       } catch (locationError: any) {
+        let errorMessage = 'Failed to get location. Please enable location services.';
+        if (locationError && typeof locationError === 'object' && 'code' in locationError) {
+          switch (locationError.code) {
+            case 1:
+              errorMessage = 'Location permission denied. Please enable location access for this site in your browser and device settings.';
+              break;
+            case 2:
+              errorMessage = 'Location unavailable. Please check that GPS is ON (Android: Settings → Location → High accuracy).';
+              break;
+            case 3:
+              errorMessage = "Couldn't get a GPS fix. Move near a window or outdoors, enable Precise location for this site in Chrome, then tap Capture Location again.";
+              break;
+          }
+        } else if (locationError?.message) {
+          errorMessage = locationError.message;
+        }
         toast({
           title: 'Location Error',
-          description: locationError.message || 'Failed to get location. Please enable location services.',
+          description: errorMessage,
           variant: 'destructive'
         });
         return;
@@ -3822,16 +3797,9 @@ export const VisitCard = ({
                 onClick={async () => {
                   setIsCapturingLocation(true);
                   try {
-                    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                      navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 15000,
-                        maximumAge: 0,
-                      });
-                    });
-                    
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
+                    const coords = await getResilientLocation();
+                    const lat = coords.latitude;
+                    const lng = coords.longitude;
                     const retailerId = (visit.retailerId || visit.id) as string;
 
                     const { error } = await supabase
