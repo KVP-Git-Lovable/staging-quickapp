@@ -1727,7 +1727,7 @@ export const TodaySummary = () => {
         ['Unproductive', summaryData.unproductiveVisits.toString()],
         ['Total Order Value', `Rs. ${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`],
         ['Orders Placed', summaryData.totalOrders.toString()],
-        ['Total Items Sold (PC)', summaryData.totalKgSoldFormatted],
+        ['Total Qty Sold', summaryData.totalKgSoldFormatted],
         ['Avg Order Value', `Rs. ${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`],
         ['Points Earned', pointsEarnedToday.toString()]
       ];
@@ -2181,7 +2181,7 @@ export const TodaySummary = () => {
                 <div className="text-lg font-bold text-warning">
                   {loading ? "Loading..." : summaryData.totalKgSoldFormatted}
                 </div>
-                <div className="text-sm text-muted-foreground">Total Items Sold (PC)</div>
+                <div className="text-sm text-muted-foreground">Total Qty Sold</div>
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-lg font-bold">
@@ -2620,7 +2620,7 @@ export const TodaySummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Product</TableHead>
-                        <TableHead className="text-right">Items Sold (PC)</TableHead>
+                        <TableHead className="text-right">Qty Sold</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2654,7 +2654,7 @@ export const TodaySummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Product</TableHead>
-                        <TableHead className="text-right">KG</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
                         <TableHead className="text-right">Value</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -2688,7 +2688,7 @@ export const TodaySummary = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Retailer</TableHead>
-                        <TableHead className="text-right">KG</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                       </TableRow>
                     </TableHeader>
