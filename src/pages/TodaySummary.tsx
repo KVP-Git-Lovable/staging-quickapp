@@ -1815,13 +1815,13 @@ export const TodaySummary = () => {
         
         const productsData = productSales.map(p => [
           sanitizeText(p.name) || 'Unknown Product',
-          p.kgFormatted,
+          p.qtyFormatted,
           `Rs. ${Math.round(p.revenue).toLocaleString('en-IN')}`
         ]);
         
         autoTable(doc, {
           startY: yPosition,
-          head: [['Product', 'KG Sold', 'Revenue']],
+          head: [['Product', 'Qty Sold', 'Revenue']],
           body: productsData,
           theme: 'striped',
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
