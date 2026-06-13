@@ -246,51 +246,33 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   };
 
   // Helper to sync current rows to cart storage
-  // IMPORTANT: Convert KG to Grams for internal storage to maintain integer compatibility
+  // Stores quantity, rate and unit EXACTLY as selected from the unit master.
+  // No hardcoded KG→grams normalization — the unit chosen by the user is the unit saved.
   const syncRowsToCart = (rows: OrderRow[]) => {
     const productRows = rows.filter(row => row.product && row.quantity > 0);
     const cartItems = productRows.map(row => {
       const displayName = row.variant ? row.variant.variant_name : row.product!.name;
       const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
       const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
-      const selectedUnit = row.unit || 'KG';
+      const selectedUnit = row.unit || row.product!.unit || 'PC';
       const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
-      
-      // Get original rate (MRP) from variant or product - this is the rate BEFORE any discount
-      const originalRatePerSelectedUnit = row.variant 
+
+      // Original (MRP) per the selected unit
+      const originalRatePerSelectedUnit = row.variant
         ? Number(row.variant.price) || ratePerSelectedUnit
         : Number(row.product!.rate) || ratePerSelectedUnit;
-      
-      // KG <-> Grams is the only legacy normalization we keep (rate-per-gram storage).
-      // For every other unit (PC, ML, L, BOX, etc.) we preserve the actual selected unit
-      // and the per-unit rate exactly as captured from the product master.
-      const isWeightUnit = selectedUnit.toLowerCase() === 'kg';
-      
-      const storedQuantity = isWeightUnit
-        ? Math.round(row.quantity * 1000) // KG -> grams (integer)
-        : Number(row.quantity) || 0;
-      
-      const storedRate = isWeightUnit
-        ? ratePerSelectedUnit / 1000 // rate per KG -> rate per gram
-        : ratePerSelectedUnit;
-      
-      const storedOriginalRate = isWeightUnit
-        ? originalRatePerSelectedUnit / 1000
-        : originalRatePerSelectedUnit;
-      
-      const storedUnit = isWeightUnit ? 'Grams' : selectedUnit;
-      
+
       return {
         id: itemId,
         product_id: row.product!.id,
         variant_id: row.variant ? row.variant.id : null,
         name: displayName || 'Unknown Product',
         category: row.product!.category?.name || 'Uncategorized',
-        rate: storedRate,
-        original_rate: storedOriginalRate,
-        unit: storedUnit,
-        base_unit: storedUnit,
-        quantity: storedQuantity,
+        rate: ratePerSelectedUnit,
+        original_rate: originalRatePerSelectedUnit,
+        unit: selectedUnit,
+        base_unit: selectedUnit,
+        quantity: Number(row.quantity) || 0,
         total: Number(row.total) || 0,
         closingStock: Number(stock) || 0,
         schemes: row.product!.schemes || [],
@@ -298,6 +280,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         display_quantity: Number(row.quantity) || 0,
         hsn_code: (row.product as any)?.hsn_code || null
       };
+
     });
     
     onCartUpdate(cartItems);
