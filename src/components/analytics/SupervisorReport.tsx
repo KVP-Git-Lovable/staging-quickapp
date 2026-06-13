@@ -2190,7 +2190,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                         <thead className="sticky top-0 bg-muted/50 z-10">
                           <tr className="bg-muted/50 border-b">
                             <th className={cn("text-left font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Full Name</th>
-                            <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Qty (KG)</th>
+                            <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Qty (PCs)</th>
                             <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Total Order Value</th>
                           </tr>
                         </thead>
@@ -2674,7 +2674,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                           <TableHeader className="sticky top-0 bg-muted/50 z-10">
                             <TableRow>
                               <TableHead className="text-xs py-1.5 px-2 whitespace-nowrap">Date</TableHead>
-                              <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Qty (KG)</TableHead>
+                              <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Qty (PCs)</TableHead>
                               <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Revenue</TableHead>
                             </TableRow>
                           </TableHeader>
