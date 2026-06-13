@@ -241,20 +241,24 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         ? Number(row.variant.price) || ratePerSelectedUnit
         : Number(row.product!.rate) || ratePerSelectedUnit;
       
-      // Convert quantity to grams if unit is KG for internal storage
-      const quantityInGrams = selectedUnit.toLowerCase() === 'kg' 
-        ? Math.round(row.quantity * 1000)  // Round to avoid floating point issues
+      // KG <-> Grams is the only legacy normalization we keep (rate-per-gram storage).
+      // For every other unit (PC, ML, L, BOX, etc.) we preserve the actual selected unit
+      // and the per-unit rate exactly as captured from the product master.
+      const isWeightUnit = selectedUnit.toLowerCase() === 'kg';
+      
+      const storedQuantity = isWeightUnit
+        ? Math.round(row.quantity * 1000) // KG -> grams (integer)
         : Number(row.quantity) || 0;
       
-      // Rate per gram for storage (price per kg / 1000)
-      const ratePerGram = selectedUnit.toLowerCase() === 'kg'
-        ? ratePerSelectedUnit / 1000
+      const storedRate = isWeightUnit
+        ? ratePerSelectedUnit / 1000 // rate per KG -> rate per gram
         : ratePerSelectedUnit;
       
-      // Original rate per gram for storage
-      const originalRatePerGram = selectedUnit.toLowerCase() === 'kg'
+      const storedOriginalRate = isWeightUnit
         ? originalRatePerSelectedUnit / 1000
         : originalRatePerSelectedUnit;
+      
+      const storedUnit = isWeightUnit ? 'Grams' : selectedUnit;
       
       return {
         id: itemId,
@@ -262,16 +266,16 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         variant_id: row.variant ? row.variant.id : null,
         name: displayName || 'Unknown Product',
         category: row.product!.category?.name || 'Uncategorized',
-        rate: ratePerGram, // Store rate per gram
-        original_rate: originalRatePerGram, // Store original rate (MRP) per gram
-        unit: 'Grams', // Always store as grams internally
-        base_unit: 'Grams',
-        quantity: quantityInGrams, // Store quantity in grams
+        rate: storedRate,
+        original_rate: storedOriginalRate,
+        unit: storedUnit,
+        base_unit: storedUnit,
+        quantity: storedQuantity,
         total: Number(row.total) || 0,
         closingStock: Number(stock) || 0,
         schemes: row.product!.schemes || [],
-        display_unit: selectedUnit, // Keep original unit for display purposes
-        display_quantity: Number(row.quantity) || 0, // Keep original quantity for display
+        display_unit: selectedUnit,
+        display_quantity: Number(row.quantity) || 0,
         hsn_code: (row.product as any)?.hsn_code || null
       };
     });
