@@ -1464,14 +1464,10 @@ export const VisitCard = ({
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
-  const getPosition = () => new Promise<GeolocationPosition>((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('Geolocation not supported'));
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 30000,
-      maximumAge: 10000
-    });
-  });
+  const getPosition = async (): Promise<{ coords: { latitude: number; longitude: number } }> => {
+    const c = await getResilientLocation();
+    return { coords: { latitude: c.latitude, longitude: c.longitude } };
+  };
   // FAST ensureVisit: Returns cached/temp ID immediately, syncs in background
   const ensureVisit = async (userId: string, retailerId: string, date: string): Promise<string> => {
     // STEP 1: INSTANT - Check local cache first (always, regardless of network)
