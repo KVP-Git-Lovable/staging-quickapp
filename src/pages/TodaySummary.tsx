@@ -2355,7 +2355,7 @@ export const TodaySummary = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead className="text-right">KG Sold</TableHead>
+                  <TableHead className="text-right">Qty Sold</TableHead>
                   <TableHead className="text-right">Revenue</TableHead>
                 </TableRow>
               </TableHeader>
