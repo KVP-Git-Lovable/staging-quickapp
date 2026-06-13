@@ -103,7 +103,7 @@ export const TodaySummary = () => {
   ]);
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
-  const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
+  const [productSales, setProductSales] = useState<Array<{ name: string; qty: number; unit: string; qtyFormatted: string; revenue: number; kgSold: number; kgFormatted: string }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number; beatName?: string; address?: string; planDate?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
@@ -1034,25 +1034,38 @@ export const TodaySummary = () => {
 
       setTopRetailers(topRetailersData);
 
-      // Process product sales with KG conversion
-      const productSalesMap = new Map();
+      // Process product sales — aggregate by (product, unit) and show the actual unit
+      const productSalesMap = new Map<string, { name: string; qty: number; unit: string; revenue: number; kgSold: number }>();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const existing = productSalesMap.get(item.product_name) || { kgSold: 0, revenue: 0 };
-          const itemKg = convertToKg(item.quantity, item.unit || 'piece');
-          productSalesMap.set(item.product_name, {
-            kgSold: existing.kgSold + itemKg,
-            revenue: existing.revenue + Number(item.total || 0)
+          const rawUnit = (item.unit || 'PC').toString().trim() || 'PC';
+          const key = `${item.product_name}|${rawUnit.toLowerCase()}`;
+          const existing = productSalesMap.get(key) || { name: item.product_name, qty: 0, unit: rawUnit, revenue: 0, kgSold: 0 };
+          const qty = Number(item.quantity) || 0;
+          productSalesMap.set(key, {
+            name: item.product_name,
+            unit: rawUnit,
+            qty: existing.qty + qty,
+            revenue: existing.revenue + Number(item.total || 0),
+            kgSold: existing.kgSold + convertToKg(qty, rawUnit),
           });
         });
       });
 
-      const productSalesData = Array.from(productSalesMap.entries())
-        .map(([name, data]) => ({ 
-          name, 
-          kgSold: data.kgSold,
-          kgFormatted: data.kgSold > 0 ? `${data.kgSold.toFixed(2)} KG` : 'N/A',
-          revenue: data.revenue 
+      const formatQty = (q: number): string => {
+        if (!Number.isFinite(q)) return '0';
+        return Number.isInteger(q) ? String(q) : q.toFixed(2).replace(/\.?0+$/, '');
+      };
+
+      const productSalesData = Array.from(productSalesMap.values())
+        .map(d => ({
+          name: d.name,
+          qty: d.qty,
+          unit: d.unit,
+          qtyFormatted: `${formatQty(d.qty)} ${d.unit.toUpperCase()}`,
+          revenue: d.revenue,
+          kgSold: d.kgSold,
+          kgFormatted: d.kgSold > 0 ? `${d.kgSold.toFixed(2)} KG` : 'N/A',
         }))
         .sort((a, b) => b.revenue - a.revenue);
 
@@ -1802,13 +1815,13 @@ export const TodaySummary = () => {
         
         const productsData = productSales.map(p => [
           sanitizeText(p.name) || 'Unknown Product',
-          p.kgFormatted,
+          p.qtyFormatted,
           `Rs. ${Math.round(p.revenue).toLocaleString('en-IN')}`
         ]);
         
         autoTable(doc, {
           startY: yPosition,
-          head: [['Product', 'KG Sold', 'Revenue']],
+          head: [['Product', 'Qty Sold', 'Revenue']],
           body: productsData,
           theme: 'striped',
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -2342,7 +2355,7 @@ export const TodaySummary = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Product</TableHead>
-                  <TableHead className="text-right">KG Sold</TableHead>
+                  <TableHead className="text-right">Qty Sold</TableHead>
                   <TableHead className="text-right">Revenue</TableHead>
                 </TableRow>
               </TableHeader>
@@ -2363,7 +2376,7 @@ export const TodaySummary = () => {
                   (showAllProducts ? productSales : productSales.slice(0, 5)).map((p) => (
                    <TableRow key={p.name}>
                      <TableCell className="font-medium">{p.name}</TableCell>
-                     <TableCell className="text-right">{p.kgFormatted}</TableCell>
+                     <TableCell className="text-right">{p.qtyFormatted}</TableCell>
                      <TableCell className="text-right">₹{Math.round(p.revenue).toLocaleString('en-IN')}</TableCell>
                    </TableRow>
                  ))
