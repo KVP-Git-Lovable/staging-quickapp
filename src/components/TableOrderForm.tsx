@@ -726,13 +726,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       setOrderRows(prev =>
         prev.map(row => {
           if (row.id === rowId) {
-            // Always default to KG when product is selected
+            const defaultUnit = getDefaultOrderUnit(option.product);
             return {
               ...row,
               productCode: option.sku,
               product: option.product,
               variant: option.variant,
-              unit: 'KG',
+              unit: defaultUnit,
               total: 0,
             };
           }
@@ -785,7 +785,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         product: product,
         quantity: quantity || 1,
         closingStock: product.closing_stock,
-        unit: "KG",
+        unit: getDefaultOrderUnit(product),
         total: product.rate * (quantity || 1),
       };
       setOrderRows(prev => [...prev, newRow]);
@@ -837,7 +837,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             if (result) {
               updatedRow.product = result.product;
               updatedRow.variant = result.variant;
-              updatedRow.unit = 'KG'; // Always default to KG when product selected
+              updatedRow.unit = getDefaultOrderUnit(result.product);
               updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
               updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity, updatedRow.unit);
             } else {
