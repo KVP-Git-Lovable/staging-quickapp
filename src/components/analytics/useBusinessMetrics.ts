@@ -53,23 +53,15 @@ interface PendingPaymentDetail {
   user_name?: string;
 }
 
-const getKgQuantity = (quantity: unknown, unit: unknown) => {
+const getKgQuantity = (quantity: unknown, _unit?: unknown) => {
+  // Single unit (Piece) — sum quantity as-is regardless of legacy unit label.
   const qty = Number(quantity || 0);
-  const unitLower = String(unit || '').trim().toLowerCase();
-
-  if (unitLower === 'kg' || unitLower.includes('kilo')) return qty;
-  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return qty / 1000;
-  return 0;
+  return Number.isFinite(qty) ? qty : 0;
 };
 
-const getDisplayQuantity = (quantity: unknown, unit: unknown) => {
+const getDisplayQuantity = (quantity: unknown, _unit?: unknown) => {
   const qty = Number(quantity || 0);
-  const rawUnit = String(unit || '').trim();
-  const unitLower = rawUnit.toLowerCase();
-
-  if (unitLower === 'kg' || unitLower.includes('kilo')) return { quantity: qty, unit: 'PCs' };
-  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return { quantity: qty / 1000, unit: 'PCs' };
-  return { quantity: qty, unit: rawUnit || 'Unit' };
+  return { quantity: Number.isFinite(qty) ? qty : 0, unit: 'PCs' };
 };
 
 export const useBusinessMetrics = () => {
