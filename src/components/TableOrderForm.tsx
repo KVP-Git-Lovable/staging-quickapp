@@ -321,8 +321,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             return existingKey === rowKey;
           });
           
-          // Normalize unit to KG or Grams
-          const unit = result.unit?.toUpperCase() === 'GRAMS' ? 'Grams' : 'KG';
+          const unit = getDefaultOrderUnit(product, result.unit);
           
           // Calculate total price
           const rate = getPricePerUnit(product, variant, unit);
@@ -423,10 +422,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               if (row.variant && row.variant.id) {
                 liveVariant = liveProduct.variants?.find(v => v.id === row.variant.id);
               }
+              const relinkedUnit = shouldReplaceWeightDefault(row.unit, liveProduct)
+                ? getDefaultOrderUnit(liveProduct)
+                : row.unit;
               return {
                 ...row,
                 product: liveProduct,
-                variant: liveVariant
+                variant: liveVariant,
+                unit: relinkedUnit
               };
             }
           }
