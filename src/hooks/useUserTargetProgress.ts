@@ -261,35 +261,24 @@ export function useUserTargetProgress(
 
           const totalRevenue = ordersData?.reduce((sum, o) => sum + (Number(o.total_amount) || 0), 0) || 0;
           setActual(totalRevenue);
-        } else {
-          // Use a join to get quantities in one query
+          // Sum quantities AS-IS in the unit they were captured in. Targets are now
+          // configured per the product master unit (Piece), so no KG/grams conversion.
           const { data: ordersData } = await supabase
             .from('orders')
-            .select('id, order_items!order_items_order_id_fkey(quantity, unit)')
+            .select('id, order_items!order_items_order_id_fkey(quantity)')
             .eq('user_id', userId)
             .gte('created_at', startStr)
             .lte('created_at', endStr);
 
-          // Sum quantities and convert to KG (order_items store quantities in grams)
-          const totalQuantityInGrams = ordersData?.reduce((sum, order) => {
+          const totalQuantity = ordersData?.reduce((sum, order) => {
             const orderQty = (order.order_items as any[])?.reduce(
-              (itemSum, item) => {
-                const qty = Number(item.quantity) || 0;
-                const itemUnit = (item.unit || '').toLowerCase();
-                // If unit is already KG, convert to grams for consistent summing
-                if (itemUnit === 'kg' || itemUnit === 'kgs') {
-                  return itemSum + (qty * 1000);
-                }
-                // Grams or default - use as-is
-                return itemSum + qty;
-              }, 0
+              (itemSum, item) => itemSum + (Number(item.quantity) || 0),
+              0
             ) || 0;
             return sum + orderQty;
           }, 0) || 0;
-          
-          // Convert total grams to KG for display
-          const totalQuantityInKg = totalQuantityInGrams / 1000;
-          setActual(totalQuantityInKg);
+
+          setActual(totalQuantity);
         }
       } catch (error) {
         if ((error as any)?.name !== 'AbortError') {
