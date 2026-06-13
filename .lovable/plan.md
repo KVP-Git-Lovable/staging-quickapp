@@ -1,40 +1,22 @@
-# Improve GPS Capture Resilience
+## Goal
+Only `PIECE` is enabled in the unit master, but 8,468 products in the product master still carry `KG` or `ML` as their unit. Standardise every product to `PIECE` so the rep app, order entry, summary screens and invoices all display the unit as Piece going forward.
 
-## Root cause
-The screenshot shows `Location Capture Failed — Timeout expired`. This comes from the browser's Geolocation API (`error.TIMEOUT`), not from our backend or RLS. On mobile Chrome, a 15-second high-accuracy fix frequently fails when:
-- The user is indoors / has weak GPS signal
-- Chrome site permission is set to "Approximate" instead of "Precise"
-- Android Location mode is "Battery saving" instead of "High accuracy"
-- The browser hasn't had a recent fix and cold-starts GPS
+## Where the wrong unit comes from
+- `products.unit` — currently 7,020 rows = `KG`, 1,448 rows = `ML`. This is the column the order entry / cart / summary screens read.
+- `products.base_unit` — same split in lowercase (`kg`, `ml`).
+- `products.base_unit_category` — already `Quantity` for 8,411 rows; only 54 are `Weight`.
 
-So this is **primarily a device/permission issue**, but our current capture logic gives up after one strict attempt. We can make it succeed in more real-world conditions.
+No other product-level table stores a unit (product_variants doesn't have unit columns; line-item tables get the unit copied in at order time and are out of scope per your choice).
 
-## Plan
+## Changes
+1. One-shot data update on `public.products`:
+   - `unit` → `'PIECE'` for every row.
+   - `base_unit` → `'piece'` for every row.
+   - `base_unit_category` → `'Quantity'` for every row (fixes the 54 Weight stragglers and the 3 NULLs).
+2. No schema, RLS, or code changes — the order form already reads `product.unit` and now also persists the selected unit verbatim (from the previous fix), so new orders will save and display `PIECE`.
+3. Historical order/invoice/packing-list rows are left untouched per your instruction.
 
-Update the GPS capture used by the order/check-in "Capture Location" flow in `src/components/VisitCard.tsx` (around line 1864-1898) with a 3-stage strategy:
-
-1. **Stage 1 — fast cached fix**: `enableHighAccuracy: false`, `timeout: 5s`, `maximumAge: 60_000`. Returns instantly if the OS already has a recent fix.
-2. **Stage 2 — high accuracy**: `enableHighAccuracy: true`, `timeout: 15s`, `maximumAge: 0`. Current behaviour.
-3. **Stage 3 — low accuracy fallback**: `enableHighAccuracy: false`, `timeout: 20s`, `maximumAge: 120_000`. Uses cell/Wi-Fi positioning when GPS can't lock.
-
-Only if all three fail do we show the toast. Update the error message to be actionable:
-
-> "Couldn't get GPS fix. Please move near a window, enable **Precise location** for this site in Chrome, and set Android Location to **High accuracy**, then tap Capture Location again."
-
-Apply the same 3-stage helper to the other `getCurrentPosition` call sites that block order flow:
-- `src/components/VisitCard.tsx` line ~1467 (check-in)
-- `src/components/VisitCard.tsx` line ~1774 (check-out)
-- `src/components/VisitCard.tsx` line ~3826 (retailer GPS capture)
-- `src/utils/gpsRouteOptimizer.ts` `getCurrentLocation` (Start Beat)
-
-Extract a single helper `getResilientLocation()` in `src/utils/gpsRouteOptimizer.ts` so all call sites share the same retry logic.
-
-## Out of scope
-- No backend / RLS / schema changes
-- No UI redesign of the dialog itself
-- Does not change the rule that order placement requires a captured location
-
-## What the user should also do on the phone
-1. Chrome → site settings for `lovable.dev` → Location = **Allow + Precise**
-2. Android Settings → Location → **High accuracy mode**
-3. Step outside or near a window once, so the OS warms up its GPS cache (Stage 1 will then succeed instantly on subsequent attempts)
+## Verification after run
+- `SELECT unit, count(*) FROM products GROUP BY unit;` → single row `PIECE | 8468`.
+- Open an existing product in product master → unit shows Piece.
+- Add a product to a new order → line shows `qty × ₹rate` with unit `PIECE`.
