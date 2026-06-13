@@ -2471,23 +2471,13 @@ export const VisitCard = ({
         
         console.log('[VisitCard] Total items found:', allItems.length);
 
-        // Helper function to convert quantity and rate for display
-        // Uses original_rate (MRP from product master) for accurate display
+        // Display values: keep the actual unit and the stored per-unit rate.
+        // We do NOT force-convert grams → KG anymore — the unit captured on the
+        // line item (and per-unit rate from product master) is the source of truth.
         const getDisplayValues = (qty: number, rate: number, originalRate: number, total: number, unit: string) => {
-          const unitLower = (unit || '').toLowerCase().trim();
-          // Use original_rate for display (full precision), fallback to rate
+          const displayUnit = (unit || '').trim() || 'PC';
           const displayRateBase = originalRate || rate;
-          
-          // Always convert grams to kg for display (consistent with invoice)
-          if (unitLower === 'grams' || unitLower === 'g' || unitLower === 'gram') {
-            const kgQty = qty / 1000;
-            // Use original rate * 1000 to get per KG rate (matches product master)
-            const ratePerKg = displayRateBase * 1000;
-            return { displayQty: kgQty, displayUnit: 'KG', displayRate: ratePerKg };
-          }
-          
-          // For other units, use the original rate directly
-          return { displayQty: qty, displayUnit: unit, displayRate: displayRateBase };
+          return { displayQty: qty, displayUnit: displayUnit.toUpperCase(), displayRate: displayRateBase };
         };
 
         // Group items by product for a clean summary
