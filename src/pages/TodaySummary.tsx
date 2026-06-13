@@ -2376,7 +2376,7 @@ export const TodaySummary = () => {
                   (showAllProducts ? productSales : productSales.slice(0, 5)).map((p) => (
                    <TableRow key={p.name}>
                      <TableCell className="font-medium">{p.name}</TableCell>
-                     <TableCell className="text-right">{p.kgFormatted}</TableCell>
+                     <TableCell className="text-right">{p.qtyFormatted}</TableCell>
                      <TableCell className="text-right">₹{Math.round(p.revenue).toLocaleString('en-IN')}</TableCell>
                    </TableRow>
                  ))
