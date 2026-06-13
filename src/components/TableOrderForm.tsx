@@ -79,6 +79,26 @@ interface TableOrderFormProps {
   onStockUpdate?: (productId: string, stockQuantity: number, productName: string) => void;
 }
 
+const normalizeUnitForOrder = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
+
+const isLegacyWeightDefault = (u?: string) => {
+  const unit = normalizeUnitForOrder(u);
+  return ["kg", "kilogram", "kilograms", "g", "gm", "gram", "grams"].includes(unit);
+};
+
+const getDefaultOrderUnit = (product?: Product, requestedUnit?: string) => {
+  const explicitUnit = normalizeUnitForOrder(requestedUnit);
+  if (explicitUnit && !["kg", "kilogram", "kilograms"].includes(explicitUnit)) {
+    return requestedUnit || product?.unit || "KG";
+  }
+  return product?.unit || product?.base_unit || requestedUnit || "KG";
+};
+
+const shouldReplaceWeightDefault = (unit?: string, product?: Product) => {
+  const masterUnit = normalizeUnitForOrder(product?.unit || product?.base_unit);
+  return Boolean(masterUnit && !isLegacyWeightDefault(masterUnit) && isLegacyWeightDefault(unit));
+};
+
 // Expose this handle type for refs
 export interface TableOrderFormHandle {
   applyVoiceAutoFill: (results: VoiceAutoFillResult[]) => void;
