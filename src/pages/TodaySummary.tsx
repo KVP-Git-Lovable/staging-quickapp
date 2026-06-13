@@ -830,7 +830,7 @@ export const TodaySummary = () => {
         return 0; // For pieces and other units, don't count towards KG
       };
       
-      // Sum total quantity (pieces) across all order items
+      // Check whether item rows are present on the merged orders
       let totalItemsCount = 0;
       todayOrders?.forEach(order => {
         const items = order.order_items || order.items || [];
@@ -871,7 +871,73 @@ export const TodaySummary = () => {
         }
       }
 
-      const totalKgSoldFormatted = `${totalItemsCount} PC`;
+      const normalizeUnitLabel = (unit?: string) => (unit || '').toLowerCase().replace(/\./g, '').trim();
+      const isWeightLikeUnit = (unit?: string) => ['kg', 'kilogram', 'kilograms', 'g', 'gm', 'gram', 'grams'].includes(normalizeUnitLabel(unit));
+      const formatQty = (q: number): string => {
+        if (!Number.isFinite(q)) return '0';
+        return Number.isInteger(q) ? String(q) : q.toFixed(2).replace(/\.?0+$/, '');
+      };
+      const formatUnitLabel = (unit?: string): string => {
+        const normalized = normalizeUnitLabel(unit);
+        if (['pc', 'pcs', 'piece', 'pieces'].includes(normalized)) return 'Piece';
+        if (['g', 'gm', 'gram', 'grams'].includes(normalized)) return 'Grams';
+        if (['kg', 'kilogram', 'kilograms'].includes(normalized)) return 'KG';
+        if (['ml', 'milliliter', 'milliliters', 'millilitre', 'millilitres'].includes(normalized)) return 'ML';
+        if (['l', 'ltr', 'liter', 'liters', 'litre', 'litres'].includes(normalized)) return 'L';
+        return (unit || 'Piece').toString().trim();
+      };
+
+      const allOrderItems = (todayOrders || []).flatMap((order: any) => order.order_items || order.items || []);
+      const productUnitsById = new Map<string, string>();
+      const productUnitsByName = new Map<string, string>();
+      const cleanProductName = (name?: string) => (name || '').replace(/\s*\(FREE\)$/i, '').trim();
+      if (navigator.onLine && allOrderItems.length > 0) {
+        try {
+          const productIds = Array.from(new Set(allOrderItems.map((item: any) => item.product_id).filter(Boolean)));
+          const productNames = Array.from(new Set(allOrderItems.map((item: any) => cleanProductName(item.product_name)).filter(Boolean)));
+          const [byIdResult, byNameResult] = await Promise.all([
+            productIds.length > 0
+              ? supabase.from('products').select('id, name, unit, base_unit').in('id', productIds)
+              : Promise.resolve({ data: [] as any[] }),
+            productNames.length > 0
+              ? supabase.from('products').select('id, name, unit, base_unit').in('name', productNames)
+              : Promise.resolve({ data: [] as any[] }),
+          ]);
+          [...(byIdResult.data || []), ...(byNameResult.data || [])].forEach((product: any) => {
+            const masterUnit = product.unit || product.base_unit;
+            if (masterUnit) {
+              productUnitsById.set(product.id, masterUnit);
+              productUnitsByName.set(product.name, masterUnit);
+            }
+          });
+        } catch (e) {
+          console.warn('[SUMMARY] Failed to load product master units', e);
+        }
+      }
+
+      const getItemDisplayQtyUnit = (item: any) => {
+        const rawUnit = (item.unit || 'Piece').toString().trim() || 'Piece';
+        const masterUnit = productUnitsById.get(item.product_id) || productUnitsByName.get(cleanProductName(item.product_name));
+        let qty = Number(item.quantity) || 0;
+        let unit = rawUnit;
+        if (masterUnit && !isWeightLikeUnit(masterUnit) && isWeightLikeUnit(rawUnit)) {
+          unit = masterUnit;
+          if (['g', 'gm', 'gram', 'grams'].includes(normalizeUnitLabel(rawUnit))) {
+            qty = qty / 1000;
+          }
+        }
+        return { qty, unit: formatUnitLabel(unit), rawUnit };
+      };
+
+      const totalByUnit = new Map<string, number>();
+      allOrderItems.forEach((item: any) => {
+        const { qty, unit } = getItemDisplayQtyUnit(item);
+        totalByUnit.set(unit, (totalByUnit.get(unit) || 0) + qty);
+      });
+      const totalKgSoldFormatted = Array.from(totalByUnit.entries())
+        .map(([unit, qty]) => `${formatQty(qty)} ${unit}`)
+        .join(', ') || '0 Piece';
+      totalItemsCount = Array.from(totalByUnit.values()).reduce((sum, qty) => sum + qty, 0);
 
       // Calculate distance from van_stock (start_km to end_km)
       let totalDistance = 0;
