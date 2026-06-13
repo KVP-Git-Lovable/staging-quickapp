@@ -55,13 +55,11 @@ interface SupervisorReportProps {
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#84cc16'];
 
-const toKgQuantity = (quantity: unknown, unit: unknown) => {
+const toKgQuantity = (quantity: unknown, _unit?: unknown) => {
+  // Quantity is counted as-is in the unit it was captured in (Piece is the
+  // only enabled unit). We no longer drop non-weight units — we simply sum.
   const qty = Number(quantity || 0);
-  const unitLower = String(unit || '').trim().toLowerCase();
-
-  if (unitLower === 'kg' || unitLower.includes('kilo')) return qty;
-  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return qty / 1000;
-  return 0;
+  return Number.isFinite(qty) ? qty : 0;
 };
 
 const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} PCs`;
