@@ -3797,16 +3797,9 @@ export const VisitCard = ({
                 onClick={async () => {
                   setIsCapturingLocation(true);
                   try {
-                    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                      navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 15000,
-                        maximumAge: 0,
-                      });
-                    });
-                    
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
+                    const coords = await getResilientLocation();
+                    const lat = coords.latitude;
+                    const lng = coords.longitude;
                     const retailerId = (visit.retailerId || visit.id) as string;
 
                     const { error } = await supabase
