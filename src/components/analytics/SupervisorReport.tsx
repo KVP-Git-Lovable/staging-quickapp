@@ -55,13 +55,11 @@ interface SupervisorReportProps {
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#84cc16'];
 
-const toKgQuantity = (quantity: unknown, unit: unknown) => {
+const toKgQuantity = (quantity: unknown, _unit?: unknown) => {
+  // Quantity is counted as-is in the unit it was captured in (Piece is the
+  // only enabled unit). We no longer drop non-weight units — we simply sum.
   const qty = Number(quantity || 0);
-  const unitLower = String(unit || '').trim().toLowerCase();
-
-  if (unitLower === 'kg' || unitLower.includes('kilo')) return qty;
-  if (unitLower === 'grams' || unitLower === 'gram' || unitLower === 'g') return qty / 1000;
-  return 0;
+  return Number.isFinite(qty) ? qty : 0;
 };
 
 const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} PCs`;
@@ -2192,7 +2190,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                         <thead className="sticky top-0 bg-muted/50 z-10">
                           <tr className="bg-muted/50 border-b">
                             <th className={cn("text-left font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Full Name</th>
-                            <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Qty (KG)</th>
+                            <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Qty (PCs)</th>
                             <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Total Order Value</th>
                           </tr>
                         </thead>
@@ -2676,7 +2674,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                           <TableHeader className="sticky top-0 bg-muted/50 z-10">
                             <TableRow>
                               <TableHead className="text-xs py-1.5 px-2 whitespace-nowrap">Date</TableHead>
-                              <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Qty (KG)</TableHead>
+                              <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Qty (PCs)</TableHead>
                               <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Revenue</TableHead>
                             </TableRow>
                           </TableHeader>
