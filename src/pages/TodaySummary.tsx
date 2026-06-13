@@ -888,8 +888,8 @@ export const TodaySummary = () => {
       };
 
       const allOrderItems = (todayOrders || []).flatMap((order: any) => order.order_items || order.items || []);
-      const productUnitsById = new Map<string, string>();
-      const productUnitsByName = new Map<string, string>();
+      const productMastersById = new Map<string, { unit: string; rate: number }>();
+      const productMastersByName = new Map<string, { unit: string; rate: number }>();
       const cleanProductName = (name?: string) => (name || '').replace(/\s*\(FREE\)$/i, '').trim();
       if (navigator.onLine && allOrderItems.length > 0) {
         try {
@@ -897,17 +897,18 @@ export const TodaySummary = () => {
           const productNames = Array.from(new Set(allOrderItems.map((item: any) => cleanProductName(item.product_name)).filter(Boolean)));
           const [byIdResult, byNameResult] = await Promise.all([
             productIds.length > 0
-              ? supabase.from('products').select('id, name, unit, base_unit').in('id', productIds)
+              ? supabase.from('products').select('id, name, unit, base_unit, rate').in('id', productIds)
               : Promise.resolve({ data: [] as any[] }),
             productNames.length > 0
-              ? supabase.from('products').select('id, name, unit, base_unit').in('name', productNames)
+              ? supabase.from('products').select('id, name, unit, base_unit, rate').in('name', productNames)
               : Promise.resolve({ data: [] as any[] }),
           ]);
           [...(byIdResult.data || []), ...(byNameResult.data || [])].forEach((product: any) => {
             const masterUnit = product.unit || product.base_unit;
             if (masterUnit) {
-              productUnitsById.set(product.id, masterUnit);
-              productUnitsByName.set(product.name, masterUnit);
+              const master = { unit: masterUnit, rate: Number(product.rate) || 0 };
+              productMastersById.set(product.id, master);
+              productMastersByName.set(product.name, master);
             }
           });
         } catch (e) {
@@ -917,13 +918,18 @@ export const TodaySummary = () => {
 
       const getItemDisplayQtyUnit = (item: any) => {
         const rawUnit = (item.unit || 'Piece').toString().trim() || 'Piece';
-        const masterUnit = productUnitsById.get(item.product_id) || productUnitsByName.get(cleanProductName(item.product_name));
+        const master = productMastersById.get(item.product_id) || productMastersByName.get(cleanProductName(item.product_name));
+        const masterUnit = master?.unit;
         let qty = Number(item.quantity) || 0;
         let unit = rawUnit;
         if (masterUnit && !isWeightLikeUnit(masterUnit) && isWeightLikeUnit(rawUnit)) {
           unit = masterUnit;
-          if (['g', 'gm', 'gram', 'grams'].includes(normalizeUnitLabel(rawUnit))) {
-            qty = qty / 1000;
+          const masterRate = Number(master?.rate) || 0;
+          const storedRate = Number(item.original_rate || item.rate) || 0;
+          if (masterRate > 0 && storedRate > 0) {
+            qty = (qty * storedRate) / masterRate;
+          } else if (masterRate > 0 && Number(item.total) > 0) {
+            qty = Number(item.total) / masterRate;
           }
         }
         return { qty, unit: formatUnitLabel(unit), rawUnit };
