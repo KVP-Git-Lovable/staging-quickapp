@@ -1034,25 +1034,38 @@ export const TodaySummary = () => {
 
       setTopRetailers(topRetailersData);
 
-      // Process product sales with KG conversion
-      const productSalesMap = new Map();
+      // Process product sales — aggregate by (product, unit) and show the actual unit
+      const productSalesMap = new Map<string, { name: string; qty: number; unit: string; revenue: number; kgSold: number }>();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const existing = productSalesMap.get(item.product_name) || { kgSold: 0, revenue: 0 };
-          const itemKg = convertToKg(item.quantity, item.unit || 'piece');
-          productSalesMap.set(item.product_name, {
-            kgSold: existing.kgSold + itemKg,
-            revenue: existing.revenue + Number(item.total || 0)
+          const rawUnit = (item.unit || 'PC').toString().trim() || 'PC';
+          const key = `${item.product_name}|${rawUnit.toLowerCase()}`;
+          const existing = productSalesMap.get(key) || { name: item.product_name, qty: 0, unit: rawUnit, revenue: 0, kgSold: 0 };
+          const qty = Number(item.quantity) || 0;
+          productSalesMap.set(key, {
+            name: item.product_name,
+            unit: rawUnit,
+            qty: existing.qty + qty,
+            revenue: existing.revenue + Number(item.total || 0),
+            kgSold: existing.kgSold + convertToKg(qty, rawUnit),
           });
         });
       });
 
-      const productSalesData = Array.from(productSalesMap.entries())
-        .map(([name, data]) => ({ 
-          name, 
-          kgSold: data.kgSold,
-          kgFormatted: data.kgSold > 0 ? `${data.kgSold.toFixed(2)} KG` : 'N/A',
-          revenue: data.revenue 
+      const formatQty = (q: number): string => {
+        if (!Number.isFinite(q)) return '0';
+        return Number.isInteger(q) ? String(q) : q.toFixed(2).replace(/\.?0+$/, '');
+      };
+
+      const productSalesData = Array.from(productSalesMap.values())
+        .map(d => ({
+          name: d.name,
+          qty: d.qty,
+          unit: d.unit,
+          qtyFormatted: `${formatQty(d.qty)} ${d.unit.toUpperCase()}`,
+          revenue: d.revenue,
+          kgSold: d.kgSold,
+          kgFormatted: d.kgSold > 0 ? `${d.kgSold.toFixed(2)} KG` : 'N/A',
         }))
         .sort((a, b) => b.revenue - a.revenue);
 
