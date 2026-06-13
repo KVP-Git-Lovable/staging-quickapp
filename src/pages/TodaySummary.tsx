@@ -103,7 +103,7 @@ export const TodaySummary = () => {
   ]);
 
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
-  const [productSales, setProductSales] = useState<Array<{ name: string; kgSold: number; kgFormatted: string; revenue: number }>>([]);
+  const [productSales, setProductSales] = useState<Array<{ name: string; qty: number; unit: string; qtyFormatted: string; revenue: number; kgSold: number; kgFormatted: string }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number; beatName?: string; address?: string; planDate?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
