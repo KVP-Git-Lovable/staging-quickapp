@@ -1165,11 +1165,20 @@ export const TodaySummary = () => {
           });
         } catch (e) {}
         
+        const orderQtyByUnit = new Map<string, number>();
+        order.order_items?.forEach((item: any) => {
+          const { qty, unit } = getItemDisplayQtyUnit(item);
+          orderQtyByUnit.set(unit, (orderQtyByUnit.get(unit) || 0) + qty);
+        });
+        const qtyFormatted = Array.from(orderQtyByUnit.entries())
+          .map(([unit, qty]) => `${formatQty(qty)} ${unit}`)
+          .join(', ') || '0 Piece';
+
         return {
           retailer: order.retailer_name,
           amount: totalAmount,
           kgSold: kgSum,
-          kgFormatted: kgSum > 0 ? `${kgSum.toFixed(2)} KG` : '0 PC',
+          kgFormatted: qtyFormatted,
           creditAmount: creditAmount,
           cashInHand: totalAmount - creditAmount,
           paymentMethod: paymentMethod
@@ -1253,9 +1262,13 @@ export const TodaySummary = () => {
       const productOrderMap = new Map();
       todayOrders?.forEach(order => {
         order.order_items?.forEach((item: any) => {
-          const existing = productOrderMap.get(item.product_name) || { itemCount: 0, value: 0, orderCount: 0 };
-          productOrderMap.set(item.product_name, {
-            itemCount: existing.itemCount + 1, // Count each item as 1 piece
+          const { qty, unit } = getItemDisplayQtyUnit(item);
+          const key = `${item.product_name}|${unit.toLowerCase()}`;
+          const existing = productOrderMap.get(key) || { productName: item.product_name, itemCount: 0, unit, value: 0, orderCount: 0 };
+          productOrderMap.set(key, {
+            productName: item.product_name,
+            unit,
+            itemCount: existing.itemCount + qty,
             value: existing.value + Number(item.total || 0),
             orderCount: existing.orderCount + 1
           });
@@ -1263,10 +1276,10 @@ export const TodaySummary = () => {
       });
 
       const productGroupedData = Array.from(productOrderMap.entries())
-        .map(([product, data]) => ({ 
-          product, 
-          kgSold: data.itemCount, // Now represents item count (PC)
-          kgFormatted: `${data.itemCount} PC`, // Format as pieces
+        .map(([_, data]) => ({ 
+          product: data.productName, 
+          kgSold: data.itemCount,
+          kgFormatted: `${formatQty(data.itemCount)} ${data.unit}`,
           value: data.value,
           orders: data.orderCount
         }))
