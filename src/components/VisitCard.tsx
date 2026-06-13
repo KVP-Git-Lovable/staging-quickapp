@@ -1766,14 +1766,9 @@ export const VisitCard = ({
   };
   const autoCheckOutPreviousVisit = async (userId: string, currentRetailerId: string, today: string) => {
     try {
-      // Get current location for auto check-out
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        });
-      });
+      // Get current location for auto check-out (resilient: cached → high-accuracy → low-accuracy)
+      const c = await getResilientLocation();
+      const position = { coords: { latitude: c.latitude, longitude: c.longitude } } as GeolocationPosition;
       const currentLocation = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude
