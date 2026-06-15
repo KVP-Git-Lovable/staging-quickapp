@@ -843,23 +843,6 @@ const CreatePrimaryOrder = () => {
                         Add More Products
                       </Button>
                     </div>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                    <div className="border-t p-3">
-                      <Button
-                        variant="ghost"
-                        className="w-full border border-dashed text-primary hover:bg-primary/5"
-                        onClick={scrollToAddProducts}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add more products
-                      </Button>
-                    </div>
                   </>
                 )}
               </CardContent>
