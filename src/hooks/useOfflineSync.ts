@@ -896,9 +896,11 @@ export function useOfflineSync() {
             body: { retailer_id: syncedRetailer.id }
           });
 
-          if (waError) throw waError;
+          if (waError) {
+            console.warn('⚠️ Retailer synced, but WhatsApp welcome invoke failed:', waError);
+          }
           if (waResult && waResult.success === false) {
-            throw new Error(waResult.error || 'Retailer synced, but WhatsApp welcome failed');
+            console.warn('⚠️ Retailer synced, but WhatsApp welcome was not sent:', waResult.error || waResult);
           }
         }
         
