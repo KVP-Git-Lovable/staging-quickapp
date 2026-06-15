@@ -12,6 +12,23 @@ import { enrichWithBeatSnapshots } from '@/utils/offlineOrderUtils';
 // Global lock shared across all hook instances to prevent duplicate queue runners
 let globalSyncInProgress = false;
 
+const stripRetailerClientFields = (payload: any) => {
+  const clientOnlyFields = new Set([
+    'quality_status',
+    'verification_status',
+    'syncState',
+    'lastError',
+    'errorType',
+    '_synced',
+    'cached_at',
+    'tempId',
+  ]);
+
+  return Object.fromEntries(
+    Object.entries(payload || {}).filter(([key, value]) => !clientOnlyFields.has(key) && value !== undefined)
+  );
+};
+
 export function useOfflineSync() {
   const connectivityStatus = useConnectivity();
   
@@ -866,12 +883,27 @@ export function useOfflineSync() {
         console.log('Syncing retailer creation:', data);
         // Handle both data formats: wrapped { retailer, tempId } or direct retailer object
         const retailerPayload = data.retailer || data;
-        // Remove tempId if present (it's not a database field)
-        const { tempId, ...retailerData } = retailerPayload;
-        const { error: retailerError } = await supabase
+        // Strip client-only fields before upload
+        const retailerData = stripRetailerClientFields(retailerPayload);
+        const { data: syncedRetailer, error: retailerError } = await supabase
           .from('retailers')
-          .insert(retailerData);
+          .insert(retailerData)
+          .select('id, phone')
+          .maybeSingle();
         if (retailerError) throw retailerError;
+
+        if (syncedRetailer?.id && syncedRetailer?.phone) {
+          const { data: waResult, error: waError } = await supabase.functions.invoke('send-retailer-welcome-whatsapp', {
+            body: { retailer_id: syncedRetailer.id }
+          });
+
+          if (waError) {
+            console.warn('⚠️ Retailer synced, but WhatsApp welcome invoke failed:', waError);
+          }
+          if (waResult && waResult.success === false) {
+            console.warn('⚠️ Retailer synced, but WhatsApp welcome was not sent:', waResult.error || waResult);
+          }
+        }
         
         // Dispatch event to refresh retailer list
         window.dispatchEvent(new Event('retailerDataChanged'));
