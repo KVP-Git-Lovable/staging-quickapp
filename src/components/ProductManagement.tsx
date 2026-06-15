@@ -418,7 +418,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             focused_territories: variantForm.focused_territories || [],
             focused_recurring_config: (variantForm as any).focused_recurring_config || null,
             barcode: variantForm.barcode || null,
-            qr_code: qrCode
+            qr_code: qrCode,
+            barcode_image_url: (variantForm as any).barcode_image_url || null,
+            variant_type: (variantForm as any).variant_type || 'Other',
+            uom_id: (variantForm as any).uom_id || null,
+            variant_weight_g: (variantForm as any).variant_weight_g,
+            variant_cost: (variantForm as any).variant_cost,
+            variant_tax_rate: (variantForm as any).variant_tax_rate,
+            is_discontinued: !!(variantForm as any).is_discontinued,
+            discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null
           })
           .eq('id', variantForm.id);
         
@@ -443,7 +451,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             focused_territories: variantForm.focused_territories || [],
             focused_recurring_config: (variantForm as any).focused_recurring_config || null,
             barcode: variantForm.barcode || null,
-            qr_code: qrCode
+            qr_code: qrCode,
+            barcode_image_url: (variantForm as any).barcode_image_url || null,
+            variant_type: (variantForm as any).variant_type || 'Other',
+            uom_id: (variantForm as any).uom_id || null,
+            variant_weight_g: (variantForm as any).variant_weight_g,
+            variant_cost: (variantForm as any).variant_cost,
+            variant_tax_rate: (variantForm as any).variant_tax_rate,
+            is_discontinued: !!(variantForm as any).is_discontinued,
+            discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null
           });
         
         if (error) throw error;
@@ -451,31 +467,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       }
       
       setIsVariantDialogOpen(false);
-      setVariantForm({
-        id: '',
-        product_id: '',
-        variant_name: '',
-        sku: '',
-        product_number: '',
-        description: '',
-        base_unit: 'kg',
-        unit: 'piece',
-        conversion_factor: 1,
-        price: 0,
-        stock_quantity: 0,
-        hsn_code: '90230',
-        discount_percentage: 0,
-        discount_amount: 0,
-        is_active: true,
-        is_focused_product: false,
-        focused_type: undefined,
-        focused_due_date: '',
-        focused_target_quantity: 0,
-        focused_territories: [],
-        focused_recurring_config: undefined,
-        barcode: '',
-        qr_code: ''
-      } as any);
+      setVariantForm(emptyVariantForm());
       fetchVariants();
     } catch (error) {
       console.error('Error saving variant:', error);
@@ -1599,6 +1591,33 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       onFocusedTerritoriesChange={(value) => setVariantForm({ ...variantForm, focused_territories: value })}
                       onFocusedRecurringConfigChange={(value) => setVariantForm({ ...variantForm, focused_recurring_config: value } as any)}
                     />
+
+                    {/* Extended Variant Fields: Classification, UoM, Cost/Tax overrides, Barcode image, Lifecycle */}
+                    {(() => {
+                      const parent: any = products.find((p) => p.id === variantForm.product_id) || {};
+                      return (
+                        <VariantExtendedFields
+                          form={{
+                            variant_type: (variantForm as any).variant_type,
+                            uom_id: (variantForm as any).uom_id,
+                            variant_weight_g: (variantForm as any).variant_weight_g,
+                            variant_cost: (variantForm as any).variant_cost,
+                            variant_tax_rate: (variantForm as any).variant_tax_rate,
+                            is_discontinued: (variantForm as any).is_discontinued,
+                            discontinued_date: (variantForm as any).discontinued_date,
+                            barcode_image_url: (variantForm as any).barcode_image_url,
+                            qr_code: (variantForm as any).qr_code,
+                          }}
+                          inherited={{
+                            uomLabel: parent.uom_id ? undefined : (parent.unit || parent.base_unit),
+                            cost: parent.standard_cost ?? null,
+                            costCurrency: parent.cost_currency || 'INR',
+                            taxRate: parent.tax_rate ?? null,
+                          }}
+                          onFormChange={(updates) => setVariantForm({ ...variantForm, ...updates } as any)}
+                        />
+                      );
+                    })()}
                     </div>
                   </ScrollArea>
                   <DialogFooter>
@@ -1676,7 +1695,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                                 focused_territories: variant.focused_territories || [],
                                 focused_recurring_config: (variant as any).focused_recurring_config || undefined,
                                 barcode: variant.barcode || '',
-                                qr_code: variant.qr_code || ''
+                                qr_code: variant.qr_code || '',
+                                barcode_image_url: (variant as any).barcode_image_url || null,
+                                variant_type: (variant as any).variant_type || 'Other',
+                                uom_id: (variant as any).uom_id || null,
+                                variant_weight_g: (variant as any).variant_weight_g ?? null,
+                                variant_cost: (variant as any).variant_cost ?? null,
+                                variant_tax_rate: (variant as any).variant_tax_rate ?? null,
+                                is_discontinued: !!(variant as any).is_discontinued,
+                                discontinued_date: (variant as any).discontinued_date || null
                               });
                               setIsVariantDialogOpen(true);
                             }}
