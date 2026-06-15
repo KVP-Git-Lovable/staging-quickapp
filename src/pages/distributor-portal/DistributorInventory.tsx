@@ -64,6 +64,7 @@ const DistributorInventory = () => {
       return;
     }
     loadInventory();
+    loadProducts();
   }, [distributorId, navigate]);
 
   const loadInventory = async () => {
@@ -81,6 +82,20 @@ const DistributorInventory = () => {
       toast.error('Failed to load inventory');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, unit')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      setProducts((data || []) as any);
+    } catch (e) {
+      console.error('Error loading products:', e);
     }
   };
 
