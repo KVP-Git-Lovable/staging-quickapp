@@ -12,6 +12,10 @@ import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { InventoryValuationConfig } from '@/components/admin/InventoryValuationConfig';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ByCompanyTab } from '@/components/features/admin/ByCompanyTab';
+import { DependenciesTab } from '@/components/features/admin/DependenciesTab';
+import { AuditLogTab } from '@/components/features/admin/AuditLogTab';
 
 const FeatureManagement = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
