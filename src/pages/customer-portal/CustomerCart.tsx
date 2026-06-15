@@ -517,9 +517,17 @@ const CustomerCart = () => {
                     </div>
                   )}
                   {isClose && (
-                    <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-px rounded whitespace-nowrap">
-                      💡 +{reqQty - qty} {unitLabel} → {scheme.name}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => updateQuantity(item.id, reqQty)}
+                      className="mt-1.5 w-full flex items-center justify-between gap-2 text-[11px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 border border-amber-300/60 dark:border-amber-800/60 px-2 py-1.5 rounded hover:bg-amber-200/80 dark:hover:bg-amber-900/50 transition-colors"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Gift size={12} className="shrink-0" />
+                        Add {reqQty - qty} more {unitLabel} to avail "{scheme.name}"
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wide shrink-0 bg-amber-500 text-white px-1.5 py-0.5 rounded">Add</span>
+                    </button>
                   )}
                 </Card>
               );
