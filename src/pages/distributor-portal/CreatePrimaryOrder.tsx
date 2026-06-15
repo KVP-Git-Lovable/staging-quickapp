@@ -699,11 +699,12 @@ const CreatePrimaryOrder = () => {
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="hover:bg-transparent">
+                          <TableRow className="hover:bg-transparent bg-muted/30">
                             <TableHead className="font-semibold text-foreground/70">Product</TableHead>
-                            <TableHead className="font-semibold text-foreground/70">Price (₹)</TableHead>
-                            <TableHead className="font-semibold text-foreground/70">Qty</TableHead>
-                            <TableHead className="font-semibold text-foreground/70">Discount</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Quantity</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Unit Price (₹)</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Price Source</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Scheme Applied</TableHead>
                             <TableHead className="font-semibold text-foreground/70">GST</TableHead>
                             <TableHead className="font-semibold text-foreground/70 text-right">Line Total (₹)</TableHead>
                             <TableHead className="font-semibold text-foreground/70 text-right">Action</TableHead>
@@ -720,9 +721,11 @@ const CreatePrimaryOrder = () => {
                             const imgUrl = item.image_url || (productLookup as any)?.image_url;
                             const sku = item.sku || (productLookup as any)?.sku;
                             const pbApplied = item.price_book_applied || productLookup?.priceBookPrice !== undefined;
+                            const schemeName = (productLookup as any)?.scheme_name || (item as any).scheme_name;
+                            const schemeDetail = (productLookup as any)?.scheme_detail || (item as any).scheme_detail;
 
                             return (
-                              <TableRow key={index} className="align-top">
+                              <TableRow key={index} className="align-middle">
                                 <TableCell>
                                   <div className="flex items-start gap-3">
                                     <div className="w-10 h-10 rounded-md bg-muted/70 grid place-items-center overflow-hidden shrink-0">
@@ -741,24 +744,8 @@ const CreatePrimaryOrder = () => {
                                           SKU: {sku}
                                         </p>
                                       )}
-                                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                        {pbApplied ? (
-                                          <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] px-1.5 py-0 h-5 gap-1">
-                                            <Star className="w-2.5 h-2.5 fill-current" />
-                                            Price Book Applied
-                                          </Badge>
-                                        ) : (
-                                          <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0 h-5 gap-1">
-                                            <Info className="w-2.5 h-2.5" />
-                                            MRP Used
-                                          </Badge>
-                                        )}
-                                      </div>
                                     </div>
                                   </div>
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  {item.unit_price.toFixed(2)}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-1">
@@ -787,65 +774,75 @@ const CreatePrimaryOrder = () => {
                                   </div>
                                   <p className="text-[10px] text-muted-foreground mt-1 text-center">Units</p>
                                 </TableCell>
+                                <TableCell className="font-medium">
+                                  ₹{item.unit_price.toFixed(2)}
+                                </TableCell>
                                 <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      value={item.discount_percent}
-                                      onChange={(e) => updateItem(index, {
-                                        discount_percent: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)),
-                                      })}
-                                      className="h-7 w-14 text-center px-1"
-                                    />
-                                    <span className="text-xs text-muted-foreground">%</span>
-                                  </div>
-                                  {disc > 0 && (
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                      (₹{disc.toFixed(2)})
-                                    </p>
+                                  {pbApplied ? (
+                                    <div>
+                                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] px-1.5 py-0 h-5">
+                                        Price Book
+                                      </Badge>
+                                      <p className="text-[10px] text-muted-foreground mt-1">{priceBookName || 'Distributor Price Book'}</p>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0 h-5">
+                                        MRP
+                                      </Badge>
+                                      <p className="text-[10px] text-muted-foreground mt-1">MRP Applied</p>
+                                    </div>
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={28}
-                                      value={item.gst_percent}
-                                      onChange={(e) => updateItem(index, {
-                                        gst_percent: Math.max(0, Math.min(28, parseFloat(e.target.value) || 0)),
-                                      })}
-                                      className="h-7 w-14 text-center px-1"
-                                    />
-                                    <span className="text-xs text-muted-foreground">%</span>
-                                  </div>
+                                  {schemeName ? (
+                                    <div>
+                                      <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-700 text-[10px] px-1.5 py-0 h-5">
+                                        {schemeName}
+                                      </Badge>
+                                      {schemeDetail && (
+                                        <p className="text-[10px] text-muted-foreground mt-1">{schemeDetail}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <span className="text-sm text-muted-foreground">—</span>
+                                      <p className="text-[10px] text-muted-foreground mt-1">No Scheme</p>
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {item.gst_percent}%
                                 </TableCell>
                                 <TableCell className="text-right font-semibold">
-                                  {lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  ₹{lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                      onClick={() => {
-                                        toast.info('Tip: edit values directly in the row.');
-                                      }}
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => removeItem(index)}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => removeItem(index)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="border-t p-3">
+                      <Button
+                        variant="ghost"
+                        className="w-full border border-dashed text-primary hover:bg-primary/5"
+                        onClick={scrollToAddProducts}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add More Products
+                      </Button>
+                    </div>
                                 </TableCell>
                               </TableRow>
                             );
