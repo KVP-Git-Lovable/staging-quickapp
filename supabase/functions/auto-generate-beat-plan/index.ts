@@ -104,11 +104,11 @@ serve(async (req) => {
 
         console.log(`📌 Found ${Object.keys(existingPlansByDate).length} pre-scheduled beats`);
 
-        // Fetch user's beats
+        // Fetch user's beats (owned by the user — created_by may be an admin)
         const { data: beats } = await supabaseClient
           .from('beats')
           .select('*')
-          .eq('created_by', user.id)
+          .or(`owner_id.eq.${user.id},user_id.eq.${user.id}`)
           .eq('is_active', true);
 
         if (!beats || beats.length === 0) {
