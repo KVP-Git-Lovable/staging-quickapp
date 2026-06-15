@@ -674,7 +674,19 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             focused_territories: productForm.focused_territories || [],
             barcode: productForm.barcode || null,
             qr_code: qrCode,
-            hsn_code: productForm.hsn_code || null
+            hsn_code: productForm.hsn_code || null,
+            product_type: productForm.product_type || 'Finished Good',
+            gross_weight_g: productForm.gross_weight_g,
+            packaging_weight_g: productForm.packaging_weight_g,
+            standard_cost: productForm.standard_cost,
+            cost_currency: productForm.cost_currency || 'INR',
+            reorder_quantity: productForm.reorder_quantity,
+            primary_supplier_id: productForm.primary_supplier_id,
+            manufacturer: productForm.manufacturer || null,
+            country_of_origin: productForm.country_of_origin || null,
+            is_discontinued: productForm.is_discontinued || false,
+            discontinued_date: productForm.is_discontinued ? productForm.discontinued_date : null,
+            discontinuation_reason: productForm.is_discontinued ? (productForm.discontinuation_reason || null) : null
           })
           .eq('id', productForm.id);
 
@@ -701,7 +713,19 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             focused_territories: productForm.focused_territories || [],
             barcode: productForm.barcode || null,
             qr_code: qrCode,
-            hsn_code: productForm.hsn_code || null
+            hsn_code: productForm.hsn_code || null,
+            product_type: productForm.product_type || 'Finished Good',
+            gross_weight_g: productForm.gross_weight_g,
+            packaging_weight_g: productForm.packaging_weight_g,
+            standard_cost: productForm.standard_cost,
+            cost_currency: productForm.cost_currency || 'INR',
+            reorder_quantity: productForm.reorder_quantity,
+            primary_supplier_id: productForm.primary_supplier_id,
+            manufacturer: productForm.manufacturer || null,
+            country_of_origin: productForm.country_of_origin || null,
+            is_discontinued: productForm.is_discontinued || false,
+            discontinued_date: productForm.is_discontinued ? productForm.discontinued_date : null,
+            discontinuation_reason: productForm.is_discontinued ? (productForm.discontinuation_reason || null) : null
           })
           .select('id')
           .single();
@@ -1002,6 +1026,10 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           form={productForm}
                           categories={categories}
                           territories={territories}
+                          onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
+                        />
+                        <ProductExtendedFields
+                          form={productForm}
                           onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
                         />
                         <ProductUnitsEditor
