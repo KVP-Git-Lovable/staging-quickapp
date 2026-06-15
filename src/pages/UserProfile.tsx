@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InstagramSocialFeed } from '@/components/profile/InstagramSocialFeed';
 import { ProfileAttachments } from '@/components/profile/ProfileAttachments';
 import { Layout } from '@/components/Layout';
+import { UserFeaturesSection } from '@/components/features/UserFeaturesSection';
 import { FollowersFollowingCard } from '@/components/profile/FollowersFollowingCard';
 import { WorkExperienceSection } from '@/components/profile/about/WorkExperienceSection';
 import { EducationHistorySection } from '@/components/profile/about/EducationHistorySection';
