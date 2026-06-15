@@ -292,6 +292,9 @@ const CreatePrimaryOrder = () => {
           discount_percent: 0,
           gst_percent: DEFAULT_GST,
           hsn_code: product.hsn_code,
+          sku: (product as any).sku,
+          image_url: (product as any).image_url,
+          price_book_applied: product.priceBookPrice !== undefined,
           line_total: quantity * unitPrice,
         },
       ]);
