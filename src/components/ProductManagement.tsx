@@ -732,35 +732,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       toast.success(productForm.id ? 'Product updated successfully' : 'Product created successfully');
 
       setIsProductDialogOpen(false);
-      setProductForm({
-        id: '',
-        sku: '',
-        product_number: '',
-        name: '',
-        description: '',
-        category_id: '',
-        is_focused_product: false,
-        focused_type: undefined,
-        focused_due_date: '',
-        focused_target_quantity: 0,
-        focused_territories: [],
-        focused_recurring_config: {
-          days_of_week: [],
-          weeks_of_month: [],
-          months_of_year: []
-        },
-        rate: 0,
-        unit: 'piece',
-        base_unit: 'kg',
-        conversion_factor: 1,
-        closing_stock: 0,
-        is_active: true,
-        sku_image_url: '',
-        barcode: '',
-        barcode_image_url: '',
-        qr_code: '',
-        hsn_code: ''
-      });
+      setProductForm(emptyProductForm());
       setUnitsValue(emptyProductUnitsEditorValue());
       fetchProducts();
     } catch (error: any) {
