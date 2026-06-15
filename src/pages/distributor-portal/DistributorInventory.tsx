@@ -366,6 +366,16 @@ const DistributorInventory = () => {
             })}
           </div>
         )}
+
+      {distributorId && (
+        <OpeningStockDialog
+          open={openingStockOpen}
+          onOpenChange={setOpeningStockOpen}
+          distributorId={distributorId}
+          products={products}
+          onSuccess={() => { setOpeningStockOpen(false); loadInventory(); }}
+        />
+      )}
     </div>
   );
 };
