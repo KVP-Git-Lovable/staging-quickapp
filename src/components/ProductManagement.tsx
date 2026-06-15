@@ -170,6 +170,33 @@ const [productForm, setProductForm] = useState({
   created_by: null as string | null,
   updated_by: null as string | null,
 });
+
+type ProductFormState = typeof productForm;
+type VariantFormState = any;
+
+const emptyProductForm = (): ProductFormState => ({
+  id: '', sku: '', product_number: '', name: '', description: '', category_id: '',
+  is_focused_product: false, focused_type: undefined, focused_due_date: '',
+  focused_target_quantity: 0, focused_territories: [], focused_recurring_config: undefined,
+  rate: 0, unit: 'piece', base_unit: 'kg', conversion_factor: 1, closing_stock: 0,
+  is_active: true, sku_image_url: '', barcode: '', barcode_image_url: '', qr_code: '', hsn_code: '',
+  product_type: 'Finished Good', gross_weight_g: null, packaging_weight_g: null,
+  standard_cost: null, cost_currency: 'INR', reorder_quantity: null, last_cost_update: null,
+  primary_supplier_id: null, manufacturer: '', country_of_origin: '',
+  is_discontinued: false, discontinued_date: null, discontinuation_reason: '',
+  created_by: null, updated_by: null,
+});
+
+const emptyVariantForm = (): VariantFormState => ({
+  id: '', product_id: '', variant_name: '', sku: '', product_number: '', description: '',
+  base_unit: 'kg', unit: 'piece', conversion_factor: 1, price: 0, stock_quantity: 0,
+  hsn_code: '90230', discount_percentage: 0, discount_amount: 0, is_active: true,
+  is_focused_product: false, focused_type: undefined, focused_due_date: '',
+  focused_target_quantity: 0, focused_territories: [], focused_recurring_config: undefined,
+  barcode: '', barcode_image_url: null, qr_code: '',
+  variant_type: 'Other', uom_id: null, variant_weight_g: null, variant_cost: null,
+  variant_tax_rate: null, is_discontinued: false, discontinued_date: null,
+});
   
   const [variantForm, setVariantForm] = useState({
     id: '',
