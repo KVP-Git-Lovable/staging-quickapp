@@ -79,11 +79,20 @@ serve(async (req) => {
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
     const base64Auth = btoa(`${accountSid}:${authToken}`);
 
-    // Use ContentSid for approved template instead of Body
+    // Use ContentSid for approved template, inject real retailer details as variables
+    const retailerName = (retailer.name || "Retailer").toString().trim();
+    const ownerName = (retailer.owner_name || retailer.contact_name || retailerName).toString().trim();
+    const contentVariables = JSON.stringify({
+      "1": retailerName,
+      "2": ownerName,
+      "3": phone,
+    });
+
     const formBody = new URLSearchParams({
       To: `whatsapp:${phone}`,
       From: `whatsapp:${fromNumber}`,
       ContentSid: contentSid,
+      ContentVariables: contentVariables,
     });
 
     const resp = await fetch(twilioUrl, {
