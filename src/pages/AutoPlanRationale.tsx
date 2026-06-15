@@ -62,7 +62,16 @@ export default function AutoPlanRationale() {
     const state = location.state as { planResult?: PlanResult };
     if (state?.planResult) {
       setPlanResult(state.planResult);
+      try {
+        sessionStorage.setItem('lastAutoPlanResult', JSON.stringify(state.planResult));
+      } catch {}
+      return;
     }
+    // Fallback: restore from sessionStorage (handles page refresh / direct nav)
+    try {
+      const cached = sessionStorage.getItem('lastAutoPlanResult');
+      if (cached) setPlanResult(JSON.parse(cached));
+    } catch {}
   }, [location.state]);
 
   if (!planResult) {
