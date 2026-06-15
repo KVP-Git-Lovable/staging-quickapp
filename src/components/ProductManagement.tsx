@@ -467,31 +467,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       }
       
       setIsVariantDialogOpen(false);
-      setVariantForm({
-        id: '',
-        product_id: '',
-        variant_name: '',
-        sku: '',
-        product_number: '',
-        description: '',
-        base_unit: 'kg',
-        unit: 'piece',
-        conversion_factor: 1,
-        price: 0,
-        stock_quantity: 0,
-        hsn_code: '90230',
-        discount_percentage: 0,
-        discount_amount: 0,
-        is_active: true,
-        is_focused_product: false,
-        focused_type: undefined,
-        focused_due_date: '',
-        focused_target_quantity: 0,
-        focused_territories: [],
-        focused_recurring_config: undefined,
-        barcode: '',
-        qr_code: ''
-      } as any);
+      setVariantForm(emptyVariantForm());
       fetchVariants();
     } catch (error) {
       console.error('Error saving variant:', error);
