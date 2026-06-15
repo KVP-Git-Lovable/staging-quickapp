@@ -21,6 +21,7 @@ const stripRetailerClientFields = (payload: any) => {
     'errorType',
     '_synced',
     'cached_at',
+    'tempId',
   ]);
 
   return Object.fromEntries(
@@ -882,8 +883,8 @@ export function useOfflineSync() {
         console.log('Syncing retailer creation:', data);
         // Handle both data formats: wrapped { retailer, tempId } or direct retailer object
         const retailerPayload = data.retailer || data;
-        // Remove tempId if present and strip client-only fields before upload
-        const { tempId, ...retailerData } = stripRetailerClientFields(retailerPayload);
+        // Strip client-only fields before upload
+        const retailerData = stripRetailerClientFields(retailerPayload);
         const { data: syncedRetailer, error: retailerError } = await supabase
           .from('retailers')
           .insert(retailerData)
