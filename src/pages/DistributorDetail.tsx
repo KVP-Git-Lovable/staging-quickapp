@@ -365,6 +365,13 @@ export default function DistributorDetail() {
             {/* Evaluation Tasks (Collapsible within Overview) */}
             <DistributorEvaluationTasks distributorId={distributor.id} />
 
+            {/* Onboarding Evaluation Checklist */}
+            <EvaluationChecklist
+              distributorId={distributor.id}
+              checklist={(distributor as any).evaluation_checklist || {}}
+              onUpdate={loadDistributor}
+            />
+
             {/* Products */}
             {(distributor.products_distributed?.length || distributor.other_products?.length) && (
               <Card>
