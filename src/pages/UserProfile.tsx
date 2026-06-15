@@ -270,6 +270,7 @@ const UserProfile = () => {
             <OnboardingChecklistSection />
             <ProfileAttachments />
             <FollowersFollowingCard />
+            <UserFeaturesSection />
           </TabsContent>
 
           {/* Social/Collaboration Tab */}
