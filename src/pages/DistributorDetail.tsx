@@ -41,6 +41,7 @@ import { DistributorPortalUsers } from "@/components/distributor/DistributorPort
 import { DistributorPriceBooks } from "@/components/distributor/DistributorPriceBooks";
 import { DistributorPrimaryOrders } from "@/components/distributor/DistributorPrimaryOrders";
 import { DistributorEvaluationTasks } from "@/components/distributor/DistributorEvaluationTasks";
+import { EvaluationChecklist } from "@/components/distributor/EvaluationChecklist";
 import { DistributorContactsList } from "@/components/distributor/DistributorContactsList";
 import { DistributorSecondaryOrders } from "@/components/distributor/DistributorSecondaryOrders";
 import DistributorCompanyProfile from "@/components/distributor/DistributorCompanyProfile";
