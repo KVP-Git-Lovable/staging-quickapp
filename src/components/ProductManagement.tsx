@@ -1599,6 +1599,31 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       onFocusedTerritoriesChange={(value) => setVariantForm({ ...variantForm, focused_territories: value })}
                       onFocusedRecurringConfigChange={(value) => setVariantForm({ ...variantForm, focused_recurring_config: value } as any)}
                     />
+
+                    {/* Extended Variant Fields: Classification, UoM, Cost/Tax overrides, Barcode image, Lifecycle */}
+                    {(() => {
+                      const parent: any = products.find((p) => p.id === variantForm.product_id) || {};
+                      return (
+                        <VariantExtendedFields
+                          form={{
+                            variant_type: (variantForm as any).variant_type,
+                            uom_id: (variantForm as any).uom_id,
+                            variant_weight_g: (variantForm as any).variant_weight_g,
+                            variant_cost: (variantForm as any).variant_cost,
+                            variant_tax_rate: (variantForm as any).variant_tax_rate,
+                            is_discontinued: (variantForm as any).is_discontinued,
+                            discontinued_date: (variantForm as any).discontinued_date,
+                            barcode_image_url: (variantForm as any).barcode_image_url,
+                            qr_code: (variantForm as any).qr_code,
+                          }}
+                          inherited={{
+                            uomLabel: parent.uom_id ? undefined : (parent.unit || parent.base_unit),
+                            cost: parent.standard_cost ?? null,
+                            costCurrency: parent.cost_currency || 'INR',
+                            taxRate: parent.tax_rate ?? null,
+                          }}
+                          onFormChange={(updates) => setVariantForm({ ...variantForm, ...updates } as any)}
+                        />
                     </div>
                   </ScrollArea>
                   <DialogFooter>
