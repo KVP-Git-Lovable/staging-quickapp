@@ -2048,8 +2048,12 @@ export const AddRetailer = () => {
                   setContactSending('whatsapp');
                   try {
                     const { triggerRetailerWelcomeMessage } = await import('@/utils/retailerWelcomeMessage');
-                    await triggerRetailerWelcomeMessage(contactDialog.retailerId, contactDialog.phone);
-                    toast({ title: 'WhatsApp sent', description: `Message sent to ${contactDialog.phone}` });
+                    const result = await triggerRetailerWelcomeMessage(contactDialog.retailerId, contactDialog.phone);
+                    if (result.ok) {
+                      toast({ title: 'WhatsApp sent', description: `Message sent to ${contactDialog.phone}${result.sid ? ` (SID ${result.sid.slice(0, 10)}…)` : ''}` });
+                    } else {
+                      toast({ title: 'WhatsApp not sent', description: result.error || 'Twilio rejected the message', variant: 'destructive' });
+                    }
                   } catch (e: any) {
                     toast({ title: 'Failed to send WhatsApp', description: e?.message || 'Try again', variant: 'destructive' });
                   } finally {
