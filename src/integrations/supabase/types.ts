@@ -13959,6 +13959,7 @@ export type Database = {
           barcode: string | null
           barcode_image_url: string | null
           created_at: string
+          discontinued_date: string | null
           discount_amount: number | null
           discount_percentage: number | null
           focused_due_date: string | null
@@ -13969,19 +13970,26 @@ export type Database = {
           hsn_code: string | null
           id: string
           is_active: boolean | null
+          is_discontinued: boolean | null
           is_focused_product: boolean | null
           price: number
           product_id: string
           qr_code: string | null
           sku: string
           stock_quantity: number
+          uom_id: string | null
           updated_at: string
+          variant_cost: number | null
           variant_name: string
+          variant_tax_rate: number | null
+          variant_type: string | null
+          variant_weight_g: number | null
         }
         Insert: {
           barcode?: string | null
           barcode_image_url?: string | null
           created_at?: string
+          discontinued_date?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
           focused_due_date?: string | null
@@ -13992,19 +14000,26 @@ export type Database = {
           hsn_code?: string | null
           id?: string
           is_active?: boolean | null
+          is_discontinued?: boolean | null
           is_focused_product?: boolean | null
           price?: number
           product_id: string
           qr_code?: string | null
           sku: string
           stock_quantity?: number
+          uom_id?: string | null
           updated_at?: string
+          variant_cost?: number | null
           variant_name: string
+          variant_tax_rate?: number | null
+          variant_type?: string | null
+          variant_weight_g?: number | null
         }
         Update: {
           barcode?: string | null
           barcode_image_url?: string | null
           created_at?: string
+          discontinued_date?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
           focused_due_date?: string | null
@@ -14015,14 +14030,20 @@ export type Database = {
           hsn_code?: string | null
           id?: string
           is_active?: boolean | null
+          is_discontinued?: boolean | null
           is_focused_product?: boolean | null
           price?: number
           product_id?: string
           qr_code?: string | null
           sku?: string
           stock_quantity?: number
+          uom_id?: string | null
           updated_at?: string
+          variant_cost?: number | null
           variant_name?: string
+          variant_tax_rate?: number | null
+          variant_type?: string | null
+          variant_weight_g?: number | null
         }
         Relationships: [
           {
@@ -14030,6 +14051,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_uom_id_fkey"
+            columns: ["uom_id"]
+            isOneToOne: false
+            referencedRelation: "uom_master"
             referencedColumns: ["id"]
           },
         ]
@@ -14044,33 +14072,48 @@ export type Database = {
           category_id: string | null
           closing_stock: number | null
           conversion_factor: number | null
+          cost_currency: string | null
+          country_of_origin: string | null
           created_at: string
+          created_by: string | null
           default_purchase_uom_id: string | null
           default_sales_uom_id: string | null
           description: string | null
+          discontinuation_reason: string | null
+          discontinued_date: string | null
           focused_due_date: string | null
           focused_recurring_config: Json | null
           focused_target_quantity: number | null
           focused_territories: string[] | null
           focused_type: string | null
+          gross_weight_g: number | null
           gst_percentage: number | null
           hsn_code: string | null
           id: string
           is_active: boolean | null
+          is_discontinued: boolean | null
           is_focused_product: boolean | null
+          last_cost_update: string | null
+          manufacturer: string | null
           name: string
           net_volume_ml: number | null
           net_weight_g: number | null
           opening_stock: number | null
+          packaging_weight_g: number | null
           price_basis_uom_id: string | null
+          primary_supplier_id: string | null
           product_number: string | null
+          product_type: string | null
           qr_code: string | null
           rate: number
           reorder_level: number | null
+          reorder_quantity: number | null
           sku: string
           sku_image_url: string | null
+          standard_cost: number | null
           unit: string | null
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           barcode?: string | null
@@ -14081,33 +14124,48 @@ export type Database = {
           category_id?: string | null
           closing_stock?: number | null
           conversion_factor?: number | null
+          cost_currency?: string | null
+          country_of_origin?: string | null
           created_at?: string
+          created_by?: string | null
           default_purchase_uom_id?: string | null
           default_sales_uom_id?: string | null
           description?: string | null
+          discontinuation_reason?: string | null
+          discontinued_date?: string | null
           focused_due_date?: string | null
           focused_recurring_config?: Json | null
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
           focused_type?: string | null
+          gross_weight_g?: number | null
           gst_percentage?: number | null
           hsn_code?: string | null
           id?: string
           is_active?: boolean | null
+          is_discontinued?: boolean | null
           is_focused_product?: boolean | null
+          last_cost_update?: string | null
+          manufacturer?: string | null
           name: string
           net_volume_ml?: number | null
           net_weight_g?: number | null
           opening_stock?: number | null
+          packaging_weight_g?: number | null
           price_basis_uom_id?: string | null
+          primary_supplier_id?: string | null
           product_number?: string | null
+          product_type?: string | null
           qr_code?: string | null
           rate?: number
           reorder_level?: number | null
+          reorder_quantity?: number | null
           sku: string
           sku_image_url?: string | null
+          standard_cost?: number | null
           unit?: string | null
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           barcode?: string | null
@@ -14118,33 +14176,48 @@ export type Database = {
           category_id?: string | null
           closing_stock?: number | null
           conversion_factor?: number | null
+          cost_currency?: string | null
+          country_of_origin?: string | null
           created_at?: string
+          created_by?: string | null
           default_purchase_uom_id?: string | null
           default_sales_uom_id?: string | null
           description?: string | null
+          discontinuation_reason?: string | null
+          discontinued_date?: string | null
           focused_due_date?: string | null
           focused_recurring_config?: Json | null
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
           focused_type?: string | null
+          gross_weight_g?: number | null
           gst_percentage?: number | null
           hsn_code?: string | null
           id?: string
           is_active?: boolean | null
+          is_discontinued?: boolean | null
           is_focused_product?: boolean | null
+          last_cost_update?: string | null
+          manufacturer?: string | null
           name?: string
           net_volume_ml?: number | null
           net_weight_g?: number | null
           opening_stock?: number | null
+          packaging_weight_g?: number | null
           price_basis_uom_id?: string | null
+          primary_supplier_id?: string | null
           product_number?: string | null
+          product_type?: string | null
           qr_code?: string | null
           rate?: number
           reorder_level?: number | null
+          reorder_quantity?: number | null
           sku?: string
           sku_image_url?: string | null
+          standard_cost?: number | null
           unit?: string | null
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
