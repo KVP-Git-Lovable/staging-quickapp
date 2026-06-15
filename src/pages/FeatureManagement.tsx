@@ -12,6 +12,10 @@ import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { InventoryValuationConfig } from '@/components/admin/InventoryValuationConfig';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ByCompanyTab } from '@/components/features/admin/ByCompanyTab';
+import { DependenciesTab } from '@/components/features/admin/DependenciesTab';
+import { AuditLogTab } from '@/components/features/admin/AuditLogTab';
 
 const FeatureManagement = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
@@ -140,6 +144,15 @@ const FeatureManagement = () => {
           </div>
         </div>
 
+        <Tabs defaultValue="global" className="w-full">
+          <TabsList>
+            <TabsTrigger value="global">Global Features</TabsTrigger>
+            <TabsTrigger value="company">By Company</TabsTrigger>
+            <TabsTrigger value="deps">Dependencies</TabsTrigger>
+            <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="global" className="space-y-4">
         {/* Search and Actions */}
         <div className="flex gap-2">
           <div className="relative flex-1">
@@ -254,6 +267,12 @@ const FeatureManagement = () => {
             </p>
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="company"><ByCompanyTab /></TabsContent>
+          <TabsContent value="deps"><DependenciesTab /></TabsContent>
+          <TabsContent value="audit"><AuditLogTab /></TabsContent>
+        </Tabs>
       </div>
     </div>
   );
