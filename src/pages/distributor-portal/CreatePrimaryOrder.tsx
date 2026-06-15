@@ -60,6 +60,8 @@ interface Product {
   price?: number;
   priceBookPrice?: number;
   hsn_code?: string;
+  sku?: string;
+  image_url?: string;
   variants?: any[];
 }
 
@@ -74,8 +76,32 @@ interface OrderItem {
   discount_percent: number;
   gst_percent: number;
   hsn_code?: string;
+  sku?: string;
+  image_url?: string;
+  price_book_applied?: boolean;
   line_total: number; // gross (qty * unit_price) — taxes & discount tracked separately
 }
+
+const DEFAULT_GST = 18;
+
+const CreatePrimaryOrder = () => {
+  const navigate = useNavigate();
+  const { id: editOrderId } = useParams();
+  const isEditMode = Boolean(editOrderId);
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [priceBookEntries, setPriceBookEntries] = useState<PriceBookEntry[]>([]);
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedProduct, setSelectedProduct] = useState<string>('');
+  const [quantity, setQuantity] = useState(1);
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState<string>('30');
+  const [shippingAddress, setShippingAddress] = useState<string>('');
+  const [showSummaryDetails, setShowSummaryDetails] = useState(false);
+  const [notes, setNotes] = useState('');
 
 const DEFAULT_GST = 18;
 
