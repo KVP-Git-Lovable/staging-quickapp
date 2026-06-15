@@ -1,0 +1,1 @@
+DELETE FROM public.performance_module_config WHERE id = '9fddbd93-c8f5-4c99-a7cb-cce2c2273b73';
