@@ -144,6 +144,15 @@ const FeatureManagement = () => {
           </div>
         </div>
 
+        <Tabs defaultValue="global" className="w-full">
+          <TabsList>
+            <TabsTrigger value="global">Global Features</TabsTrigger>
+            <TabsTrigger value="company">By Company</TabsTrigger>
+            <TabsTrigger value="deps">Dependencies</TabsTrigger>
+            <TabsTrigger value="audit">Audit Log</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="global" className="space-y-4">
         {/* Search and Actions */}
         <div className="flex gap-2">
           <div className="relative flex-1">
