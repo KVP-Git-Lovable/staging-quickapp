@@ -1122,6 +1122,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                               size="sm"
                               onClick={() => {
                                 setProductForm({
+                                  ...emptyProductForm(),
                                   id: product.id,
                                   sku: product.sku,
                                   product_number: product.product_number || '',
@@ -1144,7 +1145,22 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                                   barcode: (product as any).barcode || '',
                                   barcode_image_url: (product as any).barcode_image_url || '',
                                   qr_code: (product as any).qr_code || '',
-                                  hsn_code: (product as any).hsn_code || ''
+                                  hsn_code: (product as any).hsn_code || '',
+                                  product_type: (product as any).product_type || 'Finished Good',
+                                  gross_weight_g: (product as any).gross_weight_g ?? null,
+                                  packaging_weight_g: (product as any).packaging_weight_g ?? null,
+                                  standard_cost: (product as any).standard_cost ?? null,
+                                  cost_currency: (product as any).cost_currency || 'INR',
+                                  reorder_quantity: (product as any).reorder_quantity ?? null,
+                                  last_cost_update: (product as any).last_cost_update ?? null,
+                                  primary_supplier_id: (product as any).primary_supplier_id ?? null,
+                                  manufacturer: (product as any).manufacturer || '',
+                                  country_of_origin: (product as any).country_of_origin || '',
+                                  is_discontinued: (product as any).is_discontinued || false,
+                                  discontinued_date: (product as any).discontinued_date ?? null,
+                                  discontinuation_reason: (product as any).discontinuation_reason || '',
+                                  created_by: (product as any).created_by ?? null,
+                                  updated_by: (product as any).updated_by ?? null,
                                 });
                                 setUnitsValue(emptyProductUnitsEditorValue());
                                 setIsProductDialogOpen(true);
