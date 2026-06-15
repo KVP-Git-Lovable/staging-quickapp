@@ -93,7 +93,7 @@ serve(async (req) => {
         created_at,
         order_items (
           id,
-          product_id,
+          variant_id,
           product_name,
           quantity,
           unit,
@@ -113,13 +113,12 @@ serve(async (req) => {
     console.log('📊 Retailer orders found:', retailerOrders?.length || 0);
 
   // 2. Analyze repeat order patterns
-    // Helper to parse product_id which may contain variant info
-    const parseProductId = (productId: string): { baseProductId: string; variantId?: string } => {
-      if (productId.includes('_variant_')) {
-        const parts = productId.split('_variant_');
-        return { baseProductId: parts[0], variantId: parts[1] };
-      }
-      return { baseProductId: productId, variantId: undefined };
+    // Derive a stable key/productId from variant_id + product_name (order_items has no product_id column)
+    const deriveKey = (item: any): { key: string; baseProductId: string; variantId?: string } => {
+      const variantId = item.variant_id || undefined;
+      const baseProductId = item.product_name || 'unknown';
+      const key = `${baseProductId}__${variantId || 'novariant'}`;
+      return { key, baseProductId, variantId };
     };
 
     const repeatOrderMap = new Map<string, {
@@ -135,8 +134,7 @@ serve(async (req) => {
 
     for (const order of retailerOrders || []) {
       for (const item of order.order_items || []) {
-        const key = item.product_id;
-        const { baseProductId, variantId } = parseProductId(item.product_id);
+        const { key, baseProductId, variantId } = deriveKey(item);
         
         // Extract variant name from product_name if it contains " - "
         let productName = item.product_name;
@@ -249,7 +247,7 @@ serve(async (req) => {
           .select(`
             retailer_id,
             order_items (
-              product_id,
+              variant_id,
               product_name,
               quantity,
               unit,
@@ -275,8 +273,7 @@ serve(async (req) => {
 
           for (const order of beatOrders) {
             for (const item of order.order_items || []) {
-              const key = item.product_id;
-              const { baseProductId, variantId } = parseProductId(item.product_id);
+              const { key, baseProductId, variantId } = deriveKey(item);
               
               // Extract variant name from product_name if it contains " - "
               let productName = item.product_name;
