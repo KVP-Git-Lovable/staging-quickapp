@@ -5,6 +5,22 @@ import { useConnectivity } from './useConnectivity';
 import { toast } from './use-toast';
 import { isSlowConnection } from '@/utils/internetSpeedCheck';
 
+const stripRetailerClientFields = (payload: any) => {
+  const clientOnlyFields = new Set([
+    'quality_status',
+    'verification_status',
+    'syncState',
+    'lastError',
+    'errorType',
+    '_synced',
+    'cached_at',
+  ]);
+
+  return Object.fromEntries(
+    Object.entries(payload || {}).filter(([key, value]) => !clientOnlyFields.has(key) && value !== undefined)
+  );
+};
+
 /**
  * Hook for managing retailers with offline support
  * Uses LOCAL-FIRST pattern for instant UI response on slow connections
@@ -55,33 +71,25 @@ export function useOfflineRetailers() {
         return { success: true, offline: true, data: localRetailer };
       }
 
-      // STEP 3: Online with good connection - sync in background (non-blocking)
-      setTimeout(async () => {
-        try {
-          // Sanitize retailerData - remove non-existent columns that might cause sync errors
-          const { quality_status, verification_status, ...sanitizedData } = retailerData;
-          
-          const { data, error } = await supabase
-            .from('retailers')
-            .insert({ ...sanitizedData, id: retailerId })
-            .select()
-            .single();
+      // STEP 3: Online with good connection - persist before returning so post-save WhatsApp can find the retailer
+      const sanitizedData = stripRetailerClientFields(retailerData);
+      const { data, error } = await supabase
+        .from('retailers')
+        .insert({ ...sanitizedData, id: retailerId })
+        .select()
+        .maybeSingle();
 
-          if (error) {
-            console.warn('Background sync failed, queuing:', error.message);
-            await offlineStorage.addToSyncQueue('CREATE_RETAILER', localRetailer);
-          } else {
-            // Update cache with server response
-            await offlineStorage.save(STORES.RETAILERS, data);
-            console.log('✅ Retailer synced successfully:', retailerId);
-          }
-        } catch (syncError) {
-          console.warn('Background sync error:', syncError);
-          await offlineStorage.addToSyncQueue('CREATE_RETAILER', localRetailer);
-        }
-      }, 0);
+      if (error) {
+        console.warn('Retailer sync failed, queuing:', error.message);
+        await offlineStorage.addToSyncQueue('CREATE_RETAILER', localRetailer);
+        return { success: true, offline: true, data: localRetailer };
+      }
 
-      return { success: true, offline: false, data: localRetailer };
+      // Update cache with server response
+      if (data) await offlineStorage.save(STORES.RETAILERS, data);
+      console.log('✅ Retailer synced successfully:', retailerId);
+
+      return { success: true, offline: false, data: data || localRetailer };
     } catch (error: any) {
       console.error('Error creating retailer:', error);
       toast({
