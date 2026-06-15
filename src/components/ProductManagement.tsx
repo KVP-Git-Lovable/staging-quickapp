@@ -1624,6 +1624,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           }}
                           onFormChange={(updates) => setVariantForm({ ...variantForm, ...updates } as any)}
                         />
+                      );
+                    })()}
                     </div>
                   </ScrollArea>
                   <DialogFooter>
