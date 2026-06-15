@@ -530,6 +530,7 @@ export const SchemeMaster = () => {
       validity_days: scheme.validity_days || null,
       min_order_value: scheme.min_order_value || 0,
       is_active: scheme.is_active,
+      show_in_portal: (scheme as any).show_in_portal ?? false,
       start_date: scheme.start_date || '',
       end_date: scheme.end_date || '',
       applicability_type: (schemeAny.applicability_type as 'global' | 'targeted' | 'hybrid') || 'global',
