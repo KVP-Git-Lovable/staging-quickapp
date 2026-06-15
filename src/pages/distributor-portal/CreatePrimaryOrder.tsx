@@ -1019,12 +1019,12 @@ const CreatePrimaryOrder = () => {
                     <span className="font-medium">₹ {creditLimit.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Outstanding</span>
-                    <span className="font-medium">₹ {outstanding.toLocaleString('en-IN')}</span>
+                    <span className="text-muted-foreground">Outstanding Amount</span>
+                    <span className="font-medium">₹{outstanding.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">This Order (Est.)</span>
-                    <span className="font-medium">₹ {thisOrderAmount.toLocaleString('en-IN')}</span>
+                    <span className="text-muted-foreground">Current Order Value</span>
+                    <span className="font-medium">₹{thisOrderAmount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
                 <div>
