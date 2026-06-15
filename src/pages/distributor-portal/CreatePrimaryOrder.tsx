@@ -472,9 +472,9 @@ const CreatePrimaryOrder = () => {
         : 4;
 
   const steps = [
-    { num: 1, title: 'Add Products', subtitle: 'Add products to your order' },
-    { num: 2, title: 'Review Pricing', subtitle: 'Review pricing and taxes' },
-    { num: 3, title: 'Credit Check', subtitle: 'Check credit limit' },
+    { num: 1, title: 'Add Products', subtitle: 'Select products and quantities' },
+    { num: 2, title: 'Review Order', subtitle: 'Review pricing and schemes' },
+    { num: 3, title: 'Credit Validation', subtitle: 'Check credit limit' },
     { num: 4, title: 'Submit', subtitle: 'Review and submit order' },
   ];
 
