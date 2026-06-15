@@ -18,10 +18,14 @@ import {
   Box,
   BookOpen,
   Wrench,
-  RotateCcw
+  RotateCcw,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
+import WarehouseManagement from '@/components/distributor-portal/inventory/WarehouseManagement';
+import OpeningStockDialog from '@/components/distributor-portal/inventory/OpeningStockDialog';
+import { useWarehouses } from '@/hooks/useWarehouses';
 
 interface InventoryItem {
   id: string;
@@ -48,8 +52,11 @@ const DistributorInventory = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
-  
+  const [openingStockOpen, setOpeningStockOpen] = useState(false);
+  const [products, setProducts] = useState<{ id: string; name: string; unit?: string }[]>([]);
+
   const distributorId = localStorage.getItem('distributor_id');
+  const { warehouses, loading: whLoading, createWarehouse, updateWarehouse, deleteWarehouse } = useWarehouses(distributorId);
 
   useEffect(() => {
     if (!distributorId) {
@@ -57,6 +64,7 @@ const DistributorInventory = () => {
       return;
     }
     loadInventory();
+    loadProducts();
   }, [distributorId, navigate]);
 
   const loadInventory = async () => {
@@ -74,6 +82,20 @@ const DistributorInventory = () => {
       toast.error('Failed to load inventory');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('id, name, unit')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      setProducts((data || []) as any);
+    } catch (e) {
+      console.error('Error loading products:', e);
     }
   };
 
@@ -136,7 +158,23 @@ const DistributorInventory = () => {
           <h1 className="text-2xl font-bold text-foreground">Inventory</h1>
           <p className="text-muted-foreground">{inventory.length} products in stock</p>
         </div>
+        <Button size="sm" onClick={() => setOpeningStockOpen(true)} disabled={warehouses.length === 0}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Opening Stock
+        </Button>
       </div>
+
+      {/* Warehouses (create/manage) */}
+      {distributorId && (
+        <WarehouseManagement
+          warehouses={warehouses}
+          loading={whLoading}
+          onCreateWarehouse={createWarehouse}
+          onUpdateWarehouse={updateWarehouse}
+          onDeleteWarehouse={deleteWarehouse}
+          defaultOpen={warehouses.length === 0}
+        />
+      )}
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-2">
@@ -328,6 +366,16 @@ const DistributorInventory = () => {
             })}
           </div>
         )}
+
+      {distributorId && (
+        <OpeningStockDialog
+          open={openingStockOpen}
+          onOpenChange={setOpeningStockOpen}
+          distributorId={distributorId}
+          products={products}
+          onSuccess={() => { setOpeningStockOpen(false); loadInventory(); }}
+        />
+      )}
     </div>
   );
 };
