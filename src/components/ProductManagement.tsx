@@ -18,7 +18,9 @@ import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
+import { ProductExtendedFields } from './ProductExtendedFields';
 import { VariantFocusedFields } from './VariantFocusedFields';
+import { VariantExtendedFields } from './VariantExtendedFields';
 import { migrateProducts } from '@/utils/productMigration';
 import { usePagination } from '@/hooks/usePagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
@@ -150,7 +152,23 @@ const [productForm, setProductForm] = useState({
   barcode: '',
   barcode_image_url: '',
   qr_code: '',
-  hsn_code: ''
+  hsn_code: '',
+  // Extended fields
+  product_type: 'Finished Good',
+  gross_weight_g: null as number | null,
+  packaging_weight_g: null as number | null,
+  standard_cost: null as number | null,
+  cost_currency: 'INR',
+  reorder_quantity: null as number | null,
+  last_cost_update: null as string | null,
+  primary_supplier_id: null as string | null,
+  manufacturer: '',
+  country_of_origin: '',
+  is_discontinued: false,
+  discontinued_date: null as string | null,
+  discontinuation_reason: '',
+  created_by: null as string | null,
+  updated_by: null as string | null,
 });
   
   const [variantForm, setVariantForm] = useState({
@@ -176,7 +194,16 @@ const [productForm, setProductForm] = useState({
     focused_territories: [] as string[],
     focused_recurring_config: undefined,
     barcode: '',
-    qr_code: ''
+    barcode_image_url: null as string | null,
+    qr_code: '',
+    // Extended variant fields
+    variant_type: 'Other',
+    uom_id: null as string | null,
+    variant_weight_g: null as number | null,
+    variant_cost: null as number | null,
+    variant_tax_rate: null as number | null,
+    is_discontinued: false,
+    discontinued_date: null as string | null,
   } as any);
 
   const executeDeleteAllProducts = async () => {
