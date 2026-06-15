@@ -52,8 +52,11 @@ const DistributorInventory = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
-  
+  const [openingStockOpen, setOpeningStockOpen] = useState(false);
+  const [products, setProducts] = useState<{ id: string; name: string; unit?: string }[]>([]);
+
   const distributorId = localStorage.getItem('distributor_id');
+  const { warehouses, loading: whLoading, createWarehouse, updateWarehouse, deleteWarehouse } = useWarehouses(distributorId);
 
   useEffect(() => {
     if (!distributorId) {
