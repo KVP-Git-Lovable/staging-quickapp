@@ -267,6 +267,12 @@ const FeatureManagement = () => {
             </p>
           </div>
         )}
+          </TabsContent>
+
+          <TabsContent value="company"><ByCompanyTab /></TabsContent>
+          <TabsContent value="deps"><DependenciesTab /></TabsContent>
+          <TabsContent value="audit"><AuditLogTab /></TabsContent>
+        </Tabs>
       </div>
     </div>
   );
