@@ -273,8 +273,7 @@ serve(async (req) => {
 
           for (const order of beatOrders) {
             for (const item of order.order_items || []) {
-              const key = item.product_id;
-              const { baseProductId, variantId } = parseProductId(item.product_id);
+              const { key, baseProductId, variantId } = deriveKey(item);
               
               // Extract variant name from product_name if it contains " - "
               let productName = item.product_name;
