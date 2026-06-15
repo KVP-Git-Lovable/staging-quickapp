@@ -10391,7 +10391,6 @@ export type Database = {
           id: string
           order_id: string
           original_rate: number | null
-          product_id: string
           product_name: string
           quantity: number
           rate: number
@@ -10413,7 +10412,6 @@ export type Database = {
           id?: string
           order_id: string
           original_rate?: number | null
-          product_id: string
           product_name: string
           quantity: number
           rate: number
@@ -10435,7 +10433,6 @@ export type Database = {
           id?: string
           order_id?: string
           original_rate?: number | null
-          product_id?: string
           product_name?: string
           quantity?: number
           rate?: number
@@ -10452,13 +10449,6 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_items_product_fk"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
