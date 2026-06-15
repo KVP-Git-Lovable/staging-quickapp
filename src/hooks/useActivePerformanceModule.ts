@@ -10,6 +10,8 @@ export const useActivePerformanceModule = () => {
       const { data, error } = await supabase
         .from('performance_module_config')
         .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
       
       if (error) {
