@@ -18,7 +18,9 @@ import { toast } from 'sonner';
 import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
+import { ProductExtendedFields } from './ProductExtendedFields';
 import { VariantFocusedFields } from './VariantFocusedFields';
+import { VariantExtendedFields } from './VariantExtendedFields';
 import { migrateProducts } from '@/utils/productMigration';
 import { usePagination } from '@/hooks/usePagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
@@ -123,7 +125,7 @@ const ProductManagement = () => {
 
   // Form states
   const [categoryForm, setCategoryForm] = useState({ id: '', name: '', description: '' });
-const [productForm, setProductForm] = useState({
+const emptyProductForm = () => ({
   id: '',
   sku: '',
   product_number: '',
@@ -150,8 +152,38 @@ const [productForm, setProductForm] = useState({
   barcode: '',
   barcode_image_url: '',
   qr_code: '',
-  hsn_code: ''
+  hsn_code: '',
+  // Extended fields
+  product_type: 'Finished Good',
+  gross_weight_g: null as number | null,
+  packaging_weight_g: null as number | null,
+  standard_cost: null as number | null,
+  cost_currency: 'INR',
+  reorder_quantity: null as number | null,
+  last_cost_update: null as string | null,
+  primary_supplier_id: null as string | null,
+  manufacturer: '',
+  country_of_origin: '',
+  is_discontinued: false,
+  discontinued_date: null as string | null,
+  discontinuation_reason: '',
+  created_by: null as string | null,
+  updated_by: null as string | null,
 });
+
+const emptyVariantForm = (): any => ({
+  id: '', product_id: '', variant_name: '', sku: '', product_number: '', description: '',
+  base_unit: 'kg', unit: 'piece', conversion_factor: 1, price: 0, stock_quantity: 0,
+  hsn_code: '90230', discount_percentage: 0, discount_amount: 0, is_active: true,
+  is_focused_product: false, focused_type: undefined, focused_due_date: '',
+  focused_target_quantity: 0, focused_territories: [] as string[], focused_recurring_config: undefined,
+  barcode: '', barcode_image_url: null as string | null, qr_code: '',
+  variant_type: 'Other', uom_id: null as string | null, variant_weight_g: null as number | null,
+  variant_cost: null as number | null, variant_tax_rate: null as number | null,
+  is_discontinued: false, discontinued_date: null as string | null,
+});
+
+const [productForm, setProductForm] = useState(emptyProductForm());
   
   const [variantForm, setVariantForm] = useState({
     id: '',
@@ -176,7 +208,16 @@ const [productForm, setProductForm] = useState({
     focused_territories: [] as string[],
     focused_recurring_config: undefined,
     barcode: '',
-    qr_code: ''
+    barcode_image_url: null as string | null,
+    qr_code: '',
+    // Extended variant fields
+    variant_type: 'Other',
+    uom_id: null as string | null,
+    variant_weight_g: null as number | null,
+    variant_cost: null as number | null,
+    variant_tax_rate: null as number | null,
+    is_discontinued: false,
+    discontinued_date: null as string | null,
   } as any);
 
   const executeDeleteAllProducts = async () => {
@@ -633,7 +674,19 @@ const [productForm, setProductForm] = useState({
             focused_territories: productForm.focused_territories || [],
             barcode: productForm.barcode || null,
             qr_code: qrCode,
-            hsn_code: productForm.hsn_code || null
+            hsn_code: productForm.hsn_code || null,
+            product_type: productForm.product_type || 'Finished Good',
+            gross_weight_g: productForm.gross_weight_g,
+            packaging_weight_g: productForm.packaging_weight_g,
+            standard_cost: productForm.standard_cost,
+            cost_currency: productForm.cost_currency || 'INR',
+            reorder_quantity: productForm.reorder_quantity,
+            primary_supplier_id: productForm.primary_supplier_id,
+            manufacturer: productForm.manufacturer || null,
+            country_of_origin: productForm.country_of_origin || null,
+            is_discontinued: productForm.is_discontinued || false,
+            discontinued_date: productForm.is_discontinued ? productForm.discontinued_date : null,
+            discontinuation_reason: productForm.is_discontinued ? (productForm.discontinuation_reason || null) : null
           })
           .eq('id', productForm.id);
 
@@ -660,7 +713,19 @@ const [productForm, setProductForm] = useState({
             focused_territories: productForm.focused_territories || [],
             barcode: productForm.barcode || null,
             qr_code: qrCode,
-            hsn_code: productForm.hsn_code || null
+            hsn_code: productForm.hsn_code || null,
+            product_type: productForm.product_type || 'Finished Good',
+            gross_weight_g: productForm.gross_weight_g,
+            packaging_weight_g: productForm.packaging_weight_g,
+            standard_cost: productForm.standard_cost,
+            cost_currency: productForm.cost_currency || 'INR',
+            reorder_quantity: productForm.reorder_quantity,
+            primary_supplier_id: productForm.primary_supplier_id,
+            manufacturer: productForm.manufacturer || null,
+            country_of_origin: productForm.country_of_origin || null,
+            is_discontinued: productForm.is_discontinued || false,
+            discontinued_date: productForm.is_discontinued ? productForm.discontinued_date : null,
+            discontinuation_reason: productForm.is_discontinued ? (productForm.discontinuation_reason || null) : null
           })
           .select('id')
           .single();
@@ -691,35 +756,7 @@ const [productForm, setProductForm] = useState({
       toast.success(productForm.id ? 'Product updated successfully' : 'Product created successfully');
 
       setIsProductDialogOpen(false);
-      setProductForm({
-        id: '',
-        sku: '',
-        product_number: '',
-        name: '',
-        description: '',
-        category_id: '',
-        is_focused_product: false,
-        focused_type: undefined,
-        focused_due_date: '',
-        focused_target_quantity: 0,
-        focused_territories: [],
-        focused_recurring_config: {
-          days_of_week: [],
-          weeks_of_month: [],
-          months_of_year: []
-        },
-        rate: 0,
-        unit: 'piece',
-        base_unit: 'kg',
-        conversion_factor: 1,
-        closing_stock: 0,
-        is_active: true,
-        sku_image_url: '',
-        barcode: '',
-        barcode_image_url: '',
-        qr_code: '',
-        hsn_code: ''
-      });
+      setProductForm(emptyProductForm());
       setUnitsValue(emptyProductUnitsEditorValue());
       fetchProducts();
     } catch (error: any) {
@@ -970,31 +1007,7 @@ const [productForm, setProductForm] = useState({
                     <DialogTrigger asChild>
                       <Button onClick={() => {
                         setUnitsValue(emptyProductUnitsEditorValue());
-                        setProductForm({
-                          id: '',
-                          sku: '',
-                          product_number: '',
-                          name: '',
-                          description: '',
-                          category_id: '',
-                          is_focused_product: false,
-                          focused_type: undefined,
-                          focused_due_date: '',
-                          focused_target_quantity: 0,
-                          focused_territories: [],
-                          focused_recurring_config: undefined,
-                          rate: 0,
-                          unit: 'piece',
-                          base_unit: 'kg',
-                          conversion_factor: 1,
-                          closing_stock: 0,
-                          is_active: true,
-                          sku_image_url: '',
-                          barcode: '',
-                          barcode_image_url: '',
-                          qr_code: '',
-                          hsn_code: ''
-                        });
+                        setProductForm(emptyProductForm());
                       }}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
@@ -1013,6 +1026,10 @@ const [productForm, setProductForm] = useState({
                           form={productForm}
                           categories={categories}
                           territories={territories}
+                          onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
+                        />
+                        <ProductExtendedFields
+                          form={productForm}
                           onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
                         />
                         <ProductUnitsEditor
@@ -1062,31 +1079,7 @@ const [productForm, setProductForm] = useState({
                               alt={product.name}
                               className="w-12 h-12 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
                               onClick={() => {
-                                setProductForm({
-                                  id: '',
-                                  sku: '',
-                                  product_number: '',
-                                  name: '',
-                                  description: '',
-                                  category_id: '',
-                                  rate: 0,
-                                  unit: 'kg',
-                                  base_unit: 'kg',
-                                  conversion_factor: 1,
-                                  closing_stock: 0,
-                                  is_active: true,
-                                  sku_image_url: '',
-                                  is_focused_product: false,
-                                  focused_type: undefined,
-                                  focused_due_date: '',
-                                  focused_target_quantity: 0,
-                                  focused_territories: [],
-                                  focused_recurring_config: undefined,
-                                  barcode: '',
-                                  barcode_image_url: '',
-                                  qr_code: '',
-                                  hsn_code: ''
-                                });
+                                setProductForm(emptyProductForm());
                                 setIsProductDialogOpen(true);
                               }}
                             />
@@ -1094,31 +1087,7 @@ const [productForm, setProductForm] = useState({
                             <div 
                               className="w-12 h-12 bg-muted rounded border flex items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors"
                               onClick={() => {
-                                setProductForm({
-                                  id: '',
-                                  sku: '',
-                                  product_number: '',
-                                  name: '',
-                                  description: '',
-                                  category_id: '',
-                                  rate: 0,
-                                  unit: 'kg',
-                                  base_unit: 'kg',
-                                  conversion_factor: 1,
-                                  closing_stock: 0,
-                                  is_active: true,
-                                  sku_image_url: '',
-                                  is_focused_product: false,
-                                  focused_type: undefined,
-                                  focused_due_date: '',
-                                  focused_target_quantity: 0,
-                                  focused_territories: [],
-                                  focused_recurring_config: undefined,
-                                  barcode: '',
-                                  barcode_image_url: '',
-                                  qr_code: '',
-                                  hsn_code: ''
-                                });
+                                setProductForm(emptyProductForm());
                                 setIsProductDialogOpen(true);
                               }}
                             >
@@ -1181,6 +1150,7 @@ const [productForm, setProductForm] = useState({
                               size="sm"
                               onClick={() => {
                                 setProductForm({
+                                  ...emptyProductForm(),
                                   id: product.id,
                                   sku: product.sku,
                                   product_number: product.product_number || '',
@@ -1203,7 +1173,22 @@ const [productForm, setProductForm] = useState({
                                   barcode: (product as any).barcode || '',
                                   barcode_image_url: (product as any).barcode_image_url || '',
                                   qr_code: (product as any).qr_code || '',
-                                  hsn_code: (product as any).hsn_code || ''
+                                  hsn_code: (product as any).hsn_code || '',
+                                  product_type: (product as any).product_type || 'Finished Good',
+                                  gross_weight_g: (product as any).gross_weight_g ?? null,
+                                  packaging_weight_g: (product as any).packaging_weight_g ?? null,
+                                  standard_cost: (product as any).standard_cost ?? null,
+                                  cost_currency: (product as any).cost_currency || 'INR',
+                                  reorder_quantity: (product as any).reorder_quantity ?? null,
+                                  last_cost_update: (product as any).last_cost_update ?? null,
+                                  primary_supplier_id: (product as any).primary_supplier_id ?? null,
+                                  manufacturer: (product as any).manufacturer || '',
+                                  country_of_origin: (product as any).country_of_origin || '',
+                                  is_discontinued: (product as any).is_discontinued || false,
+                                  discontinued_date: (product as any).discontinued_date ?? null,
+                                  discontinuation_reason: (product as any).discontinuation_reason || '',
+                                  created_by: (product as any).created_by ?? null,
+                                  updated_by: (product as any).updated_by ?? null,
                                 });
                                 setUnitsValue(emptyProductUnitsEditorValue());
                                 setIsProductDialogOpen(true);

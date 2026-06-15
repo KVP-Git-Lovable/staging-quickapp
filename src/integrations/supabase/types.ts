@@ -13959,6 +13959,7 @@ export type Database = {
           barcode: string | null
           barcode_image_url: string | null
           created_at: string
+          created_by: string | null
           discontinued_date: string | null
           discount_amount: number | null
           discount_percentage: number | null
@@ -13979,6 +13980,7 @@ export type Database = {
           stock_quantity: number
           uom_id: string | null
           updated_at: string
+          updated_by: string | null
           variant_cost: number | null
           variant_name: string
           variant_tax_rate: number | null
@@ -13989,6 +13991,7 @@ export type Database = {
           barcode?: string | null
           barcode_image_url?: string | null
           created_at?: string
+          created_by?: string | null
           discontinued_date?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
@@ -14009,6 +14012,7 @@ export type Database = {
           stock_quantity?: number
           uom_id?: string | null
           updated_at?: string
+          updated_by?: string | null
           variant_cost?: number | null
           variant_name: string
           variant_tax_rate?: number | null
@@ -14019,6 +14023,7 @@ export type Database = {
           barcode?: string | null
           barcode_image_url?: string | null
           created_at?: string
+          created_by?: string | null
           discontinued_date?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
@@ -14039,6 +14044,7 @@ export type Database = {
           stock_quantity?: number
           uom_id?: string | null
           updated_at?: string
+          updated_by?: string | null
           variant_cost?: number | null
           variant_name?: string
           variant_tax_rate?: number | null
