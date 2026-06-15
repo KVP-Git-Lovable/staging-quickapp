@@ -1069,6 +1069,21 @@ export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categori
         />
         <Label htmlFor="schemeActive">Active</Label>
       </div>
+
+      {/* Show in Customer Portal */}
+      <div className="rounded-lg border p-3 bg-muted/30">
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="schemeShowInPortal"
+            checked={!!schemeForm.show_in_portal}
+            onCheckedChange={(checked) => setSchemeForm({ ...schemeForm, show_in_portal: checked })}
+          />
+          <Label htmlFor="schemeShowInPortal" className="font-medium">Show in Customer Portal</Label>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1 ml-10">
+          Enable this to make the scheme visible to customers in the Customer Portal (Schemes tab and cart hints).
+        </p>
+      </div>
     </div>
   );
 };
