@@ -18,10 +18,14 @@ import {
   Box,
   BookOpen,
   Wrench,
-  RotateCcw
+  RotateCcw,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
+import WarehouseManagement from '@/components/distributor-portal/inventory/WarehouseManagement';
+import OpeningStockDialog from '@/components/distributor-portal/inventory/OpeningStockDialog';
+import { useWarehouses } from '@/hooks/useWarehouses';
 
 interface InventoryItem {
   id: string;
