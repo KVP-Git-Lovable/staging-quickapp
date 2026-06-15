@@ -970,9 +970,9 @@ const CreatePrimaryOrder = () => {
                 )}
 
                 <div className="border-t pt-3 flex items-center justify-between">
-                  <span className="font-semibold text-foreground">Estimated Total</span>
+                  <span className="font-semibold text-foreground">Estimated Grand Total</span>
                   <span className="text-xl font-bold text-primary">
-                    ₹ {totals.grandTotal.toLocaleString('en-IN')}
+                    ₹{totals.grandTotal.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <Button
