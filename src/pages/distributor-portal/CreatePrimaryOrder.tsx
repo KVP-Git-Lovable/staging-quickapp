@@ -511,16 +511,15 @@ const CreatePrimaryOrder = () => {
                       : 'New Primary Order'}
                   </h1>
                   <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>{orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}</span>
                     {priceBookName && (
                       <>
-                        <span className="font-medium text-foreground/80">Price Book:</span>
-                        <span>{priceBookName}</span>
                         <span>•</span>
+                        <span><span className="font-medium text-foreground/80">Price Book:</span> {priceBookName}</span>
                       </>
                     )}
-                    <span>{format(new Date(), 'dd MMM yyyy')}</span>
                     <span>•</span>
-                    <span>{orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}</span>
+                    <span><span className="font-medium text-foreground/80">Order Date:</span> {format(new Date(), 'dd MMM yyyy')}</span>
                   </p>
                 </div>
               </div>
