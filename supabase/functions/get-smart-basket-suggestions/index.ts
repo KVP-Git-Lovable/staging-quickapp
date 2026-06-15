@@ -247,7 +247,7 @@ serve(async (req) => {
           .select(`
             retailer_id,
             order_items (
-              product_id,
+              variant_id,
               product_name,
               quantity,
               unit,
