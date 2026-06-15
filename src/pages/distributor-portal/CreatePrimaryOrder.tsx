@@ -472,9 +472,9 @@ const CreatePrimaryOrder = () => {
         : 4;
 
   const steps = [
-    { num: 1, title: 'Add Products', subtitle: 'Add products to your order' },
-    { num: 2, title: 'Review Pricing', subtitle: 'Review pricing and taxes' },
-    { num: 3, title: 'Credit Check', subtitle: 'Check credit limit' },
+    { num: 1, title: 'Add Products', subtitle: 'Select products and quantities' },
+    { num: 2, title: 'Review Order', subtitle: 'Review pricing and schemes' },
+    { num: 3, title: 'Credit Validation', subtitle: 'Check credit limit' },
     { num: 4, title: 'Submit', subtitle: 'Review and submit order' },
   ];
 
@@ -511,16 +511,15 @@ const CreatePrimaryOrder = () => {
                       : 'New Primary Order'}
                   </h1>
                   <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>{orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}</span>
                     {priceBookName && (
                       <>
-                        <span className="font-medium text-foreground/80">Price Book:</span>
-                        <span>{priceBookName}</span>
                         <span>•</span>
+                        <span><span className="font-medium text-foreground/80">Price Book:</span> {priceBookName}</span>
                       </>
                     )}
-                    <span>{format(new Date(), 'dd MMM yyyy')}</span>
                     <span>•</span>
-                    <span>{orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}</span>
+                    <span><span className="font-medium text-foreground/80">Order Date:</span> {format(new Date(), 'dd MMM yyyy')}</span>
                   </p>
                 </div>
               </div>
@@ -531,7 +530,7 @@ const CreatePrimaryOrder = () => {
                 className="shrink-0"
               >
                 <FileText className="w-4 h-4 mr-2" />
-                Save as Draft
+                Save Draft
               </Button>
             </div>
           </CardContent>
@@ -700,11 +699,12 @@ const CreatePrimaryOrder = () => {
                     <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
-                          <TableRow className="hover:bg-transparent">
+                          <TableRow className="hover:bg-transparent bg-muted/30">
                             <TableHead className="font-semibold text-foreground/70">Product</TableHead>
-                            <TableHead className="font-semibold text-foreground/70">Price (₹)</TableHead>
-                            <TableHead className="font-semibold text-foreground/70">Qty</TableHead>
-                            <TableHead className="font-semibold text-foreground/70">Discount</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Quantity</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Unit Price (₹)</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Price Source</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Scheme Applied</TableHead>
                             <TableHead className="font-semibold text-foreground/70">GST</TableHead>
                             <TableHead className="font-semibold text-foreground/70 text-right">Line Total (₹)</TableHead>
                             <TableHead className="font-semibold text-foreground/70 text-right">Action</TableHead>
@@ -721,9 +721,11 @@ const CreatePrimaryOrder = () => {
                             const imgUrl = item.image_url || (productLookup as any)?.image_url;
                             const sku = item.sku || (productLookup as any)?.sku;
                             const pbApplied = item.price_book_applied || productLookup?.priceBookPrice !== undefined;
+                            const schemeName = (productLookup as any)?.scheme_name || (item as any).scheme_name;
+                            const schemeDetail = (productLookup as any)?.scheme_detail || (item as any).scheme_detail;
 
                             return (
-                              <TableRow key={index} className="align-top">
+                              <TableRow key={index} className="align-middle">
                                 <TableCell>
                                   <div className="flex items-start gap-3">
                                     <div className="w-10 h-10 rounded-md bg-muted/70 grid place-items-center overflow-hidden shrink-0">
@@ -742,24 +744,8 @@ const CreatePrimaryOrder = () => {
                                           SKU: {sku}
                                         </p>
                                       )}
-                                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                        {pbApplied ? (
-                                          <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] px-1.5 py-0 h-5 gap-1">
-                                            <Star className="w-2.5 h-2.5 fill-current" />
-                                            Price Book Applied
-                                          </Badge>
-                                        ) : (
-                                          <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0 h-5 gap-1">
-                                            <Info className="w-2.5 h-2.5" />
-                                            MRP Used
-                                          </Badge>
-                                        )}
-                                      </div>
                                     </div>
                                   </div>
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  {item.unit_price.toFixed(2)}
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-1">
@@ -788,65 +774,58 @@ const CreatePrimaryOrder = () => {
                                   </div>
                                   <p className="text-[10px] text-muted-foreground mt-1 text-center">Units</p>
                                 </TableCell>
+                                <TableCell className="font-medium">
+                                  ₹{item.unit_price.toFixed(2)}
+                                </TableCell>
                                 <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={100}
-                                      value={item.discount_percent}
-                                      onChange={(e) => updateItem(index, {
-                                        discount_percent: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)),
-                                      })}
-                                      className="h-7 w-14 text-center px-1"
-                                    />
-                                    <span className="text-xs text-muted-foreground">%</span>
-                                  </div>
-                                  {disc > 0 && (
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                      (₹{disc.toFixed(2)})
-                                    </p>
+                                  {pbApplied ? (
+                                    <div>
+                                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] px-1.5 py-0 h-5">
+                                        Price Book
+                                      </Badge>
+                                      <p className="text-[10px] text-muted-foreground mt-1">{priceBookName || 'Distributor Price Book'}</p>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0 h-5">
+                                        MRP
+                                      </Badge>
+                                      <p className="text-[10px] text-muted-foreground mt-1">MRP Applied</p>
+                                    </div>
                                   )}
                                 </TableCell>
                                 <TableCell>
-                                  <div className="flex items-center gap-1">
-                                    <Input
-                                      type="number"
-                                      min={0}
-                                      max={28}
-                                      value={item.gst_percent}
-                                      onChange={(e) => updateItem(index, {
-                                        gst_percent: Math.max(0, Math.min(28, parseFloat(e.target.value) || 0)),
-                                      })}
-                                      className="h-7 w-14 text-center px-1"
-                                    />
-                                    <span className="text-xs text-muted-foreground">%</span>
-                                  </div>
+                                  {schemeName ? (
+                                    <div>
+                                      <Badge variant="outline" className="border-orange-300 bg-orange-50 text-orange-700 text-[10px] px-1.5 py-0 h-5">
+                                        {schemeName}
+                                      </Badge>
+                                      {schemeDetail && (
+                                        <p className="text-[10px] text-muted-foreground mt-1">{schemeDetail}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <span className="text-sm text-muted-foreground">—</span>
+                                      <p className="text-[10px] text-muted-foreground mt-1">No Scheme</p>
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                  {item.gst_percent}%
                                 </TableCell>
                                 <TableCell className="text-right font-semibold">
-                                  {lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  ₹{lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                                      onClick={() => {
-                                        toast.info('Tip: edit values directly in the row.');
-                                      }}
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={() => removeItem(index)}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => removeItem(index)}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             );
@@ -861,7 +840,7 @@ const CreatePrimaryOrder = () => {
                         onClick={scrollToAddProducts}
                       >
                         <Plus className="w-4 h-4 mr-2" />
-                        Add more products
+                        Add More Products
                       </Button>
                     </div>
                   </>
@@ -892,22 +871,6 @@ const CreatePrimaryOrder = () => {
                         min={new Date().toISOString().split('T')[0]}
                         className="mt-1.5"
                       />
-                    </div>
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Payment Terms</Label>
-                      {/* TODO: persist payment_terms to primary_orders once column is wired */}
-                      <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-                        <SelectTrigger className="mt-1.5">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cod">Cash on Delivery</SelectItem>
-                          <SelectItem value="7">7 Days</SelectItem>
-                          <SelectItem value="15">15 Days</SelectItem>
-                          <SelectItem value="30">30 Days</SelectItem>
-                          <SelectItem value="45">45 Days</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
                     <div>
                       <Label className="text-xs font-medium text-muted-foreground">Notes / Special Instructions</Label>
@@ -967,21 +930,21 @@ const CreatePrimaryOrder = () => {
               </CardHeader>
               <CardContent className="p-5 pt-0 space-y-2.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Items</span>
+                  <span className="text-muted-foreground">Total Products</span>
                   <span className="font-medium">{orderItems.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Units</span>
                   <span className="font-medium">{totalUnits}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between border-t pt-2.5">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span className="font-medium">₹{totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 {totals.totalDiscount > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Discount</span>
-                    <span className="font-medium text-destructive">- ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                    <span className="text-muted-foreground">Scheme Benefits</span>
+                    <span className="font-medium text-emerald-600">- ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -1007,9 +970,9 @@ const CreatePrimaryOrder = () => {
                 )}
 
                 <div className="border-t pt-3 flex items-center justify-between">
-                  <span className="font-semibold text-foreground">Estimated Total</span>
+                  <span className="font-semibold text-foreground">Estimated Grand Total</span>
                   <span className="text-xl font-bold text-primary">
-                    ₹ {totals.grandTotal.toLocaleString('en-IN')}
+                    ₹{totals.grandTotal.toLocaleString('en-IN')}
                   </span>
                 </div>
                 <Button
@@ -1032,7 +995,7 @@ const CreatePrimaryOrder = () => {
                     <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
                       <CreditCard className="w-4 h-4 text-foreground/70" />
                     </span>
-                    Credit Utilization
+                    Credit Validation
                     <Info className="w-3.5 h-3.5 text-muted-foreground" />
                   </CardTitle>
                   <Badge
@@ -1056,12 +1019,12 @@ const CreatePrimaryOrder = () => {
                     <span className="font-medium">₹ {creditLimit.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Outstanding</span>
-                    <span className="font-medium">₹ {outstanding.toLocaleString('en-IN')}</span>
+                    <span className="text-muted-foreground">Outstanding Amount</span>
+                    <span className="font-medium">₹{outstanding.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">This Order (Est.)</span>
-                    <span className="font-medium">₹ {thisOrderAmount.toLocaleString('en-IN')}</span>
+                    <span className="text-muted-foreground">Current Order Value</span>
+                    <span className="font-medium">₹{thisOrderAmount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
                 <div>
@@ -1087,7 +1050,7 @@ const CreatePrimaryOrder = () => {
                 </div>
                 {isExceeded && (
                   <p className="text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded px-2 py-1.5">
-                    Order exceeds credit limit. Submission disabled.
+                    Order value exceeds available credit.
                   </p>
                 )}
               </CardContent>
@@ -1106,8 +1069,8 @@ const CreatePrimaryOrder = () => {
                 <p className="text-sm font-semibold">₹ {totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
               </div>
               <div>
-                <p className="text-[11px] text-muted-foreground">Discount</p>
-                <p className="text-sm font-semibold text-destructive">- ₹ {totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                <p className="text-[11px] text-muted-foreground">Scheme Benefits</p>
+                <p className="text-sm font-semibold text-emerald-600">- ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
               </div>
               <div>
                 <p className="text-[11px] text-muted-foreground">GST ({avgGstPercent}%)</p>
@@ -1138,7 +1101,7 @@ const CreatePrimaryOrder = () => {
                 className="flex-1 md:flex-none"
               >
                 <Send className="w-4 h-4 mr-2" />
-                {isEditMode ? 'Update & Submit' : 'Submit Order'}
+                {isEditMode ? 'Update & Submit' : 'Submit Primary Order'}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
