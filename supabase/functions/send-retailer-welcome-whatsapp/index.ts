@@ -49,7 +49,7 @@ serve(async (req) => {
 
     const { data: retailer, error } = await supabase
       .from("retailers")
-      .select("id, name, phone, owner_name, contact_name")
+      .select("id, name, phone, owner_name, contact_name, address, city, state, pincode")
       .eq("id", retailer_id)
       .maybeSingle();
 
