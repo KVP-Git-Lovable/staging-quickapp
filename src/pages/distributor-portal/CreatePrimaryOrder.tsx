@@ -368,6 +368,7 @@ const CreatePrimaryOrder = () => {
 
       const headerPayload = {
         distributor_id: distributorId,
+        source_distributor_id: distributorId,
         expected_delivery_date: expectedDeliveryDate || null,
         notes,
         status: submit ? 'submitted' : 'draft',
