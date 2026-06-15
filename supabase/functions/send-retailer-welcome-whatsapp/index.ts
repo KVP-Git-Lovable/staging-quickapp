@@ -49,7 +49,7 @@ serve(async (req) => {
 
     const { data: retailer, error } = await supabase
       .from("retailers")
-      .select("id, name, phone, owner_name, contact_name, address, city, state, pincode")
+      .select("id, name, phone, address, latitude, longitude")
       .eq("id", retailer_id)
       .maybeSingle();
 
@@ -79,15 +79,18 @@ serve(async (req) => {
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
     const base64Auth = btoa(`${accountSid}:${authToken}`);
 
-    // Template variables: {{1}} = store/retailer name, {{2}} = phone number, {{3}} = address
+    // Template variables: {{1}} = store/retailer name, {{2}} = phone number, {{3}} = address (+ geo)
     const storeName = (retailer.name || "Retailer").toString().trim();
-    const addressParts = [
-      retailer.address,
-      retailer.city,
-      retailer.state,
-      retailer.pincode,
-    ].filter((v) => v && String(v).trim().length > 0);
-    const fullAddress = addressParts.length > 0 ? addressParts.join(", ") : "Not provided";
+    const baseAddress = (retailer.address || "").toString().trim();
+    const hasGeo =
+      retailer.latitude != null &&
+      retailer.longitude != null &&
+      !Number.isNaN(Number(retailer.latitude)) &&
+      !Number.isNaN(Number(retailer.longitude));
+    const geoSuffix = hasGeo
+      ? ` (${Number(retailer.latitude).toFixed(6)}, ${Number(retailer.longitude).toFixed(6)})`
+      : "";
+    const fullAddress = (baseAddress || "Not provided") + geoSuffix;
     const contentVariables = JSON.stringify({
       "1": storeName,
       "2": phone,
