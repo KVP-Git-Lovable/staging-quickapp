@@ -48,7 +48,7 @@ export default function CompanyProfile() {
         </div>
 
         <Tabs defaultValue="branding" className="space-y-4">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+          <TabsList className="grid w-full max-w-3xl grid-cols-5">
             <TabsTrigger value="branding" className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
               Header Branding
@@ -64,6 +64,10 @@ export default function CompanyProfile() {
             <TabsTrigger value="regional" className="flex items-center gap-2">
               <Globe className="h-4 w-4" />
               Regional
+            </TabsTrigger>
+            <TabsTrigger value="features" className="flex items-center gap-2">
+              <ToggleRight className="h-4 w-4" />
+              Features
             </TabsTrigger>
           </TabsList>
 
@@ -81,6 +85,10 @@ export default function CompanyProfile() {
 
           <TabsContent value="regional">
             <RegionalSettings />
+          </TabsContent>
+
+          <TabsContent value="features">
+            <CompanyFeaturesTab />
           </TabsContent>
         </Tabs>
       </div>
