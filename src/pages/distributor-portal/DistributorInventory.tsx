@@ -158,7 +158,23 @@ const DistributorInventory = () => {
           <h1 className="text-2xl font-bold text-foreground">Inventory</h1>
           <p className="text-muted-foreground">{inventory.length} products in stock</p>
         </div>
+        <Button size="sm" onClick={() => setOpeningStockOpen(true)} disabled={warehouses.length === 0}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Opening Stock
+        </Button>
       </div>
+
+      {/* Warehouses (create/manage) */}
+      {distributorId && (
+        <WarehouseManagement
+          warehouses={warehouses}
+          loading={whLoading}
+          onCreateWarehouse={createWarehouse}
+          onUpdateWarehouse={updateWarehouse}
+          onDeleteWarehouse={deleteWarehouse}
+          defaultOpen={warehouses.length === 0}
+        />
+      )}
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-2">
