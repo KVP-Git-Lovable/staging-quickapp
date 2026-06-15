@@ -530,7 +530,7 @@ const CreatePrimaryOrder = () => {
                 className="shrink-0"
               >
                 <FileText className="w-4 h-4 mr-2" />
-                Save as Draft
+                Save Draft
               </Button>
             </div>
           </CardContent>
