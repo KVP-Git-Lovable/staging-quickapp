@@ -1101,7 +1101,7 @@ const CreatePrimaryOrder = () => {
                 className="flex-1 md:flex-none"
               >
                 <Send className="w-4 h-4 mr-2" />
-                {isEditMode ? 'Update & Submit' : 'Submit Order'}
+                {isEditMode ? 'Update & Submit' : 'Submit Primary Order'}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
