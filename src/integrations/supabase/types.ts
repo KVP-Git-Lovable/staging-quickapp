@@ -2453,6 +2453,51 @@ export type Database = {
         }
         Relationships: []
       }
+      company_feature_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          feature_id: string
+          id: string
+          is_enabled: boolean | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          feature_id: string
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          feature_id?: string
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_feature_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_feature_config_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_product_categories: {
         Row: {
           categories_json: Json
@@ -6867,32 +6912,87 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_dependencies: {
+        Row: {
+          created_at: string
+          dependency_type: string
+          depends_on_feature_id: string
+          description: string | null
+          feature_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          dependency_type?: string
+          depends_on_feature_id: string
+          description?: string | null
+          feature_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          dependency_type?: string
+          depends_on_feature_id?: string
+          description?: string | null
+          feature_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_dependencies_depends_on_feature_id_fkey"
+            columns: ["depends_on_feature_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "feature_dependencies_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_flag_audit: {
         Row: {
+          action: string | null
           changed_at: string
           changed_by: string
+          company_id: string | null
           feature_flag_id: string
           id: string
           new_value: boolean
           old_value: boolean
         }
         Insert: {
+          action?: string | null
           changed_at?: string
           changed_by: string
+          company_id?: string | null
           feature_flag_id: string
           id?: string
           new_value: boolean
           old_value: boolean
         }
         Update: {
+          action?: string | null
           changed_at?: string
           changed_by?: string
+          company_id?: string | null
           feature_flag_id?: string
           id?: string
           new_value?: boolean
           old_value?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "feature_flag_audit_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "feature_flag_audit_feature_flag_id_fkey"
             columns: ["feature_flag_id"]
@@ -21151,6 +21251,10 @@ export type Database = {
       cleanup_expired_recommendations: { Args: never; Returns: undefined }
       cleanup_expired_reset_tokens: { Args: never; Returns: undefined }
       cleanup_old_execution_logs: { Args: never; Returns: undefined }
+      clear_company_feature_override: {
+        Args: { p_company_id: string; p_feature_key: string }
+        Returns: undefined
+      }
       create_approval_request: {
         Args: {
           p_entity_id: string
@@ -21340,6 +21444,20 @@ export type Database = {
         }[]
       }
       get_distributor_id_for_auth_user: { Args: never; Returns: string }
+      get_effective_features: {
+        Args: { p_company_id: string }
+        Returns: {
+          blocked_by: string[]
+          category: string
+          company_override: boolean
+          description: string
+          enabled: boolean
+          feature_id: string
+          feature_key: string
+          feature_name: string
+          global_enabled: boolean
+        }[]
+      }
       get_employee_basic_info: {
         Args: { employee_user_id: string }
         Returns: {
@@ -21808,6 +21926,15 @@ export type Database = {
           user_id_param: string
         }
         Returns: string
+      }
+      set_company_feature: {
+        Args: {
+          p_cascade?: boolean
+          p_company_id: string
+          p_enabled: boolean
+          p_feature_key: string
+        }
+        Returns: undefined
       }
       share_retailer_access: {
         Args: {
