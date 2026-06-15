@@ -100,6 +100,7 @@ const initialSchemeForm = {
   validity_days: null as number | null,
   min_order_value: 0,
   is_active: true,
+  show_in_portal: false,
   start_date: '',
   end_date: '',
   // New applicability fields
