@@ -873,22 +873,6 @@ const CreatePrimaryOrder = () => {
                       />
                     </div>
                     <div>
-                      <Label className="text-xs font-medium text-muted-foreground">Payment Terms</Label>
-                      {/* TODO: persist payment_terms to primary_orders once column is wired */}
-                      <Select value={paymentTerms} onValueChange={setPaymentTerms}>
-                        <SelectTrigger className="mt-1.5">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cod">Cash on Delivery</SelectItem>
-                          <SelectItem value="7">7 Days</SelectItem>
-                          <SelectItem value="15">15 Days</SelectItem>
-                          <SelectItem value="30">30 Days</SelectItem>
-                          <SelectItem value="45">45 Days</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
                       <Label className="text-xs font-medium text-muted-foreground">Notes / Special Instructions</Label>
                       <Textarea
                         placeholder="Any special requirements or notes..."
