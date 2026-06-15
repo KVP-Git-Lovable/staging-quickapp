@@ -84,7 +84,7 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
   const [submitting, setSubmitting] = useState(false);
   const [scanInput, setScanInput] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
-  const { warehouses, defaultWarehouse, loading: whLoading } = useWarehouses(distributorId);
+  const { warehouses, defaultWarehouse, loading: whLoading, reload: reloadWarehouses } = useWarehouses(distributorId);
   const fileRef = useRef<HTMLInputElement>(null);
   const scanRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +93,14 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
       setSelectedWarehouseId(defaultWarehouse.id);
     }
   }, [defaultWarehouse, selectedWarehouseId]);
+
+  // Reload warehouses every time the dialog opens so newly-created
+  // warehouses appear without needing a page refresh.
+  useEffect(() => {
+    if (open && distributorId) {
+      reloadWarehouses();
+    }
+  }, [open, distributorId, reloadWarehouses]);
 
   useEffect(() => {
     if (open && products.length > 0) {
