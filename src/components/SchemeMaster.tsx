@@ -323,6 +323,7 @@ export const SchemeMaster = () => {
             validity_days: schemeForm.validity_days,
             min_order_value: schemeForm.min_order_value,
             is_active: schemeForm.is_active,
+            show_in_portal: schemeForm.show_in_portal,
             start_date: schemeForm.start_date || null,
             end_date: schemeForm.end_date || null,
             applicability_type: schemeForm.applicability_type,
