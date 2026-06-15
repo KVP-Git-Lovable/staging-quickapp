@@ -1,146 +1,142 @@
-# Product & Variant Form Audit + UI Plan
+# New Primary Order — UI Redesign (pixel-match the screenshot)
 
-Verified against live DB (`products` = 50 cols, `product_variants` = 28 cols) and against `src/components/ProductManagement.tsx` (variant dialog at lines 1403-1624, product form earlier in the same file).
+## Goal
 
-The Claude audit you pasted is **substantially correct**. Below are the validated gaps (with two small corrections) plus a concrete, scalable UI plan that does not remove anything that exists today.
+Re-skin `src/pages/distributor-portal/CreatePrimaryOrder.tsx` to match the attached reference exactly. **No changes to state, data loading, totals math, Supabase reads/writes, validation, edit-mode handling, routing, or the distributor-portal layout/sidebar.** Pure presentation work in this one file (plus, if needed, a small extracted `OrderItemsTable` sub-component for readability).
 
----
+## What stays untouched
 
-## 1. Confirmed gaps — `product_variants` (DB → Variant dialog)
+- Sidebar/header chrome (already provided by `DistributorPortalLayout`).
+- All hooks, effects, fetches: `loadData`, `loadExistingOrder`, `loadCreditInfo`, `saveOrder`, `addItem`, `updateItem`, `removeItem`, `totals` memo.
+- Field semantics: `expectedDeliveryDate`, `notes`, `discount_percent`, `gst_percent`, etc.
+- Save Draft / Submit actions and their conditions (credit-exceeded disable).
 
-DB has 28 columns. Today's "Add New Variant" dialog already covers: `variant_name, sku, description, base_unit, unit, conversion_factor, price, stock_quantity, hsn_code, barcode, discount_percentage, discount_amount, is_active, is_focused_product, focused_type, focused_due_date, focused_target_quantity, focused_territories, focused_recurring_config`.
-
-**Missing from UI (9 fields — Claude listed 7, missed `qr_code` and `barcode_image_url`):**
-
-| DB column | Type | Priority | Notes |
-|---|---|---|---|
-| `variant_type` | varchar (default `'Other'`) | CRITICAL | Size / Color / Weight / Packaging / Quantity / Flavor / Other |
-| `uom_id` | uuid → `uom_master` | CRITICAL | Variant can override product UOM (e.g. 100ml vs 1L) |
-| `variant_weight_g` | numeric | CRITICAL | Required for logistics weight rollups |
-| `is_discontinued` | bool (default false) | CRITICAL | Mirrors product-level discontinuation |
-| `discontinued_date` | date | CRITICAL | Conditional on `is_discontinued` |
-| `variant_cost` | numeric | HIGH | Per-variant landed cost; overrides product `standard_cost` |
-| `variant_tax_rate` | numeric | HIGH | Per-variant tax override (some SKUs slab-differ) |
-| `qr_code` | text | MEDIUM | Already present on product form; auto-generate like product |
-| `barcode_image_url` | text | MEDIUM | Mirror product behaviour (upload / generated) |
-
-> Note: Claude's audit lists `product_id, variant_name, sku, price, stock_quantity` etc as separate "implemented" rows — those are fine. `variant_type` default in DB is already `'Other'`, so making it Required in UI is safe.
-
-## 2. Confirmed gaps — `products` (DB → Product form)
-
-The 15 missing columns Claude listed are accurate. All exist in DB today:
-`product_type, gross_weight_g, packaging_weight_g, is_discontinued, discontinued_date, discontinuation_reason, standard_cost, cost_currency, last_cost_update, reorder_quantity, primary_supplier_id, manufacturer, country_of_origin, created_by, updated_by`.
-
-`last_cost_update` should be **auto-stamped** by a trigger when `standard_cost` changes — not a user input. `created_by` / `updated_by` should be auto-set from `auth.uid()` server-side (trigger) and displayed read-only in UI.
-
-## 3. Parity principle
-
-Anything visible on the Product form that semantically applies to a variant must also be on the Variant form, with **inherit-from-parent** behaviour when left blank. The rule: *variant value, when set, overrides the parent product; when null, parent value applies at read time*.
-
-Applies to: `uom_id`, `variant_cost`, `variant_tax_rate`, `hsn_code`, `variant_weight_g`, focused-product block, discontinuation block, barcode/QR block.
-
-## 4. Proposed UI layout — Add / Edit Variant
-
-Replace the current flat dialog body with a tabbed layout that mirrors the Product form sections, so users get a consistent mental model.
+## New page composition
 
 ```text
-Dialog: Add / Edit Variant — [Parent product name shown in header]
-
-[ Tab 1: Identity ]
-  - Variant Name *           (existing)
-  - Variant Type *           NEW — Select: Size | Color | Weight | Packaging | Quantity | Flavor | Other
-  - SKU *                    (existing, auto-generate kept)
-  - Product Number           (existing)
-  - Description              (existing)
-  - Is Active                (existing)
-
-[ Tab 2: Units & Measurements ]
-  - UOM (override)           NEW — Select from uom_master, helper: "Leave blank to inherit from product"
-  - Base Unit                (existing)
-  - Sales Unit               (existing)
-  - Conversion Factor        (existing)
-  - Variant Weight (g)       NEW — number ≥ 0
-
-[ Tab 3: Pricing & Tax ]
-  - Selling Price *          (existing)
-  - Variant Cost             NEW — number ≥ 0, helper: "Overrides product Standard Cost"
-  - Variant Tax Rate %       NEW — number 0-100, helper: "Overrides product GST %"
-  - HSN Code                 (existing)
-  - Discount %               (existing, two-way bound)
-  - Discount Amount          (existing)
-
-[ Tab 4: Inventory ]
-  - Stock Quantity *         (existing)
-  - Barcode                  (existing)
-  - Barcode Image            NEW — upload + preview (reuse product component)
-  - QR Code                  NEW — auto-generated, copy/regenerate (reuse product helper)
-
-[ Tab 5: Lifecycle ]
-  - Is Discontinued          NEW — toggle
-    └─ Discontinued Date     NEW — date picker (shadcn datepicker w/ pointer-events-auto), required when toggle on
-
-[ Tab 6: Promotions ]
-  - Focused Product block    (existing FocusedProductSection component — no change)
+┌──────────────────────────────────────────────────────────────────────┐
+│ ← New Primary Order                              [📄 Save as Draft]  │  ← top header strip
+│   Price Book: <name> • <today date> • <N items>                      │
+├──────────────────────────────────────────────────────────────────────┤
+│  (1)──Add Products──(2)──Review Pricing──(3)──Credit Check──(4)──Submit │  ← stepper
+├────────────────────────────────────────────┬─────────────────────────┤
+│  ┌─ Add Products ───────────────────────┐  │ ┌─ Order Summary ─────┐ │
+│  │ Category | Select Product | Qty +/-  │  │ │ Total Items      3  │ │
+│  │ [+ Add to Order]                     │  │ │ Total Units    200  │ │
+│  └──────────────────────────────────────┘  │ │ Subtotal   ₹6,000   │ │
+│                                            │ │ Discount   -₹324    │ │
+│  ┌─ Order Items (3) ──────── Clear All ─┐  │ │ GST(12%)   ₹713.28  │ │
+│  │ Product | Price | Qty | Disc | GST   │  │ │ ─────────────────── │ │
+│  │ | Line Total | Action                │  │ │ Estimated  ₹6,389   │ │
+│  │ <rows with thumb, SKU, badges>       │  │ │ [ View Details → ]  │ │
+│  │ ───── + Add more products ─────      │  │ └─────────────────────┘ │
+│  └──────────────────────────────────────┘  │ ┌─ Credit Utilization ┐ │
+│                                            │ │ [Within Limit pill] │ │
+│  ┌─ Order Details ──────────────────────┐  │ │ Credit  ₹5,00,000   │ │
+│  │ Exp Delivery | Shipping Address     │  │ │ Outstd  ₹4,20,000   │ │
+│  │ Payment Terms| [+ Add New Address]   │  │ │ This Or ₹  6,389    │ │
+│  │ Notes (textarea)                     │  │ │ [██████░░] 85% Used │ │
+│  └──────────────────────────────────────┘  │ │ Available ₹73,610   │ │
+│                                            │ └─────────────────────┘ │
+└────────────────────────────────────────────┴─────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│ Subtotal | Discount | GST(12%) | Round Off | Grand Total ₹6,389  │←sticky
+│                                          [Save Draft] [Submit Order →]│
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-Behaviour:
-- Tabs use the same `Tabs` component already used in the Product form for visual parity.
-- Validation: weights/costs ≥ 0, tax 0-100, `discontinued_date` required when `is_discontinued = true`, `variant_type` required.
-- Inherit-from-product preview: when `uom_id` / `variant_cost` / `variant_tax_rate` are blank, show a muted helper line "Inherits: <parent value>".
-- All existing fields and handlers preserved; the save handler is extended to write the 9 new columns.
+Sticky footer matches the screenshot's bottom bar — five labelled total chips on the left, two CTAs on the right, Grand Total emphasised.
 
-## 5. Proposed UI layout — Add / Edit Product (close the 15-col gap)
+## Section-by-section spec
 
-Reuse current tab shell; add fields to the right tab so nothing moves around unexpectedly.
+### 1. Header strip (replace lines 423-453)
+- White card, full content width, rounded, subtle border.
+- Left: back chevron → existing nav target.
+- Title: `New Primary Order` (edit-mode keeps current label).
+- Subtitle row, muted, dot-separated: `Price Book: {priceBookName} · {format(today,'dd MMM yyyy')} · {orderItems.length} items`.
+- Right: `Save as Draft` outline button (icon: `FileText`). Wire to `saveOrder(false)`. (Same handler the bottom Save Draft uses.)
 
-```text
-Tab: Basic Info      + Product Type *  (Finished Good | Raw Material | Semi-Finished | Service | Packaging; default Finished Good)
-                     + Created By / Updated By  (read-only, audit)
+### 2. Stepper (new)
+- Self-contained block under header. 4 circular numbered nodes joined by horizontal lines.
+- Steps: `Add Products / Add products to your order`, `Review Pricing / Review pricing and taxes`, `Credit Check / Check credit limit`, `Submit / Review and submit order`.
+- Active step derived locally:
+  - Step 1 active when `orderItems.length === 0`.
+  - Step 2 active when items exist but `!expectedDeliveryDate` (proxy for "still reviewing pricing").
+  - Step 3 active when items + delivery date set and `creditChecked && outstanding+grandTotal <= creditLimit`.
+  - Step 4 active when ready to submit.
+- Purely visual, non-clickable. Implement inline (small `Stepper` component at top of file).
 
-Tab: Measurements    + Gross Weight (g)
-                     + Packaging Weight (g)
+### 3. Two-column body grid
+- `grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6`.
+- Left column: Add Products card → Order Items card → Order Details card.
+- Right column: sticky (`sticky top-24 self-start space-y-4`) container holding Order Summary + Credit Utilization.
 
-Tab: Pricing         + Standard Cost
-                     + Cost Currency (default INR)
-                     + Reorder Quantity (MOQ)
-                     + Last Cost Update (read-only, auto)
+### 4. Add Products card
+- Header with `ShoppingBag` icon + "Add Products".
+- 3-column grid (Category / Select Product / Quantity) matching the screenshot proportions; Qty uses the same `−  input  +` cluster already implemented.
+- `Add to Order` button below the grid, dark/primary, left-aligned, with `+` icon.
 
-Tab: Supply Chain    NEW TAB (or merge into existing Inventory tab)
-                     + Primary Supplier   (select → vendors table)
-                     + Manufacturer       (text)
-                     + Country of Origin  (select, ISO list)
-                     + Is Discontinued    (toggle)
-                       └─ Discontinued Date         (conditional, required)
-                       └─ Discontinuation Reason    (conditional, textarea)
-```
+### 5. Order Items — convert from cards to a proper table
+- Use `Table` primitives from `@/components/ui/table`.
+- Columns: Product · Price (₹) · Qty · Discount · GST · Line Total (₹) · Action.
+- Product cell: 40×40 rounded thumbnail (`<img>` if `product.image_url` exists, else `Package` icon fallback in muted square) + name + SKU below + badges row:
+  - `Price Book Applied` (emerald outline with star icon) — show when the item's `unit_price` matches the price-book entry.
+  - `MRP Used` (amber outline with info tooltip) — show when no price-book entry exists.
+- Qty cell: inline `−  input  +` controls (smaller h-8).
+- Discount cell: numeric input with `%` suffix, plus muted line under it showing the rupee discount, e.g. `(₹160.00)`.
+- GST cell: numeric input with `%` suffix.
+- Line Total cell: right-aligned bold rupee value.
+- Action cell: edit pencil + red trash; pencil is a stub (focuses the row's qty input) since edit-in-place already exists.
+- Header row: `Order Items ({orderItems.length})` left, `Clear All` red text button right (calls `setOrderItems([])`).
+- Empty state preserved (existing Package illustration).
+- Footer row inside the card (not a Table row): full-width dashed button `+ Add more products` that scrolls/focuses the Add Products card.
 
-## 6. Database / server work required
+### 6. Order Details card
+- 2-column grid.
+- Left: Expected Delivery Date · Payment Terms (Select, options: `Cash on Delivery`, `7 Days`, `15 Days`, `30 Days`, `45 Days`; **state-only**, no DB write since `primary_orders` payload is unchanged — keep as UI-only field for now) · Notes textarea.
+- Right: Shipping Address Select (placeholder `Select shipping address`, options pulled from existing distributor location fetch if available, otherwise single placeholder option for now) + a full-width dashed `+ Add New Address` button (no-op stub with a toast: "Address management coming soon").
+- These two new fields (`Payment Terms`, `Shipping Address`) are UI-only placeholders so the layout matches the screenshot without modifying the save payload. Document this clearly with an inline `// TODO` comment.
 
-Minor, mostly already in place:
+### 7. Right sticky panel — Order Summary card
+- Title with document icon.
+- Rows: Total Items (`orderItems.length`), Total Units (`sum of quantity`), Subtotal (`totals.subtotal`), Discount (red, negative), GST (with effective % label like `GST ({avgGstPercent}%)`), divider, Estimated Total (large, primary color).
+- `View Details →` ghost button below — toggles a small expanded breakdown (CGST/SGST/Round-off) inline. Keep simple: open/closes a collapsed area.
 
-1. Confirm `created_by` / `updated_by` triggers on `products` (and add on `product_variants` if you want full auditability — currently absent in DB). Suggest adding the same audit cols on variants for symmetry.
-2. Add a trigger to stamp `last_cost_update` when `standard_cost` changes.
-3. Verify `vendors` table is queryable from product form (RLS / GRANT).
-4. Country list: client-side constant (ISO-3166), no DB needed.
+### 8. Right sticky panel — Credit Utilization card
+- Title row with credit-card icon + status pill on right:
+  - `Within Limit` (emerald) when `(outstanding+grand) <= creditLimit*0.85`
+  - `Near Limit` (amber) when `<= creditLimit`
+  - `Exceeded` (red) when over.
+- Rows: Credit Limit, Outstanding, This Order (Est.) — three label/value pairs.
+- `Progress` bar (existing `@/components/ui/progress`) showing `(outstanding+grand)/creditLimit * 100`; bar color follows pill state.
+- `XX% Used` label aligned right of the bar.
+- Available Credit row: green bold value `max(0, creditLimit - outstanding - grand)`.
+- If exceeded: red warning text under the row ("Order exceeds credit limit. Submission disabled.").
 
-These can be one consolidated migration done before the UI ships.
+### 9. Sticky bottom action bar (replace lines 820-857)
+- Same `fixed bottom-0 ...` container.
+- Inside: left flex group with 5 stat blocks (label small/muted on top, value bold below): Subtotal, Discount (red), GST (with %), Round Off, Grand Total (larger primary).
+- Right group: `Save Draft` outline → `saveOrder(false)`, `Continue to Review Pricing` / `Submit Order` primary → `saveOrder(true)` (disabled when no items OR credit exceeded). Keep button label `Submit Order →` to match the spec; the screenshot's "Continue to Review Pricing" is the same primary CTA — we use `Submit Order` per spec section 7.
+- Hide entire bar when `orderItems.length === 0` (preserve current behavior).
 
-## 7. Out of scope (explicitly preserved)
+## Visual tokens
 
-- No removal or renaming of existing fields.
-- Focused-product, recurring-config, territory pickers, price-book linkage, GRN/inventory flows — untouched.
-- Variant ↔ product price-book / scheme behaviour — untouched.
+- Cards: `rounded-xl border bg-card shadow-sm`.
+- Card header padding `p-5 pb-3`, body `p-5 pt-0`.
+- Section titles `text-base font-semibold` with leading icon in muted square `w-7 h-7 rounded-md bg-muted/60 grid place-items-center`.
+- Stepper active node: filled primary circle white text; inactive: bordered muted circle muted text. Connector line: 1px border that turns primary up to the active node.
+- Badges use existing `Badge` with `variant="outline"` plus color classes.
+- Maintain `pb-44` on outer wrapper so sticky footer never overlaps content.
 
-## 8. Suggested execution order
+## Implementation order
 
-1. Migration: add audit cols on `product_variants`, `last_cost_update` trigger, confirm GRANTs. *(supabase--migration)*
-2. Refactor Variant dialog into the 6-tab layout above; add the 9 new fields with validation and inherit-from-parent helpers.
-3. Extend Product form with the 15 missing fields across Basic / Measurements / Pricing / new Supply Chain tab.
-4. Update save handlers + TypeScript types regen.
-5. Smoke test: create variant with all fields, edit, discontinuation flow, override pricing, ensure existing flows (focused product, barcode upload) still work.
+1. Add `Stepper` inline component + helper to compute active step.
+2. Add icon imports (`FileText`, `ShoppingBag`, `CreditCard`, `Truck`, `Edit2`, `Info`, `Star`) and `Progress`, `Table` family, `format` from `date-fns`.
+3. Replace JSX from `return (` down. Keep all existing handler wiring 1:1.
+4. Verify with the preview at `/distributor-portal/create-primary-order`: empty state, with 3 items, credit at 85%, credit exceeded.
 
-Estimated effort: ~3-4 hours for forms, ~30 min for migration, ~30 min QA.
+## Out of scope
 
----
-
-Approve to switch to build mode and I'll execute in this order, starting with the migration.
+- Persisting `payment_terms` / `shipping_address` / `Add New Address` flow (UI placeholders only — flagged with TODO).
+- Product thumbnails require `image_url` on the product; if missing, render the icon fallback. No schema changes.
+- No edits to other distributor-portal pages, no DB migration, no edge-function changes.

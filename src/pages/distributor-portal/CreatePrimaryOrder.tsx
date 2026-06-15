@@ -1,11 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ArrowLeft,
@@ -13,10 +24,18 @@ import {
   Minus,
   Trash2,
   ShoppingCart,
+  ShoppingBag,
   Save,
   Send,
   Package,
   Receipt,
+  FileText,
+  CreditCard,
+  Edit2,
+  Star,
+  Info,
+  ArrowRight,
+  Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -41,6 +60,8 @@ interface Product {
   price?: number;
   priceBookPrice?: number;
   hsn_code?: string;
+  sku?: string;
+  image_url?: string;
   variants?: any[];
 }
 
@@ -55,6 +76,9 @@ interface OrderItem {
   discount_percent: number;
   gst_percent: number;
   hsn_code?: string;
+  sku?: string;
+  image_url?: string;
+  price_book_applied?: boolean;
   line_total: number; // gross (qty * unit_price) — taxes & discount tracked separately
 }
 
@@ -74,6 +98,9 @@ const CreatePrimaryOrder = () => {
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
+  const [paymentTerms, setPaymentTerms] = useState<string>('30');
+  const [shippingAddress, setShippingAddress] = useState<string>('');
+  const [showSummaryDetails, setShowSummaryDetails] = useState(false);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -265,6 +292,9 @@ const CreatePrimaryOrder = () => {
           discount_percent: 0,
           gst_percent: DEFAULT_GST,
           hsn_code: product.hsn_code,
+          sku: (product as any).sku,
+          image_url: (product as any).image_url,
+          price_book_applied: product.priceBookPrice !== undefined,
           line_total: quantity * unitPrice,
         },
       ]);
@@ -418,441 +448,702 @@ const CreatePrimaryOrder = () => {
     }
   };
 
+  const totalUnits = orderItems.reduce((s, it) => s + it.quantity, 0);
+  const avgGstPercent = orderItems.length
+    ? Math.round(orderItems.reduce((s, it) => s + it.gst_percent, 0) / orderItems.length)
+    : 0;
+  const thisOrderAmount = totals.grandTotal;
+  const projectedOutstanding = outstanding + thisOrderAmount;
+  const utilizationPct = creditLimit > 0
+    ? Math.min(100, Math.round((projectedOutstanding / creditLimit) * 100))
+    : 0;
+  const isExceeded = creditLimit > 0 && projectedOutstanding > creditLimit;
+  const isNearLimit = creditLimit > 0 && !isExceeded && projectedOutstanding > creditLimit * 0.85;
+  const availableCredit = Math.max(0, creditLimit - projectedOutstanding);
+
+  // Stepper state (purely visual)
+  const activeStep = orderItems.length === 0
+    ? 1
+    : !expectedDeliveryDate
+      ? 2
+      : isExceeded
+        ? 3
+        : 4;
+
+  const steps = [
+    { num: 1, title: 'Add Products', subtitle: 'Add products to your order' },
+    { num: 2, title: 'Review Pricing', subtitle: 'Review pricing and taxes' },
+    { num: 3, title: 'Credit Check', subtitle: 'Check credit limit' },
+    { num: 4, title: 'Submit', subtitle: 'Review and submit order' },
+  ];
+
+  const scrollToAddProducts = () => {
+    document.getElementById('add-products-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
-    <div className="min-h-screen bg-background pb-44 standalone-page">
-      {/* Header */}
-      <header className="sticky-header-safe z-50 bg-card border-b shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                navigate(
-                  isEditMode && editOrderId
-                    ? `/distributor-portal/primary-order/${editOrderId}`
-                    : '/distributor-portal/primary-orders',
-                )
-              }
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-semibold text-foreground">
-                {isEditMode
-                  ? `Edit Order${existingOrder?.order_number ? ` — ${existingOrder.order_number}` : ''}`
-                  : 'New Primary Order'}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {orderItems.length} items
-                {priceBookName && <span className="ml-2">• Price Book: {priceBookName}</span>}
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-        {/* Credit warning */}
-        {creditChecked && creditLimit > 0 && (
-          <Card
-            className={`border-l-4 ${
-              outstanding > creditLimit
-                ? 'border-l-destructive bg-destructive/5'
-                : outstanding > creditLimit * 0.8
-                  ? 'border-l-yellow-500 bg-yellow-50'
-                  : 'border-l-green-500 bg-green-50'
-            }`}
-          >
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">
-                  {outstanding > creditLimit ? '⚠️ Credit Limit Exceeded' : 'Credit Status'}
-                </span>
-                <span>
-                  ₹{outstanding.toLocaleString('en-IN')} / ₹{creditLimit.toLocaleString('en-IN')}
-                </span>
-              </div>
-              {outstanding > creditLimit && (
-                <p className="text-xs text-destructive mt-1">
-                  Order submission is blocked until outstanding is cleared.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Add product */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Add Products</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Label>Category</Label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="uncategorized">Uncategorized</SelectItem>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="md:col-span-2">
-                <Label>Select Product</Label>
-                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a product..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {productsLoading ? (
-                      <SelectItem value="loading" disabled>
-                        Loading...
-                      </SelectItem>
-                    ) : filteredProducts.length === 0 ? (
-                      <SelectItem value="none" disabled>
-                        No products in this category
-                      </SelectItem>
-                    ) : (
-                      filteredProducts.map((p) => {
-                        const price = getProductPrice(p);
-                        const hasPB = p.priceBookPrice !== undefined;
-                        return (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name} - ₹
-                            {price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}/
-                            {p.unit || 'pc'}
-                            {hasPB && <span className="text-primary ml-1">★</span>}
-                          </SelectItem>
-                        );
-                      })
+    <div className="min-h-screen bg-muted/30 pb-32 standalone-page">
+      <main className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-5">
+        {/* Section 1: Header strip */}
+        <Card className="rounded-xl shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() =>
+                    navigate(
+                      isEditMode && editOrderId
+                        ? `/distributor-portal/primary-order/${editOrderId}`
+                        : '/distributor-portal/primary-orders',
+                    )
+                  }
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+                <div className="min-w-0">
+                  <h1 className="text-xl font-semibold text-foreground truncate">
+                    {isEditMode
+                      ? `Edit Order${existingOrder?.order_number ? ` — ${existingOrder.order_number}` : ''}`
+                      : 'New Primary Order'}
+                  </h1>
+                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    {priceBookName && (
+                      <>
+                        <span className="font-medium text-foreground/80">Price Book:</span>
+                        <span>{priceBookName}</span>
+                        <span>•</span>
+                      </>
                     )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Quantity</Label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  >
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  <Input
-                    type="number"
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="text-center"
-                  />
-                  <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
+                    <span>{format(new Date(), 'dd MMM yyyy')}</span>
+                    <span>•</span>
+                    <span>{orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}</span>
+                  </p>
                 </div>
               </div>
+              <Button
+                variant="outline"
+                onClick={() => saveOrder(false)}
+                disabled={loading || orderItems.length === 0}
+                className="shrink-0"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Save as Draft
+              </Button>
             </div>
-            <Button onClick={addItem} className="w-full md:w-auto">
-              <Plus className="w-4 h-4 mr-2" />
-              Add to Order
-            </Button>
           </CardContent>
         </Card>
 
-        {/* Items */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4" />
-              Order Items ({orderItems.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {orderItems.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No items added yet</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {orderItems.map((item, index) => {
-                  const gross = item.quantity * item.unit_price;
-                  const disc = gross * (item.discount_percent / 100);
-                  const taxable = gross - disc;
-                  const tax = (taxable * item.gst_percent) / 100;
-                  const lineTotal = taxable + tax;
-                  return (
-                    <div key={index} className="p-3 rounded-lg bg-muted/50 space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-foreground truncate">
-                            {item.product_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            ₹
-                            {item.unit_price.toLocaleString('en-IN', {
-                              maximumFractionDigits: 2,
-                            })}{' '}
-                            / {item.unit}
-                            {item.hsn_code && <span className="ml-2">HSN: {item.hsn_code}</span>}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive h-8 w-8"
-                          onClick={() => removeItem(index)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+        {/* Section 2: Stepper */}
+        <Card className="rounded-xl shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between gap-2">
+              {steps.map((step, idx) => {
+                const isActive = step.num === activeStep;
+                const isDone = step.num < activeStep;
+                return (
+                  <div key={step.num} className="flex items-center flex-1 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-full grid place-items-center text-sm font-semibold shrink-0 transition-colors ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground'
+                            : isDone
+                              ? 'bg-primary/10 text-primary border border-primary/30'
+                              : 'bg-muted text-muted-foreground border border-border'
+                        }`}
+                      >
+                        {isDone ? <Check className="w-4 h-4" /> : step.num}
                       </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
-                        <div>
-                          <Label className="text-xs">Qty</Label>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() =>
-                                updateItem(index, {
-                                  quantity: Math.max(1, item.quantity - 1),
-                                })
-                              }
-                            >
-                              <Minus className="w-3 h-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) =>
-                                updateItem(index, {
-                                  quantity: Math.max(1, parseInt(e.target.value) || 1),
-                                })
-                              }
-                              className="text-center h-8"
-                            />
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => updateItem(index, { quantity: item.quantity + 1 })}
-                            >
-                              <Plus className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div>
-                          <Label className="text-xs">Discount %</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={100}
-                            value={item.discount_percent}
-                            onChange={(e) =>
-                              updateItem(index, {
-                                discount_percent: Math.max(
-                                  0,
-                                  Math.min(100, parseFloat(e.target.value) || 0),
-                                ),
-                              })
-                            }
-                            className="h-8"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs">GST %</Label>
-                          <Input
-                            type="number"
-                            min={0}
-                            max={28}
-                            value={item.gst_percent}
-                            onChange={(e) =>
-                              updateItem(index, {
-                                gst_percent: Math.max(
-                                  0,
-                                  Math.min(28, parseFloat(e.target.value) || 0),
-                                ),
-                              })
-                            }
-                            className="h-8"
-                          />
-                        </div>
-                        <div className="text-right">
-                          <Label className="text-xs">Line Total</Label>
-                          <p className="font-semibold">
-                            ₹{lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground pt-1 border-t">
-                        <span>
-                          Gross: ₹{gross.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                        </span>
-                        {disc > 0 && (
-                          <span className="text-green-600">
-                            Disc: −₹
-                            {disc.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                          </span>
-                        )}
-                        <span>
-                          Taxable: ₹
-                          {taxable.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                        </span>
-                        <span>
-                          GST: ₹{tax.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                        </span>
+                      <div className="min-w-0 hidden sm:block">
+                        <p className={`text-sm font-medium leading-tight ${isActive || isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {step.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
+                          {step.subtitle}
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                    {idx < steps.length - 1 && (
+                      <div className={`flex-1 h-px mx-3 ${step.num < activeStep ? 'bg-primary/40' : 'bg-border'}`} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Totals breakdown card */}
-        {orderItems.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Receipt className="w-4 h-4" />
-                Order Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              <div className="space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Subtotal (gross)</span>
-                  <span className="font-medium">
-                    ₹{totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+        {/* Body: two-column grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 items-start">
+          {/* LEFT column */}
+          <div className="space-y-5 min-w-0">
+            {/* Section 3: Add Products */}
+            <Card id="add-products-card" className="rounded-xl shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <CardTitle className="text-base flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
+                    <ShoppingBag className="w-4 h-4 text-foreground/70" />
                   </span>
+                  Add Products
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 pt-0 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr] gap-4">
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">Category</Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">Select Product</Label>
+                    <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                      <SelectTrigger className="mt-1.5">
+                        <SelectValue placeholder="Choose a product..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {productsLoading ? (
+                          <SelectItem value="loading" disabled>Loading...</SelectItem>
+                        ) : filteredProducts.length === 0 ? (
+                          <SelectItem value="none" disabled>No products in this category</SelectItem>
+                        ) : (
+                          filteredProducts.map((p) => {
+                            const price = getProductPrice(p);
+                            const hasPB = p.priceBookPrice !== undefined;
+                            return (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name} - ₹{price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}/{p.unit || 'pc'}
+                                {hasPB && <span className="text-primary ml-1">★</span>}
+                              </SelectItem>
+                            );
+                          })
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground">Quantity</Label>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <Input
+                        type="number"
+                        value={quantity}
+                        onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="text-center"
+                      />
+                      <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <Button onClick={addItem} className="bg-foreground hover:bg-foreground/90 text-background">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add to Order
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Section 4: Order Items table */}
+            <Card className="rounded-xl shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
+                      <ShoppingCart className="w-4 h-4 text-foreground/70" />
+                    </span>
+                    Order Items ({orderItems.length})
+                  </CardTitle>
+                  {orderItems.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => setOrderItems([])}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1.5" />
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {orderItems.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Package className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">No items added yet</p>
+                    <p className="text-xs mt-1">Use the form above to add products to your order.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="font-semibold text-foreground/70">Product</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Price (₹)</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Qty</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">Discount</TableHead>
+                            <TableHead className="font-semibold text-foreground/70">GST</TableHead>
+                            <TableHead className="font-semibold text-foreground/70 text-right">Line Total (₹)</TableHead>
+                            <TableHead className="font-semibold text-foreground/70 text-right">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orderItems.map((item, index) => {
+                            const gross = item.quantity * item.unit_price;
+                            const disc = gross * (item.discount_percent / 100);
+                            const taxable = gross - disc;
+                            const tax = (taxable * item.gst_percent) / 100;
+                            const lineTotal = taxable + tax;
+                            const productLookup = products.find((p) => p.id === item.product_id);
+                            const imgUrl = item.image_url || (productLookup as any)?.image_url;
+                            const sku = item.sku || (productLookup as any)?.sku;
+                            const pbApplied = item.price_book_applied || productLookup?.priceBookPrice !== undefined;
+
+                            return (
+                              <TableRow key={index} className="align-top">
+                                <TableCell>
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 rounded-md bg-muted/70 grid place-items-center overflow-hidden shrink-0">
+                                      {imgUrl ? (
+                                        <img src={imgUrl} alt={item.product_name} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <Package className="w-5 h-5 text-muted-foreground" />
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-foreground leading-tight">
+                                        {item.product_name}
+                                      </p>
+                                      {sku && (
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                          SKU: {sku}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                        {pbApplied ? (
+                                          <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] px-1.5 py-0 h-5 gap-1">
+                                            <Star className="w-2.5 h-2.5 fill-current" />
+                                            Price Book Applied
+                                          </Badge>
+                                        ) : (
+                                          <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0 h-5 gap-1">
+                                            <Info className="w-2.5 h-2.5" />
+                                            MRP Used
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-medium">
+                                  {item.unit_price.toFixed(2)}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => updateItem(index, { quantity: Math.max(1, item.quantity - 1) })}
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </Button>
+                                    <Input
+                                      type="number"
+                                      value={item.quantity}
+                                      onChange={(e) => updateItem(index, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                                      className="h-7 w-14 text-center px-1"
+                                    />
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => updateItem(index, { quantity: item.quantity + 1 })}
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground mt-1 text-center">Units</p>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      value={item.discount_percent}
+                                      onChange={(e) => updateItem(index, {
+                                        discount_percent: Math.max(0, Math.min(100, parseFloat(e.target.value) || 0)),
+                                      })}
+                                      className="h-7 w-14 text-center px-1"
+                                    />
+                                    <span className="text-xs text-muted-foreground">%</span>
+                                  </div>
+                                  {disc > 0 && (
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                      (₹{disc.toFixed(2)})
+                                    </p>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={28}
+                                      value={item.gst_percent}
+                                      onChange={(e) => updateItem(index, {
+                                        gst_percent: Math.max(0, Math.min(28, parseFloat(e.target.value) || 0)),
+                                      })}
+                                      className="h-7 w-14 text-center px-1"
+                                    />
+                                    <span className="text-xs text-muted-foreground">%</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right font-semibold">
+                                  {lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                      onClick={() => {
+                                        toast.info('Tip: edit values directly in the row.');
+                                      }}
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => removeItem(index)}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="border-t p-3">
+                      <Button
+                        variant="ghost"
+                        className="w-full border border-dashed text-primary hover:bg-primary/5"
+                        onClick={scrollToAddProducts}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add more products
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Section 5: Order Details */}
+            <Card className="rounded-xl shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <CardTitle className="text-base flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
+                    <FileText className="w-4 h-4 text-foreground/70" />
+                  </span>
+                  Order Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 pt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Left column */}
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Expected Delivery Date</Label>
+                      <Input
+                        type="date"
+                        value={expectedDeliveryDate}
+                        onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="mt-1.5"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Payment Terms</Label>
+                      {/* TODO: persist payment_terms to primary_orders once column is wired */}
+                      <Select value={paymentTerms} onValueChange={setPaymentTerms}>
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cod">Cash on Delivery</SelectItem>
+                          <SelectItem value="7">7 Days</SelectItem>
+                          <SelectItem value="15">15 Days</SelectItem>
+                          <SelectItem value="30">30 Days</SelectItem>
+                          <SelectItem value="45">45 Days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">Notes / Special Instructions</Label>
+                      <Textarea
+                        placeholder="Any special requirements or notes..."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        rows={3}
+                        maxLength={500}
+                        className="mt-1.5 resize-none"
+                      />
+                      <p className="text-[10px] text-muted-foreground text-right mt-1">{notes.length} / 500</p>
+                    </div>
+                  </div>
+
+                  {/* Right column */}
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        Shipping Address <span className="text-muted-foreground/70">(Optional)</span>
+                      </Label>
+                      {/* TODO: persist shipping_address_id to primary_orders once column is wired */}
+                      <Select value={shippingAddress} onValueChange={setShippingAddress}>
+                        <SelectTrigger className="mt-1.5">
+                          <SelectValue placeholder="Select shipping address" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">Default Address</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      className="w-full border border-dashed text-primary hover:bg-primary/5"
+                      onClick={() => toast.info('Address management coming soon')}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add New Address
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* RIGHT sticky panel */}
+          <aside className="lg:sticky lg:top-6 space-y-5 self-start">
+            {/* Order Summary */}
+            <Card className="rounded-xl shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <CardTitle className="text-base flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
+                    <Receipt className="w-4 h-4 text-foreground/70" />
+                  </span>
+                  Order Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-5 pt-0 space-y-2.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Items</span>
+                  <span className="font-medium">{orderItems.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Units</span>
+                  <span className="font-medium">{totalUnits}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span className="font-medium">₹{totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 {totals.totalDiscount > 0 && (
-                  <div className="flex justify-between text-green-600">
-                    <span>Item Discount</span>
-                    <span>
-                      −₹
-                      {totals.totalDiscount.toLocaleString('en-IN', {
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Discount</span>
+                    <span className="font-medium text-destructive">- ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                   </div>
                 )}
-                <div className="flex justify-between border-t pt-1.5">
-                  <span className="text-muted-foreground">Taxable Value</span>
-                  <span className="font-medium">
-                    ₹{totals.taxable.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  </span>
-                </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">CGST</span>
-                  <span>
-                    ₹{totals.cgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  </span>
+                  <span className="text-muted-foreground">GST ({avgGstPercent}%)</span>
+                  <span className="font-medium">₹{totals.taxAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">SGST</span>
-                  <span>
-                    ₹{totals.sgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-                {Math.abs(totals.roundOff) > 0.001 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Round-off</span>
-                    <span>
-                      {totals.roundOff >= 0 ? '+' : '−'}₹
-                      {Math.abs(totals.roundOff).toLocaleString('en-IN', {
-                        maximumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t pt-2 text-lg font-bold">
-                  <span>Grand Total</span>
-                  <span className="text-primary">
-                    ₹{totals.grandTotal.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
-        {/* Order details */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Order Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Expected Delivery Date</Label>
-              <Input
-                type="date"
-                value={expectedDeliveryDate}
-                onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-              />
-            </div>
-            <div>
-              <Label>Notes / Special Instructions</Label>
-              <Textarea
-                placeholder="Any special requirements or notes..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </CardContent>
-        </Card>
+                {showSummaryDetails && (
+                  <div className="border-t pt-2 space-y-1.5 text-xs">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>CGST</span>
+                      <span>₹{totals.cgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>SGST</span>
+                      <span>₹{totals.sgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Round Off</span>
+                      <span>{totals.roundOff >= 0 ? '+' : '−'}₹{Math.abs(totals.roundOff).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="border-t pt-3 flex items-center justify-between">
+                  <span className="font-semibold text-foreground">Estimated Total</span>
+                  <span className="text-xl font-bold text-primary">
+                    ₹ {totals.grandTotal.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-primary hover:bg-primary/5 mt-1"
+                  onClick={() => setShowSummaryDetails((v) => !v)}
+                >
+                  {showSummaryDetails ? 'Hide Details' : 'View Details'}
+                  <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Credit Utilization */}
+            <Card className="rounded-xl shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="text-base flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
+                      <CreditCard className="w-4 h-4 text-foreground/70" />
+                    </span>
+                    Credit Utilization
+                    <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                  </CardTitle>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] px-2 py-0 h-5 ${
+                      isExceeded
+                        ? 'bg-destructive/10 text-destructive border-destructive/30'
+                        : isNearLimit
+                          ? 'bg-amber-50 text-amber-700 border-amber-300'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                    }`}
+                  >
+                    {isExceeded ? 'Exceeded' : isNearLimit ? 'Near Limit' : 'Within Limit'}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 pt-0 space-y-3 text-sm">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Credit Limit</span>
+                    <span className="font-medium">₹ {creditLimit.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Outstanding</span>
+                    <span className="font-medium">₹ {outstanding.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">This Order (Est.)</span>
+                    <span className="font-medium">₹ {thisOrderAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="relative">
+                    <Progress
+                      value={utilizationPct}
+                      className={`h-2 ${
+                        isExceeded
+                          ? '[&>div]:bg-destructive'
+                          : isNearLimit
+                            ? '[&>div]:bg-amber-500'
+                            : '[&>div]:bg-emerald-500'
+                      }`}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-right mt-1">{utilizationPct}% Used</p>
+                </div>
+                <div className="flex justify-between border-t pt-2">
+                  <span className="text-muted-foreground">Available Credit</span>
+                  <span className={`font-semibold ${isExceeded ? 'text-destructive' : 'text-emerald-600'}`}>
+                    ₹ {availableCredit.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                {isExceeded && (
+                  <p className="text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded px-2 py-1.5">
+                    Order exceeds credit limit. Submission disabled.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
       </main>
 
-      {/* Sticky bottom action bar */}
-      {orderItems.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-lg p-4 z-40">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="w-full md:w-auto text-sm">
-              <div className="flex items-center justify-between md:justify-start gap-6">
-                <span className="text-muted-foreground">
-                  {orderItems.length} item{orderItems.length === 1 ? '' : 's'}
-                </span>
-                <span className="text-lg font-bold text-primary">
-                  ₹{totals.grandTotal.toLocaleString('en-IN')}
-                </span>
+      {/* Section 7: Sticky bottom action bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-[0_-4px_12px_rgba(0,0,0,0.04)] z-40">
+        <div className="max-w-7xl mx-auto px-4 lg:px-6 py-3">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            <div className="grid grid-cols-3 md:flex md:items-center gap-x-8 gap-y-3">
+              <div>
+                <p className="text-[11px] text-muted-foreground">Subtotal</p>
+                <p className="text-sm font-semibold">₹ {totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">Discount</p>
+                <p className="text-sm font-semibold text-destructive">- ₹ {totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">GST ({avgGstPercent}%)</p>
+                <p className="text-sm font-semibold">₹ {totals.taxAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">Round Off</p>
+                <p className="text-sm font-semibold">{totals.roundOff >= 0 ? '+' : '-'} ₹ {Math.abs(totals.roundOff).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-muted-foreground">Grand Total</p>
+                <p className="text-xl font-bold text-primary leading-tight">₹ {totals.grandTotal.toLocaleString('en-IN')}</p>
               </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
               <Button
                 variant="outline"
                 onClick={() => saveOrder(false)}
-                disabled={loading}
+                disabled={loading || orderItems.length === 0}
                 className="flex-1 md:flex-none"
               >
                 <Save className="w-4 h-4 mr-2" />
-                {isEditMode ? 'Save Draft' : 'Save Draft'}
+                Save Draft
               </Button>
               <Button
                 onClick={() => saveOrder(true)}
-                disabled={loading}
+                disabled={loading || orderItems.length === 0 || isExceeded}
                 className="flex-1 md:flex-none"
               >
                 <Send className="w-4 h-4 mr-2" />
                 {isEditMode ? 'Update & Submit' : 'Submit Order'}
+                <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
