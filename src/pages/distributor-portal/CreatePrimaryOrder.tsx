@@ -1050,7 +1050,7 @@ const CreatePrimaryOrder = () => {
                 </div>
                 {isExceeded && (
                   <p className="text-xs text-destructive bg-destructive/5 border border-destructive/20 rounded px-2 py-1.5">
-                    Order exceeds credit limit. Submission disabled.
+                    Order value exceeds available credit.
                   </p>
                 )}
               </CardContent>
