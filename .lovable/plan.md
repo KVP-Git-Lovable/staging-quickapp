@@ -1,142 +1,118 @@
-# New Primary Order — UI Redesign (pixel-match the screenshot)
+# Feature Management System — Multi-Company
 
-## Goal
+Build a per-company feature toggle system on top of the existing `feature_flags` infrastructure. Toggles only (no JSON config). Three role-based UIs. Automatic dependency resolution.
 
-Re-skin `src/pages/distributor-portal/CreatePrimaryOrder.tsx` to match the attached reference exactly. **No changes to state, data loading, totals math, Supabase reads/writes, validation, edit-mode handling, routing, or the distributor-portal layout/sidebar.** Pure presentation work in this one file (plus, if needed, a small extracted `OrderItemsTable` sub-component for readability).
+## Guiding principle
+Do NOT create a parallel `features` table. The project already has `feature_flags` (25 rows), `useFeatureFlags` hook, `FeatureManagement.tsx` admin page, and a `feature_flag_audit` table. We extend, we don't replace.
 
-## What stays untouched
+## Effective-state resolution
+For any (company, feature):
+1. If `feature_flags.is_enabled = false` globally → OFF (kill switch).
+2. Else if `company_feature_config.is_enabled` is set → use that.
+3. Else → ON (default opt-in for new companies).
+4. After step 1-3, if any dependency resolves to OFF → feature is **blocked** (effective OFF, surfaced with `blockedBy[]`).
 
-- Sidebar/header chrome (already provided by `DistributorPortalLayout`).
-- All hooks, effects, fetches: `loadData`, `loadExistingOrder`, `loadCreditInfo`, `saveOrder`, `addItem`, `updateItem`, `removeItem`, `totals` memo.
-- Field semantics: `expectedDeliveryDate`, `notes`, `discount_percent`, `gst_percent`, etc.
-- Save Draft / Submit actions and their conditions (credit-exceeded disable).
+---
 
-## New page composition
+## Phase 1 — Database
 
-```text
-┌──────────────────────────────────────────────────────────────────────┐
-│ ← New Primary Order                              [📄 Save as Draft]  │  ← top header strip
-│   Price Book: <name> • <today date> • <N items>                      │
-├──────────────────────────────────────────────────────────────────────┤
-│  (1)──Add Products──(2)──Review Pricing──(3)──Credit Check──(4)──Submit │  ← stepper
-├────────────────────────────────────────────┬─────────────────────────┤
-│  ┌─ Add Products ───────────────────────┐  │ ┌─ Order Summary ─────┐ │
-│  │ Category | Select Product | Qty +/-  │  │ │ Total Items      3  │ │
-│  │ [+ Add to Order]                     │  │ │ Total Units    200  │ │
-│  └──────────────────────────────────────┘  │ │ Subtotal   ₹6,000   │ │
-│                                            │ │ Discount   -₹324    │ │
-│  ┌─ Order Items (3) ──────── Clear All ─┐  │ │ GST(12%)   ₹713.28  │ │
-│  │ Product | Price | Qty | Disc | GST   │  │ │ ─────────────────── │ │
-│  │ | Line Total | Action                │  │ │ Estimated  ₹6,389   │ │
-│  │ <rows with thumb, SKU, badges>       │  │ │ [ View Details → ]  │ │
-│  │ ───── + Add more products ─────      │  │ └─────────────────────┘ │
-│  └──────────────────────────────────────┘  │ ┌─ Credit Utilization ┐ │
-│                                            │ │ [Within Limit pill] │ │
-│  ┌─ Order Details ──────────────────────┐  │ │ Credit  ₹5,00,000   │ │
-│  │ Exp Delivery | Shipping Address     │  │ │ Outstd  ₹4,20,000   │ │
-│  │ Payment Terms| [+ Add New Address]   │  │ │ This Or ₹  6,389    │ │
-│  │ Notes (textarea)                     │  │ │ [██████░░] 85% Used │ │
-│  └──────────────────────────────────────┘  │ │ Available ₹73,610   │ │
-│                                            │ └─────────────────────┘ │
-└────────────────────────────────────────────┴─────────────────────────┘
-┌──────────────────────────────────────────────────────────────────────┐
-│ Subtotal | Discount | GST(12%) | Round Off | Grand Total ₹6,389  │←sticky
-│                                          [Save Draft] [Submit Order →]│
-└──────────────────────────────────────────────────────────────────────┘
-```
+### New tables
+- **`company_feature_config`** — `(company_id, feature_id)` unique. Columns: `is_enabled boolean NULL` (NULL = inherit), `updated_by`, timestamps.
+- **`feature_dependencies`** — `(feature_id, depends_on_feature_id)` unique. Columns: `dependency_type` ('hard' blocks / 'soft' warns), `description`.
 
-Sticky footer matches the screenshot's bottom bar — five labelled total chips on the left, two CTAs on the right, Grand Total emphasised.
+### Reuse
+- `feature_flags` — master registry, unchanged schema.
+- `feature_flag_audit` — extend with nullable `company_id` column so per-company toggles also log here.
 
-## Section-by-section spec
+### RPC (SECURITY DEFINER)
+- `get_effective_features(p_company_id uuid)` → returns rows of `{ feature_key, enabled, blocked_by text[], category, description }`. Does the global × company × dependency merge server-side so the client gets one clean payload.
+- `set_company_feature(p_company_id, p_feature_key, p_enabled, p_cascade boolean)` → upserts `company_feature_config`, optionally auto-enables hard dependencies, writes to `feature_flag_audit`.
 
-### 1. Header strip (replace lines 423-453)
-- White card, full content width, rounded, subtle border.
-- Left: back chevron → existing nav target.
-- Title: `New Primary Order` (edit-mode keeps current label).
-- Subtitle row, muted, dot-separated: `Price Book: {priceBookName} · {format(today,'dd MMM yyyy')} · {orderItems.length} items`.
-- Right: `Save as Draft` outline button (icon: `FileText`). Wire to `saveOrder(false)`. (Same handler the bottom Save Draft uses.)
+### RLS
+- `company_feature_config`: super-admin (`is_system`) all; company manager (new permission `feature_company_manage`) only own `company_id`; others read-only own company.
+- `feature_dependencies`: read all authenticated; write super-admin only.
+- Audit log: super-admin reads all; company manager reads own company.
 
-### 2. Stepper (new)
-- Self-contained block under header. 4 circular numbered nodes joined by horizontal lines.
-- Steps: `Add Products / Add products to your order`, `Review Pricing / Review pricing and taxes`, `Credit Check / Check credit limit`, `Submit / Review and submit order`.
-- Active step derived locally:
-  - Step 1 active when `orderItems.length === 0`.
-  - Step 2 active when items exist but `!expectedDeliveryDate` (proxy for "still reviewing pricing").
-  - Step 3 active when items + delivery date set and `creditChecked && outstanding+grandTotal <= creditLimit`.
-  - Step 4 active when ready to submit.
-- Purely visual, non-clickable. Implement inline (small `Stepper` component at top of file).
+### Grants
+Standard `authenticated` SELECT + scoped INSERT/UPDATE via RPC; `service_role` all.
 
-### 3. Two-column body grid
-- `grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6`.
-- Left column: Add Products card → Order Items card → Order Details card.
-- Right column: sticky (`sticky top-24 self-start space-y-4`) container holding Order Summary + Credit Utilization.
+---
 
-### 4. Add Products card
-- Header with `ShoppingBag` icon + "Add Products".
-- 3-column grid (Category / Select Product / Quantity) matching the screenshot proportions; Qty uses the same `−  input  +` cluster already implemented.
-- `Add to Order` button below the grid, dark/primary, left-aligned, with `+` icon.
+## Phase 2 — Hook & Context
 
-### 5. Order Items — convert from cards to a proper table
-- Use `Table` primitives from `@/components/ui/table`.
-- Columns: Product · Price (₹) · Qty · Discount · GST · Line Total (₹) · Action.
-- Product cell: 40×40 rounded thumbnail (`<img>` if `product.image_url` exists, else `Package` icon fallback in muted square) + name + SKU below + badges row:
-  - `Price Book Applied` (emerald outline with star icon) — show when the item's `unit_price` matches the price-book entry.
-  - `MRP Used` (amber outline with info tooltip) — show when no price-book entry exists.
-- Qty cell: inline `−  input  +` controls (smaller h-8).
-- Discount cell: numeric input with `%` suffix, plus muted line under it showing the rupee discount, e.g. `(₹160.00)`.
-- GST cell: numeric input with `%` suffix.
-- Line Total cell: right-aligned bold rupee value.
-- Action cell: edit pencil + red trash; pencil is a stub (focuses the row's qty input) since edit-in-place already exists.
-- Header row: `Order Items ({orderItems.length})` left, `Clear All` red text button right (calls `setOrderItems([])`).
-- Empty state preserved (existing Package illustration).
-- Footer row inside the card (not a Table row): full-width dashed button `+ Add more products` that scrolls/focuses the Add Products card.
+### `src/context/FeatureContext.tsx` (new)
+- On auth load, calls `get_effective_features(currentCompanyId)` once.
+- Caches in memory + localStorage (same pattern as existing `feature_flags_cache`).
+- Exposes `{ features: Map, isLoading, refresh() }`.
+- Wrapped in `App.tsx` above the router.
 
-### 6. Order Details card
-- 2-column grid.
-- Left: Expected Delivery Date · Payment Terms (Select, options: `Cash on Delivery`, `7 Days`, `15 Days`, `30 Days`, `45 Days`; **state-only**, no DB write since `primary_orders` payload is unchanged — keep as UI-only field for now) · Notes textarea.
-- Right: Shipping Address Select (placeholder `Select shipping address`, options pulled from existing distributor location fetch if available, otherwise single placeholder option for now) + a full-width dashed `+ Add New Address` button (no-op stub with a toast: "Address management coming soon").
-- These two new fields (`Payment Terms`, `Shipping Address`) are UI-only placeholders so the layout matches the screenshot without modifying the save payload. Document this clearly with an inline `// TODO` comment.
+### `src/hooks/useFeature.ts` (new)
+- `useFeature(key)` → `{ enabled, blockedBy, isLoading }` reading from context.
+- `useFeatureDependencies(key)` → `{ canEnable, blockedBy[] }`.
+- Keep existing `useFeatureFlags` for the admin/global view; new hook is the per-company runtime API.
 
-### 7. Right sticky panel — Order Summary card
-- Title with document icon.
-- Rows: Total Items (`orderItems.length`), Total Units (`sum of quantity`), Subtotal (`totals.subtotal`), Discount (red, negative), GST (with effective % label like `GST ({avgGstPercent}%)`), divider, Estimated Total (large, primary color).
-- `View Details →` ghost button below — toggles a small expanded breakdown (CGST/SGST/Round-off) inline. Keep simple: open/closes a collapsed area.
+---
 
-### 8. Right sticky panel — Credit Utilization card
-- Title row with credit-card icon + status pill on right:
-  - `Within Limit` (emerald) when `(outstanding+grand) <= creditLimit*0.85`
-  - `Near Limit` (amber) when `<= creditLimit`
-  - `Exceeded` (red) when over.
-- Rows: Credit Limit, Outstanding, This Order (Est.) — three label/value pairs.
-- `Progress` bar (existing `@/components/ui/progress`) showing `(outstanding+grand)/creditLimit * 100`; bar color follows pill state.
-- `XX% Used` label aligned right of the bar.
-- Available Credit row: green bold value `max(0, creditLimit - outstanding - grand)`.
-- If exceeded: red warning text under the row ("Order exceeds credit limit. Submission disabled.").
+## Phase 3 — Components (`src/components/features/`)
 
-### 9. Sticky bottom action bar (replace lines 820-857)
-- Same `fixed bottom-0 ...` container.
-- Inside: left flex group with 5 stat blocks (label small/muted on top, value bold below): Subtotal, Discount (red), GST (with %), Round Off, Grand Total (larger primary).
-- Right group: `Save Draft` outline → `saveOrder(false)`, `Continue to Review Pricing` / `Submit Order` primary → `saveOrder(true)` (disabled when no items OR credit exceeded). Keep button label `Submit Order →` to match the spec; the screenshot's "Continue to Review Pricing" is the same primary CTA — we use `Submit Order` per spec section 7.
-- Hide entire bar when `orderItems.length === 0` (preserve current behavior).
+All six as spec'd, minus config:
+- `FeatureGate` — `<FeatureGate feature="x" fallback={…}>children</FeatureGate>`. Shows `Skeleton` while loading.
+- `FeatureToggle` — switch with disabled state when blocked by deps.
+- `DependencyWarning` — yellow alert listing missing prerequisites.
+- `FeatureCard` — name, description, category badge, status, toggle.
+- `FeatureConfigDisplay` — read-only status pill (no JSON since config is out of scope).
+- (Skip `FeatureConfigEditor` — not needed.)
 
-## Visual tokens
+---
 
-- Cards: `rounded-xl border bg-card shadow-sm`.
-- Card header padding `p-5 pb-3`, body `p-5 pt-0`.
-- Section titles `text-base font-semibold` with leading icon in muted square `w-7 h-7 rounded-md bg-muted/60 grid place-items-center`.
-- Stepper active node: filled primary circle white text; inactive: bordered muted circle muted text. Connector line: 1px border that turns primary up to the active node.
-- Badges use existing `Badge` with `variant="outline"` plus color classes.
-- Maintain `pb-44` on outer wrapper so sticky footer never overlaps content.
+## Phase 4 — UI pages
 
-## Implementation order
+### Page A — Super-admin (extend existing `src/pages/FeatureManagement.tsx`)
+Add tabs to the existing page:
+- **Global** (existing module-grouped toggle UI, unchanged).
+- **By Company** — company selector → list of all features with per-company override state (Inherit / Force On / Force Off), dependency cascade prompt on toggle.
+- **Dependencies** — table of `feature_dependencies`, create/edit/delete.
+- **Audit Log** — paginated `feature_flag_audit` reader with filters (company, feature, date).
 
-1. Add `Stepper` inline component + helper to compute active step.
-2. Add icon imports (`FileText`, `ShoppingBag`, `CreditCard`, `Truck`, `Edit2`, `Info`, `Star`) and `Progress`, `Table` family, `format` from `date-fns`.
-3. Replace JSX from `return (` down. Keep all existing handler wiring 1:1.
-4. Verify with the preview at `/distributor-portal/create-primary-order`: empty state, with 3 items, credit at 85%, credit exceeded.
+### Page B — Company manager (new tab in `src/pages/CompanyProfile.tsx`)
+New tab "Features":
+- Summary cards: Total / Enabled / Blocked.
+- List of features scoped to their company, each as a `FeatureCard` with toggle.
+- Toggling saves immediately via `set_company_feature` RPC; toast on success/error.
+- Blocked features show `DependencyWarning` and disabled toggle.
+- Visible only to users with the `feature_company_manage` permission.
 
-## Out of scope
+### Page C — End user (new section in `src/pages/UserProfile.tsx`)
+Read-only "Features Available to Me" section:
+- For each feature: name, plain-language description, ✓ Enabled / ✗ Not enabled.
+- No toggles, no admin links.
 
-- Persisting `payment_terms` / `shipping_address` / `Add New Address` flow (UI placeholders only — flagged with TODO).
-- Product thumbnails require `image_url` on the product; if missing, render the icon fallback. No schema changes.
-- No edits to other distributor-portal pages, no DB migration, no edge-function changes.
+---
+
+## Phase 5 — Adoption
+- Do NOT mass-refactor existing `isFeatureEnabled()` call sites. Leave them; they keep working against global flags.
+- New code should prefer `<FeatureGate>` / `useFeature()`.
+- Document the migration path in `README.md` under a new "Feature Management" section.
+
+---
+
+## Out of scope (per your answers)
+- `config_json` payloads and `FeatureConfigEditor` — toggles only.
+- New edge functions — RPCs + RLS are sufficient and match project conventions.
+- New `/admin/settings/features` route — we extend `/admin-controls` ➝ FeatureManagement.
+
+## Technical notes
+- Multi-company today contains 1 row in `companies`; design must still work when that grows to 100+.
+- Permission key `feature_company_manage` to be added to `profile_object_permissions` seed for default admin profiles.
+- All new RPCs use `p_` param prefix per project standard.
+- Audit log writes happen inside `set_company_feature` so we can't bypass logging.
+
+## Deliverables checklist
+- [ ] Migration: `company_feature_config`, `feature_dependencies`, `feature_flag_audit.company_id`, RLS, grants, RPCs.
+- [ ] `FeatureContext` + `useFeature` + `useFeatureDependencies`.
+- [ ] 5 components under `src/components/features/`.
+- [ ] Extended `FeatureManagement.tsx` with 3 new tabs.
+- [ ] New Features tab in `CompanyProfile.tsx`.
+- [ ] New section in `UserProfile.tsx`.
+- [ ] Permission seed for `feature_company_manage`.
+- [ ] README section.
