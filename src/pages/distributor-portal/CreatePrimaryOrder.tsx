@@ -102,24 +102,6 @@ const CreatePrimaryOrder = () => {
   const [shippingAddress, setShippingAddress] = useState<string>('');
   const [showSummaryDetails, setShowSummaryDetails] = useState(false);
   const [notes, setNotes] = useState('');
-
-const DEFAULT_GST = 18;
-
-const CreatePrimaryOrder = () => {
-  const navigate = useNavigate();
-  const { id: editOrderId } = useParams();
-  const isEditMode = Boolean(editOrderId);
-
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [priceBookEntries, setPriceBookEntries] = useState<PriceBookEntry[]>([]);
-  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedProduct, setSelectedProduct] = useState<string>('');
-  const [quantity, setQuantity] = useState(1);
-  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
-  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [productsLoading, setProductsLoading] = useState(true);
   const [priceBookName, setPriceBookName] = useState<string>('');
