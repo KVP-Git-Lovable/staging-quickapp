@@ -14097,6 +14097,7 @@ export type Database = {
           price_basis_uom_id: string | null
           product_number: string | null
           qr_code: string | null
+          rate: number
           reorder_level: number | null
           sku: string
           sku_image_url: string | null
@@ -14133,6 +14134,7 @@ export type Database = {
           price_basis_uom_id?: string | null
           product_number?: string | null
           qr_code?: string | null
+          rate?: number
           reorder_level?: number | null
           sku: string
           sku_image_url?: string | null
@@ -14169,6 +14171,7 @@ export type Database = {
           price_basis_uom_id?: string | null
           product_number?: string | null
           qr_code?: string | null
+          rate?: number
           reorder_level?: number | null
           sku?: string
           sku_image_url?: string | null
