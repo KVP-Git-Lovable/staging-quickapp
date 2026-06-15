@@ -93,7 +93,7 @@ serve(async (req) => {
         created_at,
         order_items (
           id,
-          product_id,
+          variant_id,
           product_name,
           quantity,
           unit,
