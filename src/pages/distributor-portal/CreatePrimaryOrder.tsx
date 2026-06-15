@@ -1069,8 +1069,8 @@ const CreatePrimaryOrder = () => {
                 <p className="text-sm font-semibold">₹ {totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
               </div>
               <div>
-                <p className="text-[11px] text-muted-foreground">Discount</p>
-                <p className="text-sm font-semibold text-destructive">- ₹ {totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+                <p className="text-[11px] text-muted-foreground">Scheme Benefits</p>
+                <p className="text-sm font-semibold text-emerald-600">- ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
               </div>
               <div>
                 <p className="text-[11px] text-muted-foreground">GST ({avgGstPercent}%)</p>
