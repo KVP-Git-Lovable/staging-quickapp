@@ -930,21 +930,21 @@ const CreatePrimaryOrder = () => {
               </CardHeader>
               <CardContent className="p-5 pt-0 space-y-2.5 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total Items</span>
+                  <span className="text-muted-foreground">Total Products</span>
                   <span className="font-medium">{orderItems.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total Units</span>
                   <span className="font-medium">{totalUnits}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between border-t pt-2.5">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span className="font-medium">₹{totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                 </div>
                 {totals.totalDiscount > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Discount</span>
-                    <span className="font-medium text-destructive">- ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                    <span className="text-muted-foreground">Scheme Benefits</span>
+                    <span className="font-medium text-emerald-600">- ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
