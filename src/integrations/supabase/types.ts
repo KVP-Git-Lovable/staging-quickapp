@@ -9013,15 +9013,7 @@ export type Database = {
           system_batch_code?: string | null
           warehouse_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "inventory_batches_warehouse_id_fkey"
-            columns: ["warehouse_id"]
-            isOneToOne: false
-            referencedRelation: "warehouses"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       inventory_valuation_config: {
         Row: {
@@ -13432,13 +13424,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "primary_orders_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "primary_orders_packing_list_id_fkey"
             columns: ["packing_list_id"]
             isOneToOne: false
@@ -13450,13 +13435,6 @@ export type Database = {
             columns: ["parent_order_id"]
             isOneToOne: false
             referencedRelation: "primary_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "primary_orders_source_distributor_id_fkey"
-            columns: ["source_distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
             referencedColumns: ["id"]
           },
           {
