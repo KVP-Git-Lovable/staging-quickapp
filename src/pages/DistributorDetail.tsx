@@ -41,6 +41,7 @@ import { DistributorPortalUsers } from "@/components/distributor/DistributorPort
 import { DistributorPriceBooks } from "@/components/distributor/DistributorPriceBooks";
 import { DistributorPrimaryOrders } from "@/components/distributor/DistributorPrimaryOrders";
 import { DistributorEvaluationTasks } from "@/components/distributor/DistributorEvaluationTasks";
+import { EvaluationChecklist } from "@/components/distributor/EvaluationChecklist";
 import { DistributorContactsList } from "@/components/distributor/DistributorContactsList";
 import { DistributorSecondaryOrders } from "@/components/distributor/DistributorSecondaryOrders";
 import DistributorCompanyProfile from "@/components/distributor/DistributorCompanyProfile";
@@ -363,6 +364,13 @@ export default function DistributorDetail() {
 
             {/* Evaluation Tasks (Collapsible within Overview) */}
             <DistributorEvaluationTasks distributorId={distributor.id} />
+
+            {/* Onboarding Evaluation Checklist */}
+            <EvaluationChecklist
+              distributorId={distributor.id}
+              checklist={(distributor as any).evaluation_checklist || {}}
+              onUpdate={loadDistributor}
+            />
 
             {/* Products */}
             {(distributor.products_distributed?.length || distributor.other_products?.length) && (
