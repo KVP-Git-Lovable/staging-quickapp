@@ -995,7 +995,7 @@ const CreatePrimaryOrder = () => {
                     <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
                       <CreditCard className="w-4 h-4 text-foreground/70" />
                     </span>
-                    Credit Utilization
+                    Credit Validation
                     <Info className="w-3.5 h-3.5 text-muted-foreground" />
                   </CardTitle>
                   <Badge
