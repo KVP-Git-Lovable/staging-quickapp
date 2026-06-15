@@ -309,12 +309,14 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <NetworkProvider>
           <AuthProvider>
-            <TooltipProvider>
-              <BrowserRouter>
-                <SlowConnectionBanner />
-                <AppContent hasError={hasError} />
-              </BrowserRouter>
-            </TooltipProvider>
+            <FeatureProvider>
+              <TooltipProvider>
+                <BrowserRouter>
+                  <SlowConnectionBanner />
+                  <AppContent hasError={hasError} />
+                </BrowserRouter>
+              </TooltipProvider>
+            </FeatureProvider>
           </AuthProvider>
         </NetworkProvider>
       </QueryClientProvider>
