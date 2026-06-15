@@ -21570,6 +21570,10 @@ export type Database = {
         Args: { request_id: string; user_id: string }
         Returns: boolean
       }
+      is_subordinate_of: {
+        Args: { _manager: string; _target: string }
+        Returns: boolean
+      }
       is_system_admin: { Args: { _user_id: string }; Returns: boolean }
       list_team_members: {
         Args: never
