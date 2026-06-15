@@ -1695,7 +1695,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                                 focused_territories: variant.focused_territories || [],
                                 focused_recurring_config: (variant as any).focused_recurring_config || undefined,
                                 barcode: variant.barcode || '',
-                                qr_code: variant.qr_code || ''
+                                qr_code: variant.qr_code || '',
+                                barcode_image_url: (variant as any).barcode_image_url || null,
+                                variant_type: (variant as any).variant_type || 'Other',
+                                uom_id: (variant as any).uom_id || null,
+                                variant_weight_g: (variant as any).variant_weight_g ?? null,
+                                variant_cost: (variant as any).variant_cost ?? null,
+                                variant_tax_rate: (variant as any).variant_tax_rate ?? null,
+                                is_discontinued: !!(variant as any).is_discontinued,
+                                discontinued_date: (variant as any).discontinued_date || null
                               });
                               setIsVariantDialogOpen(true);
                             }}
