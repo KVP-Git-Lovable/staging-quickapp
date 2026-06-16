@@ -14,6 +14,9 @@ export interface LineItemUomSelection {
   uomId: string;
   uomCode: string;
   conversionToBase: number;
+  priceBasisUomId?: string;
+  priceBasisUomCode?: string;
+  priceBasisConversionToBase?: number;
 }
 
 interface Props {
@@ -28,10 +31,13 @@ interface Props {
   hideWhenSingle?: boolean;
 }
 
-const toSel = (u: ProductUnit): LineItemUomSelection => ({
+const toSel = (u: ProductUnit, priceBasisUnit?: ProductUnit | null): LineItemUomSelection => ({
   uomId: u.uomId,
   uomCode: u.code,
   conversionToBase: u.conversionToBase,
+  priceBasisUomId: priceBasisUnit?.uomId,
+  priceBasisUomCode: priceBasisUnit?.code,
+  priceBasisConversionToBase: priceBasisUnit?.conversionToBase,
 });
 
 /**
@@ -49,7 +55,7 @@ export default function LineItemUomSelect({
   disabled,
   hideWhenSingle = true,
 }: Props) {
-  const { loading, activeUnits, defaultUnit, isSingleUom } = useLineItemUom(productId, context);
+  const { loading, activeUnits, defaultUnit, priceBasisUnit, isSingleUom } = useLineItemUom(productId, context);
   // Pulled separately for the secondary helper line. Same data source — React
   // Query dedupes the request — but lets us safely null-guard for legacy
   // products that lack any product_uom_mapping rows.
@@ -58,10 +64,13 @@ export default function LineItemUomSelect({
   // Emit default upward as soon as units are loaded (only when no value chosen yet).
   useEffect(() => {
     if (loading || !defaultUnit) return;
-    if (value) return;
-    onChange(toSel(defaultUnit));
+    const hasValidValue = value
+      ? activeUnits.some((u) => u.code === value || u.name === value)
+      : false;
+    if (hasValidValue) return;
+    onChange(toSel(defaultUnit, priceBasisUnit));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, defaultUnit?.code]);
+  }, [loading, defaultUnit?.code, priceBasisUnit?.code, activeUnits.length, value]);
 
   // ---- Bug-guard #3: secondary helper line, null-safe for legacy products.
   // We render "1 BOX = 4 KG = 16 PCS" by reading conversion factors directly
@@ -106,7 +115,7 @@ export default function LineItemUomSelect({
     return <span className="text-xs text-muted-foreground">…</span>;
   }
   if (activeUnits.length === 0) {
-    return hideWhenSingle ? null : <span className="text-xs text-muted-foreground">—</span>;
+    return hideWhenSingle ? null : <span className="text-[10px] leading-tight text-muted-foreground">Configure UOM</span>;
   }
   if (isSingleUom && hideWhenSingle) {
     return null;
@@ -114,12 +123,14 @@ export default function LineItemUomSelect({
 
   const handleChange = (code: string) => {
     const u = activeUnits.find((x) => x.code === code);
-    if (u) onChange(toSel(u));
+    if (u) onChange(toSel(u, priceBasisUnit));
   };
+
+  const selectedUnit = activeUnits.find((u) => u.code === value || u.name === value);
 
   return (
     <div className="flex flex-col gap-0.5">
-      <Select value={value || defaultUnit?.code || ''} onValueChange={handleChange} disabled={disabled}>
+      <Select value={selectedUnit?.code || defaultUnit?.code || ''} onValueChange={handleChange} disabled={disabled}>
         <SelectTrigger className={className ?? 'h-7 w-24 text-xs'}>
           <SelectValue />
         </SelectTrigger>
