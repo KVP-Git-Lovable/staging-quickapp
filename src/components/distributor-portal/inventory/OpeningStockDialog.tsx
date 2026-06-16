@@ -75,6 +75,7 @@ interface ProductEntry {
   expanded: boolean;
   existingBatchCount: number;
   entryUnit: string;
+  selected: boolean;
 }
 
 const newBatch = (): BatchEntry => ({ supplier_batch_code: '', mfg_date: '', expiry_date: '', quantity: 0 });
