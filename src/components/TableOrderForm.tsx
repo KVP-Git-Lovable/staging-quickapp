@@ -257,8 +257,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const displayName = row.variant ? row.variant.variant_name : row.product!.name;
       const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
       const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
-      const selectedUnit = row.unit || row.product!.unit || 'PC';
-      const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
+      const selectedUnit = row.uomCode || row.unit || row.product!.unit || 'PC';
+      const ratePerSelectedUnit = getPricePerUnit(
+        row.product!,
+        row.variant,
+        selectedUnit,
+        row.conversionToBase,
+        row.priceBasisConversionToBase,
+      );
 
       // Original (MRP) per the selected unit
       const originalRatePerSelectedUnit = row.variant
@@ -274,6 +280,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         rate: ratePerSelectedUnit,
         original_rate: originalRatePerSelectedUnit,
         unit: selectedUnit,
+        uom_id: row.uomId || null,
+        uom_code: row.uomCode || selectedUnit,
+        conversion_to_base: row.conversionToBase ?? null,
         base_unit: selectedUnit,
         quantity: Number(row.quantity) || 0,
         total: Number(row.total) || 0,
