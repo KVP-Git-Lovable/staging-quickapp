@@ -417,7 +417,7 @@ const CreatePrimaryOrder = () => {
           discount_percent: it.discount_percent,
           
           tax_percent: it.gst_percent,
-          hsn_code: it.hsn_code || null,
+          
           line_total: Math.round((taxable + tax) * 100) / 100,
         };
       });
