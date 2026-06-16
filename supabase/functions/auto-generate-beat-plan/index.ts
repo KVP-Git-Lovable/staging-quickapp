@@ -58,9 +58,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { userId, forceRegenerate } = await req.json().catch(() => ({}));
-    
-    console.log('🗓️ Starting auto-generate-beat-plan', { userId, forceRegenerate });
+    const { userId, forceRegenerate, previewOnly, fromDate, toDate } = await req.json().catch(() => ({}));
+
+    console.log('🗓️ Starting auto-generate-beat-plan', { userId, forceRegenerate, previewOnly, fromDate, toDate });
 
     // Get users (specific user if provided)
     let usersQuery = supabaseClient
@@ -82,9 +82,14 @@ serve(async (req) => {
       try {
         console.log(`👤 Generating plan for user: ${user.full_name} (${user.id})`);
         
-        // Get planning dates: remaining current week (from today) + entire next week
-        const planningDays = getPlanningDays();
+        // Get planning dates: explicit range if provided, otherwise default (rest of week + next week)
+        const planningDays = getPlanningDays(fromDate, toDate);
         console.log(`📅 Planning for ${planningDays.length} days:`, planningDays.map(d => d.date));
+
+        if (planningDays.length === 0) {
+          results.push({ userId: user.id, status: 'skipped', reason: 'No planning days in range' });
+          continue;
+        }
 
         // Fetch existing beat plans (pre-scheduled / recurring)
         const { data: existingPlans } = await supabaseClient
@@ -206,6 +211,25 @@ serve(async (req) => {
               estimated_value: day.estimated_value,
             },
           }));
+
+        if (previewOnly) {
+          // Preview mode: do not write anything, just return the proposed plan
+          results.push({
+            userId: user.id,
+            userName: user.full_name,
+            status: 'success',
+            plansCreated: 0,
+            prescheduledPreserved: Object.keys(existingPlansByDate).length,
+            planningPeriod: {
+              start: planningDays[0].date,
+              end: planningDays[planningDays.length - 1].date,
+            },
+            rationales: planRationales,
+            weeklyPlan: weeklyPlan.filter(d => d.beat_id),
+            previewOnly: true,
+          });
+          continue;
+        }
 
         if (plansToInsert.length > 0) {
           // Delete existing auto-generated plans for these dates
@@ -340,11 +364,31 @@ serve(async (req) => {
 // Get planning days: only FUTURE dates (exclude today/past)
 // - From tomorrow through this week's Saturday (Mon–Sat)
 // - Plus the following week Monday–Saturday
-function getPlanningDays(): { day: string; date: string }[] {
+function getPlanningDays(fromDate?: string, toDate?: string): { day: string; date: string }[] {
   const now = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  // Start from tomorrow
+  // Explicit range mode (user-selected dates)
+  if (fromDate && toDate) {
+    const result: { day: string; date: string }[] = [];
+    const start = new Date(fromDate + 'T00:00:00');
+    const end = new Date(toDate + 'T00:00:00');
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return result;
+    const MAX_DAYS = 45;
+    let count = 0;
+    for (let d = new Date(start); d <= end && count < MAX_DAYS; d.setDate(d.getDate() + 1)) {
+      // Skip Sundays (off day) — mirror default behavior
+      if (d.getDay() === 0) continue;
+      result.push({
+        day: dayNames[d.getDay()],
+        date: d.toISOString().split('T')[0],
+      });
+      count++;
+    }
+    return result;
+  }
+
+  // Default: start from tomorrow
   const start = new Date(now);
   start.setDate(now.getDate() + 1);
 

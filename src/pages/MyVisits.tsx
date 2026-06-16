@@ -1018,46 +1018,10 @@ export const MyVisits = () => {
     setSelectedDate(targetDay.isoDate);
   };
 
-  const handleAutoGeneratePlan = async () => {
+  const handleAutoGeneratePlan = () => {
     if (!user?.id) return;
-    
-    setIsGeneratingPlan(true);
-    const loadingToast = toast.loading('Generating optimized plan for this week and next...');
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('auto-generate-beat-plan', {
-        body: { 
-          userId: user.id,
-          forceRegenerate: true 
-        }
-      });
-      
-      if (error) throw error;
-      
-      toast.dismiss(loadingToast);
-      
-      const result = data?.results?.[0];
-      if (result?.status === 'success') {
-        const plansCreated = result.plansCreated || 0;
-        const prescheduled = result.prescheduledPreserved || 0;
-        
-        toast.success(`Created ${plansCreated} new plans, preserved ${prescheduled} pre-scheduled beats!`);
-        
-        // Navigate to rationale page with the plan result
-        navigate('/auto-plan-rationale', { state: { planResult: result } });
-      } else {
-        toast.error(result?.reason || 'Failed to generate plan');
-      }
-      
-      // Refresh current view
-      invalidateData?.();
-    } catch (error) {
-      console.error('Auto-generate error:', error);
-      toast.dismiss(loadingToast);
-      toast.error('Failed to generate plan. Please try again.');
-    } finally {
-      setIsGeneratingPlan(false);
-    }
+    // Open the preview/edit page instead of generating immediately.
+    navigate('/auto-plan-preview');
   };
 
   // Extract unique categories and locations for filter options

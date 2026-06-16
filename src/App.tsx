@@ -160,6 +160,7 @@ import TeamTargets from "./pages/TeamTargets";
 import PerformanceDashboard from "./pages/PerformanceDashboard";
 import TargetAchievementAdvisor from "./pages/TargetAchievementAdvisor";
 import AutoPlanRationale from "./pages/AutoPlanRationale";
+import AutoPlanPreview from "./pages/AutoPlanPreview";
 import PendingPaymentsAll from "./pages/PendingPaymentsAll";
 import JointSalesAnalytics from "./pages/JointSalesAnalytics";
 import DistributorMaster from "./pages/DistributorMaster";
@@ -436,6 +437,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/performance-dashboard" element={<ProtectedRoute><PerformanceDashboard /></ProtectedRoute>} />
         <Route path="/target-advisor" element={<ProtectedRoute><TargetAchievementAdvisor /></ProtectedRoute>} />
         <Route path="/auto-plan-rationale" element={<ProtectedRoute><AutoPlanRationale /></ProtectedRoute>} />
+        <Route path="/auto-plan-preview" element={<ProtectedRoute><AutoPlanPreview /></ProtectedRoute>} />
         <Route path="/admin/target-vs-actual" element={<ProtectedRoute><TargetVsActual /></ProtectedRoute>} />
         
         <Route path="/create-beat" element={<ProtectedRoute><CreateBeat /></ProtectedRoute>} />
