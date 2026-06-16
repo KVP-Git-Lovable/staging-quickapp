@@ -10489,6 +10489,7 @@ export type Database = {
           id: string
           order_id: string
           original_rate: number | null
+          product_id: string | null
           product_name: string
           quantity: number
           rate: number
@@ -10510,6 +10511,7 @@ export type Database = {
           id?: string
           order_id: string
           original_rate?: number | null
+          product_id?: string | null
           product_name: string
           quantity: number
           rate: number
@@ -10531,6 +10533,7 @@ export type Database = {
           id?: string
           order_id?: string
           original_rate?: number | null
+          product_id?: string | null
           product_name?: string
           quantity?: number
           rate?: number
@@ -10547,6 +10550,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {
@@ -21728,6 +21738,46 @@ export type Database = {
           state: string
         }[]
       }
+      get_sales_quantity_report: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_distributor_id?: string
+          p_product_id?: string
+          p_user_id?: string
+        }
+        Returns: {
+          is_base_unit: boolean
+          line_count: number
+          order_count: number
+          product_id: string
+          product_name: string
+          quantity_in_unit: number
+          uom_category: string
+          uom_code: string
+          uom_name: string
+        }[]
+      }
+      get_sales_quantity_summary: {
+        Args: {
+          p_date_from?: string
+          p_date_to?: string
+          p_distributor_id?: string
+          p_user_id?: string
+        }
+        Returns: {
+          base_unit_category: string
+          base_unit_code: string
+          line_count: number
+          order_count: number
+          product_id: string
+          product_name: string
+          total_base_qty: number
+          total_kg_or_litre: number
+          total_pieces: number
+          total_value: number
+        }[]
+      }
       get_state_analytics: {
         Args: never
         Returns: {
@@ -21765,6 +21815,20 @@ export type Database = {
           total_orders: number
           total_retailers: number
           total_sales: number
+        }[]
+      }
+      get_today_sales_summary: {
+        Args: { p_date?: string; p_user_id: string }
+        Returns: {
+          base_unit_category: string
+          base_unit_code: string
+          product_name: string
+          qty_in_base: number
+          qty_kg_or_litre: number
+          qty_pieces: number
+          qty_sold: number
+          revenue: number
+          uom_code: string
         }[]
       }
       get_type_supports_primary: { Args: { p_code: string }; Returns: boolean }
@@ -21968,6 +22032,16 @@ export type Database = {
       resolve_effective_leave_policy: {
         Args: { p_leave_type_id: string; p_user_id: string }
         Returns: Json
+      }
+      resolve_quantity_to_base: {
+        Args: {
+          p_conversion_snap?: number
+          p_product_id?: string
+          p_quantity: number
+          p_unit_text: string
+          p_uom_id?: string
+        }
+        Returns: number
       }
       reverse_retailer_points: {
         Args: { p_reason: string; p_retailer_id: string }
