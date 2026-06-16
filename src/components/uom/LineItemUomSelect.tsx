@@ -64,11 +64,10 @@ export default function LineItemUomSelect({
   // Emit default upward as soon as units are loaded (only when no value chosen yet).
   useEffect(() => {
     if (loading || !defaultUnit) return;
-    const hasValidValue = value
-      ? activeUnits.some((u) => u.code === value || u.name === value)
-      : false;
-    if (hasValidValue) return;
-    onChange(toSel(defaultUnit, priceBasisUnit));
+    const selectedUnit = value
+      ? activeUnits.find((u) => u.code === value || u.name === value)
+      : null;
+    onChange(toSel(selectedUnit || defaultUnit, priceBasisUnit));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, defaultUnit?.code, priceBasisUnit?.code, activeUnits.length, value]);
 
