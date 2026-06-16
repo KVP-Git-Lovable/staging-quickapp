@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useUnitMaster } from "@/hooks/useUnitMaster";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -19,6 +18,7 @@ import { useOfflineSchemes, ProductScheme } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
 import { useSchemePolicies } from "@/hooks/useSchemePolicies";
 import { calculateOrderWithSchemes, calculateSchemeDiscountForComparison, SchemeItem, isSchemeActive, isSchemeConditionMet, schemeHasConditions } from "@/utils/schemeEngine";
+import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
 interface Product {
   id: string;
   sku: string;
@@ -68,6 +68,12 @@ interface OrderRow {
   quantity: number;
   closingStock: number;
   unit: string;
+  uomId?: string | null;
+  uomCode?: string | null;
+  conversionToBase?: number | null;
+  priceBasisUomId?: string | null;
+  priceBasisUomCode?: string | null;
+  priceBasisConversionToBase?: number | null;
   total: number;
 }
 
@@ -148,14 +154,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     } catch (error) {
       console.error('[TableOrderForm] Error loading initial rows:', error);
     }
-    return [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }];
+    return [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
   };
 
   const [orderRows, setOrderRows] = useState<OrderRow[]>(getInitialOrderRows);
   const [hasInitialized, setHasInitialized] = useState(false);
-  
-  // Fetch units from uom_master
-  const { units } = useUnitMaster();
   
   // Use ref to always have access to the latest orderRows for addToCart
   const orderRowsRef = useRef<OrderRow[]>(orderRows);
@@ -254,13 +257,17 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const displayName = row.variant ? row.variant.variant_name : row.product!.name;
       const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
       const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
-      const selectedUnit = row.unit || row.product!.unit || 'PC';
-      const ratePerSelectedUnit = getPricePerUnit(row.product!, row.variant, selectedUnit);
+      const selectedUnit = row.uomCode || row.unit || row.product!.unit || 'PC';
+      const ratePerSelectedUnit = getPricePerUnit(
+        row.product!,
+        row.variant,
+        selectedUnit,
+        row.conversionToBase,
+        row.priceBasisConversionToBase,
+      );
 
-      // Original (MRP) per the selected unit
-      const originalRatePerSelectedUnit = row.variant
-        ? Number(row.variant.price) || ratePerSelectedUnit
-        : Number(row.product!.rate) || ratePerSelectedUnit;
+        // Original (MRP) per the selected unit
+        const originalRatePerSelectedUnit = ratePerSelectedUnit;
 
       return {
         id: itemId,
@@ -271,6 +278,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         rate: ratePerSelectedUnit,
         original_rate: originalRatePerSelectedUnit,
         unit: selectedUnit,
+        uom_id: row.uomId || null,
+        uom_code: row.uomCode || selectedUnit,
+        conversion_to_base: row.conversionToBase ?? null,
         base_unit: selectedUnit,
         quantity: Number(row.quantity) || 0,
         total: Number(row.total) || 0,
@@ -389,7 +399,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     suppressedSchemesRef.current.clear();
 
     // Load rows for this retailer/visit
-    let rows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }];
+    let rows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
     try {
       const savedData = localStorage.getItem(tableFormStorageKey);
       const parsedData = savedData ? JSON.parse(savedData) : null;
@@ -476,7 +486,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           product_id: itemId,
           variant_id: row.variant?.id,
           quantity: row.quantity,
-          rate: getPricePerUnit(row.product!, row.variant, row.unit),
+          rate: getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase),
           name: row.variant?.variant_name || row.product!.name
         };
       });
@@ -683,8 +693,18 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     return u || "";
   };
 
-  const getPricePerUnit = (prod: Product, variant?: any, unit?: string) => {
+  const getPricePerUnit = (
+    prod: Product,
+    variant?: any,
+    unit?: string,
+    conversionToBase?: number | null,
+    priceBasisConversionToBase?: number | null,
+  ) => {
     const baseRate = Number(variant ? variant.price : prod.rate) || 0;
+    if (conversionToBase && priceBasisConversionToBase) {
+      return baseRate * (Number(conversionToBase) / Number(priceBasisConversionToBase));
+    }
+
     const baseUnit = normalizeUnit(prod.base_unit || prod.unit);
     const targetUnit = normalizeUnit(unit || prod.unit);
 
@@ -715,7 +735,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               productCode: option.sku,
               product: option.product,
               variant: option.variant,
-              unit: defaultUnit,
+              unit: '',
+              uomId: null,
+              uomCode: null,
+              conversionToBase: null,
+              priceBasisUomId: null,
+              priceBasisUomCode: null,
+              priceBasisConversionToBase: null,
               total: 0,
             };
           }
@@ -734,7 +760,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       productCode: "",
       quantity: 0,
       closingStock: 0,
-      unit: "KG",
+      unit: "",
       total: 0,
     };
     setOrderRows([...orderRows, newRow]);
@@ -787,11 +813,18 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   };
 
   const updateRow = (id: string, field: keyof OrderRow, value: any) => {
-    const computeTotal = (prod?: Product, variant?: any, qty?: number, selectedUnit?: string) => {
+    const computeTotal = (
+      prod?: Product,
+      variant?: any,
+      qty?: number,
+      selectedUnit?: string,
+      conversionToBase?: number | null,
+      priceBasisConversionToBase?: number | null,
+    ) => {
       if (!prod || !qty) return 0;
 
       // Price per selected unit using shared helper
-      let price = getPricePerUnit(prod, variant, selectedUnit);
+      let price = getPricePerUnit(prod, variant, selectedUnit, conversionToBase, priceBasisConversionToBase);
 
       // Apply variant discount if applicable
       if (variant) {
@@ -814,13 +847,19 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     setOrderRows(prev => {
       const updatedRows = prev.map(row => {
         if (row.id === id) {
-          const updatedRow: OrderRow = { ...row, [field]: value } as OrderRow;
+          const updatedRow: OrderRow = field === "unit" ? { ...row } : ({ ...row, [field]: value } as OrderRow);
           if (field === "productCode") {
             const result = findProductByCode(value);
             if (result) {
               updatedRow.product = result.product;
               updatedRow.variant = result.variant;
-              updatedRow.unit = getDefaultOrderUnit(result.product);
+              updatedRow.unit = '';
+              updatedRow.uomId = null;
+              updatedRow.uomCode = null;
+              updatedRow.conversionToBase = null;
+              updatedRow.priceBasisUomId = null;
+              updatedRow.priceBasisUomCode = null;
+              updatedRow.priceBasisConversionToBase = null;
               updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
               updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity, updatedRow.unit);
             } else {
@@ -831,16 +870,24 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             }
           } else if (field === "quantity") {
             // Use row.unit (current unit) since quantity is being updated
-            updatedRow.total = computeTotal(row.product, row.variant, value, row.unit);
+            updatedRow.total = computeTotal(row.product, row.variant, value, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase);
           } else if (field === "unit") {
+            const sel = value as LineItemUomSelection;
             // When unit changes, convert quantity to the new unit automatically
-            const oldUnit = row.unit;
-            const newUnit = value as string;
+            const oldUnit = row.uomCode || row.unit;
+            const newUnit = sel.uomCode;
+            updatedRow.unit = sel.uomCode;
+            updatedRow.uomId = sel.uomId;
+            updatedRow.uomCode = sel.uomCode;
+            updatedRow.conversionToBase = sel.conversionToBase;
+            updatedRow.priceBasisUomId = sel.priceBasisUomId || null;
+            updatedRow.priceBasisUomCode = sel.priceBasisUomCode || null;
+            updatedRow.priceBasisConversionToBase = sel.priceBasisConversionToBase ?? null;
             if (oldUnit && newUnit && row.quantity > 0) {
               updatedRow.quantity = convertBetweenUnits(row.quantity, oldUnit, newUnit);
             }
             // Recalculate total with the NEW unit and converted quantity
-            updatedRow.total = computeTotal(row.product, row.variant, updatedRow.quantity, value);
+            updatedRow.total = computeTotal(row.product, row.variant, updatedRow.quantity, sel.uomCode, sel.conversionToBase, sel.priceBasisConversionToBase);
           }
           return updatedRow;
         }
@@ -913,7 +960,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           product_id: itemId,
           variant_id: row.variant?.id,
           quantity: row.quantity,
-          rate: getPricePerUnit(row.product!, row.variant, row.unit),
+          rate: getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase),
           name: row.variant?.variant_name || row.product!.name
         };
       });
@@ -1101,7 +1148,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                         </PopoverContent>
                       </Popover>
                        {row.product && (() => {
-                         const originalRate = getPricePerUnit(row.product, row.variant, row.unit);
+                         const displayUnit = row.uomCode || row.unit;
+                         const originalRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase);
                          const itemId = row.variant?.id || row.product.id;
                          const itemSchemes = orderCalculation.itemSchemeDetails?.[itemId] || [];
                          const totalDiscount = itemSchemes.reduce((s, x) => s + (x.discountAmount || 0), 0);
@@ -1116,12 +1164,12 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                    ₹{originalRate.toFixed(2)}
                                  </span>
                                  <span className="text-green-600 font-medium">
-                                   ₹{effectiveRate.toFixed(2)} per {row.unit}
+                                    ₹{effectiveRate.toFixed(2)} per {displayUnit}
                                  </span>
                                </span>
                              ) : (
                                <span className="text-[9px] text-muted-foreground mt-0.5">
-                                 ₹{originalRate.toFixed(2)} per {row.unit}
+                                  ₹{originalRate.toFixed(2)} per {displayUnit}
                                </span>
                              )}
                              {itemSchemes.length > 0 && row.quantity > 0 && (
@@ -1154,21 +1202,18 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                     
                     {/* Unit Column */}
                     <div>
-                      <Select
-                        value={row.unit}
-                        onValueChange={(value) => updateRow(row.id, "unit", value)}
-                      >
-                        <SelectTrigger className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2 [&>svg]:hidden">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {units.map((u) => (
-                            <SelectItem key={u.id} value={u.name} className="text-xs md:text-sm">
-                              {u.name} ({u.code})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {row.product ? (
+                        <LineItemUomSelect
+                          productId={row.product.id}
+                          value={row.uomCode || row.unit}
+                          context="sales"
+                          hideWhenSingle={false}
+                          className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2"
+                          onChange={(sel) => updateRow(row.id, "unit", sel)}
+                        />
+                      ) : (
+                        <div className="h-9 md:h-11 flex items-center text-xs text-muted-foreground">—</div>
+                      )}
                     </div>
                     
                     {/* Qty Column */}
@@ -1178,13 +1223,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                         placeholder="0"
                         value={row.quantity || ""}
                         onChange={(e) => updateRow(row.id, "quantity", parseFloat(e.target.value) || 0)}
-                        step={row.unit?.toLowerCase() === 'kg' ? '0.1' : '1'}
+                        step={(row.uomCode || row.unit)?.toLowerCase() === 'kg' ? '0.1' : '1'}
                         className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
                         disabled={!row.product}
                       />
                       {row.quantity > 0 && (
                         <span className="text-[9px] text-muted-foreground text-center mt-0.5">
-                          {getUnitEquivalent(row.quantity, row.unit)}
+                          {getUnitEquivalent(row.quantity, row.uomCode || row.unit)}
                         </span>
                       )}
                     </div>
