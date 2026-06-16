@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { useUnitMaster } from "@/hooks/useUnitMaster";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -19,6 +18,7 @@ import { useOfflineSchemes, ProductScheme } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
 import { useSchemePolicies } from "@/hooks/useSchemePolicies";
 import { calculateOrderWithSchemes, calculateSchemeDiscountForComparison, SchemeItem, isSchemeActive, isSchemeConditionMet, schemeHasConditions } from "@/utils/schemeEngine";
+import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
 interface Product {
   id: string;
   sku: string;
@@ -68,6 +68,12 @@ interface OrderRow {
   quantity: number;
   closingStock: number;
   unit: string;
+  uomId?: string | null;
+  uomCode?: string | null;
+  conversionToBase?: number | null;
+  priceBasisUomId?: string | null;
+  priceBasisUomCode?: string | null;
+  priceBasisConversionToBase?: number | null;
   total: number;
 }
 
@@ -153,9 +159,6 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
   const [orderRows, setOrderRows] = useState<OrderRow[]>(getInitialOrderRows);
   const [hasInitialized, setHasInitialized] = useState(false);
-  
-  // Fetch units from uom_master
-  const { units } = useUnitMaster();
   
   // Use ref to always have access to the latest orderRows for addToCart
   const orderRowsRef = useRef<OrderRow[]>(orderRows);
