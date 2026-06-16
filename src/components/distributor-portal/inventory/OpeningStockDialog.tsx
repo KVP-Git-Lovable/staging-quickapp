@@ -6,12 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Upload, Info, Plus, Trash2, Search, ScanBarcode, ChevronDown, ChevronRight, Warehouse, Sparkles } from 'lucide-react';
+import { CalendarIcon, Upload, Info, Plus, Trash2, Search, ScanBarcode, ChevronDown, ChevronRight, Warehouse, Sparkles, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useWarehouses } from '@/hooks/useWarehouses';
 
