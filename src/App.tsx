@@ -60,6 +60,7 @@ import MassBeatTransfer from "./pages/MassBeatTransfer";
 import { AddRetailer } from "./pages/AddRetailer";
 import Attendance from "./pages/Attendance";
 import { TodaySummary } from "./pages/TodaySummary";
+import UomQuantityReportPage from "./pages/UomQuantityReportPage";
 import { BeatPlanningFeature } from "./pages/features/BeatPlanningFeature";
 import { RetailerManagementFeature } from "./pages/features/RetailerManagementFeature";
 import { VisitSchedulingFeature } from "./pages/features/VisitSchedulingFeature";
