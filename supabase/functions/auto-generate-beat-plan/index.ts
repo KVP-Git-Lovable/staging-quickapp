@@ -212,6 +212,25 @@ serve(async (req) => {
             },
           }));
 
+        if (previewOnly) {
+          // Preview mode: do not write anything, just return the proposed plan
+          results.push({
+            userId: user.id,
+            userName: user.full_name,
+            status: 'success',
+            plansCreated: 0,
+            prescheduledPreserved: Object.keys(existingPlansByDate).length,
+            planningPeriod: {
+              start: planningDays[0].date,
+              end: planningDays[planningDays.length - 1].date,
+            },
+            rationales: planRationales,
+            weeklyPlan: weeklyPlan.filter(d => d.beat_id),
+            previewOnly: true,
+          });
+          continue;
+        }
+
         if (plansToInsert.length > 0) {
           // Delete existing auto-generated plans for these dates
           if (forceRegenerate) {
