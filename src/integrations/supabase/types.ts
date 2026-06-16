@@ -6431,15 +6431,7 @@ export type Database = {
           uom_id?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "enabled_units_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: true
-            referencedRelation: "uom_master"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       event_stock_audit: {
         Row: {
@@ -7896,13 +7888,6 @@ export type Database = {
             columns: ["order_item_id"]
             isOneToOne: false
             referencedRelation: "primary_order_items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "grn_items_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
             referencedColumns: ["id"]
           },
         ]
@@ -10560,13 +10545,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "order_items_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "order_items_variant_id_fkey"
             columns: ["variant_id"]
             isOneToOne: false
@@ -10994,13 +10972,6 @@ export type Database = {
             columns: ["packing_list_id"]
             isOneToOne: false
             referencedRelation: "packing_lists"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "packing_list_items_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
             referencedColumns: ["id"]
           },
         ]
@@ -13080,13 +13051,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "price_book_entries_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "price_book_entries_variant_id_fkey"
             columns: ["variant_id"]
             isOneToOne: false
@@ -13340,13 +13304,6 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "primary_order_items_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
             referencedColumns: ["id"]
           },
           {
@@ -13836,13 +13793,6 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "product_price_list_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
-            referencedColumns: ["id"]
-          },
         ]
       }
       product_schemes: {
@@ -14061,13 +14011,6 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "product_uom_mapping_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
-            referencedColumns: ["id"]
-          },
         ]
       }
       product_variants: {
@@ -14175,13 +14118,6 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "product_variants_uom_id_fkey"
-            columns: ["uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
-            referencedColumns: ["id"]
-          },
         ]
       }
       products: {
@@ -14189,7 +14125,6 @@ export type Database = {
           barcode: string | null
           barcode_image_url: string | null
           base_unit: string | null
-          base_unit_category: string | null
           brand: string | null
           category_id: string | null
           closing_stock: number | null
@@ -14233,7 +14168,6 @@ export type Database = {
           sku: string
           sku_image_url: string | null
           standard_cost: number | null
-          unit: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -14241,7 +14175,6 @@ export type Database = {
           barcode?: string | null
           barcode_image_url?: string | null
           base_unit?: string | null
-          base_unit_category?: string | null
           brand?: string | null
           category_id?: string | null
           closing_stock?: number | null
@@ -14285,7 +14218,6 @@ export type Database = {
           sku: string
           sku_image_url?: string | null
           standard_cost?: number | null
-          unit?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -14293,7 +14225,6 @@ export type Database = {
           barcode?: string | null
           barcode_image_url?: string | null
           base_unit?: string | null
-          base_unit_category?: string | null
           brand?: string | null
           category_id?: string | null
           closing_stock?: number | null
@@ -14337,7 +14268,6 @@ export type Database = {
           sku?: string
           sku_image_url?: string | null
           standard_cost?: number | null
-          unit?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -14347,27 +14277,6 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_default_purchase_uom_id_fkey"
-            columns: ["default_purchase_uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_default_sales_uom_id_fkey"
-            columns: ["default_sales_uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_price_basis_uom_id_fkey"
-            columns: ["price_basis_uom_id"]
-            isOneToOne: false
-            referencedRelation: "uom_master"
             referencedColumns: ["id"]
           },
         ]
@@ -18521,47 +18430,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      uom_master: {
-        Row: {
-          category: string
-          category_id: string | null
-          code: string
-          created_at: string
-          id: string
-          is_base: boolean
-          is_system: boolean
-          name: string
-        }
-        Insert: {
-          category: string
-          category_id?: string | null
-          code: string
-          created_at?: string
-          id?: string
-          is_base?: boolean
-          is_system?: boolean
-          name: string
-        }
-        Update: {
-          category?: string
-          category_id?: string | null
-          code?: string
-          created_at?: string
-          id?: string
-          is_base?: boolean
-          is_system?: boolean
-          name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "uom_master_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "uom_category"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       user_approvals: {
         Row: {
