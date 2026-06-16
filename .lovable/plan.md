@@ -1,105 +1,81 @@
-## Part A — Database & Workflow Verification
+## Goal
 
-### Tables touched by Auto Plan
+1. Restore the **old one-click Auto Plan flow** on My Visits: clicking Auto Plan generates the plan immediately (no preview detour) and lands on the existing `AutoPlanRationale` page with all per-beat explanations, summary card, "How Auto Plan Works", and the original **Edit Plans / Start Visits** buttons.
+2. Make "Edit Plans" open the new `AutoPlanPreview` page (drag/drop editor) so the preview feature stays available without blocking the default flow.
+3. Add a **Calendar view** on the Rationale page that shows the new plan's days **and the past 90 days of `beat_plans` history**, so the user can see the recurring day-beat pattern at a glance.
 
-| Table | Purpose | Used by Auto Plan? | Used by regular Visit workflow? |
-|---|---|---|---|
-| `beat_plans` | Per-user, per-date scheduled beat (cols: `user_id`, `plan_date`, `beat_id`, `beat_name`, `beat_data` jsonb, `joint_sales_manager_id`) | **Yes — read & write** (insert/delete in both `auto-generate-beat-plan` and `save-beat-plan`) | **Yes — read.** `MyVisits.tsx` (lines 505, 538), `useVisitsData.ts` (237), `useVisitsDataOptimized.ts` (620, 1243, 1379) |
-| `beats` | Master list of active beats per user | Read only (`owner_id`/`user_id`, `is_active=true`) | Read in MyVisits, Beat Management |
-| `retailers` | Retailer info used to score the plan | Read only | Read everywhere |
-| `orders` (last 90 days) | Pattern/value scoring | Read only | — |
-| `visits` (last 90 days) | Pattern scoring + visit history | Read only | Source of My Visits |
-| `ai_autonomous_actions` | Audit/undo log for each generated plan | **Insert** | Used by AI-action history view |
-| `profiles` | Resolve the user being planned for | Read only | — |
-| `daily_beat_plans` | **Admin/coordinator** assignments (separate workflow) | **Not used** | Used only by Beat Coordinator admin pages — out of scope |
+Nothing from the new Preview page is removed; nothing in the Rationale page is removed.
 
-**Conclusion:** Auto Plan writes to the **same `beat_plans` table** that My Visits reads from. There is no parallel/duplicate table. Saved auto-plans appear immediately in My Visits week view, Beat Visit Calendar, and Performance Calendar. No trigger sync is needed.
+## Changes
 
-### What is dynamic vs hardcoded
+### 1. `src/pages/MyVisits.tsx` — restore immediate generation
+Replace the current `handleAutoGeneratePlan` (which only navigates to `/auto-plan-preview`) with the original immediate-generate version, then navigate to `/auto-plan-rationale` with the planResult so the rich page renders:
 
-- `userId` — always passed from the caller (`useAuth().user.id`); never hardcoded.
-- `beats` list — fetched live from `beats` table for the signed-in user.
-- Default date range — derived from `today` and `startOfWeek` (date-fns), not a literal date.
-- Scoring weights & day caps live in `auto-generate-beat-plan/index.ts` as scoring constants (intentional algorithm tuning, not data). Will be exposed in the UI through Recommendation #3 caps (see below).
-- Skip-Sunday off-day rule is a fixed business rule in the engine — documented, not data-driven (can later be moved to `working_days_config` if needed; out of scope).
-- The `auto_generated: true` marker inside `beat_data` jsonb is the only thing distinguishing auto-plan rows from manual ones — used by both writers and the deletion guard.
+```ts
+const handleAutoGeneratePlan = async () => {
+  if (!user?.id) return;
+  setIsGeneratingPlan(true);
+  const t = toast.loading('Generating optimized plan…');
+  try {
+    const { data, error } = await supabase.functions.invoke('auto-generate-beat-plan', {
+      body: { userId: user.id, forceRegenerate: true },
+    });
+    if (error) throw error;
+    const result = data?.results?.[0];
+    toast.dismiss(t);
+    if (result?.status === 'success') {
+      toast.success(`Created ${result.plansCreated} beat plans`);
+      invalidateData?.();
+      navigate('/auto-plan-rationale', { state: { planResult: result } });
+    } else {
+      toast.error(result?.reason || 'Failed to generate plan');
+    }
+  } catch (e) {
+    toast.dismiss(t);
+    toast.error('Failed to generate plan');
+  } finally {
+    setIsGeneratingPlan(false);
+  }
+};
+```
 
----
+Add the missing `isGeneratingPlan` state if it's not already there (it was removed in the last edit). Restore the spinner on the Auto Plan button.
 
-## Part B — 9 UX Enhancements to `AutoPlanPreview`
+### 2. `src/pages/AutoPlanRationale.tsx` — add Calendar view + wire Edit Plans
+- Wrap content in `Tabs` with two tabs: **Details** (existing summary + day cards + "How Auto Plan Works") and **Calendar**.
+- The Calendar tab renders a month grid (using existing `Calendar` shadcn component for the date math + a custom day renderer) covering: `min(planStart − 90d, planStart)` through `planEnd`. Two months by default with prev/next month navigation.
+- Each calendar day cell shows a colored dot/initials chip indicating its beat. Color legend:
+  - Blue = newly auto-planned in this run
+  - Amber = pre-scheduled (locked) in this run
+  - Gray = historical `beat_plans` row outside this run (past 90 days)
+- Click a day → small `Popover` with: beat name, date, source (New / Pre-scheduled / Historical), and (for new days) the same rationale text already shown in the Details tab.
+- Legend strip above the calendar.
 
-All changes are frontend-only except where noted. No new tables, no schema migrations.
+Data fetching on mount:
+```ts
+supabase.from('beat_plans')
+  .select('plan_date, beat_id, beat_name, beat_data')
+  .eq('user_id', userId)
+  .gte('plan_date', format(subDays(parseISO(planningPeriod.start), 90), 'yyyy-MM-dd'))
+  .lt('plan_date', planningPeriod.start);
+```
+Merge with `weeklyPlan` (current run) into a single `Map<date, entry>` for rendering. `userId` is taken from `planResult.userId` (already in the payload) — no hardcoding.
 
-### 1. Unsaved-changes warning
-- Track a `isDirty` flag (set true on any drag/remove/replace; cleared on Save or Discard).
-- `useEffect` adds a `beforeunload` listener that triggers the browser's native confirm when `isDirty`.
-- React Router navigation guard via `useBlocker` (react-router v6.4+) showing an `AlertDialog`: *"You have unsaved changes. Are you sure you want to leave?"* with Stay / Leave buttons.
+- Change the "Edit Plans" button from `navigate('/beat-planning')` to `navigate('/auto-plan-preview')` so it opens the drag/drop editor with the same date range as the saved plan. Optionally pass `{ state: { fromDate, toDate } }` so the preview page can prefill — `AutoPlanPreview` would read this in its existing date pickers (small addition: read `location.state` in its `useEffect` to seed `fromDate`/`toDate`).
+- Keep "Start Visits" → `/visits/retailers` unchanged.
+- Keep the "How Auto Plan Works" card unchanged.
 
-### 2. Regenerate Preview button
-- Already present as "Regenerate Preview". Wrap its click in an `AlertDialog` when `isDirty`: *"This will discard your manual changes and generate a fresh draft. Continue?"* Confirming runs the existing `handleGenerate()` and resets `isDirty`.
-- If no edits exist, regenerate runs immediately without a prompt.
+### 3. `src/pages/AutoPlanPreview.tsx` — accept optional prefill
+Tiny addition: when `location.state?.fromDate` / `toDate` are present, seed the date pickers with them (one-time on mount). Default behavior unchanged.
 
-### 3. Day capacity validation (one beat per day)
-- Drag-and-drop already swaps rather than stacks, so multi-beat per day is impossible by design. Make this explicit:
-  - In `replaceBeat()`, ensure we always overwrite — never append.
-  - Add a `maxRetailersPerDay` soft limit (default 60, read from existing `working_days_config` if a column exists; otherwise a constant). Show a yellow warning badge on any cell over the limit. Hard rule stays: one beat per day.
-- Add inline help text above the grid: *"Each day holds one beat. Drag to swap, dropdown to replace."*
+### 4. No DB / no edge function changes
+All data already exists in `beat_plans`. Same write surface (`beat_plans` + `ai_autonomous_actions`). Auto-generate edge function still supports `forceRegenerate` (used by the immediate flow) and `previewOnly` (used by the preview flow) — no edit needed.
 
-### 4. Preview summary panel
-- Replace the small chip row with a full **summary card** above the calendar grid showing:
-  - Planning Period: `From → To (N days)`
-  - Assigned Beats: `X`
-  - Empty Days: `Y`
-  - Pre-scheduled (Locked): `Z`
-  - Estimated Retailers: `…`
-  - Estimated Value: `₹…`
-- Counts auto-update as user edits.
-
-### 5. Save confirmation toast + dialog
-- On successful save show a richer `Dialog` (not just toast) with:
-  - Header: *"Plan saved"*
-  - Body: *"Plan successfully created for `01-Jul-2026` to `14-Jul-2026`. `12` visits scheduled, `2` pre-scheduled days preserved."*
-  - Buttons: **View My Visits** (→ `/visits/retailers`) and **View Rationale** (→ `/auto-plan-rationale`).
-
-### 6. Existing-plan replacement warning (pre-save)
-- Before opening the preview page (or on first generate), call a lightweight count query:
-  ```ts
-  supabase.from('beat_plans')
-    .select('id, plan_date, beat_data', { count: 'exact', head: false })
-    .eq('user_id', userId)
-    .gte('plan_date', fromDate).lte('plan_date', toDate)
-  ```
-- Group results into `autoCount` (where `beat_data.auto_generated === true`) and `manualCount`.
-- Show a yellow **info banner** above the grid: *"Saving will replace `N` existing auto-generated plans in this range. `M` manual / pre-scheduled visits will not be affected."*
-- Repeat the same line inside the Save confirmation `AlertDialog` shown before the actual save call. Save proceeds only after the user confirms.
-
-### 7. Mobile usability — action menu fallback
-- On each day card, render a small **kebab button** (`MoreVertical` icon) that opens a `DropdownMenu` with:
-  - Move to… (sub-menu listing other days within the range; on selection, swap)
-  - Replace Beat… (opens the same beat picker)
-  - Remove Beat
-- Visible on all sizes (drag-and-drop stays on top). On `lg:` breakpoints we keep the existing inline dropdown + trash icon. On smaller screens the kebab becomes the primary control.
-- Drag-and-drop continues to work on desktop; mobile users get equivalent capability via the menu.
-
-### 8. Empty-day quick fill
-- Already partially in place. Polish: render a prominent dashed `+ Add Beat` button (full width of the card) instead of just a select. Click opens the beat picker via the same `DropdownMenu` from #7. Sets the day to that beat with empty retailers / 0 value (engine score not re-run on manual add — documented).
-
-### 9. "Draft Preview — Not Yet Saved" indicator
-- Sticky banner at top of the page (under the header) with amber background, icon, and text: *"Draft Preview — Not yet saved. Click Save Plan to apply."*
-- Visible whenever `hasPreview === true` and not currently saving.
-- Add a matching `Draft` watermark badge on each card to reinforce.
-
----
-
-## Files to change
-
-- `src/pages/AutoPlanPreview.tsx` — all 9 items above.
-- `src/App.tsx` — no change (route already wired).
-- No edge function changes needed; `save-beat-plan` already replaces auto-only rows in the range and preserves manual rows (verified against `beat_plans` data model).
-- No DB migration required.
+## Files touched
+- `src/pages/MyVisits.tsx` — restore immediate generation + spinner state + navigate to rationale
+- `src/pages/AutoPlanRationale.tsx` — add Tabs, Calendar view with 90-day history, change Edit Plans target
+- `src/pages/AutoPlanPreview.tsx` — accept optional `location.state` prefill
 
 ## Out of scope
-
-- Refactoring scoring algorithm or moving Sunday-off rule into `working_days_config`.
-- Syncing `daily_beat_plans` (coordinator workflow) with auto plans — separate workflow.
-- Persisting drafts server-side across sessions (still in-memory only).
+- Editing on the Calendar view itself (read-only visualisation; edits remain in the Preview page).
+- Changing the scoring algorithm or which fields are stored in `beat_data`.
