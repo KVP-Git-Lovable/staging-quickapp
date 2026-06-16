@@ -18431,6 +18431,47 @@ export type Database = {
         }
         Relationships: []
       }
+      uom_master: {
+        Row: {
+          category: string
+          category_id: string | null
+          code: string
+          created_at: string
+          id: string
+          is_base: boolean
+          is_system: boolean
+          name: string
+        }
+        Insert: {
+          category: string
+          category_id?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          is_base?: boolean
+          is_system?: boolean
+          name: string
+        }
+        Update: {
+          category?: string
+          category_id?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          is_base?: boolean
+          is_system?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uom_master_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "uom_category"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_approvals: {
         Row: {
           approval_level: number
