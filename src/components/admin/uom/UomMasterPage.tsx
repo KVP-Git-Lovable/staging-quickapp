@@ -750,9 +750,7 @@ export const UomMasterPageContent: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs text-muted-foreground flex-1">
-          All units across all categories. Each category has a primary (purchase) and a secondary
-          (sales) default that pre-fills product forms. Disabling a base unit only hides it from
-          new product forms — existing products are unaffected.
+          All units across all categories. Each category has a primary (purchase) and a secondary (sales) default that pre-fills product forms. All units including base units can be enabled or disabled — disabling a base unit hides it from new product forms and order entry, but existing products already using it are unaffected.
         </p>
         <Button variant="outline" size="sm" onClick={() => setShowCategoryManager(true)}>
           Manage categories
