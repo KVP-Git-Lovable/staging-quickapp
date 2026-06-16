@@ -82,9 +82,14 @@ serve(async (req) => {
       try {
         console.log(`👤 Generating plan for user: ${user.full_name} (${user.id})`);
         
-        // Get planning dates: remaining current week (from today) + entire next week
-        const planningDays = getPlanningDays();
+        // Get planning dates: explicit range if provided, otherwise default (rest of week + next week)
+        const planningDays = getPlanningDays(fromDate, toDate);
         console.log(`📅 Planning for ${planningDays.length} days:`, planningDays.map(d => d.date));
+
+        if (planningDays.length === 0) {
+          results.push({ userId: user.id, status: 'skipped', reason: 'No planning days in range' });
+          continue;
+        }
 
         // Fetch existing beat plans (pre-scheduled / recurring)
         const { data: existingPlans } = await supabaseClient
