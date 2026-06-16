@@ -160,6 +160,7 @@ import TeamTargets from "./pages/TeamTargets";
 import PerformanceDashboard from "./pages/PerformanceDashboard";
 import TargetAchievementAdvisor from "./pages/TargetAchievementAdvisor";
 import AutoPlanRationale from "./pages/AutoPlanRationale";
+import AutoPlanPreview from "./pages/AutoPlanPreview";
 import PendingPaymentsAll from "./pages/PendingPaymentsAll";
 import JointSalesAnalytics from "./pages/JointSalesAnalytics";
 import DistributorMaster from "./pages/DistributorMaster";
