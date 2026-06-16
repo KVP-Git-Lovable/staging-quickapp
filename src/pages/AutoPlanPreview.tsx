@@ -754,7 +754,183 @@ export default function AutoPlanPreview() {
               </CardContent>
             </Card>
           )}
+
+          {/* === Month Calendar (incl. past 90d history) === */}
+          {hasPreview && (() => {
+            const monthStart = startOfMonth(cursorMonth);
+            const monthEnd = endOfMonth(cursorMonth);
+            const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+            const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+            const monthDays = eachDayOfInterval({ start: gridStart, end: gridEnd });
+            const calMap = new Map<string, { beat_name: string; source: 'new' | 'locked' | 'history'; rationale?: string }>();
+            history.forEach(h => calMap.set(h.date, { beat_name: h.beat_name, source: 'history' }));
+            days.forEach(d => {
+              if (!d.beat_id) return;
+              calMap.set(d.date, {
+                beat_name: d.beat_name,
+                source: d.is_prescheduled ? 'locked' : 'new',
+                rationale: d.rationale,
+              });
+            });
+            const cellCls = {
+              new: 'bg-primary/10 text-primary border-primary/30',
+              locked: 'bg-amber-50 text-amber-700 border-amber-300',
+              history: 'bg-muted text-muted-foreground border-border',
+            } as const;
+            const srcLabel = { new: 'New auto-plan', locked: 'Pre-scheduled', history: 'Historical' } as const;
+            return (
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4" /> Calendar View
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => setCursorMonth(subMonths(cursorMonth, 1))}>
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <div className="text-sm font-medium w-32 text-center">{format(cursorMonth, 'MMMM yyyy')}</div>
+                      <Button variant="ghost" size="icon" onClick={() => setCursorMonth(addMonths(cursorMonth, 1))}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-primary/30 border border-primary/40" /> New plan</span>
+                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-amber-200 border border-amber-400" /> Pre-scheduled</span>
+                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-muted border border-border" /> Past 90 days</span>
+                  </div>
+                  <div className="grid grid-cols-7 gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
+                      <div key={d} className="text-center py-1">{d}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {monthDays.map(d => {
+                      const key = format(d, 'yyyy-MM-dd');
+                      const entry = calMap.get(key);
+                      const inMonth = isSameMonth(d, cursorMonth);
+                      const cell = (
+                        <div className={cn(
+                          'min-h-[64px] rounded-md border p-1 text-left transition-colors',
+                          !inMonth && 'opacity-40',
+                          entry ? cellCls[entry.source] : 'bg-background',
+                          entry && 'cursor-pointer hover:ring-1 hover:ring-primary/50',
+                          isToday(d) && 'ring-1 ring-primary',
+                        )}>
+                          <div className="text-[11px] font-medium">{format(d, 'd')}</div>
+                          {entry && (
+                            <div className="mt-0.5 text-[10px] leading-tight line-clamp-2 font-medium">{entry.beat_name}</div>
+                          )}
+                        </div>
+                      );
+                      if (!entry) return <div key={key}>{cell}</div>;
+                      return (
+                        <Popover key={key}>
+                          <PopoverTrigger asChild>{cell}</PopoverTrigger>
+                          <PopoverContent className="w-64 text-sm">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="font-semibold">{entry.beat_name}</div>
+                                <Badge variant="outline" className="text-[10px]">{srcLabel[entry.source]}</Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground">{format(parseISO(key), 'EEE, MMM d, yyyy')}</div>
+                              {entry.rationale && (
+                                <div className="text-xs bg-muted/50 rounded p-2 flex gap-1.5">
+                                  <Sparkles className="h-3 w-3 text-primary mt-0.5 shrink-0" />
+                                  <span>{entry.rationale}</span>
+                                </div>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* === Per-Beat Details / Rationale === */}
+          {hasPreview && days.some(d => d.beat_id) && (
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <div className="text-sm font-semibold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> Why these beats?
+                </div>
+                <div className="space-y-3">
+                  {days.filter(d => d.beat_id).map(plan => (
+                    <div
+                      key={plan.date}
+                      className={cn(
+                        'border-l-4 rounded-md bg-muted/30 p-3',
+                        plan.is_prescheduled ? 'border-l-amber-500' : 'border-l-primary',
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div>
+                          <div className="font-medium text-sm flex items-center gap-2">
+                            {plan.beat_name}
+                            {plan.is_prescheduled && (
+                              <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 text-[10px]">
+                                <Lock className="h-2.5 w-2.5 mr-1" /> Pre-scheduled
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {plan.day}, {format(parseISO(plan.date), 'MMM d')}
+                          </div>
+                        </div>
+                        {plan.estimated_value > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            <IndianRupee className="h-3 w-3 mr-0.5" />
+                            {Math.round(plan.estimated_value).toLocaleString('en-IN')}
+                          </Badge>
+                        )}
+                      </div>
+                      {plan.rationale && (
+                        <div className="text-xs text-muted-foreground mt-1 flex gap-1.5">
+                          <Sparkles className="h-3 w-3 text-primary mt-0.5 shrink-0" />
+                          <span>{plan.rationale}</span>
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground mt-2">
+                        <span className="flex items-center gap-1"><Users className="h-3 w-3" />{plan.retailers?.length || 0} retailers</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* === How Auto Plan Works === */}
+          {hasPreview && (
+            <Card>
+              <CardContent className="p-4 space-y-2 text-sm text-muted-foreground">
+                <div className="text-sm font-semibold text-foreground">How Auto Plan Works</div>
+                <div className="flex items-start gap-2">
+                  <Lock className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                  <p><strong>Pre-scheduled beats are preserved.</strong> Manually planned beats remain unchanged.</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <TrendingUp className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                  <p><strong>Priority-based selection.</strong> Beats are scored on pending collections, days since last visit, retailer potential, and order history.</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Clock className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                  <p><strong>Historical patterns.</strong> The AI learns from your past scheduling to recommend familiar day-beat combinations.</p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                  <p><strong>Coverage optimization.</strong> Each beat is assigned to only one day to maximize coverage across the week.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
+
 
         {/* Footer */}
         {hasPreview && (
