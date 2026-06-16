@@ -73,10 +73,15 @@ export default function CreateSubTab({ orderType, onPackingListCreated, distribu
           return;
         }
 
-        const { data: dists } = await supabase.from('distributors').select('id').limit(1);
-        if (dists && dists.length > 0) {
-          distId = dists[0].id;
-        }
+        // Resolve the parent distributor from the authenticated user's profile
+        const { data: profile } = await supabase
+          .from('distributor_users')
+          .select('distributor_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        distId = profile?.distributor_id ?? null;
       }
 
       setResolvedDistributorId(distId);
