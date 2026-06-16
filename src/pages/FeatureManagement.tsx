@@ -14,6 +14,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { InventoryValuationConfig } from '@/components/admin/InventoryValuationConfig';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ByCompanyTab } from '@/components/features/admin/ByCompanyTab';
+import { ByRoleTab } from '@/components/features/admin/ByRoleTab';
+import { ByUserTab } from '@/components/features/admin/ByUserTab';
 import { DependenciesTab } from '@/components/features/admin/DependenciesTab';
 import { AuditLogTab } from '@/components/features/admin/AuditLogTab';
 
@@ -148,6 +150,8 @@ const FeatureManagement = () => {
           <TabsList>
             <TabsTrigger value="global">Global Features</TabsTrigger>
             <TabsTrigger value="company">By Company</TabsTrigger>
+            <TabsTrigger value="role">By Role</TabsTrigger>
+            <TabsTrigger value="user">By User</TabsTrigger>
             <TabsTrigger value="deps">Dependencies</TabsTrigger>
             <TabsTrigger value="audit">Audit Log</TabsTrigger>
           </TabsList>
@@ -270,6 +274,8 @@ const FeatureManagement = () => {
           </TabsContent>
 
           <TabsContent value="company"><ByCompanyTab /></TabsContent>
+          <TabsContent value="role"><ByRoleTab /></TabsContent>
+          <TabsContent value="user"><ByUserTab /></TabsContent>
           <TabsContent value="deps"><DependenciesTab /></TabsContent>
           <TabsContent value="audit"><AuditLogTab /></TabsContent>
         </Tabs>
