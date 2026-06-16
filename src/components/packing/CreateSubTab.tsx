@@ -73,10 +73,15 @@ export default function CreateSubTab({ orderType, onPackingListCreated, distribu
           return;
         }
 
-        const { data: dists } = await supabase.from('distributors').select('id').limit(1);
-        if (dists && dists.length > 0) {
-          distId = dists[0].id;
-        }
+        // Resolve the parent distributor from the authenticated user's profile
+        const { data: profile } = await supabase
+          .from('distributor_users')
+          .select('distributor_id')
+          .eq('user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        distId = profile?.distributor_id ?? null;
       }
 
       setResolvedDistributorId(distId);
@@ -244,6 +249,8 @@ export default function CreateSubTab({ orderType, onPackingListCreated, distribu
       case 'confirmed': return <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs">Confirmed</Badge>;
       case 'submitted': return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-xs">Submitted</Badge>;
       case 'processing': return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-xs">Processing</Badge>;
+      case 'approved': return <Badge className="bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 text-xs">Approved</Badge>;
+      case 'allocated': return <Badge className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs">Orphaned – Will Re-allocate</Badge>;
       default: return <Badge variant="outline" className="text-xs">{status || 'Unknown'}</Badge>;
     }
   };

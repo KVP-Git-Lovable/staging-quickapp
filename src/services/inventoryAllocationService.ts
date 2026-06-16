@@ -91,11 +91,14 @@ export async function previewBatchAvailability(
   warehouseId?: string | null
 ): Promise<{ batches: Array<{ id: string; batch_no: string; expiry_date: string | null; available_qty: number; warehouse_id: string | null }>; total_available: number }> {
   try {
+    // Inventory is scoped by warehouse (the parent distributor's warehouse
+    // selected in the approval dialog). Do NOT filter by distributor_id here —
+    // the warehouse already pins the inventory to the correct parent context.
     let query = supabase
       .from('inventory_batches')
       .select('id, batch_no, expiry_date, quantity, reserved_qty, warehouse_id')
-      .eq('distributor_id', distributorId)
       .eq('product_id', productId)
+      .gt('quantity', 0)
       .or('expiry_date.is.null,expiry_date.gt.' + new Date().toISOString().split('T')[0])
       .order('expiry_date', { ascending: true, nullsFirst: false });
 
