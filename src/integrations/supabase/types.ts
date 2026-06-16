@@ -21449,13 +21449,11 @@ export type Database = {
         Returns: {
           blocked_by: string[]
           category: string
-          company_override: boolean
           description: string
           enabled: boolean
           feature_id: string
           feature_key: string
           feature_name: string
-          global_enabled: boolean
         }[]
       }
       get_employee_basic_info: {
@@ -21934,7 +21932,11 @@ export type Database = {
           p_enabled: boolean
           p_feature_key: string
         }
-        Returns: undefined
+        Returns: {
+          feature_id: string
+          message: string
+          success: boolean
+        }[]
       }
       share_retailer_access: {
         Args: {
