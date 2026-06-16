@@ -430,6 +430,54 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
             </div>
           </div>
 
+          {/* Bulk Apply Panel */}
+          <Collapsible open={bulkExpanded} onOpenChange={setBulkExpanded}>
+            <div className="border border-primary/30 bg-primary/5 rounded-lg overflow-hidden">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-start justify-between p-3 cursor-pointer hover:bg-primary/10">
+                  <div className="flex items-start gap-2">
+                    <Layers className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary">Bulk Apply to Products</h4>
+                      <p className="text-xs text-muted-foreground">Apply the details below to selected products or all products.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Selected: {selectedCount} product{selectedCount === 1 ? '' : 's'}</span>
+                    {bulkExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  </div>
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-3 pt-0 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Mfg Date</Label>
+                      <Input type="date" value={bulkMfg} onChange={(e) => setBulkMfg(e.target.value)} className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Expiry Date</Label>
+                      <Input type="date" value={bulkExpiry} onChange={(e) => setBulkExpiry(e.target.value)} className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Quantity</Label>
+                      <Input type="number" min={0} placeholder="e.g. 50" value={bulkQty} onChange={(e) => setBulkQty(e.target.value)} className="h-9 text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={clearBulk}>Clear</Button>
+                    <Button size="sm" onClick={() => applyBulk('selected')} disabled={selectedCount === 0}>
+                      Apply to Selected
+                    </Button>
+                    <Button size="sm" onClick={() => applyBulk('all')}>
+                      Apply to All Products
+                    </Button>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+
           {/* Product entries */}
           <div className="space-y-1 border rounded-lg overflow-hidden">
             {entries.map((entry) => {
