@@ -154,7 +154,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     } catch (error) {
       console.error('[TableOrderForm] Error loading initial rows:', error);
     }
-    return [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }];
+    return [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
   };
 
   const [orderRows, setOrderRows] = useState<OrderRow[]>(getInitialOrderRows);
@@ -401,7 +401,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     suppressedSchemesRef.current.clear();
 
     // Load rows for this retailer/visit
-    let rows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "KG", total: 0 }];
+    let rows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
     try {
       const savedData = localStorage.getItem(tableFormStorageKey);
       const parsedData = savedData ? JSON.parse(savedData) : null;
@@ -488,7 +488,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           product_id: itemId,
           variant_id: row.variant?.id,
           quantity: row.quantity,
-          rate: getPricePerUnit(row.product!, row.variant, row.unit),
+          rate: getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase),
           name: row.variant?.variant_name || row.product!.name
         };
       });
@@ -737,7 +737,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               productCode: option.sku,
               product: option.product,
               variant: option.variant,
-              unit: defaultUnit,
+              unit: '',
+              uomId: null,
+              uomCode: null,
+              conversionToBase: null,
+              priceBasisUomId: null,
+              priceBasisUomCode: null,
+              priceBasisConversionToBase: null,
               total: 0,
             };
           }
@@ -756,7 +762,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       productCode: "",
       quantity: 0,
       closingStock: 0,
-      unit: "KG",
+      unit: "",
       total: 0,
     };
     setOrderRows([...orderRows, newRow]);
