@@ -22,6 +22,10 @@ import {
   Plus,
   CheckCircle2,
   ArrowRightLeft,
+  ChevronLeft,
+  ChevronRight,
+  TrendingUp,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
