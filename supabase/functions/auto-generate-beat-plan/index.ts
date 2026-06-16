@@ -364,11 +364,31 @@ serve(async (req) => {
 // Get planning days: only FUTURE dates (exclude today/past)
 // - From tomorrow through this week's Saturday (Mon–Sat)
 // - Plus the following week Monday–Saturday
-function getPlanningDays(): { day: string; date: string }[] {
+function getPlanningDays(fromDate?: string, toDate?: string): { day: string; date: string }[] {
   const now = new Date();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-  // Start from tomorrow
+  // Explicit range mode (user-selected dates)
+  if (fromDate && toDate) {
+    const result: { day: string; date: string }[] = [];
+    const start = new Date(fromDate + 'T00:00:00');
+    const end = new Date(toDate + 'T00:00:00');
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return result;
+    const MAX_DAYS = 45;
+    let count = 0;
+    for (let d = new Date(start); d <= end && count < MAX_DAYS; d.setDate(d.getDate() + 1)) {
+      // Skip Sundays (off day) — mirror default behavior
+      if (d.getDay() === 0) continue;
+      result.push({
+        day: dayNames[d.getDay()],
+        date: d.toISOString().split('T')[0],
+      });
+      count++;
+    }
+    return result;
+  }
+
+  // Default: start from tomorrow
   const start = new Date(now);
   start.setDate(now.getDate() + 1);
 
