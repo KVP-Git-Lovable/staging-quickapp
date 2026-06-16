@@ -113,6 +113,7 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
         expanded: false,
         existingBatchCount: 0,
         entryUnit: getDefaultEntryUnit(p.unit || ''),
+        selected: false,
       }));
       setEntries(initial);
       loadExistingBatchCounts(initial, selectedWarehouseId);
