@@ -507,17 +507,14 @@ const UnitRow: React.FC<{
           </Badge>
         )}
       </div>
-      <div className="flex justify-center">
-        {row.is_base ? (
-          <Badge variant="outline" className="text-[10px] gap-1">
-            <Lock className="h-3 w-3" /> locked
-          </Badge>
-        ) : (
-          <Switch
-            checked={row.enabled}
-            disabled={isSaving}
-            onCheckedChange={(v) => onPersist(row, { enabled: v })}
-          />
+      <div className="flex flex-col items-center gap-1">
+        <Switch
+          checked={row.enabled}
+          disabled={isSaving}
+          onCheckedChange={(v) => onPersist(row, { enabled: v })}
+        />
+        {row.is_base && (
+          <span className="text-[9px] text-muted-foreground font-medium">base</span>
         )}
       </div>
       <div className="flex items-center justify-center gap-0.5">
@@ -753,9 +750,7 @@ export const UomMasterPageContent: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <p className="text-xs text-muted-foreground flex-1">
-          All units across all categories. Each category has a primary (purchase) and a secondary
-          (sales) default that pre-fills product forms. Disabling a base unit only hides it from
-          new product forms — existing products are unaffected.
+          All units across all categories. Each category has a primary (purchase) and a secondary (sales) default that pre-fills product forms. All units including base units can be enabled or disabled — disabling a base unit hides it from new product forms and order entry, but existing products already using it are unaffected.
         </p>
         <Button variant="outline" size="sm" onClick={() => setShowCategoryManager(true)}>
           Manage categories
