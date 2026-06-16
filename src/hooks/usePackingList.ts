@@ -466,7 +466,7 @@ export function usePackingList() {
           )
         `)
         .is('packing_list_id', null)
-        .in('status', ['confirmed', 'processing', 'submitted']);
+        .in('status', ['confirmed', 'processing', 'submitted', 'approved', 'allocated']);
 
       // Determine if this distributor is OEM-type (top of hierarchy)
       const { data: distributorRecord, error: distributorError } = await supabase
