@@ -14125,6 +14125,7 @@ export type Database = {
           barcode: string | null
           barcode_image_url: string | null
           base_unit: string | null
+          base_unit_category: string
           brand: string | null
           category_id: string | null
           closing_stock: number | null
@@ -14175,6 +14176,7 @@ export type Database = {
           barcode?: string | null
           barcode_image_url?: string | null
           base_unit?: string | null
+          base_unit_category?: string
           brand?: string | null
           category_id?: string | null
           closing_stock?: number | null
@@ -14225,6 +14227,7 @@ export type Database = {
           barcode?: string | null
           barcode_image_url?: string | null
           base_unit?: string | null
+          base_unit_category?: string
           brand?: string | null
           category_id?: string | null
           closing_stock?: number | null
