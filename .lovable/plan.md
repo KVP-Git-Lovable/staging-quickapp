@@ -1,81 +1,63 @@
+# UOM-Aware Quantity Reporting
+
+Backend is verified ready: all 4 RPCs exist (`get_sales_quantity_summary`, `get_sales_quantity_report`, `get_today_sales_summary`, `resolve_quantity_to_base`) and `order_items` has `product_id`, `uom_code`, `conversion_to_base`, `unit`. This plan wires the frontend to use them consistently.
+
 ## Goal
 
-1. Restore the **old one-click Auto Plan flow** on My Visits: clicking Auto Plan generates the plan immediately (no preview detour) and lands on the existing `AutoPlanRationale` page with all per-beat explanations, summary card, "How Auto Plan Works", and the original **Edit Plans / Start Visits** buttons.
-2. Make "Edit Plans" open the new `AutoPlanPreview` page (drag/drop editor) so the preview feature stays available without blocking the default flow.
-3. Add a **Calendar view** on the Rationale page that shows the new plan's days **and the past 90 days of `beat_plans` history**, so the user can see the recurring day-beat pattern at a glance.
+Stop the scattered `if (unit === 'grams') qty/1000` string-matching that silently mis-aggregates Volume (ML/L) and Piece products. Replace with one shared utility that trusts the per-line `conversion_to_base` snapshot, and add a true multi-unit report.
 
-Nothing from the new Preview page is removed; nothing in the Rationale page is removed.
+## Scope
 
-## Changes
+### 1. New shared utility — `src/lib/uomQuantity.ts`
+- `resolveToBase(qty, unitText, conversionSnap)` — snapshot-first, text fallback for legacy rows.
+- `formatBaseQty(baseQty, category, baseCode)` — returns `{ primary, secondary }` (e.g. `12,500 g` + `12.5 KG`).
+- `aggregateToBase(items[])` — sum helper.
 
-### 1. `src/pages/MyVisits.tsx` — restore immediate generation
-Replace the current `handleAutoGeneratePlan` (which only navigates to `/auto-plan-preview`) with the original immediate-generate version, then navigate to `/auto-plan-rationale` with the planResult so the rich page renders:
+### 2. Replace legacy conversion in existing files
+For each, (a) add `uom_code, conversion_to_base, product_id` to the `order_items` select, (b) swap manual gram-math for `resolveToBase`, (c) label the unit dynamically from `uom_code`.
 
-```ts
-const handleAutoGeneratePlan = async () => {
-  if (!user?.id) return;
-  setIsGeneratingPlan(true);
-  const t = toast.loading('Generating optimized plan…');
-  try {
-    const { data, error } = await supabase.functions.invoke('auto-generate-beat-plan', {
-      body: { userId: user.id, forceRegenerate: true },
-    });
-    if (error) throw error;
-    const result = data?.results?.[0];
-    toast.dismiss(t);
-    if (result?.status === 'success') {
-      toast.success(`Created ${result.plansCreated} beat plans`);
-      invalidateData?.();
-      navigate('/auto-plan-rationale', { state: { planResult: result } });
-    } else {
-      toast.error(result?.reason || 'Failed to generate plan');
-    }
-  } catch (e) {
-    toast.dismiss(t);
-    toast.error('Failed to generate plan');
-  } finally {
-    setIsGeneratingPlan(false);
-  }
-};
-```
+- `src/pages/TodaySummary.tsx` — remove `convertToKg`; show `"12,500 g · 12.5 KG"` style.
+- `src/components/analytics/RevenueBySKUSection.tsx` — both code paths (direct query + `get_product_revenue_performance` RPC); label column by category (KG / L / Pcs / raw).
+- `src/hooks/useTeamTargetProgress.ts` — both reducers (~L219, ~L267).
+- `src/hooks/useUserTargetProgress.ts` — extend select, swap reducer.
+- `src/components/ReportGenerator.tsx` — rename `orderPerKG → orderQty`, add `orderQtyUnit`, update column header + every caller (`SupervisorReport`, `ReportSummaryDialog`, `useReportVoiceChat`, `Analytics.tsx`).
 
-Add the missing `isGeneratingPlan` state if it's not already there (it was removed in the last edit). Restore the spinner on the Auto Plan button.
+### 3. Consistency cleanup (same legacy pattern, not in original list)
+These also use `=== 'grams'` matching and will disagree with the fixed screens otherwise:
+- `src/components/VanStockManagement.tsx`
+- `src/components/analytics/useBusinessMetrics.ts`
+- `src/components/operations/OperationsSummaryBoxes.tsx`
+- `src/pages/Analytics.tsx`
 
-### 2. `src/pages/AutoPlanRationale.tsx` — add Calendar view + wire Edit Plans
-- Wrap content in `Tabs` with two tabs: **Details** (existing summary + day cards + "How Auto Plan Works") and **Calendar**.
-- The Calendar tab renders a month grid (using existing `Calendar` shadcn component for the date math + a custom day renderer) covering: `min(planStart − 90d, planStart)` through `planEnd`. Two months by default with prev/next month navigation.
-- Each calendar day cell shows a colored dot/initials chip indicating its beat. Color legend:
-  - Blue = newly auto-planned in this run
-  - Amber = pre-scheduled (locked) in this run
-  - Gray = historical `beat_plans` row outside this run (past 90 days)
-- Click a day → small `Popover` with: beat name, date, source (New / Pre-scheduled / Historical), and (for new days) the same rationale text already shown in the Details tab.
-- Legend strip above the calendar.
+### 4. Card-level unit label (corrected CHANGE 10)
+`BusinessSummaryCard` and `PerformanceSnapshot` are dumb presentational components — they receive numbers as props. The actual fix lives **upstream** in whichever hook feeds them (typically `usePerformanceSummary` / `useBusinessMetrics`): compute the base qty with `resolveToBase`, derive a unit label (`KG` if all Weight, `L` if all Volume, else `Units`), and pass both `value` and `unitLabel` down. The card just renders what it's given.
 
-Data fetching on mount:
-```ts
-supabase.from('beat_plans')
-  .select('plan_date, beat_id, beat_name, beat_data')
-  .eq('user_id', userId)
-  .gte('plan_date', format(subDays(parseISO(planningPeriod.start), 90), 'yyyy-MM-dd'))
-  .lt('plan_date', planningPeriod.start);
-```
-Merge with `weeklyPlan` (current run) into a single `Map<date, entry>` for rendering. `userId` is taken from `planResult.userId` (already in the payload) — no hardcoding.
+### 5. New UOM Quantity Report
+- `src/components/reports/UomQuantityReport.tsx` — date filters, summary table from `get_sales_quantity_summary`, expandable row per product calling `get_sales_quantity_report` for full unit-by-unit breakdown, CSV export, category color badges (Weight=amber, Volume=blue, Quantity=green). *Note: the JSX in the original prompt was malformed; I'll reconstruct it cleanly using shadcn `Table`, `Badge`, `Button`, `Input`, `Card`.*
+- `src/pages/UomQuantityReportPage.tsx` — wraps it in `Layout` with `AdminPageHeader`.
+- Route in `src/App.tsx`: `/uom-quantity-report`.
+- Sidebar nav entry under Analytics/Reports with `Scale` icon (gated by the same can_read permission as other reports).
 
-- Change the "Edit Plans" button from `navigate('/beat-planning')` to `navigate('/auto-plan-preview')` so it opens the drag/drop editor with the same date range as the saved plan. Optionally pass `{ state: { fromDate, toDate } }` so the preview page can prefill — `AutoPlanPreview` would read this in its existing date pickers (small addition: read `location.state` in its `useEffect` to seed `fromDate`/`toDate`).
-- Keep "Start Visits" → `/visits/retailers` unchanged.
-- Keep the "How Auto Plan Works" card unchanged.
+## Multi-unit reporting answer
 
-### 3. `src/pages/AutoPlanPreview.tsx` — accept optional prefill
-Tiny addition: when `location.state?.fromDate` / `toDate` are present, seed the date pickers with them (one-time on mount). Default behavior unchanged.
+- **Per-product, all-units breakdown** → the new `/uom-quantity-report` page. Click any row to see how that SKU sold across every UOM it was ever invoiced in (CASE / BOX / KG / GRAM / PIECE…).
+- **Per-row category-aware display** → `RevenueBySKUSection` switches its quantity column label per row.
+- **What it deliberately does not do**: a global "show everything in KG" toggle. Summing weight + volume + pieces into one number is meaningless, so the report keeps them in separate columns instead.
 
-### 4. No DB / no edge function changes
-All data already exists in `beat_plans`. Same write surface (`beat_plans` + `ai_autonomous_actions`). Auto-generate edge function still supports `forceRegenerate` (used by the immediate flow) and `previewOnly` (used by the preview flow) — no edit needed.
+## Technical Details
 
-## Files touched
-- `src/pages/MyVisits.tsx` — restore immediate generation + spinner state + navigate to rationale
-- `src/pages/AutoPlanRationale.tsx` — add Tabs, Calendar view with 90-day history, change Edit Plans target
-- `src/pages/AutoPlanPreview.tsx` — accept optional `location.state` prefill
+**Conversion contract** — `order_items.conversion_to_base` is the authoritative per-line factor (snapshotted at order time by the UOM engine). `resolveToBase` uses it first; only legacy rows missing the snapshot fall through to text rules (gram=1, kg=1000, ml=1, l=1000, default=1).
 
-## Out of scope
-- Editing on the Calendar view itself (read-only visualisation; edits remain in the Preview page).
-- Changing the scoring algorithm or which fields are stored in `beat_data`.
+**Type safety** — `ReportGenerator` rename is a breaking interface change; every consumer must be updated in the same commit or TS build fails.
+
+**RPC calls** — Use `(supabase as any).rpc(...)` until `types.ts` regenerates (it auto-syncs from Supabase API).
+
+**Out of scope** — Mobile rep app surfaces (`MyVisits`, `OrderItemsExpanded`, distributor portal inventory/packing) keep their existing free-text display per the comment in `src/utils/unitDisplayUtils.ts`. Can be migrated in a follow-up.
+
+## Acceptance
+
+1. TodaySummary, Analytics SKU section, target progress hooks, and business cards all show the same total for the same date range.
+2. A Volume product (ML/L) no longer aggregates as if it were pieces.
+3. `/uom-quantity-report` loads, lists products, expands to per-UOM rows, exports CSV.
+4. `ReportGenerator` column reads "Qty Sold" with per-row unit (e.g. `500 g`, `12.5 KG`, `10 Pcs`).
+5. No TS errors after the `orderPerKG → orderQty` rename.

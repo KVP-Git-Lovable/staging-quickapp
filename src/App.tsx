@@ -60,6 +60,7 @@ import MassBeatTransfer from "./pages/MassBeatTransfer";
 import { AddRetailer } from "./pages/AddRetailer";
 import Attendance from "./pages/Attendance";
 import { TodaySummary } from "./pages/TodaySummary";
+import UomQuantityReportPage from "./pages/UomQuantityReportPage";
 import { BeatPlanningFeature } from "./pages/features/BeatPlanningFeature";
 import { RetailerManagementFeature } from "./pages/features/RetailerManagementFeature";
 import { VisitSchedulingFeature } from "./pages/features/VisitSchedulingFeature";
@@ -429,6 +430,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/my-beats" element={<ProtectedRoute><MyBeats /></ProtectedRoute>} />
         <Route path="/beats/transfer" element={<ProtectedRoute><MassBeatTransfer /></ProtectedRoute>} />
         <Route path="/today-summary" element={<ProtectedRoute><TodaySummary /></ProtectedRoute>} />
+        <Route path="/uom-quantity-report" element={<ProtectedRoute><UomQuantityReportPage /></ProtectedRoute>} />
         <Route path="/add-retailer" element={<ProtectedRoute><AddRetailer /></ProtectedRoute>} />
         <Route path="/attendance" element={<ProtectedRoute><Attendance /></ProtectedRoute>} />
         <Route path="/team-approvals" element={<ProtectedRoute><TeamApprovals /></ProtectedRoute>} />
