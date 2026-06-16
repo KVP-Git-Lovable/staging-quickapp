@@ -206,6 +206,26 @@ export default function AutoPlanPreview() {
     setExistingManualCount(manual);
   }, [user?.id, fromDate, toDate]);
 
+  // Load past 90 days of beat_plans for the merged calendar view (context only)
+  useEffect(() => {
+    if (!user?.id || !hasPreview) return;
+    (async () => {
+      const from = format(subDays(fromDate, 90), 'yyyy-MM-dd');
+      const to = format(addDays(fromDate, -1), 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('beat_plans')
+        .select('plan_date, beat_name')
+        .eq('user_id', user.id)
+        .gte('plan_date', from)
+        .lte('plan_date', to)
+        .order('plan_date', { ascending: true });
+      if (error) return;
+      setHistory((data || []).map((r: any) => ({ date: r.plan_date, beat_name: r.beat_name || 'Beat' })));
+      setCursorMonth(fromDate);
+    })();
+  }, [user?.id, hasPreview, fromDate]);
+
+
   // ---------------------------------------------------------------------------
   // Generate / Regenerate preview
   // ---------------------------------------------------------------------------
