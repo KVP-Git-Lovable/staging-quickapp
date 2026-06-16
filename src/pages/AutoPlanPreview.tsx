@@ -1,7 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format, addDays, parseISO, differenceInCalendarDays, startOfWeek, isSameDay } from 'date-fns';
-import { ArrowLeft, CalendarIcon, Sparkles, Lock, Trash2, RefreshCw, Save, X, MapPin, Users, IndianRupee } from 'lucide-react';
+import { format, addDays, parseISO, differenceInCalendarDays, startOfWeek } from 'date-fns';
+import {
+  ArrowLeft,
+  CalendarIcon,
+  Sparkles,
+  Lock,
+  Trash2,
+  RefreshCw,
+  Save,
+  X,
+  MapPin,
+  Users,
+  IndianRupee,
+  AlertTriangle,
+  MoreVertical,
+  Plus,
+  CheckCircle2,
+  ArrowRightLeft,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Layout } from '@/components/Layout';
@@ -11,6 +28,35 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +83,8 @@ interface BeatOption {
 }
 
 const MAX_RANGE_DAYS = 31;
+const MAX_RETAILERS_PER_DAY = 60;
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export default function AutoPlanPreview() {
   const navigate = useNavigate();
@@ -46,7 +94,7 @@ export default function AutoPlanPreview() {
   const today = useMemo(() => new Date(), []);
   const defaultTo = useMemo(() => {
     const monday = startOfWeek(today, { weekStartsOn: 1 });
-    return addDays(monday, 13); // end of next week
+    return addDays(monday, 13);
   }, [today]);
 
   const [fromDate, setFromDate] = useState<Date>(today);
@@ -56,8 +104,21 @@ export default function AutoPlanPreview() {
   const [days, setDays] = useState<DayPlan[]>([]);
   const [hasPreview, setHasPreview] = useState(false);
   const [beats, setBeats] = useState<BeatOption[]>([]);
+  const [isDirty, setIsDirty] = useState(false);
 
-  // Load user beats for the Replace/Add dropdown
+  // Existing-plan replacement counts (refreshed on every generate)
+  const [existingAutoCount, setExistingAutoCount] = useState(0);
+  const [existingManualCount, setExistingManualCount] = useState(0);
+
+  // Confirmation dialogs
+  const [confirmRegen, setConfirmRegen] = useState(false);
+  const [confirmSave, setConfirmSave] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState<null | (() => void)>(null);
+  const [saveSuccess, setSaveSuccess] = useState<{ created: number; from: string; to: string } | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Load user beats for Replace/Add
+  // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
@@ -71,7 +132,58 @@ export default function AutoPlanPreview() {
     })();
   }, [user?.id]);
 
-  const handleGenerate = async () => {
+  // ---------------------------------------------------------------------------
+  // (1) Unsaved-changes warning — beforeunload
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  // Guarded internal navigation
+  const safeNavigate = useCallback(
+    (fn: () => void) => {
+      if (isDirty) {
+        setConfirmLeave(() => fn);
+      } else {
+        fn();
+      }
+    },
+    [isDirty],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Count existing beat_plans rows in the chosen range (Rec #6)
+  // ---------------------------------------------------------------------------
+  const refreshExistingCounts = useCallback(async () => {
+    if (!user?.id) return;
+    const { data, error } = await supabase
+      .from('beat_plans')
+      .select('id, beat_data')
+      .eq('user_id', user.id)
+      .gte('plan_date', format(fromDate, 'yyyy-MM-dd'))
+      .lte('plan_date', format(toDate, 'yyyy-MM-dd'));
+    if (error) return;
+    let auto = 0;
+    let manual = 0;
+    (data || []).forEach((row: any) => {
+      const isAuto = row?.beat_data && (row.beat_data as any).auto_generated === true;
+      if (isAuto) auto++;
+      else manual++;
+    });
+    setExistingAutoCount(auto);
+    setExistingManualCount(manual);
+  }, [user?.id, fromDate, toDate]);
+
+  // ---------------------------------------------------------------------------
+  // Generate / Regenerate preview
+  // ---------------------------------------------------------------------------
+  const runGenerate = async () => {
     if (!user?.id) return;
     const span = differenceInCalendarDays(toDate, fromDate);
     if (span < 0) {
@@ -84,6 +196,7 @@ export default function AutoPlanPreview() {
     }
     setGenerating(true);
     try {
+      await refreshExistingCounts();
       const { data, error } = await supabase.functions.invoke('auto-generate-beat-plan', {
         body: {
           userId: user.id,
@@ -107,6 +220,7 @@ export default function AutoPlanPreview() {
         }));
         setDays(plan);
         setHasPreview(true);
+        setIsDirty(false);
         toast.success(`Preview ready: ${plan.length} days`);
       } else {
         toast.error(result?.reason || 'Could not generate preview');
@@ -119,7 +233,18 @@ export default function AutoPlanPreview() {
     }
   };
 
-  const handleSave = async () => {
+  const handleGenerateClick = () => {
+    if (hasPreview && isDirty) {
+      setConfirmRegen(true);
+    } else {
+      runGenerate();
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // Save plan (with confirm dialog)
+  // ---------------------------------------------------------------------------
+  const runSave = async () => {
     if (!user?.id || days.length === 0) return;
     setSaving(true);
     try {
@@ -135,8 +260,12 @@ export default function AutoPlanPreview() {
       if (error) throw error;
       const result = data?.results?.[0];
       if (result?.status === 'success') {
-        toast.success(`Saved ${result.plansCreated} beat plans`);
-        navigate('/auto-plan-rationale', { state: { planResult: result } });
+        setIsDirty(false);
+        setSaveSuccess({
+          created: result.plansCreated || payload.length,
+          from: format(fromDate, 'dd-MMM-yyyy'),
+          to: format(toDate, 'dd-MMM-yyyy'),
+        });
       } else {
         toast.error('Failed to save plan');
       }
@@ -148,27 +277,30 @@ export default function AutoPlanPreview() {
     }
   };
 
+  // ---------------------------------------------------------------------------
   // Drag and drop between days
+  // ---------------------------------------------------------------------------
   const onDragStart = (e: React.DragEvent, date: string) => {
     e.dataTransfer.setData('text/plain', date);
     e.dataTransfer.effectAllowed = 'move';
   };
-
   const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
-
   const onDrop = (e: React.DragEvent, targetDate: string) => {
     e.preventDefault();
     const sourceDate = e.dataTransfer.getData('text/plain');
     if (!sourceDate || sourceDate === targetDate) return;
+    swapDays(sourceDate, targetDate);
+  };
+
+  const swapDays = (sourceDate: string, targetDate: string) => {
     setDays((prev) => {
       const src = prev.find((d) => d.date === sourceDate);
       const tgt = prev.find((d) => d.date === targetDate);
       if (!src || src.is_prescheduled || tgt?.is_prescheduled) return prev;
-      // Build a swap/move map
-      return prev.map((d) => {
+      const next = prev.map((d) => {
         if (d.date === sourceDate) {
           return tgt
             ? { ...d, beat_id: tgt.beat_id, beat_name: tgt.beat_name, retailers: tgt.retailers, estimated_value: tgt.estimated_value, rationale: tgt.rationale }
@@ -179,7 +311,23 @@ export default function AutoPlanPreview() {
         }
         return d;
       });
+      // If target date didn't exist as a row yet, inject
+      if (!tgt && src) {
+        const parsed = parseISO(targetDate);
+        next.push({
+          date: targetDate,
+          day: DAY_NAMES[parsed.getDay()],
+          beat_id: src.beat_id,
+          beat_name: src.beat_name,
+          retailers: src.retailers,
+          estimated_value: src.estimated_value,
+          rationale: src.rationale,
+          is_prescheduled: false,
+        });
+      }
+      return [...next].sort((a, b) => a.date.localeCompare(b.date));
     });
+    setIsDirty(true);
   };
 
   const removeBeat = (date: string) => {
@@ -187,9 +335,10 @@ export default function AutoPlanPreview() {
       prev.map((d) =>
         d.date === date && !d.is_prescheduled
           ? { ...d, beat_id: '', beat_name: '', retailers: [], estimated_value: 0, rationale: '' }
-          : d
-      )
+          : d,
+      ),
     );
+    setIsDirty(true);
   };
 
   const replaceBeat = (date: string, newBeatId: string) => {
@@ -199,20 +348,19 @@ export default function AutoPlanPreview() {
       const exists = prev.find((d) => d.date === date);
       if (exists) {
         if (exists.is_prescheduled) return prev;
+        // ALWAYS overwrite — never stack (Rec #3)
         return prev.map((d) =>
           d.date === date
             ? { ...d, beat_id: beat.id, beat_name: beat.beat_name, retailers: [], estimated_value: 0, rationale: 'Manually selected' }
-            : d
+            : d,
         );
       }
-      // Add new day entry (user added beat on an empty day)
       const parsed = parseISO(date);
-      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       return [
         ...prev,
         {
           date,
-          day: dayNames[parsed.getDay()],
+          day: DAY_NAMES[parsed.getDay()],
           beat_id: beat.id,
           beat_name: beat.beat_name,
           retailers: [],
@@ -222,16 +370,17 @@ export default function AutoPlanPreview() {
         },
       ].sort((a, b) => a.date.localeCompare(b.date));
     });
+    setIsDirty(true);
   };
 
-  // Build full date grid (every day in range, even if no plan for that date)
+  // ---------------------------------------------------------------------------
+  // Derived
+  // ---------------------------------------------------------------------------
   const dateGrid = useMemo(() => {
     const grid: string[] = [];
     const span = differenceInCalendarDays(toDate, fromDate);
     if (span < 0) return grid;
-    for (let i = 0; i <= span; i++) {
-      grid.push(format(addDays(fromDate, i), 'yyyy-MM-dd'));
-    }
+    for (let i = 0; i <= span; i++) grid.push(format(addDays(fromDate, i), 'yyyy-MM-dd'));
     return grid;
   }, [fromDate, toDate]);
 
@@ -241,18 +390,31 @@ export default function AutoPlanPreview() {
     return m;
   }, [days]);
 
+  const totalDays = dateGrid.length;
   const totalBeats = days.filter((d) => d.beat_id).length;
+  const lockedCount = days.filter((d) => d.is_prescheduled).length;
+  const emptyDays = dateGrid.filter((d) => !dayByDate[d]?.beat_id).length;
   const totalRetailers = days.reduce((acc, d) => acc + (d.retailers?.length || 0), 0);
   const totalValue = days.reduce((acc, d) => acc + (d.estimated_value || 0), 0);
 
+  // Movable target dates for the "Move to" menu (excludes self + locked)
+  const movableDates = useCallback(
+    (selfDate: string) =>
+      dateGrid.filter((d) => d !== selfDate && !dayByDate[d]?.is_prescheduled),
+    [dateGrid, dayByDate],
+  );
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <Layout>
-      <div className="min-h-screen bg-background pb-24">
+      <div className="min-h-screen bg-background pb-28">
         {/* Header */}
         <div className="bg-card border-b sticky top-0 z-10">
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <Button variant="ghost" size="icon" onClick={() => safeNavigate(() => navigate(-1))}>
                 <ArrowLeft className="h-5 w-5" />
               </Button>
               <div>
@@ -264,10 +426,27 @@ export default function AutoPlanPreview() {
               </div>
             </div>
           </div>
+
+          {/* (9) Draft banner */}
+          {hasPreview && (
+            <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 border-t border-amber-200/60 dark:border-amber-800/50 px-4 py-2 text-amber-800 dark:text-amber-200 text-sm">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span className="font-medium">Draft Preview — Not yet saved.</span>
+              <span className="text-amber-700/80 dark:text-amber-300/80 hidden sm:inline">
+                Click <strong>Save Plan</strong> to apply.
+              </span>
+              {isDirty && (
+                <Badge variant="outline" className="ml-auto border-amber-500/60 text-amber-800 dark:text-amber-200">
+                  Unsaved changes
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Date range controls */}
+        {/* Body */}
         <div className="p-4 space-y-4">
+          {/* Date range controls */}
           <Card>
             <CardContent className="p-4 flex flex-wrap items-end gap-3">
               <div className="flex flex-col gap-1">
@@ -310,26 +489,47 @@ export default function AutoPlanPreview() {
                   </PopoverContent>
                 </Popover>
               </div>
-              <Button onClick={handleGenerate} disabled={generating} className="gap-2">
+              <Button onClick={handleGenerateClick} disabled={generating} className="gap-2">
                 <RefreshCw className={cn('h-4 w-4', generating && 'animate-spin')} />
                 {generating ? 'Generating…' : hasPreview ? 'Regenerate Preview' : 'Generate Preview'}
               </Button>
             </CardContent>
           </Card>
 
-          {/* Summary chips */}
+          {/* (6) Replacement warning */}
+          {hasPreview && existingAutoCount + existingManualCount > 0 && (
+            <Card className="border-amber-300/60 bg-amber-50/60 dark:bg-amber-950/30">
+              <CardContent className="p-3 flex items-start gap-2 text-sm text-amber-900 dark:text-amber-100">
+                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                <div>
+                  Saving will replace <strong>{existingAutoCount}</strong> existing auto-generated
+                  {existingAutoCount === 1 ? ' plan' : ' plans'} in this date range.{' '}
+                  <strong>{existingManualCount}</strong> manual / pre-scheduled
+                  {existingManualCount === 1 ? ' visit' : ' visits'} will not be affected.
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* (4) Summary panel */}
           {hasPreview && (
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="gap-1">
-                <CalendarIcon className="h-3 w-3" /> {totalBeats} days planned
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <Users className="h-3 w-3" /> {totalRetailers} retailers
-              </Badge>
-              <Badge variant="secondary" className="gap-1">
-                <IndianRupee className="h-3 w-3" /> ₹{totalValue.toLocaleString('en-IN')} est.
-              </Badge>
-            </div>
+            <Card>
+              <CardContent className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <Stat label="Planning Period" value={`${totalDays} day${totalDays === 1 ? '' : 's'}`} hint={`${format(fromDate, 'dd MMM')} → ${format(toDate, 'dd MMM')}`} />
+                <Stat label="Assigned Beats" value={String(totalBeats)} />
+                <Stat label="Empty Days" value={String(emptyDays)} />
+                <Stat label="Pre-scheduled" value={String(lockedCount)} />
+                <Stat label="Est. Retailers" value={totalRetailers.toLocaleString('en-IN')} />
+                <Stat label="Est. Value" value={`₹${totalValue.toLocaleString('en-IN')}`} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* (3) Helper text */}
+          {hasPreview && (
+            <p className="text-xs text-muted-foreground">
+              Each day holds one beat. Drag to swap, use the menu to replace, move, or remove.
+            </p>
           )}
 
           {/* Calendar grid */}
@@ -340,6 +540,7 @@ export default function AutoPlanPreview() {
                 const parsed = parseISO(date);
                 const isLocked = plan?.is_prescheduled;
                 const hasBeat = !!plan?.beat_id;
+                const overCap = (plan?.retailers?.length || 0) > MAX_RETAILERS_PER_DAY;
                 return (
                   <Card
                     key={date}
@@ -351,7 +552,7 @@ export default function AutoPlanPreview() {
                       'transition-all',
                       hasBeat && !isLocked && 'cursor-move hover:shadow-md',
                       isLocked && 'border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/20',
-                      !hasBeat && 'border-dashed bg-muted/30'
+                      !hasBeat && 'border-dashed bg-muted/30',
                     )}
                   >
                     <CardContent className="p-3 space-y-2">
@@ -360,11 +561,62 @@ export default function AutoPlanPreview() {
                           <div className="text-xs text-muted-foreground">{format(parsed, 'EEE')}</div>
                           <div className="text-sm font-semibold">{format(parsed, 'dd MMM')}</div>
                         </div>
-                        {isLocked && (
-                          <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-700 dark:text-amber-300">
-                            <Lock className="h-3 w-3" /> Locked
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {isLocked ? (
+                            <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-700 dark:text-amber-300">
+                              <Lock className="h-3 w-3" /> Locked
+                            </Badge>
+                          ) : hasBeat ? (
+                            <>
+                              <Badge variant="outline" className="text-[10px] uppercase tracking-wide border-amber-500/40 text-amber-700 dark:text-amber-300">
+                                Draft
+                              </Badge>
+                              {/* (7) Mobile-friendly action menu */}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Day actions">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56 bg-popover">
+                                  <DropdownMenuLabel>Day actions</DropdownMenuLabel>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                      <ArrowRightLeft className="h-4 w-4 mr-2" /> Move to…
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent className="max-h-72 overflow-y-auto bg-popover">
+                                      {movableDates(date).map((d) => (
+                                        <DropdownMenuItem key={d} onClick={() => swapDays(date, d)}>
+                                          {format(parseISO(d), 'EEE, dd MMM')}
+                                        </DropdownMenuItem>
+                                      ))}
+                                    </DropdownMenuSubContent>
+                                  </DropdownMenuSub>
+                                  <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                      <MapPin className="h-4 w-4 mr-2" /> Replace beat…
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent className="max-h-72 overflow-y-auto bg-popover">
+                                      {beats.map((b) => (
+                                        <DropdownMenuItem key={b.id} onClick={() => replaceBeat(date, b.id)}>
+                                          {b.beat_name}
+                                        </DropdownMenuItem>
+                                      ))}
+                                    </DropdownMenuSubContent>
+                                  </DropdownMenuSub>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => removeBeat(date)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" /> Remove beat
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          ) : null}
+                        </div>
                       </div>
 
                       {hasBeat ? (
@@ -384,9 +636,16 @@ export default function AutoPlanPreview() {
                                 {(plan.estimated_value || 0).toLocaleString('en-IN')}
                               </span>
                             </div>
+                            {overCap && (
+                              <div className="flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300">
+                                <AlertTriangle className="h-3 w-3" />
+                                Over {MAX_RETAILERS_PER_DAY} retailer cap
+                              </div>
+                            )}
                           </div>
+
                           {!isLocked && (
-                            <div className="flex items-center gap-2 pt-1">
+                            <div className="hidden lg:flex items-center gap-2 pt-1">
                               <Select onValueChange={(v) => replaceBeat(date, v)}>
                                 <SelectTrigger className="h-7 text-xs flex-1">
                                   <SelectValue placeholder="Replace…" />
@@ -412,21 +671,26 @@ export default function AutoPlanPreview() {
                           )}
                         </>
                       ) : (
-                        <div className="space-y-2">
-                          <div className="text-xs text-muted-foreground italic">No beat scheduled</div>
-                          <Select onValueChange={(v) => replaceBeat(date, v)}>
-                            <SelectTrigger className="h-7 text-xs">
-                              <SelectValue placeholder="Add beat…" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {beats.map((b) => (
-                                <SelectItem key={b.id} value={b.id} className="text-xs">
-                                  {b.beat_name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        // (8) Empty-day quick fill
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full h-16 border-dashed border-2 text-muted-foreground hover:text-foreground hover:border-primary/50 gap-2"
+                            >
+                              <Plus className="h-4 w-4" /> Add Beat
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto bg-popover">
+                            <DropdownMenuLabel>Select a beat</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            {beats.map((b) => (
+                              <DropdownMenuItem key={b.id} onClick={() => replaceBeat(date, b.id)}>
+                                {b.beat_name}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </CardContent>
                   </Card>
@@ -449,15 +713,133 @@ export default function AutoPlanPreview() {
         {/* Footer */}
         {hasPreview && (
           <div className="fixed bottom-0 left-0 right-0 border-t bg-card p-3 flex items-center justify-end gap-2 z-20">
-            <Button variant="outline" onClick={() => navigate(-1)} className="gap-2">
+            <Button variant="outline" onClick={() => safeNavigate(() => navigate(-1))} className="gap-2">
               <X className="h-4 w-4" /> Discard
             </Button>
-            <Button onClick={handleSave} disabled={saving || totalBeats === 0} className="gap-2">
+            <Button
+              onClick={() => setConfirmSave(true)}
+              disabled={saving || totalBeats === 0}
+              className="gap-2"
+            >
               <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save Plan'}
             </Button>
           </div>
         )}
       </div>
+
+      {/* (2) Regenerate confirmation */}
+      <AlertDialog open={confirmRegen} onOpenChange={setConfirmRegen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard manual changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will discard your manual edits and generate a fresh draft for the selected date range.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep my changes</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmRegen(false); runGenerate(); }}>
+              Discard & Regenerate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* (6) Pre-save confirmation */}
+      <AlertDialog open={confirmSave} onOpenChange={setConfirmSave}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save this plan?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>
+                  This will save <strong>{totalBeats}</strong> beat{totalBeats === 1 ? '' : 's'} between{' '}
+                  <strong>{format(fromDate, 'dd-MMM-yyyy')}</strong> and{' '}
+                  <strong>{format(toDate, 'dd-MMM-yyyy')}</strong>.
+                </p>
+                {existingAutoCount > 0 && (
+                  <p>
+                    It will replace <strong>{existingAutoCount}</strong> existing auto-generated
+                    {existingAutoCount === 1 ? ' plan' : ' plans'} in this range.
+                  </p>
+                )}
+                {existingManualCount > 0 && (
+                  <p>
+                    <strong>{existingManualCount}</strong> manual / pre-scheduled
+                    {existingManualCount === 1 ? ' visit' : ' visits'} will not be affected.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setConfirmSave(false); runSave(); }}>
+              Save Plan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* (1) Leave-page confirmation */}
+      <AlertDialog open={!!confirmLeave} onOpenChange={(o) => { if (!o) setConfirmLeave(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to leave this page? Your edits to the draft preview will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Stay on page</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const fn = confirmLeave;
+                setConfirmLeave(null);
+                setIsDirty(false);
+                if (fn) setTimeout(fn, 0);
+              }}
+            >
+              Leave anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* (5) Save success dialog */}
+      <Dialog open={!!saveSuccess} onOpenChange={(o) => { if (!o) setSaveSuccess(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" /> Plan saved
+            </DialogTitle>
+            <DialogDescription>
+              Plan successfully created for <strong>{saveSuccess?.from}</strong> to{' '}
+              <strong>{saveSuccess?.to}</strong>.<br />
+              <strong>{saveSuccess?.created}</strong> visit{saveSuccess?.created === 1 ? '' : 's'} scheduled.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setSaveSuccess(null); navigate('/visits/retailers'); }}>
+              View My Visits
+            </Button>
+            <Button onClick={() => { const s = saveSuccess; setSaveSuccess(null); navigate('/auto-plan-rationale', { state: { planResult: { plansCreated: s?.created } } }); }}>
+              View Rationale
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
+  );
+}
+
+// -----------------------------------------------------------------------------
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="flex flex-col">
+      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-base font-semibold leading-tight">{value}</span>
+      {hint && <span className="text-[11px] text-muted-foreground mt-0.5">{hint}</span>}
+    </div>
   );
 }
