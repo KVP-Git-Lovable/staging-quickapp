@@ -58,9 +58,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { userId, forceRegenerate } = await req.json().catch(() => ({}));
-    
-    console.log('🗓️ Starting auto-generate-beat-plan', { userId, forceRegenerate });
+    const { userId, forceRegenerate, previewOnly, fromDate, toDate } = await req.json().catch(() => ({}));
+
+    console.log('🗓️ Starting auto-generate-beat-plan', { userId, forceRegenerate, previewOnly, fromDate, toDate });
 
     // Get users (specific user if provided)
     let usersQuery = supabaseClient
