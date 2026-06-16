@@ -6964,6 +6964,8 @@ export type Database = {
           id: string
           new_value: boolean
           old_value: boolean
+          scope_id: string | null
+          scope_type: string | null
         }
         Insert: {
           action?: string | null
@@ -6974,6 +6976,8 @@ export type Database = {
           id?: string
           new_value: boolean
           old_value: boolean
+          scope_id?: string | null
+          scope_type?: string | null
         }
         Update: {
           action?: string | null
@@ -6984,6 +6988,8 @@ export type Database = {
           id?: string
           new_value?: boolean
           old_value?: boolean
+          scope_id?: string | null
+          scope_type?: string | null
         }
         Relationships: [
           {
@@ -16878,6 +16884,51 @@ export type Database = {
         }
         Relationships: []
       }
+      role_feature_config: {
+        Row: {
+          created_at: string
+          feature_id: string
+          id: string
+          is_enabled: boolean | null
+          role_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          feature_id: string
+          id?: string
+          is_enabled?: boolean | null
+          role_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          feature_id?: string
+          id?: string
+          is_enabled?: boolean | null
+          role_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_feature_config_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_feature_config_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "security_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_targets: {
         Row: {
           created_at: string | null
@@ -19207,6 +19258,44 @@ export type Database = {
         }
         Relationships: []
       }
+      user_feature_config: {
+        Row: {
+          created_at: string
+          feature_id: string
+          id: string
+          is_enabled: boolean | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature_id: string
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feature_id?: string
+          id?: string
+          is_enabled?: boolean | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feature_config_feature_id_fkey"
+            columns: ["feature_id"]
+            isOneToOne: false
+            referencedRelation: "feature_flags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_invitations: {
         Row: {
           completed_at: string | null
@@ -21445,15 +21534,20 @@ export type Database = {
       }
       get_distributor_id_for_auth_user: { Args: never; Returns: string }
       get_effective_features: {
-        Args: { p_company_id: string }
+        Args: { p_company_id: string; p_user_id?: string }
         Returns: {
           blocked_by: string[]
           category: string
+          company_override: boolean
           description: string
           enabled: boolean
           feature_id: string
           feature_key: string
           feature_name: string
+          global_enabled: boolean
+          role_override: boolean
+          source: string
+          user_override: boolean
         }[]
       }
       get_employee_basic_info: {
@@ -21937,6 +22031,14 @@ export type Database = {
           message: string
           success: boolean
         }[]
+      }
+      set_role_feature: {
+        Args: { p_enabled: boolean; p_feature_key: string; p_role_id: string }
+        Returns: undefined
+      }
+      set_user_feature: {
+        Args: { p_enabled: boolean; p_feature_key: string; p_user_id: string }
+        Returns: undefined
       }
       share_retailer_access: {
         Args: {
