@@ -608,6 +608,26 @@ export function usePackingList() {
   ) => {
     setLoading(true);
     try {
+      // Guard: release stale reservations for orphaned allocated orders
+      // (status='allocated' but packing_list_id IS NULL — left over from a
+      // failed/cancelled previous allocation). Reset them to 'submitted' so the
+      // atomic RPC can cleanly re-allocate them.
+      if (orderType === 'primary' && orderIds.length > 0) {
+        const { data: orphanedOrders } = await supabase
+          .from('primary_orders')
+          .select('id')
+          .in('id', orderIds)
+          .eq('status', 'allocated')
+          .is('packing_list_id', null);
+
+        if (orphanedOrders && orphanedOrders.length > 0) {
+          await supabase
+            .from('primary_orders')
+            .update({ status: 'submitted' })
+            .in('id', orphanedOrders.map((o: any) => o.id));
+        }
+      }
+
       const hasApproval = approvedItems && Object.keys(approvedItems).length > 0;
 
       // Build aggregated items based on approval or legacy path.
