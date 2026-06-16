@@ -233,6 +233,50 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
 
   const getTotalQty = (entry: ProductEntry) => entry.batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
 
+  const toggleSelect = (productId: string) => {
+    setEntries(prev => prev.map(e => e.product_id === productId ? { ...e, selected: !e.selected } : e));
+  };
+
+  const selectedCount = entries.filter(e => e.selected).length;
+
+  const applyBulk = (scope: 'selected' | 'all') => {
+    const qtyNum = bulkQty === '' ? null : parseFloat(bulkQty);
+    if (!bulkMfg && !bulkExpiry && (qtyNum === null || isNaN(qtyNum))) {
+      toast.error('Enter at least one of Mfg Date, Expiry Date or Quantity');
+      return;
+    }
+    if (scope === 'selected' && selectedCount === 0) {
+      toast.error('Select at least one product');
+      return;
+    }
+    setEntries(prev => prev.map(e => {
+      const target = scope === 'all' ? true : e.selected;
+      if (!target) return e;
+      const first = e.batches[0] ?? newBatch();
+      const updatedFirst: BatchEntry = {
+        ...first,
+        mfg_date: bulkMfg || first.mfg_date,
+        expiry_date: bulkExpiry || first.expiry_date,
+        quantity: qtyNum !== null && !isNaN(qtyNum) ? qtyNum : first.quantity,
+      };
+      return {
+        ...e,
+        expanded: true,
+        batches: [updatedFirst, ...e.batches.slice(1)],
+      };
+    }));
+    const affected = scope === 'all' ? entries.length : selectedCount;
+    toast.success(`Applied to ${affected} product${affected === 1 ? '' : 's'}`);
+  };
+
+  const clearBulk = () => {
+    setBulkMfg('');
+    setBulkExpiry('');
+    setBulkQty('');
+    setEntries(prev => prev.map(e => ({ ...e, selected: false })));
+  };
+
+
   const handleConfirm = async () => {
     if (!selectedWarehouseId) {
       toast.error('Please select a warehouse');
