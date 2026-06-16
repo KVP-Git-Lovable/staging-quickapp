@@ -571,6 +571,12 @@ export default function AutoPlanPreview() {
             </Card>
           )}
 
+          {/* (3) Helper text */}
+          {hasPreview && (
+            <p className="text-xs text-muted-foreground">
+              Each day holds one beat. Drag to swap, use the menu to replace, move, or remove.
+            </p>
+          )}
 
           {/* Calendar grid */}
           {hasPreview ? (
