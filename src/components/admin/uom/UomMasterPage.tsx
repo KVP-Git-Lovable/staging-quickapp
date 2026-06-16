@@ -507,17 +507,14 @@ const UnitRow: React.FC<{
           </Badge>
         )}
       </div>
-      <div className="flex justify-center">
-        {row.is_base ? (
-          <Badge variant="outline" className="text-[10px] gap-1">
-            <Lock className="h-3 w-3" /> locked
-          </Badge>
-        ) : (
-          <Switch
-            checked={row.enabled}
-            disabled={isSaving}
-            onCheckedChange={(v) => onPersist(row, { enabled: v })}
-          />
+      <div className="flex flex-col items-center gap-1">
+        <Switch
+          checked={row.enabled}
+          disabled={isSaving}
+          onCheckedChange={(v) => onPersist(row, { enabled: v })}
+        />
+        {row.is_base && (
+          <span className="text-[9px] text-muted-foreground font-medium">base</span>
         )}
       </div>
       <div className="flex items-center justify-center gap-0.5">
