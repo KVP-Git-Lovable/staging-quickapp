@@ -695,8 +695,18 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     return u || "";
   };
 
-  const getPricePerUnit = (prod: Product, variant?: any, unit?: string) => {
+  const getPricePerUnit = (
+    prod: Product,
+    variant?: any,
+    unit?: string,
+    conversionToBase?: number | null,
+    priceBasisConversionToBase?: number | null,
+  ) => {
     const baseRate = Number(variant ? variant.price : prod.rate) || 0;
+    if (conversionToBase && priceBasisConversionToBase) {
+      return baseRate * (Number(conversionToBase) / Number(priceBasisConversionToBase));
+    }
+
     const baseUnit = normalizeUnit(prod.base_unit || prod.unit);
     const targetUnit = normalizeUnit(unit || prod.unit);
 
