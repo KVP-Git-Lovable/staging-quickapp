@@ -48,6 +48,9 @@ interface CartItem {
   quantity: number;
   total: number;
   hsn_code?: string;
+  uom_id?: string | null;
+  uom_code?: string | null;
+  conversion_to_base?: number | null;
   schemeConditionQuantity?: number;
   schemeDiscountPercentage?: number;
   schemes?: Array<{
@@ -902,6 +905,9 @@ export const Cart = () => {
           original_rate: originalRate, // Store original MRP rate
           discount_amount: itemDiscount,
           unit: item.unit,
+          uom_id: (item as any).uom_id || null,
+          uom_code: (item as any).uom_code || item.unit,
+          conversion_to_base: (item as any).conversion_to_base ?? null,
           quantity: item.quantity,
           total: itemTotal,
           hsn_code: (item as any).hsn_code || null, // Include HSN if available
@@ -1641,6 +1647,9 @@ export const Cart = () => {
           original_rate: originalRate,
           discount_amount: itemDiscount,
           unit: item.unit,
+          uom_id: (item as any).uom_id || null,
+          uom_code: (item as any).uom_code || item.unit,
+          conversion_to_base: (item as any).conversion_to_base ?? null,
           quantity: item.quantity,
           total: itemTotal,
           hsn_code: (item as any).hsn_code || null,
