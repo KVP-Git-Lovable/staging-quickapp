@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { format, addDays, parseISO, differenceInCalendarDays, startOfWeek } from 'date-fns';
 import {
   ArrowLeft,
