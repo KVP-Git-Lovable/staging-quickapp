@@ -1176,21 +1176,18 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                     
                     {/* Unit Column */}
                     <div>
-                      <Select
-                        value={row.unit}
-                        onValueChange={(value) => updateRow(row.id, "unit", value)}
-                      >
-                        <SelectTrigger className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2 [&>svg]:hidden">
-                          <SelectValue placeholder="Unit" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {units.map((u) => (
-                            <SelectItem key={u.id} value={u.name} className="text-xs md:text-sm">
-                              {u.name} ({u.code})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {row.product ? (
+                        <LineItemUomSelect
+                          productId={row.product.id}
+                          value={row.uomCode || row.unit}
+                          context="sales"
+                          hideWhenSingle={false}
+                          className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2"
+                          onChange={(sel) => updateRow(row.id, "unit", sel)}
+                        />
+                      ) : (
+                        <div className="h-9 md:h-11 flex items-center text-xs text-muted-foreground">—</div>
+                      )}
                     </div>
                     
                     {/* Qty Column */}
