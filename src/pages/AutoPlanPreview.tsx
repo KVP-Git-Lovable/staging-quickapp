@@ -88,6 +88,7 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 
 export default function AutoPlanPreview() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   // Date range — default: today → end of next week
@@ -97,8 +98,21 @@ export default function AutoPlanPreview() {
     return addDays(monday, 13);
   }, [today]);
 
-  const [fromDate, setFromDate] = useState<Date>(today);
-  const [toDate, setToDate] = useState<Date>(defaultTo);
+  // Optional prefill from navigation state (e.g. "Edit Plans" on rationale page)
+  const prefill = (location.state as { fromDate?: string; toDate?: string } | null) || null;
+  const initialFrom = useMemo(
+    () => (prefill?.fromDate ? new Date(prefill.fromDate) : today),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+  const initialTo = useMemo(
+    () => (prefill?.toDate ? new Date(prefill.toDate) : defaultTo),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const [fromDate, setFromDate] = useState<Date>(initialFrom);
+  const [toDate, setToDate] = useState<Date>(initialTo);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [days, setDays] = useState<DayPlan[]>([]);
