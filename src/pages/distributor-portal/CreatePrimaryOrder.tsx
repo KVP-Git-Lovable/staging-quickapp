@@ -415,7 +415,7 @@ const CreatePrimaryOrder = () => {
           unit: it.unit,
           unit_price: it.unit_price,
           discount_percent: it.discount_percent,
-          gst_percentage: it.gst_percent,
+          
           tax_percent: it.gst_percent,
           hsn_code: it.hsn_code || null,
           line_total: Math.round((taxable + tax) * 100) / 100,
