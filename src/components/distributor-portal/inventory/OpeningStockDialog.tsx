@@ -6,12 +6,13 @@ import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarIcon, Upload, Info, Plus, Trash2, Search, ScanBarcode, ChevronDown, ChevronRight, Warehouse, Sparkles } from 'lucide-react';
+import { CalendarIcon, Upload, Info, Plus, Trash2, Search, ScanBarcode, ChevronDown, ChevronRight, Warehouse, Sparkles, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useWarehouses } from '@/hooks/useWarehouses';
 
@@ -74,6 +75,7 @@ interface ProductEntry {
   expanded: boolean;
   existingBatchCount: number;
   entryUnit: string;
+  selected: boolean;
 }
 
 const newBatch = (): BatchEntry => ({ supplier_batch_code: '', mfg_date: '', expiry_date: '', quantity: 0 });
@@ -84,6 +86,10 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
   const [submitting, setSubmitting] = useState(false);
   const [scanInput, setScanInput] = useState('');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
+  const [bulkMfg, setBulkMfg] = useState('');
+  const [bulkExpiry, setBulkExpiry] = useState('');
+  const [bulkQty, setBulkQty] = useState<string>('');
+  const [bulkExpanded, setBulkExpanded] = useState(true);
   const { warehouses, defaultWarehouse, loading: whLoading, reload: reloadWarehouses } = useWarehouses(distributorId);
   const fileRef = useRef<HTMLInputElement>(null);
   const scanRef = useRef<HTMLInputElement>(null);
@@ -111,6 +117,7 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
         expanded: false,
         existingBatchCount: 0,
         entryUnit: getDefaultEntryUnit(p.unit || ''),
+        selected: false,
       }));
       setEntries(initial);
       loadExistingBatchCounts(initial, selectedWarehouseId);
@@ -225,6 +232,50 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
   };
 
   const getTotalQty = (entry: ProductEntry) => entry.batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
+
+  const toggleSelect = (productId: string) => {
+    setEntries(prev => prev.map(e => e.product_id === productId ? { ...e, selected: !e.selected } : e));
+  };
+
+  const selectedCount = entries.filter(e => e.selected).length;
+
+  const applyBulk = (scope: 'selected' | 'all') => {
+    const qtyNum = bulkQty === '' ? null : parseFloat(bulkQty);
+    if (!bulkMfg && !bulkExpiry && (qtyNum === null || isNaN(qtyNum))) {
+      toast.error('Enter at least one of Mfg Date, Expiry Date or Quantity');
+      return;
+    }
+    if (scope === 'selected' && selectedCount === 0) {
+      toast.error('Select at least one product');
+      return;
+    }
+    setEntries(prev => prev.map(e => {
+      const target = scope === 'all' ? true : e.selected;
+      if (!target) return e;
+      const first = e.batches[0] ?? newBatch();
+      const updatedFirst: BatchEntry = {
+        ...first,
+        mfg_date: bulkMfg || first.mfg_date,
+        expiry_date: bulkExpiry || first.expiry_date,
+        quantity: qtyNum !== null && !isNaN(qtyNum) ? qtyNum : first.quantity,
+      };
+      return {
+        ...e,
+        expanded: true,
+        batches: [updatedFirst, ...e.batches.slice(1)],
+      };
+    }));
+    const affected = scope === 'all' ? entries.length : selectedCount;
+    toast.success(`Applied to ${affected} product${affected === 1 ? '' : 's'}`);
+  };
+
+  const clearBulk = () => {
+    setBulkMfg('');
+    setBulkExpiry('');
+    setBulkQty('');
+    setEntries(prev => prev.map(e => ({ ...e, selected: false })));
+  };
+
 
   const handleConfirm = async () => {
     if (!selectedWarehouseId) {
@@ -379,6 +430,54 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
             </div>
           </div>
 
+          {/* Bulk Apply Panel */}
+          <Collapsible open={bulkExpanded} onOpenChange={setBulkExpanded}>
+            <div className="border border-primary/30 bg-primary/5 rounded-lg overflow-hidden">
+              <CollapsibleTrigger asChild>
+                <div className="flex items-start justify-between p-3 cursor-pointer hover:bg-primary/10">
+                  <div className="flex items-start gap-2">
+                    <Layers className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary">Bulk Apply to Products</h4>
+                      <p className="text-xs text-muted-foreground">Apply the details below to selected products or all products.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Selected: {selectedCount} product{selectedCount === 1 ? '' : 's'}</span>
+                    {bulkExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  </div>
+                </div>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="p-3 pt-0 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-xs">Mfg Date</Label>
+                      <Input type="date" value={bulkMfg} onChange={(e) => setBulkMfg(e.target.value)} className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Expiry Date</Label>
+                      <Input type="date" value={bulkExpiry} onChange={(e) => setBulkExpiry(e.target.value)} className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Quantity</Label>
+                      <Input type="number" min={0} placeholder="e.g. 50" value={bulkQty} onChange={(e) => setBulkQty(e.target.value)} className="h-9 text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button variant="outline" size="sm" onClick={clearBulk}>Clear</Button>
+                    <Button size="sm" onClick={() => applyBulk('selected')} disabled={selectedCount === 0}>
+                      Apply to Selected
+                    </Button>
+                    <Button size="sm" onClick={() => applyBulk('all')}>
+                      Apply to All Products
+                    </Button>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
+
           {/* Product entries */}
           <div className="space-y-1 border rounded-lg overflow-hidden">
             {entries.map((entry) => {
@@ -393,6 +492,9 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
                   <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 border-b">
                       <div className="flex items-center gap-2">
+                        <div onClick={(e) => { e.stopPropagation(); toggleSelect(entry.product_id); }} className="flex items-center">
+                          <Checkbox checked={entry.selected} onCheckedChange={() => toggleSelect(entry.product_id)} />
+                        </div>
                         {entry.expanded ? (
                           <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         ) : (
