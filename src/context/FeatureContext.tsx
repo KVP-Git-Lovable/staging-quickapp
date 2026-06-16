@@ -11,6 +11,9 @@ export interface EffectiveFeature {
   enabled: boolean;
   global_enabled: boolean;
   company_override: boolean | null;
+  role_override?: boolean | null;
+  user_override?: boolean | null;
+  source?: 'global' | 'user' | 'role' | 'company' | 'default';
   blocked_by: string[];
 }
 
