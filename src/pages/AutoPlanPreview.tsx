@@ -128,6 +128,10 @@ export default function AutoPlanPreview() {
   const [beats, setBeats] = useState<BeatOption[]>([]);
   const [isDirty, setIsDirty] = useState(false);
 
+  // Calendar (month grid) state + 90-day history for visual pattern context
+  const [cursorMonth, setCursorMonth] = useState<Date>(initialFrom);
+  const [history, setHistory] = useState<Array<{ date: string; beat_name: string }>>([]);
+
   // Existing-plan replacement counts (refreshed on every generate)
   const [existingAutoCount, setExistingAutoCount] = useState(0);
   const [existingManualCount, setExistingManualCount] = useState(0);
