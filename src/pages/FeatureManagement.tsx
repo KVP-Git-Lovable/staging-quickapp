@@ -18,6 +18,7 @@ import { ByRoleTab } from '@/components/features/admin/ByRoleTab';
 import { ByUserTab } from '@/components/features/admin/ByUserTab';
 import { DependenciesTab } from '@/components/features/admin/DependenciesTab';
 import { AuditLogTab } from '@/components/features/admin/AuditLogTab';
+import { Layout } from '@/components/Layout';
 
 const FeatureManagement = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
