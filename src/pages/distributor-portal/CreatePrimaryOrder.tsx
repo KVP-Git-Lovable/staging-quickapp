@@ -101,6 +101,8 @@ const CreatePrimaryOrder = () => {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [priceBookEntries, setPriceBookEntries] = useState<PriceBookEntry[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const [productUoms, setProductUoms] = useState<Record<string, UomOption[]>>({});
+  const [productStock, setProductStock] = useState<Record<string, number>>({});
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
