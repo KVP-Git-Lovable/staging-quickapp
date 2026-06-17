@@ -454,15 +454,42 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <h4 className="font-medium text-sm leading-tight">
-                    {activity.activity_name || activity.activity_type}
+                    {activity.activity_name || activity.retailer_name || activity.distributor_name || activity.beat_name || TYPE_LABELS[activity.activity_type] || activity.activity_type}
                   </h4>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Badge className={`text-[10px] px-2 py-0.5 ${ACTIVITY_TYPE_COLORS[activity.activity_type] || ACTIVITY_TYPE_COLORS.Other}`}>
-                    {activity.activity_type}
+                    {TYPE_LABELS[activity.activity_type] || activity.activity_type}
                   </Badge>
                 </div>
               </div>
+
+              {/* Per-type summary lines */}
+              {activity.activity_type === 'customer_visit' && (activity.outcome || activity.follow_up_date) && (
+                <div className="text-xs text-muted-foreground">
+                  {activity.outcome && <span className="mr-2">Outcome: <span className="font-medium">{activity.outcome.replace(/_/g, ' ')}</span></span>}
+                  {activity.follow_up_date && <span>Follow-up: {activity.follow_up_date}</span>}
+                </div>
+              )}
+              {activity.activity_type === 'beat_visit' && (
+                <div className="text-xs text-muted-foreground">
+                  {activity.shops_visited ?? 0}/{activity.shops_planned ?? '?'} shops
+                  {activity.km_travelled ? ` · ${activity.km_travelled} km` : ''}
+                </div>
+              )}
+              {activity.activity_type === 'joint_beat_visit' && (
+                <div className="text-xs text-muted-foreground">
+                  {activity.beat_name && <span>{activity.beat_name}</span>}
+                  {activity.rep_overall_outcome && <span className="ml-2">· {activity.rep_overall_outcome}</span>}
+                </div>
+              )}
+              {activity.activity_type === 'new_beat_survey' && (
+                <div className="text-xs text-muted-foreground">
+                  {activity.survey_total_shops ? `${activity.survey_total_shops} shops surveyed` : ''}
+                  {activity.survey_suggested_beat_count ? ` · ${activity.survey_suggested_beat_count} beats` : ''}
+                  {activity.survey_priority ? ` · ${activity.survey_priority} priority` : ''}
+                </div>
+              )}
 
               {/* Status Card */}
               <div className={`flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs font-medium ${statusConfig.color}`}>
