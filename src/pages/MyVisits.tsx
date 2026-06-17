@@ -194,7 +194,7 @@ export const MyVisits = () => {
   const [timelineDayStart, setTimelineDayStart] = useState<string>('08:00 AM');
   const [isVanStockOpen, setIsVanStockOpen] = useState(false);
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
-  const [isActivityChooserOpen, setIsActivityChooserOpen] = useState(false);
+  
   const [initialRetailerOrder, setInitialRetailerOrder] = useState<string[]>([]);
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
   const [pointsDetailsList, setPointsDetailsList] = useState<Array<{ retailerName: string; points: number; visitId: string | null }>>([]);
