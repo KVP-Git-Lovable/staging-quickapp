@@ -38,6 +38,7 @@ import {
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PaymentDetailsCard } from '@/components/distributor-portal/PaymentDetailsCard';
 
 interface Category {
   id: string;
@@ -118,6 +119,15 @@ const CreatePrimaryOrder = () => {
   const [outstanding, setOutstanding] = useState<number>(0);
   const [creditChecked, setCreditChecked] = useState(false);
   const [existingOrder, setExistingOrder] = useState<any>(null);
+  // Payment & Credit config (Phase 3)
+  const [paymentConfig, setPaymentConfig] = useState<any>(null);
+  const [snapshot, setSnapshot] = useState<any>(null);
+  const [payment, setPayment] = useState<import('@/components/distributor-portal/PaymentDetailsCard').PaymentDetailsValue>({
+    paymentTerm: 'immediate',
+    paymentMode: 'bank_transfer',
+    advanceAmount: 0,
+    paymentProofUrl: null,
+  });
 
   const distributorId = localStorage.getItem('distributor_id');
 
@@ -177,24 +187,37 @@ const CreatePrimaryOrder = () => {
   const loadCreditInfo = async () => {
     if (!distributorId) return;
     try {
-      const [creditRes, ordersRes] = await Promise.all([
-        supabase
-          .from('distributor_credit_limits')
-          .select('credit_limit')
+      // New config-driven loader: read distributor_payment_config + live snapshot RPC
+      const [{ data: cfg }, { data: snap }, ordersRes] = await Promise.all([
+        (supabase as any)
+          .from('distributor_payment_config')
+          .select('*')
           .eq('distributor_id', distributorId)
           .maybeSingle(),
+        (supabase as any).rpc('get_distributor_financial_snapshot', { p_distributor_id: distributorId }),
         supabase
           .from('primary_orders')
           .select('total_amount')
           .eq('distributor_id', distributorId)
           .not('status', 'in', '("cancelled","delivered")'),
       ]);
-      setCreditLimit(Number(creditRes.data?.credit_limit || 0));
-      const totalOutstanding = (ordersRes.data || []).reduce(
-        (s: number, o: any) => s + Number(o.total_amount || 0),
-        0,
-      );
+      const snapshotRow = Array.isArray(snap) ? snap[0] : null;
+      setPaymentConfig(cfg || null);
+      setSnapshot(snapshotRow || null);
+      setCreditLimit(Number(cfg?.credit_limit ?? snapshotRow?.credit_limit ?? 0));
+      const totalOutstanding =
+        snapshotRow?.outstanding != null
+          ? Number(snapshotRow.outstanding)
+          : (ordersRes.data || []).reduce((s: number, o: any) => s + Number(o.total_amount || 0), 0);
       setOutstanding(totalOutstanding);
+      // Seed payment defaults from config (term + mode only; advance amount is edited in the card)
+      if (cfg) {
+        setPayment((prev) => ({
+          ...prev,
+          paymentTerm: cfg.default_payment_term ?? prev.paymentTerm,
+          paymentMode: cfg.default_payment_mode ?? prev.paymentMode,
+        }));
+      }
       setCreditChecked(true);
     } catch (err) {
       console.error('Credit check failed:', err);
@@ -403,13 +426,45 @@ const CreatePrimaryOrder = () => {
       toast.error('Please add at least one item');
       return;
     }
-    if (submit && creditLimit > 0) {
-      const newOutstanding = outstanding + totals.grandTotal;
-      if (newOutstanding > creditLimit) {
-        toast.error(
-          `Credit limit exceeded! Limit: ₹${creditLimit.toLocaleString('en-IN')}, Outstanding + this order: ₹${newOutstanding.toLocaleString('en-IN')}. Cannot submit.`,
-          { duration: 6000 },
-        );
+    // Payment validations (Phase 3 — driven by distributor_payment_config)
+    if (submit) {
+      const cfg = paymentConfig;
+      const isImmediate = payment.paymentTerm === 'immediate';
+
+      // Credit gating — skip for immediate payment
+      if (!isImmediate && creditLimit > 0) {
+        const newOutstanding = outstanding + Math.max(0, totals.grandTotal - (payment.advanceAmount || 0));
+        const overLimit = newOutstanding > creditLimit;
+        const allowBeyond = cfg?.allow_orders_beyond_limit;
+        if (overLimit && !allowBeyond) {
+          toast.error(
+            `Credit limit exceeded! Limit: ₹${creditLimit.toLocaleString('en-IN')}, Outstanding + this order (net of advance): ₹${newOutstanding.toLocaleString('en-IN')}.`,
+            { duration: 6000 },
+          );
+          return;
+        }
+        if (overLimit && cfg?.approval_required_beyond_limit) {
+          toast.warning('Order exceeds credit limit — will require approval before processing.');
+        }
+      }
+
+      // Advance amount validation
+      if (payment.advanceAmount > totals.grandTotal) {
+        toast.error('Advance amount cannot exceed order total');
+        return;
+      }
+      const minAdvance = cfg?.require_advance_payment && cfg?.advance_payment_pct > 0
+        ? Math.round((totals.grandTotal * Number(cfg.advance_payment_pct)) / 100)
+        : 0;
+      if (minAdvance > 0 && (payment.advanceAmount || 0) < minAdvance) {
+        toast.error(`Minimum advance payment of ₹${minAdvance.toLocaleString('en-IN')} (${cfg.advance_payment_pct}%) required`);
+        return;
+      }
+
+      // Payment proof requirement
+      const proofRequired = cfg?.require_payment_proof || payment.paymentTerm === 'advance';
+      if (proofRequired && !payment.paymentProofUrl) {
+        toast.error('Payment proof is required for this order');
         return;
       }
     }
@@ -418,7 +473,15 @@ const CreatePrimaryOrder = () => {
     try {
       let orderId = editOrderId as string | undefined;
 
-      const headerPayload = {
+      const creditSnapshot = {
+        credit_limit: creditLimit,
+        outstanding,
+        available_credit: Math.max(0, creditLimit - outstanding),
+        utilization_pct: creditLimit > 0 ? Math.round((outstanding / creditLimit) * 100) : 0,
+        captured_at: new Date().toISOString(),
+      };
+
+      const headerPayload: any = {
         distributor_id: distributorId,
         source_distributor_id: distributorId,
         expected_delivery_date: expectedDeliveryDate || null,
@@ -428,6 +491,11 @@ const CreatePrimaryOrder = () => {
         discount_amount: totals.totalDiscount,
         tax_amount: totals.taxAmount,
         total_amount: totals.grandTotal,
+        payment_term: payment.paymentTerm,
+        payment_mode: payment.paymentMode,
+        advance_amount: payment.advanceAmount || 0,
+        payment_proof_url: payment.paymentProofUrl,
+        credit_snapshot: submit ? creditSnapshot : null,
       };
 
       if (isEditMode && orderId) {
@@ -1110,6 +1178,17 @@ const CreatePrimaryOrder = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Section 5b: Payment Details (Phase 3 — driven by distributor_payment_config) */}
+            <PaymentDetailsCard
+              value={payment}
+              onChange={setPayment}
+              grandTotal={totals.grandTotal}
+              requireAdvance={!!paymentConfig?.require_advance_payment}
+              requireProof={!!paymentConfig?.require_payment_proof || payment.paymentTerm === 'advance'}
+              canOverride={false}
+              distributorId={distributorId || ''}
+            />
           </div>
 
           {/* RIGHT sticky panel */}
