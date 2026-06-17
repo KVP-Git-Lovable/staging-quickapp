@@ -118,6 +118,15 @@ const CreatePrimaryOrder = () => {
   const [outstanding, setOutstanding] = useState<number>(0);
   const [creditChecked, setCreditChecked] = useState(false);
   const [existingOrder, setExistingOrder] = useState<any>(null);
+  // Payment & Credit config (Phase 3)
+  const [paymentConfig, setPaymentConfig] = useState<any>(null);
+  const [snapshot, setSnapshot] = useState<any>(null);
+  const [payment, setPayment] = useState<import('@/components/distributor-portal/PaymentDetailsCard').PaymentDetailsValue>({
+    paymentTerm: 'immediate',
+    paymentMode: 'bank_transfer',
+    advanceAmount: 0,
+    paymentProofUrl: null,
+  });
 
   const distributorId = localStorage.getItem('distributor_id');
 
