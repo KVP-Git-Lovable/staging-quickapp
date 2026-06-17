@@ -1392,9 +1392,14 @@ export const MyVisits = () => {
                   </Button>
                 ),
                 showActivity && (
-                  <Button key="activity" variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[9px] sm:text-sm h-8 sm:h-9 px-1 sm:px-3" onClick={() => setIsActivityModalOpen(true)}>
+                  <Button key="activity" variant="secondary" size="sm" className="relative bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[9px] sm:text-sm h-8 sm:h-9 px-1 sm:px-3" onClick={() => setIsActivityModalOpen(true)}>
                     <Sparkles size={12} className="mr-0.5 sm:mr-1.5 flex-shrink-0" />
                     <span className="truncate">Activity</span>
+                    {overdueFollowUpCount > 0 && (
+                      <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[9px] flex items-center justify-center rounded-full">
+                        {overdueFollowUpCount}
+                      </Badge>
+                    )}
                   </Button>
                 ),
               ].filter(Boolean);
