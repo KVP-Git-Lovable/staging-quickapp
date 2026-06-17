@@ -2879,7 +2879,7 @@ export const VisitCard = ({
                 })();
               }}
               title={
-                isLocationEnabled && !isCheckedIn && !proceedWithoutCheckIn
+                isCheckInEnabled && !isCheckedIn && !proceedWithoutCheckIn
                   ? "Check in first to place order"
                   : `Order${
                       visit.orderValue || hasOrderToday
