@@ -452,7 +452,7 @@ const CreatePrimaryOrder = () => {
         orderId = created.id;
       }
 
-      const itemsToInsert = orderItems.map((it) => {
+      const itemsToInsert = validItems.map((it) => {
         const gross = it.quantity * it.unit_price;
         const disc = gross * (it.discount_percent / 100);
         const taxable = gross - disc;
