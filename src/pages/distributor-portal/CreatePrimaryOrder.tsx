@@ -635,17 +635,37 @@ const CreatePrimaryOrder = () => {
             {/* Section 3: Add Products */}
             <Card id="add-products-card" className="rounded-xl shadow-sm">
               <CardHeader className="p-5 pb-3">
-                <CardTitle className="text-base flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
-                    <ShoppingBag className="w-4 h-4 text-foreground/70" />
-                  </span>
-                  Add Products
-                </CardTitle>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <CardTitle className="text-base flex items-center gap-2.5">
+                    <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
+                      <ShoppingBag className="w-4 h-4 text-foreground/70" />
+                    </span>
+                    Add Products
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                      Category
+                    </Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-[200px] h-9">
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="p-5 pt-0 space-y-3">
                 {/* Header row */}
-                <div className="hidden md:grid md:grid-cols-[1.3fr_1.5fr_1.1fr_1.1fr_1fr_auto] gap-3 px-1 text-xs font-medium text-muted-foreground">
-                  <div>Category</div>
+                <div className="hidden md:grid md:grid-cols-[2fr_1.1fr_1.1fr_1fr_auto] gap-3 px-1 text-xs font-medium text-muted-foreground">
                   <div>Select Product</div>
                   <div>Unit</div>
                   <div>Quantity</div>
@@ -660,16 +680,12 @@ const CreatePrimaryOrder = () => {
                 )}
 
                 {orderItems.map((item, index) => {
-                  const rowCategoryId =
-                    item.category_id ||
-                    products.find((p) => p.id === item.product_id)?.category_id ||
-                    'all';
                   const rowProducts =
-                    rowCategoryId === 'all'
+                    selectedCategory === 'all'
                       ? products
-                      : rowCategoryId === 'uncategorized'
+                      : selectedCategory === 'uncategorized'
                         ? products.filter((p) => !p.category_id)
-                        : products.filter((p) => p.category_id === rowCategoryId);
+                        : products.filter((p) => p.category_id === selectedCategory);
                   const uomOptions = productUoms[item.product_id] || [];
                   const fallbackUnit =
                     products.find((p) => p.id === item.product_id)?.unit || item.unit || 'pieces';
@@ -683,36 +699,8 @@ const CreatePrimaryOrder = () => {
                   return (
                     <div
                       key={index}
-                      className="grid grid-cols-1 md:grid-cols-[1.3fr_1.5fr_1.1fr_1.1fr_1fr_auto] gap-3 items-center py-2 border-b last:border-b-0"
+                      className="grid grid-cols-1 md:grid-cols-[2fr_1.1fr_1.1fr_1fr_auto] gap-3 items-center py-2 border-b last:border-b-0"
                     >
-                      {/* Category */}
-                      <Select
-                        value={rowCategoryId}
-                        onValueChange={(v) =>
-                          updateItem(index, {
-                            category_id: v,
-                            // reset product if it doesn't belong to new category
-                            ...(products.find((p) => p.id === item.product_id)?.category_id !== v &&
-                            v !== 'all'
-                              ? { product_id: '', product_name: '', unit_price: 0, line_total: 0 }
-                              : {}),
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="All Categories" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Categories</SelectItem>
-                          <SelectItem value="uncategorized">Uncategorized</SelectItem>
-                          {categories.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
                       {/* Product */}
                       <Select
                         value={item.product_id || ''}
@@ -730,7 +718,7 @@ const CreatePrimaryOrder = () => {
                             sku: (p as any).sku,
                             image_url: (p as any).image_url,
                             price_book_applied: p.priceBookPrice !== undefined,
-                            category_id: p.category_id || rowCategoryId,
+                            category_id: p.category_id,
                             line_total: item.quantity * price,
                           });
                         }}
