@@ -30,6 +30,24 @@ const ACTIVITY_TYPE_COLORS: Record<string, string> = {
   Demo: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
   Meeting: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
   Other: 'bg-muted text-muted-foreground',
+  // New 7-type visit categories
+  customer_visit:    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  beat_visit:        'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  joint_beat_visit:  'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  new_beat_survey:   'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
+  distributor_visit: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  event_promotion:   'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  meeting_training:  'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  customer_visit: 'Customer',
+  beat_visit: 'Beat',
+  joint_beat_visit: 'Joint',
+  new_beat_survey: 'Route survey',
+  distributor_visit: 'Distributor',
+  event_promotion: 'Event',
+  meeting_training: 'Meeting',
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Play }> = {
