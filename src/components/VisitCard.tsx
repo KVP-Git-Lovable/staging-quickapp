@@ -2035,7 +2035,8 @@ export const VisitCard = ({
       if (err.message?.includes('Location') || err.message?.includes('GPS')) {
         errorDescription = err.message;
       } else if (err.message?.includes('permission')) {
-        errorDescription = 'Please enable location and camera permissions in your device settings.';
+        const perms = [isLocationEnabled && 'location', isCameraEnabled && 'camera'].filter(Boolean).join(' and ');
+        errorDescription = `Please enable ${perms || 'required'} permissions in your device settings.`;
       } else if (err.message?.includes('timeout') || err.message?.includes('timed out')) {
         errorDescription = 'Request timed out. Please check your GPS and internet connection, then try again.';
       }
