@@ -1,143 +1,69 @@
-# Distributor Financial Configuration + Primary Order Payment Integration
+## Goal
 
-## How it will work (end-user view)
+Rebuild the **My Visits → Activity → Add Activity / Event** module to support 7 visit types (Customer, Beat, Joint, Route survey, Distributor, Event, Meeting) per the uploaded spec, **without** disturbing the existing order/visit flow. After activities are logged, surface them in **Today's Summary** as a rich Activity Log card.
 
-1. **Admin opens a Distributor** → new **"Payment & Credit"** tab between *Pricing* and *FY Plan*. Sets credit rules, default payment term/mode, advance rules, financial controls. Sees a read-only **Financial Snapshot** card (computed from existing ledger tables).
-2. **Rep / Distributor Portal user creates a Primary Order** → after Add Products & Review, a new **Payment Details** card auto-populates from the distributor's saved config. Read-only unless the user has override permission. Advance amount + balance payable + payment-proof upload appear conditionally.
-3. **Credit Validation** panel reads from distributor config (limit / outstanding / utilization / behaviour rules) and blocks or warns accordingly. Submit is gated by configured rules (advance %, proof upload, approval beyond limit).
-4. **After submit**, the order stores everything (term, mode, advance, balance, proof URL, snapshot). Status timeline + new **Edit / Cancel** buttons appear, gated by the Admin's *Order Cancellation/Editing Configuration*. Cancelling requires a reason. All edits/cancels are audit-logged.
+## Safety analysis (why this won't break order flow)
 
-```text
-Distributor Master
-└─ Payment & Credit Tab  (new)
-   ├─ Credit Configuration
-   ├─ Payment Configuration
-   ├─ Financial Snapshot (read-only)
-   └─ Financial Controls
-                         │
-                         ▼  (feeds into)
-Primary Order Flow
-  Add Products → Review → Payment Details (NEW) → Credit Validation → Submit
-                                                                       │
-                                                                       ▼
-                                                    Order View: timeline + Edit / Cancel
-                                                                       │
-                                                                       ▼
-                                                         Admin Settings → Order Lifecycle Rules
-```
+- Orders read/write: `orders`, `order_items`, `visits (visit_type='retailer')`, `retailers`, `beat_plans`, `retailer_visit_logs`.
+- This feature writes: `activity_events`, `visits (visit_type='activity')`, optional `joint_sales_sessions`, `joint_sales_feedback`.
+- `visits` is shared but isolated by `visit_type`. Activity visits have no `retailer_id` for most types, so `useVisitsDataOptimized` (which filters by `retailer_id`) skips them. `TodaySummary` already filters activities with `.eq('visit_type','activity')`.
+- All new `activity_events` columns are nullable `ADD COLUMN IF NOT EXISTS` — no impact on existing rows or queries.
+- Legacy `activity_type` values (Event, Meeting, Celebration, Demo, Promotion, Other) are preserved in the new color/label maps; existing cards keep rendering.
+- `ActivityEventsTable`'s special Event branch, plus `handleStartActivity`/`handleCompleteActivity`, are left untouched.
 
----
+## Steps
 
-## Build order
+### 1. DB migration — extend `activity_events`
+Add the ~45 nullable columns from the spec (`visit_category`, `activity_sub_type`, `beat_id/name`, `subordinate_user_id`, `joint_session_id`, `distributor_id/name`, `visit_purpose`, `check_in_time/out_time`, GPS, `duration_minutes`, beat counts, outcome/contact/follow-up, footfall/sales, topic/attendees, 5× `rep_rating_*`, `rep_overall_outcome/strengths/improvement_areas/action_items/followup_date`, full `survey_*` block including `survey_proposed_beat_names text[]`). All `ADD COLUMN IF NOT EXISTS`. No GRANT/RLS changes needed (existing policies cover all columns).
 
-```text
-Phase 1  ── DB schema for distributor financial config + order payment fields + cancellation config
-Phase 2  ── Distributor Master: "Payment & Credit" tab (4 sections)
-Phase 3  ── Primary Order: Payment Details card + Credit Validation rewire + proof upload
-Phase 4  ── Order Lifecycle: admin config page + Edit/Cancel buttons + cancellation modal + audit
-Phase 5  ── Permissions, override flag, smoke tests
-```
+### 2. Refactor `src/hooks/useActivityEvents.ts`
+- Extend `ActivityEvent` interface with every new field.
+- Extend `CreateActivityParams` likewise.
+- In `createActivity`:
+  - `visitInsert.visit_type = params.visit_category || 'activity'`; also write `check_in_time` when provided.
+  - In `activityInsert`, conditionally spread every new param (only if provided — never overwrite with null).
+- Add new exported helper `updateVisitCheckOut(visitId, activityId, checkOutTime)` that updates `visits` (status → `productive`) and `activity_events` (`check_out_time` + computed `duration_minutes`).
 
-Each phase is shippable on its own. Phase 1 has zero UI impact; phases 2–4 each surface visibly.
+### 3. Rebuild `src/components/AddActivityModal.tsx`
+Full rewrite per spec:
+- 7-type icon selector (`Store, Route, Users, MapSearch, Warehouse, Megaphone, CalendarDays`) with colored active state.
+- Consolidated state for all 7 forms (customer / beat / joint / route survey / distributor / event / meeting fields).
+- Shared header: date picker + GPS capture + check-in/out row (Log check-out enabled after submit).
+- Per-type forms exactly as in spec (retailer search, beat selector with auto-load from `beat_plans`, subordinate picker via `useSubordinates`, star ratings + market intel toggle, route-survey wizard with proposed beat-name chips, distributor search, event subtypes, meeting subtype with hour/half/full-day).
+- Online-only guard via `useConnectivity()`; toast if offline.
+- On submit: call `createActivity` with the right param set, then for `joint_beat_visit` insert into `joint_sales_sessions`, link via `joint_session_id`, and optionally insert into `joint_sales_feedback`.
+- Reset form and `window.dispatchEvent('visitDataChanged')` on success.
 
----
+**Distributor search caveat:** the spec uses `from('distributors')`, but that table doesn't exist in this project (we confirmed earlier). I'll point distributor search at the existing `distributor_users` table (`distinct distributor_id, full_name` ilike) so this type doesn't crash. If you'd rather wait until the missing `distributors` table is restored, say so and I'll hide the Distributor type behind a feature check instead.
 
-## Phase 1 — Database
+### 4. Light update to `src/components/ActivityEventsTable.tsx`
+- Extend `ACTIVITY_TYPE_COLORS` with the 7 new ids (keep all legacy keys).
+- Add small summary lines for `customer_visit`, `beat_visit`, `joint_beat_visit`, `new_beat_survey` cards per spec.
+- Do **not** touch the existing `Event` branch or Start/Complete handlers.
 
-### New table: `distributor_payment_config` (1 row per distributor)
-- `distributor_id` (FK, unique)
-- **Credit**: `credit_allowed`, `credit_limit`, `credit_warning_threshold_pct`, `allow_orders_beyond_limit`, `approval_required_beyond_limit`
-- **Payment defaults**: `default_payment_term` (enum), `default_payment_mode` (enum), `require_advance_payment`, `advance_payment_pct`, `require_payment_proof`
-- **Controls**: `max_outstanding_allowed`, `overdue_blocking_enabled`, `max_overdue_days`, `approval_required_high_risk`
+### 5. Update `src/pages/MyVisits.tsx`
+- Add `overdueFollowUpCount` query (activities with `outcome='follow_up_needed'` and `follow_up_date <= today`).
+- Render a small destructive badge next to the Activity tab.
 
-RLS: read = distributor's own users + their admin hierarchy; write = admin/finance roles only. Standard `service_role` grant.
+### 6. Update `src/pages/TodaySummary.tsx` (additive only)
+- Add `activitySummary` state with `totalCount`, `totalFieldMinutes`, `byType[]`, `overdueFollowUps`.
+- In `fetchTodaysData`'s finally block, fetch `activity_events` for the date range + user scope (respects `managerSelectedUserId` self/all), group by `visit_category || activity_type`, compute durations, and count overdue follow-ups.
+- Replace the existing purple `completedActivitiesCount` mini-card with a new **Activity Log** `<Card>` placed after Key Metrics — per-type colored rows showing label, count, total time, and up to 3 entries (name, beat, outcome pill, duration), plus an overdue-follow-up warning footer.
+- Leave every other query, card, and state untouched.
 
-### New table: `order_lifecycle_config` (global, single row, admin-managed)
-- `allow_order_cancellation`, `allow_order_editing`
-- `cancellation_cutoff_stage` (enum: draft/submitted/confirmed/processing/allocated/packed/dispatched)
-- `editing_cutoff_stage` (same enum)
+### 7. Verification
+- Build passes.
+- Open `/visits` → Activity tab → Add Activity: each of the 7 types renders, validates, submits, and shows up in the list with the correct summary line.
+- Log a customer visit → check `/today` shows the Activity Log card with the right grouping and duration.
+- Place a normal primary/secondary order separately to confirm order flow still works unchanged.
 
-### Extend `primary_orders`
-- `payment_term`, `payment_mode`, `advance_amount` numeric, `balance_payable` (generated col = total − advance), `payment_proof_url`, `payment_status` (pending/partial/paid)
-- `credit_snapshot` jsonb — point-in-time snapshot of limit/outstanding/available/utilization at submit
-- Audit: `cancelled_by`, `cancelled_at`, `cancellation_reason`, `edited_by`, `edited_at`
+## Files touched
 
-### Financial Snapshot — no new table
-Compute live in a SQL view / RPC `get_distributor_financial_snapshot(p_distributor_id)` reading from `distributor_retailer_ledger` and `distributor_payments` (already exist). Returns outstanding, available credit (limit − outstanding), utilization %, last payment date, overdue amount.
+- New migration: `supabase/migrations/<ts>_extend_activity_events_for_visit_types.sql`
+- Edit: `src/hooks/useActivityEvents.ts`
+- Rewrite: `src/components/AddActivityModal.tsx`
+- Edit: `src/components/ActivityEventsTable.tsx`
+- Edit: `src/pages/MyVisits.tsx`
+- Edit: `src/pages/TodaySummary.tsx`
 
-### Storage
-New private bucket **`order-payment-proofs`** (signed URLs). RLS on `storage.objects` to allow distributor's own users + their admin chain to read; uploader writes only to their own distributor's folder.
-
----
-
-## Phase 2 — Distributor Master "Payment & Credit" tab
-
-File: `src/components/distributor/DistributorTabs.tsx` (or wherever the existing tab list lives — confirm during implementation). Insert new tab between *Pricing* and *FY Plan*.
-
-New component tree under `src/components/distributor/payment-credit/`:
-- `PaymentCreditTab.tsx` (container, loads/saves `distributor_payment_config`)
-- `CreditConfigurationSection.tsx`
-- `PaymentConfigurationSection.tsx`
-- `FinancialSnapshotSection.tsx` (calls RPC; auto-refresh every 60s)
-- `FinancialControlsSection.tsx`
-
-Single Save button at bottom; zod validation; permission-gated to finance/admin roles.
-
----
-
-## Phase 3 — Primary Order: Payment Details
-
-File: `src/pages/distributor-portal/CreatePrimaryOrder.tsx` + sibling components.
-
-New card `PaymentDetailsCard.tsx` placed between Order Details and Credit Validation:
-- On mount, fetch `distributor_payment_config` for the selected distributor → seed defaults.
-- Fields rendered read-only by default; an **"Override"** toggle is shown only if user has `payment.override` permission (added to permission registry).
-- Conditional UI:
-  - Advance amount appears when term ∈ {Advance Payment, Partial Payment} OR `require_advance_payment=true`.
-  - Balance payable is always read-only, formula `grand_total − advance_amount`.
-  - Proof upload appears when `require_payment_proof=true` OR Advance Payment chosen. Accepts pdf/jpg/jpeg/png, ≤5MB, uploads to `order-payment-proofs`, stores returned path.
-
-Rewire `CreditValidationCard` to read limits from `distributor_payment_config` (not hardcoded). Block / warn / require-approval according to `allow_orders_beyond_limit` and `approval_required_beyond_limit`. Skip entirely if term = Immediate Payment.
-
-On submit:
-- Validate: advance ≤ total, proof uploaded if required, credit rules satisfied.
-- Insert `primary_orders` with payment fields + `credit_snapshot` JSONB captured from the RPC.
-- Existing offline-first queue used as-is (no new infra).
-
----
-
-## Phase 4 — Order Lifecycle (Edit / Cancel)
-
-### Admin config page
-New route `/admin/settings/order-lifecycle` (visible to admins only). One form bound to `order_lifecycle_config`.
-
-### Order detail page
-File: existing primary-order detail view. Add:
-- `OrderActions.tsx` — shows Edit / Cancel buttons only when:
-  - feature toggle is ON AND current stage is *before* the configured cutoff.
-- Disabled-button tooltip explains why ("Order already in Processing — cannot edit").
-- `CancelOrderDialog.tsx` — reason select (Ordered by mistake / Duplicate / Stock not required / Financial issue / Other) + optional notes; mandatory. Writes `cancelled_by`, `cancelled_at`, `cancellation_reason`; sets status to `cancelled`; triggers existing 14-step atomic cancellation RPC.
-- Edit re-opens the order in the existing CreatePrimaryOrder screen in edit mode; on save, sets `edited_by`/`edited_at` and appends an `order_lifecycle_audit` row.
-
-### Audit
-Reuse existing `primary_order_status_history` table for state transitions. Add `order_lifecycle_audit` only if a separate audit row per edit field is required — confirm with you before adding.
-
----
-
-## Phase 5 — Permissions & smoke tests
-
-- New permissions: `distributor_payment_config.read/write`, `payment.override`, `order.cancel`, `order.edit`.
-- Gate them through the existing permission-set architecture (no new RBAC system).
-- Smoke tests:
-  - Save config → create order → defaults applied, advance/proof required, blocked when over limit.
-  - Cancel after cutoff → blocked. Cancel before cutoff with reason → success + audit row.
-  - Edit before cutoff → fields editable; after cutoff → buttons hidden.
-
----
-
-## Open questions before I start (please pick)
-
-1. **Scope this round** — build all 5 phases in one go, or ship Phase 1+2 first (config foundation) and Phase 3+4 in a second pass? I'd recommend the two-step ship; Phase 3 depends on Phase 1 being live.
-2. **Existing config tables** — there are already `credit_management_config`, `distributor_credit_limits`, and `distributor_collection_policy` tables. Should I (a) **add** the new `distributor_payment_config` table alongside them, or (b) **extend** the existing ones with the new columns and consolidate? Option (b) is cleaner long-term but riskier.
-3. **Cancellation engine** — reuse the existing 14-step atomic cancellation RPC (your memory references it), or build a thinner "soft cancel" path for orders that never reached fulfilment? I'd reuse the existing RPC for consistency.
-4. **Order edit** — full re-open of the order screen in edit mode, or a narrower "edit payment details / quantities only" inline modal? Full re-open is more work but matches the spec.
+No edits to order, retailer, beat-plan, attendance, or invoice code.

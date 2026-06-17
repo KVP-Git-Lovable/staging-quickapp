@@ -151,6 +151,19 @@ export const TodaySummary = () => {
 
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
   const [completedActivitiesCount, setCompletedActivitiesCount] = useState(0);
+  const [activitySummary, setActivitySummary] = useState<{
+    totalCount: number;
+    totalFieldMinutes: number;
+    byType: Array<{
+      type: string;
+      label: string;
+      count: number;
+      totalMinutes: number;
+      color: string;
+      details: Array<{ name: string; duration: string; outcome?: string; beat?: string }>;
+    }>;
+    overdueFollowUps: number;
+  }>({ totalCount: 0, totalFieldMinutes: 0, byType: [], overdueFollowUps: 0 });
   
   // Payment method breakdown data for pie chart
   const [paymentMethodBreakdown, setPaymentMethodBreakdown] = useState<Array<{
@@ -1606,22 +1619,86 @@ export const TodaySummary = () => {
         variant: "destructive"
       });
     } finally {
-      // Fetch completed activities count
+      // Fetch rich activity summary for the date range
       try {
-        const activityUserId = managerSelectedUserId !== 'self' ? managerSelectedUserId : user?.id;
-        if (activityUserId) {
-          const { data: activityVisits } = await supabase
-            .from('visits')
-            .select('id')
-            .eq('user_id', activityUserId)
-            .eq('visit_type', 'activity')
-            .eq('status', 'productive')
-            .gte('planned_date', format(dateRange.from, 'yyyy-MM-dd'))
-            .lte('planned_date', format(dateRange.to, 'yyyy-MM-dd'));
-          setCompletedActivitiesCount(activityVisits?.length || 0);
+        const activityUserIds: string[] =
+          isManager && managerSelectedUserId === 'all'
+            ? [user?.id || '', ...subordinateIds].filter(Boolean)
+            : managerSelectedUserId !== 'self' && managerSelectedUserId !== user?.id
+              ? [managerSelectedUserId]
+              : [user?.id || ''].filter(Boolean);
+
+        if (activityUserIds.length > 0) {
+          const fromStr = format(dateRange.from, 'yyyy-MM-dd');
+          const toStr = format(dateRange.to, 'yyyy-MM-dd');
+
+          const { data: activityRows } = await supabase
+            .from('activity_events')
+            .select('id, activity_type, visit_category, activity_sub_type, check_in_time, check_out_time, duration_minutes, beat_name, outcome, contact_person, follow_up_date, retailer_name, distributor_name, activity_name, activity_place, shops_visited, survey_priority, survey_estimated_monthly_value, rep_overall_outcome, survey_suggested_beat_count')
+            .in('user_id', activityUserIds)
+            .gte('activity_date', fromStr)
+            .lte('activity_date', toStr);
+
+          const today = format(new Date(), 'yyyy-MM-dd');
+          const { count: followUpCount } = await supabase
+            .from('activity_events')
+            .select('id', { count: 'exact', head: true })
+            .in('user_id', activityUserIds)
+            .eq('outcome', 'follow_up_needed')
+            .lte('follow_up_date', today);
+
+          const rows = (activityRows as any[]) || [];
+          if (rows.length > 0) {
+            const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
+              customer_visit:    { label: 'Customer visits',    color: 'green'  },
+              beat_visit:        { label: 'Beat visits',        color: 'blue'   },
+              joint_beat_visit:  { label: 'Joint visits',       color: 'purple' },
+              new_beat_survey:   { label: 'Route surveys',      color: 'teal'   },
+              distributor_visit: { label: 'Distributor visits', color: 'amber'  },
+              event_promotion:   { label: 'Events',             color: 'orange' },
+              meeting_training:  { label: 'Meetings',           color: 'gray'   },
+              Event:       { label: 'Events',       color: 'blue'   },
+              Meeting:     { label: 'Meetings',     color: 'indigo' },
+              Celebration: { label: 'Celebrations', color: 'amber'  },
+              Promotion:   { label: 'Promotions',   color: 'green'  },
+              Demo:        { label: 'Demos',        color: 'purple' },
+              Other:       { label: 'Others',       color: 'gray'   },
+            };
+            const grouped = new Map<string, any[]>();
+            rows.forEach((r) => {
+              const key = r.visit_category || r.activity_type || 'Other';
+              if (!grouped.has(key)) grouped.set(key, []);
+              grouped.get(key)!.push(r);
+            });
+            const totalFieldMinutes = rows.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+            const fmt = (m: number) => (!m ? '' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
+            const byType = Array.from(grouped.entries()).map(([type, rs]) => {
+              const cfg = TYPE_CONFIG[type] || { label: type, color: 'gray' };
+              const typeMins = rs.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+              return {
+                type,
+                label: cfg.label,
+                color: cfg.color,
+                count: rs.length,
+                totalMinutes: typeMins,
+                details: rs.map((r) => ({
+                  name: r.retailer_name || r.distributor_name || r.activity_name || r.activity_place || r.beat_name || cfg.label,
+                  duration: fmt(r.duration_minutes || 0),
+                  outcome: r.outcome || r.rep_overall_outcome || undefined,
+                  beat: r.beat_name || undefined,
+                })),
+              };
+            }).sort((a, b) => b.count - a.count);
+
+            setActivitySummary({ totalCount: rows.length, totalFieldMinutes, byType, overdueFollowUps: followUpCount || 0 });
+            setCompletedActivitiesCount(rows.length);
+          } else {
+            setActivitySummary({ totalCount: 0, totalFieldMinutes: 0, byType: [], overdueFollowUps: followUpCount || 0 });
+            setCompletedActivitiesCount(0);
+          }
         }
-      } catch {
-        setCompletedActivitiesCount(0);
+      } catch (e) {
+        console.warn('[TodaySummary] Activity summary fetch failed:', e);
       }
       setLoading(false);
       initialLoadDone.current = true;
@@ -2211,21 +2288,102 @@ export const TodaySummary = () => {
               </div>
             </div>
 
-            {/* Activities Completed */}
-            {completedActivitiesCount > 0 && (
-              <div className="grid grid-cols-1 gap-4">
-                <div className="text-center p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                  <div className="text-xl font-bold text-purple-600">
-                    {completedActivitiesCount}
-                  </div>
-                  <div className="text-sm text-purple-600/80 font-medium">
-                    {completedActivitiesCount === 1 ? '1 activity was completed' : `${completedActivitiesCount} activities were completed`}
-                  </div>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* Activity Log Card */}
+        {activitySummary.totalCount > 0 && (
+          <Card className="shadow-card border-purple-200/50 dark:border-purple-800/30">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <span className="text-purple-600"><CalendarIcon size={18} /></span>
+                  Activity Log
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {activitySummary.overdueFollowUps > 0 && (
+                    <Badge className="bg-red-100 text-red-700 border border-red-300 text-xs gap-1">
+                      <Clock size={10} />
+                      {activitySummary.overdueFollowUps} follow-up{activitySummary.overdueFollowUps > 1 ? 's' : ''} overdue
+                    </Badge>
+                  )}
+                  <Badge className="bg-purple-100 text-purple-700 text-xs">{activitySummary.totalCount} logged</Badge>
+                </div>
+              </div>
+              {activitySummary.totalFieldMinutes > 0 && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                  <Clock size={12} />
+                  {Math.floor(activitySummary.totalFieldMinutes / 60)}h {activitySummary.totalFieldMinutes % 60}m total field time logged
+                </p>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-2 pt-0">
+              {activitySummary.byType.map((typeGroup) => {
+                const colorMap: Record<string, string> = {
+                  green: 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20',
+                  blue: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/20',
+                  purple: 'bg-purple-50 border-purple-200 text-purple-800 dark:bg-purple-950/20',
+                  teal: 'bg-teal-50 border-teal-200 text-teal-800 dark:bg-teal-950/20',
+                  amber: 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/20',
+                  orange: 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950/20',
+                  gray: 'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-950/20',
+                  indigo: 'bg-indigo-50 border-indigo-200 text-indigo-800 dark:bg-indigo-950/20',
+                };
+                const cardClass = colorMap[typeGroup.color] || colorMap.gray;
+                return (
+                  <div key={typeGroup.type} className={`rounded-lg border p-3 ${cardClass}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold">{typeGroup.label}</span>
+                      <div className="flex items-center gap-2 text-xs opacity-70">
+                        {typeGroup.totalMinutes > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Clock size={10} />
+                            {Math.floor(typeGroup.totalMinutes / 60) > 0
+                              ? `${Math.floor(typeGroup.totalMinutes / 60)}h ${typeGroup.totalMinutes % 60}m`
+                              : `${typeGroup.totalMinutes}m`}
+                          </span>
+                        )}
+                        <span className="font-semibold">{typeGroup.count} {typeGroup.count === 1 ? 'entry' : 'entries'}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      {typeGroup.details.slice(0, 3).map((detail, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs opacity-80">
+                          <span className="truncate max-w-[60%]">{detail.name}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {detail.beat && <span className="opacity-60 truncate max-w-[80px]">{detail.beat}</span>}
+                            {detail.outcome && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                                {detail.outcome.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                            {detail.duration && <span className="opacity-60">{detail.duration}</span>}
+                          </div>
+                        </div>
+                      ))}
+                      {typeGroup.details.length > 3 && (
+                        <p className="text-[10px] opacity-50 mt-1">+{typeGroup.details.length - 3} more</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {activitySummary.overdueFollowUps > 0 && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20">
+                  <Clock size={14} className="text-red-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-700">
+                      {activitySummary.overdueFollowUps} overdue follow-up{activitySummary.overdueFollowUps > 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-red-600 mt-0.5">Go to My Visits → Activity tab to mark them complete</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+
 
         {/* Performance Summary */}
         <Card className="shadow-card">

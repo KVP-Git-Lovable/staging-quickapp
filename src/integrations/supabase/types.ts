@@ -62,104 +62,245 @@ export type Database = {
         Row: {
           activity_date: string
           activity_name: string | null
+          activity_sub_type: string | null
           activity_type: string
+          actual_footfall: number | null
+          attendee_count: number | null
+          beat_id: string | null
+          beat_name: string | null
           budget: number | null
+          check_in_latitude: number | null
+          check_in_longitude: number | null
+          check_in_time: string | null
+          check_out_time: string | null
           collective_target: number | null
           comments: string | null
           completed_at: string | null
+          contact_person: string | null
           created_at: string
           description: string | null
+          distributor_id: string | null
+          distributor_name: string | null
+          duration_minutes: number | null
           duration_type: string
           end_time: string | null
           event_name: string | null
           expected_footfall: string | null
+          follow_up_date: string | null
           from_date: string | null
           half_day_type: string | null
           id: string
           individual_target: number | null
+          joint_session_id: string | null
+          km_travelled: number | null
           landmark: string | null
           location: string | null
+          outcome: string | null
           price_book_id: string | null
           remarks: string | null
+          rep_action_items: string | null
+          rep_followup_date: string | null
+          rep_improvement_areas: string | null
+          rep_overall_outcome: string | null
+          rep_rating_branding: number | null
+          rep_rating_market_intel: number | null
+          rep_rating_product_knowledge: number | null
+          rep_rating_retailer_relationship: number | null
+          rep_rating_scheme_communication: number | null
+          rep_strengths: string | null
           retailer_id: string | null
           retailer_name: string | null
+          sales_achieved: number | null
           sales_reps: string[] | null
           sales_target: number | null
+          shops_planned: number | null
+          shops_visited: number | null
           start_time: string | null
           status: string
+          subordinate_user_id: string | null
+          survey_competition_brands: string | null
+          survey_competitor_count: number | null
+          survey_estimated_monthly_value: number | null
+          survey_market_type: string | null
+          survey_observations: string | null
+          survey_our_stock_shops: number | null
+          survey_priority: string | null
+          survey_proposed_beat_names: string[] | null
+          survey_recommendation: string | null
+          survey_shops_per_beat: number | null
+          survey_suggested_beat_count: number | null
+          survey_target_shops: number | null
+          survey_total_shops: number | null
           target_mode: string | null
           to_date: string | null
+          topic: string | null
           total_days: number | null
           user_id: string
+          visit_category: string | null
           visit_id: string | null
+          visit_purpose: string | null
         }
         Insert: {
           activity_date?: string
           activity_name?: string | null
+          activity_sub_type?: string | null
           activity_type?: string
+          actual_footfall?: number | null
+          attendee_count?: number | null
+          beat_id?: string | null
+          beat_name?: string | null
           budget?: number | null
+          check_in_latitude?: number | null
+          check_in_longitude?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
           collective_target?: number | null
           comments?: string | null
           completed_at?: string | null
+          contact_person?: string | null
           created_at?: string
           description?: string | null
+          distributor_id?: string | null
+          distributor_name?: string | null
+          duration_minutes?: number | null
           duration_type?: string
           end_time?: string | null
           event_name?: string | null
           expected_footfall?: string | null
+          follow_up_date?: string | null
           from_date?: string | null
           half_day_type?: string | null
           id?: string
           individual_target?: number | null
+          joint_session_id?: string | null
+          km_travelled?: number | null
           landmark?: string | null
           location?: string | null
+          outcome?: string | null
           price_book_id?: string | null
           remarks?: string | null
+          rep_action_items?: string | null
+          rep_followup_date?: string | null
+          rep_improvement_areas?: string | null
+          rep_overall_outcome?: string | null
+          rep_rating_branding?: number | null
+          rep_rating_market_intel?: number | null
+          rep_rating_product_knowledge?: number | null
+          rep_rating_retailer_relationship?: number | null
+          rep_rating_scheme_communication?: number | null
+          rep_strengths?: string | null
           retailer_id?: string | null
           retailer_name?: string | null
+          sales_achieved?: number | null
           sales_reps?: string[] | null
           sales_target?: number | null
+          shops_planned?: number | null
+          shops_visited?: number | null
           start_time?: string | null
           status?: string
+          subordinate_user_id?: string | null
+          survey_competition_brands?: string | null
+          survey_competitor_count?: number | null
+          survey_estimated_monthly_value?: number | null
+          survey_market_type?: string | null
+          survey_observations?: string | null
+          survey_our_stock_shops?: number | null
+          survey_priority?: string | null
+          survey_proposed_beat_names?: string[] | null
+          survey_recommendation?: string | null
+          survey_shops_per_beat?: number | null
+          survey_suggested_beat_count?: number | null
+          survey_target_shops?: number | null
+          survey_total_shops?: number | null
           target_mode?: string | null
           to_date?: string | null
+          topic?: string | null
           total_days?: number | null
           user_id: string
+          visit_category?: string | null
           visit_id?: string | null
+          visit_purpose?: string | null
         }
         Update: {
           activity_date?: string
           activity_name?: string | null
+          activity_sub_type?: string | null
           activity_type?: string
+          actual_footfall?: number | null
+          attendee_count?: number | null
+          beat_id?: string | null
+          beat_name?: string | null
           budget?: number | null
+          check_in_latitude?: number | null
+          check_in_longitude?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
           collective_target?: number | null
           comments?: string | null
           completed_at?: string | null
+          contact_person?: string | null
           created_at?: string
           description?: string | null
+          distributor_id?: string | null
+          distributor_name?: string | null
+          duration_minutes?: number | null
           duration_type?: string
           end_time?: string | null
           event_name?: string | null
           expected_footfall?: string | null
+          follow_up_date?: string | null
           from_date?: string | null
           half_day_type?: string | null
           id?: string
           individual_target?: number | null
+          joint_session_id?: string | null
+          km_travelled?: number | null
           landmark?: string | null
           location?: string | null
+          outcome?: string | null
           price_book_id?: string | null
           remarks?: string | null
+          rep_action_items?: string | null
+          rep_followup_date?: string | null
+          rep_improvement_areas?: string | null
+          rep_overall_outcome?: string | null
+          rep_rating_branding?: number | null
+          rep_rating_market_intel?: number | null
+          rep_rating_product_knowledge?: number | null
+          rep_rating_retailer_relationship?: number | null
+          rep_rating_scheme_communication?: number | null
+          rep_strengths?: string | null
           retailer_id?: string | null
           retailer_name?: string | null
+          sales_achieved?: number | null
           sales_reps?: string[] | null
           sales_target?: number | null
+          shops_planned?: number | null
+          shops_visited?: number | null
           start_time?: string | null
           status?: string
+          subordinate_user_id?: string | null
+          survey_competition_brands?: string | null
+          survey_competitor_count?: number | null
+          survey_estimated_monthly_value?: number | null
+          survey_market_type?: string | null
+          survey_observations?: string | null
+          survey_our_stock_shops?: number | null
+          survey_priority?: string | null
+          survey_proposed_beat_names?: string[] | null
+          survey_recommendation?: string | null
+          survey_shops_per_beat?: number | null
+          survey_suggested_beat_count?: number | null
+          survey_target_shops?: number | null
+          survey_total_shops?: number | null
           target_mode?: string | null
           to_date?: string | null
+          topic?: string | null
           total_days?: number | null
           user_id?: string
+          visit_category?: string | null
           visit_id?: string | null
+          visit_purpose?: string | null
         }
         Relationships: [
           {
