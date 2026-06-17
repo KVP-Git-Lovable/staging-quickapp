@@ -1408,13 +1408,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "beats_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "beats_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
@@ -3851,15 +3844,7 @@ export type Database = {
           id?: string
           uploaded_by?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_attachments_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       distributor_beat_mappings: {
         Row: {
@@ -3883,15 +3868,7 @@ export type Database = {
           distributor_id?: string
           id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_beat_mappings_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       distributor_business_plan_month_products: {
         Row: {
@@ -4113,15 +4090,7 @@ export type Database = {
           updated_at?: string
           year?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_business_plans_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       distributor_claims: {
         Row: {
@@ -4222,44 +4191,6 @@ export type Database = {
           target_achieved?: number | null
           updated_at?: string
           vehicle_number?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_claims_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      distributor_collection_policy: {
-        Row: {
-          allocation_strategy: string
-          allow_manual_override: boolean
-          allow_unallocated_amount: boolean
-          created_at: string
-          distributor_id: string
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          allocation_strategy?: string
-          allow_manual_override?: boolean
-          allow_unallocated_amount?: boolean
-          created_at?: string
-          distributor_id: string
-          id?: string
-          updated_at?: string
-        }
-        Update: {
-          allocation_strategy?: string
-          allow_manual_override?: boolean
-          allow_unallocated_amount?: boolean
-          created_at?: string
-          distributor_id?: string
-          id?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -4410,15 +4341,7 @@ export type Database = {
           total_value?: number | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_company_returns_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       distributor_contacts: {
         Row: {
@@ -4480,52 +4403,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "distributor_contacts_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "distributor_contacts_reports_to_fkey"
             columns: ["reports_to"]
             isOneToOne: false
             referencedRelation: "distributor_contacts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      distributor_credit_limits: {
-        Row: {
-          credit_days: number
-          credit_limit: number
-          distributor_id: string
-          id: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          credit_days?: number
-          credit_limit?: number
-          distributor_id: string
-          id?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          credit_days?: number
-          credit_limit?: number
-          distributor_id?: string
-          id?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_credit_limits_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: true
-            referencedRelation: "distributors"
             referencedColumns: ["id"]
           },
         ]
@@ -4579,15 +4460,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_evaluation_tasks_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       distributor_ideas: {
         Row: {
@@ -4683,15 +4556,7 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_ideas_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       distributor_inventory: {
         Row: {
@@ -4849,13 +4714,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "distributor_inventory_transactions_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "distributor_inventory_transactions_variant_id_fkey"
             columns: ["variant_id"]
             isOneToOne: false
@@ -4949,15 +4807,7 @@ export type Database = {
           state?: string | null
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_locations_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       distributor_payment_config: {
         Row: {
@@ -5023,15 +4873,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_payment_config_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: true
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       distributor_payments: {
         Row: {
@@ -5105,13 +4947,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "distributor_payments_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "distributor_payments_retailer_id_fkey"
             columns: ["retailer_id"]
             isOneToOne: false
@@ -5153,13 +4988,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "distributor_price_books_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "distributor_price_books_price_book_id_fkey"
             columns: ["price_book_id"]
             isOneToOne: false
@@ -5200,13 +5028,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "distributor_retailer_credit_limits_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "distributor_retailer_credit_limits_retailer_id_fkey"
             columns: ["retailer_id"]
@@ -5269,13 +5090,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "distributor_retailer_feedback_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "distributor_retailer_feedback_retailer_id_fkey"
             columns: ["retailer_id"]
@@ -5341,13 +5155,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "distributor_retailer_ledger_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "distributor_retailer_ledger_retailer_id_fkey"
             columns: ["retailer_id"]
@@ -5520,13 +5327,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "distributor_returns_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "distributor_returns_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -5664,13 +5464,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "distributor_secondary_invoices_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "distributor_secondary_invoices_retailer_id_fkey"
             columns: ["retailer_id"]
             isOneToOne: false
@@ -5755,56 +5548,6 @@ export type Database = {
           ticket_number?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_support_requests_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      distributor_types: {
-        Row: {
-          code: string
-          created_at: string | null
-          description: string | null
-          id: string
-          legacy_mapping: string | null
-          level: number
-          name: string
-          parent_allowed: boolean
-          parent_type_code: string | null
-          sort_order: number
-          updated_at: string | null
-        }
-        Insert: {
-          code: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          legacy_mapping?: string | null
-          level?: number
-          name: string
-          parent_allowed?: boolean
-          parent_type_code?: string | null
-          sort_order?: number
-          updated_at?: string | null
-        }
-        Update: {
-          code?: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          legacy_mapping?: string | null
-          level?: number
-          name?: string
-          parent_allowed?: boolean
-          parent_type_code?: string | null
-          sort_order?: number
-          updated_at?: string | null
-        }
         Relationships: []
       }
       distributor_users: {
@@ -5871,204 +5614,7 @@ export type Database = {
           user_level?: string | null
           user_status?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "distributor_users_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      distributors: {
-        Row: {
-          about_business: string | null
-          account_holder_name: string | null
-          address: string | null
-          annual_revenue: number | null
-          assets_trucks: number | null
-          assets_vans: number | null
-          bank_account: string | null
-          bank_name: string | null
-          business_hunger: string | null
-          competition_products: string[] | null
-          contact_person: string
-          coverage_area: string | null
-          created_at: string
-          credit_limit: number | null
-          currency: string
-          date_format: string
-          distribution_experience_years: number | null
-          distribution_level: string | null
-          distributor_status: string | null
-          drop_reason: string | null
-          email: string | null
-          established_year: number | null
-          evaluation_checklist: Json | null
-          gst_number: string | null
-          id: string
-          ifsc: string | null
-          logo_url: string | null
-          name: string
-          network_retailers_count: number | null
-          onboarding_date: string | null
-          opportunities: string | null
-          other_products: string[] | null
-          outstanding_amount: number | null
-          owner_id: string | null
-          owner_name: string | null
-          parent_id: string | null
-          parent_type: string | null
-          partnership_status: string | null
-          phone: string
-          products_distributed: string[] | null
-          profitability: string | null
-          qr_code_url: string | null
-          qr_upi: string | null
-          region_coverage: string | null
-          sales_team_size: number | null
-          state: string | null
-          status: string
-          strength: string | null
-          terms_conditions: string | null
-          territory_id: string | null
-          threats: string | null
-          timezone: string
-          updated_at: string
-          weakness: string | null
-          years_of_relationship: number | null
-        }
-        Insert: {
-          about_business?: string | null
-          account_holder_name?: string | null
-          address?: string | null
-          annual_revenue?: number | null
-          assets_trucks?: number | null
-          assets_vans?: number | null
-          bank_account?: string | null
-          bank_name?: string | null
-          business_hunger?: string | null
-          competition_products?: string[] | null
-          contact_person: string
-          coverage_area?: string | null
-          created_at?: string
-          credit_limit?: number | null
-          currency?: string
-          date_format?: string
-          distribution_experience_years?: number | null
-          distribution_level?: string | null
-          distributor_status?: string | null
-          drop_reason?: string | null
-          email?: string | null
-          established_year?: number | null
-          evaluation_checklist?: Json | null
-          gst_number?: string | null
-          id?: string
-          ifsc?: string | null
-          logo_url?: string | null
-          name: string
-          network_retailers_count?: number | null
-          onboarding_date?: string | null
-          opportunities?: string | null
-          other_products?: string[] | null
-          outstanding_amount?: number | null
-          owner_id?: string | null
-          owner_name?: string | null
-          parent_id?: string | null
-          parent_type?: string | null
-          partnership_status?: string | null
-          phone: string
-          products_distributed?: string[] | null
-          profitability?: string | null
-          qr_code_url?: string | null
-          qr_upi?: string | null
-          region_coverage?: string | null
-          sales_team_size?: number | null
-          state?: string | null
-          status?: string
-          strength?: string | null
-          terms_conditions?: string | null
-          territory_id?: string | null
-          threats?: string | null
-          timezone?: string
-          updated_at?: string
-          weakness?: string | null
-          years_of_relationship?: number | null
-        }
-        Update: {
-          about_business?: string | null
-          account_holder_name?: string | null
-          address?: string | null
-          annual_revenue?: number | null
-          assets_trucks?: number | null
-          assets_vans?: number | null
-          bank_account?: string | null
-          bank_name?: string | null
-          business_hunger?: string | null
-          competition_products?: string[] | null
-          contact_person?: string
-          coverage_area?: string | null
-          created_at?: string
-          credit_limit?: number | null
-          currency?: string
-          date_format?: string
-          distribution_experience_years?: number | null
-          distribution_level?: string | null
-          distributor_status?: string | null
-          drop_reason?: string | null
-          email?: string | null
-          established_year?: number | null
-          evaluation_checklist?: Json | null
-          gst_number?: string | null
-          id?: string
-          ifsc?: string | null
-          logo_url?: string | null
-          name?: string
-          network_retailers_count?: number | null
-          onboarding_date?: string | null
-          opportunities?: string | null
-          other_products?: string[] | null
-          outstanding_amount?: number | null
-          owner_id?: string | null
-          owner_name?: string | null
-          parent_id?: string | null
-          parent_type?: string | null
-          partnership_status?: string | null
-          phone?: string
-          products_distributed?: string[] | null
-          profitability?: string | null
-          qr_code_url?: string | null
-          qr_upi?: string | null
-          region_coverage?: string | null
-          sales_team_size?: number | null
-          state?: string | null
-          status?: string
-          strength?: string | null
-          terms_conditions?: string | null
-          territory_id?: string | null
-          threats?: string | null
-          timezone?: string
-          updated_at?: string
-          weakness?: string | null
-          years_of_relationship?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "distributors_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "distributors_territory_id_fkey"
-            columns: ["territory_id"]
-            isOneToOne: false
-            referencedRelation: "territories"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       district_intelligence_cache: {
         Row: {
@@ -7765,13 +7311,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "goods_receipt_notes_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "goods_receipt_notes_order_id_fkey"
             columns: ["order_id"]
@@ -10428,15 +9967,7 @@ export type Database = {
           product_name?: string
           quantity?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "opening_stock_entries_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       operational_activity_log: {
         Row: {
@@ -11133,13 +10664,6 @@ export type Database = {
           warehouse_id?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "packing_lists_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "packing_lists_warehouse_id_fkey"
             columns: ["warehouse_id"]
@@ -13269,13 +12793,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "primary_invoices_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "primary_invoices_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -13621,13 +13138,6 @@ export type Database = {
             referencedRelation: "primary_orders"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "primary_orders_target_distributor_id_fkey"
-            columns: ["target_distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
         ]
       }
       primary_return_items: {
@@ -13728,13 +13238,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "primary_return_notes_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "primary_return_notes_grn_id_fkey"
             columns: ["grn_id"]
             isOneToOne: false
@@ -13815,13 +13318,6 @@ export type Database = {
           vehicle_number?: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "primary_shipments_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "primary_shipments_invoice_id_fkey"
             columns: ["invoice_id"]
@@ -16858,13 +16354,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "retailers_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "retailers_duplicate_of_fkey"
             columns: ["duplicate_of"]
             isOneToOne: false
@@ -18724,13 +18213,6 @@ export type Database = {
             columns: ["business_plan_id"]
             isOneToOne: false
             referencedRelation: "user_business_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_business_plan_distributors_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
             referencedColumns: ["id"]
           },
         ]
@@ -20912,15 +20394,7 @@ export type Database = {
           is_default?: boolean | null
           name?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "warehouses_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       week_off_config: {
         Row: {
