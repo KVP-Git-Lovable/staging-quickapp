@@ -34,7 +34,7 @@ interface OrderItem {
 
 const PrimaryOrderDetail = () => {
   const navigate = useNavigate();
-  const { orderId } = useParams();
+  const { id: orderId } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
