@@ -73,7 +73,6 @@ export function RetailerRemapDialog({ open, onOpenChange, sourceDistributorId, o
       const { data: distributorsData, error: distError } = await supabase
         .from('distributors')
         .select('id, name')
-        .or('is_placeholder.is.null,is_placeholder.eq.false')
         .order('name');
       if (distError) throw distError;
 

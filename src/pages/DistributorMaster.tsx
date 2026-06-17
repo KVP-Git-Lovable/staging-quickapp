@@ -127,7 +127,6 @@ export default function DistributorMaster() {
       const { data, error } = await supabase
         .from('distributors')
         .select('*')
-        .or('is_placeholder.is.null,is_placeholder.eq.false')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
