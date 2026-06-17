@@ -304,9 +304,9 @@ const GoodsReceiptNew = () => {
 
       toast.success(`GRN ${grnNumber} confirmed! Inventory updated.`);
       navigate('/distributor-portal/goods-receipt');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error confirming GRN:', error);
-      toast.error('Failed to confirm GRN');
+      toast.error(error?.message || 'Failed to confirm GRN');
     } finally {
       setSaving(false);
     }
