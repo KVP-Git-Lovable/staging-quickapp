@@ -253,7 +253,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   // No hardcoded KG→grams normalization — the unit chosen by the user is the unit saved.
   const syncRowsToCart = (rows: OrderRow[]) => {
     const productRows = rows.filter(row => row.product && row.quantity > 0);
-    const cartItems = productRows.map(row => {
+    const rawItems = productRows.map(row => {
       const displayName = row.variant ? row.variant.variant_name : row.product!.name;
       const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
       const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
@@ -292,11 +292,29 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       };
 
     });
-    
+
+    // Merge duplicate lines (same product + variant + unit) into a single cart entry.
+    // Multiple rows of the same product in the order-entry table should appear as ONE
+    // line in the cart with the combined quantity/total.
+    const mergedMap = new Map<string, typeof rawItems[number]>();
+    for (const item of rawItems) {
+      const key = `${item.product_id}__${item.variant_id ?? 'novariant'}__${item.uom_code || item.unit}`;
+      const existing = mergedMap.get(key);
+      if (existing) {
+        existing.quantity = Number(existing.quantity) + Number(item.quantity);
+        existing.total = Number(existing.total) + Number(item.total);
+        existing.display_quantity = Number(existing.display_quantity) + Number(item.display_quantity);
+      } else {
+        mergedMap.set(key, { ...item });
+      }
+    }
+    const cartItems = Array.from(mergedMap.values());
+
     onCartUpdate(cartItems);
     localStorage.setItem(getCartStorageKey(), JSON.stringify(cartItems));
-    DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items (stored as grams)');
+    DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items (merged from', rawItems.length, 'rows)');
   };
+
 
   // Expose applyVoiceAutoFill to parent via ref
   useImperativeHandle(ref, () => ({
