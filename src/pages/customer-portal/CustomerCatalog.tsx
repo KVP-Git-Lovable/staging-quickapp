@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo, startTransition } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useOutletContext, useSearchParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { customerPortalSupabase as supabase } from '@/integrations/supabase/portal-client';
 import { upsertCartItems } from '@/utils/customerCartHelper';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -252,7 +252,7 @@ const CustomerCatalog = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: priceBookId } = useRetailerPriceBook(retailer.distributor_id);
+  const { data: priceBookId } = useRetailerPriceBook(retailer.distributor_id, supabase);
 
   // Fetch the globally enabled sales units from the Unit of Measure Master.
   // The customer portal should only display units that are actually enabled.
@@ -320,7 +320,7 @@ const CustomerCatalog = () => {
 
   // Price book entries for all loaded products
   const productIds = useMemo(() => products.map(p => p.id), [products]);
-  const { data: priceMap = {} } = usePriceBookEntries(priceBookId, productIds);
+  const { data: priceMap = {} } = usePriceBookEntries(priceBookId, productIds, supabase);
 
   // Fetch active schemes
   const { data: schemes = [] } = useQuery({

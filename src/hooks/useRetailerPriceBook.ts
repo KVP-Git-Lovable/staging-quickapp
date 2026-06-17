@@ -1,29 +1,34 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase as defaultClient } from '@/integrations/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-export const useRetailerPriceBook = (distributorId: string | null | undefined) => {
+export const useRetailerPriceBook = (
+  distributorId: string | null | undefined,
+  client?: SupabaseClient<any>
+) => {
+  const sb = (client ?? defaultClient) as SupabaseClient<any>;
   return useQuery({
     queryKey: ['retailer-price-book', distributorId],
     queryFn: async () => {
       let priceBookId: string | null = null;
 
       if (distributorId) {
-        const { data: dpb } = await supabase
+        const { data: dpb } = await sb
           .from('distributor_price_books')
           .select('price_book_id')
           .eq('distributor_id', distributorId)
           .maybeSingle();
-        priceBookId = dpb?.price_book_id ?? null;
+        priceBookId = (dpb as any)?.price_book_id ?? null;
       }
 
       if (!priceBookId) {
-        const { data: stdPb } = await supabase
+        const { data: stdPb } = await sb
           .from('price_books')
           .select('id')
           .eq('is_standard', true)
           .eq('is_active', true)
           .maybeSingle();
-        priceBookId = stdPb?.id ?? null;
+        priceBookId = (stdPb as any)?.id ?? null;
       }
 
       return priceBookId;
@@ -33,16 +38,18 @@ export const useRetailerPriceBook = (distributorId: string | null | undefined) =
   });
 };
 
-export const usePriceBookEntries = (priceBookId: string | null | undefined, productIds?: string[]) => {
-  // Stable cheap fingerprint — never sort/join thousands of UUIDs on every render.
-  // selectedCategory is part of the upstream products query key, so length+priceBookId
-  // is a sufficient cache discriminator here.
+export const usePriceBookEntries = (
+  priceBookId: string | null | undefined,
+  productIds?: string[],
+  client?: SupabaseClient<any>
+) => {
+  const sb = (client ?? defaultClient) as SupabaseClient<any>;
   const fingerprint = productIds?.length ?? 0;
   return useQuery({
     queryKey: ['price-book-entries', priceBookId, fingerprint],
     queryFn: async () => {
       if (!priceBookId) return {};
-      let query = supabase
+      let query = sb
         .from('price_book_entries')
         .select('product_id, final_price')
         .eq('price_book_id', priceBookId)
@@ -55,7 +62,7 @@ export const usePriceBookEntries = (priceBookId: string | null | undefined, prod
       const { data } = await query;
       const map: Record<string, number> = {};
       if (data) {
-        for (const e of data) map[e.product_id] = e.final_price;
+        for (const e of data as any[]) map[e.product_id] = e.final_price;
       }
       return map;
     },
