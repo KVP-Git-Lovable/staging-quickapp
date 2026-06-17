@@ -356,8 +356,8 @@ export const PerformanceCalendar = () => {
     if (dayData.isHoliday && filters.holidays) return 'bg-muted';
     if (dayData.isLeave && filters.leaves) return 'bg-muted';
     
-    // Future planned beats - show in blue/info color
-    if (isFutureDate && dayData.beatName && dayData.completedVisits === 0) {
+    // Planned beats with no completed visits — show in blue (today, future, or missed past)
+    if (dayData.beatName && dayData.completedVisits === 0) {
       return 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800';
     }
     
