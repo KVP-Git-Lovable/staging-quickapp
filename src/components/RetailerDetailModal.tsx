@@ -790,7 +790,11 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             <div className="grid grid-cols-3 gap-2 mt-1.5 text-xs">
               <div>
                 <span className="text-muted-foreground">Beat:</span>{' '}
-                <span className="font-medium">{beats.find(b => b.beat_id === formData.beat_id)?.beat_name || formData.beat_id || 'Unassigned'}</span>
+                <span className="font-medium">
+                  {ownership.beatName
+                    || beats.find(b => b.beat_id === formData.beat_id)?.beat_name
+                    || 'Unassigned'}
+                </span>
               </div>
               <div>
                 <span className="text-muted-foreground">Territory:</span>{' '}
@@ -801,6 +805,18 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               <div>
                 <span className="text-muted-foreground">Distributor:</span>{' '}
                 <span className="font-medium">{associatedDistributor || formData.parent_name || 'Not mapped'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Created by:</span>{' '}
+                <span className="font-medium">{ownership.createdByName || '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Owner:</span>{' '}
+                <span className="font-medium">{ownership.ownerName || '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Currently operated by:</span>{' '}
+                <span className="font-medium">{ownership.currentUserName || '—'}</span>
               </div>
             </div>
           </div>
