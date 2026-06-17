@@ -209,16 +209,12 @@ const CreatePrimaryOrder = () => {
           ? Number(snapshotRow.outstanding)
           : (ordersRes.data || []).reduce((s: number, o: any) => s + Number(o.total_amount || 0), 0);
       setOutstanding(totalOutstanding);
-      // Seed payment defaults from config (only if user hasn't touched yet — first load)
+      // Seed payment defaults from config (term + mode only; advance amount is edited in the card)
       if (cfg) {
         setPayment((prev) => ({
           ...prev,
           paymentTerm: cfg.default_payment_term ?? prev.paymentTerm,
           paymentMode: cfg.default_payment_mode ?? prev.paymentMode,
-          advanceAmount:
-            cfg.require_advance_payment && cfg.advance_payment_pct > 0
-              ? Math.round(((totals?.grandTotal || 0) * Number(cfg.advance_payment_pct)) / 100)
-              : prev.advanceAmount,
         }));
       }
       setCreditChecked(true);
