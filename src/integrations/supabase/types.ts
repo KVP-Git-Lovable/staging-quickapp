@@ -5757,6 +5757,156 @@ export type Database = {
         }
         Relationships: []
       }
+      distributors: {
+        Row: {
+          about_business: string | null
+          address: string | null
+          annual_revenue: number | null
+          assets_trucks: number | null
+          assets_vans: number | null
+          business_hunger: string | null
+          competition_products: string[] | null
+          contact_person: string | null
+          coverage_area: string | null
+          created_at: string
+          credit_limit: number | null
+          distribution_experience_years: number | null
+          distribution_level: string | null
+          distributor_status: string | null
+          drop_reason: string | null
+          email: string | null
+          established_year: number | null
+          gst_number: string | null
+          id: string
+          name: string
+          network_retailers_count: number | null
+          onboarding_date: string | null
+          opportunities: string | null
+          other_products: string[] | null
+          outstanding_amount: number | null
+          owner_id: string | null
+          owner_name: string | null
+          parent_id: string | null
+          parent_type: string | null
+          partnership_status: string | null
+          phone: string | null
+          products_distributed: string[] | null
+          profitability: string | null
+          region_coverage: string | null
+          sales_team_size: number | null
+          status: string
+          strength: string | null
+          territory_id: string | null
+          threats: string | null
+          updated_at: string
+          weakness: string | null
+          years_of_relationship: number | null
+        }
+        Insert: {
+          about_business?: string | null
+          address?: string | null
+          annual_revenue?: number | null
+          assets_trucks?: number | null
+          assets_vans?: number | null
+          business_hunger?: string | null
+          competition_products?: string[] | null
+          contact_person?: string | null
+          coverage_area?: string | null
+          created_at?: string
+          credit_limit?: number | null
+          distribution_experience_years?: number | null
+          distribution_level?: string | null
+          distributor_status?: string | null
+          drop_reason?: string | null
+          email?: string | null
+          established_year?: number | null
+          gst_number?: string | null
+          id?: string
+          name: string
+          network_retailers_count?: number | null
+          onboarding_date?: string | null
+          opportunities?: string | null
+          other_products?: string[] | null
+          outstanding_amount?: number | null
+          owner_id?: string | null
+          owner_name?: string | null
+          parent_id?: string | null
+          parent_type?: string | null
+          partnership_status?: string | null
+          phone?: string | null
+          products_distributed?: string[] | null
+          profitability?: string | null
+          region_coverage?: string | null
+          sales_team_size?: number | null
+          status?: string
+          strength?: string | null
+          territory_id?: string | null
+          threats?: string | null
+          updated_at?: string
+          weakness?: string | null
+          years_of_relationship?: number | null
+        }
+        Update: {
+          about_business?: string | null
+          address?: string | null
+          annual_revenue?: number | null
+          assets_trucks?: number | null
+          assets_vans?: number | null
+          business_hunger?: string | null
+          competition_products?: string[] | null
+          contact_person?: string | null
+          coverage_area?: string | null
+          created_at?: string
+          credit_limit?: number | null
+          distribution_experience_years?: number | null
+          distribution_level?: string | null
+          distributor_status?: string | null
+          drop_reason?: string | null
+          email?: string | null
+          established_year?: number | null
+          gst_number?: string | null
+          id?: string
+          name?: string
+          network_retailers_count?: number | null
+          onboarding_date?: string | null
+          opportunities?: string | null
+          other_products?: string[] | null
+          outstanding_amount?: number | null
+          owner_id?: string | null
+          owner_name?: string | null
+          parent_id?: string | null
+          parent_type?: string | null
+          partnership_status?: string | null
+          phone?: string | null
+          products_distributed?: string[] | null
+          profitability?: string | null
+          region_coverage?: string | null
+          sales_team_size?: number | null
+          status?: string
+          strength?: string | null
+          territory_id?: string | null
+          threats?: string | null
+          updated_at?: string
+          weakness?: string | null
+          years_of_relationship?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributors_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributors_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       district_intelligence_cache: {
         Row: {
           ai_summary: string
