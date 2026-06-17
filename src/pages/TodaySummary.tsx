@@ -1619,22 +1619,86 @@ export const TodaySummary = () => {
         variant: "destructive"
       });
     } finally {
-      // Fetch completed activities count
+      // Fetch rich activity summary for the date range
       try {
-        const activityUserId = managerSelectedUserId !== 'self' ? managerSelectedUserId : user?.id;
-        if (activityUserId) {
-          const { data: activityVisits } = await supabase
-            .from('visits')
-            .select('id')
-            .eq('user_id', activityUserId)
-            .eq('visit_type', 'activity')
-            .eq('status', 'productive')
-            .gte('planned_date', format(dateRange.from, 'yyyy-MM-dd'))
-            .lte('planned_date', format(dateRange.to, 'yyyy-MM-dd'));
-          setCompletedActivitiesCount(activityVisits?.length || 0);
+        const activityUserIds: string[] =
+          isManager && managerSelectedUserId === 'all'
+            ? [user?.id || '', ...subordinateIds].filter(Boolean)
+            : managerSelectedUserId !== 'self' && managerSelectedUserId !== user?.id
+              ? [managerSelectedUserId]
+              : [user?.id || ''].filter(Boolean);
+
+        if (activityUserIds.length > 0) {
+          const fromStr = format(dateRange.from, 'yyyy-MM-dd');
+          const toStr = format(dateRange.to, 'yyyy-MM-dd');
+
+          const { data: activityRows } = await supabase
+            .from('activity_events')
+            .select('id, activity_type, visit_category, activity_sub_type, check_in_time, check_out_time, duration_minutes, beat_name, outcome, contact_person, follow_up_date, retailer_name, distributor_name, activity_name, activity_place, shops_visited, survey_priority, survey_estimated_monthly_value, rep_overall_outcome, survey_suggested_beat_count')
+            .in('user_id', activityUserIds)
+            .gte('activity_date', fromStr)
+            .lte('activity_date', toStr);
+
+          const today = format(new Date(), 'yyyy-MM-dd');
+          const { count: followUpCount } = await supabase
+            .from('activity_events')
+            .select('id', { count: 'exact', head: true })
+            .in('user_id', activityUserIds)
+            .eq('outcome', 'follow_up_needed')
+            .lte('follow_up_date', today);
+
+          const rows = (activityRows as any[]) || [];
+          if (rows.length > 0) {
+            const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
+              customer_visit:    { label: 'Customer visits',    color: 'green'  },
+              beat_visit:        { label: 'Beat visits',        color: 'blue'   },
+              joint_beat_visit:  { label: 'Joint visits',       color: 'purple' },
+              new_beat_survey:   { label: 'Route surveys',      color: 'teal'   },
+              distributor_visit: { label: 'Distributor visits', color: 'amber'  },
+              event_promotion:   { label: 'Events',             color: 'orange' },
+              meeting_training:  { label: 'Meetings',           color: 'gray'   },
+              Event:       { label: 'Events',       color: 'blue'   },
+              Meeting:     { label: 'Meetings',     color: 'indigo' },
+              Celebration: { label: 'Celebrations', color: 'amber'  },
+              Promotion:   { label: 'Promotions',   color: 'green'  },
+              Demo:        { label: 'Demos',        color: 'purple' },
+              Other:       { label: 'Others',       color: 'gray'   },
+            };
+            const grouped = new Map<string, any[]>();
+            rows.forEach((r) => {
+              const key = r.visit_category || r.activity_type || 'Other';
+              if (!grouped.has(key)) grouped.set(key, []);
+              grouped.get(key)!.push(r);
+            });
+            const totalFieldMinutes = rows.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+            const fmt = (m: number) => (!m ? '' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
+            const byType = Array.from(grouped.entries()).map(([type, rs]) => {
+              const cfg = TYPE_CONFIG[type] || { label: type, color: 'gray' };
+              const typeMins = rs.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+              return {
+                type,
+                label: cfg.label,
+                color: cfg.color,
+                count: rs.length,
+                totalMinutes: typeMins,
+                details: rs.map((r) => ({
+                  name: r.retailer_name || r.distributor_name || r.activity_name || r.activity_place || r.beat_name || cfg.label,
+                  duration: fmt(r.duration_minutes || 0),
+                  outcome: r.outcome || r.rep_overall_outcome || undefined,
+                  beat: r.beat_name || undefined,
+                })),
+              };
+            }).sort((a, b) => b.count - a.count);
+
+            setActivitySummary({ totalCount: rows.length, totalFieldMinutes, byType, overdueFollowUps: followUpCount || 0 });
+            setCompletedActivitiesCount(rows.length);
+          } else {
+            setActivitySummary({ totalCount: 0, totalFieldMinutes: 0, byType: [], overdueFollowUps: followUpCount || 0 });
+            setCompletedActivitiesCount(0);
+          }
         }
-      } catch {
-        setCompletedActivitiesCount(0);
+      } catch (e) {
+        console.warn('[TodaySummary] Activity summary fetch failed:', e);
       }
       setLoading(false);
       initialLoadDone.current = true;
