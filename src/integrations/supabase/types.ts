@@ -4959,6 +4959,80 @@ export type Database = {
           },
         ]
       }
+      distributor_payment_config: {
+        Row: {
+          advance_payment_pct: number
+          allow_orders_beyond_limit: boolean
+          approval_required_beyond_limit: boolean
+          approval_required_high_risk: boolean
+          created_at: string
+          credit_allowed: boolean
+          credit_limit: number
+          credit_warning_threshold_pct: number
+          default_payment_mode: string
+          default_payment_term: string
+          distributor_id: string
+          id: string
+          max_outstanding_allowed: number | null
+          max_overdue_days: number | null
+          overdue_blocking_enabled: boolean
+          require_advance_payment: boolean
+          require_payment_proof: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          advance_payment_pct?: number
+          allow_orders_beyond_limit?: boolean
+          approval_required_beyond_limit?: boolean
+          approval_required_high_risk?: boolean
+          created_at?: string
+          credit_allowed?: boolean
+          credit_limit?: number
+          credit_warning_threshold_pct?: number
+          default_payment_mode?: string
+          default_payment_term?: string
+          distributor_id: string
+          id?: string
+          max_outstanding_allowed?: number | null
+          max_overdue_days?: number | null
+          overdue_blocking_enabled?: boolean
+          require_advance_payment?: boolean
+          require_payment_proof?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          advance_payment_pct?: number
+          allow_orders_beyond_limit?: boolean
+          approval_required_beyond_limit?: boolean
+          approval_required_high_risk?: boolean
+          created_at?: string
+          credit_allowed?: boolean
+          credit_limit?: number
+          credit_warning_threshold_pct?: number
+          default_payment_mode?: string
+          default_payment_term?: string
+          distributor_id?: string
+          id?: string
+          max_outstanding_allowed?: number | null
+          max_overdue_days?: number | null
+          overdue_blocking_enabled?: boolean
+          require_advance_payment?: boolean
+          require_payment_proof?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_payment_config_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: true
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_payments: {
         Row: {
           amount: number
@@ -10524,6 +10598,39 @@ export type Database = {
           },
         ]
       }
+      order_lifecycle_config: {
+        Row: {
+          allow_order_cancellation: boolean
+          allow_order_editing: boolean
+          cancellation_cutoff_stage: string
+          created_at: string
+          editing_cutoff_stage: string
+          id: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          allow_order_cancellation?: boolean
+          allow_order_editing?: boolean
+          cancellation_cutoff_stage?: string
+          created_at?: string
+          editing_cutoff_stage?: string
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          allow_order_cancellation?: boolean
+          allow_order_editing?: boolean
+          cancellation_cutoff_stage?: string
+          created_at?: string
+          editing_cutoff_stage?: string
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           amount_collected: number | null
@@ -13375,14 +13482,22 @@ export type Database = {
       primary_orders: {
         Row: {
           actual_delivery_date: string | null
+          advance_amount: number | null
           approved_at: string | null
           approved_by: string | null
+          balance_payable: number | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
           created_by_user_id: string | null
+          credit_snapshot: Json | null
           discount_amount: number
           dispatch_reference: string | null
           dispatched_at: string | null
           distributor_id: string
+          edited_at: string | null
+          edited_by: string | null
           expected_delivery_date: string | null
           id: string
           is_backorder: boolean | null
@@ -13391,7 +13506,10 @@ export type Database = {
           order_number: string
           packing_list_id: string | null
           parent_order_id: string | null
+          payment_mode: string | null
+          payment_proof_url: string | null
           payment_status: string
+          payment_term: string | null
           payment_terms: string | null
           shipping_address: string | null
           source_distributor_id: string
@@ -13406,14 +13524,22 @@ export type Database = {
         }
         Insert: {
           actual_delivery_date?: string | null
+          advance_amount?: number | null
           approved_at?: string | null
           approved_by?: string | null
+          balance_payable?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           created_by_user_id?: string | null
+          credit_snapshot?: Json | null
           discount_amount?: number
           dispatch_reference?: string | null
           dispatched_at?: string | null
           distributor_id: string
+          edited_at?: string | null
+          edited_by?: string | null
           expected_delivery_date?: string | null
           id?: string
           is_backorder?: boolean | null
@@ -13422,7 +13548,10 @@ export type Database = {
           order_number: string
           packing_list_id?: string | null
           parent_order_id?: string | null
+          payment_mode?: string | null
+          payment_proof_url?: string | null
           payment_status?: string
+          payment_term?: string | null
           payment_terms?: string | null
           shipping_address?: string | null
           source_distributor_id: string
@@ -13437,14 +13566,22 @@ export type Database = {
         }
         Update: {
           actual_delivery_date?: string | null
+          advance_amount?: number | null
           approved_at?: string | null
           approved_by?: string | null
+          balance_payable?: number | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           created_by_user_id?: string | null
+          credit_snapshot?: Json | null
           discount_amount?: number
           dispatch_reference?: string | null
           dispatched_at?: string | null
           distributor_id?: string
+          edited_at?: string | null
+          edited_by?: string | null
           expected_delivery_date?: string | null
           id?: string
           is_backorder?: boolean | null
@@ -13453,7 +13590,10 @@ export type Database = {
           order_number?: string
           packing_list_id?: string | null
           parent_order_id?: string | null
+          payment_mode?: string | null
+          payment_proof_url?: string | null
           payment_status?: string
+          payment_term?: string | null
           payment_terms?: string | null
           shipping_address?: string | null
           source_distributor_id?: string
@@ -21423,6 +21563,17 @@ export type Database = {
         Args: never
         Returns: {
           statename: string
+        }[]
+      }
+      get_distributor_financial_snapshot: {
+        Args: { p_distributor_id: string }
+        Returns: {
+          available_credit: number
+          credit_limit: number
+          credit_utilization_pct: number
+          last_payment_date: string
+          outstanding: number
+          overdue_amount: number
         }[]
       }
       get_distributor_id_for_auth_user: { Args: never; Returns: string }
