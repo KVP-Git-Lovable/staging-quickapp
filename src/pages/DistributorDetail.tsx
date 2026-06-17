@@ -481,6 +481,10 @@ export default function DistributorDetail() {
             <DistributorPriceBooks distributorId={distributor.id} />
           </TabsContent>
 
+          <TabsContent value="payment-credit" className="mt-4">
+            <PaymentCreditTab distributorId={distributor.id} />
+          </TabsContent>
+
           <TabsContent value="business" className="mt-4">
             <DistributorFYPlan distributorId={distributor.id} />
           </TabsContent>
