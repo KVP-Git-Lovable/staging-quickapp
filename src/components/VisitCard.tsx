@@ -279,6 +279,8 @@ export const VisitCard = ({
   } = useCheckInMandatory();
   const {
     isLocationEnabled,
+    isCameraEnabled,
+    isCheckInEnabled,
     loading: locationFeatureLoading
   } = useLocationFeature();
 
@@ -1831,8 +1833,8 @@ export const VisitCard = ({
         return;
       }
 
-      // Check if geolocation is supported
-      if (!navigator.geolocation) {
+      // Check if geolocation is supported (only required when location capture is enabled)
+      if (isLocationEnabled && !navigator.geolocation) {
         toast({
           title: 'Location not supported',
           description: 'Your device does not support location services.',
@@ -1849,41 +1851,42 @@ export const VisitCard = ({
       setCurrentVisitId(visitId);
 
       // Get current location with better error handling
-      let current: {
-        latitude: number;
-        longitude: number;
-      };
-      try {
-        current = await getResilientLocation();
-      } catch (locationError: any) {
-        let errorMessage = 'Failed to get location. Please enable location services.';
-        if (locationError && typeof locationError === 'object' && 'code' in locationError) {
-          switch (locationError.code) {
-            case 1:
-              errorMessage = 'Location permission denied. Please enable location access for this site in your browser and device settings.';
-              break;
-            case 2:
-              errorMessage = 'Location unavailable. Please check that GPS is ON (Android: Settings → Location → High accuracy).';
-              break;
-            case 3:
-              errorMessage = "Couldn't get a GPS fix. Move near a window or outdoors, enable Precise location for this site in Chrome, then tap Capture Location again.";
-              break;
-          }
-        } else if (locationError?.message) {
-          errorMessage = locationError.message;
-        }
-        toast({
-          title: 'Location Error',
-          description: errorMessage,
-          variant: 'destructive'
-        });
-        return;
-      }
-      const address = `${current.latitude.toFixed(6)}, ${current.longitude.toFixed(6)}`;
+      let current: { latitude: number; longitude: number } | null = null;
+      let address = '';
       let match: boolean | null = null;
-      if (visit.retailerLat && visit.retailerLng) {
-        const distance = calculateDistance(current.latitude, current.longitude, visit.retailerLat, visit.retailerLng);
-        match = distance <= 100;
+
+      if (isLocationEnabled) {
+        try {
+          current = await getResilientLocation();
+        } catch (locationError: any) {
+          let errorMessage = 'Failed to get location. Please enable location services.';
+          if (locationError && typeof locationError === 'object' && 'code' in locationError) {
+            switch (locationError.code) {
+              case 1:
+                errorMessage = 'Location permission denied. Please enable location access for this site in your browser and device settings.';
+                break;
+              case 2:
+                errorMessage = 'Location unavailable. Please check that GPS is ON (Android: Settings → Location → High accuracy).';
+                break;
+              case 3:
+                errorMessage = "Couldn't get a GPS fix. Move near a window or outdoors, enable Precise location for this site in Chrome, then tap Capture Location again.";
+                break;
+            }
+          } else if (locationError?.message) {
+            errorMessage = locationError.message;
+          }
+          toast({
+            title: 'Location Error',
+            description: errorMessage,
+            variant: 'destructive'
+          });
+          return;
+        }
+        address = `${current.latitude.toFixed(6)}, ${current.longitude.toFixed(6)}`;
+        if (visit.retailerLat && visit.retailerLng) {
+          const distance = calculateDistance(current.latitude, current.longitude, visit.retailerLat, visit.retailerLng);
+          match = distance <= 100;
+        }
       }
 
       // Close location modal
@@ -1969,7 +1972,7 @@ export const VisitCard = ({
         return;
       }
 
-      // For check-in: require photo with front camera
+      // For check-in: prepare context
       pendingPhotoActionRef.current = action;
       pendingCheckDataRef.current = {
         action,
@@ -1983,8 +1986,44 @@ export const VisitCard = ({
         today
       };
 
-      // Open camera capture modal
-      setShowCameraCapture(true);
+      if (isCameraEnabled) {
+        // Open camera capture modal — photo handler finalizes check-in
+        setShowCameraCapture(true);
+      } else {
+        // Camera disabled — finalize check-in immediately without photo
+        await autoCheckOutPreviousVisit(user.id, retailerId, today);
+        const { error: visitErr } = await supabase.from('visits').update({
+          check_in_time: timestamp,
+          check_in_location: current,
+          check_in_address: address || null,
+          location_match_in: match,
+          status: 'in-progress'
+        }).eq('id', visitId);
+        if (visitErr) throw visitErr;
+
+        const { error: attErr } = await supabase.from('attendance').upsert({
+          user_id: user.id,
+          date: today,
+          check_in_time: timestamp,
+          check_in_location: current,
+          check_in_address: address || null,
+          status: 'present'
+        }, { onConflict: 'user_id,date' });
+        if (attErr) console.error('Attendance check-in error:', attErr);
+
+        setPhase('in-progress');
+        setLocationMatchIn(match);
+        setIsCheckedIn(true);
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+          detail: { visitId, status: 'in-progress', retailerId }
+        }));
+        toast({
+          title: 'Check-in successful ✓',
+          description: match === false ? 'Location mismatch detected' : 'Visit started successfully'
+        });
+        pendingPhotoActionRef.current = null;
+        pendingCheckDataRef.current = null;
+      }
     } catch (err: any) {
       console.error('Check-in/out error', err);
 
@@ -1996,7 +2035,8 @@ export const VisitCard = ({
       if (err.message?.includes('Location') || err.message?.includes('GPS')) {
         errorDescription = err.message;
       } else if (err.message?.includes('permission')) {
-        errorDescription = 'Please enable location and camera permissions in your device settings.';
+        const perms = [isLocationEnabled && 'location', isCameraEnabled && 'camera'].filter(Boolean).join(' and ');
+        errorDescription = `Please enable ${perms || 'required'} permissions in your device settings.`;
       } else if (err.message?.includes('timeout') || err.message?.includes('timed out')) {
         errorDescription = 'Request timed out. Please check your GPS and internet connection, then try again.';
       }
@@ -2219,7 +2259,7 @@ export const VisitCard = ({
     }, 0); // setTimeout 0 ensures UI updates first
   };
   const handleNoOrderClick = () => {
-    if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
+    if (isCheckInEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
       toast({
         title: 'Check-in Required',
         description: 'Please check in or proceed without check-in first.',
@@ -2728,8 +2768,8 @@ export const VisitCard = ({
 
         <div className="space-y-2">
           {/* First row - Check In, Order, Feedback, AI */}
-          <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isLocationEnabled && canCheckIn ? 'grid-cols-4' : 'grid-cols-3'}`}>
-            {!locationFeatureLoading && isLocationEnabled && canCheckIn && (
+          <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isCheckInEnabled && canCheckIn ? 'grid-cols-4' : 'grid-cols-3'}`}>
+            {!locationFeatureLoading && isCheckInEnabled && canCheckIn && (
               <Button
                 size="sm"
                 className={`${getLocationBtnClass()} p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5`}
@@ -2747,7 +2787,7 @@ export const VisitCard = ({
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
               } ${
-                (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isLocationEnabled) || !isTodaysVisit
+                (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isCheckInEnabled) || !isTodaysVisit
                   ? "opacity-50 cursor-not-allowed"
                   : ""
               }`}
@@ -2766,7 +2806,7 @@ export const VisitCard = ({
                 }
 
                 // Check if check-in is required but not done (sync check, no network)
-                if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
+                if (isCheckInEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
                   toast({
                     title: "Check-in Required",
                     description: "Please check in first to place an order.",
@@ -2839,7 +2879,7 @@ export const VisitCard = ({
                 })();
               }}
               title={
-                isLocationEnabled && !isCheckedIn && !proceedWithoutCheckIn
+                isCheckInEnabled && !isCheckedIn && !proceedWithoutCheckIn
                   ? "Check in first to place order"
                   : `Order${
                       visit.orderValue || hasOrderToday
@@ -3068,11 +3108,11 @@ export const VisitCard = ({
               <DialogTitle className="text-lg font-semibold text-center">Location Options</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-4">
-              {isLocationEnabled && !isCheckedIn && isTodaysVisit && <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-200">
-                  <p className="font-medium mb-1">📍 Location & Camera Required</p>
-                  <p className="text-xs">Please allow location and camera access when prompted for check-in.</p>
+              {isCheckInEnabled && !isCheckedIn && isTodaysVisit && <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-medium mb-1">📍 {isLocationEnabled && isCameraEnabled ? 'Location & Camera Required' : isLocationEnabled ? 'Location Required' : 'Camera Required'}</p>
+                  <p className="text-xs">Please allow {[isLocationEnabled && 'location', isCameraEnabled && 'camera'].filter(Boolean).join(' and ')} access when prompted for check-in.</p>
                 </div>}
-            {isLocationEnabled && <div className="grid grid-cols-2 gap-2">
+            {isCheckInEnabled && <div className="grid grid-cols-2 gap-2">
                 <Button onClick={() => {
                   recordAction('check_in').catch(() => {});
                   handleCheckInOut('checkin');
@@ -3136,12 +3176,12 @@ export const VisitCard = ({
                   </Button>
                 </div>}
               
-              {isLocationEnabled && <Button onClick={() => handleCheckInOut('checkout')} className={`w-full h-12 text-base font-medium ${isCheckedOut ? 'bg-success text-success-foreground hover:bg-success/90 border-success' : !isCheckedIn || !isTodaysVisit ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'}`} variant={isCheckedOut ? "default" : "outline"} disabled={!isCheckedIn || isCheckedOut || !isTodaysVisit}>
+              {isCheckInEnabled && <Button onClick={() => handleCheckInOut('checkout')} className={`w-full h-12 text-base font-medium ${isCheckedOut ? 'bg-success text-success-foreground hover:bg-success/90 border-success' : !isCheckedIn || !isTodaysVisit ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'}`} variant={isCheckedOut ? "default" : "outline"} disabled={!isCheckedIn || isCheckedOut || !isTodaysVisit}>
                   <LogOut className="mr-2 h-5 w-5" />
                   {isCheckedOut ? 'Checked Out' : 'Check Out'}
                 </Button>}
               
-              {isLocationEnabled && <div className="pt-2 border-t">
+              {isCheckInEnabled && <div className="pt-2 border-t">
                   {!showReasonInput && !proceedWithoutCheckIn && !isCheckedIn && <button onClick={() => setShowReasonInput(true)} className="w-full text-sm text-primary hover:underline text-center py-2">
                     Click here to proceed without Check-in
                   </button>}
