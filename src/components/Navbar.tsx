@@ -280,10 +280,10 @@ export const Navbar = memo(() => {
                   <SheetTitle className="text-lg font-bold text-primary-foreground truncate w-full text-left">
                     {displayName}
                   </SheetTitle>
-                  {hasAdminAccess && (
+                  {securityProfileName && (
                     <div className="flex items-center gap-1.5 text-xs opacity-90 text-primary-foreground mt-1">
                       <Shield className="h-3.5 w-3.5" />
-                      <span className="font-medium">Admin</span>
+                      <span className="font-medium">{securityProfileName}</span>
                     </div>
                   )}
                 </div>

@@ -155,13 +155,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (error) {
         // If profile doesn't exist, return a basic profile with user data
         if (error.code === 'PGRST116') {
+          const meta: any = user?.user_metadata || {};
+          const emailBase = user?.email?.split('@')[0]
+            ?.replace(/[._-]+/g, ' ')
+            ?.replace(/\b\w/g, (c) => c.toUpperCase()) || null;
           return {
             id: userId,
-            username: user?.email?.split('@')[0] || 'User',
-            full_name: user?.user_metadata?.full_name || 'Unknown User',
-            phone_number: user?.user_metadata?.phone_number,
-            recovery_email: user?.user_metadata?.recovery_email,
-            profile_picture_url: user?.user_metadata?.profile_picture_url
+            username: meta.username || user?.email?.split('@')[0] || null,
+            full_name: meta.full_name || meta.name || emailBase || null,
+            phone_number: meta.phone_number || null,
+            recovery_email: meta.recovery_email || null,
+            profile_picture_url: meta.profile_picture_url || null,
           };
         }
         devError('Error fetching user profile:', error);
