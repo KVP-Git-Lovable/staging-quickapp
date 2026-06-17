@@ -262,6 +262,48 @@ const CreatePrimaryOrder = () => {
       });
       setProducts(enriched);
       setFilteredProducts(enriched);
+
+      const productIds = enriched.map((p: any) => p.id);
+      if (productIds.length > 0) {
+        // UOM options per product
+        const { data: uomRows } = await supabase
+          .from('product_uom_mapping')
+          .select('product_id, is_default_sales, is_base, uom_master(code, name)')
+          .in('product_id', productIds)
+          .eq('is_active', true);
+        const uomMap: Record<string, UomOption[]> = {};
+        (uomRows || []).forEach((r: any) => {
+          const u = r.uom_master;
+          if (!u) return;
+          if (!uomMap[r.product_id]) uomMap[r.product_id] = [];
+          // default-sales first, then base, then rest
+          const entry = { code: u.code, name: u.name };
+          if (r.is_default_sales) uomMap[r.product_id].unshift(entry);
+          else uomMap[r.product_id].push(entry);
+        });
+        setProductUoms(uomMap);
+
+        // Stock available per product (sum across variants/batches for this distributor)
+        if (distributorId) {
+          const { data: invRows } = await supabase
+            .from('distributor_inventory')
+            .select('product_id, quantity, reserved_quantity, damaged_quantity, expired_quantity')
+            .eq('distributor_id', distributorId)
+            .in('product_id', productIds);
+          const stockMap: Record<string, number> = {};
+          (invRows || []).forEach((r: any) => {
+            const avail = Math.max(
+              0,
+              Number(r.quantity || 0) -
+                Number(r.reserved_quantity || 0) -
+                Number(r.damaged_quantity || 0) -
+                Number(r.expired_quantity || 0),
+            );
+            stockMap[r.product_id] = (stockMap[r.product_id] || 0) + avail;
+          });
+          setProductStock(stockMap);
+        }
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Failed to load products');
