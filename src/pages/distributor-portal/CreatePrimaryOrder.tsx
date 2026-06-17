@@ -398,7 +398,8 @@ const CreatePrimaryOrder = () => {
   }, [orderItems]);
 
   const saveOrder = async (submit = false) => {
-    if (orderItems.length === 0) {
+    const validItems = orderItems.filter((it) => it.product_id);
+    if (validItems.length === 0) {
       toast.error('Please add at least one item');
       return;
     }
