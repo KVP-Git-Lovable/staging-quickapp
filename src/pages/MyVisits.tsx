@@ -1379,12 +1379,6 @@ export const MyVisits = () => {
                     <span className="truncate">{t('visits.vanStock')}</span>
                   </Button>
                 ),
-                showActivity && (
-                  <Button key="activity" variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[9px] sm:text-sm h-8 sm:h-9 px-1 sm:px-3" onClick={() => setIsActivityChooserOpen(true)}>
-                    <Sparkles size={12} className="mr-0.5 sm:mr-1.5 flex-shrink-0" />
-                    <span className="truncate">Activity</span>
-                  </Button>
-                ),
               ].filter(Boolean);
 
               return (
