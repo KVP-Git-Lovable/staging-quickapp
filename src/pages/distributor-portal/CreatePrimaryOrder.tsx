@@ -186,24 +186,41 @@ const CreatePrimaryOrder = () => {
   const loadCreditInfo = async () => {
     if (!distributorId) return;
     try {
-      const [creditRes, ordersRes] = await Promise.all([
-        supabase
-          .from('distributor_credit_limits')
-          .select('credit_limit')
+      // New config-driven loader: read distributor_payment_config + live snapshot RPC
+      const [{ data: cfg }, { data: snap }, ordersRes] = await Promise.all([
+        (supabase as any)
+          .from('distributor_payment_config')
+          .select('*')
           .eq('distributor_id', distributorId)
           .maybeSingle(),
+        (supabase as any).rpc('get_distributor_financial_snapshot', { p_distributor_id: distributorId }),
         supabase
           .from('primary_orders')
           .select('total_amount')
           .eq('distributor_id', distributorId)
           .not('status', 'in', '("cancelled","delivered")'),
       ]);
-      setCreditLimit(Number(creditRes.data?.credit_limit || 0));
-      const totalOutstanding = (ordersRes.data || []).reduce(
-        (s: number, o: any) => s + Number(o.total_amount || 0),
-        0,
-      );
+      const snapshotRow = Array.isArray(snap) ? snap[0] : null;
+      setPaymentConfig(cfg || null);
+      setSnapshot(snapshotRow || null);
+      setCreditLimit(Number(cfg?.credit_limit ?? snapshotRow?.credit_limit ?? 0));
+      const totalOutstanding =
+        snapshotRow?.outstanding != null
+          ? Number(snapshotRow.outstanding)
+          : (ordersRes.data || []).reduce((s: number, o: any) => s + Number(o.total_amount || 0), 0);
       setOutstanding(totalOutstanding);
+      // Seed payment defaults from config (only if user hasn't touched yet — first load)
+      if (cfg) {
+        setPayment((prev) => ({
+          ...prev,
+          paymentTerm: cfg.default_payment_term ?? prev.paymentTerm,
+          paymentMode: cfg.default_payment_mode ?? prev.paymentMode,
+          advanceAmount:
+            cfg.require_advance_payment && cfg.advance_payment_pct > 0
+              ? Math.round(((totals?.grandTotal || 0) * Number(cfg.advance_payment_pct)) / 100)
+              : prev.advanceAmount,
+        }));
+      }
       setCreditChecked(true);
     } catch (err) {
       console.error('Credit check failed:', err);
