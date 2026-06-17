@@ -194,10 +194,8 @@ const GoodsReceiptNew = () => {
         let newBalance = item.received_quantity;
         if (existing) {
           newBalance = (existing.quantity || 0) + item.received_quantity;
-          const unitCost = existing.unit_cost || item.unit_price;
           const { error: invUpdErr } = await supabase.from('distributor_inventory').update({
             quantity: newBalance,
-            total_value: newBalance * unitCost,
             last_received_date: new Date().toISOString().split('T')[0],
             batch_number: item.batch_number || existing.batch_number,
             expiry_date: item.expiry_date || existing.expiry_date,
@@ -218,7 +216,6 @@ const GoodsReceiptNew = () => {
             max_stock_level: 1000,
             unit: item.unit,
             unit_cost: item.unit_price,
-            total_value: item.received_quantity * item.unit_price,
             batch_number: item.batch_number || null,
             expiry_date: item.expiry_date || null,
             last_received_date: new Date().toISOString().split('T')[0],
