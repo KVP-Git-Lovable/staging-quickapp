@@ -1,45 +1,22 @@
-# Move Counter & Event into the Navigation bar
+# Restore "Activity" button on My Visits
 
-Goal: Expose **Counter** and **Event** as two separate, first-class items in the main Navigation menu (Navbar hamburger grid) so users can reach them directly, instead of going through `Visits → Activity → Counter/Event`.
-
-## Scope
-
-Frontend / presentation only. No backend, no schema, no logic changes inside `CounterSales` or `EventCreate` pages — they keep working exactly as today.
+Bring back the original **Activity** action button on the My Visits screen so reps can register an activity/event using the existing `AddActivityModal` (the screen shown in the screenshot). Counter and Event stay where they are now (top-level Navigation tabs) — this change is purely additive.
 
 ## Changes
 
-### 1. `src/components/Navbar.tsx`
-Add two new entries to the `baseItems` array used by the nav grid (same shape as existing items):
+### `src/pages/MyVisits.tsx`
+1. Add an **Activity** button back into the top action row (same row that already has buttons like Van Stock), gated by the existing `showActivity = canShowAction('action_visit_activity')` flag that is already computed in the file.
+2. On click, set `setIsActivityModalOpen(true)` — this opens `AddActivityModal` directly (skipping the old Counter/Event chooser, since those now live in the Nav).
+3. Use the same styling as the sibling action buttons (`Sparkles` icon, `variant="secondary"`, identical class names).
 
-- **Counter** — `icon: Store`, `href: "/counter-sales"`, label `nav.counter`, color `from-orange-500 to-orange-600`
-- **Event** — `icon: CalendarDays`, `href: "/event-create"`, label `nav.event`, color `from-pink-500 to-pink-600`
-
-Placed right after `my-visit` so they sit alongside the field-rep workflow. Gated only by the same permission helpers used for sibling items (no new gates added — if `action_visit_activity` should still apply, we reuse it; otherwise they show for everyone, matching the rest of the grid). I'll mirror the gating that currently controls the `Activity` button in `MyVisits.tsx` so the user-visible permission story doesn't change.
-
-### 2. `src/i18n/locales/en/common.json`
-Add two translation keys under `nav`:
-- `nav.counter` → `"Counter"`
-- `nav.event` → `"Event"`
-
-### 3. `src/pages/MyVisits.tsx`
-Remove the now-redundant entry point:
-- Delete the `Activity` button (line ~1382-1385) and the `ActivityChooserModal` render block (~1703).
-- Keep `AddActivityModal` import/usage removed too if no other caller remains; otherwise leave intact.
-- Keep `ActivityEventsTable` and all activity *display* logic — only the **trigger** is moved.
-
-### 4. `src/components/ActivityChooserModal.tsx`
-Delete the file — it's no longer referenced after step 3.
+No new state, no new modal, no new route — `isActivityModalOpen` and `AddActivityModal` are still wired up in the file.
 
 ## Out of scope
-
-- No changes to `CounterSales`, `EventCreate`, `AddActivityModal`, or activity persistence.
-- No changes to the Counter/Event UX inside their pages.
-- No new permissions; reuse existing `action_visit_activity` gating if currently applied.
+- No changes to `AddActivityModal` itself.
+- No changes to Counter / Event nav tabs.
+- No reintroduction of `ActivityChooserModal`.
 
 ## Verification
-
-1. Open the Navbar hamburger → confirm **Counter** and **Event** appear as separate tiles.
-2. Click **Counter** → lands on `/counter-sales`, full bulk-billing flow works.
-3. Click **Event** → lands on `/event-create`, event creation flow works.
-4. Open `My Visits` → the old **Activity** button is gone; the activity events table still renders as before.
-5. No console errors; no broken imports.
+1. Open `My Visits` → confirm an **Activity** button appears next to Van Stock (when the user has `action_visit_activity` permission).
+2. Click it → the `Add Activity / Event` modal opens (matches the screenshot).
+3. Save an activity → modal closes, activity appears in the `ActivityEventsTable` as before.
