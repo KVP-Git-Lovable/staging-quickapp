@@ -1188,42 +1188,6 @@ export type Database = {
         }
         Relationships: []
       }
-      beat_plans: {
-        Row: {
-          beat_data: Json
-          beat_id: string
-          beat_name: string
-          created_at: string
-          id: string
-          joint_sales_manager_id: string | null
-          plan_date: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          beat_data?: Json
-          beat_id: string
-          beat_name: string
-          created_at?: string
-          id?: string
-          joint_sales_manager_id?: string | null
-          plan_date: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          beat_data?: Json
-          beat_id?: string
-          beat_name?: string
-          created_at?: string
-          id?: string
-          joint_sales_manager_id?: string | null
-          plan_date?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       branding_request_items: {
         Row: {
           approved_budget: number | null
