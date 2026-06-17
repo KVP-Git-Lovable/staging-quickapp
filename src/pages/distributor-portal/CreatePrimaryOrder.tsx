@@ -38,6 +38,7 @@ import {
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PaymentDetailsCard } from '@/components/distributor-portal/PaymentDetailsCard';
 
 interface Category {
   id: string;
