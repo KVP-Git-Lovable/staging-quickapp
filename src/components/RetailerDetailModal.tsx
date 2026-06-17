@@ -151,6 +151,12 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const [invoicesDisplayCount, setInvoicesDisplayCount] = useState(5);
   const [associatedDistributor, setAssociatedDistributor] = useState<string | null>(null);
+  const [ownership, setOwnership] = useState<{
+    beatName: string | null;
+    createdByName: string | null;
+    ownerName: string | null;
+    currentUserName: string | null;
+  }>({ beatName: null, createdByName: null, ownerName: null, currentUserName: null });
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -205,8 +211,45 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
       loadInvoices(retailer.id);
       loadVisitsAndOrders(retailer.id);
       loadAssociatedDistributor(retailer.id);
+      loadOwnership(retailer.id);
     }
   }, [retailer?.id, isOpen]);
+
+  const loadOwnership = async (retailerId: string) => {
+    try {
+      const { data: r } = await supabase
+        .from('retailers')
+        .select('beat_id, created_by, owner_id, owner_name, user_id')
+        .eq('id', retailerId)
+        .maybeSingle();
+      if (!r) return;
+
+      const userIds = Array.from(
+        new Set([r.created_by, r.owner_id, r.user_id].filter(Boolean) as string[])
+      );
+
+      const [beatRes, profilesRes] = await Promise.all([
+        r.beat_id
+          ? supabase.from('beats').select('beat_name').eq('beat_id', r.beat_id).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+        userIds.length
+          ? supabase.from('profiles').select('user_id, full_name').in('user_id', userIds)
+          : Promise.resolve({ data: [] } as any),
+      ]);
+
+      const nameMap = new Map<string, string>();
+      (profilesRes.data || []).forEach((p: any) => nameMap.set(p.user_id, p.full_name));
+
+      setOwnership({
+        beatName: (beatRes.data as any)?.beat_name || null,
+        createdByName: r.created_by ? nameMap.get(r.created_by) || null : null,
+        ownerName: (r.owner_name as string) || (r.owner_id ? nameMap.get(r.owner_id) || null : null),
+        currentUserName: r.user_id ? nameMap.get(r.user_id) || null : null,
+      });
+    } catch (e) {
+      console.error('Error loading retailer ownership:', e);
+    }
+  };
 
   const loadAssociatedDistributor = async (retailerId: string) => {
     try {
@@ -747,7 +790,11 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             <div className="grid grid-cols-3 gap-2 mt-1.5 text-xs">
               <div>
                 <span className="text-muted-foreground">Beat:</span>{' '}
-                <span className="font-medium">{beats.find(b => b.beat_id === formData.beat_id)?.beat_name || formData.beat_id || 'Unassigned'}</span>
+                <span className="font-medium">
+                  {ownership.beatName
+                    || beats.find(b => b.beat_id === formData.beat_id)?.beat_name
+                    || 'Unassigned'}
+                </span>
               </div>
               <div>
                 <span className="text-muted-foreground">Territory:</span>{' '}
@@ -758,6 +805,18 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               <div>
                 <span className="text-muted-foreground">Distributor:</span>{' '}
                 <span className="font-medium">{associatedDistributor || formData.parent_name || 'Not mapped'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Created by:</span>{' '}
+                <span className="font-medium">{ownership.createdByName || '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Owner:</span>{' '}
+                <span className="font-medium">{ownership.ownerName || '—'}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Currently operated by:</span>{' '}
+                <span className="font-medium">{ownership.currentUserName || '—'}</span>
               </div>
             </div>
           </div>

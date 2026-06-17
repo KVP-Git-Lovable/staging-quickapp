@@ -13626,10 +13626,17 @@ export type Database = {
       primary_orders: {
         Row: {
           actual_delivery_date: string | null
+          advance_amount: number | null
+          advance_payment_date: string | null
+          advance_reference: string | null
           approved_at: string | null
           approved_by: string | null
+          available_credit_at_order: number | null
           created_at: string
           created_by_user_id: string | null
+          credit_limit: number | null
+          credit_limit_at_order: number | null
+          credit_snapshot: Json | null
           discount_amount: number
           dispatch_reference: string | null
           dispatched_at: string | null
@@ -13640,9 +13647,13 @@ export type Database = {
           notes: string | null
           order_date: string
           order_number: string
+          outstanding_at_order: number | null
           packing_list_id: string | null
           parent_order_id: string | null
+          payment_mode: string | null
+          payment_proof_url: string | null
           payment_status: string
+          payment_term: string | null
           payment_terms: string | null
           shipping_address: string | null
           source_distributor_id: string
@@ -13657,10 +13668,17 @@ export type Database = {
         }
         Insert: {
           actual_delivery_date?: string | null
+          advance_amount?: number | null
+          advance_payment_date?: string | null
+          advance_reference?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          available_credit_at_order?: number | null
           created_at?: string
           created_by_user_id?: string | null
+          credit_limit?: number | null
+          credit_limit_at_order?: number | null
+          credit_snapshot?: Json | null
           discount_amount?: number
           dispatch_reference?: string | null
           dispatched_at?: string | null
@@ -13671,9 +13689,13 @@ export type Database = {
           notes?: string | null
           order_date?: string
           order_number: string
+          outstanding_at_order?: number | null
           packing_list_id?: string | null
           parent_order_id?: string | null
+          payment_mode?: string | null
+          payment_proof_url?: string | null
           payment_status?: string
+          payment_term?: string | null
           payment_terms?: string | null
           shipping_address?: string | null
           source_distributor_id: string
@@ -13688,10 +13710,17 @@ export type Database = {
         }
         Update: {
           actual_delivery_date?: string | null
+          advance_amount?: number | null
+          advance_payment_date?: string | null
+          advance_reference?: string | null
           approved_at?: string | null
           approved_by?: string | null
+          available_credit_at_order?: number | null
           created_at?: string
           created_by_user_id?: string | null
+          credit_limit?: number | null
+          credit_limit_at_order?: number | null
+          credit_snapshot?: Json | null
           discount_amount?: number
           dispatch_reference?: string | null
           dispatched_at?: string | null
@@ -13702,9 +13731,13 @@ export type Database = {
           notes?: string | null
           order_date?: string
           order_number?: string
+          outstanding_at_order?: number | null
           packing_list_id?: string | null
           parent_order_id?: string | null
+          payment_mode?: string | null
+          payment_proof_url?: string | null
           payment_status?: string
+          payment_term?: string | null
           payment_terms?: string | null
           shipping_address?: string | null
           source_distributor_id?: string
