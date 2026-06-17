@@ -151,49 +151,69 @@ const GoodsReceiptNew = () => {
         unit_price: item.unit_price,
       }));
 
-      await supabase.from('grn_items').insert(grnItems);
+      const { error: grnItemsError } = await supabase.from('grn_items').insert(grnItems);
+      if (grnItemsError) throw grnItemsError;
 
       // Update order items with received quantities
       for (const item of items) {
-        await supabase.from('primary_order_items').update({
+        const { error: updErr } = await supabase.from('primary_order_items').update({
           received_quantity: item.received_quantity,
           batch_number: item.batch_number || null,
           expiry_date: item.expiry_date || null,
         }).eq('id', item.order_item_id);
+        if (updErr) throw updErr;
       }
+
+      // Resolve default warehouse (required NOT NULL on inventory + transactions)
+      const { data: warehouse, error: whError } = await supabase
+        .from('warehouses')
+        .select('id')
+        .eq('distributor_id', distributorId)
+        .order('is_default', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (whError) throw whError;
+      if (!warehouse?.id) {
+        throw new Error('No warehouse configured for this distributor. Please create a warehouse before confirming a GRN.');
+      }
+      const warehouseId = warehouse.id;
 
       // Update inventory
       for (const item of items) {
         if (item.received_quantity <= 0) continue;
 
-        const { data: existing } = await supabase
+        const { data: existing, error: invSelErr } = await supabase
           .from('distributor_inventory')
-          .select('*')
+          .select('id, quantity, unit_cost, batch_number, expiry_date')
           .eq('distributor_id', distributorId)
           .eq('product_id', item.product_id)
+          .eq('warehouse_id', warehouseId)
           .maybeSingle();
+        if (invSelErr) throw invSelErr;
 
+        let newBalance = item.received_quantity;
         if (existing) {
-          const newQty = existing.quantity + item.received_quantity;
-          await supabase.from('distributor_inventory').update({
-            quantity: newQty,
-            available_quantity: (existing.available_quantity || 0) + item.received_quantity,
-            total_value: newQty * (existing.unit_cost || item.unit_price),
+          newBalance = (existing.quantity || 0) + item.received_quantity;
+          const unitCost = existing.unit_cost || item.unit_price;
+          const { error: invUpdErr } = await supabase.from('distributor_inventory').update({
+            quantity: newBalance,
+            total_value: newBalance * unitCost,
             last_received_date: new Date().toISOString().split('T')[0],
             batch_number: item.batch_number || existing.batch_number,
             expiry_date: item.expiry_date || existing.expiry_date,
             updated_at: new Date().toISOString(),
           }).eq('id', existing.id);
+          if (invUpdErr) throw invUpdErr;
         } else {
-          await supabase.from('distributor_inventory').insert({
+          const { error: invInsErr } = await supabase.from('distributor_inventory').insert({
             distributor_id: distributorId,
+            warehouse_id: warehouseId,
             product_id: item.product_id,
             variant_id: item.variant_id || null,
             product_name: item.product_name,
             variant_name: item.variant_name || null,
             quantity: item.received_quantity,
             reserved_quantity: 0,
-            available_quantity: item.received_quantity,
             reorder_level: 10,
             max_stock_level: 1000,
             unit: item.unit,
@@ -203,15 +223,19 @@ const GoodsReceiptNew = () => {
             expiry_date: item.expiry_date || null,
             last_received_date: new Date().toISOString().split('T')[0],
           });
+          if (invInsErr) throw invInsErr;
         }
 
         // Log inward transaction
-        await supabase.from('distributor_inventory_transactions').insert({
+        const { error: txErr } = await supabase.from('distributor_inventory_transactions').insert({
           distributor_id: distributorId,
+          warehouse_id: warehouseId,
           product_id: item.product_id,
+          product_name: item.product_name,
           variant_id: item.variant_id || null,
           transaction_type: 'inward',
-          quantity: item.received_quantity,
+          balance_qty: item.received_quantity,
+          running_balance: newBalance,
           reference_type: 'grn',
           reference_id: grn.id,
           reference_number: grnNumber,
@@ -220,6 +244,7 @@ const GoodsReceiptNew = () => {
           unit_cost: item.unit_price,
           notes: `GRN ${grnNumber} from order ${order.order_number}`,
         });
+        if (txErr) throw txErr;
       }
 
       // Create return note if any items returned
@@ -279,9 +304,9 @@ const GoodsReceiptNew = () => {
 
       toast.success(`GRN ${grnNumber} confirmed! Inventory updated.`);
       navigate('/distributor-portal/goods-receipt');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error confirming GRN:', error);
-      toast.error('Failed to confirm GRN');
+      toast.error(error?.message || 'Failed to confirm GRN');
     } finally {
       setSaving(false);
     }
