@@ -1,35 +1,39 @@
-## Cause: Customer Portal catalog can't read `products` because of RLS / wrong Supabase client
+## Findings
 
-### What's happening
-The Customer Portal is authenticated through **localStorage only** (`useCustomerPortalAuth`) — there is no Supabase Auth session for these users, so on the database they are the anonymous (`anon`) role.
+- The issue comes from the recent migration `20260617083724...`.
+- That migration recreated `public.distributors`, then backfilled missing distributor rows from `public.distributor_users`:
+  - `name = distributor_users.full_name`
+  - `email = distributor_users.email`
+  - `contact_person = distributor_users.full_name`
+- Because of that, the Distributor Master is showing portal/user names like Santa, Aish, Alice, Prajwal, etc. as if they are distributor businesses.
+- These rows are not safe to simply delete because they are now referenced by existing data:
+  - 10 `distributor_users`
+  - 16 `orders`
+  - 24 `primary_orders`
+- I found one recoverable real distributor record in Recycle Bin:
+  - `BHARATH BEVERAGES` for distributor id `3049f21b-95a1-436e-a433-483c9c465481`
 
-Other portal pages correctly use the isolated anon client `customerPortalSupabase`, but `CustomerCatalog.tsx` was written to use the main `supabase` client. As long as the same browser had a valid dashboard login, that client's `auth.uid()` returned a real UUID and the catalog "worked." The moment that dashboard session expired or the user opened the portal in a clean browser, every query in the catalog became an anon request — and RLS on `public.products` only allows the `authenticated` role:
+## Plan
 
-```text
-products_select: TO authenticated USING (auth.uid() IS NOT NULL AND is_active = true)
-```
+1. **Repair the bad backfill source**
+   - Update the migration logic so future environments do not backfill distributor master display fields from user names/emails.
+   - Any emergency placeholder created from `distributor_users` should be clearly marked/neutral, not shown as a real distributor business.
 
-There is no anon SELECT policy on `products`, so PostgREST silently returns zero rows. That is why:
-- The product picker shows no options ("Select..." stays empty).
-- Subtotal/Total are 0 (no rows = nothing priced).
-- The cart still shows "2" — those items were stored earlier when the catalog was working.
+2. **Clean the current live data safely**
+   - Restore the known real distributor details for `BHARATH BEVERAGES` from Recycle Bin.
+   - Do not delete linked distributor IDs, because that could break existing orders and portal users.
+   - For the remaining user-derived placeholder rows, remove the misleading business identity instead of showing user names as distributor names.
 
-The same issue affects `enabled_units` (no anon policy), used to compute the display unit. Categories, price books, price-book entries, distributor price books, and schemes already have anon-permissive policies, so they keep loading — that's why "Apply Offers (1)" still shows.
+3. **Fix Distributor Master display**
+   - Update `/distributor-master` so user-derived placeholder records are not shown as normal distributor businesses.
+   - Real distributors manually created in Distributor Master, like `Joy Icecream`, will continue to show.
+   - Add a safe internal check based on whether a row looks like a portal-user placeholder, not hardcoded Supabase IDs.
 
-The "wrong quantity" you're seeing is downstream: with no product selectable, the row stays at QTY 0 / STOCK 0, and the row's default unit is hardcoded to "KG" in component state.
+4. **Protect related dropdowns**
+   - Apply the same filtering to distributor dropdowns used for remap / target selection where showing user-derived placeholders would cause wrong selection.
 
-### Fix
-
-1. **Switch CustomerCatalog's data fetching to `customerPortalSupabase`** (the same anon client already used by `CustomerCart` and `CustomerLayout`). Update the price-book hooks it depends on (`useRetailerPriceBook`, `usePriceBookEntries`) to accept an optional client argument so the portal can pass the anon client without breaking other callers.
-
-2. **Add anon-read RLS policies on the two portal-blocked tables** so the anon client is actually allowed to read them:
-   - `public.products` — anon SELECT where `is_active = true` (matches the portal's existing filter and the existing authenticated policy).
-   - `public.enabled_units` — anon SELECT (read-only master data already exposed via other portal queries).
-
-3. **Verification**: log out of the dashboard, reopen `/customer-portal/catalog` in a fresh tab, confirm the product picker lists products, that selecting one shows its rate from the price book, and that quantity/stock update correctly.
-
-### Technical notes
-- No schema changes — only RLS policies and the client used in `CustomerCatalog.tsx` and its hooks.
-- The two new anon policies mirror the pattern already in use for `price_books`, `price_book_entries`, `distributor_price_books`, and `product_categories`.
-- No change to existing dashboard/admin behavior: the existing `authenticated` policies stay in place.
-- This explains why it "worked yesterday evening" — the user had an active dashboard session in the same browser, so the main client carried `auth.uid()`.
+5. **Verify**
+   - Confirm the Direct Distributor tab no longer shows the portal users list.
+   - Confirm `Joy Icecream` remains visible.
+   - Confirm `BHARATH BEVERAGES` is restored if its recovered record is still available.
+   - Confirm orders and portal users remain linked, with no destructive deletion.
