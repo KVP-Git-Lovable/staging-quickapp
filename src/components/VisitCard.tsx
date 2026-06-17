@@ -3108,11 +3108,11 @@ export const VisitCard = ({
               <DialogTitle className="text-lg font-semibold text-center">Location Options</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-4">
-              {isLocationEnabled && !isCheckedIn && isTodaysVisit && <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-200">
-                  <p className="font-medium mb-1">📍 Location & Camera Required</p>
-                  <p className="text-xs">Please allow location and camera access when prompted for check-in.</p>
+              {isCheckInEnabled && !isCheckedIn && isTodaysVisit && <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-medium mb-1">📍 {isLocationEnabled && isCameraEnabled ? 'Location & Camera Required' : isLocationEnabled ? 'Location Required' : 'Camera Required'}</p>
+                  <p className="text-xs">Please allow {[isLocationEnabled && 'location', isCameraEnabled && 'camera'].filter(Boolean).join(' and ')} access when prompted for check-in.</p>
                 </div>}
-            {isLocationEnabled && <div className="grid grid-cols-2 gap-2">
+            {isCheckInEnabled && <div className="grid grid-cols-2 gap-2">
                 <Button onClick={() => {
                   recordAction('check_in').catch(() => {});
                   handleCheckInOut('checkin');
