@@ -233,18 +233,25 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           ? supabase.from('beats').select('beat_name').eq('beat_id', r.beat_id).maybeSingle()
           : Promise.resolve({ data: null } as any),
         userIds.length
-          ? supabase.from('profiles').select('user_id, full_name').in('user_id', userIds)
+          ? supabase.from('profiles').select('id, full_name, username').in('id', userIds)
           : Promise.resolve({ data: [] } as any),
       ]);
 
-      const nameMap = new Map<string, string>();
-      (profilesRes.data || []).forEach((p: any) => nameMap.set(p.user_id, p.full_name));
+      const nameMap = new Map<string, { full_name: string | null; username: string | null }>();
+      (profilesRes.data || []).forEach((p: any) =>
+        nameMap.set(p.id, { full_name: p.full_name, username: p.username })
+      );
+      const resolve = (uid: string | null | undefined) => {
+        if (!uid) return null;
+        const p = nameMap.get(uid);
+        return p?.full_name || p?.username || null;
+      };
 
       setOwnership({
         beatName: (beatRes.data as any)?.beat_name || null,
-        createdByName: r.created_by ? nameMap.get(r.created_by) || null : null,
-        ownerName: (r.owner_name as string) || (r.owner_id ? nameMap.get(r.owner_id) || null : null),
-        currentUserName: r.user_id ? nameMap.get(r.user_id) || null : null,
+        createdByName: resolve(r.created_by),
+        ownerName: (r.owner_name as string) || resolve(r.owner_id),
+        currentUserName: resolve(r.user_id),
       });
     } catch (e) {
       console.error('Error loading retailer ownership:', e);
