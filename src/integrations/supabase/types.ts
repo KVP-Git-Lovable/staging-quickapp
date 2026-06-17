@@ -4698,7 +4698,6 @@ export type Database = {
           batch_number: string | null
           created_at: string
           damaged_quantity: number
-          distributor_id: string
           expired_quantity: number
           expiry_date: string | null
           id: string
@@ -4723,7 +4722,6 @@ export type Database = {
           batch_number?: string | null
           created_at?: string
           damaged_quantity?: number
-          distributor_id: string
           expired_quantity?: number
           expiry_date?: string | null
           id?: string
@@ -4748,7 +4746,6 @@ export type Database = {
           batch_number?: string | null
           created_at?: string
           damaged_quantity?: number
-          distributor_id?: string
           expired_quantity?: number
           expiry_date?: string | null
           id?: string
@@ -4770,13 +4767,6 @@ export type Database = {
           warehouse_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "distributor_inventory_distributor_id_fkey"
-            columns: ["distributor_id"]
-            isOneToOne: false
-            referencedRelation: "distributors"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "distributor_inventory_variant_id_fkey"
             columns: ["variant_id"]
@@ -6989,8 +6979,8 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
-          feature_key: string
-          feature_name: string
+          feature_key: string | null
+          feature_name: string | null
           id: string
           is_enabled: boolean
           updated_at: string
@@ -7000,8 +6990,8 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
-          feature_key: string
-          feature_name: string
+          feature_key?: string | null
+          feature_name?: string | null
           id?: string
           is_enabled?: boolean
           updated_at?: string
@@ -7011,8 +7001,8 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
-          feature_key?: string
-          feature_name?: string
+          feature_key?: string | null
+          feature_name?: string | null
           id?: string
           is_enabled?: boolean
           updated_at?: string
