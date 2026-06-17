@@ -229,6 +229,18 @@ export const MyVisits = () => {
   const showGpsTrack = canShowAction('action_visit_gps_track');
   const showVanStock = canShowAction('action_visit_van_stock');
   const showActivity = canShowAction('action_visit_activity');
+  const [overdueFollowUpCount, setOverdueFollowUpCount] = useState(0);
+  useEffect(() => {
+    if (!user?.id) return;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    supabase
+      .from('activity_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('outcome', 'follow_up_needed')
+      .lte('follow_up_date', today)
+      .then(({ count }: any) => setOverdueFollowUpCount(count || 0));
+  }, [user?.id]);
   const showTodaysProgress = canShowWidget('widget_visit_todays_progress');
   const showInsightsTarget = !hasSecurityProfile || hasModuleAccess('target_');
 
