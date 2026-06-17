@@ -1694,11 +1694,7 @@ export const MyVisits = () => {
 
         {/* Activity Modal */}
         <AddActivityModal open={isActivityModalOpen} onOpenChange={setIsActivityModalOpen} />
-        <ActivityChooserModal
-          open={isActivityChooserOpen}
-          onOpenChange={setIsActivityChooserOpen}
-          onPickEvent={() => setIsActivityModalOpen(true)}
-        />
+
 
         {/* Clear Cache Confirmation Dialog */}
         <AlertDialog open={showClearCacheDialog} onOpenChange={setShowClearCacheDialog}>
