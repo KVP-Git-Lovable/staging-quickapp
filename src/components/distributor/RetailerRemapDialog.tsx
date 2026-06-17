@@ -69,10 +69,11 @@ export function RetailerRemapDialog({ open, onOpenChange, sourceDistributorId, o
       const { data: retailersData, error: retailerError } = await retailerQuery;
       if (retailerError) throw retailerError;
 
-      // Load distributors for target selection
+      // Load distributors for target selection (exclude user-derived placeholders)
       const { data: distributorsData, error: distError } = await supabase
         .from('distributors')
         .select('id, name')
+        .or('is_placeholder.is.null,is_placeholder.eq.false')
         .order('name');
       if (distError) throw distError;
 
