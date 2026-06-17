@@ -45,6 +45,7 @@ import { EvaluationChecklist } from "@/components/distributor/EvaluationChecklis
 import { DistributorContactsList } from "@/components/distributor/DistributorContactsList";
 import { DistributorSecondaryOrders } from "@/components/distributor/DistributorSecondaryOrders";
 import DistributorCompanyProfile from "@/components/distributor/DistributorCompanyProfile";
+import { PaymentCreditTab } from "@/components/distributor/PaymentCreditTab";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 
 interface Distributor {
@@ -294,13 +295,14 @@ export default function DistributorDetail() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="overflow-x-auto -mx-4 px-4 pb-2">
-            <TabsList className="inline-flex w-auto min-w-full sm:grid sm:grid-cols-8 sm:w-full gap-1">
+            <TabsList className="inline-flex w-auto min-w-full sm:grid sm:grid-cols-9 sm:w-full gap-1">
               <TabsTrigger value="overview" className="text-xs whitespace-nowrap px-3">Overview</TabsTrigger>
               <TabsTrigger value="primary-orders" className="text-xs whitespace-nowrap px-3">Primary</TabsTrigger>
               <TabsTrigger value="secondary-orders" className="text-xs whitespace-nowrap px-3">Secondary</TabsTrigger>
               <TabsTrigger value="network" className="text-xs whitespace-nowrap px-3">Network</TabsTrigger>
               <TabsTrigger value="portal" className="text-xs whitespace-nowrap px-3">Portal</TabsTrigger>
               <TabsTrigger value="pricing" className="text-xs whitespace-nowrap px-3">Pricing</TabsTrigger>
+              <TabsTrigger value="payment-credit" className="text-xs whitespace-nowrap px-3">Payment & Credit</TabsTrigger>
               <TabsTrigger value="business" className="text-xs whitespace-nowrap px-3">FY Plan</TabsTrigger>
               <TabsTrigger value="company-profile" className="text-xs whitespace-nowrap px-3">Company Profile</TabsTrigger>
             </TabsList>
@@ -477,6 +479,10 @@ export default function DistributorDetail() {
 
           <TabsContent value="pricing" className="mt-4">
             <DistributorPriceBooks distributorId={distributor.id} />
+          </TabsContent>
+
+          <TabsContent value="payment-credit" className="mt-4">
+            <PaymentCreditTab distributorId={distributor.id} />
           </TabsContent>
 
           <TabsContent value="business" className="mt-4">
