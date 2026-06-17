@@ -45,6 +45,7 @@ import { EvaluationChecklist } from "@/components/distributor/EvaluationChecklis
 import { DistributorContactsList } from "@/components/distributor/DistributorContactsList";
 import { DistributorSecondaryOrders } from "@/components/distributor/DistributorSecondaryOrders";
 import DistributorCompanyProfile from "@/components/distributor/DistributorCompanyProfile";
+import { PaymentCreditTab } from "@/components/distributor/PaymentCreditTab";
 import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 
 interface Distributor {
