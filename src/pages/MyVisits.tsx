@@ -44,7 +44,7 @@ import { SyncDataModal } from "@/components/SyncDataModal";
 import { InsightsPanel } from "@/components/visits/InsightsPanel";
 import { StartBeatButton } from "@/components/StartBeatButton";
 import { AddActivityModal } from "@/components/AddActivityModal";
-import { ActivityChooserModal } from "@/components/ActivityChooserModal";
+
 import { ActivityEventsTable } from "@/components/ActivityEventsTable";
 
 interface Visit {
