@@ -425,13 +425,45 @@ const CreatePrimaryOrder = () => {
       toast.error('Please add at least one item');
       return;
     }
-    if (submit && creditLimit > 0) {
-      const newOutstanding = outstanding + totals.grandTotal;
-      if (newOutstanding > creditLimit) {
-        toast.error(
-          `Credit limit exceeded! Limit: ₹${creditLimit.toLocaleString('en-IN')}, Outstanding + this order: ₹${newOutstanding.toLocaleString('en-IN')}. Cannot submit.`,
-          { duration: 6000 },
-        );
+    // Payment validations (Phase 3 — driven by distributor_payment_config)
+    if (submit) {
+      const cfg = paymentConfig;
+      const isImmediate = payment.paymentTerm === 'immediate';
+
+      // Credit gating — skip for immediate payment
+      if (!isImmediate && creditLimit > 0) {
+        const newOutstanding = outstanding + Math.max(0, totals.grandTotal - (payment.advanceAmount || 0));
+        const overLimit = newOutstanding > creditLimit;
+        const allowBeyond = cfg?.allow_orders_beyond_limit;
+        if (overLimit && !allowBeyond) {
+          toast.error(
+            `Credit limit exceeded! Limit: ₹${creditLimit.toLocaleString('en-IN')}, Outstanding + this order (net of advance): ₹${newOutstanding.toLocaleString('en-IN')}.`,
+            { duration: 6000 },
+          );
+          return;
+        }
+        if (overLimit && cfg?.approval_required_beyond_limit) {
+          toast.warning('Order exceeds credit limit — will require approval before processing.');
+        }
+      }
+
+      // Advance amount validation
+      if (payment.advanceAmount > totals.grandTotal) {
+        toast.error('Advance amount cannot exceed order total');
+        return;
+      }
+      const minAdvance = cfg?.require_advance_payment && cfg?.advance_payment_pct > 0
+        ? Math.round((totals.grandTotal * Number(cfg.advance_payment_pct)) / 100)
+        : 0;
+      if (minAdvance > 0 && (payment.advanceAmount || 0) < minAdvance) {
+        toast.error(`Minimum advance payment of ₹${minAdvance.toLocaleString('en-IN')} (${cfg.advance_payment_pct}%) required`);
+        return;
+      }
+
+      // Payment proof requirement
+      const proofRequired = cfg?.require_payment_proof || payment.paymentTerm === 'advance';
+      if (proofRequired && !payment.paymentProofUrl) {
+        toast.error('Payment proof is required for this order');
         return;
       }
     }
@@ -440,7 +472,15 @@ const CreatePrimaryOrder = () => {
     try {
       let orderId = editOrderId as string | undefined;
 
-      const headerPayload = {
+      const creditSnapshot = {
+        credit_limit: creditLimit,
+        outstanding,
+        available_credit: Math.max(0, creditLimit - outstanding),
+        utilization_pct: creditLimit > 0 ? Math.round((outstanding / creditLimit) * 100) : 0,
+        captured_at: new Date().toISOString(),
+      };
+
+      const headerPayload: any = {
         distributor_id: distributorId,
         source_distributor_id: distributorId,
         expected_delivery_date: expectedDeliveryDate || null,
@@ -450,6 +490,11 @@ const CreatePrimaryOrder = () => {
         discount_amount: totals.totalDiscount,
         tax_amount: totals.taxAmount,
         total_amount: totals.grandTotal,
+        payment_term: payment.paymentTerm,
+        payment_mode: payment.paymentMode,
+        advance_amount: payment.advanceAmount || 0,
+        payment_proof_url: payment.paymentProofUrl,
+        credit_snapshot: submit ? creditSnapshot : null,
       };
 
       if (isEditMode && orderId) {
