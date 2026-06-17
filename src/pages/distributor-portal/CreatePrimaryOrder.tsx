@@ -641,76 +641,232 @@ const CreatePrimaryOrder = () => {
                   Add Products
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-5 pt-0 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr] gap-4">
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground">Category</Label>
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="All Categories" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="uncategorized">Uncategorized</SelectItem>
-                        {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              <CardContent className="p-5 pt-0 space-y-3">
+                {/* Header row */}
+                <div className="hidden md:grid md:grid-cols-[1.3fr_1.5fr_1.1fr_1.1fr_1fr_auto] gap-3 px-1 text-xs font-medium text-muted-foreground">
+                  <div>Category</div>
+                  <div>Select Product</div>
+                  <div>Unit</div>
+                  <div>Quantity</div>
+                  <div>Available Stock</div>
+                  <div className="w-8" />
+                </div>
+
+                {orderItems.length === 0 && (
+                  <div className="text-center py-6 text-xs text-muted-foreground border border-dashed rounded-lg">
+                    No products yet — click "Add New Row" below to start.
                   </div>
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground">Select Product</Label>
-                    <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                      <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="Choose a product..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {productsLoading ? (
-                          <SelectItem value="loading" disabled>Loading...</SelectItem>
-                        ) : filteredProducts.length === 0 ? (
-                          <SelectItem value="none" disabled>No products in this category</SelectItem>
-                        ) : (
-                          filteredProducts.map((p) => {
-                            const price = getProductPrice(p);
-                            const hasPB = p.priceBookPrice !== undefined;
-                            return (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name} - ₹{price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}/{p.unit || 'pc'}
-                                {hasPB && <span className="text-primary ml-1">★</span>}
-                              </SelectItem>
-                            );
+                )}
+
+                {orderItems.map((item, index) => {
+                  const rowCategoryId =
+                    item.category_id ||
+                    products.find((p) => p.id === item.product_id)?.category_id ||
+                    'all';
+                  const rowProducts =
+                    rowCategoryId === 'all'
+                      ? products
+                      : rowCategoryId === 'uncategorized'
+                        ? products.filter((p) => !p.category_id)
+                        : products.filter((p) => p.category_id === rowCategoryId);
+                  const uomOptions = productUoms[item.product_id] || [];
+                  const fallbackUnit =
+                    products.find((p) => p.id === item.product_id)?.unit || item.unit || 'pieces';
+                  const unitChoices: UomOption[] =
+                    uomOptions.length > 0
+                      ? uomOptions
+                      : [{ code: fallbackUnit, name: fallbackUnit }];
+                  const stockQty = productStock[item.product_id] ?? 0;
+                  const inStock = stockQty > 0;
+
+                  return (
+                    <div
+                      key={index}
+                      className="grid grid-cols-1 md:grid-cols-[1.3fr_1.5fr_1.1fr_1.1fr_1fr_auto] gap-3 items-center py-2 border-b last:border-b-0"
+                    >
+                      {/* Category */}
+                      <Select
+                        value={rowCategoryId}
+                        onValueChange={(v) =>
+                          updateItem(index, {
+                            category_id: v,
+                            // reset product if it doesn't belong to new category
+                            ...(products.find((p) => p.id === item.product_id)?.category_id !== v &&
+                            v !== 'all'
+                              ? { product_id: '', product_name: '', unit_price: 0, line_total: 0 }
+                              : {}),
                           })
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs font-medium text-muted-foreground">Quantity</Label>
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        }
                       >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                      <Input
-                        type="number"
-                        value={quantity}
-                        onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="text-center"
-                      />
-                      <Button variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>
-                        <Plus className="w-4 h-4" />
+                        <SelectTrigger>
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          <SelectItem value="uncategorized">Uncategorized</SelectItem>
+                          {categories.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Product */}
+                      <Select
+                        value={item.product_id || ''}
+                        onValueChange={(v) => {
+                          const p = products.find((pr) => pr.id === v);
+                          if (!p) return;
+                          const price = getProductPrice(p);
+                          const defaultUom = (productUoms[v] && productUoms[v][0]?.code) || p.unit || 'pieces';
+                          updateItem(index, {
+                            product_id: p.id,
+                            product_name: p.name,
+                            unit: defaultUom,
+                            unit_price: price,
+                            hsn_code: p.hsn_code,
+                            sku: (p as any).sku,
+                            image_url: (p as any).image_url,
+                            price_book_applied: p.priceBookPrice !== undefined,
+                            category_id: p.category_id || rowCategoryId,
+                            line_total: item.quantity * price,
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a product..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {productsLoading ? (
+                            <SelectItem value="loading" disabled>
+                              Loading...
+                            </SelectItem>
+                          ) : rowProducts.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              No products
+                            </SelectItem>
+                          ) : (
+                            rowProducts.map((p) => {
+                              const price = getProductPrice(p);
+                              const hasPB = p.priceBookPrice !== undefined;
+                              return (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.name} - ₹{price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                                  {hasPB && <span className="text-primary ml-1">★</span>}
+                                </SelectItem>
+                              );
+                            })
+                          )}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Unit */}
+                      <Select
+                        value={item.unit}
+                        onValueChange={(v) => updateItem(index, { unit: v })}
+                        disabled={!item.product_id}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {unitChoices.map((u) => (
+                            <SelectItem key={u.code} value={u.code}>
+                              {u.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Quantity */}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          onClick={() =>
+                            updateItem(index, { quantity: Math.max(1, item.quantity - 1) })
+                          }
+                          disabled={!item.product_id}
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </Button>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) =>
+                            updateItem(index, {
+                              quantity: Math.max(1, parseInt(e.target.value) || 1),
+                            })
+                          }
+                          className="h-9 text-center px-1"
+                          disabled={!item.product_id}
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 shrink-0"
+                          onClick={() => updateItem(index, { quantity: item.quantity + 1 })}
+                          disabled={!item.product_id}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+
+                      {/* Available Stock */}
+                      <div className="text-sm">
+                        {item.product_id ? (
+                          <>
+                            <p className="font-semibold text-foreground leading-tight">{stockQty}</p>
+                            <p
+                              className={`text-[11px] leading-tight ${
+                                inStock ? 'text-emerald-600' : 'text-destructive'
+                              }`}
+                            >
+                              {inStock ? 'In Stock' : 'Out of Stock'}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </div>
+
+                      {/* Delete */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => removeItem(index)}
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                  </div>
-                </div>
-                <Button onClick={addItem} className="bg-foreground hover:bg-foreground/90 text-background">
+                  );
+                })}
+
+                <Button
+                  variant="ghost"
+                  className="w-full border border-dashed text-primary hover:bg-primary/5"
+                  onClick={() => {
+                    setOrderItems((prev) => [
+                      ...prev,
+                      {
+                        product_id: '',
+                        product_name: '',
+                        quantity: 1,
+                        unit: 'pieces',
+                        unit_price: 0,
+                        discount_percent: 0,
+                        gst_percent: DEFAULT_GST,
+                        line_total: 0,
+                        category_id: 'all',
+                      },
+                    ]);
+                  }}
+                >
                   <Plus className="w-4 h-4 mr-2" />
-                  Add to Order
+                  Add New Row
                 </Button>
               </CardContent>
             </Card>
