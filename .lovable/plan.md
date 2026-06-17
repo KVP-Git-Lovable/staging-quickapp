@@ -1,22 +1,21 @@
-# Restore "Activity" button on My Visits
+# Add header bar to Feature Management
 
-Bring back the original **Activity** action button on the My Visits screen so reps can register an activity/event using the existing `AddActivityModal` (the screen shown in the screenshot). Counter and Event stay where they are now (top-level Navigation tabs) — this change is purely additive.
+The Feature Management page renders its own content without the shared app header, while sibling admin pages (e.g. Admin Controls) wrap themselves in `<Layout>` from `@/components/Layout`, which is what renders the top header bar / nav.
 
-## Changes
+## Change
 
-### `src/pages/MyVisits.tsx`
-1. Add an **Activity** button back into the top action row (same row that already has buttons like Van Stock), gated by the existing `showActivity = canShowAction('action_visit_activity')` flag that is already computed in the file.
-2. On click, set `setIsActivityModalOpen(true)` — this opens `AddActivityModal` directly (skipping the old Counter/Event chooser, since those now live in the Nav).
-3. Use the same styling as the sibling action buttons (`Sparkles` icon, `variant="secondary"`, identical class names).
+**File:** `src/pages/FeatureManagement.tsx`
 
-No new state, no new modal, no new route — `isActivityModalOpen` and `AddActivityModal` are still wired up in the file.
+1. Add `import { Layout } from '@/components/Layout';` to the imports.
+2. Wrap every `return (...)` in the component with `<Layout>...</Layout>`:
+   - the loading spinner branch
+   - (no need to wrap the `<Navigate />` redirect)
+   - the main page content branch
 
-## Out of scope
-- No changes to `AddActivityModal` itself.
-- No changes to Counter / Event nav tabs.
-- No reintroduction of `ActivityChooserModal`.
+No other file or logic changes. The page's existing back arrow, title, tabs, and content stay exactly as they are — they just render inside the standard app shell now.
 
 ## Verification
-1. Open `My Visits` → confirm an **Activity** button appears next to Van Stock (when the user has `action_visit_activity` permission).
-2. Click it → the `Add Activity / Event` modal opens (matches the screenshot).
-3. Save an activity → modal closes, activity appears in the `ActivityEventsTable` as before.
+
+- Open `/feature-management` → the same top header bar visible on `/admin-controls` and other internal pages now appears above the "Feature Management" title.
+- Tabs (Global Features / By Company / By Role / By User / Dependencies / Audit Log) still switch correctly.
+- Back arrow still navigates back.

@@ -18,6 +18,7 @@ import { ByRoleTab } from '@/components/features/admin/ByRoleTab';
 import { ByUserTab } from '@/components/features/admin/ByUserTab';
 import { DependenciesTab } from '@/components/features/admin/DependenciesTab';
 import { AuditLogTab } from '@/components/features/admin/AuditLogTab';
+import { Layout } from '@/components/Layout';
 
 const FeatureManagement = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
@@ -62,9 +63,11 @@ const FeatureManagement = () => {
 
   if (loading || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
     );
   }
 
@@ -118,8 +121,9 @@ const FeatureManagement = () => {
   const totalCount = features?.length || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-subtle p-4">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <Layout>
+      <div className="min-h-screen bg-gradient-subtle p-4">
+        <div className="max-w-5xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button 
@@ -279,8 +283,9 @@ const FeatureManagement = () => {
           <TabsContent value="deps"><DependenciesTab /></TabsContent>
           <TabsContent value="audit"><AuditLogTab /></TabsContent>
         </Tabs>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
