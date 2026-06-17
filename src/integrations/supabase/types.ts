@@ -6979,6 +6979,8 @@ export type Database = {
           category: string
           created_at: string
           description: string | null
+          feature_key: string | null
+          feature_name: string | null
           id: string
           is_enabled: boolean
           updated_at: string
@@ -6988,6 +6990,8 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          feature_key?: string | null
+          feature_name?: string | null
           id?: string
           is_enabled?: boolean
           updated_at?: string
@@ -6997,6 +7001,8 @@ export type Database = {
           category?: string
           created_at?: string
           description?: string | null
+          feature_key?: string | null
+          feature_name?: string | null
           id?: string
           is_enabled?: boolean
           updated_at?: string
