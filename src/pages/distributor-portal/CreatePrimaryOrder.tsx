@@ -718,7 +718,7 @@ const CreatePrimaryOrder = () => {
                             sku: (p as any).sku,
                             image_url: (p as any).image_url,
                             price_book_applied: p.priceBookPrice !== undefined,
-                            category_id: p.category_id || rowCategoryId,
+                            category_id: p.category_id,
                             line_total: item.quantity * price,
                           });
                         }}
