@@ -151,6 +151,19 @@ export const TodaySummary = () => {
 
   const [pointsEarnedToday, setPointsEarnedToday] = useState(0);
   const [completedActivitiesCount, setCompletedActivitiesCount] = useState(0);
+  const [activitySummary, setActivitySummary] = useState<{
+    totalCount: number;
+    totalFieldMinutes: number;
+    byType: Array<{
+      type: string;
+      label: string;
+      count: number;
+      totalMinutes: number;
+      color: string;
+      details: Array<{ name: string; duration: string; outcome?: string; beat?: string }>;
+    }>;
+    overdueFollowUps: number;
+  }>({ totalCount: 0, totalFieldMinutes: 0, byType: [], overdueFollowUps: 0 });
   
   // Payment method breakdown data for pie chart
   const [paymentMethodBreakdown, setPaymentMethodBreakdown] = useState<Array<{
