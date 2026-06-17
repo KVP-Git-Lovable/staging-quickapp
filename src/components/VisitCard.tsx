@@ -1972,7 +1972,7 @@ export const VisitCard = ({
         return;
       }
 
-      // For check-in: require photo with front camera
+      // For check-in: prepare context
       pendingPhotoActionRef.current = action;
       pendingCheckDataRef.current = {
         action,
@@ -1986,8 +1986,44 @@ export const VisitCard = ({
         today
       };
 
-      // Open camera capture modal
-      setShowCameraCapture(true);
+      if (isCameraEnabled) {
+        // Open camera capture modal — photo handler finalizes check-in
+        setShowCameraCapture(true);
+      } else {
+        // Camera disabled — finalize check-in immediately without photo
+        await autoCheckOutPreviousVisit(user.id, retailerId, today);
+        const { error: visitErr } = await supabase.from('visits').update({
+          check_in_time: timestamp,
+          check_in_location: current,
+          check_in_address: address || null,
+          location_match_in: match,
+          status: 'in-progress'
+        }).eq('id', visitId);
+        if (visitErr) throw visitErr;
+
+        const { error: attErr } = await supabase.from('attendance').upsert({
+          user_id: user.id,
+          date: today,
+          check_in_time: timestamp,
+          check_in_location: current,
+          check_in_address: address || null,
+          status: 'present'
+        }, { onConflict: 'user_id,date' });
+        if (attErr) console.error('Attendance check-in error:', attErr);
+
+        setPhase('in-progress');
+        setLocationMatchIn(match);
+        setIsCheckedIn(true);
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+          detail: { visitId, status: 'in-progress', retailerId }
+        }));
+        toast({
+          title: 'Check-in successful ✓',
+          description: match === false ? 'Location mismatch detected' : 'Visit started successfully'
+        });
+        pendingPhotoActionRef.current = null;
+        pendingCheckDataRef.current = null;
+      }
     } catch (err: any) {
       console.error('Check-in/out error', err);
 
