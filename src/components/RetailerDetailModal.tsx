@@ -151,6 +151,12 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
   const [invoicesDisplayCount, setInvoicesDisplayCount] = useState(5);
   const [associatedDistributor, setAssociatedDistributor] = useState<string | null>(null);
+  const [ownership, setOwnership] = useState<{
+    beatName: string | null;
+    createdByName: string | null;
+    ownerName: string | null;
+    currentUserName: string | null;
+  }>({ beatName: null, createdByName: null, ownerName: null, currentUserName: null });
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
