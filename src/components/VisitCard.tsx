@@ -279,6 +279,8 @@ export const VisitCard = ({
   } = useCheckInMandatory();
   const {
     isLocationEnabled,
+    isCameraEnabled,
+    isCheckInEnabled,
     loading: locationFeatureLoading
   } = useLocationFeature();
 
