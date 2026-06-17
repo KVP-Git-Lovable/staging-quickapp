@@ -97,6 +97,8 @@ export const Navbar = memo(() => {
     const baseItems: NavItem[] = [
       { id: 'attendance', icon: UserCheck, label: t('nav.attendance'), href: "/attendance", color: "from-blue-500 to-blue-600" },
       { id: 'my-visit', icon: Car, label: t('nav.myVisit'), href: "/visits/retailers", color: "from-green-500 to-green-600" },
+      { id: 'counter', icon: Store, label: t('nav.counter'), href: "/counter-sales", color: "from-orange-500 to-orange-600" },
+      { id: 'event', icon: CalendarDays, label: t('nav.event'), href: "/event-create", color: "from-pink-500 to-pink-600" },
       { id: 'all-retailers', icon: Store, label: t('nav.allRetailers'), href: "/my-retailers", color: "from-emerald-500 to-emerald-600" },
       { id: 'my-target', icon: Target, label: t('nav.target'), href: "/my-target", color: "from-cyan-500 to-cyan-600" },
       { id: 'performance', icon: TrendingUp, label: t('nav.targetVsActual'), href: "/performance-dashboard", color: "from-emerald-500 to-emerald-600" },
