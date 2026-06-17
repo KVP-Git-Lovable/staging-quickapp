@@ -2259,7 +2259,7 @@ export const VisitCard = ({
     }, 0); // setTimeout 0 ensures UI updates first
   };
   const handleNoOrderClick = () => {
-    if (isLocationEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
+    if (isCheckInEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isTodaysVisit) {
       toast({
         title: 'Check-in Required',
         description: 'Please check in or proceed without check-in first.',
