@@ -466,14 +466,14 @@ export const PerformanceCalendar = () => {
                       </div>
                     )}
 
-                    {/* Show planned beats for future dates (no visits yet) */}
-                    {isCurrentMonth && dayData && dayData.completedVisits === 0 && dayData.beatName && dateKey > format(new Date(), 'yyyy-MM-dd') && (
+                    {/* Show planned beats when no visits have been logged yet (today, future, or missed past dates) */}
+                    {isCurrentMonth && dayData && dayData.completedVisits === 0 && dayData.beatName && (
                       <div className="text-[9px] md:text-[10px] space-y-px leading-tight">
                         <div className="font-semibold text-blue-600 dark:text-blue-400 truncate" title={dayData.beatName}>
                           📅 {dayData.beatName.length > 8 ? dayData.beatName.substring(0, 8) + '..' : dayData.beatName}
                         </div>
                         <div className="text-muted-foreground text-[8px]">
-                          Planned
+                          {dateKey < format(new Date(), 'yyyy-MM-dd') ? 'Missed' : 'Planned'}
                         </div>
                         {dayData.hasJointSales && (
                           <span 
