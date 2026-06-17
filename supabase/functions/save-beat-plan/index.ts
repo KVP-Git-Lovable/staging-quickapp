@@ -103,6 +103,7 @@ serve(async (req) => {
       .map((d) => ({
         user_id: userId,
         beat_id: d.beat_id,
+        beat_name: d.beat_name || '',
         plan_date: d.date,
         day_of_week: d.day || dayNames[new Date(d.date + 'T00:00:00').getDay()],
         beat_data: {

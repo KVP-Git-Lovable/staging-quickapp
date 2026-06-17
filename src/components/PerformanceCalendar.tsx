@@ -356,8 +356,8 @@ export const PerformanceCalendar = () => {
     if (dayData.isHoliday && filters.holidays) return 'bg-muted';
     if (dayData.isLeave && filters.leaves) return 'bg-muted';
     
-    // Future planned beats - show in blue/info color
-    if (isFutureDate && dayData.beatName && dayData.completedVisits === 0) {
+    // Planned beats with no completed visits — show in blue (today, future, or missed past)
+    if (dayData.beatName && dayData.completedVisits === 0) {
       return 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800';
     }
     
@@ -466,14 +466,14 @@ export const PerformanceCalendar = () => {
                       </div>
                     )}
 
-                    {/* Show planned beats for future dates (no visits yet) */}
-                    {isCurrentMonth && dayData && dayData.completedVisits === 0 && dayData.beatName && dateKey > format(new Date(), 'yyyy-MM-dd') && (
+                    {/* Show planned beats when no visits have been logged yet (today, future, or missed past dates) */}
+                    {isCurrentMonth && dayData && dayData.completedVisits === 0 && dayData.beatName && (
                       <div className="text-[9px] md:text-[10px] space-y-px leading-tight">
                         <div className="font-semibold text-blue-600 dark:text-blue-400 truncate" title={dayData.beatName}>
                           📅 {dayData.beatName.length > 8 ? dayData.beatName.substring(0, 8) + '..' : dayData.beatName}
                         </div>
                         <div className="text-muted-foreground text-[8px]">
-                          Planned
+                          {dateKey < format(new Date(), 'yyyy-MM-dd') ? 'Missed' : 'Planned'}
                         </div>
                         {dayData.hasJointSales && (
                           <span 
