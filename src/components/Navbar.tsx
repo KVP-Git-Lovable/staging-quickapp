@@ -66,6 +66,7 @@ import {
   Truck,
   FolderKanban,
   HelpCircle,
+  CalendarDays,
 } from "lucide-react";
 
 // Memoized Navbar component for better performance
