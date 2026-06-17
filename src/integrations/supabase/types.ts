@@ -6976,7 +6976,6 @@ export type Database = {
       }
       feature_flags: {
         Row: {
-          category: string
           created_at: string
           description: string | null
           feature_key: string | null
@@ -6987,7 +6986,6 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
-          category?: string
           created_at?: string
           description?: string | null
           feature_key?: string | null
@@ -6998,7 +6996,6 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
-          category?: string
           created_at?: string
           description?: string | null
           feature_key?: string | null
