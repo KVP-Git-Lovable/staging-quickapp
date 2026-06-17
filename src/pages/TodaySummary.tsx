@@ -2288,21 +2288,102 @@ export const TodaySummary = () => {
               </div>
             </div>
 
-            {/* Activities Completed */}
-            {completedActivitiesCount > 0 && (
-              <div className="grid grid-cols-1 gap-4">
-                <div className="text-center p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                  <div className="text-xl font-bold text-purple-600">
-                    {completedActivitiesCount}
-                  </div>
-                  <div className="text-sm text-purple-600/80 font-medium">
-                    {completedActivitiesCount === 1 ? '1 activity was completed' : `${completedActivitiesCount} activities were completed`}
-                  </div>
-                </div>
-              </div>
-            )}
           </CardContent>
         </Card>
+
+        {/* Activity Log Card */}
+        {activitySummary.totalCount > 0 && (
+          <Card className="shadow-card border-purple-200/50 dark:border-purple-800/30">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <span className="text-purple-600"><CalendarIcon size={18} /></span>
+                  Activity Log
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {activitySummary.overdueFollowUps > 0 && (
+                    <Badge className="bg-red-100 text-red-700 border border-red-300 text-xs gap-1">
+                      <Clock size={10} />
+                      {activitySummary.overdueFollowUps} follow-up{activitySummary.overdueFollowUps > 1 ? 's' : ''} overdue
+                    </Badge>
+                  )}
+                  <Badge className="bg-purple-100 text-purple-700 text-xs">{activitySummary.totalCount} logged</Badge>
+                </div>
+              </div>
+              {activitySummary.totalFieldMinutes > 0 && (
+                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                  <Clock size={12} />
+                  {Math.floor(activitySummary.totalFieldMinutes / 60)}h {activitySummary.totalFieldMinutes % 60}m total field time logged
+                </p>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-2 pt-0">
+              {activitySummary.byType.map((typeGroup) => {
+                const colorMap: Record<string, string> = {
+                  green: 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20',
+                  blue: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-950/20',
+                  purple: 'bg-purple-50 border-purple-200 text-purple-800 dark:bg-purple-950/20',
+                  teal: 'bg-teal-50 border-teal-200 text-teal-800 dark:bg-teal-950/20',
+                  amber: 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/20',
+                  orange: 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950/20',
+                  gray: 'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-950/20',
+                  indigo: 'bg-indigo-50 border-indigo-200 text-indigo-800 dark:bg-indigo-950/20',
+                };
+                const cardClass = colorMap[typeGroup.color] || colorMap.gray;
+                return (
+                  <div key={typeGroup.type} className={`rounded-lg border p-3 ${cardClass}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold">{typeGroup.label}</span>
+                      <div className="flex items-center gap-2 text-xs opacity-70">
+                        {typeGroup.totalMinutes > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Clock size={10} />
+                            {Math.floor(typeGroup.totalMinutes / 60) > 0
+                              ? `${Math.floor(typeGroup.totalMinutes / 60)}h ${typeGroup.totalMinutes % 60}m`
+                              : `${typeGroup.totalMinutes}m`}
+                          </span>
+                        )}
+                        <span className="font-semibold">{typeGroup.count} {typeGroup.count === 1 ? 'entry' : 'entries'}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      {typeGroup.details.slice(0, 3).map((detail, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs opacity-80">
+                          <span className="truncate max-w-[60%]">{detail.name}</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {detail.beat && <span className="opacity-60 truncate max-w-[80px]">{detail.beat}</span>}
+                            {detail.outcome && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                                {detail.outcome.replace(/_/g, ' ')}
+                              </span>
+                            )}
+                            {detail.duration && <span className="opacity-60">{detail.duration}</span>}
+                          </div>
+                        </div>
+                      ))}
+                      {typeGroup.details.length > 3 && (
+                        <p className="text-[10px] opacity-50 mt-1">+{typeGroup.details.length - 3} more</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {activitySummary.overdueFollowUps > 0 && (
+                <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20">
+                  <Clock size={14} className="text-red-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-red-700">
+                      {activitySummary.overdueFollowUps} overdue follow-up{activitySummary.overdueFollowUps > 1 ? 's' : ''}
+                    </p>
+                    <p className="text-xs text-red-600 mt-0.5">Go to My Visits → Activity tab to mark them complete</p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+
 
         {/* Performance Summary */}
         <Card className="shadow-card">
