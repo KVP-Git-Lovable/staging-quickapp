@@ -1177,6 +1177,17 @@ const CreatePrimaryOrder = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Section 5b: Payment Details (Phase 3 — driven by distributor_payment_config) */}
+            <PaymentDetailsCard
+              value={payment}
+              onChange={setPayment}
+              grandTotal={totals.grandTotal}
+              requireAdvance={!!paymentConfig?.require_advance_payment}
+              requireProof={!!paymentConfig?.require_payment_proof || payment.paymentTerm === 'advance'}
+              canOverride={false}
+              distributorId={distributorId || ''}
+            />
           </div>
 
           {/* RIGHT sticky panel */}
