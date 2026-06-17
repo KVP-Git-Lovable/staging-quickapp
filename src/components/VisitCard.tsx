@@ -3176,12 +3176,12 @@ export const VisitCard = ({
                   </Button>
                 </div>}
               
-              {isLocationEnabled && <Button onClick={() => handleCheckInOut('checkout')} className={`w-full h-12 text-base font-medium ${isCheckedOut ? 'bg-success text-success-foreground hover:bg-success/90 border-success' : !isCheckedIn || !isTodaysVisit ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'}`} variant={isCheckedOut ? "default" : "outline"} disabled={!isCheckedIn || isCheckedOut || !isTodaysVisit}>
+              {isCheckInEnabled && <Button onClick={() => handleCheckInOut('checkout')} className={`w-full h-12 text-base font-medium ${isCheckedOut ? 'bg-success text-success-foreground hover:bg-success/90 border-success' : !isCheckedIn || !isTodaysVisit ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted' : 'border-primary text-primary hover:bg-primary hover:text-primary-foreground'}`} variant={isCheckedOut ? "default" : "outline"} disabled={!isCheckedIn || isCheckedOut || !isTodaysVisit}>
                   <LogOut className="mr-2 h-5 w-5" />
                   {isCheckedOut ? 'Checked Out' : 'Check Out'}
                 </Button>}
               
-              {isLocationEnabled && <div className="pt-2 border-t">
+              {isCheckInEnabled && <div className="pt-2 border-t">
                   {!showReasonInput && !proceedWithoutCheckIn && !isCheckedIn && <button onClick={() => setShowReasonInput(true)} className="w-full text-sm text-primary hover:underline text-center py-2">
                     Click here to proceed without Check-in
                   </button>}
