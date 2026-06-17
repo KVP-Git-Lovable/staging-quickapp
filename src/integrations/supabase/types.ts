@@ -5131,6 +5131,72 @@ export type Database = {
           },
         ]
       }
+      distributor_payment_config: {
+        Row: {
+          advance_payment_pct: number
+          allow_orders_beyond_limit: boolean
+          approval_required_beyond_limit: boolean
+          approval_required_high_risk: boolean
+          created_at: string
+          credit_allowed: boolean
+          credit_limit: number
+          credit_warning_threshold_pct: number
+          default_payment_mode: string
+          default_payment_term: string
+          distributor_id: string
+          id: string
+          max_outstanding_allowed: number | null
+          max_overdue_days: number | null
+          overdue_blocking_enabled: boolean
+          require_advance_payment: boolean
+          require_payment_proof: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          advance_payment_pct?: number
+          allow_orders_beyond_limit?: boolean
+          approval_required_beyond_limit?: boolean
+          approval_required_high_risk?: boolean
+          created_at?: string
+          credit_allowed?: boolean
+          credit_limit?: number
+          credit_warning_threshold_pct?: number
+          default_payment_mode?: string
+          default_payment_term?: string
+          distributor_id: string
+          id?: string
+          max_outstanding_allowed?: number | null
+          max_overdue_days?: number | null
+          overdue_blocking_enabled?: boolean
+          require_advance_payment?: boolean
+          require_payment_proof?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          advance_payment_pct?: number
+          allow_orders_beyond_limit?: boolean
+          approval_required_beyond_limit?: boolean
+          approval_required_high_risk?: boolean
+          created_at?: string
+          credit_allowed?: boolean
+          credit_limit?: number
+          credit_warning_threshold_pct?: number
+          default_payment_mode?: string
+          default_payment_term?: string
+          distributor_id?: string
+          id?: string
+          max_outstanding_allowed?: number | null
+          max_overdue_days?: number | null
+          overdue_blocking_enabled?: boolean
+          require_advance_payment?: boolean
+          require_payment_proof?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       distributor_payments: {
         Row: {
           amount: number
@@ -21608,6 +21674,17 @@ export type Database = {
         Args: never
         Returns: {
           statename: string
+        }[]
+      }
+      get_distributor_financial_snapshot: {
+        Args: { p_distributor_id: string }
+        Returns: {
+          available_credit: number
+          credit_limit: number
+          credit_utilization_pct: number
+          last_payment_date: string
+          outstanding: number
+          overdue_amount: number
         }[]
       }
       get_distributor_id_for_auth_user: { Args: never; Returns: string }
