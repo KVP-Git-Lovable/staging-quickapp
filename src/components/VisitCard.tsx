@@ -2787,7 +2787,7 @@ export const VisitCard = ({
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 hasOrderToday ? "bg-success text-success-foreground" : ""
               } ${
-                (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isLocationEnabled) || !isTodaysVisit
+                (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isCheckInEnabled) || !isTodaysVisit
                   ? "opacity-50 cursor-not-allowed"
                   : ""
               }`}
