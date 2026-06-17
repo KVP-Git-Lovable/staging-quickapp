@@ -283,8 +283,9 @@ const FeatureManagement = () => {
           <TabsContent value="deps"><DependenciesTab /></TabsContent>
           <TabsContent value="audit"><AuditLogTab /></TabsContent>
         </Tabs>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
