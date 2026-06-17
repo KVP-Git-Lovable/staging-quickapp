@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import {
-  CalendarIcon, Loader2, Navigation, Store, Route, Users, MapSearch, Warehouse,
+  CalendarIcon, Loader2, Navigation, Store, Route, Users, Map as MapSearch, Warehouse,
   Megaphone, CalendarDays as CalendarEvent, Star, X as XIcon, Wifi, WifiOff, MapPin, LogOut,
 } from 'lucide-react';
 import { format } from 'date-fns';
