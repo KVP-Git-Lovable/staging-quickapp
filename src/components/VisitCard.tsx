@@ -1833,8 +1833,8 @@ export const VisitCard = ({
         return;
       }
 
-      // Check if geolocation is supported
-      if (!navigator.geolocation) {
+      // Check if geolocation is supported (only required when location capture is enabled)
+      if (isLocationEnabled && !navigator.geolocation) {
         toast({
           title: 'Location not supported',
           description: 'Your device does not support location services.',
@@ -1851,41 +1851,42 @@ export const VisitCard = ({
       setCurrentVisitId(visitId);
 
       // Get current location with better error handling
-      let current: {
-        latitude: number;
-        longitude: number;
-      };
-      try {
-        current = await getResilientLocation();
-      } catch (locationError: any) {
-        let errorMessage = 'Failed to get location. Please enable location services.';
-        if (locationError && typeof locationError === 'object' && 'code' in locationError) {
-          switch (locationError.code) {
-            case 1:
-              errorMessage = 'Location permission denied. Please enable location access for this site in your browser and device settings.';
-              break;
-            case 2:
-              errorMessage = 'Location unavailable. Please check that GPS is ON (Android: Settings → Location → High accuracy).';
-              break;
-            case 3:
-              errorMessage = "Couldn't get a GPS fix. Move near a window or outdoors, enable Precise location for this site in Chrome, then tap Capture Location again.";
-              break;
-          }
-        } else if (locationError?.message) {
-          errorMessage = locationError.message;
-        }
-        toast({
-          title: 'Location Error',
-          description: errorMessage,
-          variant: 'destructive'
-        });
-        return;
-      }
-      const address = `${current.latitude.toFixed(6)}, ${current.longitude.toFixed(6)}`;
+      let current: { latitude: number; longitude: number } | null = null;
+      let address = '';
       let match: boolean | null = null;
-      if (visit.retailerLat && visit.retailerLng) {
-        const distance = calculateDistance(current.latitude, current.longitude, visit.retailerLat, visit.retailerLng);
-        match = distance <= 100;
+
+      if (isLocationEnabled) {
+        try {
+          current = await getResilientLocation();
+        } catch (locationError: any) {
+          let errorMessage = 'Failed to get location. Please enable location services.';
+          if (locationError && typeof locationError === 'object' && 'code' in locationError) {
+            switch (locationError.code) {
+              case 1:
+                errorMessage = 'Location permission denied. Please enable location access for this site in your browser and device settings.';
+                break;
+              case 2:
+                errorMessage = 'Location unavailable. Please check that GPS is ON (Android: Settings → Location → High accuracy).';
+                break;
+              case 3:
+                errorMessage = "Couldn't get a GPS fix. Move near a window or outdoors, enable Precise location for this site in Chrome, then tap Capture Location again.";
+                break;
+            }
+          } else if (locationError?.message) {
+            errorMessage = locationError.message;
+          }
+          toast({
+            title: 'Location Error',
+            description: errorMessage,
+            variant: 'destructive'
+          });
+          return;
+        }
+        address = `${current.latitude.toFixed(6)}, ${current.longitude.toFixed(6)}`;
+        if (visit.retailerLat && visit.retailerLng) {
+          const distance = calculateDistance(current.latitude, current.longitude, visit.retailerLat, visit.retailerLng);
+          match = distance <= 100;
+        }
       }
 
       // Close location modal
