@@ -1,33 +1,35 @@
-## Fix plan: Distributor Master missing table
+## Cause: Customer Portal catalog can't read `products` because of RLS / wrong Supabase client
 
-**Problem**
-- The app is failing because `public.distributors` genuinely does not exist in Supabase.
-- The Distributor Master page and many other DMS/order screens still query `from('distributors')`, so this must be fixed at the database schema level, not by changing one page.
-- Existing `distributor_users` still has 10 user rows across 7 unique `distributor_id`s, so we can recover partial distributor records using those IDs and contact details.
+### What's happening
+The Customer Portal is authenticated through **localStorage only** (`useCustomerPortalAuth`) — there is no Supabase Auth session for these users, so on the database they are the anonymous (`anon`) role.
 
-## Implementation steps
+Other portal pages correctly use the isolated anon client `customerPortalSupabase`, but `CustomerCatalog.tsx` was written to use the main `supabase` client. As long as the same browser had a valid dashboard login, that client's `auth.uid()` returned a real UUID and the catalog "worked." The moment that dashboard session expired or the user opened the portal in a clean browser, every query in the catalog became an anon request — and RLS on `public.products` only allows the `authenticated` role:
 
-1. **Recreate `public.distributors` with the expected columns**
-   - Restore the original base columns: name, contact person, phone, email, address, status, territory, credit fields.
-   - Include later DMS columns used by the app: distribution level, parent distributor, GST, business profile, assets, relationship fields, owner mapping, network counts, etc.
-   - Add indexes for parent/type/status/owner lookups.
-   - Add explicit Data API grants and RLS policies so authenticated users can load/create/update/delete distributors.
+```text
+products_select: TO authenticated USING (auth.uid() IS NOT NULL AND is_active = true)
+```
 
-2. **Backfill recovered distributor rows**
-   - Insert one distributor row per distinct `distributor_users.distributor_id`.
-   - Preserve the exact old distributor IDs so existing portal users, orders, payment config, inventory, and other related tables continue linking correctly.
-   - Use the available `distributor_users` fields to reconstruct:
-     - `name` from available full name as a fallback business name
-     - `contact_person` from full name
-     - `phone` and `email` from user data
-     - `status = active`
-     - `distribution_level = direct_distributor` as a safe default
-   - This restores usable rows, but fields that were only present in the dropped `distributors` table and not duplicated elsewhere may need manual correction unless a Supabase backup is restored.
+There is no anon SELECT policy on `products`, so PostgREST silently returns zero rows. That is why:
+- The product picker shows no options ("Select..." stays empty).
+- Subtotal/Total are 0 (no rows = nothing priced).
+- The cart still shows "2" — those items were stored earlier when the catalog was working.
 
-3. **Compatibility checks**
-   - Confirm Distributor Master loads without the schema-cache error.
-   - Confirm the Add Distributor flow can insert into the recreated table.
-   - Confirm existing code references align with the recreated columns.
+The same issue affects `enabled_units` (no anon policy), used to compute the display unit. Categories, price books, price-book entries, distributor price books, and schemes already have anon-permissive policies, so they keep loading — that's why "Apply Offers (1)" still shows.
 
-## Important note about “old data”
-This plan recovers distributor records from surviving related tables, preserving the old IDs. It cannot recover fields that no longer exist anywhere in the database after the table was lost. For a full exact restore of every old distributor field, a Supabase backup/PITR restore is still required.
+The "wrong quantity" you're seeing is downstream: with no product selectable, the row stays at QTY 0 / STOCK 0, and the row's default unit is hardcoded to "KG" in component state.
+
+### Fix
+
+1. **Switch CustomerCatalog's data fetching to `customerPortalSupabase`** (the same anon client already used by `CustomerCart` and `CustomerLayout`). Update the price-book hooks it depends on (`useRetailerPriceBook`, `usePriceBookEntries`) to accept an optional client argument so the portal can pass the anon client without breaking other callers.
+
+2. **Add anon-read RLS policies on the two portal-blocked tables** so the anon client is actually allowed to read them:
+   - `public.products` — anon SELECT where `is_active = true` (matches the portal's existing filter and the existing authenticated policy).
+   - `public.enabled_units` — anon SELECT (read-only master data already exposed via other portal queries).
+
+3. **Verification**: log out of the dashboard, reopen `/customer-portal/catalog` in a fresh tab, confirm the product picker lists products, that selecting one shows its rate from the price book, and that quantity/stock update correctly.
+
+### Technical notes
+- No schema changes — only RLS policies and the client used in `CustomerCatalog.tsx` and its hooks.
+- The two new anon policies mirror the pattern already in use for `price_books`, `price_book_entries`, `distributor_price_books`, and `product_categories`.
+- No change to existing dashboard/admin behavior: the existing `authenticated` policies stay in place.
+- This explains why it "worked yesterday evening" — the user had an active dashboard session in the same browser, so the main client carried `auth.uid()`.
