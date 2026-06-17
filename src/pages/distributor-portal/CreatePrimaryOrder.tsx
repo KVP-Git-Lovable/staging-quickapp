@@ -65,6 +65,11 @@ interface Product {
   variants?: any[];
 }
 
+interface UomOption {
+  code: string;
+  name: string;
+}
+
 interface OrderItem {
   product_id: string;
   variant_id?: string;
@@ -80,6 +85,8 @@ interface OrderItem {
   image_url?: string;
   price_book_applied?: boolean;
   line_total: number; // gross (qty * unit_price) — taxes & discount tracked separately
+  // UI-only — not persisted
+  category_id?: string;
 }
 
 const DEFAULT_GST = 18;
