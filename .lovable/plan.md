@@ -1,21 +1,45 @@
-## Problem
+# Move Counter & Event into the Navigation bar
 
-Saving a product fails with:
-> Could not find the 'base_unit_category' column of 'products' in the schema cache
+Goal: Expose **Counter** and **Event** as two separate, first-class items in the main Navigation menu (Navbar hamburger grid) so users can reach them directly, instead of going through `Visits → Activity → Counter/Event`.
 
-`src/components/ProductManagement.tsx` writes `base_unit_category` (values: `Weight` / `Volume` / `Quantity`) on insert, update, and CSV import, but the `products` table never had that column — only `base_unit`. PostgREST therefore rejects the request and the Edit Product dialog can't save.
+## Scope
 
-## Fix
+Frontend / presentation only. No backend, no schema, no logic changes inside `CounterSales` or `EventCreate` pages — they keep working exactly as today.
 
-Add the missing column to the `products` table via migration:
+## Changes
 
-- Column: `base_unit_category text NOT NULL DEFAULT 'Quantity'`
-- Backfill existing rows from current `base_unit` using the same normalization the UI uses (kg/g/mg/lb/oz/ton → Weight; ml/l/gal/fl_oz → Volume; else Quantity).
-- Add a `CHECK` constraint limiting values to `Weight | Volume | Quantity`.
+### 1. `src/components/Navbar.tsx`
+Add two new entries to the `baseItems` array used by the nav grid (same shape as existing items):
 
-No code changes required — once the column exists, the existing Save / CSV Import paths will work and `src/integrations/supabase/types.ts` will regenerate to match.
+- **Counter** — `icon: Store`, `href: "/counter-sales"`, label `nav.counter`, color `from-orange-500 to-orange-600`
+- **Event** — `icon: CalendarDays`, `href: "/event-create"`, label `nav.event`, color `from-pink-500 to-pink-600`
+
+Placed right after `my-visit` so they sit alongside the field-rep workflow. Gated only by the same permission helpers used for sibling items (no new gates added — if `action_visit_activity` should still apply, we reuse it; otherwise they show for everyone, matching the rest of the grid). I'll mirror the gating that currently controls the `Activity` button in `MyVisits.tsx` so the user-visible permission story doesn't change.
+
+### 2. `src/i18n/locales/en/common.json`
+Add two translation keys under `nav`:
+- `nav.counter` → `"Counter"`
+- `nav.event` → `"Event"`
+
+### 3. `src/pages/MyVisits.tsx`
+Remove the now-redundant entry point:
+- Delete the `Activity` button (line ~1382-1385) and the `ActivityChooserModal` render block (~1703).
+- Keep `AddActivityModal` import/usage removed too if no other caller remains; otherwise leave intact.
+- Keep `ActivityEventsTable` and all activity *display* logic — only the **trigger** is moved.
+
+### 4. `src/components/ActivityChooserModal.tsx`
+Delete the file — it's no longer referenced after step 3.
 
 ## Out of scope
 
-- No changes to UOM Master, `product_uom_mapping`, or Order Entry unit selection.
-- No data migration beyond the one-time backfill of `base_unit_category` from `base_unit`.
+- No changes to `CounterSales`, `EventCreate`, `AddActivityModal`, or activity persistence.
+- No changes to the Counter/Event UX inside their pages.
+- No new permissions; reuse existing `action_visit_activity` gating if currently applied.
+
+## Verification
+
+1. Open the Navbar hamburger → confirm **Counter** and **Event** appear as separate tiles.
+2. Click **Counter** → lands on `/counter-sales`, full bulk-billing flow works.
+3. Click **Event** → lands on `/event-create`, event creation flow works.
+4. Open `My Visits` → the old **Activity** button is gone; the activity events table still renders as before.
+5. No console errors; no broken imports.

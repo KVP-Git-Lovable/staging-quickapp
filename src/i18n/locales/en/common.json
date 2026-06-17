@@ -2,6 +2,8 @@
   "nav": {
     "attendance": "Attendance",
     "myVisit": "Visit",
+    "counter": "Counter",
+    "event": "Event",
     "allRetailers": "All Retailers",
     "territories": "Territories",
     "gpsTrack": "GPS Track",
