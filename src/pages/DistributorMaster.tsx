@@ -57,6 +57,7 @@ interface Distributor {
   network_retailers_count: number | null;
   onboarding_date: string | null;
   parent_id: string | null;
+  is_placeholder?: boolean | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -126,6 +127,7 @@ export default function DistributorMaster() {
       const { data, error } = await supabase
         .from('distributors')
         .select('*')
+        .or('is_placeholder.is.null,is_placeholder.eq.false')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

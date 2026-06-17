@@ -5778,6 +5778,7 @@ export type Database = {
           established_year: number | null
           gst_number: string | null
           id: string
+          is_placeholder: boolean
           name: string
           network_retailers_count: number | null
           onboarding_date: string | null
@@ -5822,6 +5823,7 @@ export type Database = {
           established_year?: number | null
           gst_number?: string | null
           id?: string
+          is_placeholder?: boolean
           name: string
           network_retailers_count?: number | null
           onboarding_date?: string | null
@@ -5866,6 +5868,7 @@ export type Database = {
           established_year?: number | null
           gst_number?: string | null
           id?: string
+          is_placeholder?: boolean
           name?: string
           network_retailers_count?: number | null
           onboarding_date?: string | null
