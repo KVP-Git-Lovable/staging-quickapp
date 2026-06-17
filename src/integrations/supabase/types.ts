@@ -4709,11 +4709,9 @@ export type Database = {
           max_stock_level: number | null
           product_id: string | null
           product_name: string
-          quantity: number
           reorder_level: number | null
           reserved_quantity: number
           sku: string | null
-          total_value: number | null
           unit: string | null
           unit_cost: number | null
           updated_at: string
@@ -4736,11 +4734,9 @@ export type Database = {
           max_stock_level?: number | null
           product_id?: string | null
           product_name: string
-          quantity?: number
           reorder_level?: number | null
           reserved_quantity?: number
           sku?: string | null
-          total_value?: number | null
           unit?: string | null
           unit_cost?: number | null
           updated_at?: string
@@ -4763,11 +4759,9 @@ export type Database = {
           max_stock_level?: number | null
           product_id?: string | null
           product_name?: string
-          quantity?: number
           reorder_level?: number | null
           reserved_quantity?: number
           sku?: string | null
-          total_value?: number | null
           unit?: string | null
           unit_cost?: number | null
           updated_at?: string
@@ -5877,7 +5871,6 @@ export type Database = {
           territory_id: string | null
           threats: string | null
           timezone: string
-          type_id: string | null
           updated_at: string
           weakness: string | null
           years_of_relationship: number | null
@@ -5935,7 +5928,6 @@ export type Database = {
           territory_id?: string | null
           threats?: string | null
           timezone?: string
-          type_id?: string | null
           updated_at?: string
           weakness?: string | null
           years_of_relationship?: number | null
@@ -5993,7 +5985,6 @@ export type Database = {
           territory_id?: string | null
           threats?: string | null
           timezone?: string
-          type_id?: string | null
           updated_at?: string
           weakness?: string | null
           years_of_relationship?: number | null
@@ -6011,13 +6002,6 @@ export type Database = {
             columns: ["territory_id"]
             isOneToOne: false
             referencedRelation: "territories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "distributors_type_id_fkey"
-            columns: ["type_id"]
-            isOneToOne: false
-            referencedRelation: "distributor_types"
             referencedColumns: ["id"]
           },
         ]
