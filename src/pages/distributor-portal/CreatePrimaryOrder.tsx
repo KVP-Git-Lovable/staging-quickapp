@@ -627,14 +627,14 @@ const CreatePrimaryOrder = () => {
     <div className="min-h-screen bg-muted/30 pb-32 standalone-page">
       <main className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-5">
         {/* Section 1: Header strip */}
-        <Card className="rounded-xl shadow-sm">
+        <Card className="rounded-xl shadow-sm border-l-4 border-l-primary overflow-hidden">
           <CardContent className="p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="shrink-0"
+                  className="shrink-0 hover:bg-primary/10 hover:text-primary"
                   onClick={() =>
                     navigate(
                       isEditMode && editOrderId
@@ -651,8 +651,10 @@ const CreatePrimaryOrder = () => {
                       ? `Edit Order${existingOrder?.order_number ? ` — ${existingOrder.order_number}` : ''}`
                       : 'New Primary Order'}
                   </h1>
-                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
-                    <span>{orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}</span>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-inset ring-primary/20">
+                      {orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}
+                    </span>
                     {priceBookName && (
                       <>
                         <span>•</span>
@@ -668,7 +670,7 @@ const CreatePrimaryOrder = () => {
                 variant="outline"
                 onClick={() => saveOrder(false)}
                 disabled={loading || orderItems.length === 0}
-                className="shrink-0"
+                className="shrink-0 hover:border-primary/40 hover:text-primary"
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Save Draft
@@ -676,6 +678,7 @@ const CreatePrimaryOrder = () => {
             </div>
           </CardContent>
         </Card>
+
 
         {/* Section 2: Stepper */}
         <Card className="rounded-xl shadow-sm">
