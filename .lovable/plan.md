@@ -1,34 +1,33 @@
-## What the toast means
+## Root cause
 
-`Could not find a relationship between 'beat_user_access' and 'beats' in the schema cache` comes from this query inside `BeatTransferModal.tsx`:
+Dharmesh has **21 unassigned retailers**, but they're stored with `beat_id = 'unassigned'` (a literal string sentinel), not `NULL` or `''`.
 
-```ts
-supabase
-  .from("beat_user_access")
-  .select("beat_id, access_type, effective_to, beats!beat_user_access_beat_id_fkey(...)")
-```
+Query I ran against `retailers` for Dharmesh (`user_id = 41070e2f-…`):
 
-PostgREST needs a real foreign key (`beat_user_access.beat_id → beats.id`) to embed `beats(...)`. I checked the DB — **`beat_user_access` has no foreign keys at all**, so the embed always fails and the toast fires every time the modal opens.
+| beat_id | count |
+|---|---|
+| beat_1781174620877_… | 21 |
+| **`unassigned`** | **21** |
+| beat_1781174563696_… | 20 |
+| … | … |
 
-## Is the relationship required for Beat Exchange?
+The current `loadSide` filter only matches `beat_id IS NULL OR beat_id = ''`, so the literal `'unassigned'` rows are skipped → panel shows 0.
 
-**No.** The modal still loads beats you **own** (separate query against `beats.user_id = me`), and the swap / confirm path doesn't use the embed. The only thing this query adds is beats that were **shared with you** via `beat_user_access` (CO_OWNER / OPERATIONAL access). For owners-only setups, exchange already works — the toast is just noise.
-
-If you do want shared beats to appear in the dropdowns, we don't need to add an FK. We can fetch in two safe steps.
+There's also a smaller related issue: the Beat A/B dropdowns and Mass Edit list real beats by joining on `beats.beat_id`, so the `'unassigned'` sentinel never appears as a real beat — which is exactly why these 21 rows have been invisible everywhere.
 
 ## Fix (one file: `src/components/BeatTransferModal.tsx`)
 
-Replace the failing embedded query with a two-step fetch:
+In `loadSide`, when the synthetic Unassigned bucket is selected, broaden the filter to include the literal sentinel(s) commonly used in this project:
 
-1. `select("beat_id, access_type, effective_to")` from `beat_user_access` (no embed).
-2. If any rows come back, `select("id, beat_id, beat_name").in("id", sharedBeatIds).eq("is_active", true)` from `beats`.
-3. Merge with owned beats exactly like today.
+```ts
+query = query.or("beat_id.is.null,beat_id.eq.,beat_id.eq.unassigned,beat_id.eq.UNASSIGNED");
+```
 
-Also wrap that block in try/catch so a `beat_user_access` permission error never blocks owned beats from loading.
+Same change for the count query used by the panel header / pagination (so "Retailers in Unassigned (N)" reflects the real number).
 
-Result: no more schema-cache toast, shared beats still appear, and Beat Exchange (including the new Unassigned option) works the same.
+Move target stays the same: moving **into** Unassigned still writes `beat_id = NULL, beat_name = NULL` (we standardise on NULL going forward — we don't want to keep creating new `'unassigned'` strings). Moving **out** of Unassigned to a real beat works regardless of which sentinel the row had.
 
 ## Out of scope
 
-- No DB schema/FK changes.
-- No changes to the exchange / confirm logic or the Unassigned feature.
+- No DB cleanup migration (not converting existing `'unassigned'` strings to NULL). Happy to add that as a follow-up if you want a one-time normalisation.
+- No changes to other screens.

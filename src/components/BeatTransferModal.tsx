@@ -154,7 +154,7 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
     if (isUnassigned(beat)) {
       const { data: userRes } = await supabase.auth.getUser();
       const uid = userRes?.user?.id;
-      query = query.or("beat_id.is.null,beat_id.eq.");
+      query = query.or("beat_id.is.null,beat_id.eq.,beat_id.eq.unassigned,beat_id.eq.UNASSIGNED");
       if (uid) query = query.eq("user_id", uid);
     } else {
       query = query.eq("beat_id", beat.beat_id);
