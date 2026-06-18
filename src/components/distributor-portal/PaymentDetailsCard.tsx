@@ -49,7 +49,9 @@ interface Props {
   requireProof: boolean;
   canOverride?: boolean;
   distributorId: string;
+  allowedModes?: PaymentMode[];
 }
+
 
 const PROOF_BUCKET = "order-payment-proofs";
 const MAX_BYTES = 5 * 1024 * 1024;
