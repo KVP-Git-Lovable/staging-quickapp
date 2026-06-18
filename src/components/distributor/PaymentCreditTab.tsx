@@ -54,6 +54,7 @@ const DEFAULTS = (distributorId: string): ConfigRow => ({
   allow_orders_beyond_limit: false,
   approval_required_beyond_limit: true,
   default_payment_term: "immediate",
+  allowed_payment_terms: ["immediate"],
   default_payment_mode: "bank_transfer",
   allowed_payment_modes: ["bank_transfer"],
   require_advance_payment: false,
