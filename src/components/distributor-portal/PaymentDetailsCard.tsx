@@ -65,8 +65,14 @@ export function PaymentDetailsCard({
   requireProof,
   canOverride = false,
   distributorId,
+  allowedModes,
 }: Props) {
   const [override, setOverride] = useState(false);
+  const modeOptions = (allowedModes && allowedModes.length > 0
+    ? allowedModes
+    : (Object.keys(MODE_LABELS) as PaymentMode[]));
+  const modeSelectable = modeOptions.length > 1;
+
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
