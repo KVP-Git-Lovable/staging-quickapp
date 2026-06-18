@@ -39,6 +39,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PaymentDetailsCard } from '@/components/distributor-portal/PaymentDetailsCard';
+import ShippingAddressPicker from '@/components/distributor-portal/ShippingAddressPicker';
+import { formatAddress, hasMinimumAddress } from '@/lib/addressFormat';
+import { useSavedAddresses } from '@/hooks/useSavedAddresses';
+import { useWarehouses } from '@/hooks/useWarehouses';
 
 interface Category {
   id: string;
