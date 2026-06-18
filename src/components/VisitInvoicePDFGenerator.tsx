@@ -263,14 +263,14 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
 
   return (
     <>
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 sm:justify-between">
         {/* View Invoice Button */}
         <Button
           variant="outline"
           size="sm"
           disabled={loading || sendingWhatsApp || sendingEmail || sendingSMS}
           onClick={handleViewClick}
-          className="flex-1"
+          className="flex-1 min-w-[120px]"
         >
           <Eye className="mr-2 h-4 w-4" />
           {orders.length > 1 ? `View (${orders.length})` : "View"}
@@ -282,7 +282,7 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
           size="sm"
           disabled={loading || sendingWhatsApp || sendingEmail || sendingSMS}
           onClick={handleDownloadClick}
-          className="flex-1"
+          className="flex-1 min-w-[120px]"
         >
           <Download className="mr-2 h-4 w-4" />
           {loading ? "Generating..." : orders.length > 1 ? `Invoice (${orders.length})` : "Invoice"}
@@ -290,13 +290,13 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
 
         {/* Share Options */}
         {customerPhone && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
             <span className="text-xs text-muted-foreground">Share:</span>
             <div className="flex gap-1.5">
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 shrink-0"
                 disabled={loading || sendingWhatsApp}
                 onClick={handleWhatsAppClick}
                 title="Share via WhatsApp"
@@ -306,7 +306,7 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 shrink-0"
                 disabled={loading || sendingEmail}
                 onClick={handleEmailClick}
                 title="Share via Email"
@@ -316,7 +316,7 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
               <Button
                 variant="outline"
                 size="icon"
-                className="h-8 w-8"
+                className="h-8 w-8 shrink-0"
                 disabled={loading || sendingSMS}
                 onClick={handleSMSClick}
                 title="Share via SMS"
