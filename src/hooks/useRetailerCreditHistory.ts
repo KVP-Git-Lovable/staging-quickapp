@@ -103,6 +103,28 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         allocations = (data || []) as AllocationRow[];
       }
 
+      // Per-order: sum of collections applied AFTER the order (via Mark Payment Received → FIFO)
+      const collectedByOrder = new Map<string, number>();
+      allocations.forEach((a) => {
+        collectedByOrder.set(
+          a.order_id,
+          (collectedByOrder.get(a.order_id) || 0) + Number(a.amount_applied || 0)
+        );
+      });
+
+      // Enrich each order with derived breakdown.
+      // original_credit_amount = what actually went on credit when order was placed
+      //                        = current pending + everything collected after the order
+      // paid_at_order_time     = what was paid up-front at the cart
+      orders.forEach((o) => {
+        const collected = Number(collectedByOrder.get(o.id) || 0);
+        const pending = Number(o.credit_pending_amount || 0);
+        const paid = Number(o.credit_paid_amount || 0);
+        o.collected_after_order = collected;
+        o.original_credit_amount = Math.max(0, pending + collected);
+        o.paid_at_order_time = Math.max(0, paid - collected);
+      });
+
       // Resolve collector names
       const userIds = Array.from(
         new Set(collections.map((c) => c.collected_by_user_id).filter(Boolean))
@@ -120,9 +142,15 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         });
       }
 
-      // KPIs
-      const totalCreditTaken = orders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
-      const totalCleared = orders.reduce((s, o) => s + Number(o.credit_paid_amount || 0), 0);
+      // KPIs — only the amount that ACTUALLY went on credit / was ACTUALLY collected later
+      const totalCreditTaken = orders.reduce(
+        (s, o) => s + Number(o.original_credit_amount || 0),
+        0
+      );
+      const totalCleared = orders.reduce(
+        (s, o) => s + Number(o.collected_after_order || 0),
+        0
+      );
       const currentPending = Number((retailerRes.data as any)?.pending_amount || 0);
 
       // Avg days to clear: for orders that reached paid status, take max(applied_at) per order
@@ -131,27 +159,4 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         const cur = lastAppliedByOrder.get(a.order_id);
         if (!cur || a.applied_at > cur) lastAppliedByOrder.set(a.order_id, a.applied_at);
       });
-      const days: number[] = [];
-      orders.forEach((o) => {
-        if (o.payment_status === "paid" && o.order_date) {
-          const last = lastAppliedByOrder.get(o.id);
-          if (last) {
-            const d =
-              (new Date(last).getTime() - new Date(o.order_date).getTime()) /
-              (1000 * 60 * 60 * 24);
-            if (d >= 0) days.push(d);
-          }
-        }
-      });
-      const avgDaysToClear =
-        days.length > 0 ? Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10 : null;
-
-      return {
-        kpis: { totalCreditTaken, totalCleared, currentPending, avgDaysToClear },
-        orders,
-        collections,
-        allocations,
-      };
-    },
-  });
 }
