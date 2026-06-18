@@ -5748,6 +5748,80 @@ export type Database = {
           },
         ]
       }
+      distributor_saved_addresses: {
+        Row: {
+          address_line1: string
+          address_line2: string | null
+          city: string
+          contact_person: string | null
+          contact_phone: string | null
+          country: string
+          created_at: string
+          created_by: string | null
+          distributor_id: string
+          formatted_address: string | null
+          id: string
+          is_default: boolean
+          label: string
+          landmark: string | null
+          latitude: number | null
+          longitude: number | null
+          pincode: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_line1: string
+          address_line2?: string | null
+          city: string
+          contact_person?: string | null
+          contact_phone?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          distributor_id: string
+          formatted_address?: string | null
+          id?: string
+          is_default?: boolean
+          label: string
+          landmark?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          pincode: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_line1?: string
+          address_line2?: string | null
+          city?: string
+          contact_person?: string | null
+          contact_phone?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          distributor_id?: string
+          formatted_address?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string
+          landmark?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          pincode?: string
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distributor_saved_addresses_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       distributor_secondary_invoice_items: {
         Row: {
           cgst_amount: number
@@ -13775,6 +13849,13 @@ export type Database = {
           payment_term: string | null
           payment_terms: string | null
           shipping_address: string | null
+          shipping_address_source: string | null
+          shipping_contact_person: string | null
+          shipping_contact_phone: string | null
+          shipping_latitude: number | null
+          shipping_longitude: number | null
+          shipping_saved_address_id: string | null
+          shipping_warehouse_id: string | null
           source_distributor_id: string
           status: string
           subtotal: number
@@ -13817,6 +13898,13 @@ export type Database = {
           payment_term?: string | null
           payment_terms?: string | null
           shipping_address?: string | null
+          shipping_address_source?: string | null
+          shipping_contact_person?: string | null
+          shipping_contact_phone?: string | null
+          shipping_latitude?: number | null
+          shipping_longitude?: number | null
+          shipping_saved_address_id?: string | null
+          shipping_warehouse_id?: string | null
           source_distributor_id: string
           status?: string
           subtotal?: number
@@ -13859,6 +13947,13 @@ export type Database = {
           payment_term?: string | null
           payment_terms?: string | null
           shipping_address?: string | null
+          shipping_address_source?: string | null
+          shipping_contact_person?: string | null
+          shipping_contact_phone?: string | null
+          shipping_latitude?: number | null
+          shipping_longitude?: number | null
+          shipping_saved_address_id?: string | null
+          shipping_warehouse_id?: string | null
           source_distributor_id?: string
           status?: string
           subtotal?: number
@@ -13882,6 +13977,20 @@ export type Database = {
             columns: ["parent_order_id"]
             isOneToOne: false
             referencedRelation: "primary_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_orders_shipping_saved_address_id_fkey"
+            columns: ["shipping_saved_address_id"]
+            isOneToOne: false
+            referencedRelation: "distributor_saved_addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_orders_shipping_warehouse_id_fkey"
+            columns: ["shipping_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
             referencedColumns: ["id"]
           },
           {
@@ -21186,28 +21295,64 @@ export type Database = {
       }
       warehouses: {
         Row: {
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
           code: string | null
+          contact_person: string | null
+          contact_phone: string | null
+          country: string | null
           created_at: string | null
           distributor_id: string
+          formatted_address: string | null
           id: string
           is_default: boolean | null
+          landmark: string | null
+          latitude: number | null
+          longitude: number | null
           name: string
+          pincode: string | null
+          state: string | null
         }
         Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
           code?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          country?: string | null
           created_at?: string | null
           distributor_id: string
+          formatted_address?: string | null
           id?: string
           is_default?: boolean | null
+          landmark?: string | null
+          latitude?: number | null
+          longitude?: number | null
           name: string
+          pincode?: string | null
+          state?: string | null
         }
         Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
           code?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          country?: string | null
           created_at?: string | null
           distributor_id?: string
+          formatted_address?: string | null
           id?: string
           is_default?: boolean | null
+          landmark?: string | null
+          latitude?: number | null
+          longitude?: number | null
           name?: string
+          pincode?: string | null
+          state?: string | null
         }
         Relationships: [
           {
