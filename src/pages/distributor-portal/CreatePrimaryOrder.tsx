@@ -959,9 +959,10 @@ const CreatePrimaryOrder = () => {
               <CardHeader className="p-5 pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
-                      <ShoppingCart className="w-4 h-4 text-foreground/70" />
+                    <span className="w-7 h-7 rounded-md bg-primary/10 grid place-items-center ring-1 ring-inset ring-primary/20">
+                      <ShoppingCart className="w-4 h-4 text-primary" />
                     </span>
+
                     Order Items ({orderItems.length})
                   </CardTitle>
                   {orderItems.length > 0 && (
