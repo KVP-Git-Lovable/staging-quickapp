@@ -691,18 +691,18 @@ const CreatePrimaryOrder = () => {
                   <div key={step.num} className="flex items-center flex-1 min-w-0">
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`w-9 h-9 rounded-full grid place-items-center text-sm font-semibold shrink-0 transition-colors ${
+                        className={`w-9 h-9 rounded-full grid place-items-center text-sm font-semibold shrink-0 transition-all ${
                           isActive
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary text-primary-foreground ring-4 ring-primary/15 shadow-sm'
                             : isDone
-                              ? 'bg-primary/10 text-primary border border-primary/30'
+                              ? 'bg-emerald-500 text-white'
                               : 'bg-muted text-muted-foreground border border-border'
                         }`}
                       >
                         {isDone ? <Check className="w-4 h-4" /> : step.num}
                       </div>
                       <div className="min-w-0 hidden sm:block">
-                        <p className={`text-sm font-medium leading-tight ${isActive || isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <p className={`text-sm font-semibold leading-tight ${isActive ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {step.title}
                         </p>
                         <p className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
@@ -711,7 +711,7 @@ const CreatePrimaryOrder = () => {
                       </div>
                     </div>
                     {idx < steps.length - 1 && (
-                      <div className={`flex-1 h-px mx-3 ${step.num < activeStep ? 'bg-primary/40' : 'bg-border'}`} />
+                      <div className={`flex-1 h-0.5 mx-3 rounded-full ${step.num < activeStep ? 'bg-emerald-400' : 'bg-border'}`} />
                     )}
                   </div>
                 );
@@ -719,6 +719,7 @@ const CreatePrimaryOrder = () => {
             </div>
           </CardContent>
         </Card>
+
 
         {/* Body: two-column grid */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 items-start">
