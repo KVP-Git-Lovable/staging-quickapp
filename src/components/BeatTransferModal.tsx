@@ -441,6 +441,9 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
                   <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select Beat A"} />
                 </SelectTrigger>
                 <SelectContent>
+                  {beatBId !== UNASSIGNED_ID && (
+                    <SelectItem value={UNASSIGNED_ID}>Unassigned Retailers</SelectItem>
+                  )}
                   {beats.filter((b) => b.id !== beatBId).map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
                   ))}
@@ -449,6 +452,19 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Beat B</label>
+              <Select value={beatBId} onValueChange={setBeatBId} disabled={loadingBeats || isSaving}>
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select Beat B"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {beatAId !== UNASSIGNED_ID && (
+                    <SelectItem value={UNASSIGNED_ID}>Unassigned Retailers</SelectItem>
+                  )}
+                  {beats.filter((b) => b.id !== beatAId).map((b) => (
+                    <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={beatBId} onValueChange={setBeatBId} disabled={loadingBeats || isSaving}>
                 <SelectTrigger>
                   <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select Beat B"} />
