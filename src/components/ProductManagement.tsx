@@ -1036,8 +1036,9 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                 </div>
               </div>
 
-              <ScrollArea className="h-[400px] rounded-md border">
-                <Table>
+              <div className="h-[400px] rounded-md border overflow-auto">
+                <Table className="min-w-[1100px]">
+
                   <TableHeader>
                     <TableRow>
                       <TableHead>Image</TableHead>
