@@ -1,132 +1,94 @@
-# Warehouse addresses + shipping address picker for Primary Order
+# Plan: Order-level reconciliation + Retailer Credit History
 
-Two-part change: enrich the Warehouse master with full address + geolocation, and rebuild the Shipping Address control in Create Primary Order to support three sources (Warehouse / Saved / New custom).
-
----
-
-## 1. Database
-
-### 1a. Extend `warehouses`
-Add address + geo columns (all nullable so existing rows keep working):
-
-- `address_line1`, `address_line2`, `city`, `state`, `pincode`, `country` (default `'India'`)
-- `landmark` (optional)
-- `contact_person`, `contact_phone` (optional, used on shipping labels)
-- `latitude numeric(10,7)`, `longitude numeric(10,7)`
-- `formatted_address text` — denormalized single-line string used when copying to an order
-
-No data migration needed; existing warehouses just show "Address not set" until edited.
-
-### 1b. New table `distributor_saved_addresses`
-Saved-addresses repository, scoped per distributor.
-
-Columns: `id`, `distributor_id` (FK), `label` (e.g. "Mumbai branch", "Event – Pune Expo"), `address_line1`, `address_line2`, `city`, `state`, `pincode`, `country`, `landmark`, `contact_person`, `contact_phone`, `latitude`, `longitude`, `formatted_address`, `is_default`, `created_by`, `created_at`, `updated_at`.
-
-GRANTs to `authenticated` + `service_role`, RLS:
-- Distributor portal users: read/write rows for their own `distributor_id` (using existing `distributor_users` membership check, mirroring the policy used on `warehouses`).
-- Internal admins: full access via `has_role(auth.uid(),'admin')`.
-
-Partial unique index so only one `is_default = true` per distributor.
-
-### 1c. Extend `primary_orders` (snapshot, no FK to source)
-Already has `shipping_address text`. Add:
-- `shipping_address_source text` — one of `'warehouse' | 'saved' | 'custom'`
-- `shipping_warehouse_id uuid` (nullable FK to `warehouses`)
-- `shipping_saved_address_id uuid` (nullable FK to `distributor_saved_addresses`, ON DELETE SET NULL)
-- `shipping_latitude numeric(10,7)`, `shipping_longitude numeric(10,7)`
-- `shipping_contact_person text`, `shipping_contact_phone text`
-
-The existing `shipping_address` text column keeps the formatted snapshot so historical orders stay correct even if the source warehouse/saved address is later edited or deleted.
+Two coordinated changes to close the gap between the rep "Pay" action in *My Visit* and the underlying credit orders, and to give reps/admins visibility into a retailer's credit-and-payment cycle.
 
 ---
 
-## 2. Reusable components
+## Part 1 — Reconcile orders on payment (FIFO)
 
-### 2a. `AddressFormFields` (new, `src/components/common/AddressFormFields.tsx`)
-Controlled form block: line1, line2, city, state, pincode, country (default India), landmark, contact person, contact phone. Used by warehouse dialog, saved-address dialog, and the custom-address mode in the order form.
+**Problem today**
+`PaymentMarkingModal` only updates `retailers.pending_amount` and inserts a row into `retailer_payment_collections`. The originating credit orders (`orders.is_credit_order = true`, `credit_pending_amount > 0`) are never touched, so order-level paid/pending is permanently out of sync with the retailer's aggregate balance.
 
-### 2b. `LocationCaptureButton` (new, `src/components/common/LocationCaptureButton.tsx`)
-Mirrors the pattern already used in `AddRetailer.tsx` (line ~1359): a button that calls `navigator.geolocation.getCurrentPosition`, fills lat/lng, and shows captured coordinates as a small chip. No map picker UI — same UX as retailer creation, which the user referenced. (If a true map picker is wanted later, we can swap this for a Google Maps component; the user-visible behavior in retailer creation today is "Use current location", so we match that.)
+**What we'll build**
 
-### 2c. `formatAddress(parts)` helper (`src/lib/addressFormat.ts`)
-Builds the single-line `formatted_address` from the structured parts, used everywhere we snapshot to the order.
+1. **New SECURITY DEFINER RPC `apply_retailer_payment_fifo(p_retailer_id, p_amount, p_collection_id, p_payment_method, p_proof_url)**` that runs atomically:
+  - Lock the retailer's open credit orders (`is_credit_order = true AND credit_pending_amount > 0`) ordered by `order_date ASC, created_at ASC` with `FOR UPDATE SKIP LOCKED`.
+  - Walk them, applying the payment amount: increase `orders.credit_paid_amount` and decrease `orders.credit_pending_amount`; when an order reaches 0 pending, set `payment_status = 'paid'`; partial → `'partial'`.
+  - Recompute and update `retailers.pending_amount = SUM(credit_pending_amount)` for the retailer (single source of truth, no drift).
+  - Return JSON `{ allocations: [{ order_id, applied_amount, remaining_after }], unallocated_amount }`.
+2. **New table `retailer_payment_allocations**` (audit of which collection settled which order, mandatory for history & reporting):
+  - `collection_id` → `retailer_payment_collections.id`
+  - `order_id` → `orders.id`
+  - `retailer_id`, `amount_applied`, `applied_at`
+  - RLS: same scope as `retailer_payment_collections` (rep can read own; admins via existing helpers).
+  - GRANTs to `authenticated` and `service_role` per project policy.
+3. `**PaymentMarkingModal` change**
+  - Replace the direct `UPDATE retailers SET pending_amount = ...` with: insert the collection row first (to get `collection_id`), then `supabase.rpc('apply_retailer_payment_fifo', { ... })`.
+  - On success, call `onPaymentMarked(result.new_pending_amount)` using the value returned by the RPC instead of computing it client-side.
+  - Toast still shows the amount; an extra line shows "Settled N invoice(s)".
+  - Offline path: queue the same RPC call in the existing IndexedDB retry queue (treat like any other write — never-expire, 23505 → success).
+4. **Backfill (one-off, optional, opt-in)**
+  - Provide a separate admin RPC `backfill_retailer_payment_allocations()` that, for each retailer, walks historical `retailer_payment_collections` ordered by date and FIFO-applies them to historical credit orders. NOT auto-run; surfaced as a button on an admin page only if the user asks for it later.
 
----
-
-## 3. Warehouse master UI updates
-
-Files: `src/components/distributor-portal/inventory/WarehouseManagement.tsx`, `src/hooks/useWarehouses.ts`.
-
-- Add/Edit dialog: keep Name / Code / Default, add `AddressFormFields` + `LocationCaptureButton` underneath.
-- Table: add a small "Address" column showing the city + pincode (or "Not set" pill in amber).
-- `useWarehouses` create/update accept the new fields and write `formatted_address` via the helper.
-
-Also surface the same dialog wherever warehouses are managed for internal admins (search for other call sites of `useWarehouses` and update if any — currently only the distributor portal uses it).
-
----
-
-## 4. Shipping Address control in Create Primary Order
-
-File: `src/pages/distributor-portal/CreatePrimaryOrder.tsx` (replace the placeholder block at lines 1198–1221).
-
-New layout inside the existing "Order Details" right column:
-
-```text
-Shipping Address (Optional)
-( ) Use warehouse address    ( ) Saved address    ( ) New custom address
-
-[depending on choice:]
-- Warehouse:  <SearchableSelect of distributor's warehouses, default = is_default one>
-              Shows the warehouse's formatted address as a read-only preview card.
-              Disabled-with-tooltip if the warehouse has no address yet, with a
-              "Add address" link that opens the warehouse edit dialog inline.
-
-- Saved:      <SearchableSelect of distributor_saved_addresses by label>
-              Preview card + "Edit" link (opens edit dialog).
-              "Manage saved addresses" link -> small drawer with full CRUD.
-
-- Custom:     <AddressFormFields> + <LocationCaptureButton>
-              Checkbox: "Save this address for future orders" with a Label input
-              that appears when checked. On submit, inserts into
-              distributor_saved_addresses first, then snapshots onto the order.
-```
-
-State additions:
-- `shippingSource: 'warehouse' | 'saved' | 'custom'` (default `'warehouse'`)
-- `shippingWarehouseId`, `shippingSavedAddressId`
-- `customAddress` (structured object) + `saveCustomAddress` + `customAddressLabel`
-
-Order submit flow:
-1. Resolve `{ formatted_address, latitude, longitude, contact_person, contact_phone }` from the chosen source.
-2. If custom + save toggle on, insert into `distributor_saved_addresses` and use the new id as `shipping_saved_address_id`.
-3. Write all snapshot columns onto `primary_orders` (existing insert call).
-4. Block submit with a toast if `Custom` is chosen but line1/city/pincode are empty (shipping itself stays optional — only enforced when the user picked "custom").
-
-The radio defaults to "Use warehouse address" with the default warehouse pre-selected — this makes the common case one click.
+**Why an RPC and a separate table?** Concurrency safety (rep + admin collecting at the same time on different devices), historical traceability ("which payment cleared invoice #123"), and so reports can compute days-to-clear from the allocation row, not from the collection row alone.
 
 ---
 
-## 5. Saved-addresses management (lightweight)
+## Part 2 — Retailer Credit History view
 
-Reuse the drawer/dialog opened from the "Manage saved addresses" link in the order form. No separate page needed for v1. Internal staff already have full access via RLS so they can edit through the same surface when impersonating / viewing the distributor.
+**Where it lives**
+
+- New drawer `RetailerCreditHistoryDrawer.tsx` opened from:
+  - The pending banner on `VisitCard` (small "History" link beside Tips/Pay).
+  - A button on the retailer detail page so admins can open it without a visit.
+
+**What it shows** (single drawer, three stacked sections)
+
+1. **Summary KPIs (top strip, 4 chips, all derived — no hardcodes):**
+  - Total credit taken (lifetime) = `SUM(total_amount)` over `orders` where `is_credit_order = true`.
+  - Total cleared = `SUM(credit_paid_amount)`.
+  - Currently pending = `retailers.pending_amount` (cross-checked with `SUM(credit_pending_amount)`).
+  - Avg days-to-clear = average of `(fully_paid_at - order_date)` across orders that reached `payment_status = 'paid'`, where `fully_paid_at` = max(`applied_at`) from `retailer_payment_allocations` for that order.
+2. **Credit orders timeline** — list of credit orders newest-first:
+  - Order #, date, total, paid so far, pending, status badge.
+  - Expand to see the allocations that have settled it (from `retailer_payment_allocations`) with date + method + collector.
+3. **Collections timeline** — list from `retailer_payment_collections` newest-first:
+  - Date, amount, method, proof thumbnail (signed URL), collected_by name, revenue_owner name.
+  - Each row expands to show the FIFO allocations it produced (which orders it cleared and by how much).
+
+**Data hooks**
+
+- `useRetailerCreditHistory(retailerId)` — one React Query that fetches the three datasets in parallel (orders, collections, allocations) plus the KPI aggregates, paginated to last 100 of each with "Load more".
+- All currency/date strings use the existing `toLocaleString('en-IN')` / `date-fns` helpers — no hardcoded sample numbers.
+
+**No revenue/business-logic changes beyond Part 1.** Revenue reporting that already reads `orders.credit_paid_amount` / `payment_status` will automatically reflect rep collections once Part 1 lands.
 
 ---
 
-## Files touched
+## Files to touch
 
-- `supabase/migrations/<new>.sql` — schema changes (1a, 1b, 1c) + GRANTs + RLS
-- `src/components/common/AddressFormFields.tsx` (new)
-- `src/components/common/LocationCaptureButton.tsx` (new)
-- `src/lib/addressFormat.ts` (new)
-- `src/components/distributor-portal/inventory/WarehouseManagement.tsx` (extend dialog + table)
-- `src/hooks/useWarehouses.ts` (new fields in create/update + read)
-- `src/components/distributor-portal/SavedAddressesManager.tsx` (new — CRUD drawer)
-- `src/hooks/useSavedAddresses.ts` (new)
-- `src/pages/distributor-portal/CreatePrimaryOrder.tsx` (replace shipping block, extend submit)
-- `src/pages/PrimaryOrders.tsx` and any order-detail view that prints shipping — pull from the new `shipping_address` snapshot (no change needed if already reading that column).
+**New**
+
+- `supabase/migrations/<new>.sql` — `retailer_payment_allocations` table (with GRANTs + RLS), `apply_retailer_payment_fifo` RPC, optional backfill RPC.
+- `src/hooks/useRetailerCreditHistory.ts`
+- `src/components/RetailerCreditHistoryDrawer.tsx`
+
+**Edited**
+
+- `src/components/PaymentMarkingModal.tsx` — switch from direct UPDATE to RPC; surface allocation count in toast.
+- `src/components/VisitCard.tsx` — add small "History" link in the pending banner (lines ~2724–2766); after `onPaymentMarked`, also invalidate the credit-history query.
+- `src/utils/offlineErrorHandler.ts` / offline queue mapping — register the new RPC so partial-offline payments are retried with the same FIFO semantics.  
+  
+Before deployment, confirm:
+  1. ✅ Idempotency protection against duplicate RPC retries.
+  2. ✅ Overpayment handling.
+  3. ✅ Retailer row locking.
+  4. ✅ Database constraints on payment amounts.
+  5. ✅ Allocation records written within the same transaction.
+  If those five items are included, I would consider this a **production-ready design** and a significant improvement over the current implementation.
 
 ## Out of scope (call out, don't build)
 
-- A true interactive map picker with draggable pin. Current pattern across the app is "Use current location" only (see `AddRetailer.tsx`). If you want a Google Maps pin-drop picker for warehouses, say so and I'll add it as a follow-up using the existing Google Maps connector.
-- Editing shipping address after an order is placed.
-- Address validation / pincode auto-fill of city+state. Easy follow-up using the existing pincode_master table if wanted.
+- Linking rep collections into `distributor_payments` / `payment_allocations` (distributor-portal invoice settlement) — that's a separate ledger and would need an explicit decision from you.
+- Admin backfill is delivered as an RPC only; no UI for it in this round.
+- Credit-score recomputation triggered by payments — not changed; existing `useCreditScoreCalculation` will pick up the cleaner data on its next run.
