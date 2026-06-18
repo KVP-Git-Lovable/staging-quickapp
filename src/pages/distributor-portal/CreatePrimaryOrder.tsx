@@ -624,17 +624,17 @@ const CreatePrimaryOrder = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-32 standalone-page">
+    <div className="min-h-screen bg-gradient-to-b from-muted/40 via-muted/20 to-background pb-32 standalone-page">
       <main className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-5">
         {/* Section 1: Header strip */}
-        <Card className="rounded-xl shadow-sm">
+        <Card className="rounded-xl shadow-sm border-l-4 border-l-primary overflow-hidden">
           <CardContent className="p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="shrink-0"
+                  className="shrink-0 hover:bg-primary/10 hover:text-primary"
                   onClick={() =>
                     navigate(
                       isEditMode && editOrderId
@@ -651,8 +651,10 @@ const CreatePrimaryOrder = () => {
                       ? `Edit Order${existingOrder?.order_number ? ` — ${existingOrder.order_number}` : ''}`
                       : 'New Primary Order'}
                   </h1>
-                  <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
-                    <span>{orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}</span>
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary ring-1 ring-inset ring-primary/20">
+                      {orderItems.length} {orderItems.length === 1 ? 'item' : 'items'}
+                    </span>
                     {priceBookName && (
                       <>
                         <span>•</span>
@@ -668,7 +670,7 @@ const CreatePrimaryOrder = () => {
                 variant="outline"
                 onClick={() => saveOrder(false)}
                 disabled={loading || orderItems.length === 0}
-                className="shrink-0"
+                className="shrink-0 hover:border-primary/40 hover:text-primary"
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Save Draft
@@ -676,6 +678,7 @@ const CreatePrimaryOrder = () => {
             </div>
           </CardContent>
         </Card>
+
 
         {/* Section 2: Stepper */}
         <Card className="rounded-xl shadow-sm">
@@ -688,18 +691,18 @@ const CreatePrimaryOrder = () => {
                   <div key={step.num} className="flex items-center flex-1 min-w-0">
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`w-9 h-9 rounded-full grid place-items-center text-sm font-semibold shrink-0 transition-colors ${
+                        className={`w-9 h-9 rounded-full grid place-items-center text-sm font-semibold shrink-0 transition-all ${
                           isActive
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary text-primary-foreground ring-4 ring-primary/15 shadow-sm'
                             : isDone
-                              ? 'bg-primary/10 text-primary border border-primary/30'
+                              ? 'bg-emerald-500 text-white'
                               : 'bg-muted text-muted-foreground border border-border'
                         }`}
                       >
                         {isDone ? <Check className="w-4 h-4" /> : step.num}
                       </div>
                       <div className="min-w-0 hidden sm:block">
-                        <p className={`text-sm font-medium leading-tight ${isActive || isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <p className={`text-sm font-semibold leading-tight ${isActive ? 'text-primary' : isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {step.title}
                         </p>
                         <p className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
@@ -708,7 +711,7 @@ const CreatePrimaryOrder = () => {
                       </div>
                     </div>
                     {idx < steps.length - 1 && (
-                      <div className={`flex-1 h-px mx-3 ${step.num < activeStep ? 'bg-primary/40' : 'bg-border'}`} />
+                      <div className={`flex-1 h-0.5 mx-3 rounded-full ${step.num < activeStep ? 'bg-emerald-400' : 'bg-border'}`} />
                     )}
                   </div>
                 );
@@ -716,6 +719,7 @@ const CreatePrimaryOrder = () => {
             </div>
           </CardContent>
         </Card>
+
 
         {/* Body: two-column grid */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 items-start">
@@ -726,9 +730,10 @@ const CreatePrimaryOrder = () => {
               <CardHeader className="p-5 pb-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <CardTitle className="text-base flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
-                      <ShoppingBag className="w-4 h-4 text-foreground/70" />
+                    <span className="w-7 h-7 rounded-md bg-primary/10 grid place-items-center ring-1 ring-inset ring-primary/20">
+                      <ShoppingBag className="w-4 h-4 text-primary" />
                     </span>
+
                     Add Products
                   </CardTitle>
                   <div className="flex items-center gap-2">
@@ -925,7 +930,8 @@ const CreatePrimaryOrder = () => {
 
                 <Button
                   variant="ghost"
-                  className="w-full border border-dashed text-primary hover:bg-primary/5"
+                  className="w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all"
+
                   onClick={() => {
                     setOrderItems((prev) => [
                       ...prev,
@@ -954,9 +960,10 @@ const CreatePrimaryOrder = () => {
               <CardHeader className="p-5 pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
-                      <ShoppingCart className="w-4 h-4 text-foreground/70" />
+                    <span className="w-7 h-7 rounded-md bg-primary/10 grid place-items-center ring-1 ring-inset ring-primary/20">
+                      <ShoppingCart className="w-4 h-4 text-primary" />
                     </span>
+
                     Order Items ({orderItems.length})
                   </CardTitle>
                   {orderItems.length > 0 && (
@@ -1221,9 +1228,10 @@ const CreatePrimaryOrder = () => {
             <Card className="rounded-xl shadow-sm">
               <CardHeader className="p-5 pb-3">
                 <CardTitle className="text-base flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
-                    <Receipt className="w-4 h-4 text-foreground/70" />
+                  <span className="w-7 h-7 rounded-md bg-primary/10 grid place-items-center ring-1 ring-inset ring-primary/20">
+                    <Receipt className="w-4 h-4 text-primary" />
                   </span>
+
                   Order Summary
                 </CardTitle>
               </CardHeader>
@@ -1268,12 +1276,13 @@ const CreatePrimaryOrder = () => {
                   </div>
                 )}
 
-                <div className="border-t pt-3 flex items-center justify-between">
-                  <span className="font-semibold text-foreground">Estimated Grand Total</span>
-                  <span className="text-xl font-bold text-primary">
+                <div className="mt-2 rounded-lg bg-primary/5 border border-primary/15 p-3 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">Estimated Grand Total</span>
+                  <span className="text-xl font-extrabold text-primary tracking-tight">
                     ₹{totals.grandTotal.toLocaleString('en-IN')}
                   </span>
                 </div>
+
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1291,9 +1300,10 @@ const CreatePrimaryOrder = () => {
               <CardHeader className="p-5 pb-3">
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle className="text-base flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
-                      <CreditCard className="w-4 h-4 text-foreground/70" />
+                    <span className="w-7 h-7 rounded-md bg-primary/10 grid place-items-center ring-1 ring-inset ring-primary/20">
+                      <CreditCard className="w-4 h-4 text-primary" />
                     </span>
+
                     Credit Validation
                     <Info className="w-3.5 h-3.5 text-muted-foreground" />
                   </CardTitle>
@@ -1319,8 +1329,9 @@ const CreatePrimaryOrder = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Outstanding Amount</span>
-                    <span className="font-medium">₹{outstanding.toLocaleString('en-IN')}</span>
+                    <span className={`font-medium ${outstanding > 0 ? 'text-rose-600' : ''}`}>₹{outstanding.toLocaleString('en-IN')}</span>
                   </div>
+
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Current Order Value</span>
                     <span className="font-medium">₹{thisOrderAmount.toLocaleString('en-IN')}</span>
@@ -1379,10 +1390,11 @@ const CreatePrimaryOrder = () => {
                 <p className="text-[11px] text-muted-foreground">Round Off</p>
                 <p className="text-sm font-semibold">{totals.roundOff >= 0 ? '+' : '-'} ₹ {Math.abs(totals.roundOff).toFixed(2)}</p>
               </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground">Grand Total</p>
-                <p className="text-xl font-bold text-primary leading-tight">₹ {totals.grandTotal.toLocaleString('en-IN')}</p>
+              <div className="rounded-lg bg-primary/5 border border-primary/15 px-3 py-1.5">
+                <p className="text-[11px] font-semibold text-primary uppercase tracking-wide">Grand Total</p>
+                <p className="text-xl font-extrabold text-primary leading-tight">₹ {totals.grandTotal.toLocaleString('en-IN')}</p>
               </div>
+
             </div>
             <div className="flex gap-3 w-full md:w-auto">
               <Button
