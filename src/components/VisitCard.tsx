@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe, History as HistoryIcon } from "lucide-react";
 import { compressImageFile } from "@/utils/imageCompression";
 import { getResilientLocation } from "@/utils/gpsRouteOptimizer";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +25,7 @@ import { RetailerAnalytics } from "./RetailerAnalytics";
 import { VisitInvoicePDFGenerator } from "./VisitInvoicePDFGenerator";
 import { OrderItemsExpanded } from "./OrderItemsExpanded";
 import { PaymentMarkingModal } from "./PaymentMarkingModal";
+import { RetailerCreditHistoryDrawer } from "./RetailerCreditHistoryDrawer";
 import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
 import { VanSalesModal } from "./VanSalesModal";
 import { useVanSales } from "@/hooks/useVanSales";
@@ -242,6 +243,7 @@ export const VisitCard = ({
   const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showCreditHistory, setShowCreditHistory] = useState(false);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   const pendingCheckDataRef = useRef<{
@@ -2753,6 +2755,15 @@ export const VisitCard = ({
                     <MessageSquare className="w-3 h-3" />
                     Tips
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={() => setShowCreditHistory(true)}
+                  >
+                    <HistoryIcon className="w-3 h-3" />
+                    History
+                  </Button>
                   <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => {
                     setShowPaymentModal(true);
                     // Record action for time tracking
@@ -3609,6 +3620,14 @@ export const VisitCard = ({
         // Also dispatch event for any other listeners
         window.dispatchEvent(new CustomEvent('visitStatusChanged'));
       }} />
+
+        {/* Retailer Credit History Drawer */}
+        <RetailerCreditHistoryDrawer
+          open={showCreditHistory}
+          onOpenChange={setShowCreditHistory}
+          retailerId={(visit.retailerId || visit.id) as string}
+          retailerName={visit.retailerName}
+        />
 
         {/* Van Sales Modal */}
         {showVanSales && <VanSalesModal open={showVanSales} onOpenChange={setShowVanSales} retailerId={(visit.retailerId || visit.id) as string} visitId={currentVisitId || visit.id} />}

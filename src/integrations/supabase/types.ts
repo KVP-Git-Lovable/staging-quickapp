@@ -16689,6 +16689,58 @@ export type Database = {
         }
         Relationships: []
       }
+      retailer_payment_allocations: {
+        Row: {
+          amount_applied: number
+          applied_at: string
+          collection_id: string
+          created_at: string
+          id: string
+          order_id: string
+          retailer_id: string
+        }
+        Insert: {
+          amount_applied: number
+          applied_at?: string
+          collection_id: string
+          created_at?: string
+          id?: string
+          order_id: string
+          retailer_id: string
+        }
+        Update: {
+          amount_applied?: number
+          applied_at?: string
+          collection_id?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          retailer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_payment_allocations_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_payment_collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailer_payment_allocations_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "retailer_payment_allocations_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       retailer_payment_collections: {
         Row: {
           amount: number
@@ -21704,6 +21756,14 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_retailer_payment_fifo: {
+        Args: {
+          p_amount: number
+          p_collection_id: string
+          p_retailer_id: string
+        }
+        Returns: Json
+      }
       assign_retailer_to_beat: {
         Args: { p_beat_id: string; p_reason?: string; p_retailer_id: string }
         Returns: Json
@@ -21712,6 +21772,7 @@ export type Database = {
         Args: { p_activity: string; p_points: number; p_retailer_id: string }
         Returns: undefined
       }
+      backfill_retailer_payment_allocations: { Args: never; Returns: Json }
       calculate_beat_adherence: {
         Args: { p_end: string; p_start: string; p_user_id: string }
         Returns: number

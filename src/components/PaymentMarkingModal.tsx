@@ -63,37 +63,57 @@ export const PaymentMarkingModal = ({
 
   const requiresProof = paymentMethod === "cheque" || paymentMethod === "upi" || paymentMethod === "neft";
 
-  // Records the collection in the audit table (collected_by + revenue_owner)
-  const recordCollection = async (
+  // Records the collection + runs FIFO allocation against credit orders.
+  const recordCollectionAndAllocate = async (
     amount: number,
     proofUrl: string | null
-  ) => {
-    try {
-      const { data: authData } = await supabase.auth.getUser();
-      const collectorId = authData?.user?.id;
-      if (!collectorId) return;
+  ): Promise<{ newPendingAmount: number; allocatedCount: number }> => {
+    const { data: authData } = await supabase.auth.getUser();
+    const collectorId = authData?.user?.id;
+    if (!collectorId) throw new Error("Not authenticated");
 
-      // Resolve the historical revenue owner from the retailer
-      const { data: ret } = await supabase
-        .from("retailers")
-        .select("owner_id, user_id")
-        .eq("id", retailerId)
-        .maybeSingle();
-      const revenueOwnerId =
-        (ret as any)?.owner_id || (ret as any)?.user_id || collectorId;
+    const { data: ret } = await supabase
+      .from("retailers")
+      .select("owner_id, user_id")
+      .eq("id", retailerId)
+      .maybeSingle();
+    const revenueOwnerId =
+      (ret as any)?.owner_id || (ret as any)?.user_id || collectorId;
 
-      await supabase.from("retailer_payment_collections" as any).insert({
+    const { data: collection, error: insertErr } = await (supabase as any)
+      .from("retailer_payment_collections")
+      .insert({
         retailer_id: retailerId,
         amount,
         payment_method: paymentMethod,
         payment_proof_url: proofUrl,
         collected_by_user_id: collectorId,
         revenue_owner_id: revenueOwnerId,
-      });
-    } catch (err) {
-      // Non-blocking: log but don't fail the payment flow
-      console.error("[PaymentMarkingModal] failed to record collection audit row:", err);
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !collection) throw insertErr || new Error("Failed to record collection");
+
+    const { data: rpcData, error: rpcErr } = await (supabase as any).rpc(
+      "apply_retailer_payment_fifo",
+      {
+        p_retailer_id: retailerId,
+        p_amount: amount,
+        p_collection_id: (collection as any).id,
+      }
+    );
+
+    if (rpcErr) {
+      console.error("[PaymentMarkingModal] FIFO RPC failed:", rpcErr);
+      throw rpcErr;
     }
+
+    const result = (rpcData as any) || {};
+    return {
+      newPendingAmount: Number(result.new_pending_amount ?? 0),
+      allocatedCount: Array.isArray(result.allocations) ? result.allocations.length : 0,
+    };
   };
 
   const handleFullPayment = async () => {
@@ -109,17 +129,17 @@ export const PaymentMarkingModal = ({
         proofUrl = await uploadPaymentProof();
       }
 
-      const { error } = await supabase
-        .from("retailers")
-        .update({ pending_amount: 0 })
-        .eq("id", retailerId);
+      const { newPendingAmount, allocatedCount } = await recordCollectionAndAllocate(
+        currentPendingAmount,
+        proofUrl
+      );
 
-      if (error) throw error;
-
-      await recordCollection(currentPendingAmount, proofUrl);
-
-      toast.success("Full payment marked successfully!");
-      onPaymentMarked(0); // Full payment means 0 pending
+      toast.success(
+        allocatedCount > 0
+          ? `Payment marked. Settled ${allocatedCount} order(s).`
+          : "Full payment marked successfully!"
+      );
+      onPaymentMarked(newPendingAmount);
       onOpenChange(false);
       resetForm();
     } catch (error) {
@@ -155,19 +175,17 @@ export const PaymentMarkingModal = ({
         proofUrl = await uploadPaymentProof();
       }
 
-      const newPendingAmount = currentPendingAmount - amount;
-      
-      const { error } = await supabase
-        .from("retailers")
-        .update({ pending_amount: newPendingAmount })
-        .eq("id", retailerId);
+      const { newPendingAmount, allocatedCount } = await recordCollectionAndAllocate(
+        amount,
+        proofUrl
+      );
 
-      if (error) throw error;
-
-      await recordCollection(amount, proofUrl);
-
-      toast.success(`Payment of ₹${amount.toLocaleString()} marked successfully!`);
-      onPaymentMarked(newPendingAmount); // Pass the new pending amount
+      toast.success(
+        `Payment of ₹${amount.toLocaleString()} marked${
+          allocatedCount > 0 ? `. Settled ${allocatedCount} order(s).` : ""
+        }`
+      );
+      onPaymentMarked(newPendingAmount);
       onOpenChange(false);
       resetForm();
     } catch (error) {
