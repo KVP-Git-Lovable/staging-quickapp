@@ -144,6 +144,10 @@ const CreatePrimaryOrder = () => {
 
   const distributorId = localStorage.getItem('distributor_id');
 
+  // Hooks used to resolve the selected shipping address into a snapshot at submit time
+  const { warehouses: allWarehouses } = useWarehouses(distributorId);
+  const { addresses: savedAddresses, create: createSavedAddress } = useSavedAddresses(distributorId);
+
   useEffect(() => {
     if (!distributorId) {
       navigate('/distributor-portal/login');
