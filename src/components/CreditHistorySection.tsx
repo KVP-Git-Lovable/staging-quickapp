@@ -70,7 +70,12 @@ export function CreditHistorySection({ retailerId }: Props) {
   }, [data?.collections, from, to]);
 
   const filteredKpis = useMemo(() => {
-    const totalCreditTaken = filteredOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+    // Credit actually placed on credit at order time (not the full order value)
+    const totalCreditTaken = filteredOrders.reduce(
+      (s, o) => s + Number(o.original_credit_amount || 0),
+      0
+    );
+    // Money collected AFTER the order via Mark Payment Received (matches collections in range)
     const totalCleared = filteredCollections.reduce((s, c) => s + Number(c.amount || 0), 0);
     return { totalCreditTaken, totalCleared };
   }, [filteredOrders, filteredCollections]);
