@@ -232,7 +232,16 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
               <Label>Default Payment Mode</Label>
               <Select
                 value={config.default_payment_mode}
-                onValueChange={(v) => update("default_payment_mode", v as PaymentMode)}
+                onValueChange={(v) => {
+                  const mode = v as PaymentMode;
+                  setConfig((prev) => ({
+                    ...prev,
+                    default_payment_mode: mode,
+                    allowed_payment_modes: prev.allowed_payment_modes.includes(mode)
+                      ? prev.allowed_payment_modes
+                      : [...prev.allowed_payment_modes, mode],
+                  }));
+                }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -243,6 +252,48 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
               </Select>
             </div>
           </div>
+          <div>
+            <Label>Allowed Payment Modes</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Tick every mode this distributor may use. The default above is auto-included.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {(Object.entries(MODE_LABELS) as [PaymentMode, string][]).map(([k, l]) => {
+                const checked = config.allowed_payment_modes.includes(k);
+                const isDefault = config.default_payment_mode === k;
+                return (
+                  <label
+                    key={k}
+                    className={`flex items-center gap-2 rounded-md border p-2 text-sm cursor-pointer ${
+                      checked ? "bg-accent border-primary" : ""
+                    } ${isDefault ? "opacity-90" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={checked}
+                      disabled={isDefault}
+                      onChange={(e) => {
+                        setConfig((prev) => {
+                          const next = e.target.checked
+                            ? Array.from(new Set([...prev.allowed_payment_modes, k]))
+                            : prev.allowed_payment_modes.filter((m) => m !== k);
+                          return {
+                            ...prev,
+                            allowed_payment_modes: next.length ? next : [prev.default_payment_mode],
+                          };
+                        });
+                      }}
+                    />
+                    <span>{l}</span>
+                    {isDefault && (
+                      <span className="ml-auto text-[10px] uppercase text-muted-foreground">Default</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+
           <div className="flex items-center justify-between">
             <Label htmlFor="req_adv">Require Advance Payment</Label>
             <Switch
