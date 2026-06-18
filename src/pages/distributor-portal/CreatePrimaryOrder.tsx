@@ -1227,9 +1227,10 @@ const CreatePrimaryOrder = () => {
             <Card className="rounded-xl shadow-sm">
               <CardHeader className="p-5 pb-3">
                 <CardTitle className="text-base flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
-                    <Receipt className="w-4 h-4 text-foreground/70" />
+                  <span className="w-7 h-7 rounded-md bg-primary/10 grid place-items-center ring-1 ring-inset ring-primary/20">
+                    <Receipt className="w-4 h-4 text-primary" />
                   </span>
+
                   Order Summary
                 </CardTitle>
               </CardHeader>
