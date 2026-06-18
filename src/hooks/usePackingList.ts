@@ -557,7 +557,16 @@ export function usePackingList() {
         };
       });
 
-      return ordersForPacking;
+      // Filter out orders with no line items — they cannot be packed and produce
+      // an empty Review & Approve modal. This guards against historical orders
+      // whose primary_order_items rows are missing (e.g. partial-insert bugs).
+      const packable = ordersForPacking.filter(o => Array.isArray(o.items) && o.items.length > 0);
+      const skipped = ordersForPacking.length - packable.length;
+      if (skipped > 0) {
+        console.warn(`[fetchPrimaryOrdersForPacking] Skipped ${skipped} primary order(s) with 0 items`);
+      }
+
+      return packable;
     } catch (error) {
       console.error('Error fetching primary orders for packing:', error);
       toast({
