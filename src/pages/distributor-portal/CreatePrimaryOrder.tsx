@@ -1276,12 +1276,13 @@ const CreatePrimaryOrder = () => {
                   </div>
                 )}
 
-                <div className="border-t pt-3 flex items-center justify-between">
-                  <span className="font-semibold text-foreground">Estimated Grand Total</span>
-                  <span className="text-xl font-bold text-primary">
+                <div className="mt-2 rounded-lg bg-primary/5 border border-primary/15 p-3 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-foreground">Estimated Grand Total</span>
+                  <span className="text-xl font-extrabold text-primary tracking-tight">
                     ₹{totals.grandTotal.toLocaleString('en-IN')}
                   </span>
                 </div>
+
                 <Button
                   variant="ghost"
                   size="sm"
