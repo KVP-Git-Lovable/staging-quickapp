@@ -291,7 +291,7 @@ const DistributorInventory = () => {
               product_name: txn.product_name || (txn.product_id ? (allProducts.find(p => p.id === txn.product_id)?.name || inventory.find(i => i.product_id === txn.product_id)?.product_name) : null),
             }))}
             loading={loading}
-            productUnits={productUnitMap}
+            
           />
 
           {/* Full Transactions Ledger */}
