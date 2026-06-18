@@ -77,12 +77,12 @@ export function RetailerCreditHistoryDrawer({ open, onOpenChange, retailerId, re
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <KpiTile
                 icon={<IndianRupee className="w-3.5 h-3.5" />}
-                label="Total credit taken"
+                label="On credit (lifetime)"
                 value={fmtINR(data?.kpis.totalCreditTaken || 0)}
               />
               <KpiTile
                 icon={<TrendingDown className="w-3.5 h-3.5" />}
-                label="Total cleared"
+                label="Collected after order"
                 value={fmtINR(data?.kpis.totalCleared || 0)}
                 tone="success"
               />
