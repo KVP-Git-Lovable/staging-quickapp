@@ -1,28 +1,37 @@
-## Problem
+# Multi-select Payment Modes (Distributor Master → Primary Order)
 
-For Sharma store, the retailer row has `created_by`, `owner_id`, and `user_id` all set to a valid user, and `owner_name = "Dharmesh"`. But the Retailer Overview still shows nothing for "Created by" and "Currently operated by".
+## Goal
+In the distributor master's **Payment Configuration**, replace the single "Default Payment Mode" dropdown with:
+1. **Allowed Payment Modes** — multi-select (Credit, Bank Transfer, UPI, Cash, Cheque, NEFT/RTGS).
+2. **Default Payment Mode** — single dropdown limited to the chosen allowed modes (used as the pre-selected value).
 
-Root cause: in `RetailerDetailModal.loadOwnership`, the profile lookup uses `.in('user_id', userIds)`, but the `profiles` table's primary key column is `id` — there is no `user_id` column. The query silently returns 0 rows, so every name resolves to `—`.
+Then in **Create Primary Order**, show a Payment Mode dropdown that lists only the allowed modes for that distributor, defaulted to the master's default.
 
-## Fix
+## Changes
 
-In `src/components/RetailerDetailModal.tsx` → `loadOwnership`:
+### 1. Database (`distributor_payment_config`)
+- Add column `allowed_payment_modes text[] NOT NULL DEFAULT ARRAY['bank_transfer']`.
+- Backfill: for existing rows, set `allowed_payment_modes = ARRAY[default_payment_mode]`.
+- Keep `default_payment_mode` column as-is (still the single default).
+- Add a CHECK trigger (not constraint) ensuring `default_payment_mode = ANY(allowed_payment_modes)` and `array_length(allowed_payment_modes,1) >= 1`.
 
-1. Change the profiles query to:
-   - `select('id, full_name, username')`
-   - `.in('id', userIds)`
-2. Build the name map keyed by `p.id`.
-3. For each slot use a fallback chain so we always show something useful when the profile row exists but `full_name` is empty:
-   - Created by: `nameMap.get(created_by)?.full_name || username || '—'`
-   - Owner: `owner_name || nameMap.get(owner_id)?.full_name || username || '—'` (keep existing preference for the stored `owner_name`)
-   - Currently operated by: `nameMap.get(user_id)?.full_name || username || '—'`
+### 2. `src/components/distributor/PaymentCreditTab.tsx`
+- Extend `ConfigRow` with `allowed_payment_modes: PaymentMode[]`.
+- Replace the single "Default Payment Mode" Select with:
+  - **Allowed Payment Modes** — checkbox group / multi-select using the 6 `MODE_LABELS`.
+  - **Default Payment Mode** — Select filtered to the chosen allowed modes; auto-reset if current default gets unchecked.
+- Persist both fields on save. Validate at least one mode is selected.
 
-No schema changes, no other files touched.
+### 3. `src/pages/distributor-portal/CreatePrimaryOrder.tsx`
+- When loading `paymentConfig`, also read `allowed_payment_modes`.
+- In the Payment card (currently only seeds `paymentMode` silently), add a **Payment Mode** `<Select>` whose `SelectItem`s are restricted to `allowed_payment_modes`, defaulted to `default_payment_mode`.
+- Existing `payment.paymentMode` state and submit (`payment_mode: payment.paymentMode`) stay the same.
 
-## Verification
+## Out of scope
+- Per-retailer payment mode overrides.
+- Any change to actual payment recording flow (`CollectPayment.tsx`) — that remains its full set of modes.
 
-Reopen Sharma store → header should show:
-- Beat: (resolved beat name)
-- Created by: Dharmesh (from profile of `41070e2f-…`)
-- Owner: Dharmesh
-- Currently operated by: Dharmesh
+## Files touched
+- New migration (adds `allowed_payment_modes` column + backfill + trigger + GRANTs already exist on the table).
+- `src/components/distributor/PaymentCreditTab.tsx`
+- `src/pages/distributor-portal/CreatePrimaryOrder.tsx`
