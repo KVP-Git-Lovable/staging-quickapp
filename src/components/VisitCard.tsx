@@ -2755,6 +2755,15 @@ export const VisitCard = ({
                     <MessageSquare className="w-3 h-3" />
                     Tips
                   </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    onClick={() => setShowCreditHistory(true)}
+                  >
+                    <History className="w-3 h-3" />
+                    History
+                  </Button>
                   <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => {
                     setShowPaymentModal(true);
                     // Record action for time tracking
