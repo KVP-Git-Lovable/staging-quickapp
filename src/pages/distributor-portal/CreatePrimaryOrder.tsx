@@ -109,7 +109,16 @@ const CreatePrimaryOrder = () => {
   const [quantity, setQuantity] = useState(1);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [paymentTerms, setPaymentTerms] = useState<string>('30');
-  const [shippingAddress, setShippingAddress] = useState<string>('');
+  const [shipping, setShipping] = useState<import('@/components/distributor-portal/ShippingAddressPicker').ShippingSelection>({
+    source: 'warehouse',
+    warehouseId: null,
+    savedAddressId: null,
+    custom: { address_line1: '', address_line2: '', city: '', state: '', pincode: '', country: 'India', landmark: '', contact_person: '', contact_phone: '' },
+    customLatitude: null,
+    customLongitude: null,
+    saveCustom: false,
+    customLabel: '',
+  });
   const [showSummaryDetails, setShowSummaryDetails] = useState(false);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
