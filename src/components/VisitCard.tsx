@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe, History as HistoryIcon } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe } from "lucide-react";
 import { compressImageFile } from "@/utils/imageCompression";
 import { getResilientLocation } from "@/utils/gpsRouteOptimizer";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,6 @@ import { RetailerAnalytics } from "./RetailerAnalytics";
 import { VisitInvoicePDFGenerator } from "./VisitInvoicePDFGenerator";
 import { OrderItemsExpanded } from "./OrderItemsExpanded";
 import { PaymentMarkingModal } from "./PaymentMarkingModal";
-import { RetailerCreditHistoryDrawer } from "./RetailerCreditHistoryDrawer";
 import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
 import { VanSalesModal } from "./VanSalesModal";
 import { useVanSales } from "@/hooks/useVanSales";
@@ -243,7 +242,6 @@ export const VisitCard = ({
   const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showCreditHistory, setShowCreditHistory] = useState(false);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
   const pendingPhotoActionRef = useRef<'checkin' | 'checkout' | null>(null);
   const pendingCheckDataRef = useRef<{
