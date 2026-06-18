@@ -147,6 +147,27 @@ const CreatePrimaryOrder = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode, editOrderId, productsLoading]);
 
+  // Seed one empty product row by default (only for new orders, once products load)
+  useEffect(() => {
+    if (isEditMode) return;
+    if (productsLoading) return;
+    if (orderItems.length > 0) return;
+    setOrderItems([
+      {
+        product_id: '',
+        product_name: '',
+        quantity: 1,
+        unit: 'pieces',
+        unit_price: 0,
+        discount_percent: 0,
+        gst_percent: DEFAULT_GST,
+        line_total: 0,
+        category_id: 'all',
+      } as OrderItem,
+    ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productsLoading, isEditMode]);
+
   const loadExistingOrder = async (orderId: string) => {
     try {
       const { data, error } = await supabase
