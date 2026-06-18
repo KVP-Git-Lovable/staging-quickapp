@@ -1123,7 +1123,7 @@ export const MyRetailers = () => {
                     const shortAddress = r.address.length > 30 ? r.address.substring(0, 30) + '...' : r.address;
                     const isAddressExpanded = expandedAddress === r.id;
                     
-                    const beatDisplay = r.beat_name || r.beat_id;
+                    const beatDisplay = formatBeatName(r);
                     const shortBeat = beatDisplay && beatDisplay.length > 15 ? beatDisplay.substring(0, 15) + '...' : beatDisplay;
                     const isBeatExpanded = expandedBeat === r.id;
                     
