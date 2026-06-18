@@ -201,6 +201,21 @@ const CreatePrimaryOrder = () => {
       setExistingOrder(data);
       setExpectedDeliveryDate(data.expected_delivery_date || '');
       setNotes(data.notes || '');
+      // Rehydrate shipping selection
+      const src = (data as any).shipping_address_source as 'warehouse' | 'saved' | 'custom' | null;
+      if (src === 'warehouse' && (data as any).shipping_warehouse_id) {
+        setShipping(s => ({ ...s, source: 'warehouse', warehouseId: (data as any).shipping_warehouse_id }));
+      } else if (src === 'saved' && (data as any).shipping_saved_address_id) {
+        setShipping(s => ({ ...s, source: 'saved', savedAddressId: (data as any).shipping_saved_address_id }));
+      } else if (src === 'custom' && (data as any).shipping_address) {
+        setShipping(s => ({
+          ...s,
+          source: 'custom',
+          custom: { ...s.custom!, address_line1: (data as any).shipping_address, contact_person: (data as any).shipping_contact_person || '', contact_phone: (data as any).shipping_contact_phone || '' },
+          customLatitude: (data as any).shipping_latitude ?? null,
+          customLongitude: (data as any).shipping_longitude ?? null,
+        }));
+      }
       const items: OrderItem[] = (data.primary_order_items || []).map((it: any) => ({
         product_id: it.product_id,
         variant_id: it.variant_id || undefined,
