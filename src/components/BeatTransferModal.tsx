@@ -93,30 +93,41 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
         const userId = userRes.user.id;
         const nowIso = new Date().toISOString();
 
-        const [ownedRes, accessRes] = await Promise.all([
-          supabase
-            .from("beats")
-            .select("id, beat_id, beat_name")
-            .eq("is_active", true)
-            .eq("user_id", userId)
-            .order("beat_name", { ascending: true }),
-          supabase
+        const ownedRes = await supabase
+          .from("beats")
+          .select("id, beat_id, beat_name")
+          .eq("is_active", true)
+          .eq("user_id", userId)
+          .order("beat_name", { ascending: true });
+
+        if (ownedRes.error) toast.error(ownedRes.error.message);
+        const ownedBeats = (ownedRes.data || []) as Beat[];
+
+        // Shared beats via beat_user_access — two-step fetch (no FK embed required)
+        let sharedBeats: Beat[] = [];
+        try {
+          const { data: accessRows, error: accessErr } = await supabase
             .from("beat_user_access")
-            .select("beat_id, access_type, effective_to, beats!beat_user_access_beat_id_fkey(id, beat_id, beat_name, is_active)")
+            .select("beat_id, access_type, effective_to")
             .eq("user_id", userId)
             .eq("is_active", true)
             .in("access_type", ["CO_OWNER", "OPERATIONAL"])
-            .or(`effective_to.is.null,effective_to.gt.${nowIso}`),
-        ]);
+            .or(`effective_to.is.null,effective_to.gt.${nowIso}`);
+          if (!accessErr && accessRows && accessRows.length > 0) {
+            const ids = Array.from(new Set(accessRows.map((r: any) => r.beat_id).filter(Boolean)));
+            if (ids.length > 0) {
+              const { data: beatRows } = await supabase
+                .from("beats")
+                .select("id, beat_id, beat_name")
+                .eq("is_active", true)
+                .in("id", ids);
+              sharedBeats = (beatRows || []) as Beat[];
+            }
+          }
+        } catch (e) {
+          // non-fatal: owned beats still load
+        }
 
-        if (ownedRes.error) toast.error(ownedRes.error.message);
-        if (accessRes.error) toast.error(accessRes.error.message);
-
-        const ownedBeats = (ownedRes.data || []) as Beat[];
-        const sharedBeats = ((accessRes.data || []) as any[])
-          .map((r) => r.beats)
-          .filter((b: any) => b && b.is_active)
-          .map((b: any) => ({ id: b.id, beat_id: b.beat_id, beat_name: b.beat_name })) as Beat[];
 
         const merged: Beat[] = [...ownedBeats];
         for (const b of sharedBeats) {
