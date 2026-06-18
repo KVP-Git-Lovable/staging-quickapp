@@ -139,11 +139,16 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       return;
     }
     side === "A" ? setLoadingA(true) : setLoadingB(true);
-    const { data, error } = await supabase
-      .from("retailers")
-      .select("id, name, beat_id")
-      .eq("beat_id", beat.beat_id)
-      .order("name", { ascending: true });
+    let query = supabase.from("retailers").select("id, name, beat_id");
+    if (isUnassigned(beat)) {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes?.user?.id;
+      query = query.or("beat_id.is.null,beat_id.eq.");
+      if (uid) query = query.eq("user_id", uid);
+    } else {
+      query = query.eq("beat_id", beat.beat_id);
+    }
+    const { data, error } = await query.order("name", { ascending: true });
     if (error) toast.error(error.message);
     const rows = ((data as Retailer[]) || []).map((r) => ({ id: r.id, name: r.name }));
     const ids = new Set(rows.map((r) => r.id));
