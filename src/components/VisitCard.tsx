@@ -2742,34 +2742,29 @@ export const VisitCard = ({
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 gap-1 text-xs text-primary"
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Collection tips"
+                    className="h-7 w-7 text-primary"
                     onClick={() => {
                       recordAction('collection_tips').catch(() => {});
                       setShowCreditTalkingPoints(true);
                     }}
                   >
-                    <MessageSquare className="w-3 h-3" />
-                    Tips
+                    <MessageSquare className="w-3.5 h-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 gap-1 text-xs"
-                    onClick={() => setShowCreditHistory(true)}
+                    className="h-7 px-2 gap-1 text-xs"
+                    onClick={() => {
+                      setShowPaymentModal(true);
+                      recordAction('payment').catch(err => console.error('Payment tracking failed:', err));
+                    }}
                   >
-                    <HistoryIcon className="w-3 h-3" />
-                    History
-                  </Button>
-                  <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => {
-                    setShowPaymentModal(true);
-                    // Record action for time tracking
-                    recordAction('payment').catch(err => console.error('Payment tracking failed:', err));
-                  }}>
-                    <IndianRupee className="w-3 h-3" />
+                    <IndianRupee className="w-3.5 h-3.5" />
                     Pay
                   </Button>
                 </div>
