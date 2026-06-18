@@ -30,6 +30,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isTod
 import { RetailerLoyaltySection } from "./loyalty/RetailerLoyaltySection";
 import { TargetVsActualCard } from "./performance/TargetVsActualCard";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
+import { CreditHistorySection } from "./CreditHistorySection";
 import { RetailerCustomerPortalSection } from "./retailer/RetailerCustomerPortalSection";
 
 
