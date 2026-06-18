@@ -264,6 +264,18 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
   return (
     <>
       <div className="flex items-center justify-between gap-4">
+        {/* View Invoice Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={loading || sendingWhatsApp || sendingEmail || sendingSMS}
+          onClick={handleViewClick}
+          className="flex-1"
+        >
+          <Eye className="mr-2 h-4 w-4" />
+          {orders.length > 1 ? `View (${orders.length})` : "View"}
+        </Button>
+
         {/* Invoice Download Button */}
         <Button
           variant="outline"
