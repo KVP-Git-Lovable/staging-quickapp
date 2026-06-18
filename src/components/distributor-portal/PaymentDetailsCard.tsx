@@ -50,7 +50,9 @@ interface Props {
   canOverride?: boolean;
   distributorId: string;
   allowedModes?: PaymentMode[];
+  allowedTerms?: PaymentTerm[];
 }
+
 
 
 const PROOF_BUCKET = "order-payment-proofs";
