@@ -78,6 +78,11 @@ interface InvoicePreviewDialogProps {
   triggerLabel?: string;
   iconOnly?: boolean;
   className?: string;
+  /** Controlled open state. When provided, the built-in trigger button is hidden. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Hide the built-in trigger button (use with controlled `open`). */
+  hideTrigger?: boolean;
 }
 
 /**
@@ -90,8 +95,17 @@ export const InvoicePreviewDialog = ({
   triggerLabel = "View Invoice",
   iconOnly = false,
   className,
+  open: openProp,
+  onOpenChange,
+  hideTrigger,
 }: InvoicePreviewDialogProps) => {
-  const [open, setOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? !!openProp : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (!isControlled) setInternalOpen(v);
+    onOpenChange?.(v);
+  };
   const [loading, setLoading] = useState(false);
   const [resolvedNumber, setResolvedNumber] = useState<string | null>(invoiceNumber || null);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
