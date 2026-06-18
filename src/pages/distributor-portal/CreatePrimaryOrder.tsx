@@ -876,13 +876,19 @@ const CreatePrimaryOrder = () => {
                           <Minus className="w-3.5 h-3.5" />
                         </Button>
                         <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) =>
-                            updateItem(index, {
-                              quantity: Math.max(1, parseInt(e.target.value) || 1),
-                            })
-                          }
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={item.quantity === 0 ? '' : item.quantity}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            updateItem(index, { quantity: raw === '' ? 0 : parseInt(raw, 10) });
+                          }}
+                          onBlur={(e) => {
+                            const n = parseInt(e.target.value, 10);
+                            if (!n || n < 1) updateItem(index, { quantity: 1 });
+                          }}
                           className="h-9 text-center px-1"
                           disabled={!item.product_id}
                         />
