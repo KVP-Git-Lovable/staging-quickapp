@@ -1043,6 +1043,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 variant="full" 
                 showCreditLimit 
               />
+              <CreditHistorySection retailerId={formData.id} />
             </TabsContent>
 
             {/* Calendar Tab */}
