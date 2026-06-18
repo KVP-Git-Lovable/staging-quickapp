@@ -2,17 +2,32 @@ import { useEffect, useMemo, useState } from 'react';
 import { format, differenceInDays } from 'date-fns';
 import {
   CheckCircle2, ScanBarcode, AlertTriangle, PackageCheck, Loader2,
-  ClipboardList, Box, ArrowRight
+  ClipboardList, Box, ArrowRight, XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { usePackingList, PackingList } from '@/hooks/usePackingList';
 import StatusTimeline from './StatusTimeline';
 import CancelReasonDialog from './CancelReasonDialog';
 import { useToast } from '@/hooks/use-toast';
+
+const SHORT_PICK_REASONS = [
+  'Stock not available',
+  'Damaged batch found',
+  'Batch expired',
+  'Wrong product in bin',
+  'Qty mismatch in warehouse',
+  'Other',
+];
 
 interface BatchRow {
   id: string;
@@ -24,7 +39,7 @@ interface BatchRow {
   picked_qty: number;
   packed_qty: number;
   packed_at?: string | null;
-  // joined item info
+  short_pick_reason?: string | null;
   product_name?: string;
   unit?: string;
   bin_zone?: string | null;
@@ -39,20 +54,24 @@ interface Props {
 export default function PicklistPackingStage({ packingList, onStatusChange, onCancel }: Props) {
   const { toast } = useToast();
   const {
-    markBatchPicked,
-    updateBatchPickedQty,
-    setBatchPackedQty,
-    confirmPacking,
-    updatePackingListStatus,
-    cancelPackingList,
+    markBatchPicked, updateBatchPickedQty, setBatchPackedQty,
+    confirmPacking, updatePackingListStatus, cancelPackingList,
   } = usePackingList();
 
-  const [batches, setBatches] = useState<BatchRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [batches, setBatches]       = useState<BatchRow[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [savingId, setSavingId]     = useState<string | null>(null);
   const [showCancel, setShowCancel] = useState(false);
+  const [activeStage, setActiveStage] = useState<'picking' | 'packing'>(
+    packingList.status === 'packed' ? 'packing' : 'picking'
+  );
 
-  // Load all allocated batches for the packing list (strictly batch-driven).
+  // Packing confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [packingNotes, setPackingNotes]           = useState('');
+  const [confirmingSave, setConfirmingSave]        = useState(false);
+
+  // Load batches
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -65,25 +84,18 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
         const itemMap = new Map<string, { product_name: string; unit: string | null }>();
         (items || []).forEach((it: any) => itemMap.set(it.id, { product_name: it.product_name, unit: it.unit }));
 
-        if (!items || items.length === 0) {
-          if (!cancelled) setBatches([]);
-          return;
-        }
+        if (!items || items.length === 0) { if (!cancelled) setBatches([]); return; }
         const itemIds = items.map((i: any) => i.id);
+
         const { data: rows, error } = await supabase
           .from('packing_list_item_batches' as any)
-          .select('id, packing_list_item_id, batch_id, batch_number, expiry_date, allocated_qty, picked_qty, packed_qty, packed_at')
+          .select('id, packing_list_item_id, batch_id, batch_number, expiry_date, allocated_qty, picked_qty, packed_qty, packed_at, short_pick_reason')
           .in('packing_list_item_id', itemIds);
         if (error) throw error;
 
         const list: BatchRow[] = ((rows || []) as any[]).map((r: any) => {
           const meta = itemMap.get(r.packing_list_item_id) || { product_name: '—', unit: null };
-          return {
-            ...r,
-            product_name: meta.product_name,
-            unit: meta.unit,
-            bin_zone: null, // placeholder until bin/zone master is wired
-          };
+          return { ...r, product_name: meta.product_name, unit: meta.unit, bin_zone: null };
         });
         if (!cancelled) setBatches(list);
       } catch (err: any) {
@@ -95,23 +107,24 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
     return () => { cancelled = true; };
   }, [packingList.id, toast]);
 
-  // Group rows by item for nicer numbering & summary
   const totals = useMemo(() => {
     const ordered = batches.reduce((s, b) => s + Number(b.allocated_qty || 0), 0);
-    const picked = batches.reduce((s, b) => s + Number(b.picked_qty || 0), 0);
-    const packed = batches.reduce((s, b) => s + Number(b.packed_qty || 0), 0);
+    const picked  = batches.reduce((s, b) => s + Number(b.picked_qty   || 0), 0);
+    const packed  = batches.reduce((s, b) => s + Number(b.packed_qty   || 0), 0);
     return { items: batches.length, ordered, picked, packed };
   }, [batches]);
 
-  const isDraft = packingList.status === 'draft' || packingList.status === 'picking';
-  const allPicked = batches.length > 0 && batches.every(b => Number(b.picked_qty) >= Number(b.allocated_qty));
-  const allPackedValid = batches.length > 0 && batches.every(
-    b => Number(b.packed_qty) > 0 && Number(b.packed_qty) <= Number(b.picked_qty)
-  );
+  const shortPicks = batches.filter(b => Number(b.picked_qty) < Number(b.allocated_qty) && Number(b.picked_qty) > 0);
+  const unloggedShorts = shortPicks.filter(b => !b.short_pick_reason);
+  const allPicked      = batches.length > 0 && batches.every(b => Number(b.picked_qty) >= Number(b.allocated_qty) || Number(b.picked_qty) > 0);
+  const allPackedValid = batches.filter(b => Number(b.picked_qty) > 0).length > 0 &&
+    batches.filter(b => Number(b.picked_qty) > 0).every(b => Number(b.packed_qty) > 0 && Number(b.packed_qty) <= Number(b.picked_qty));
 
-  const updateRow = (id: string, patch: Partial<BatchRow>) => {
-    setBatches(prev => prev.map(b => (b.id === id ? { ...b, ...patch } : b)));
-  };
+  const isDraft  = packingList.status === 'draft' || packingList.status === 'picking';
+  const isPacked = packingList.status === 'packed';
+
+  const updateRow = (id: string, patch: Partial<BatchRow>) =>
+    setBatches(prev => prev.map(b => b.id === id ? { ...b, ...patch } : b));
 
   const handlePickedChange = async (row: BatchRow, val: number) => {
     const clamped = Math.max(0, Math.min(val, Number(row.allocated_qty)));
@@ -119,12 +132,9 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
     const res = await updateBatchPickedQty(row.id, clamped, row.packing_list_item_id);
     setSavingId(null);
     if (res.success) {
-      // If reducing picked below packed, force packed down too
       const newPacked = Math.min(Number(row.packed_qty || 0), clamped);
       updateRow(row.id, { picked_qty: clamped, packed_qty: newPacked });
-      if (newPacked !== Number(row.packed_qty || 0)) {
-        await setBatchPackedQty(row.id, newPacked);
-      }
+      if (newPacked !== Number(row.packed_qty || 0)) await setBatchPackedQty(row.id, newPacked);
     }
   };
 
@@ -148,6 +158,13 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
     }
   };
 
+  const handleShortReasonChange = async (row: BatchRow, reason: string) => {
+    updateRow(row.id, { short_pick_reason: reason });
+    await supabase.from('packing_list_item_batches' as any)
+      .update({ short_pick_reason: reason } as any)
+      .eq('id', row.id);
+  };
+
   const handlePackedChange = async (row: BatchRow, val: number) => {
     const clamped = Math.max(0, Math.min(val, Number(row.picked_qty)));
     setSavingId(row.id);
@@ -158,11 +175,59 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
 
   const handleScan = async (row: BatchRow) => {
     await handlePackedChange(row, Number(row.picked_qty));
+    await supabase.from('packing_list_item_batches' as any)
+      .update({ scanned_at: new Date().toISOString() } as any)
+      .eq('id', row.id);
+  };
+
+  const handleScanAllPack = async () => {
+    for (const row of pickedRows) {
+      if (Number(row.packed_qty) < Number(row.picked_qty)) {
+        await setBatchPackedQty(row.id, Number(row.picked_qty));
+      }
+    }
+    setBatches(prev => prev.map(b => ({ ...b, packed_qty: Number(b.picked_qty) })));
+  };
+
+  // Complete picking → move to packing stage
+  const handleCompletePicking = async () => {
+    if (unloggedShorts.length > 0) {
+      toast({ title: 'Log all short-pick reasons first', description: `${unloggedShorts.length} short pick(s) need a reason`, variant: 'destructive' });
+      return;
+    }
+    if (packingList.status === 'draft') {
+      await updatePackingListStatus(packingList.id, 'picking');
+      onStatusChange('picking');
+    }
+    setActiveStage('packing');
+  };
+
+  // Open confirmation dialog before confirming packing
+  const openConfirmDialog = () => {
+    if (!allPackedValid) {
+      toast({ title: 'All picked items must be packed', description: 'Enter packed qty for every row', variant: 'destructive' });
+      return;
+    }
+    setConfirmDialogOpen(true);
   };
 
   const handleConfirmPacking = async () => {
-    const res = await confirmPacking(packingList.id);
-    if (res.success) onStatusChange('packed');
+    setConfirmingSave(true);
+    try {
+      // Persist packing notes
+      if (packingNotes) {
+        await supabase.from('packing_lists')
+          .update({ packing_notes: packingNotes, packing_confirmed_at: new Date().toISOString() } as any)
+          .eq('id', packingList.id);
+      }
+      const res = await confirmPacking(packingList.id);
+      if (res.success) {
+        setConfirmDialogOpen(false);
+        onStatusChange('packed');
+      }
+    } finally {
+      setConfirmingSave(false);
+    }
   };
 
   const handleMarkReady = async () => {
@@ -173,7 +238,6 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
   const handleCancel = async (reason: string) => {
     const ok = await cancelPackingList(packingList.id);
     if (ok) {
-      // Best-effort: append reason as a note
       await supabase.from('packing_lists').update({
         notes: (packingList.notes ? packingList.notes + '\n' : '') + `[Cancelled] ${reason}`,
       }).eq('id', packingList.id);
@@ -181,9 +245,9 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
     }
   };
 
-  // Picked rows for the right packing panel
   const pickedRows = batches.filter(b => Number(b.picked_qty) > 0);
-  const isPacked = packingList.status === 'packed';
+  const pickProgress  = batches.length > 0 ? Math.round((batches.filter(b => Number(b.picked_qty) >= Number(b.allocated_qty)).length / batches.length) * 100) : 0;
+  const packProgress  = pickedRows.length > 0 ? Math.round((pickedRows.filter(b => Number(b.packed_qty) > 0).length / pickedRows.length) * 100) : 0;
 
   return (
     <div className="space-y-4">
@@ -194,78 +258,106 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
         </CardContent>
       </Card>
 
-      {/* Dual panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* PICKLIST */}
+      {/* Summary stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <StatCard label="Total batches" value={totals.items} />
+        <StatCard label="Total ordered"  value={totals.ordered} />
+        <StatCard label="Total picked"   value={totals.picked}  accent="text-amber-600" />
+        <StatCard label="Total packed"   value={totals.packed}  accent="text-blue-600" />
+      </div>
+
+      {/* Stage tabs */}
+      <div className="flex gap-2">
+        {(['picking', 'packing'] as const).map(stage => (
+          <button
+            key={stage}
+            onClick={() => setActiveStage(stage)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+              activeStage === stage
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background border-border text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {stage === 'picking' ? (
+              <span className="flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Picking</span>
+            ) : (
+              <span className="flex items-center gap-1.5"><Box className="h-3.5 w-3.5" /> Packing</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── PICKING STAGE ── */}
+      {activeStage === 'picking' && (
         <Card>
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between p-4 border-b bg-muted/30">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-primary" />
-                <div>
-                  <h3 className="font-semibold">A. Picklist View <span className="text-xs text-muted-foreground">(Picker)</span></h3>
-                  <p className="text-xs text-muted-foreground">Pick items as per bins / zones</p>
-                </div>
+          <CardHeader className="py-3 px-4 border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4 text-primary" /> Picking list
+                  <span className="text-xs font-normal text-muted-foreground">(Picker)</span>
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Pick items as per bin / zone</p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant="outline">{batches.length} Items</Badge>
-                <Badge variant={allPicked ? 'default' : 'secondary'}>
-                  {batches.filter(b => Number(b.picked_qty) >= Number(b.allocated_qty)).length} / {batches.length} Picked
-                </Badge>
+                <span className="text-xs text-muted-foreground">{pickProgress}% picked</span>
+                <div className="w-20 h-1.5 bg-border rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 rounded-full" style={{ width: `${pickProgress}%` }} />
+                </div>
+                <Badge variant="outline">{batches.length} batches</Badge>
               </div>
             </div>
+          </CardHeader>
+          <CardContent className="p-0">
             {loading ? (
               <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : batches.length === 0 ? (
-              <div className="p-12 text-center text-sm text-muted-foreground">
-                No allocated batches found. Items must be allocated before picking.
-              </div>
+              <div className="p-12 text-center text-sm text-muted-foreground">No allocated batches found.</div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs text-muted-foreground">
                     <tr>
                       <th className="text-left p-2">#</th>
-                      <th className="text-left p-2">Bin / Zone</th>
-                      <th className="text-left p-2">Product</th>
-                      <th className="text-left p-2">Batch</th>
-                      <th className="text-left p-2">Expiry</th>
-                      <th className="text-right p-2">Qty to Pick</th>
-                      <th className="text-right p-2">Picked Qty</th>
-                      <th className="text-left p-2">Status</th>
-                      <th className="text-right p-2">Action</th>
+                      <th className="text-left p-2">Bin</th>
+                      <th className="text-left p-2">Product · Batch · Expiry</th>
+                      <th className="text-right p-2">To pick</th>
+                      <th className="text-right p-2">Picked qty</th>
+                      <th className="text-center p-2">Scan</th>
+                      <th className="text-center p-2">Status</th>
+                      <th className="text-center p-2">Short reason</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {batches.map((row, i) => {
                       const fullyPicked = Number(row.picked_qty) >= Number(row.allocated_qty);
-                      const nearExpiry = row.expiry_date &&
+                      const isShort     = !fullyPicked && Number(row.picked_qty) > 0;
+                      const nearExpiry  = row.expiry_date &&
                         differenceInDays(new Date(row.expiry_date), new Date()) <= 30 &&
                         differenceInDays(new Date(row.expiry_date), new Date()) >= 0;
                       return (
-                        <tr key={row.id} className={fullyPicked ? 'bg-emerald-50/40 dark:bg-emerald-900/10' : ''}>
-                          <td className="p-2 text-muted-foreground">{i + 1}</td>
+                        <tr key={row.id} className={fullyPicked ? 'bg-emerald-50/40 dark:bg-emerald-900/10' : isShort ? 'bg-amber-50/40 dark:bg-amber-900/10' : ''}>
+                          <td className="p-2 text-muted-foreground text-xs">{i + 1}</td>
                           <td className="p-2">
-                            <div className="text-xs font-medium">{row.bin_zone || '—'}</div>
+                            <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{row.bin_zone || '—'}</span>
                           </td>
                           <td className="p-2">
-                            <div className="font-medium">{row.product_name}</div>
-                            <div className="text-xs text-muted-foreground">{row.unit || ''}</div>
-                          </td>
-                          <td className="p-2 font-mono text-xs">{row.batch_number || '—'}</td>
-                          <td className="p-2 text-xs">
-                            <span className="inline-flex items-center gap-1">
-                              {row.expiry_date ? format(new Date(row.expiry_date), 'dd/MM/yy') : '—'}
-                              {nearExpiry && <AlertTriangle className="h-3 w-3 text-amber-600" />}
-                            </span>
+                            <div className="font-medium text-sm">{row.product_name}</div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                              {row.batch_number || '—'}
+                              {row.expiry_date && (
+                                <span className={nearExpiry ? 'text-amber-600 font-medium' : ''}>
+                                  · {format(new Date(row.expiry_date), 'dd/MM/yy')}
+                                  {nearExpiry && <AlertTriangle className="h-3 w-3 inline ml-0.5" />}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-2 text-right font-medium">{Number(row.allocated_qty)}</td>
                           <td className="p-2 text-right">
                             {isDraft && !fullyPicked ? (
                               <Input
-                                type="number"
-                                min={0}
-                                max={Number(row.allocated_qty)}
+                                type="number" min={0} max={Number(row.allocated_qty)}
                                 value={Number(row.picked_qty)}
                                 onChange={(e) => handlePickedChange(row, parseInt(e.target.value) || 0)}
                                 className="h-7 w-20 text-right text-xs ml-auto"
@@ -274,27 +366,42 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
                               <span className="font-semibold text-primary">{Number(row.picked_qty)}</span>
                             )}
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 text-center">
+                            {isDraft && !fullyPicked && (
+                              <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                onClick={() => handleMarkPicked(row)} disabled={savingId === row.id}>
+                                <ScanBarcode className="h-3.5 w-3.5" /> Mark
+                              </Button>
+                            )}
+                          </td>
+                          <td className="p-2 text-center">
                             {fullyPicked ? (
                               <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />Picked
+                                <CheckCircle2 className="h-3 w-3 mr-1" /> Picked
                               </Badge>
-                            ) : Number(row.picked_qty) > 0 ? (
-                              <Badge variant="outline">Partial</Badge>
+                            ) : isShort ? (
+                              <Badge className="bg-amber-100 text-amber-800">
+                                <AlertTriangle className="h-3 w-3 mr-1" /> Short
+                              </Badge>
                             ) : (
                               <Badge variant="secondary">Pending</Badge>
                             )}
                           </td>
-                          <td className="p-2 text-right">
-                            {isDraft && !fullyPicked && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleMarkPicked(row)}
-                                disabled={savingId === row.id}
+                          <td className="p-2 text-center">
+                            {isShort && (
+                              <Select
+                                value={row.short_pick_reason || ''}
+                                onValueChange={(v) => handleShortReasonChange(row, v)}
                               >
-                                Mark Picked
-                              </Button>
+                                <SelectTrigger className="h-7 text-xs w-40">
+                                  <SelectValue placeholder="Select reason *" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {SHORT_PICK_REASONS.map(r => (
+                                    <SelectItem key={r} value={r}>{r}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
                             )}
                           </td>
                         </tr>
@@ -304,34 +411,60 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
                 </table>
               </div>
             )}
-            {isDraft && batches.length > 0 && (
-              <div className="p-3 border-t bg-muted/20 flex justify-end">
-                <Button size="sm" variant="outline" onClick={handleMarkAllPicked} disabled={allPicked}>
-                  <CheckCircle2 className="h-4 w-4 mr-1" /> Mark All Picked
-                </Button>
+
+            {/* Short pick warnings */}
+            {unloggedShorts.length > 0 && (
+              <div className="mx-4 mb-2 p-2.5 bg-amber-50 border border-amber-200 dark:bg-amber-900/20 rounded-lg flex items-start gap-2 text-xs text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                <span><strong>{unloggedShorts.length}</strong> short pick(s) require a reason before completing picking.</span>
               </div>
             )}
+
+            <div className="p-3 border-t bg-muted/20 flex items-center justify-between gap-2">
+              <Button size="sm" variant="outline" onClick={() => setShowCancel(true)} className="text-destructive border-destructive/30">
+                <XCircle className="h-4 w-4 mr-1" /> Cancel list
+              </Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={handleMarkAllPicked} disabled={allPicked}>
+                  <CheckCircle2 className="h-4 w-4 mr-1" /> Mark all picked
+                </Button>
+                <Button size="sm" onClick={handleCompletePicking}
+                  disabled={batches.length === 0 || !allPicked || unloggedShorts.length > 0}>
+                  Complete picking <ArrowRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* PACKING */}
+      {/* ── PACKING STAGE ── */}
+      {activeStage === 'packing' && (
         <Card>
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between p-4 border-b bg-muted/30">
-              <div className="flex items-center gap-2">
-                <Box className="h-5 w-5 text-primary" />
-                <div>
-                  <h3 className="font-semibold">B. Packing View <span className="text-xs text-muted-foreground">(Packer)</span></h3>
-                  <p className="text-xs text-muted-foreground">Confirm packing for picked items</p>
-                </div>
+          <CardHeader className="py-3 px-4 border-b bg-muted/30">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Box className="h-4 w-4 text-primary" /> Packing
+                  <span className="text-xs font-normal text-muted-foreground">(Packer)</span>
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Confirm packing for picked items</p>
               </div>
-              <Badge variant={allPackedValid ? 'default' : 'secondary'}>
-                {pickedRows.filter(r => Number(r.packed_qty) > 0).length} / {pickedRows.length} Packed
-              </Badge>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{packProgress}% packed</span>
+                <div className="w-20 h-1.5 bg-border rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: `${packProgress}%` }} />
+                </div>
+                <Badge variant={allPackedValid ? 'default' : 'secondary'}>
+                  {pickedRows.filter(r => Number(r.packed_qty) > 0).length} / {pickedRows.length} packed
+                </Badge>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent className="p-0">
             {pickedRows.length === 0 ? (
               <div className="p-12 text-center text-sm text-muted-foreground">
-                Pick items first to enable packing.
+                No picked items yet. Complete picking first.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -340,31 +473,40 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
                     <tr>
                       <th className="text-left p-2">#</th>
                       <th className="text-left p-2">Product</th>
-                      <th className="text-left p-2">Batch</th>
-                      <th className="text-right p-2">Picked Qty</th>
-                      <th className="text-right p-2">Packed Qty</th>
-                      <th className="text-center p-2">Scan / Confirm</th>
-                      <th className="text-left p-2">Status</th>
+                      <th className="text-left p-2">Batch · Expiry</th>
+                      <th className="text-right p-2">Picked qty</th>
+                      <th className="text-right p-2">Packed qty</th>
+                      <th className="text-center p-2">Scan / confirm</th>
+                      <th className="text-center p-2">Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
                     {pickedRows.map((row, i) => {
-                      const valid = Number(row.packed_qty) > 0 && Number(row.packed_qty) <= Number(row.picked_qty);
+                      const valid      = Number(row.packed_qty) > 0 && Number(row.packed_qty) <= Number(row.picked_qty);
+                      const nearExpiry = row.expiry_date &&
+                        differenceInDays(new Date(row.expiry_date), new Date()) <= 30 &&
+                        differenceInDays(new Date(row.expiry_date), new Date()) >= 0;
                       return (
-                        <tr key={row.id}>
-                          <td className="p-2 text-muted-foreground">{i + 1}</td>
+                        <tr key={row.id} className={valid ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}>
+                          <td className="p-2 text-xs text-muted-foreground">{i + 1}</td>
                           <td className="p-2">
                             <div className="font-medium">{row.product_name}</div>
                             <div className="text-xs text-muted-foreground">{row.unit || ''}</div>
                           </td>
-                          <td className="p-2 font-mono text-xs">{row.batch_number || '—'}</td>
-                          <td className="p-2 text-right font-semibold text-primary">{Number(row.picked_qty)}</td>
+                          <td className="p-2 text-xs">
+                            <span>{row.batch_number || '—'}</span>
+                            {row.expiry_date && (
+                              <span className={`ml-1 ${nearExpiry ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                                · {format(new Date(row.expiry_date), 'dd/MM/yy')}
+                                {nearExpiry && <AlertTriangle className="h-3 w-3 inline ml-0.5" />}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2 text-right font-semibold text-amber-600">{Number(row.picked_qty)}</td>
                           <td className="p-2 text-right">
                             {!isPacked ? (
                               <Input
-                                type="number"
-                                min={0}
-                                max={Number(row.picked_qty)}
+                                type="number" min={0} max={Number(row.picked_qty)}
                                 value={Number(row.packed_qty)}
                                 onChange={(e) => handlePackedChange(row, parseInt(e.target.value) || 0)}
                                 className="h-7 w-20 text-right text-xs ml-auto"
@@ -375,15 +517,16 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
                           </td>
                           <td className="p-2 text-center">
                             {!isPacked && (
-                              <Button size="sm" variant="outline" onClick={() => handleScan(row)} disabled={savingId === row.id}>
-                                <ScanBarcode className="h-3.5 w-3.5 mr-1" /> Scan
+                              <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                                onClick={() => handleScan(row)} disabled={savingId === row.id}>
+                                <ScanBarcode className="h-3.5 w-3.5" /> Scan
                               </Button>
                             )}
                           </td>
-                          <td className="p-2">
+                          <td className="p-2 text-center">
                             {valid ? (
                               <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                                <PackageCheck className="h-3 w-3 mr-1" />Packed
+                                <PackageCheck className="h-3 w-3 mr-1" /> Packed
                               </Badge>
                             ) : (
                               <Badge variant="secondary">Pending</Badge>
@@ -396,66 +539,86 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
                 </table>
               </div>
             )}
-            {!isPacked && pickedRows.length > 0 && (
-              <div className="p-3 border-t bg-muted/20 flex justify-end gap-2">
-                <Button size="sm" variant="outline" className="text-destructive border-destructive/30" onClick={() => setShowCancel(true)}>
-                  Cancel / Revert
-                </Button>
-                <Button size="sm" onClick={handleConfirmPacking} disabled={!allPackedValid}>
-                  <PackageCheck className="h-4 w-4 mr-1" /> Confirm Packing
-                </Button>
+
+            <div className="p-3 border-t bg-muted/20 flex items-center justify-between gap-2">
+              <Button size="sm" variant="outline" onClick={() => setActiveStage('picking')}>
+                ← Back to picking
+              </Button>
+              <div className="flex gap-2">
+                {!isPacked && pickedRows.length > 0 && (
+                  <Button size="sm" variant="outline" onClick={handleScanAllPack}>
+                    Scan all
+                  </Button>
+                )}
+                {isPacked ? (
+                  <Button size="sm" onClick={handleMarkReady}>
+                    Proceed to dispatch <ArrowRight className="h-4 w-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={openConfirmDialog} disabled={!allPackedValid}>
+                    <PackageCheck className="h-4 w-4 mr-1" /> Confirm packing
+                  </Button>
+                )}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SummaryCard label="Total Items" value={totals.items} />
-        <SummaryCard label="Total Ordered" value={totals.ordered} />
-        <SummaryCard label="Total Picked" value={totals.picked} accent="text-emerald-600" />
-        <SummaryCard label="Total Packed" value={totals.packed} accent="text-blue-600" />
-      </div>
-
-      {/* Activity Timeline */}
-      <Card>
-        <CardContent className="p-4">
-          <h4 className="text-sm font-semibold mb-3">Activity Timeline</h4>
-          <ul className="space-y-2 text-sm">
-            <TimelineEntry label="Packing list created" timestamp={packingList.created_at} />
-            {totals.picked > 0 && <TimelineEntry label={allPicked ? 'All items picked' : 'Picking in progress'} timestamp={packingList.updated_at} />}
-            {totals.packed > 0 && <TimelineEntry label={allPackedValid ? 'All items packed' : 'Packing in progress'} timestamp={packingList.updated_at} />}
-          </ul>
-        </CardContent>
-      </Card>
-
-      {/* Sticky bottom action bar */}
-      <div className="sticky bottom-0 bg-card border-t -mx-4 px-4 py-3 flex items-center justify-between gap-3 z-10">
-        <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setShowCancel(true)}>
-          Cancel Packing List
+      {/* Cancel packing list button */}
+      <div className="flex justify-start">
+        <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 text-sm"
+          onClick={() => setShowCancel(true)}>
+          Cancel packing list
         </Button>
-        {isPacked ? (
-          <Button onClick={handleMarkReady}>
-            Mark as Ready for Invoice <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
-        ) : (
-          <Button onClick={handleConfirmPacking} disabled={!allPackedValid}>
-            <PackageCheck className="h-4 w-4 mr-1" /> Confirm Packing
-          </Button>
-        )}
       </div>
 
-      <CancelReasonDialog
-        open={showCancel}
-        onOpenChange={setShowCancel}
-        onConfirm={handleCancel}
-      />
+      {/* Packing confirmation dialog */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm packing</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            {/* Auto-checks */}
+            {[
+              { label: 'All picked items have a packed qty',                ok: allPackedValid },
+              { label: 'No unpicked batches with zero reason',              ok: unloggedShorts.length === 0 },
+              { label: 'Packed qty ≤ picked qty for all items',             ok: batches.every(b => Number(b.packed_qty) <= Number(b.picked_qty)) },
+            ].map(c => (
+              <div key={c.label} className="flex items-center gap-2 text-sm">
+                {c.ok
+                  ? <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  : <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />}
+                <span className={c.ok ? 'text-foreground' : 'text-destructive'}>{c.label}</span>
+              </div>
+            ))}
+            <div className="pt-1">
+              <Label className="text-xs text-muted-foreground">Packer notes (optional)</Label>
+              <Textarea
+                value={packingNotes}
+                onChange={e => setPackingNotes(e.target.value)}
+                placeholder="Any notes about packing exceptions…"
+                className="mt-1 min-h-[60px] text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleConfirmPacking} disabled={confirmingSave || !allPackedValid}>
+              {confirmingSave && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              Confirm &amp; proceed
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <CancelReasonDialog open={showCancel} onOpenChange={setShowCancel} onConfirm={handleCancel} />
     </div>
   );
 }
 
-function SummaryCard({ label, value, accent }: { label: string; value: number; accent?: string }) {
+function StatCard({ label, value, accent }: { label: string; value: number; accent?: string }) {
   return (
     <Card>
       <CardContent className="p-4">
@@ -463,15 +626,5 @@ function SummaryCard({ label, value, accent }: { label: string; value: number; a
         <p className={`text-2xl font-bold ${accent || ''}`}>{value}</p>
       </CardContent>
     </Card>
-  );
-}
-
-function TimelineEntry({ label, timestamp }: { label: string; timestamp?: string }) {
-  return (
-    <li className="flex items-center gap-2">
-      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-      <span>{label}</span>
-      {timestamp && <span className="ml-auto text-xs text-muted-foreground">{format(new Date(timestamp), 'dd MMM yyyy, hh:mm a')}</span>}
-    </li>
   );
 }
