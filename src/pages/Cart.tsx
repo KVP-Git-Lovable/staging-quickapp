@@ -976,21 +976,16 @@ export const Cart = () => {
         newTotalPending
       });
 
-      // Update retailer's pending_amount and last_order_date
+      // Update retailer's last_order_date only.
+      // pending_amount is updated atomically inside sync_order_with_items_v2 (delta-based),
+      // which also writes retailer_pending_audit. Writing it again here caused double-counting.
       if (validRetailerId && !result.offline) {
-        console.log('💰 Updating retailer pending amount:', { retailerId: validRetailerId, newTotalPending });
         const { error: retailerUpdateError } = await supabase
           .from('retailers')
-          .update({ 
-            pending_amount: newTotalPending,
-            last_order_date: new Date().toISOString().split('T')[0]
-          })
+          .update({ last_order_date: new Date().toISOString().split('T')[0] })
           .eq('id', validRetailerId);
-        
         if (retailerUpdateError) {
-          console.error('❌ Failed to update retailer pending amount:', retailerUpdateError);
-        } else {
-          console.log('✅ Retailer pending amount updated successfully');
+          console.error('❌ Failed to update retailer last_order_date:', retailerUpdateError);
         }
       }
 
