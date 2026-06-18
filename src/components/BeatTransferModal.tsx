@@ -28,6 +28,9 @@ interface Props {
 
 type Side = "A" | "B";
 const PAGE_SIZE = 50;
+const UNASSIGNED_ID = "__unassigned__";
+const UNASSIGNED_BEAT: Beat = { id: UNASSIGNED_ID, beat_id: "", beat_name: "Unassigned" };
+const isUnassigned = (b: Beat | undefined) => !!b && b.id === UNASSIGNED_ID;
 const sortByName = (xs: Retailer[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
 
 export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
