@@ -1390,10 +1390,11 @@ const CreatePrimaryOrder = () => {
                 <p className="text-[11px] text-muted-foreground">Round Off</p>
                 <p className="text-sm font-semibold">{totals.roundOff >= 0 ? '+' : '-'} ₹ {Math.abs(totals.roundOff).toFixed(2)}</p>
               </div>
-              <div>
-                <p className="text-[11px] text-muted-foreground">Grand Total</p>
-                <p className="text-xl font-bold text-primary leading-tight">₹ {totals.grandTotal.toLocaleString('en-IN')}</p>
+              <div className="rounded-lg bg-primary/5 border border-primary/15 px-3 py-1.5">
+                <p className="text-[11px] font-semibold text-primary uppercase tracking-wide">Grand Total</p>
+                <p className="text-xl font-extrabold text-primary leading-tight">₹ {totals.grandTotal.toLocaleString('en-IN')}</p>
               </div>
+
             </div>
             <div className="flex gap-3 w-full md:w-auto">
               <Button
