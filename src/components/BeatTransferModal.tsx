@@ -465,16 +465,6 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={beatBId} onValueChange={setBeatBId} disabled={loadingBeats || isSaving}>
-                <SelectTrigger>
-                  <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select Beat B"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {beats.filter((b) => b.id !== beatAId).map((b) => (
-                    <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               {sameBeat && (
                 <p className="text-xs text-destructive">Beat A and Beat B cannot be the same.</p>
               )}
