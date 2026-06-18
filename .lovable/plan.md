@@ -1,32 +1,34 @@
-## Goal
+## What the toast means
 
-In the **Beat Exchange** modal (opened from "Mass Edit Beat" on `/my-retailers`), add a special option called **"Unassigned Retailers"** in the Beat A / Beat B dropdowns. Selecting it lists every retailer owned by the current user that isn't mapped to any beat, so the user can multi-select them and bulk-assign them to a real beat.
+`Could not find a relationship between 'beat_user_access' and 'beats' in the schema cache` comes from this query inside `BeatTransferModal.tsx`:
 
-## Behavior
+```ts
+supabase
+  .from("beat_user_access")
+  .select("beat_id, access_type, effective_to, beats!beat_user_access_beat_id_fkey(...)")
+```
 
-- A pinned entry `Unassigned Retailers` appears at the top of both Beat A and Beat B selectors.
-- When chosen on a side, that panel lists all retailers (scoped to current user) where `beat_id IS NULL` or `beat_id = ''`, with the same search / select-all / pagination / drag-drop UX as a real beat.
-- The other side must be a real beat — you can't pair Unassigned ↔ Unassigned (the option is hidden from the opposite dropdown once selected, same pattern already used to hide the chosen beat).
-- Moving a retailer **out of Unassigned → real beat**: on Confirm, updates `beat_id` and `beat_name` to the chosen beat (existing path).
-- Moving a retailer **into Unassigned** (real beat → Unassigned): on Confirm, sets `beat_id = NULL` and `beat_name = NULL` so it becomes unassigned again.
-- Transfer history rows still written; `from_beat_id` / `to_beat_id` are `NULL` and the name stored as `"Unassigned"` for traceability.
-- Ownership guard relaxed: today both sides must be in `ownableBeatIds`. New rule — the Unassigned side is always allowed; the real beat side must still be owned by the user.
-- Panel header reads `Retailers in Unassigned (N)` when sentinel is selected.
+PostgREST needs a real foreign key (`beat_user_access.beat_id → beats.id`) to embed `beats(...)`. I checked the DB — **`beat_user_access` has no foreign keys at all**, so the embed always fails and the toast fires every time the modal opens.
 
-## Files to change
+## Is the relationship required for Beat Exchange?
 
-Single file: `src/components/BeatTransferModal.tsx`.
+**No.** The modal still loads beats you **own** (separate query against `beats.user_id = me`), and the swap / confirm path doesn't use the embed. The only thing this query adds is beats that were **shared with you** via `beat_user_access` (CO_OWNER / OPERATIONAL access). For owners-only setups, exchange already works — the toast is just noise.
 
-- Add `const UNASSIGNED_ID = "__unassigned__"`.
-- Render `Unassigned Retailers` as the first `<SelectItem>` in both Beat A and Beat B dropdowns (filter it out from the opposite side when already chosen).
-- Resolve `beatA` / `beatB` so the sentinel returns a synthetic `{ id: UNASSIGNED_ID, beat_id: "", beat_name: "Unassigned" }`.
-- In `loadSide`, branch on sentinel: query `retailers` with `.or('beat_id.is.null,beat_id.eq.')` filtered by current `user_id`; otherwise existing query.
-- In `handleConfirm`:
-  - Build per-direction update payload — sentinel target → `{ beat_id: null, beat_name: null }`; otherwise existing payload.
-  - Build `historyRows` with nullable from/to ids and name `"Unassigned"` on whichever side is the sentinel.
-  - Replace the strict `ownableBeatIds` guard so it only requires ownership for the real-beat side(s).
+If you do want shared beats to appear in the dropdowns, we don't need to add an FK. We can fetch in two safe steps.
+
+## Fix (one file: `src/components/BeatTransferModal.tsx`)
+
+Replace the failing embedded query with a two-step fetch:
+
+1. `select("beat_id, access_type, effective_to")` from `beat_user_access` (no embed).
+2. If any rows come back, `select("id, beat_id, beat_name").in("id", sharedBeatIds).eq("is_active", true)` from `beats`.
+3. Merge with owned beats exactly like today.
+
+Also wrap that block in try/catch so a `beat_user_access` permission error never blocks owned beats from loading.
+
+Result: no more schema-cache toast, shared beats still appear, and Beat Exchange (including the new Unassigned option) works the same.
 
 ## Out of scope
 
-- No DB schema changes (uses existing nullable `retailers.beat_id`).
-- No other modals, pages, or filters touched.
+- No DB schema/FK changes.
+- No changes to the exchange / confirm logic or the Unassigned feature.
