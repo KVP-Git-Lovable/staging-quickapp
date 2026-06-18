@@ -1036,7 +1036,7 @@ export const MyRetailers = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">Beat:</span>
-                        <span>{r.beat_name || r.beat_id}</span>
+                        <span>{formatBeatName(r)}</span>
                       </div>
                       {selectedUserIds.length > 1 && r.owner_name && (
                         <div className="flex items-center gap-2">
