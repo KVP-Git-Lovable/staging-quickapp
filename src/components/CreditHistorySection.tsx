@@ -205,11 +205,17 @@ export function CreditHistorySection({ retailerId }: Props) {
                       </div>
                       <PaymentStatusBadge status={o.payment_status} />
                     </div>
-                    <div className="grid grid-cols-3 gap-1 text-[11px]">
-                      <Stat label="Total" value={fmtINR(o.total_amount)} />
-                      <Stat label="Paid" value={fmtINR(o.credit_paid_amount)} tone="success" />
-                      <Stat label="Pending" value={fmtINR(o.credit_pending_amount)} tone="warning" />
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 text-[11px]">
+                      <Stat label="Order total" value={fmtINR(o.total_amount)} />
+                      <Stat label="On credit" value={fmtINR(o.original_credit_amount)} />
+                      <Stat label="Collected later" value={fmtINR(o.collected_after_order)} tone="success" />
+                      <Stat label="Still pending" value={fmtINR(o.credit_pending_amount)} tone="warning" />
                     </div>
+                    {o.paid_at_order_time > 0 && (
+                      <div className="text-[10px] text-muted-foreground">
+                        Paid at order time: {fmtINR(o.paid_at_order_time)}
+                      </div>
+                    )}
                     {allocs.length > 0 && (
                       <div className="border-t pt-1 space-y-0.5">
                         {allocs.map((a) => {
