@@ -24,6 +24,7 @@ interface ConfigRow {
   allow_orders_beyond_limit: boolean;
   approval_required_beyond_limit: boolean;
   default_payment_term: PaymentTerm;
+  allowed_payment_terms: PaymentTerm[];
   default_payment_mode: PaymentMode;
   allowed_payment_modes: PaymentMode[];
   require_advance_payment: boolean;
@@ -53,6 +54,7 @@ const DEFAULTS = (distributorId: string): ConfigRow => ({
   allow_orders_beyond_limit: false,
   approval_required_beyond_limit: true,
   default_payment_term: "immediate",
+  allowed_payment_terms: ["immediate"],
   default_payment_mode: "bank_transfer",
   allowed_payment_modes: ["bank_transfer"],
   require_advance_payment: false,
@@ -218,7 +220,16 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
               <Label>Default Payment Term</Label>
               <Select
                 value={config.default_payment_term}
-                onValueChange={(v) => update("default_payment_term", v as PaymentTerm)}
+                onValueChange={(v) => {
+                  const term = v as PaymentTerm;
+                  setConfig((prev) => ({
+                    ...prev,
+                    default_payment_term: term,
+                    allowed_payment_terms: prev.allowed_payment_terms.includes(term)
+                      ? prev.allowed_payment_terms
+                      : [...prev.allowed_payment_terms, term],
+                  }));
+                }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -228,6 +239,7 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
                 </SelectContent>
               </Select>
             </div>
+
             <div>
               <Label>Default Payment Mode</Label>
               <Select
@@ -293,6 +305,50 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
                 );
               })}
             </div>
+          </div>
+
+          <div>
+            <Label>Allowed Payment Terms</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Tick every term this distributor may use. The default above is auto-included.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {(Object.entries(TERM_LABELS) as [PaymentTerm, string][]).map(([k, l]) => {
+                const checked = config.allowed_payment_terms.includes(k);
+                const isDefault = config.default_payment_term === k;
+                return (
+                  <label
+                    key={k}
+                    className={`flex items-center gap-2 rounded-md border p-2 text-sm cursor-pointer ${
+                      checked ? "bg-accent border-primary" : ""
+                    } ${isDefault ? "opacity-90" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={checked}
+                      disabled={isDefault}
+                      onChange={(e) => {
+                        setConfig((prev) => {
+                          const next = e.target.checked
+                            ? Array.from(new Set([...prev.allowed_payment_terms, k]))
+                            : prev.allowed_payment_terms.filter((m) => m !== k);
+                          return {
+                            ...prev,
+                            allowed_payment_terms: next.length ? next : [prev.default_payment_term],
+                          };
+                        });
+                      }}
+                    />
+                    <span>{l}</span>
+                    {isDefault && (
+                      <span className="ml-auto text-[10px] uppercase text-muted-foreground">Default</span>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
+
           </div>
 
 

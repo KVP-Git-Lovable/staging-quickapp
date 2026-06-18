@@ -5172,6 +5172,7 @@ export type Database = {
           advance_payment_pct: number
           allow_orders_beyond_limit: boolean
           allowed_payment_modes: string[]
+          allowed_payment_terms: string[]
           approval_required_beyond_limit: boolean
           approval_required_high_risk: boolean
           created_at: string
@@ -5194,6 +5195,7 @@ export type Database = {
           advance_payment_pct?: number
           allow_orders_beyond_limit?: boolean
           allowed_payment_modes?: string[]
+          allowed_payment_terms?: string[]
           approval_required_beyond_limit?: boolean
           approval_required_high_risk?: boolean
           created_at?: string
@@ -5216,6 +5218,7 @@ export type Database = {
           advance_payment_pct?: number
           allow_orders_beyond_limit?: boolean
           allowed_payment_modes?: string[]
+          allowed_payment_terms?: string[]
           approval_required_beyond_limit?: boolean
           approval_required_high_risk?: boolean
           created_at?: string
@@ -8379,6 +8382,59 @@ export type Database = {
         }
         Relationships: []
       }
+      hsn_master: {
+        Row: {
+          category: string | null
+          chapter: string | null
+          created_at: string
+          description: string
+          effective_from: string | null
+          effective_to: string | null
+          hsn_code: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          tax_master_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          chapter?: string | null
+          created_at?: string
+          description: string
+          effective_from?: string | null
+          effective_to?: string | null
+          hsn_code: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          tax_master_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          chapter?: string | null
+          created_at?: string
+          description?: string
+          effective_from?: string | null
+          effective_to?: string | null
+          hsn_code?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          tax_master_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hsn_master_tax_master_id_fkey"
+            columns: ["tax_master_id"]
+            isOneToOne: false
+            referencedRelation: "tax_masters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inst_accounts: {
         Row: {
           account_name: string
@@ -10727,12 +10783,17 @@ export type Database = {
         Row: {
           backorder_qty: number | null
           category: string
+          cess_amount: number | null
+          cess_rate: number | null
           cgst_amount: number | null
+          cgst_rate: number | null
           conversion_to_base: number | null
           created_at: string
           discount_amount: number | null
           hsn_code: string | null
           id: string
+          igst_amount: number | null
+          igst_rate: number | null
           order_id: string
           original_rate: number | null
           product_id: string | null
@@ -10740,6 +10801,9 @@ export type Database = {
           quantity: number
           rate: number
           sgst_amount: number | null
+          sgst_rate: number | null
+          tax_master_id: string | null
+          tax_rate_snapshot: number | null
           total: number
           unit: string
           uom_code: string | null
@@ -10749,12 +10813,17 @@ export type Database = {
         Insert: {
           backorder_qty?: number | null
           category: string
+          cess_amount?: number | null
+          cess_rate?: number | null
           cgst_amount?: number | null
+          cgst_rate?: number | null
           conversion_to_base?: number | null
           created_at?: string
           discount_amount?: number | null
           hsn_code?: string | null
           id?: string
+          igst_amount?: number | null
+          igst_rate?: number | null
           order_id: string
           original_rate?: number | null
           product_id?: string | null
@@ -10762,6 +10831,9 @@ export type Database = {
           quantity: number
           rate: number
           sgst_amount?: number | null
+          sgst_rate?: number | null
+          tax_master_id?: string | null
+          tax_rate_snapshot?: number | null
           total: number
           unit: string
           uom_code?: string | null
@@ -10771,12 +10843,17 @@ export type Database = {
         Update: {
           backorder_qty?: number | null
           category?: string
+          cess_amount?: number | null
+          cess_rate?: number | null
           cgst_amount?: number | null
+          cgst_rate?: number | null
           conversion_to_base?: number | null
           created_at?: string
           discount_amount?: number | null
           hsn_code?: string | null
           id?: string
+          igst_amount?: number | null
+          igst_rate?: number | null
           order_id?: string
           original_rate?: number | null
           product_id?: string | null
@@ -10784,6 +10861,9 @@ export type Database = {
           quantity?: number
           rate?: number
           sgst_amount?: number | null
+          sgst_rate?: number | null
+          tax_master_id?: string | null
+          tax_rate_snapshot?: number | null
           total?: number
           unit?: string
           uom_code?: string | null
@@ -14463,6 +14543,7 @@ export type Database = {
           sku: string
           sku_image_url: string | null
           standard_cost: number | null
+          tax_master_id: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -14514,6 +14595,7 @@ export type Database = {
           sku: string
           sku_image_url?: string | null
           standard_cost?: number | null
+          tax_master_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -14565,6 +14647,7 @@ export type Database = {
           sku?: string
           sku_image_url?: string | null
           standard_cost?: number | null
+          tax_master_id?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -14574,6 +14657,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_tax_master_id_fkey"
+            columns: ["tax_master_id"]
+            isOneToOne: false
+            referencedRelation: "tax_masters"
             referencedColumns: ["id"]
           },
         ]
@@ -18397,6 +18487,8 @@ export type Database = {
         Row: {
           apply_to_primary_orders: boolean
           apply_to_secondary_orders: boolean
+          cess_rate: number | null
+          cgst_rate: number | null
           cloned_from_id: string | null
           created_at: string
           created_by: string | null
@@ -18404,15 +18496,23 @@ export type Database = {
           effective_from: string | null
           effective_to: string | null
           id: string
+          igst_rate: number | null
           is_active: boolean
+          is_inter_state: boolean | null
           name: string
+          sgst_rate: number | null
+          tax_category: string | null
           tax_type: string
+          total_rate: number | null
           updated_at: string
+          updated_by: string | null
           version: number
         }
         Insert: {
           apply_to_primary_orders?: boolean
           apply_to_secondary_orders?: boolean
+          cess_rate?: number | null
+          cgst_rate?: number | null
           cloned_from_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -18420,15 +18520,23 @@ export type Database = {
           effective_from?: string | null
           effective_to?: string | null
           id?: string
+          igst_rate?: number | null
           is_active?: boolean
+          is_inter_state?: boolean | null
           name: string
+          sgst_rate?: number | null
+          tax_category?: string | null
           tax_type?: string
+          total_rate?: number | null
           updated_at?: string
+          updated_by?: string | null
           version?: number
         }
         Update: {
           apply_to_primary_orders?: boolean
           apply_to_secondary_orders?: boolean
+          cess_rate?: number | null
+          cgst_rate?: number | null
           cloned_from_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -18436,10 +18544,16 @@ export type Database = {
           effective_from?: string | null
           effective_to?: string | null
           id?: string
+          igst_rate?: number | null
           is_active?: boolean
+          is_inter_state?: boolean | null
           name?: string
+          sgst_rate?: number | null
+          tax_category?: string | null
           tax_type?: string
+          total_rate?: number | null
           updated_at?: string
+          updated_by?: string | null
           version?: number
         }
         Relationships: [

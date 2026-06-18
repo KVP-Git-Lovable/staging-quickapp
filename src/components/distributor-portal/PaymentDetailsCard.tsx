@@ -50,7 +50,9 @@ interface Props {
   canOverride?: boolean;
   distributorId: string;
   allowedModes?: PaymentMode[];
+  allowedTerms?: PaymentTerm[];
 }
+
 
 
 const PROOF_BUCKET = "order-payment-proofs";
@@ -66,12 +68,18 @@ export function PaymentDetailsCard({
   canOverride = false,
   distributorId,
   allowedModes,
+  allowedTerms,
 }: Props) {
   const [override, setOverride] = useState(false);
   const modeOptions = (allowedModes && allowedModes.length > 0
     ? allowedModes
     : (Object.keys(MODE_LABELS) as PaymentMode[]));
   const modeSelectable = modeOptions.length > 1;
+  const termOptions = (allowedTerms && allowedTerms.length > 0
+    ? allowedTerms
+    : (Object.keys(TERM_LABELS) as PaymentTerm[]));
+  const termSelectable = termOptions.length > 1;
+
 
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -144,16 +152,17 @@ export function PaymentDetailsCard({
             <Select
               value={value.paymentTerm}
               onValueChange={(v) => set("paymentTerm", v as PaymentTerm)}
-              disabled={readOnly}
+              disabled={readOnly && !termSelectable}
             >
               <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(TERM_LABELS).map(([k, l]) => (
-                  <SelectItem key={k} value={k}>{l}</SelectItem>
+                {termOptions.map((k) => (
+                  <SelectItem key={k} value={k}>{TERM_LABELS[k]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground">Payment Mode</Label>
             <Select
