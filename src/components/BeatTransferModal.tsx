@@ -59,8 +59,8 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const beatA = beats.find((b) => b.id === beatAId);
-  const beatB = beats.find((b) => b.id === beatBId);
+  const beatA = beatAId === UNASSIGNED_ID ? UNASSIGNED_BEAT : beats.find((b) => b.id === beatAId);
+  const beatB = beatBId === UNASSIGNED_ID ? UNASSIGNED_BEAT : beats.find((b) => b.id === beatBId);
   const sameBeat = !!beatAId && !!beatBId && beatAId === beatBId;
 
   // Reset when closing
