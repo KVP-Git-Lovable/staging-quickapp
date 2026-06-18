@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Download, MessageCircle, Mail, MessageSquare, FileText, Loader2 } from "lucide-react";
+import { Download, MessageCircle, Mail, MessageSquare, FileText, Loader2, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 export interface OrderForInvoice {
