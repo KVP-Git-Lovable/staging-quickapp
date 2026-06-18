@@ -1197,7 +1197,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                     ))}
                   </TableBody>
                 </Table>
-              </ScrollArea>
+              </div>
+
               <PaginationControls
                 currentPage={productsPagination.currentPage}
                 totalPages={productsPagination.totalPages}
