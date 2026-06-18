@@ -492,7 +492,7 @@ const OpeningStockDialog = ({ open, onOpenChange, distributorId, products, onSuc
                   <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 border-b">
                       <div className="flex items-center gap-2">
-                        <div onClick={(e) => { e.stopPropagation(); toggleSelect(entry.product_id); }} className="flex items-center">
+                        <div onClick={(e) => e.stopPropagation()} className="flex items-center">
                           <Checkbox checked={entry.selected} onCheckedChange={() => toggleSelect(entry.product_id)} />
                         </div>
                         {entry.expanded ? (
