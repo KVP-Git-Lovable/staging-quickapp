@@ -28,6 +28,9 @@ interface Props {
 
 type Side = "A" | "B";
 const PAGE_SIZE = 50;
+const UNASSIGNED_ID = "__unassigned__";
+const UNASSIGNED_BEAT: Beat = { id: UNASSIGNED_ID, beat_id: "", beat_name: "Unassigned" };
+const isUnassigned = (b: Beat | undefined) => !!b && b.id === UNASSIGNED_ID;
 const sortByName = (xs: Retailer[]) => [...xs].sort((a, b) => a.name.localeCompare(b.name));
 
 export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
@@ -56,8 +59,8 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const beatA = beats.find((b) => b.id === beatAId);
-  const beatB = beats.find((b) => b.id === beatBId);
+  const beatA = beatAId === UNASSIGNED_ID ? UNASSIGNED_BEAT : beats.find((b) => b.id === beatAId);
+  const beatB = beatBId === UNASSIGNED_ID ? UNASSIGNED_BEAT : beats.find((b) => b.id === beatBId);
   const sameBeat = !!beatAId && !!beatBId && beatAId === beatBId;
 
   // Reset when closing
@@ -136,11 +139,16 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       return;
     }
     side === "A" ? setLoadingA(true) : setLoadingB(true);
-    const { data, error } = await supabase
-      .from("retailers")
-      .select("id, name, beat_id")
-      .eq("beat_id", beat.beat_id)
-      .order("name", { ascending: true });
+    let query = supabase.from("retailers").select("id, name, beat_id");
+    if (isUnassigned(beat)) {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes?.user?.id;
+      query = query.or("beat_id.is.null,beat_id.eq.");
+      if (uid) query = query.eq("user_id", uid);
+    } else {
+      query = query.eq("beat_id", beat.beat_id);
+    }
+    const { data, error } = await query.order("name", { ascending: true });
     if (error) toast.error(error.message);
     const rows = ((data as Retailer[]) || []).map((r) => ({ id: r.id, name: r.name }));
     const ids = new Set(rows.map((r) => r.id));
@@ -245,8 +253,10 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
 
   const handleConfirm = async () => {
     if (!canConfirm || !beatA || !beatB) return;
-    if (!ownableBeatIds.has(beatA.beat_id) || !ownableBeatIds.has(beatB.beat_id)) {
-      toast.error("You can only exchange retailers between beats you own");
+    const aOk = isUnassigned(beatA) || ownableBeatIds.has(beatA.beat_id);
+    const bOk = isUnassigned(beatB) || ownableBeatIds.has(beatB.beat_id);
+    if (!aOk || !bOk) {
+      toast.error("You can only move retailers between beats you own");
       return;
     }
     setIsSaving(true);
@@ -256,17 +266,22 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       const userId = userData.user.id;
       const nowIso = new Date().toISOString();
 
+      const payloadFor = (target: Beat) =>
+        isUnassigned(target)
+          ? { beat_id: null, beat_name: null, updated_at: nowIso }
+          : { beat_id: target.beat_id, beat_name: target.beat_name, updated_at: nowIso };
+
       if (movedToB.length > 0) {
         const { error } = await supabase
           .from("retailers")
-          .update({ beat_id: beatB.beat_id, beat_name: beatB.beat_name, updated_at: nowIso })
+          .update(payloadFor(beatB))
           .in("id", movedToB.map((r) => r.id));
         if (error) throw error;
       }
       if (movedToA.length > 0) {
         const { error } = await supabase
           .from("retailers")
-          .update({ beat_id: beatA.beat_id, beat_name: beatA.beat_name, updated_at: nowIso })
+          .update(payloadFor(beatA))
           .in("id", movedToA.map((r) => r.id));
         if (error) throw error;
       }
@@ -274,14 +289,18 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       const historyRows = [
         ...movedToB.map((r) => ({
           retailer_id: r.id, retailer_name: r.name,
-          from_beat_id: beatA.beat_id, from_beat_name: beatA.beat_name,
-          to_beat_id: beatB.beat_id, to_beat_name: beatB.beat_name,
+          from_beat_id: isUnassigned(beatA) ? null : beatA.beat_id,
+          from_beat_name: beatA.beat_name,
+          to_beat_id: isUnassigned(beatB) ? null : beatB.beat_id,
+          to_beat_name: beatB.beat_name,
           transferred_by: userId,
         })),
         ...movedToA.map((r) => ({
           retailer_id: r.id, retailer_name: r.name,
-          from_beat_id: beatB.beat_id, from_beat_name: beatB.beat_name,
-          to_beat_id: beatA.beat_id, to_beat_name: beatA.beat_name,
+          from_beat_id: isUnassigned(beatB) ? null : beatB.beat_id,
+          from_beat_name: beatB.beat_name,
+          to_beat_id: isUnassigned(beatA) ? null : beatA.beat_id,
+          to_beat_name: beatA.beat_name,
           transferred_by: userId,
         })),
       ];
@@ -422,6 +441,9 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
                   <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select Beat A"} />
                 </SelectTrigger>
                 <SelectContent>
+                  {beatBId !== UNASSIGNED_ID && (
+                    <SelectItem value={UNASSIGNED_ID}>Unassigned Retailers</SelectItem>
+                  )}
                   {beats.filter((b) => b.id !== beatBId).map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
                   ))}
@@ -435,6 +457,9 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
                   <SelectValue placeholder={loadingBeats ? "Loading beats..." : "Select Beat B"} />
                 </SelectTrigger>
                 <SelectContent>
+                  {beatAId !== UNASSIGNED_ID && (
+                    <SelectItem value={UNASSIGNED_ID}>Unassigned Retailers</SelectItem>
+                  )}
                   {beats.filter((b) => b.id !== beatAId).map((b) => (
                     <SelectItem key={b.id} value={b.id}>{b.beat_name}</SelectItem>
                   ))}
