@@ -930,7 +930,8 @@ const CreatePrimaryOrder = () => {
 
                 <Button
                   variant="ghost"
-                  className="w-full border border-dashed text-primary hover:bg-primary/5"
+                  className="w-full border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all"
+
                   onClick={() => {
                     setOrderItems((prev) => [
                       ...prev,
