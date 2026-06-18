@@ -624,7 +624,7 @@ const CreatePrimaryOrder = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 pb-32 standalone-page">
+    <div className="min-h-screen bg-gradient-to-b from-muted/40 via-muted/20 to-background pb-32 standalone-page">
       <main className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-5">
         {/* Section 1: Header strip */}
         <Card className="rounded-xl shadow-sm border-l-4 border-l-primary overflow-hidden">
