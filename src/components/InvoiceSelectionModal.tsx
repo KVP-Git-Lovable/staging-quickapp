@@ -23,7 +23,7 @@ interface InvoiceSelectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orders: OrderForInvoice[];
-  actionType: 'download' | 'whatsapp' | 'email' | 'sms';
+  actionType: 'download' | 'whatsapp' | 'email' | 'sms' | 'view';
   onSelectOrder: (orderId: string) => void;
   onSelectAll?: () => void;
   isLoading?: boolean;
