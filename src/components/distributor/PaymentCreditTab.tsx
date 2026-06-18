@@ -24,6 +24,7 @@ interface ConfigRow {
   allow_orders_beyond_limit: boolean;
   approval_required_beyond_limit: boolean;
   default_payment_term: PaymentTerm;
+  allowed_payment_terms: PaymentTerm[];
   default_payment_mode: PaymentMode;
   allowed_payment_modes: PaymentMode[];
   require_advance_payment: boolean;
