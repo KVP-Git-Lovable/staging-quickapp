@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe, History as HistoryIcon } from "lucide-react";
 import { compressImageFile } from "@/utils/imageCompression";
 import { getResilientLocation } from "@/utils/gpsRouteOptimizer";
 import { Badge } from "@/components/ui/badge";
@@ -2761,7 +2761,7 @@ export const VisitCard = ({
                     className="h-7 gap-1 text-xs"
                     onClick={() => setShowCreditHistory(true)}
                   >
-                    <History className="w-3 h-3" />
+                    <HistoryIcon className="w-3 h-3" />
                     History
                   </Button>
                   <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={() => {
