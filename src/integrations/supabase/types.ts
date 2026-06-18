@@ -11238,6 +11238,9 @@ export type Database = {
           packed_qty: number
           packing_list_item_id: string
           picked_qty: number
+          scanned_at: string | null
+          scanned_by: string | null
+          short_pick_reason: string | null
         }
         Insert: {
           allocated_qty?: number
@@ -11251,6 +11254,9 @@ export type Database = {
           packed_qty?: number
           packing_list_item_id: string
           picked_qty?: number
+          scanned_at?: string | null
+          scanned_by?: string | null
+          short_pick_reason?: string | null
         }
         Update: {
           allocated_qty?: number
@@ -11264,6 +11270,9 @@ export type Database = {
           packed_qty?: number
           packing_list_item_id?: string
           picked_qty?: number
+          scanned_at?: string | null
+          scanned_by?: string | null
+          short_pick_reason?: string | null
         }
         Relationships: [
           {
@@ -11424,12 +11433,24 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          delivered_at: string | null
           delivery_date: string
+          dispatch_driver: string | null
+          dispatch_vehicle: string | null
+          dispatched_at: string | null
           distributor_id: string | null
           id: string
           notes: string | null
           order_type: string
+          packing_confirmed_at: string | null
+          packing_confirmed_by: string | null
           packing_list_number: string
+          packing_notes: string | null
+          pod_confirmed_at: string | null
+          pod_confirmed_by: string | null
+          pod_notes: string | null
+          pod_photo_url: string | null
+          pod_signature_url: string | null
           route_id: string | null
           status: string
           total_items: number
@@ -11440,12 +11461,24 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          delivered_at?: string | null
           delivery_date: string
+          dispatch_driver?: string | null
+          dispatch_vehicle?: string | null
+          dispatched_at?: string | null
           distributor_id?: string | null
           id?: string
           notes?: string | null
           order_type?: string
+          packing_confirmed_at?: string | null
+          packing_confirmed_by?: string | null
           packing_list_number?: string
+          packing_notes?: string | null
+          pod_confirmed_at?: string | null
+          pod_confirmed_by?: string | null
+          pod_notes?: string | null
+          pod_photo_url?: string | null
+          pod_signature_url?: string | null
           route_id?: string | null
           status?: string
           total_items?: number
@@ -11456,12 +11489,24 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          delivered_at?: string | null
           delivery_date?: string
+          dispatch_driver?: string | null
+          dispatch_vehicle?: string | null
+          dispatched_at?: string | null
           distributor_id?: string | null
           id?: string
           notes?: string | null
           order_type?: string
+          packing_confirmed_at?: string | null
+          packing_confirmed_by?: string | null
           packing_list_number?: string
+          packing_notes?: string | null
+          pod_confirmed_at?: string | null
+          pod_confirmed_by?: string | null
+          pod_notes?: string | null
+          pod_photo_url?: string | null
+          pod_signature_url?: string | null
           route_id?: string | null
           status?: string
           total_items?: number
