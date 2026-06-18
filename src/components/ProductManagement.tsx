@@ -913,16 +913,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Product Management
-          </CardTitle>
-          <CardDescription>
-            Manage your product catalog, categories, SKUs, and promotional schemes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
+
           <Tabs defaultValue="products" className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="products" className="flex items-center gap-2">
