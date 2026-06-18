@@ -70,7 +70,12 @@ export function CreditHistorySection({ retailerId }: Props) {
   }, [data?.collections, from, to]);
 
   const filteredKpis = useMemo(() => {
-    const totalCreditTaken = filteredOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+    // Credit actually placed on credit at order time (not the full order value)
+    const totalCreditTaken = filteredOrders.reduce(
+      (s, o) => s + Number(o.original_credit_amount || 0),
+      0
+    );
+    // Money collected AFTER the order via Mark Payment Received (matches collections in range)
     const totalCleared = filteredCollections.reduce((s, c) => s + Number(c.amount || 0), 0);
     return { totalCreditTaken, totalCleared };
   }, [filteredOrders, filteredCollections]);
@@ -155,12 +160,12 @@ export function CreditHistorySection({ retailerId }: Props) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <KpiTile
           icon={<IndianRupee className="w-3 h-3" />}
-          label="Credit taken (range)"
+          label="On credit (range)"
           value={fmtINR(filteredKpis.totalCreditTaken)}
         />
         <KpiTile
           icon={<TrendingDown className="w-3 h-3" />}
-          label="Collected (range)"
+          label="Collected after order (range)"
           value={fmtINR(filteredKpis.totalCleared)}
           tone="success"
         />
@@ -200,11 +205,17 @@ export function CreditHistorySection({ retailerId }: Props) {
                       </div>
                       <PaymentStatusBadge status={o.payment_status} />
                     </div>
-                    <div className="grid grid-cols-3 gap-1 text-[11px]">
-                      <Stat label="Total" value={fmtINR(o.total_amount)} />
-                      <Stat label="Paid" value={fmtINR(o.credit_paid_amount)} tone="success" />
-                      <Stat label="Pending" value={fmtINR(o.credit_pending_amount)} tone="warning" />
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 text-[11px]">
+                      <Stat label="Order total" value={fmtINR(o.total_amount)} />
+                      <Stat label="On credit" value={fmtINR(o.original_credit_amount)} />
+                      <Stat label="Collected later" value={fmtINR(o.collected_after_order)} tone="success" />
+                      <Stat label="Still pending" value={fmtINR(o.credit_pending_amount)} tone="warning" />
                     </div>
+                    {o.paid_at_order_time > 0 && (
+                      <div className="text-[10px] text-muted-foreground">
+                        Paid at order time: {fmtINR(o.paid_at_order_time)}
+                      </div>
+                    )}
                     {allocs.length > 0 && (
                       <div className="border-t pt-1 space-y-0.5">
                         {allocs.map((a) => {

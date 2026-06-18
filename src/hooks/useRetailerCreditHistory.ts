@@ -12,6 +12,13 @@ export interface CreditOrder {
   credit_pending_amount: number;
   payment_status: string | null;
   created_at: string;
+  /** Amount that was actually placed on credit when the order was created
+   *  (excludes any cash/UPI/etc. paid at the cart). */
+  original_credit_amount: number;
+  /** Sum of collections (Mark Payment Received) applied to this order after creation. */
+  collected_after_order: number;
+  /** Amount paid at the cart at order-creation time (credit_paid_amount minus collected_after_order). */
+  paid_at_order_time: number;
 }
 
 export interface CollectionRow {
@@ -96,6 +103,28 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         allocations = (data || []) as AllocationRow[];
       }
 
+      // Per-order: sum of collections applied AFTER the order (via Mark Payment Received → FIFO)
+      const collectedByOrder = new Map<string, number>();
+      allocations.forEach((a) => {
+        collectedByOrder.set(
+          a.order_id,
+          (collectedByOrder.get(a.order_id) || 0) + Number(a.amount_applied || 0)
+        );
+      });
+
+      // Enrich each order with derived breakdown.
+      // original_credit_amount = what actually went on credit when order was placed
+      //                        = current pending + everything collected after the order
+      // paid_at_order_time     = what was paid up-front at the cart
+      orders.forEach((o) => {
+        const collected = Number(collectedByOrder.get(o.id) || 0);
+        const pending = Number(o.credit_pending_amount || 0);
+        const paid = Number(o.credit_paid_amount || 0);
+        o.collected_after_order = collected;
+        o.original_credit_amount = Math.max(0, pending + collected);
+        o.paid_at_order_time = Math.max(0, paid - collected);
+      });
+
       // Resolve collector names
       const userIds = Array.from(
         new Set(collections.map((c) => c.collected_by_user_id).filter(Boolean))
@@ -113,9 +142,15 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         });
       }
 
-      // KPIs
-      const totalCreditTaken = orders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
-      const totalCleared = orders.reduce((s, o) => s + Number(o.credit_paid_amount || 0), 0);
+      // KPIs — only the amount that ACTUALLY went on credit / was ACTUALLY collected later
+      const totalCreditTaken = orders.reduce(
+        (s, o) => s + Number(o.original_credit_amount || 0),
+        0
+      );
+      const totalCleared = orders.reduce(
+        (s, o) => s + Number(o.collected_after_order || 0),
+        0
+      );
       const currentPending = Number((retailerRes.data as any)?.pending_amount || 0);
 
       // Avg days to clear: for orders that reached paid status, take max(applied_at) per order
@@ -148,3 +183,4 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
     },
   });
 }
+

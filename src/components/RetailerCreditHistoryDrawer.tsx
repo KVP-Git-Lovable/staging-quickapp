@@ -77,12 +77,12 @@ export function RetailerCreditHistoryDrawer({ open, onOpenChange, retailerId, re
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <KpiTile
                 icon={<IndianRupee className="w-3.5 h-3.5" />}
-                label="Total credit taken"
+                label="On credit (lifetime)"
                 value={fmtINR(data?.kpis.totalCreditTaken || 0)}
               />
               <KpiTile
                 icon={<TrendingDown className="w-3.5 h-3.5" />}
-                label="Total cleared"
+                label="Collected after order"
                 value={fmtINR(data?.kpis.totalCleared || 0)}
                 tone="success"
               />
@@ -126,19 +126,28 @@ export function RetailerCreditHistoryDrawer({ open, onOpenChange, retailerId, re
                             </div>
                             <PaymentStatusBadge status={o.payment_status} />
                           </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <Stat label="Total" value={fmtINR(o.total_amount)} />
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                            <Stat label="Order total" value={fmtINR(o.total_amount)} />
                             <Stat
-                              label="Paid"
-                              value={fmtINR(o.credit_paid_amount)}
+                              label="On credit"
+                              value={fmtINR(o.original_credit_amount)}
+                            />
+                            <Stat
+                              label="Collected later"
+                              value={fmtINR(o.collected_after_order)}
                               tone="success"
                             />
                             <Stat
-                              label="Pending"
+                              label="Still pending"
                               value={fmtINR(o.credit_pending_amount)}
                               tone="warning"
                             />
                           </div>
+                          {o.paid_at_order_time > 0 && (
+                            <div className="text-[11px] text-muted-foreground">
+                              Paid at order time: {fmtINR(o.paid_at_order_time)}
+                            </div>
+                          )}
                           {allocs.length > 0 && (
                             <div className="border-t pt-2 space-y-1">
                               <div className="text-[11px] uppercase text-muted-foreground">
