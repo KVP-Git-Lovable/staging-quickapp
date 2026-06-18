@@ -63,37 +63,57 @@ export const PaymentMarkingModal = ({
 
   const requiresProof = paymentMethod === "cheque" || paymentMethod === "upi" || paymentMethod === "neft";
 
-  // Records the collection in the audit table (collected_by + revenue_owner)
-  const recordCollection = async (
+  // Records the collection + runs FIFO allocation against credit orders.
+  const recordCollectionAndAllocate = async (
     amount: number,
     proofUrl: string | null
-  ) => {
-    try {
-      const { data: authData } = await supabase.auth.getUser();
-      const collectorId = authData?.user?.id;
-      if (!collectorId) return;
+  ): Promise<{ newPendingAmount: number; allocatedCount: number }> => {
+    const { data: authData } = await supabase.auth.getUser();
+    const collectorId = authData?.user?.id;
+    if (!collectorId) throw new Error("Not authenticated");
 
-      // Resolve the historical revenue owner from the retailer
-      const { data: ret } = await supabase
-        .from("retailers")
-        .select("owner_id, user_id")
-        .eq("id", retailerId)
-        .maybeSingle();
-      const revenueOwnerId =
-        (ret as any)?.owner_id || (ret as any)?.user_id || collectorId;
+    const { data: ret } = await supabase
+      .from("retailers")
+      .select("owner_id, user_id")
+      .eq("id", retailerId)
+      .maybeSingle();
+    const revenueOwnerId =
+      (ret as any)?.owner_id || (ret as any)?.user_id || collectorId;
 
-      await supabase.from("retailer_payment_collections" as any).insert({
+    const { data: collection, error: insertErr } = await (supabase as any)
+      .from("retailer_payment_collections")
+      .insert({
         retailer_id: retailerId,
         amount,
         payment_method: paymentMethod,
         payment_proof_url: proofUrl,
         collected_by_user_id: collectorId,
         revenue_owner_id: revenueOwnerId,
-      });
-    } catch (err) {
-      // Non-blocking: log but don't fail the payment flow
-      console.error("[PaymentMarkingModal] failed to record collection audit row:", err);
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !collection) throw insertErr || new Error("Failed to record collection");
+
+    const { data: rpcData, error: rpcErr } = await (supabase as any).rpc(
+      "apply_retailer_payment_fifo",
+      {
+        p_retailer_id: retailerId,
+        p_amount: amount,
+        p_collection_id: (collection as any).id,
+      }
+    );
+
+    if (rpcErr) {
+      console.error("[PaymentMarkingModal] FIFO RPC failed:", rpcErr);
+      throw rpcErr;
     }
+
+    const result = (rpcData as any) || {};
+    return {
+      newPendingAmount: Number(result.new_pending_amount ?? 0),
+      allocatedCount: Array.isArray(result.allocations) ? result.allocations.length : 0,
+    };
   };
 
   const handleFullPayment = async () => {
