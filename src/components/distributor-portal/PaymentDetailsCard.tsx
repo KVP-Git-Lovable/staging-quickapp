@@ -159,16 +159,17 @@ export function PaymentDetailsCard({
             <Select
               value={value.paymentMode}
               onValueChange={(v) => set("paymentMode", v as PaymentMode)}
-              disabled={readOnly}
+              disabled={readOnly && !modeSelectable}
             >
               <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(MODE_LABELS).map(([k, l]) => (
-                  <SelectItem key={k} value={k}>{l}</SelectItem>
+                {modeOptions.map((k) => (
+                  <SelectItem key={k} value={k}>{MODE_LABELS[k]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
         </div>
 
         {showAdvance && (
