@@ -253,8 +253,10 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
 
   const handleConfirm = async () => {
     if (!canConfirm || !beatA || !beatB) return;
-    if (!ownableBeatIds.has(beatA.beat_id) || !ownableBeatIds.has(beatB.beat_id)) {
-      toast.error("You can only exchange retailers between beats you own");
+    const aOk = isUnassigned(beatA) || ownableBeatIds.has(beatA.beat_id);
+    const bOk = isUnassigned(beatB) || ownableBeatIds.has(beatB.beat_id);
+    if (!aOk || !bOk) {
+      toast.error("You can only move retailers between beats you own");
       return;
     }
     setIsSaving(true);
@@ -264,17 +266,22 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       const userId = userData.user.id;
       const nowIso = new Date().toISOString();
 
+      const payloadFor = (target: Beat) =>
+        isUnassigned(target)
+          ? { beat_id: null, beat_name: null, updated_at: nowIso }
+          : { beat_id: target.beat_id, beat_name: target.beat_name, updated_at: nowIso };
+
       if (movedToB.length > 0) {
         const { error } = await supabase
           .from("retailers")
-          .update({ beat_id: beatB.beat_id, beat_name: beatB.beat_name, updated_at: nowIso })
+          .update(payloadFor(beatB))
           .in("id", movedToB.map((r) => r.id));
         if (error) throw error;
       }
       if (movedToA.length > 0) {
         const { error } = await supabase
           .from("retailers")
-          .update({ beat_id: beatA.beat_id, beat_name: beatA.beat_name, updated_at: nowIso })
+          .update(payloadFor(beatA))
           .in("id", movedToA.map((r) => r.id));
         if (error) throw error;
       }
@@ -282,14 +289,18 @@ export const BeatTransferModal = ({ open, onOpenChange, onSuccess }: Props) => {
       const historyRows = [
         ...movedToB.map((r) => ({
           retailer_id: r.id, retailer_name: r.name,
-          from_beat_id: beatA.beat_id, from_beat_name: beatA.beat_name,
-          to_beat_id: beatB.beat_id, to_beat_name: beatB.beat_name,
+          from_beat_id: isUnassigned(beatA) ? null : beatA.beat_id,
+          from_beat_name: beatA.beat_name,
+          to_beat_id: isUnassigned(beatB) ? null : beatB.beat_id,
+          to_beat_name: beatB.beat_name,
           transferred_by: userId,
         })),
         ...movedToA.map((r) => ({
           retailer_id: r.id, retailer_name: r.name,
-          from_beat_id: beatB.beat_id, from_beat_name: beatB.beat_name,
-          to_beat_id: beatA.beat_id, to_beat_name: beatA.beat_name,
+          from_beat_id: isUnassigned(beatB) ? null : beatB.beat_id,
+          from_beat_name: beatB.beat_name,
+          to_beat_id: isUnassigned(beatA) ? null : beatA.beat_id,
+          to_beat_name: beatA.beat_name,
           transferred_by: userId,
         })),
       ];
