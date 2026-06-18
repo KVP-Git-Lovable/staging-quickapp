@@ -39,6 +39,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PaymentDetailsCard } from '@/components/distributor-portal/PaymentDetailsCard';
+import ShippingAddressPicker from '@/components/distributor-portal/ShippingAddressPicker';
+import { formatAddress, hasMinimumAddress } from '@/lib/addressFormat';
+import { useSavedAddresses } from '@/hooks/useSavedAddresses';
+import { useWarehouses } from '@/hooks/useWarehouses';
 
 interface Category {
   id: string;
@@ -109,7 +113,16 @@ const CreatePrimaryOrder = () => {
   const [quantity, setQuantity] = useState(1);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [paymentTerms, setPaymentTerms] = useState<string>('30');
-  const [shippingAddress, setShippingAddress] = useState<string>('');
+  const [shipping, setShipping] = useState<import('@/components/distributor-portal/ShippingAddressPicker').ShippingSelection>({
+    source: 'warehouse',
+    warehouseId: null,
+    savedAddressId: null,
+    custom: { address_line1: '', address_line2: '', city: '', state: '', pincode: '', country: 'India', landmark: '', contact_person: '', contact_phone: '' },
+    customLatitude: null,
+    customLongitude: null,
+    saveCustom: false,
+    customLabel: '',
+  });
   const [showSummaryDetails, setShowSummaryDetails] = useState(false);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -130,6 +143,10 @@ const CreatePrimaryOrder = () => {
   });
 
   const distributorId = localStorage.getItem('distributor_id');
+
+  // Hooks used to resolve the selected shipping address into a snapshot at submit time
+  const { warehouses: allWarehouses } = useWarehouses(distributorId);
+  const { addresses: savedAddresses, create: createSavedAddress } = useSavedAddresses(distributorId);
 
   useEffect(() => {
     if (!distributorId) {
@@ -184,6 +201,21 @@ const CreatePrimaryOrder = () => {
       setExistingOrder(data);
       setExpectedDeliveryDate(data.expected_delivery_date || '');
       setNotes(data.notes || '');
+      // Rehydrate shipping selection
+      const src = (data as any).shipping_address_source as 'warehouse' | 'saved' | 'custom' | null;
+      if (src === 'warehouse' && (data as any).shipping_warehouse_id) {
+        setShipping(s => ({ ...s, source: 'warehouse', warehouseId: (data as any).shipping_warehouse_id }));
+      } else if (src === 'saved' && (data as any).shipping_saved_address_id) {
+        setShipping(s => ({ ...s, source: 'saved', savedAddressId: (data as any).shipping_saved_address_id }));
+      } else if (src === 'custom' && (data as any).shipping_address) {
+        setShipping(s => ({
+          ...s,
+          source: 'custom',
+          custom: { ...s.custom!, address_line1: (data as any).shipping_address, contact_person: (data as any).shipping_contact_person || '', contact_phone: (data as any).shipping_contact_phone || '' },
+          customLatitude: (data as any).shipping_latitude ?? null,
+          customLongitude: (data as any).shipping_longitude ?? null,
+        }));
+      }
       const items: OrderItem[] = (data.primary_order_items || []).map((it: any) => ({
         product_id: it.product_id,
         variant_id: it.variant_id || undefined,
@@ -490,6 +522,92 @@ const CreatePrimaryOrder = () => {
       }
     }
 
+    // Resolve shipping address into a snapshot
+    let shippingSnapshot: {
+      shipping_address: string | null;
+      shipping_address_source: string | null;
+      shipping_warehouse_id: string | null;
+      shipping_saved_address_id: string | null;
+      shipping_latitude: number | null;
+      shipping_longitude: number | null;
+      shipping_contact_person: string | null;
+      shipping_contact_phone: string | null;
+    } = {
+      shipping_address: null, shipping_address_source: null,
+      shipping_warehouse_id: null, shipping_saved_address_id: null,
+      shipping_latitude: null, shipping_longitude: null,
+      shipping_contact_person: null, shipping_contact_phone: null,
+    };
+
+    try {
+      if (shipping.source === 'warehouse' && shipping.warehouseId) {
+        const w = allWarehouses.find(x => x.id === shipping.warehouseId);
+        if (w && w.address_line1) {
+          shippingSnapshot = {
+            shipping_address: w.formatted_address || formatAddress(w),
+            shipping_address_source: 'warehouse',
+            shipping_warehouse_id: w.id,
+            shipping_saved_address_id: null,
+            shipping_latitude: w.latitude,
+            shipping_longitude: w.longitude,
+            shipping_contact_person: w.contact_person,
+            shipping_contact_phone: w.contact_phone,
+          };
+        }
+      } else if (shipping.source === 'saved' && shipping.savedAddressId) {
+        const a = savedAddresses.find(x => x.id === shipping.savedAddressId);
+        if (a) {
+          shippingSnapshot = {
+            shipping_address: a.formatted_address || formatAddress(a),
+            shipping_address_source: 'saved',
+            shipping_warehouse_id: null,
+            shipping_saved_address_id: a.id,
+            shipping_latitude: a.latitude,
+            shipping_longitude: a.longitude,
+            shipping_contact_person: a.contact_person,
+            shipping_contact_phone: a.contact_phone,
+          };
+        }
+      } else if (shipping.source === 'custom' && shipping.custom && hasMinimumAddress(shipping.custom)) {
+        let savedId: string | null = null;
+        if (shipping.saveCustom) {
+          if (!shipping.customLabel?.trim()) {
+            toast.error('Enter a label for the address you want to save');
+            return;
+          }
+          const created = await createSavedAddress({
+            label: shipping.customLabel.trim(),
+            address_line1: shipping.custom.address_line1!.trim(),
+            address_line2: shipping.custom.address_line2 || null,
+            city: shipping.custom.city!.trim(),
+            state: shipping.custom.state || null,
+            pincode: shipping.custom.pincode!.trim(),
+            country: shipping.custom.country || 'India',
+            landmark: shipping.custom.landmark || null,
+            contact_person: shipping.custom.contact_person || null,
+            contact_phone: shipping.custom.contact_phone || null,
+            latitude: shipping.customLatitude ?? null,
+            longitude: shipping.customLongitude ?? null,
+            is_default: false,
+          });
+          savedId = created.id;
+        }
+        shippingSnapshot = {
+          shipping_address: formatAddress(shipping.custom),
+          shipping_address_source: 'custom',
+          shipping_warehouse_id: null,
+          shipping_saved_address_id: savedId,
+          shipping_latitude: shipping.customLatitude ?? null,
+          shipping_longitude: shipping.customLongitude ?? null,
+          shipping_contact_person: shipping.custom.contact_person || null,
+          shipping_contact_phone: shipping.custom.contact_phone || null,
+        };
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save shipping address');
+      return;
+    }
+
     setLoading(true);
     try {
       let orderId = editOrderId as string | undefined;
@@ -517,6 +635,7 @@ const CreatePrimaryOrder = () => {
         advance_amount: payment.advanceAmount || 0,
         payment_proof_url: payment.paymentProofUrl,
         credit_snapshot: submit ? creditSnapshot : null,
+        ...shippingSnapshot,
       };
 
       if (isEditMode && orderId) {
@@ -1196,28 +1315,13 @@ const CreatePrimaryOrder = () => {
 
                   {/* Right column */}
                   <div className="space-y-4">
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        Shipping Address <span className="text-muted-foreground/70">(Optional)</span>
-                      </Label>
-                      {/* TODO: persist shipping_address_id to primary_orders once column is wired */}
-                      <Select value={shippingAddress} onValueChange={setShippingAddress}>
-                        <SelectTrigger className="mt-1.5">
-                          <SelectValue placeholder="Select shipping address" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="default">Default Address</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      className="w-full border border-dashed text-primary hover:bg-primary/5"
-                      onClick={() => toast.info('Address management coming soon')}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add New Address
-                    </Button>
+                    {distributorId && (
+                      <ShippingAddressPicker
+                        distributorId={distributorId}
+                        value={shipping}
+                        onChange={setShipping}
+                      />
+                    )}
                   </div>
                 </div>
               </CardContent>
