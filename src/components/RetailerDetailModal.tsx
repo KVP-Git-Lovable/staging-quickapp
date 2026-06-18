@@ -30,6 +30,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isTod
 import { RetailerLoyaltySection } from "./loyalty/RetailerLoyaltySection";
 import { TargetVsActualCard } from "./performance/TargetVsActualCard";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
+import { CreditHistorySection } from "./CreditHistorySection";
 import { RetailerCustomerPortalSection } from "./retailer/RetailerCustomerPortalSection";
 
 
@@ -1043,6 +1044,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 variant="full" 
                 showCreditLimit 
               />
+              <CreditHistorySection retailerId={formData.id} />
             </TabsContent>
 
             {/* Calendar Tab */}
