@@ -50,6 +50,8 @@ export const InvoiceSelectionModal = ({
         return <Mail className="h-4 w-4 text-blue-600" />;
       case 'sms':
         return <MessageSquare className="h-4 w-4 text-orange-600" />;
+      case 'view':
+        return <Eye className="h-4 w-4" />;
     }
   };
 
@@ -63,6 +65,8 @@ export const InvoiceSelectionModal = ({
         return 'Share via Email';
       case 'sms':
         return 'Share via SMS';
+      case 'view':
+        return 'View Invoice';
     }
   };
 
@@ -76,6 +80,8 @@ export const InvoiceSelectionModal = ({
         return 'Send via Email';
       case 'sms':
         return 'Send via SMS';
+      case 'view':
+        return 'View Selected';
     }
   };
 
