@@ -685,7 +685,15 @@ const CreatePrimaryOrder = () => {
       const { error: itemsError } = await supabase
         .from('primary_order_items')
         .insert(itemsToInsert);
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        // Roll back the just-created header so we don't leave an item-less
+        // primary order that breaks the Packing List Review & Approve modal.
+        if (!isEditMode && orderId) {
+          await supabase.from('primary_orders').delete().eq('id', orderId);
+        }
+        console.error('primary_order_items insert failed:', itemsError);
+        throw itemsError;
+      }
 
       toast.success(
         isEditMode
