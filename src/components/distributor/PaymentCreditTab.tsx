@@ -220,7 +220,16 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
               <Label>Default Payment Term</Label>
               <Select
                 value={config.default_payment_term}
-                onValueChange={(v) => update("default_payment_term", v as PaymentTerm)}
+                onValueChange={(v) => {
+                  const term = v as PaymentTerm;
+                  setConfig((prev) => ({
+                    ...prev,
+                    default_payment_term: term,
+                    allowed_payment_terms: prev.allowed_payment_terms.includes(term)
+                      ? prev.allowed_payment_terms
+                      : [...prev.allowed_payment_terms, term],
+                  }));
+                }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -230,6 +239,7 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
                 </SelectContent>
               </Select>
             </div>
+
             <div>
               <Label>Default Payment Mode</Label>
               <Select
