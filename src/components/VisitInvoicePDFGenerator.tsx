@@ -338,6 +338,17 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
         onSelectAll={actionType === 'download' ? generateAllPDFs : undefined}
         isLoading={loading || sendingWhatsApp || sendingEmail || sendingSMS}
       />
+
+      {/* Invoice Preview Dialog (controlled) */}
+      {previewOrder && (
+        <InvoicePreviewDialog
+          orderId={previewOrder.id}
+          invoiceNumber={previewOrder.invoice_number}
+          open={!!previewOrder}
+          onOpenChange={(o) => { if (!o) setPreviewOrder(null); }}
+          hideTrigger
+        />
+      )}
     </>
   );
 };
