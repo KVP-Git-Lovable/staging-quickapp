@@ -182,19 +182,17 @@ export const PaymentMarkingModal = ({
         proofUrl = await uploadPaymentProof();
       }
 
-      const newPendingAmount = currentPendingAmount - amount;
-      
-      const { error } = await supabase
-        .from("retailers")
-        .update({ pending_amount: newPendingAmount })
-        .eq("id", retailerId);
+      const { newPendingAmount, allocatedCount } = await recordCollectionAndAllocate(
+        amount,
+        proofUrl
+      );
 
-      if (error) throw error;
-
-      await recordCollection(amount, proofUrl);
-
-      toast.success(`Payment of ₹${amount.toLocaleString()} marked successfully!`);
-      onPaymentMarked(newPendingAmount); // Pass the new pending amount
+      toast.success(
+        `Payment of ₹${amount.toLocaleString()} marked${
+          allocatedCount > 0 ? `. Settled ${allocatedCount} order(s).` : ""
+        }`
+      );
+      onPaymentMarked(newPendingAmount);
       onOpenChange(false);
       resetForm();
     } catch (error) {
