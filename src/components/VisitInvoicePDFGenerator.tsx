@@ -215,6 +215,23 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
     }
   };
 
+  const openPreviewForOrder = (order: OrderForInvoice) => {
+    setPreviewOrder(order);
+  };
+
+  const handleViewClick = () => {
+    if (orders.length === 0) {
+      toast.error("No orders to view");
+      return;
+    }
+    if (orders.length === 1) {
+      openPreviewForOrder(orders[0]);
+    } else {
+      setActionType('view');
+      setShowSelectionModal(true);
+    }
+  };
+
   const handleModalSelect = (orderId: string) => {
     switch (actionType) {
       case 'download':
@@ -229,6 +246,14 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
       case 'sms':
         sendViaSMS();
         break;
+      case 'view': {
+        const o = orders.find(x => x.id === orderId);
+        if (o) {
+          setShowSelectionModal(false);
+          openPreviewForOrder(o);
+        }
+        break;
+      }
     }
   };
 
