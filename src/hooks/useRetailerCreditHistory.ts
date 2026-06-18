@@ -12,6 +12,13 @@ export interface CreditOrder {
   credit_pending_amount: number;
   payment_status: string | null;
   created_at: string;
+  /** Amount that was actually placed on credit when the order was created
+   *  (excludes any cash/UPI/etc. paid at the cart). */
+  original_credit_amount: number;
+  /** Sum of collections (Mark Payment Received) applied to this order after creation. */
+  collected_after_order: number;
+  /** Amount paid at the cart at order-creation time (credit_paid_amount minus collected_after_order). */
+  paid_at_order_time: number;
 }
 
 export interface CollectionRow {
