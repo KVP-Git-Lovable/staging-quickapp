@@ -293,6 +293,9 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
                 );
               })}
             </div>
+          </div>
+
+
 
           <div className="flex items-center justify-between">
             <Label htmlFor="req_adv">Require Advance Payment</Label>
