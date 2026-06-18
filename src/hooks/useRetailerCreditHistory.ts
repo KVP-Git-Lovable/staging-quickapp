@@ -159,4 +159,28 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         const cur = lastAppliedByOrder.get(a.order_id);
         if (!cur || a.applied_at > cur) lastAppliedByOrder.set(a.order_id, a.applied_at);
       });
+      const days: number[] = [];
+      orders.forEach((o) => {
+        if (o.payment_status === "paid" && o.order_date) {
+          const last = lastAppliedByOrder.get(o.id);
+          if (last) {
+            const d =
+              (new Date(last).getTime() - new Date(o.order_date).getTime()) /
+              (1000 * 60 * 60 * 24);
+            if (d >= 0) days.push(d);
+          }
+        }
+      });
+      const avgDaysToClear =
+        days.length > 0 ? Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10 : null;
+
+      return {
+        kpis: { totalCreditTaken, totalCleared, currentPending, avgDaysToClear },
+        orders,
+        collections,
+        allocations,
+      };
+    },
+  });
 }
+
