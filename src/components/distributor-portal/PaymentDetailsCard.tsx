@@ -152,16 +152,17 @@ export function PaymentDetailsCard({
             <Select
               value={value.paymentTerm}
               onValueChange={(v) => set("paymentTerm", v as PaymentTerm)}
-              disabled={readOnly}
+              disabled={readOnly && !termSelectable}
             >
               <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(TERM_LABELS).map(([k, l]) => (
-                  <SelectItem key={k} value={k}>{l}</SelectItem>
+                {termOptions.map((k) => (
+                  <SelectItem key={k} value={k}>{TERM_LABELS[k]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
           <div>
             <Label className="text-xs font-medium text-muted-foreground">Payment Mode</Label>
             <Select
