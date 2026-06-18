@@ -1210,6 +1210,7 @@ const CreatePrimaryOrder = () => {
               canOverride={false}
               distributorId={distributorId || ''}
               allowedModes={paymentConfig?.allowed_payment_modes ?? undefined}
+              allowedTerms={paymentConfig?.allowed_payment_terms ?? undefined}
             />
 
           </div>
