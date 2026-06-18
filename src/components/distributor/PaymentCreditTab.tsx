@@ -304,7 +304,9 @@ export function PaymentCreditTab({ distributorId }: { distributorId: string }) {
                   </label>
                 );
               })}
+            </div>
           </div>
+
           <div>
             <Label>Allowed Payment Terms</Label>
             <p className="text-xs text-muted-foreground mb-2">
