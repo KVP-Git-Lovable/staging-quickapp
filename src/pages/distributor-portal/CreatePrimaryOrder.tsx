@@ -1205,28 +1205,13 @@ const CreatePrimaryOrder = () => {
 
                   {/* Right column */}
                   <div className="space-y-4">
-                    <div>
-                      <Label className="text-xs font-medium text-muted-foreground">
-                        Shipping Address <span className="text-muted-foreground/70">(Optional)</span>
-                      </Label>
-                      {/* TODO: persist shipping_address_id to primary_orders once column is wired */}
-                      <Select value={shippingAddress} onValueChange={setShippingAddress}>
-                        <SelectTrigger className="mt-1.5">
-                          <SelectValue placeholder="Select shipping address" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="default">Default Address</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      className="w-full border border-dashed text-primary hover:bg-primary/5"
-                      onClick={() => toast.info('Address management coming soon')}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add New Address
-                    </Button>
+                    {distributorId && (
+                      <ShippingAddressPicker
+                        distributorId={distributorId}
+                        value={shipping}
+                        onChange={setShipping}
+                      />
+                    )}
                   </div>
                 </div>
               </CardContent>
