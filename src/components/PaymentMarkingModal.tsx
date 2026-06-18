@@ -136,10 +136,17 @@ export const PaymentMarkingModal = ({
 
       if (error) throw error;
 
-      await recordCollection(currentPendingAmount, proofUrl);
+      const { newPendingAmount, allocatedCount } = await recordCollectionAndAllocate(
+        currentPendingAmount,
+        proofUrl
+      );
 
-      toast.success("Full payment marked successfully!");
-      onPaymentMarked(0); // Full payment means 0 pending
+      toast.success(
+        allocatedCount > 0
+          ? `Payment marked. Settled ${allocatedCount} order(s).`
+          : "Full payment marked successfully!"
+      );
+      onPaymentMarked(newPendingAmount);
       onOpenChange(false);
       resetForm();
     } catch (error) {
