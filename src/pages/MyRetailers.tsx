@@ -454,21 +454,29 @@ export const MyRetailers = () => {
     hasPrevPage,
   } = usePagination(filtered, { pageSize: 10 });
 
+  // Helper: a stored value like "beat_1781174542723_t9guh0881" is a raw beat_id slug, not a real name
+  const isBeatSlug = (s?: string | null) => !!s && /^beat_\d+_[a-z0-9]+$/i.test(s);
+  const formatBeatName = (r: { beat_name?: string | null; beat_id?: string | null }) => {
+    if (r.beat_name && !isBeatSlug(r.beat_name)) return r.beat_name;
+    if (r.beat_id && !isBeatSlug(r.beat_id) && r.beat_id !== 'unassigned' && r.beat_id.trim() !== '') {
+      return r.beat_id;
+    }
+    return 'Unassigned';
+  };
+
   const beats = useMemo(() => {
-    // Create a map of beat_id -> beat_name from all retailers
+    // Create a map of beat_id -> beat_name from all retailers (real names only)
     const beatMap = new Map<string, string>();
     retailers.forEach(r => {
-      if (r.beat_id) {
-        // Prioritize beat_name if available, otherwise use beat_id as fallback
-        const currentName = beatMap.get(r.beat_id);
-        const newName = r.beat_name || r.beat_id;
-        // Prefer actual names over beat_id-style strings
-        if (!currentName || (currentName.startsWith('beat_') && !newName.startsWith('beat_'))) {
-          beatMap.set(r.beat_id, newName);
-        }
+      if (!r.beat_id) return;
+      const newName = r.beat_name && !isBeatSlug(r.beat_name) ? r.beat_name : null;
+      if (!newName) return;
+      const currentName = beatMap.get(r.beat_id);
+      if (!currentName || isBeatSlug(currentName)) {
+        beatMap.set(r.beat_id, newName);
       }
     });
-    
+
     // Convert to array of objects sorted by display name
     return Array.from(beatMap.entries())
       .map(([beat_id, beat_name]) => ({ beat_id, beat_name }))
@@ -1028,7 +1036,7 @@ export const MyRetailers = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">Beat:</span>
-                        <span>{r.beat_name || r.beat_id}</span>
+                        <span>{formatBeatName(r)}</span>
                       </div>
                       {selectedUserIds.length > 1 && r.owner_name && (
                         <div className="flex items-center gap-2">
@@ -1115,7 +1123,7 @@ export const MyRetailers = () => {
                     const shortAddress = r.address.length > 30 ? r.address.substring(0, 30) + '...' : r.address;
                     const isAddressExpanded = expandedAddress === r.id;
                     
-                    const beatDisplay = r.beat_name || r.beat_id;
+                    const beatDisplay = formatBeatName(r);
                     const shortBeat = beatDisplay && beatDisplay.length > 15 ? beatDisplay.substring(0, 15) + '...' : beatDisplay;
                     const isBeatExpanded = expandedBeat === r.id;
                     
