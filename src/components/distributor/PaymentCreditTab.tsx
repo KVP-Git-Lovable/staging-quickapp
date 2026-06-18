@@ -25,6 +25,7 @@ interface ConfigRow {
   approval_required_beyond_limit: boolean;
   default_payment_term: PaymentTerm;
   default_payment_mode: PaymentMode;
+  allowed_payment_modes: PaymentMode[];
   require_advance_payment: boolean;
   advance_payment_pct: number;
   require_payment_proof: boolean;
@@ -33,6 +34,7 @@ interface ConfigRow {
   max_overdue_days: number | null;
   approval_required_high_risk: boolean;
 }
+
 
 interface Snapshot {
   credit_limit: number;
