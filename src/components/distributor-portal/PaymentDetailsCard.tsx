@@ -49,7 +49,9 @@ interface Props {
   requireProof: boolean;
   canOverride?: boolean;
   distributorId: string;
+  allowedModes?: PaymentMode[];
 }
+
 
 const PROOF_BUCKET = "order-payment-proofs";
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -63,8 +65,14 @@ export function PaymentDetailsCard({
   requireProof,
   canOverride = false,
   distributorId,
+  allowedModes,
 }: Props) {
   const [override, setOverride] = useState(false);
+  const modeOptions = (allowedModes && allowedModes.length > 0
+    ? allowedModes
+    : (Object.keys(MODE_LABELS) as PaymentMode[]));
+  const modeSelectable = modeOptions.length > 1;
+
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -151,16 +159,17 @@ export function PaymentDetailsCard({
             <Select
               value={value.paymentMode}
               onValueChange={(v) => set("paymentMode", v as PaymentMode)}
-              disabled={readOnly}
+              disabled={readOnly && !modeSelectable}
             >
               <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(MODE_LABELS).map(([k, l]) => (
-                  <SelectItem key={k} value={k}>{l}</SelectItem>
+                {modeOptions.map((k) => (
+                  <SelectItem key={k} value={k}>{MODE_LABELS[k]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
         </div>
 
         {showAdvance && (

@@ -1209,7 +1209,9 @@ const CreatePrimaryOrder = () => {
               requireProof={!!paymentConfig?.require_payment_proof || payment.paymentTerm === 'advance'}
               canOverride={false}
               distributorId={distributorId || ''}
+              allowedModes={paymentConfig?.allowed_payment_modes ?? undefined}
             />
+
           </div>
 
           {/* RIGHT sticky panel */}
