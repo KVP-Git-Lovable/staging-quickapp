@@ -5171,6 +5171,7 @@ export type Database = {
         Row: {
           advance_payment_pct: number
           allow_orders_beyond_limit: boolean
+          allowed_payment_modes: string[]
           approval_required_beyond_limit: boolean
           approval_required_high_risk: boolean
           created_at: string
@@ -5192,6 +5193,7 @@ export type Database = {
         Insert: {
           advance_payment_pct?: number
           allow_orders_beyond_limit?: boolean
+          allowed_payment_modes?: string[]
           approval_required_beyond_limit?: boolean
           approval_required_high_risk?: boolean
           created_at?: string
@@ -5213,6 +5215,7 @@ export type Database = {
         Update: {
           advance_payment_pct?: number
           allow_orders_beyond_limit?: boolean
+          allowed_payment_modes?: string[]
           approval_required_beyond_limit?: boolean
           approval_required_high_risk?: boolean
           created_at?: string
