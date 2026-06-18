@@ -129,13 +129,6 @@ export const PaymentMarkingModal = ({
         proofUrl = await uploadPaymentProof();
       }
 
-      const { error } = await supabase
-        .from("retailers")
-        .update({ pending_amount: 0 })
-        .eq("id", retailerId);
-
-      if (error) throw error;
-
       const { newPendingAmount, allocatedCount } = await recordCollectionAndAllocate(
         currentPendingAmount,
         proofUrl
