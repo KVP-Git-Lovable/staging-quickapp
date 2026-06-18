@@ -3614,13 +3614,6 @@ export const VisitCard = ({
         window.dispatchEvent(new CustomEvent('visitStatusChanged'));
       }} />
 
-        {/* Retailer Credit History Drawer */}
-        <RetailerCreditHistoryDrawer
-          open={showCreditHistory}
-          onOpenChange={setShowCreditHistory}
-          retailerId={(visit.retailerId || visit.id) as string}
-          retailerName={visit.retailerName}
-        />
 
         {/* Van Sales Modal */}
         {showVanSales && <VanSalesModal open={showVanSales} onOpenChange={setShowVanSales} retailerId={(visit.retailerId || visit.id) as string} visitId={currentVisitId || visit.id} />}
