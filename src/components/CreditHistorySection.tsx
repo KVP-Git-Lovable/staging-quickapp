@@ -160,12 +160,12 @@ export function CreditHistorySection({ retailerId }: Props) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <KpiTile
           icon={<IndianRupee className="w-3 h-3" />}
-          label="Credit taken (range)"
+          label="On credit (range)"
           value={fmtINR(filteredKpis.totalCreditTaken)}
         />
         <KpiTile
           icon={<TrendingDown className="w-3 h-3" />}
-          label="Collected (range)"
+          label="Collected after order (range)"
           value={fmtINR(filteredKpis.totalCleared)}
           tone="success"
         />
