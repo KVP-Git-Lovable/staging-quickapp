@@ -3799,6 +3799,42 @@ export type Database = {
           },
         ]
       }
+      deleted_records_audit: {
+        Row: {
+          app_context: string | null
+          delete_reason: string | null
+          deleted_at: string
+          deleted_by: string | null
+          deleted_by_name: string | null
+          id: string
+          record_data: Json | null
+          record_id: string
+          table_name: string
+        }
+        Insert: {
+          app_context?: string | null
+          delete_reason?: string | null
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          id?: string
+          record_data?: Json | null
+          record_id: string
+          table_name: string
+        }
+        Update: {
+          app_context?: string | null
+          delete_reason?: string | null
+          deleted_at?: string
+          deleted_by?: string | null
+          deleted_by_name?: string | null
+          id?: string
+          record_data?: Json | null
+          record_id?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       delivery_exceptions: {
         Row: {
           created_at: string
@@ -21683,6 +21719,24 @@ export type Database = {
         }[]
       }
       get_database_metrics: { Args: never; Returns: Json }
+      get_deleted_records: {
+        Args: {
+          p_deleted_by?: string
+          p_limit?: number
+          p_since?: string
+          p_table_name?: string
+        }
+        Returns: {
+          delete_reason: string
+          deleted_at: string
+          deleted_by: string
+          deleted_by_name: string
+          id: string
+          record_data: Json
+          record_id: string
+          table_name: string
+        }[]
+      }
       get_direct_reports: {
         Args: { manager_user_id: string }
         Returns: {
