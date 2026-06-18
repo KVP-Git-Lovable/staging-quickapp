@@ -730,9 +730,10 @@ const CreatePrimaryOrder = () => {
               <CardHeader className="p-5 pb-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <CardTitle className="text-base flex items-center gap-2.5">
-                    <span className="w-7 h-7 rounded-md bg-muted/60 grid place-items-center">
-                      <ShoppingBag className="w-4 h-4 text-foreground/70" />
+                    <span className="w-7 h-7 rounded-md bg-primary/10 grid place-items-center ring-1 ring-inset ring-primary/20">
+                      <ShoppingBag className="w-4 h-4 text-primary" />
                     </span>
+
                     Add Products
                   </CardTitle>
                   <div className="flex items-center gap-2">
