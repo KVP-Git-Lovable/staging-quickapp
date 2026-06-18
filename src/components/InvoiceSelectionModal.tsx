@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Download, MessageCircle, Mail, MessageSquare, FileText, Loader2 } from "lucide-react";
+import { Download, MessageCircle, Mail, MessageSquare, FileText, Loader2, Eye } from "lucide-react";
 import { format } from "date-fns";
 
 export interface OrderForInvoice {
@@ -23,7 +23,7 @@ interface InvoiceSelectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orders: OrderForInvoice[];
-  actionType: 'download' | 'whatsapp' | 'email' | 'sms';
+  actionType: 'download' | 'whatsapp' | 'email' | 'sms' | 'view';
   onSelectOrder: (orderId: string) => void;
   onSelectAll?: () => void;
   isLoading?: boolean;
@@ -50,6 +50,8 @@ export const InvoiceSelectionModal = ({
         return <Mail className="h-4 w-4 text-blue-600" />;
       case 'sms':
         return <MessageSquare className="h-4 w-4 text-orange-600" />;
+      case 'view':
+        return <Eye className="h-4 w-4" />;
     }
   };
 
@@ -63,6 +65,8 @@ export const InvoiceSelectionModal = ({
         return 'Share via Email';
       case 'sms':
         return 'Share via SMS';
+      case 'view':
+        return 'View Invoice';
     }
   };
 
@@ -76,6 +80,8 @@ export const InvoiceSelectionModal = ({
         return 'Send via Email';
       case 'sms':
         return 'Send via SMS';
+      case 'view':
+        return 'View Selected';
     }
   };
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, MessageSquare, Mail } from "lucide-react";
+import { Download, MessageSquare, Mail, Eye } from "lucide-react";
 import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { autoSendInvoiceWhatsApp } from "@/utils/autoSendInvoice";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { downloadPDF } from "@/utils/fileDownloader";
+import { InvoicePreviewDialog } from "@/components/invoice/InvoicePreviewDialog";
 
 import { InvoiceSelectionModal, OrderForInvoice } from "./InvoiceSelectionModal";
 
@@ -24,7 +25,8 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingSMS, setSendingSMS] = useState(false);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
-  const [actionType, setActionType] = useState<'download' | 'whatsapp' | 'email' | 'sms'>('download');
+  const [actionType, setActionType] = useState<'download' | 'whatsapp' | 'email' | 'sms' | 'view'>('download');
+  const [previewOrder, setPreviewOrder] = useState<OrderForInvoice | null>(null);
   const connectivityStatus = useConnectivity();
 
   const generatePDFForOrder = async (orderId: string) => {
@@ -213,6 +215,23 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
     }
   };
 
+  const openPreviewForOrder = (order: OrderForInvoice) => {
+    setPreviewOrder(order);
+  };
+
+  const handleViewClick = () => {
+    if (orders.length === 0) {
+      toast.error("No orders to view");
+      return;
+    }
+    if (orders.length === 1) {
+      openPreviewForOrder(orders[0]);
+    } else {
+      setActionType('view');
+      setShowSelectionModal(true);
+    }
+  };
+
   const handleModalSelect = (orderId: string) => {
     switch (actionType) {
       case 'download':
@@ -227,6 +246,14 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
       case 'sms':
         sendViaSMS();
         break;
+      case 'view': {
+        const o = orders.find(x => x.id === orderId);
+        if (o) {
+          setShowSelectionModal(false);
+          openPreviewForOrder(o);
+        }
+        break;
+      }
     }
   };
 
@@ -237,6 +264,18 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
   return (
     <>
       <div className="flex items-center justify-between gap-4">
+        {/* View Invoice Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={loading || sendingWhatsApp || sendingEmail || sendingSMS}
+          onClick={handleViewClick}
+          className="flex-1"
+        >
+          <Eye className="mr-2 h-4 w-4" />
+          {orders.length > 1 ? `View (${orders.length})` : "View"}
+        </Button>
+
         {/* Invoice Download Button */}
         <Button
           variant="outline"
@@ -299,6 +338,17 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
         onSelectAll={actionType === 'download' ? generateAllPDFs : undefined}
         isLoading={loading || sendingWhatsApp || sendingEmail || sendingSMS}
       />
+
+      {/* Invoice Preview Dialog (controlled) */}
+      {previewOrder && (
+        <InvoicePreviewDialog
+          orderId={previewOrder.id}
+          invoiceNumber={previewOrder.invoice_number}
+          open={!!previewOrder}
+          onOpenChange={(o) => { if (!o) setPreviewOrder(null); }}
+          hideTrigger
+        />
+      )}
     </>
   );
 };

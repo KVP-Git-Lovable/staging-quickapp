@@ -78,6 +78,11 @@ interface InvoicePreviewDialogProps {
   triggerLabel?: string;
   iconOnly?: boolean;
   className?: string;
+  /** Controlled open state. When provided, the built-in trigger button is hidden. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Hide the built-in trigger button (use with controlled `open`). */
+  hideTrigger?: boolean;
 }
 
 /**
@@ -90,8 +95,17 @@ export const InvoicePreviewDialog = ({
   triggerLabel = "View Invoice",
   iconOnly = false,
   className,
+  open: openProp,
+  onOpenChange,
+  hideTrigger,
 }: InvoicePreviewDialogProps) => {
-  const [open, setOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? !!openProp : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (!isControlled) setInternalOpen(v);
+    onOpenChange?.(v);
+  };
   const [loading, setLoading] = useState(false);
   const [resolvedNumber, setResolvedNumber] = useState<string | null>(invoiceNumber || null);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
@@ -167,17 +181,19 @@ export const InvoicePreviewDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size={iconOnly ? "icon" : "sm"}
-          title={triggerLabel}
-          className={cn(iconOnly && "h-8 w-8 p-0", className)}
-        >
-          <Eye className={cn("h-4 w-4", !iconOnly && "mr-2")} />
-          {!iconOnly && triggerLabel}
-        </Button>
-      </DialogTrigger>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size={iconOnly ? "icon" : "sm"}
+            title={triggerLabel}
+            className={cn(iconOnly && "h-8 w-8 p-0", className)}
+          >
+            <Eye className={cn("h-4 w-4", !iconOnly && "mr-2")} />
+            {!iconOnly && triggerLabel}
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-5xl max-h-[92vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-5 py-3 border-b flex flex-row items-center justify-between gap-2 space-y-0">
           <DialogTitle className="flex items-center gap-2 text-base">
