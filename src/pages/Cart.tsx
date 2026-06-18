@@ -1691,14 +1691,11 @@ export const Cart = () => {
         }
       });
 
-      // Update retailer's pending_amount
+      // Update retailer's last_order_date only (pending_amount handled by sync_order_with_items_v2)
       if (validRetailerId && !result.offline) {
         await supabase
           .from('retailers')
-          .update({ 
-            pending_amount: newTotalPending,
-            last_order_date: new Date().toISOString().split('T')[0]
-          })
+          .update({ last_order_date: new Date().toISOString().split('T')[0] })
           .eq('id', validRetailerId);
       }
 
