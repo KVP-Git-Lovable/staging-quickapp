@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, MessageSquare, Mail } from "lucide-react";
+import { Download, MessageSquare, Mail, Eye } from "lucide-react";
 import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { autoSendInvoiceWhatsApp } from "@/utils/autoSendInvoice";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { downloadPDF } from "@/utils/fileDownloader";
+import { InvoicePreviewDialog } from "@/components/invoice/InvoicePreviewDialog";
 
 import { InvoiceSelectionModal, OrderForInvoice } from "./InvoiceSelectionModal";
 
@@ -24,7 +25,8 @@ export const VisitInvoicePDFGenerator = ({ orders, customerPhone, className }: V
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendingSMS, setSendingSMS] = useState(false);
   const [showSelectionModal, setShowSelectionModal] = useState(false);
-  const [actionType, setActionType] = useState<'download' | 'whatsapp' | 'email' | 'sms'>('download');
+  const [actionType, setActionType] = useState<'download' | 'whatsapp' | 'email' | 'sms' | 'view'>('download');
+  const [previewOrder, setPreviewOrder] = useState<OrderForInvoice | null>(null);
   const connectivityStatus = useConnectivity();
 
   const generatePDFForOrder = async (orderId: string) => {
