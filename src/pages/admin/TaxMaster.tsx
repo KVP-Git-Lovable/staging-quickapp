@@ -98,7 +98,7 @@ const TaxMaster = () => {
       const { data: masters, error } = await supabase
         .from('tax_masters')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('total_rate', { ascending: true });
       if (error) throw error;
 
       // Load components for each
@@ -107,8 +107,19 @@ const TaxMaster = () => {
         ? await supabase.from('tax_components').select('*').in('tax_master_id', ids)
         : { data: [] };
 
+      // Count ALL products per slab (not filtered by is_active — products.is_active
+      // is false for most products; that is a price-book active flag, not tax relevance)
+      const { data: prodCounts } = ids.length > 0
+        ? await supabase.from('products').select('tax_master_id').in('tax_master_id', ids)
+        : { data: [] };
+      const countMap: Record<string, number> = {};
+      (prodCounts || []).forEach((p: any) => {
+        if (p.tax_master_id) countMap[p.tax_master_id] = (countMap[p.tax_master_id] || 0) + 1;
+      });
+
       const result: TaxMasterRecord[] = (masters || []).map(m => ({
         ...m,
+        product_count: countMap[m.id] || 0,
         components: (comps || []).filter(c => c.tax_master_id === m.id).map(c => ({
           component_type: c.component_type as TaxComponent['component_type'],
           percentage: c.percentage,
@@ -294,10 +305,11 @@ const TaxMaster = () => {
       setCategories(cats || []);
 
       // Load all variants with product + category info
+      // products.is_active=false for most products in this DB — it is a price-book flag,
+      // not a tax-eligibility flag. Show all variants so admins can assign tax slabs.
       const { data: allVariants } = await supabase
         .from('product_variants')
         .select('id, variant_name, sku, price, product_id, products!inner(name, category_id, product_categories(name))')
-        .eq('is_active', true)
         .order('sku');
 
       // Load existing mappings
@@ -664,3 +676,4 @@ const TaxMaster = () => {
 };
 
 export default TaxMaster;
+
