@@ -18,6 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePackingList, PackingList } from '@/hooks/usePackingList';
 import StatusTimeline from './StatusTimeline';
 import CancelReasonDialog from './CancelReasonDialog';
+import { BarcodeScannerDialog } from './BarcodeScannerDialog';
 import { useToast } from '@/hooks/use-toast';
 
 const SHORT_PICK_REASONS = [
@@ -65,6 +66,10 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
   const [activeStage, setActiveStage] = useState<'picking' | 'packing'>(
     packingList.status === 'packed' ? 'packing' : 'picking'
   );
+
+  // Barcode scan dialog state
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [scanTargetRow, setScanTargetRow]   = useState<BatchRow | null>(null);
 
   // Packing confirmation dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -173,11 +178,25 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
     if (res.success) updateRow(row.id, { packed_qty: clamped });
   };
 
-  const handleScan = async (row: BatchRow) => {
+  // Open the barcode scanner dialog for a specific batch row
+  const openScanDialog = (row: BatchRow) => {
+    setScanTargetRow(row);
+    setScanDialogOpen(true);
+  };
+
+  // Called by BarcodeScannerDialog when scan is verified
+  const handleScanSuccess = async (scannedCode: string) => {
+    if (!scanTargetRow) return;
+    const row = scanTargetRow;
+    // Set packed_qty = picked_qty
     await handlePackedChange(row, Number(row.picked_qty));
+    // Stamp scanned_at on the batch
     await supabase.from('packing_list_item_batches' as any)
       .update({ scanned_at: new Date().toISOString() } as any)
       .eq('id', row.id);
+    updateRow(row.id, { packed_qty: Number(row.picked_qty) });
+    toast({ title: 'Batch verified ✓', description: `${row.batch_number || scannedCode} confirmed` });
+    setScanTargetRow(null);
   };
 
   const handleScanAllPack = async () => {
@@ -518,7 +537,7 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
                           <td className="p-2 text-center">
                             {!isPacked && (
                               <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
-                                onClick={() => handleScan(row)} disabled={savingId === row.id}>
+                                onClick={() => openScanDialog(row)} disabled={savingId === row.id}>
                                 <ScanBarcode className="h-3.5 w-3.5" /> Scan
                               </Button>
                             )}
@@ -614,6 +633,16 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
       </Dialog>
 
       <CancelReasonDialog open={showCancel} onOpenChange={setShowCancel} onConfirm={handleCancel} />
+
+      {/* Barcode scanner dialog — camera (Option 1) + manual/BT (Option 2) */}
+      <BarcodeScannerDialog
+        open={scanDialogOpen}
+        onOpenChange={(v) => { setScanDialogOpen(v); if (!v) setScanTargetRow(null); }}
+        expectedCode={scanTargetRow?.batch_number ?? null}
+        productName={scanTargetRow?.product_name}
+        onSuccess={handleScanSuccess}
+        allowMismatch={false}
+      />
     </div>
   );
 }
@@ -628,3 +657,4 @@ function StatCard({ label, value, accent }: { label: string; value: number; acce
     </Card>
   );
 }
+
