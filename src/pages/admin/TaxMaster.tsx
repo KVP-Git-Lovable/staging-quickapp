@@ -33,6 +33,7 @@ interface TaxMasterRecord {
   version: number;
   effective_from: string | null;
   effective_to: string | null;
+  product_count?: number;
   created_at: string;
   components: TaxComponent[];
 }
@@ -427,6 +428,12 @@ const TaxMaster = () => {
                             </Badge>
                             <Badge variant="outline" className="text-xs">{tax.tax_type}</Badge>
                             {tax.version > 1 && <Badge variant="outline" className="text-xs">v{tax.version}</Badge>}
+                            {tax.product_count !== undefined && (
+                              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 font-medium">
+                                <Package className="h-3 w-3" />
+                                {tax.product_count.toLocaleString()} {tax.product_count === 1 ? 'product' : 'products'}
+                              </span>
+                            )}
                           </div>
                           {tax.description && <p className="text-sm text-muted-foreground mt-1">{tax.description}</p>}
                           <div className="flex flex-wrap gap-2 mt-2">
