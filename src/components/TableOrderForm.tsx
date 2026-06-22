@@ -472,7 +472,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         const existingRaw = localStorage.getItem(tableFormStorageKey);
         const existing = existingRaw ? JSON.parse(existingRaw) : null;
         const hasRows = Array.isArray(existing) && existing.some((r: any) => r && r.product && r.product.id);
-        if (hasRows) return;
+        if (hasRows) {
+          if (!cancelled) setEditSeedApplied(true);
+          return;
+        }
 
         const { data: items, error } = await supabase
           .from('order_items')
@@ -508,6 +511,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         if (!cancelled) {
           localStorage.setItem(tableFormStorageKey, JSON.stringify(seeded));
           setOrderRows(seeded);
+          syncRowsToCart(seeded);
+          setEditSeedApplied(true);
           console.log('[TableOrderForm][edit] Seeded', seeded.length, 'rows from original order_items');
         }
       } catch (e) {
@@ -523,6 +528,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
   useEffect(() => {
     if (products.length === 0 || hasInitialized) return; // Wait for products to load, only run once
+    if (isEditMode && !editSeedApplied) return; // Let edit seed become authoritative before re-linking
     
     const savedData = localStorage.getItem(tableFormStorageKey);
     if (savedData) {
@@ -561,7 +567,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       }
     }
     setHasInitialized(true);
-  }, [tableFormStorageKey, products.length, hasInitialized]);
+  }, [tableFormStorageKey, products.length, hasInitialized, isEditMode, editSeedApplied]);
 
   // Save table form data whenever orderRows change (but only after initialization)
   useEffect(() => {
