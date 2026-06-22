@@ -584,7 +584,9 @@ export const OrderEntry = () => {
   }, [retailerLat, retailerLng, locationStatus, distance]);
   
   // Use visitId and retailerId from URL params consistently
-  const activeStorageKey = validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
+  const activeStorageKey = isEditMode
+    ? `order_cart:edit:${editOrderId}`
+    : (validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback');
 
   // NOTE: Avoid logging in render path to keep Order Entry fast on slow devices/networks
 
