@@ -104,7 +104,7 @@ export async function applyInvoiceWatermark(
     }
 
     const out = await pdf.save();
-    return new Blob([out], { type: "application/pdf" });
+    return new Blob([out as BlobPart], { type: "application/pdf" });
   } catch (e) {
     console.warn("[applyInvoiceWatermark] skipped:", e);
     return blob;
