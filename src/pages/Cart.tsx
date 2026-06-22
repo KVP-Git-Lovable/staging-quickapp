@@ -1883,6 +1883,47 @@ export const Cart = () => {
           .eq('id', validRetailerId);
       }
 
+      // --- Phase 2b-3a: finalize edit (D-1 path) ---
+      if (isEditMode && editOrderId && result.order?.id && !result.offline) {
+        try {
+          const { data: finData, error: finErr } = await supabase.rpc('finalize_order_edit', {
+            p_original_order_id: editOrderId,
+            p_replacement_order_id: result.order.id,
+            p_edited_by: currentUserId,
+            p_reason: 'Order edited',
+          } as any);
+          const ok = !finErr && (finData as any)?.success === true;
+          if (!ok) {
+            try {
+              await supabase.rpc('cancel_order_atomic', {
+                p_order_id: result.order.id,
+                p_reason: 'Edit finalize failed - rollback',
+                p_cancelled_by: currentUserId,
+              } as any);
+            } catch {}
+            toast({
+              title: 'Edit Failed',
+              description: (finErr?.message || (finData as any)?.error || 'Could not finalize order edit.'),
+              variant: 'destructive',
+            });
+            return;
+          }
+        } catch (e: any) {
+          try {
+            await supabase.rpc('cancel_order_atomic', {
+              p_order_id: result.order.id,
+              p_reason: 'Edit finalize failed - rollback',
+              p_cancelled_by: currentUserId,
+            } as any);
+          } catch {}
+          toast({ title: 'Edit Failed', description: e?.message || 'Could not finalize order edit.', variant: 'destructive' });
+          return;
+        }
+      } else if (isEditMode && result.offline) {
+        toast({ title: 'Edit requires internet', description: 'Editing requires an internet connection.', variant: 'destructive' });
+        return;
+      }
+
       // Clear cart storage
       localStorage.removeItem(activeStorageKey);
       localStorage.removeItem(tableFormStorageKey);
