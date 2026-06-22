@@ -118,6 +118,8 @@ export const OrderEntry = () => {
   const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
+  const editOrderId = searchParams.get("editOrderId") || '';
+  const isEditMode = !!editOrderId;
   const {
     isCheckInMandatory,
     loading: checkInMandatoryLoading
