@@ -205,7 +205,7 @@ export const Cart = () => {
         // Fetch original order
         const { data: order, error: orderErr } = await supabase
           .from('orders')
-          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount')
+          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, credit_pending_amount')
           .eq('id', editOrderId)
           .maybeSingle();
         if (orderErr || !order) {
@@ -362,7 +362,11 @@ export const Cart = () => {
     supabase.from('retailers').select('pending_amount, distributor_id, distributors(id, name)').eq('id', validRetailerId).single()
       .then(({ data }) => {
         if (data) {
-          setPendingAmountFromPrevious(Number(data.pending_amount ?? 0));
+          const retailerPending = Number(data.pending_amount ?? 0);
+          // In edit mode, the original order's outstanding is still in retailer.pending_amount.
+          // Exclude it so "Previous Pending" reflects only OTHER active orders.
+          const origOutstanding = isEditMode ? Number((editOriginalOrder as any)?.credit_pending_amount ?? 0) : 0;
+          setPendingAmountFromPrevious(Math.max(0, retailerPending - origOutstanding));
           // Store distributor info for order submission
           const distributor = data.distributors as any;
           if (distributor) {
@@ -378,7 +382,7 @@ export const Cart = () => {
           }
         }
       });
-  }, [validRetailerId]);
+  }, [validRetailerId, isEditMode, editOriginalOrder]);
 
   // Calculate order totals using scheme engine
   const orderCalculation = React.useMemo(() => {
