@@ -805,40 +805,123 @@ export default function AutoPlanPreview() {
                       <div key={d} className="text-center py-1">{d}</div>
                     ))}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Drag a new-plan day onto another to swap, or use the menu to replace, move, or remove.
+                  </p>
                   <div className="grid grid-cols-7 gap-1">
                     {monthDays.map(d => {
                       const key = format(d, 'yyyy-MM-dd');
                       const entry = calMap.get(key);
                       const inMonth = isSameMonth(d, cursorMonth);
+                      const isEditable = entry?.source === 'new';
+                      // An empty in-month day belongs to the planning range if dayByDate has it (no beat assigned yet)
+                      const isEmptyInRange = !entry && !!dayByDate[key];
                       const cell = (
-                        <div className={cn(
-                          'min-h-[64px] rounded-md border p-1 text-left transition-colors',
-                          !inMonth && 'opacity-40',
-                          entry ? cellCls[entry.source] : 'bg-background',
-                          entry && 'cursor-pointer hover:ring-1 hover:ring-primary/50',
-                          isToday(d) && 'ring-1 ring-primary',
-                        )}>
+                        <div
+                          draggable={isEditable}
+                          onDragStart={isEditable ? (e) => onDragStart(e, key) : undefined}
+                          onDragOver={isEditable || isEmptyInRange ? onDragOver : undefined}
+                          onDrop={isEditable || isEmptyInRange ? (e) => onDrop(e, key) : undefined}
+                          className={cn(
+                            'min-h-[64px] rounded-md border p-1 text-left transition-colors',
+                            !inMonth && 'opacity-40',
+                            entry ? cellCls[entry.source] : 'bg-background',
+                            (entry || isEmptyInRange) && 'cursor-pointer hover:ring-1 hover:ring-primary/50',
+                            isEditable && 'cursor-move',
+                            isToday(d) && 'ring-1 ring-primary',
+                          )}
+                        >
                           <div className="text-[11px] font-medium">{format(d, 'd')}</div>
                           {entry && (
                             <div className="mt-0.5 text-[10px] leading-tight line-clamp-2 font-medium">{entry.beat_name}</div>
                           )}
+                          {isEmptyInRange && inMonth && (
+                            <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground flex items-center gap-0.5">
+                              <Plus className="h-2.5 w-2.5" /> Add
+                            </div>
+                          )}
                         </div>
                       );
-                      if (!entry) return <div key={key}>{cell}</div>;
+                      if (!entry && !isEmptyInRange) return <div key={key}>{cell}</div>;
+
+                      // Empty in-range day → quick add beat picker
+                      if (!entry && isEmptyInRange) {
+                        return (
+                          <DropdownMenu key={key}>
+                            <DropdownMenuTrigger asChild>{cell}</DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto bg-popover">
+                              <DropdownMenuLabel>{format(parseISO(key), 'EEE, dd MMM')}</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              {beats.map((b) => (
+                                <DropdownMenuItem key={b.id} onClick={() => replaceBeat(key, b.id)}>
+                                  {b.beat_name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        );
+                      }
+
                       return (
                         <Popover key={key}>
                           <PopoverTrigger asChild>{cell}</PopoverTrigger>
-                          <PopoverContent className="w-64 text-sm">
+                          <PopoverContent className="w-72 text-sm">
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
-                                <div className="font-semibold">{entry.beat_name}</div>
-                                <Badge variant="outline" className="text-[10px]">{srcLabel[entry.source]}</Badge>
+                                <div className="font-semibold">{entry!.beat_name}</div>
+                                <Badge variant="outline" className="text-[10px]">{srcLabel[entry!.source]}</Badge>
                               </div>
                               <div className="text-xs text-muted-foreground">{format(parseISO(key), 'EEE, MMM d, yyyy')}</div>
-                              {entry.rationale && (
+                              {entry!.rationale && (
                                 <div className="text-xs bg-muted/50 rounded p-2 flex gap-1.5">
                                   <Sparkles className="h-3 w-3 text-primary mt-0.5 shrink-0" />
-                                  <span>{entry.rationale}</span>
+                                  <span>{entry!.rationale}</span>
+                                </div>
+                              )}
+                              {isEditable && (
+                                <div className="pt-1 border-t">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-8">
+                                        <MoreVertical className="h-3.5 w-3.5" /> Day actions
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="w-56 bg-popover">
+                                      <DropdownMenuLabel>Day actions</DropdownMenuLabel>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>
+                                          <ArrowRightLeft className="h-4 w-4 mr-2" /> Move to…
+                                        </DropdownMenuSubTrigger>
+                                        <DropdownMenuSubContent className="max-h-72 overflow-y-auto bg-popover">
+                                          {movableDates(key).map((dd) => (
+                                            <DropdownMenuItem key={dd} onClick={() => swapDays(key, dd)}>
+                                              {format(parseISO(dd), 'EEE, dd MMM')}
+                                            </DropdownMenuItem>
+                                          ))}
+                                        </DropdownMenuSubContent>
+                                      </DropdownMenuSub>
+                                      <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>
+                                          <MapPin className="h-4 w-4 mr-2" /> Replace beat…
+                                        </DropdownMenuSubTrigger>
+                                        <DropdownMenuSubContent className="max-h-72 overflow-y-auto bg-popover">
+                                          {beats.map((b) => (
+                                            <DropdownMenuItem key={b.id} onClick={() => replaceBeat(key, b.id)}>
+                                              {b.beat_name}
+                                            </DropdownMenuItem>
+                                          ))}
+                                        </DropdownMenuSubContent>
+                                      </DropdownMenuSub>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => removeBeat(key)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" /> Remove beat
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               )}
                             </div>
