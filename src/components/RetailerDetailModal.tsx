@@ -1290,12 +1290,30 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                     </div>
                   </div>
                   
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">GST Number</Label>
+                      {isEditing ? (
+                        <Input value={formData.gst_number || ''} onChange={(e) => setFormData({...formData, gst_number: e.target.value})} className="h-8 text-sm mt-1" />
+                      ) : (
+                        <p className="text-sm">{formData.gst_number || '-'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Alternate Phone</Label>
+                      {isEditing ? (
+                        <Input value={(formData as any).alternate_phone || ''} onChange={(e) => setFormData({...formData, alternate_phone: e.target.value} as any)} className="h-8 text-sm mt-1" placeholder="Alternate number" />
+                      ) : (
+                        <p className="text-sm">{(formData as any).alternate_phone || '-'}</p>
+                      )}
+                    </div>
+                  </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">GST Number</Label>
+                    <Label className="text-xs text-muted-foreground">Photo URL</Label>
                     {isEditing ? (
-                      <Input value={formData.gst_number || ''} onChange={(e) => setFormData({...formData, gst_number: e.target.value})} className="h-8 text-sm mt-1" />
+                      <Input value={(formData as any).photo_url || ''} onChange={(e) => setFormData({...formData, photo_url: e.target.value} as any)} className="h-8 text-sm mt-1" placeholder="https://..." />
                     ) : (
-                      <p className="text-sm">{formData.gst_number || '-'}</p>
+                      <p className="text-sm break-all">{(formData as any).photo_url || '-'}</p>
                     )}
                   </div>
                 </CardContent>
