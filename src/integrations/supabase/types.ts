@@ -22732,6 +22732,10 @@ export type Database = {
         Returns: number
       }
       reactivate_beat: { Args: { p_beat_id: string }; Returns: Json }
+      recompute_retailer_pending: {
+        Args: { p_retailer_id: string }
+        Returns: number
+      }
       record_route_execution: {
         Args: {
           p_action: string
