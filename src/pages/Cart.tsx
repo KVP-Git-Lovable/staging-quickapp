@@ -135,7 +135,11 @@ export const Cart = () => {
   const validVisitId = visitId && visitId.length > 1 ? visitId : null;
 
   // Use visitId and retailerId from URL params consistently (same as Order Entry)
-  const activeStorageKey = validVisitId && validRetailerId ? `order_cart:${validVisitId}:${validRetailerId}` : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
+  const activeStorageKey = isEditMode
+    ? `order_cart:edit:${editOrderId}`
+    : validVisitId && validRetailerId
+      ? `order_cart:${validVisitId}:${validRetailerId}`
+      : validRetailerId ? `order_cart:temp:${validRetailerId}` : 'order_cart:fallback';
   
   // Table form storage key (to clear after successful order)
   const tableFormStorageKey = validVisitId && validRetailerId 
