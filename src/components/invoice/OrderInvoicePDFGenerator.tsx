@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generateTemplate4Invoice } from "@/utils/invoiceGenerator";
+import { applyInvoiceWatermark } from "@/utils/invoiceWatermark";
 
 interface OrderInvoicePDFGeneratorProps {
   orderId: string;
@@ -65,12 +66,13 @@ export const OrderInvoicePDFGenerator = ({
         base_unit: it.base_unit || it.unit || "Piece",
       }));
 
-      const blob = await generateTemplate4Invoice({
+      const rawBlob = await generateTemplate4Invoice({
         orderId: invoiceNumber,
         company: company || {},
         retailer,
         cartItems,
       });
+      const blob = await applyInvoiceWatermark(rawBlob, { invoiceNumber });
 
       const filename = `${invoiceNumber}.pdf`;
       const url = URL.createObjectURL(blob);

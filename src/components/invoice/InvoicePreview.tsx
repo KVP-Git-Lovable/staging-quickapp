@@ -1,4 +1,5 @@
 import { DisplaySettingsMap } from "@/hooks/useInvoiceDisplaySettings";
+import InvoiceStatusBadge from "./InvoiceStatusBadge";
 
 // Number to words helper
 const numberToWords = (num: number): string => {
@@ -183,6 +184,9 @@ export default function InvoicePreview({
 
   return (
     <div className={`p-6 rounded-lg ${styles.container} max-w-4xl mx-auto text-sm`}>
+      <div className="mb-3">
+        <InvoiceStatusBadge invoiceNumber={orderId} variant="banner" />
+      </div>
       {/* Header */}
       <div className={`${styles.header} p-4 rounded-t-lg flex justify-between items-center mb-6`}>
         <div className="flex items-center gap-4">

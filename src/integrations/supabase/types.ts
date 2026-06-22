@@ -9634,6 +9634,8 @@ export type Database = {
       invoices: {
         Row: {
           amount_in_words: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
           company_id: string | null
           created_at: string | null
           created_by: string | null
@@ -9646,8 +9648,10 @@ export type Database = {
           order_id: string | null
           owner_id_snapshot: string | null
           place_of_supply: string | null
+          revises_invoice_id: string | null
           status: string | null
           sub_total: number | null
+          superseded_by_invoice_id: string | null
           terms: string | null
           total_amount: number | null
           total_tax: number | null
@@ -9656,6 +9660,8 @@ export type Database = {
         }
         Insert: {
           amount_in_words?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -9668,8 +9674,10 @@ export type Database = {
           order_id?: string | null
           owner_id_snapshot?: string | null
           place_of_supply?: string | null
+          revises_invoice_id?: string | null
           status?: string | null
           sub_total?: number | null
+          superseded_by_invoice_id?: string | null
           terms?: string | null
           total_amount?: number | null
           total_tax?: number | null
@@ -9678,6 +9686,8 @@ export type Database = {
         }
         Update: {
           amount_in_words?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -9690,8 +9700,10 @@ export type Database = {
           order_id?: string | null
           owner_id_snapshot?: string | null
           place_of_supply?: string | null
+          revises_invoice_id?: string | null
           status?: string | null
           sub_total?: number | null
+          superseded_by_invoice_id?: string | null
           terms?: string | null
           total_amount?: number | null
           total_tax?: number | null
@@ -9718,6 +9730,20 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_revises_invoice_id_fkey"
+            columns: ["revises_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_superseded_by_invoice_id_fkey"
+            columns: ["superseded_by_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
