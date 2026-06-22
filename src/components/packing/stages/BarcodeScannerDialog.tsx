@@ -124,9 +124,8 @@ function CameraScanMode({
     ctx.drawImage(video, 0, 0);
 
     try {
-      const luminance = new (window as any).__ZXingLuminance?.(canvas)
-        // ZXing browser: decode from canvas element directly
-        ?? null;
+      const LuminanceCtor = (window as any).__ZXingLuminance;
+      const luminance = LuminanceCtor ? new LuminanceCtor(canvas) : null;
 
       decoderRef.current.decodeFromCanvas(canvas)
         .then((result: any) => {
