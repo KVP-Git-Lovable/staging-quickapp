@@ -103,7 +103,13 @@ export default function PackingListDetail() {
             ? <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
             : <InvoiceDispatchStage packingList={pl} onStatusChange={refreshStatus} />
         )}
-        {(pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
+        {pl.order_type === 'primary' && pl.status === 'ready' && (
+          <PrimaryDispatchStage packingList={pl} onStatusChange={refreshStatus} />
+        )}
+        {pl.order_type === 'primary' && (pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
+          <PrimaryDeliveryStage packingList={pl} onStatusChange={refreshStatus} />
+        )}
+        {pl.order_type !== 'primary' && (pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
           <DeliveryRunStage packingList={pl} onStatusChange={refreshStatus} />
         )}
         {pl.status === 'cancelled' && (
