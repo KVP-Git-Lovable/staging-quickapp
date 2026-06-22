@@ -4,6 +4,7 @@ import { Download, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { generateTemplate4Invoice } from "@/utils/invoiceGenerator";
+import { applyInvoiceWatermark } from "@/utils/invoiceWatermark";
 
 
 interface InvoicePDFGeneratorProps {
