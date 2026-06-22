@@ -135,6 +135,7 @@ export const VisitCard = ({
   const [isCapturingLocation, setIsCapturingLocation] = useState(false);
   const [locationWarning, setLocationWarning] = useState<string | null>(null);
   const [locationReady, setLocationReady] = useState(true);
+  const [locationDenied, setLocationDenied] = useState(false);
   const [retailerLat, setRetailerLat] = useState<number | undefined>(visit.retailerLat);
   const [retailerLng, setRetailerLng] = useState<number | undefined>(visit.retailerLng);
   const hasRetailerLocation = retailerLat != null && retailerLng != null;
