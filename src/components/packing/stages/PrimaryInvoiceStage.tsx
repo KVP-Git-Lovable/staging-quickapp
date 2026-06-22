@@ -235,6 +235,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     }
     onStatusChange('ready');
     toast({ title: 'Ready for dispatch' });
+    navigate('dispatch');
   };
 
   const buildBlobForActive = useCallback(async (): Promise<Blob | null> => {
