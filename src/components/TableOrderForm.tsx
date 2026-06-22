@@ -126,6 +126,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const navigate = useNavigate();
   const visitId = searchParams.get("visitId") || '';
   const retailerId = searchParams.get("retailerId") || '';
+  const editOrderId = searchParams.get("editOrderId") || '';
+  const isEditMode = !!editOrderId;
 
   // PERF: disable noisy logs in hot paths
   const DEV_LOG = false;
@@ -134,11 +136,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
   const validVisitId = visitId && visitId.length > 1 ? visitId : null;
   
-  const tableFormStorageKey = validVisitId && validRetailerId 
-    ? `table_form:${validVisitId}:${validRetailerId}`
-    : validRetailerId 
-      ? `table_form:temp:${validRetailerId}`
-      : 'table_form:fallback';
+  const tableFormStorageKey = isEditMode
+    ? `table_form:edit:${editOrderId}`
+    : validVisitId && validRetailerId 
+      ? `table_form:${validVisitId}:${validRetailerId}`
+      : validRetailerId 
+        ? `table_form:temp:${validRetailerId}`
+        : 'table_form:fallback';
 
   // Load initial order rows from localStorage to prevent data loss on navigation
   const getInitialOrderRows = (): OrderRow[] => {
@@ -205,6 +209,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
   // Helper to get cart storage key
   const getCartStorageKey = () => {
+    if (isEditMode) return `order_cart:edit:${editOrderId}`;
     const validRetailerIdForStorage = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
     const validVisitIdForStorage = visitId && visitId.length > 1 ? visitId : null;
     return validVisitIdForStorage && validRetailerIdForStorage 
