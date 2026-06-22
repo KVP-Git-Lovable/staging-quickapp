@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable';
 import { supabase } from "@/integrations/supabase/client";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { getInvoiceDisplaySettingsMap, DisplaySettingsMap } from "@/hooks/useInvoiceDisplaySettings";
+import { applyInvoiceWatermark } from "@/utils/invoiceWatermark";
 
 /**
  * Compress an image (URL string or Blob) for PDF embedding.
