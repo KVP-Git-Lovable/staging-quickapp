@@ -28,6 +28,8 @@ export interface CanEditOrderResult {
 }
 
 const REASON_NO_PERMISSION = "You don't have permission to edit orders.";
+const REASON_DISPATCHED =
+  'This order can no longer be edited because it has been dispatched.';
 const REASON_INVOICE_GENERATED =
   'This order can no longer be edited because its invoice has been generated.';
 const REASON_INVALID_STATE = "This order can't be edited in its current state.";
@@ -38,10 +40,12 @@ const REASON_DISABLED_BY_POLICY = 'Order editing is currently disabled by your a
  *
  * Rules (in order):
  *   1. user must have `action_order_edit`
- *   2. order.status must not be 'cancelled' or 'delivered'
- *   3. order.dispatched_at or order.invoice_generated_at must be null
- *      (editable only BEFORE invoice generation — same-day flow)
- *   4. policy.edit_enabled must be true
+ *   2. policy.edit_enabled must be true
+ *   3. order.status must not be 'cancelled' or 'delivered'
+ *   4. Edit window — keyed by policy.editable_until:
+ *        - 'dispatched' (default): editable until the order is dispatched.
+ *          A persisted invoice row does NOT block edits — only dispatched_at does.
+ *        - 'invoice_generated' (legacy): editable until invoice_generated_at or dispatch.
  */
 export function canEditOrder(
   order: OrderLike | null | undefined,
@@ -65,9 +69,14 @@ export function canEditOrder(
     return { allowed: false, reason: REASON_INVALID_STATE };
   }
 
-  // Default editable window: BEFORE invoice generation / dispatch.
-  const editableUntil = policy?.editable_until ?? 'invoice_generated';
-  if (editableUntil === 'invoice_generated') {
+  // Default editable window: BEFORE dispatch (persisted invoice rows no longer block).
+  const editableUntil = policy?.editable_until ?? 'dispatched';
+
+  if (editableUntil === 'dispatched') {
+    if (order.dispatched_at) {
+      return { allowed: false, reason: REASON_DISPATCHED };
+    }
+  } else if (editableUntil === 'invoice_generated') {
     if (order.invoice_generated_at || order.dispatched_at) {
       return { allowed: false, reason: REASON_INVOICE_GENERATED };
     }
@@ -78,6 +87,7 @@ export function canEditOrder(
 
 export const ORDER_EDIT_REASONS = {
   NO_PERMISSION: REASON_NO_PERMISSION,
+  DISPATCHED: REASON_DISPATCHED,
   INVOICE_GENERATED: REASON_INVOICE_GENERATED,
   INVALID_STATE: REASON_INVALID_STATE,
   DISABLED_BY_POLICY: REASON_DISABLED_BY_POLICY,
