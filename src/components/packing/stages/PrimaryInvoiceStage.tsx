@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { usePackingList, PackingList } from '@/hooks/usePackingList';
 import { useToast } from '@/hooks/use-toast';
+import { buildPrimaryInvoiceBlob } from '@/utils/primaryInvoiceDocument';
 import StatusTimeline from './StatusTimeline';
 
 interface PrimaryInvoice {
