@@ -18,6 +18,7 @@ import { SchemeFormFields } from './SchemeFormFields';
 import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
 import { SchemeApplicabilitySelector, ApplicabilityRule } from './SchemeApplicabilitySelector';
 import { SchemePolicyConfig } from './SchemePolicyConfig';
+import { OrderEditPolicyConfig } from './OrderEditPolicyConfig';
 import { AISuggestionCard } from './AISuggestionCard';
 import { AISuggestionReview } from './AISuggestionReview';
 import { useAISchemeSuggestions, AISchemeSuggestion } from '@/hooks/useAISchemeSuggestions';
@@ -1137,6 +1138,8 @@ export const SchemeMaster = () => {
               <SchemePolicyConfig inline />
             </CardContent>
           </Card>
+
+          <OrderEditPolicyConfig />
         </TabsContent>
       </Tabs>
 

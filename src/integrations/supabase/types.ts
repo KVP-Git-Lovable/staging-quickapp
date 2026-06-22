@@ -10879,6 +10879,30 @@ export type Database = {
         }
         Relationships: []
       }
+      order_edit_policy: {
+        Row: {
+          edit_enabled: boolean
+          editable_until: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          edit_enabled?: boolean
+          editable_until?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          edit_enabled?: boolean
+          editable_until?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           backorder_qty: number | null
