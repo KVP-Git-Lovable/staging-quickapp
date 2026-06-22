@@ -11,6 +11,12 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
  * Frontend only does validation for fast UI feedback + cache cleanup.
  */
 
+export interface CancelOrderOptions {
+  settlement_method?: 'refund' | 'credit_note' | 'carry_forward' | null;
+  settlement_amount?: number;
+  van_stock_action?: 'collected' | 'damaged' | 'not_collected' | null;
+}
+
 export interface CancelOrderResult {
   success: boolean;
   error?: string;
@@ -21,6 +27,10 @@ export interface CancelOrderResult {
     pointsRemoved: number;
     invoiceCancelled: boolean;
     loyaltyPointsRemoved: number;
+    settlementMethod?: string | null;
+    settlementAmount?: number;
+    creditNoteNumber?: string | null;
+    vanStockAction?: string | null;
   };
 }
 
@@ -132,9 +142,10 @@ async function clearLocalCaches(
 export async function cancelOrder(
   orderId: string,
   reason: string,
-  cancelledByUserId: string
+  cancelledByUserId: string,
+  options: CancelOrderOptions = {}
 ): Promise<CancelOrderResult> {
-  console.log('[CancelOrder] Starting atomic cancellation for order:', orderId);
+  console.log('[CancelOrder] Starting atomic cancellation for order:', orderId, options);
 
   const result: CancelOrderResult = {
     success: false,
@@ -148,7 +159,6 @@ export async function cancelOrder(
   };
 
   try {
-    // 1. Client-side validation for fast UI feedback
     const order = await fetchOrderWithDetails(orderId);
     if (!order) {
       result.error = 'Order not found';
@@ -161,12 +171,14 @@ export async function cancelOrder(
       return result;
     }
 
-    // 2. Call atomic RPC — single transaction handles everything
     const { data: rpcResult, error: rpcError } = await supabase.rpc('cancel_order_atomic', {
       p_order_id: orderId,
       p_reason: reason,
-      p_cancelled_by: cancelledByUserId
-    });
+      p_cancelled_by: cancelledByUserId,
+      p_settlement_method: options.settlement_method ?? null,
+      p_settlement_amount: options.settlement_amount ?? 0,
+      p_van_stock_action: options.van_stock_action ?? null,
+    } as any);
 
     if (rpcError) {
       console.error('[CancelOrder] RPC error:', rpcError);
@@ -176,7 +188,6 @@ export async function cancelOrder(
 
     const rpcData = rpcResult as Record<string, unknown>;
 
-    // 3. Handle RPC response
     if (!rpcData?.success) {
       result.error = (rpcData?.error as string) || 'Cancellation failed';
       return result;
@@ -189,20 +200,22 @@ export async function cancelOrder(
       return result;
     }
 
-    // 4. Map RPC response to result
     result.success = true;
     result.reversedData = {
       visitReverted: (rpcData.visit_reverted as boolean) || false,
       creditReversed: Number(rpcData.credit_reversed) || 0,
       pointsRemoved: Number(rpcData.gamification_points_reversed) || 0,
       invoiceCancelled: (rpcData.invoice_cancelled as boolean) || false,
-      loyaltyPointsRemoved: Number(rpcData.loyalty_points_reversed) || 0
+      loyaltyPointsRemoved: Number(rpcData.loyalty_points_reversed) || 0,
+      settlementMethod: (rpcData.settlement_method as string) || null,
+      settlementAmount: Number(rpcData.settlement_amount) || 0,
+      creditNoteNumber: (rpcData.credit_note_number as string) || null,
+      vanStockAction: (rpcData.van_stock_action as string) || null,
     };
 
-    // 5. Clear local caches (client-side only)
     const retailerId = (rpcData.retailer_id as string) || order.retailer_id;
     const orderDate = (rpcData.order_date as string) || order.order_date;
-    
+
     await clearLocalCaches(
       retailerId,
       order.user_id,

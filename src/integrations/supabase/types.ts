@@ -21926,7 +21926,14 @@ export type Database = {
       can_view_employee: { Args: { _target_user_id: string }; Returns: boolean }
       can_view_profile: { Args: { _target_user_id: string }; Returns: boolean }
       cancel_order_atomic: {
-        Args: { p_cancelled_by: string; p_order_id: string; p_reason: string }
+        Args: {
+          p_cancelled_by: string
+          p_order_id: string
+          p_reason: string
+          p_settlement_amount?: number
+          p_settlement_method?: string
+          p_van_stock_action?: string
+        }
         Returns: Json
       }
       cancel_packing_list_reservations: {
