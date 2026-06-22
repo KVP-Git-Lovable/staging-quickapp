@@ -326,7 +326,7 @@ export default function PrimaryDeliveryStage({ packingList, onStatusChange }: Pr
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>
