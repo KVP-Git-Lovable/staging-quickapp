@@ -1335,6 +1335,13 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       </a>
                     )}
                   </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">State</Label>
+                    {isEditing ? (
+                      <Input value={(formData as any).state || ''} onChange={(e) => setFormData({...formData, state: e.target.value} as any)} className="h-8 text-sm mt-1" placeholder="State" />
+                    ) : (
+                      <p className="text-sm">{(formData as any).state || '-'}</p>
+                    )}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-muted-foreground">Location Tag</Label>
