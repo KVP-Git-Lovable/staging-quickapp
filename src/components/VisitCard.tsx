@@ -3101,10 +3101,75 @@ export const VisitCard = ({
                         <Ban size={14} className="mr-2" />
                         Cancel Order
                       </Button>
+
+                      {/* Edit Order Button (Phase 2b-3b) */}
+                      {can('action_order_edit', 'edit') && (() => {
+                        const editable = ordersTodayList.filter((o: any) =>
+                          !o.invoice_generated_at && !o.dispatched_at
+                        );
+                        if (editable.length === 0) return null;
+                        const goEdit = (orderId: string) => {
+                          const vId = currentVisitId || visit.id;
+                          const rId = (visit.retailerId || visit.id) as string;
+                          const rName = visit.retailerName || retailerName || '';
+                          navigate(`/cart?visitId=${encodeURIComponent(vId)}&retailerId=${encodeURIComponent(rId)}&retailer=${encodeURIComponent(rName)}&editOrderId=${encodeURIComponent(orderId)}`);
+                        };
+                        return (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              if (editable.length === 1) goEdit(editable[0].id);
+                              else setShowEditPickerDialog(true);
+                            }}
+                          >
+                            <Pencil size={14} className="mr-2" />
+                            Edit Order
+                          </Button>
+                        );
+                      })()}
                     </div>}
                 </>}
             </div>}
         </div>
+
+        {/* Edit Order Picker Dialog */}
+        <Dialog open={showEditPickerDialog} onOpenChange={setShowEditPickerDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Which order do you want to edit?</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+              {ordersTodayList
+                .filter((o: any) => !o.invoice_generated_at && !o.dispatched_at)
+                .map((o) => (
+                  <button
+                    key={o.id}
+                    className="w-full text-left border rounded-md p-3 hover:bg-accent transition"
+                    onClick={() => {
+                      setShowEditPickerDialog(false);
+                      const vId = currentVisitId || visit.id;
+                      const rId = (visit.retailerId || visit.id) as string;
+                      const rName = visit.retailerName || retailerName || '';
+                      navigate(`/cart?visitId=${encodeURIComponent(vId)}&retailerId=${encodeURIComponent(rId)}&retailer=${encodeURIComponent(rName)}&editOrderId=${encodeURIComponent(o.id)}`);
+                    }}
+                  >
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium">
+                        {o.invoice_number ? `Invoice ${o.invoice_number}` : `Order ${o.id.slice(0, 8)}`}
+                      </span>
+                      <span className="text-muted-foreground">₹{Number(o.total_amount || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                    {o.distributor_name && (
+                      <div className="text-xs text-muted-foreground mt-0.5">{o.distributor_name}</div>
+                    )}
+                  </button>
+                ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
 
         {/* Camera Capture Modal */}
         <CameraCapture isOpen={showCameraCapture} onClose={() => {
