@@ -151,6 +151,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const savedData = localStorage.getItem(tableFormStorageKey);
       if (savedData) {
         const parsedData = JSON.parse(savedData);
+        if (isEditMode) {
+          const hasProductRows = Array.isArray(parsedData) && parsedData.some((row: any) => row?.product?.id);
+          return hasProductRows ? parsedData : [];
+        }
         if (Array.isArray(parsedData) && parsedData.length > 0) {
           DEV_LOG && console.log('[TableOrderForm] Loaded initial rows from storage:', parsedData.length);
           return parsedData;
@@ -159,6 +163,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     } catch (error) {
       console.error('[TableOrderForm] Error loading initial rows:', error);
     }
+    if (isEditMode) return [];
     return [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
   };
 
