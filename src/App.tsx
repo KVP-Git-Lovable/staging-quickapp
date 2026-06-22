@@ -222,6 +222,7 @@ import DeliveryRun from "./pages/DeliveryRun";
 import PackingListManagementPage from "./pages/PackingListManagement";
 import MyDeliveriesPage from "./pages/MyDeliveries";
 import PackingListDetailPage from "./pages/PackingListDetail";
+import PackingListDispatchPage from "./pages/PackingListDispatchPage";
 
 // ARCHIVED: Projects module hidden
 // import ProjectsPage from "./pages/pm/ProjectsPage";
@@ -527,6 +528,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
           <Route path="packing-list" element={<PackingList />} />
           <Route path="packing-list-management" element={<PackingListManagement />} />
           <Route path="packing-list/:id" element={<PackingListDetail />} />
+          <Route path="packing-list/:id/dispatch" element={<PackingListDispatchPage bare />} />
           <Route path="goods-receipt/:orderId" element={<GoodsReceiptNew />} />
           <Route path="goods-receipt" element={<GoodsReceiptList />} />
           <Route path="claims" element={<DistributorClaims />} />
@@ -557,6 +559,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         {/* D-1 Delivery Module Routes - Main App */}
         <Route path="/packing-list-management" element={<ProtectedRoute><PackingListManagementPage /></ProtectedRoute>} />
         <Route path="/packing-list/:id" element={<ProtectedRoute><PackingListDetailPage /></ProtectedRoute>} />
+        <Route path="/packing-list/:id/dispatch" element={<ProtectedRoute><PackingListDispatchPage /></ProtectedRoute>} />
         <Route path="/delivery-run" element={<ProtectedRoute><DeliveryRun /></ProtectedRoute>} />
 
 

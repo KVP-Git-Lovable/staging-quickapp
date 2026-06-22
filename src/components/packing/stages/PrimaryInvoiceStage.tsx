@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   FileText, Download, Printer, Eye, Loader2, CheckCircle2, ArrowRight, AlertTriangle,
@@ -93,6 +94,7 @@ const fmt = (n: number) => `₹${(n || 0).toLocaleString('en-IN', { minimumFract
 
 export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Props) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { generatePrimaryInvoices, finalizePrimaryInvoice, updatePackingListStatus, loading: hookLoading } = usePackingList();
 
   const [loading, setLoading] = useState(true);
@@ -233,6 +235,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     }
     onStatusChange('ready');
     toast({ title: 'Ready for dispatch' });
+    navigate('dispatch');
   };
 
   const buildBlobForActive = useCallback(async (): Promise<Blob | null> => {

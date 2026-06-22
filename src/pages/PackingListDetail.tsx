@@ -101,11 +101,11 @@ export default function PackingListDetail() {
               ? <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
               : <InvoiceDispatchStage packingList={pl} onStatusChange={refreshStatus} />
           )}
-          {pl.order_type === 'primary' && pl.status === 'ready' && (
-            <PrimaryDispatchStage packingList={pl} onStatusChange={refreshStatus} />
-          )}
           {pl.order_type === 'primary' && (pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
-            <PrimaryDeliveryStage packingList={pl} onStatusChange={refreshStatus} />
+            <div className="rounded-md border bg-card p-4 flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">Dispatch details are on a separate page.</div>
+              <Button onClick={() => navigate('dispatch')}>Open Dispatch</Button>
+            </div>
           )}
           {pl.order_type !== 'primary' && (pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
             <DeliveryRunStage packingList={pl} onStatusChange={refreshStatus} />
