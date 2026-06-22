@@ -10879,6 +10879,36 @@ export type Database = {
         }
         Relationships: []
       }
+      order_edit_log: {
+        Row: {
+          created_at: string
+          edit_summary: Json | null
+          edited_by: string | null
+          id: string
+          original_order_id: string
+          reason: string | null
+          replacement_order_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          edit_summary?: Json | null
+          edited_by?: string | null
+          id?: string
+          original_order_id: string
+          reason?: string | null
+          replacement_order_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          edit_summary?: Json | null
+          edited_by?: string | null
+          id?: string
+          original_order_id?: string
+          reason?: string | null
+          replacement_order_id?: string | null
+        }
+        Relationships: []
+      }
       order_edit_policy: {
         Row: {
           edit_enabled: boolean
@@ -11062,6 +11092,8 @@ export type Database = {
           payment_status: string | null
           picked_at: string | null
           previous_pending_cleared: number | null
+          replaced_by_order_id: string | null
+          replaces_order_id: string | null
           retailer_id: string | null
           retailer_name: string
           sales_channel: string
@@ -11118,6 +11150,8 @@ export type Database = {
           payment_status?: string | null
           picked_at?: string | null
           previous_pending_cleared?: number | null
+          replaced_by_order_id?: string | null
+          replaces_order_id?: string | null
           retailer_id?: string | null
           retailer_name: string
           sales_channel?: string
@@ -11174,6 +11208,8 @@ export type Database = {
           payment_status?: string | null
           picked_at?: string | null
           previous_pending_cleared?: number | null
+          replaced_by_order_id?: string | null
+          replaces_order_id?: string | null
           retailer_id?: string | null
           retailer_name?: string
           sales_channel?: string
@@ -11212,6 +11248,20 @@ export type Database = {
           {
             foreignKeyName: "orders_parent_order_id_fkey"
             columns: ["parent_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_replaced_by_order_id_fkey"
+            columns: ["replaced_by_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_replaces_order_id_fkey"
+            columns: ["replaces_order_id"]
             isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
