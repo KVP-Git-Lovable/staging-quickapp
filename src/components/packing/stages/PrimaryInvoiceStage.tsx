@@ -239,18 +239,25 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     const inv = invoices.find(i => i.id === activeInvoiceId);
     if (!inv) return null;
     const lines = linesByOrder[inv.order_id] || [];
-    // Fetch company for header
+    const order = ordersById[inv.order_id];
     let company: any = {};
     try {
       const { data } = await supabase.from('companies').select('*').limit(1).maybeSingle();
       company = data || {};
     } catch {}
+    const isDraft = inv.status !== 'finalized' || /^DRAFT-/i.test(inv.invoice_number || '');
     return buildPrimaryInvoiceBlob({
       invoiceNumber: inv.invoice_number,
       invoiceDate: inv.invoice_date,
-      isDraft: inv.status !== 'finalized',
+      dueDate: inv.due_date,
+      isDraft,
       distributor,
       company,
+      orderNumber: order?.order_number || null,
+      orderDate: order?.order_date || null,
+      packingListNumber: (packingList as any).packing_list_number || (packingList as any).pl_number || null,
+      paymentTerms: order?.payment_terms || order?.payment_term || null,
+      salesPerson: null,
       lines: lines.map(l => ({
         product_name: l.product_name,
         hsn_code: l.hsn_code,
@@ -261,7 +268,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
         tax_percent: l.tax_percent,
       })),
     });
-  }, [invoices, activeInvoiceId, linesByOrder, distributor]);
+  }, [invoices, activeInvoiceId, linesByOrder, distributor, ordersById, packingList]);
 
   const [docBusy, setDocBusy] = useState<'view' | 'download' | 'print' | null>(null);
 
