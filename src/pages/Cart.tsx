@@ -1118,6 +1118,61 @@ export const Cart = () => {
         }
       }
 
+      // --- Phase 2b-3a: finalize edit (replace original via RPC) ---
+      if (isEditMode && editOrderId && result.order?.id && !result.offline) {
+        try {
+          const { data: finData, error: finErr } = await supabase.rpc('finalize_order_edit', {
+            p_original_order_id: editOrderId,
+            p_replacement_order_id: result.order.id,
+            p_edited_by: currentUserId,
+            p_reason: 'Order edited',
+          } as any);
+          const ok = !finErr && (finData as any)?.success === true;
+          if (!ok) {
+            console.error('[Cart][edit] finalize_order_edit failed, rolling back replacement:', finErr || finData);
+            try {
+              await supabase.rpc('cancel_order_atomic', {
+                p_order_id: result.order.id,
+                p_reason: 'Edit finalize failed - rollback',
+                p_cancelled_by: currentUserId,
+              } as any);
+            } catch (rbErr) {
+              console.error('[Cart][edit] rollback cancel failed:', rbErr);
+            }
+            toast({
+              title: 'Edit Failed',
+              description: (finErr?.message || (finData as any)?.error || 'Could not finalize order edit. Your changes were not applied.'),
+              variant: 'destructive',
+            });
+            // Do NOT clear edit cart on failure
+            return;
+          }
+        } catch (e: any) {
+          console.error('[Cart][edit] finalize threw, rolling back:', e);
+          try {
+            await supabase.rpc('cancel_order_atomic', {
+              p_order_id: result.order.id,
+              p_reason: 'Edit finalize failed - rollback',
+              p_cancelled_by: currentUserId,
+            } as any);
+          } catch {}
+          toast({
+            title: 'Edit Failed',
+            description: e?.message || 'Could not finalize order edit.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      } else if (isEditMode && result.offline) {
+        toast({
+          title: 'Edit requires internet',
+          description: 'You went offline before the edit could be finalized. Please retry online.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+
       // Clear cart storage AND table form storage AND applied schemes for this visit/retailer
       localStorage.removeItem(activeStorageKey);
       localStorage.removeItem(tableFormStorageKey);
