@@ -1137,6 +1137,8 @@ export const SchemeMaster = () => {
               <SchemePolicyConfig inline />
             </CardContent>
           </Card>
+
+          <OrderEditPolicyConfig />
         </TabsContent>
       </Tabs>
 
