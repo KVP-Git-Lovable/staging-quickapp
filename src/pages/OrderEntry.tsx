@@ -287,6 +287,10 @@ export const OrderEntry = () => {
   const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
   const [showImageCapture, setShowImageCapture] = useState(false);
 
+  // --- Edit-order mode state (mirrors Cart edit bootstrap) ---
+  const [editLoading, setEditLoading] = useState<boolean>(isEditMode);
+  const [editBlockedReason, setEditBlockedReason] = useState<string | null>(null);
+
   // Function to auto-select "Over Stocked" option
   const handleAutoSelectOverStocked = async () => {
     if (!visitId) return;
