@@ -11,6 +11,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 import { ApplyOfferSection } from "@/components/ApplyOfferSection";
 import { OrderEntrySchemesModal } from "@/components/OrderEntrySchemesModal";
@@ -438,47 +439,64 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     DEV_LOG && console.log('[TableOrderForm] Context switched, loaded rows:', rows.length, tableFormStorageKey);
   }, [tableFormStorageKey]);
 
-  // EDIT MODE: seed table rows from the already-seeded edit cart, so the
-  // originally-ordered products appear pre-filled and editable. Only runs
-  // when the table_form storage for this edit is empty.
+  // EDIT MODE: seed table rows directly from the original order_items in the
+  // database. OrderEntry may still be populating the edit cart asynchronously,
+  // so we bypass the cart and read the source-of-truth line items instead.
   useEffect(() => {
-    if (!isEditMode || products.length === 0) return;
-    try {
-      const existingRaw = localStorage.getItem(tableFormStorageKey);
-      const existing = existingRaw ? JSON.parse(existingRaw) : null;
-      const hasRows = Array.isArray(existing) && existing.some((r: any) => r && r.product && r.product.id);
-      if (hasRows) return;
+    if (!isEditMode || products.length === 0 || !editOrderId) return;
 
-      const cartRaw = localStorage.getItem(`order_cart:edit:${editOrderId}`);
-      const cart = cartRaw ? JSON.parse(cartRaw) : [];
-      if (!Array.isArray(cart) || cart.length === 0) return;
+    let cancelled = false;
 
-      const seeded: OrderRow[] = cart.map((it: any, idx: number) => {
-        const pid: string | undefined = it.product_id || (typeof it.id === 'string' ? it.id.split('_variant_')[0] : undefined);
-        const liveProduct = pid ? products.find(p => p.id === pid) : undefined;
-        const liveVariant = liveProduct && it.variant_id
-          ? liveProduct.variants?.find((v: any) => v.id === it.variant_id)
-          : undefined;
-        const qty = Number(it.quantity) || 0;
-        const rate = Number(it.rate) || 0;
-        return {
-          id: String(idx + 1),
-          productCode: (liveVariant as any)?.sku || liveProduct?.sku || pid || '',
-          product: liveProduct,
-          variant: liveVariant,
-          quantity: qty,
-          closingStock: Number(it.closingStock ?? (liveVariant as any)?.stock_quantity ?? liveProduct?.closing_stock ?? 0),
-          unit: it.unit || (liveProduct ? getDefaultOrderUnit(liveProduct) : 'pcs'),
-          total: Number(it.total) || qty * rate,
-        } as OrderRow;
-      });
+    const seedFromOriginalOrder = async () => {
+      try {
+        const existingRaw = localStorage.getItem(tableFormStorageKey);
+        const existing = existingRaw ? JSON.parse(existingRaw) : null;
+        const hasRows = Array.isArray(existing) && existing.some((r: any) => r && r.product && r.product.id);
+        if (hasRows) return;
 
-      localStorage.setItem(tableFormStorageKey, JSON.stringify(seeded));
-      setOrderRows(seeded);
-      console.log('[TableOrderForm][edit] Seeded', seeded.length, 'rows from edit cart');
-    } catch (e) {
-      console.error('[TableOrderForm][edit] seed from cart failed:', e);
-    }
+        const { data: items, error } = await supabase
+          .from('order_items')
+          .select('id, product_id, variant_id, product_name, rate, unit, quantity, total, closing_stock')
+          .eq('order_id', editOrderId);
+
+        if (error) {
+          console.error('[TableOrderForm][edit] failed to load original order items:', error);
+          return;
+        }
+        if (!Array.isArray(items) || items.length === 0) return;
+
+        const seeded: OrderRow[] = items.map((it: any, idx: number) => {
+          const pid: string | undefined = it.product_id;
+          const liveProduct = pid ? products.find(p => p.id === pid) : undefined;
+          const liveVariant = liveProduct && it.variant_id
+            ? liveProduct.variants?.find((v: any) => v.id === it.variant_id)
+            : undefined;
+          const qty = Number(it.quantity) || 0;
+          const rate = Number(it.rate) || 0;
+          return {
+            id: String(idx + 1),
+            productCode: (liveVariant as any)?.sku || liveProduct?.sku || pid || '',
+            product: liveProduct,
+            variant: liveVariant,
+            quantity: qty,
+            closingStock: Number(it.closing_stock ?? (liveVariant as any)?.stock_quantity ?? liveProduct?.closing_stock ?? 0),
+            unit: it.unit || (liveProduct ? getDefaultOrderUnit(liveProduct) : 'pcs'),
+            total: Number(it.total) || qty * rate,
+          } as OrderRow;
+        });
+
+        if (!cancelled) {
+          localStorage.setItem(tableFormStorageKey, JSON.stringify(seeded));
+          setOrderRows(seeded);
+          console.log('[TableOrderForm][edit] Seeded', seeded.length, 'rows from original order_items');
+        }
+      } catch (e) {
+        console.error('[TableOrderForm][edit] seed from order_items failed:', e);
+      }
+    };
+
+    seedFromOriginalOrder();
+    return () => { cancelled = true; };
   }, [isEditMode, editOrderId, products.length, tableFormStorageKey]);
 
   // Re-link products from live products array when products load (only once after init)
