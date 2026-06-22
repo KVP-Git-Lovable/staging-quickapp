@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
 import { autoSendInvoiceWhatsApp } from "@/utils/autoSendInvoice";
 import EditInvoiceDialog from "./EditInvoiceDialog";
+import InvoiceStatusBadge from "./InvoiceStatusBadge";
 
 interface Invoice {
   id: string;
