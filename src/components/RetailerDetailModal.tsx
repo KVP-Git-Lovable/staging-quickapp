@@ -81,6 +81,9 @@ interface Retailer {
   latitude?: number | null;
   longitude?: number | null;
   photo_url?: string | null;
+  alternate_phone?: string | null;
+  distributor_id?: string | null;
+  state?: string | null;
   order_value?: number | null;
   manual_credit_score?: number | null;
   last_order_date?: string | null;
