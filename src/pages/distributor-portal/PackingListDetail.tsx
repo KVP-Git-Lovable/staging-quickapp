@@ -10,6 +10,8 @@ import PicklistPackingStage from '@/components/packing/stages/PicklistPackingSta
 import InvoiceDispatchStage from '@/components/packing/stages/InvoiceDispatchStage';
 import PrimaryInvoiceStage from '@/components/packing/stages/PrimaryInvoiceStage';
 import DeliveryRunStage from '@/components/packing/stages/DeliveryRunStage';
+import PrimaryDispatchStage from '@/components/packing/stages/PrimaryDispatchStage';
+import PrimaryDeliveryStage from '@/components/packing/stages/PrimaryDeliveryStage';
 
 export default function PackingListDetail() {
   const { id } = useParams<{ id: string }>();
@@ -101,7 +103,13 @@ export default function PackingListDetail() {
             ? <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
             : <InvoiceDispatchStage packingList={pl} onStatusChange={refreshStatus} />
         )}
-        {(pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
+        {pl.order_type === 'primary' && pl.status === 'ready' && (
+          <PrimaryDispatchStage packingList={pl} onStatusChange={refreshStatus} />
+        )}
+        {pl.order_type === 'primary' && (pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
+          <PrimaryDeliveryStage packingList={pl} onStatusChange={refreshStatus} />
+        )}
+        {pl.order_type !== 'primary' && (pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
           <DeliveryRunStage packingList={pl} onStatusChange={refreshStatus} />
         )}
         {pl.status === 'cancelled' && (
