@@ -3,13 +3,32 @@
  * Tries Google Maps Geocoding first (using the existing browser key), then
  * falls back to OpenStreetMap Nominatim. Returns null if both fail.
  */
+let _warnedMissingKey = false;
+function resolveGoogleKey(): string | null {
+  const env = (import.meta as any).env || {};
+  const candidates = [
+    env.VITE_GOOGLE_GEOCODING_API_KEY,
+    env.VITE_GOOGLE_MAPS_API_KEY,
+    env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY,
+  ];
+  for (const c of candidates) {
+    const v = typeof c === 'string' ? c.trim() : '';
+    if (v && v !== 'your_google_maps_api_key_here') return v;
+  }
+  if (!_warnedMissingKey) {
+    _warnedMissingKey = true;
+    console.info(
+      '[reverseGeocode] No Google Maps key configured (checked VITE_GOOGLE_GEOCODING_API_KEY, VITE_GOOGLE_MAPS_API_KEY, VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY) — falling back to OpenStreetMap Nominatim.'
+    );
+  }
+  return null;
+}
+
 export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   // 1) Try Google Maps Geocoding
   try {
-    const googleApiKey =
-      (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY ||
-      (import.meta as any).env?.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY;
-    if (googleApiKey && googleApiKey !== 'your_google_maps_api_key_here') {
+    const googleApiKey = resolveGoogleKey();
+    if (googleApiKey) {
       const url =
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}` +
         `&language=en&key=${googleApiKey}`;
