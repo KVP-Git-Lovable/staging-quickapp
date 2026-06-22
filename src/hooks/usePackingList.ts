@@ -1457,6 +1457,43 @@ export function usePackingList() {
     }
   }, [toast]);
 
+  // ---- Primary invoices (header-only, packed-qty billed) -------------------
+  const generatePrimaryInvoices = useCallback(async (packingListId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await (supabase as any).rpc('generate_primary_invoices_atomic', {
+        p_packing_list_id: packingListId,
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to generate invoices');
+      toast({ title: 'Invoices generated', description: `${data.count} draft invoice(s) created` });
+      return data as { success: true; invoices: Array<{ invoice_id: string; invoice_number: string; order_id: string; total_amount: number }>; count: number; packing_list_id: string };
+    } catch (err: any) {
+      toast({ title: 'Generate failed', description: err?.message || 'Unable to generate invoices', variant: 'destructive' });
+      return { success: false as const, error: err?.message };
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const finalizePrimaryInvoice = useCallback(async (invoiceId: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await (supabase as any).rpc('finalize_primary_invoice_atomic', {
+        p_invoice_id: invoiceId,
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to finalize');
+      toast({ title: data.already_finalized ? 'Already finalized' : 'Invoice finalized' });
+      return data as { success: true; invoice_id: string; already_finalized?: boolean };
+    } catch (err: any) {
+      toast({ title: 'Finalize failed', description: err?.message || 'Unable to finalize invoice', variant: 'destructive' });
+      return { success: false as const, error: err?.message };
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   return {
     loading,
     fetchPackingLists,
@@ -1475,6 +1512,8 @@ export function usePackingList() {
     setBatchPackedQty,
     confirmPacking,
     generateInvoiceFromPackingList,
+    generatePrimaryInvoices,
+    finalizePrimaryInvoice,
     assignDriverAndCreateRun,
     updateDriverAssignment,
   };
