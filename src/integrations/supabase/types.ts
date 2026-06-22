@@ -11340,6 +11340,7 @@ export type Database = {
           batch_id: string
           batch_number: string | null
           created_at: string
+          delivered_qty: number
           expiry_date: string | null
           id: string
           packed_at: string | null
@@ -11349,6 +11350,7 @@ export type Database = {
           picked_qty: number
           scanned_at: string | null
           scanned_by: string | null
+          short_delivery_reason: string | null
           short_pick_reason: string | null
         }
         Insert: {
@@ -11356,6 +11358,7 @@ export type Database = {
           batch_id: string
           batch_number?: string | null
           created_at?: string
+          delivered_qty?: number
           expiry_date?: string | null
           id?: string
           packed_at?: string | null
@@ -11365,6 +11368,7 @@ export type Database = {
           picked_qty?: number
           scanned_at?: string | null
           scanned_by?: string | null
+          short_delivery_reason?: string | null
           short_pick_reason?: string | null
         }
         Update: {
@@ -11372,6 +11376,7 @@ export type Database = {
           batch_id?: string
           batch_number?: string | null
           created_at?: string
+          delivered_qty?: number
           expiry_date?: string | null
           id?: string
           packed_at?: string | null
@@ -11381,6 +11386,7 @@ export type Database = {
           picked_qty?: number
           scanned_at?: string | null
           scanned_by?: string | null
+          short_delivery_reason?: string | null
           short_pick_reason?: string | null
         }
         Relationships: [
@@ -11544,11 +11550,16 @@ export type Database = {
           created_by: string | null
           delivered_at: string | null
           delivery_date: string
+          dispatch_date: string | null
+          dispatch_destination: string | null
           dispatch_driver: string | null
+          dispatch_mode: string | null
+          dispatch_notes: string | null
           dispatch_vehicle: string | null
           dispatched_at: string | null
           distributor_id: string | null
           id: string
+          lr_gr_number: string | null
           notes: string | null
           order_type: string
           packing_confirmed_at: string | null
@@ -11563,8 +11574,12 @@ export type Database = {
           route_id: string | null
           status: string
           total_items: number
+          total_packages: number | null
           total_value: number | null
+          total_weight_kg: number | null
+          transporter_name: string | null
           updated_at: string | null
+          vehicle_type: string | null
           warehouse_id: string | null
         }
         Insert: {
@@ -11572,11 +11587,16 @@ export type Database = {
           created_by?: string | null
           delivered_at?: string | null
           delivery_date: string
+          dispatch_date?: string | null
+          dispatch_destination?: string | null
           dispatch_driver?: string | null
+          dispatch_mode?: string | null
+          dispatch_notes?: string | null
           dispatch_vehicle?: string | null
           dispatched_at?: string | null
           distributor_id?: string | null
           id?: string
+          lr_gr_number?: string | null
           notes?: string | null
           order_type?: string
           packing_confirmed_at?: string | null
@@ -11591,8 +11611,12 @@ export type Database = {
           route_id?: string | null
           status?: string
           total_items?: number
+          total_packages?: number | null
           total_value?: number | null
+          total_weight_kg?: number | null
+          transporter_name?: string | null
           updated_at?: string | null
+          vehicle_type?: string | null
           warehouse_id?: string | null
         }
         Update: {
@@ -11600,11 +11624,16 @@ export type Database = {
           created_by?: string | null
           delivered_at?: string | null
           delivery_date?: string
+          dispatch_date?: string | null
+          dispatch_destination?: string | null
           dispatch_driver?: string | null
+          dispatch_mode?: string | null
+          dispatch_notes?: string | null
           dispatch_vehicle?: string | null
           dispatched_at?: string | null
           distributor_id?: string | null
           id?: string
+          lr_gr_number?: string | null
           notes?: string | null
           order_type?: string
           packing_confirmed_at?: string | null
@@ -11619,8 +11648,12 @@ export type Database = {
           route_id?: string | null
           status?: string
           total_items?: number
+          total_packages?: number | null
           total_value?: number | null
+          total_weight_kg?: number | null
+          transporter_name?: string | null
           updated_at?: string | null
+          vehicle_type?: string | null
           warehouse_id?: string | null
         }
         Relationships: [
@@ -22041,6 +22074,18 @@ export type Database = {
         Args: { p_company_id: string; p_feature_key: string }
         Returns: undefined
       }
+      confirm_primary_delivery_atomic: {
+        Args: {
+          p_delivered_at: string
+          p_lines?: Json
+          p_packing_list_id: string
+          p_pod_notes: string
+          p_pod_photo_url: string
+          p_pod_signature_url: string
+          p_received_by: string
+        }
+        Returns: Json
+      }
       create_approval_request: {
         Args: {
           p_entity_id: string
@@ -22110,6 +22155,10 @@ export type Database = {
       }
       dispatch_packing_list_atomic: {
         Args: { p_packing_list_id: string }
+        Returns: Json
+      }
+      dispatch_primary_packing_list_atomic: {
+        Args: { p_dispatch?: Json; p_packing_list_id: string }
         Returns: Json
       }
       emit_notification_event: {
