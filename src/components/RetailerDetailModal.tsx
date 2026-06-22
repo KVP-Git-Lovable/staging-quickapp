@@ -1435,7 +1435,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       <Popover open={distributorOpen} onOpenChange={setDistributorOpen}>
                         <PopoverTrigger asChild>
                           <Button variant="outline" role="combobox" aria-expanded={distributorOpen} className="w-full h-8 text-sm mt-1 justify-between font-normal">
-                            {formData.parent_name || "Select distributor..."}
+                            {formData.parent_name || (distributors.find(d => d.id === (formData as any).distributor_id)?.name) || "Select distributor..."}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
@@ -1450,11 +1450,11 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                                     key={dist.id}
                                     value={dist.name}
                                     onSelect={() => {
-                                      setFormData({...formData, parent_name: dist.name});
+                                      setFormData({...formData, parent_name: dist.name, distributor_id: dist.id} as any);
                                       setDistributorOpen(false);
                                     }}
                                   >
-                                    <Check className={cn("mr-2 h-4 w-4", formData.parent_name === dist.name ? "opacity-100" : "opacity-0")} />
+                                    <Check className={cn("mr-2 h-4 w-4", (formData as any).distributor_id === dist.id || formData.parent_name === dist.name ? "opacity-100" : "opacity-0")} />
                                     {dist.name}
                                   </CommandItem>
                                 ))}
