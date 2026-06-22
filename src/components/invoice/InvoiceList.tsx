@@ -72,7 +72,10 @@ export default function InvoiceList() {
               invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell className="font-medium">
-                    {invoice.invoice_number || invoice.id}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span>{invoice.invoice_number || invoice.id}</span>
+                      <InvoiceStatusBadge invoice={invoice} variant="row" />
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <InvoicePDFGenerator 
