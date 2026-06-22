@@ -448,7 +448,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
       {/* Info cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <InfoCard title="Invoice Details" rows={[
-          ['Number', activeInvoice?.invoice_number || '—'],
+          ['Number', activeInvoice?.status === 'finalized' ? (activeInvoice.invoice_number || '—') : '— (assigned on finalize)'],
           ['Date', activeInvoice ? format(new Date(activeInvoice.invoice_date), 'dd MMM yyyy') : '—'],
           ['Status', (activeInvoice?.status || 'draft').toUpperCase()],
         ]} />
