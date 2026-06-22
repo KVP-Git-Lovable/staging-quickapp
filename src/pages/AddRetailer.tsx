@@ -493,6 +493,61 @@ export const AddRetailer = () => {
     }
   }, [isEditMode, editingRetailer, distributors]);
 
+  // In edit mode, fetch the freshest retailer row from DB and merge it in,
+  // so prefill is complete even if the caller passed only a partial object.
+  useEffect(() => {
+    if (!isEditMode || !editingRetailer?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('retailers')
+          .select('*')
+          .eq('id', editingRetailer.id)
+          .maybeSingle();
+        if (error || !data || cancelled) return;
+        const r: any = data;
+        const competitors = r.competitors || [];
+        setRetailerData(prev => ({
+          ...prev,
+          name: r.name ?? prev.name,
+          contactName: r.contact_name ?? prev.contactName,
+          contactTitle: r.contact_title ?? prev.contactTitle,
+          gstNumber: r.gst_number ?? prev.gstNumber,
+          phone: r.phone ?? prev.phone,
+          address: r.address ?? prev.address,
+          category: r.category ?? prev.category,
+          notes: r.notes ?? prev.notes,
+          parentType: r.parent_type ?? prev.parentType,
+          parentName: r.parent_name ?? prev.parentName,
+          locationTag: r.location_tag ?? prev.locationTag,
+          retailType: r.retail_type ?? prev.retailType,
+          potential: r.potential
+            ? String(r.potential).charAt(0).toUpperCase() + String(r.potential).slice(1)
+            : prev.potential,
+          competitor1: competitors[0] ?? prev.competitor1,
+          competitor2: competitors[1] ?? prev.competitor2,
+          competitor3: competitors[2] ?? prev.competitor3,
+          latitude: r.latitude != null ? String(r.latitude) : prev.latitude,
+          longitude: r.longitude != null ? String(r.longitude) : prev.longitude,
+          photo_url: r.photo_url ?? prev.photo_url,
+          manual_credit_score: r.manual_credit_score != null ? String(r.manual_credit_score) : prev.manual_credit_score,
+          state: r.state ?? prev.state,
+        }));
+        if (r.photo_url) setCapturedPhotoPreview(r.photo_url);
+        if (r.beat_id) setSelectedBeat(prev => prev || r.beat_id);
+        if (r.territory_id) setSelectedTerritoryId(prev => prev || r.territory_id);
+        if (r.owner_id) {
+          setSelectedOwnerId(prev => prev || r.owner_id);
+          setSelectedOwnerName(prev => prev || r.owner_name || '');
+        }
+      } catch (e) {
+        console.error('Edit-mode fresh fetch failed:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isEditMode, editingRetailer?.id]);
+
   const loadCreditConfig = async () => {
     try {
       const { data, error } = await supabase
@@ -1706,9 +1761,16 @@ export const AddRetailer = () => {
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
-                      {retailTypes.map((type) => (
-                        <SelectItem key={type} value={type}>{type}</SelectItem>
-                      ))}
+                      {(() => {
+                        const list = [...retailTypes];
+                        const v = retailerData.retailType;
+                        if (v && v !== "Other" && !list.some(t => t.toLowerCase() === v.toLowerCase())) {
+                          list.unshift(v);
+                        }
+                        return list.map((type) => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ));
+                      })()}
                     </SelectContent>
                   </Select>
                   {retailerData.retailType === "Other" && (
@@ -1731,9 +1793,16 @@ export const AddRetailer = () => {
                       <SelectValue placeholder={t('retailer.selectCategory')} />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                      ))}
+                      {(() => {
+                        const list = [...categories];
+                        const v = retailerData.category;
+                        if (v && !list.some(c => c.toLowerCase() === v.toLowerCase())) {
+                          list.unshift(v);
+                        }
+                        return list.map((category) => (
+                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                        ));
+                      })()}
                     </SelectContent>
                   </Select>
                 </div>

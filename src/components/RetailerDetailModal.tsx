@@ -81,6 +81,9 @@ interface Retailer {
   latitude?: number | null;
   longitude?: number | null;
   photo_url?: string | null;
+  alternate_phone?: string | null;
+  distributor_id?: string | null;
+  state?: string | null;
   order_value?: number | null;
   manual_credit_score?: number | null;
   last_order_date?: string | null;
@@ -608,14 +611,16 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
     try {
       const selectedBeat = beats.find(b => b.beat_id === formData.beat_id);
       
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('retailers')
         .update({
           name: formData.name,
           contact_name: formData.contact_name,
           contact_title: formData.contact_title,
           phone: formData.phone,
+          alternate_phone: (formData as any).alternate_phone ?? null,
           address: formData.address,
+          state: (formData as any).state ?? null,
           category: formData.category,
           priority: formData.priority,
           status: formData.status,
@@ -632,12 +637,23 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           beat_id: formData.beat_id,
           beat_name: selectedBeat?.beat_name || formData.beat_id,
           territory_id: formData.territory_id || null,
+          distributor_id: (formData as any).distributor_id ?? null,
+          photo_url: (formData as any).photo_url ?? null,
           manual_credit_score: formData.manual_credit_score,
-        })
+        }, { count: 'exact' })
         .eq('id', formData.id)
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      if ((count ?? 0) === 0) {
+        toast({
+          title: "Permission denied",
+          description: "You don't have permission to edit this retailer.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "Retailer updated",
@@ -1274,12 +1290,30 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                     </div>
                   </div>
                   
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">GST Number</Label>
+                      {isEditing ? (
+                        <Input value={formData.gst_number || ''} onChange={(e) => setFormData({...formData, gst_number: e.target.value})} className="h-8 text-sm mt-1" />
+                      ) : (
+                        <p className="text-sm">{formData.gst_number || '-'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Alternate Phone</Label>
+                      {isEditing ? (
+                        <Input value={(formData as any).alternate_phone || ''} onChange={(e) => setFormData({...formData, alternate_phone: e.target.value} as any)} className="h-8 text-sm mt-1" placeholder="Alternate number" />
+                      ) : (
+                        <p className="text-sm">{(formData as any).alternate_phone || '-'}</p>
+                      )}
+                    </div>
+                  </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">GST Number</Label>
+                    <Label className="text-xs text-muted-foreground">Photo URL</Label>
                     {isEditing ? (
-                      <Input value={formData.gst_number || ''} onChange={(e) => setFormData({...formData, gst_number: e.target.value})} className="h-8 text-sm mt-1" />
+                      <Input value={(formData as any).photo_url || ''} onChange={(e) => setFormData({...formData, photo_url: e.target.value} as any)} className="h-8 text-sm mt-1" placeholder="https://..." />
                     ) : (
-                      <p className="text-sm">{formData.gst_number || '-'}</p>
+                      <p className="text-sm break-all">{(formData as any).photo_url || '-'}</p>
                     )}
                   </div>
                 </CardContent>
@@ -1299,6 +1333,14 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       <a href={getGoogleMapsLink() || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.address || '')}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
                         {formData.address}
                       </a>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">State</Label>
+                    {isEditing ? (
+                      <Input value={(formData as any).state || ''} onChange={(e) => setFormData({...formData, state: e.target.value} as any)} className="h-8 text-sm mt-1" placeholder="State" />
+                    ) : (
+                      <p className="text-sm">{(formData as any).state || '-'}</p>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -1393,7 +1435,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       <Popover open={distributorOpen} onOpenChange={setDistributorOpen}>
                         <PopoverTrigger asChild>
                           <Button variant="outline" role="combobox" aria-expanded={distributorOpen} className="w-full h-8 text-sm mt-1 justify-between font-normal">
-                            {formData.parent_name || "Select distributor..."}
+                            {formData.parent_name || (distributors.find(d => d.id === (formData as any).distributor_id)?.name) || "Select distributor..."}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
@@ -1408,11 +1450,11 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                                     key={dist.id}
                                     value={dist.name}
                                     onSelect={() => {
-                                      setFormData({...formData, parent_name: dist.name});
+                                      setFormData({...formData, parent_name: dist.name, distributor_id: dist.id} as any);
                                       setDistributorOpen(false);
                                     }}
                                   >
-                                    <Check className={cn("mr-2 h-4 w-4", formData.parent_name === dist.name ? "opacity-100" : "opacity-0")} />
+                                    <Check className={cn("mr-2 h-4 w-4", (formData as any).distributor_id === dist.id || formData.parent_name === dist.name ? "opacity-100" : "opacity-0")} />
                                     {dist.name}
                                   </CommandItem>
                                 ))}
