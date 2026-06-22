@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import { InvoicePDFGenerator } from "./InvoicePDFGenerator";
+import InvoiceStatusBadge from "./InvoiceStatusBadge";
 
 export default function InvoiceList() {
   const [invoices, setInvoices] = useState<any[]>([]);
