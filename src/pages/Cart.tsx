@@ -382,7 +382,7 @@ export const Cart = () => {
           }
         }
       });
-  }, [validRetailerId]);
+  }, [validRetailerId, isEditMode, editOriginalOrder]);
 
   // Calculate order totals using scheme engine
   const orderCalculation = React.useMemo(() => {
