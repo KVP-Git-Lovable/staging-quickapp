@@ -235,6 +235,85 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     toast({ title: 'Ready for dispatch' });
   };
 
+  const buildBlobForActive = useCallback(async (): Promise<Blob | null> => {
+    const inv = invoices.find(i => i.id === activeInvoiceId);
+    if (!inv) return null;
+    const lines = linesByOrder[inv.order_id] || [];
+    // Fetch company for header
+    let company: any = {};
+    try {
+      const { data } = await supabase.from('companies').select('*').limit(1).maybeSingle();
+      company = data || {};
+    } catch {}
+    return buildPrimaryInvoiceBlob({
+      invoiceNumber: inv.invoice_number,
+      invoiceDate: inv.invoice_date,
+      isDraft: inv.status !== 'finalized',
+      distributor,
+      company,
+      lines: lines.map(l => ({
+        product_name: l.product_name,
+        hsn_code: l.hsn_code,
+        unit: l.unit,
+        packed_qty: l.packed_qty,
+        unit_price: l.unit_price,
+        discount_percent: l.discount_percent,
+        tax_percent: l.tax_percent,
+      })),
+    });
+  }, [invoices, activeInvoiceId, linesByOrder, distributor]);
+
+  const [docBusy, setDocBusy] = useState<'view' | 'download' | 'print' | null>(null);
+
+  const handleView = async () => {
+    setDocBusy('view');
+    try {
+      const blob = await buildBlobForActive();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: any) {
+      toast({ title: 'View failed', description: e?.message, variant: 'destructive' });
+    } finally { setDocBusy(null); }
+  };
+
+  const handleDownload = async () => {
+    setDocBusy('download');
+    try {
+      const blob = await buildBlobForActive();
+      if (!blob) return;
+      const inv = invoices.find(i => i.id === activeInvoiceId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${inv?.invoice_number || 'invoice'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: 'Download failed', description: e?.message, variant: 'destructive' });
+    } finally { setDocBusy(null); }
+  };
+
+  const handlePrint = async () => {
+    setDocBusy('print');
+    try {
+      const blob = await buildBlobForActive();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, '_blank');
+      if (w) {
+        w.addEventListener('load', () => { try { w.focus(); w.print(); } catch {} });
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: any) {
+      toast({ title: 'Print failed', description: e?.message, variant: 'destructive' });
+    } finally { setDocBusy(null); }
+  };
+
+
   const activeInvoice = invoices.find(i => i.id === activeInvoiceId) || null;
   const activeOrder = activeInvoice ? ordersById[activeInvoice.order_id] : null;
   const activeLines = activeInvoice ? (linesByOrder[activeInvoice.order_id] || []) : [];
