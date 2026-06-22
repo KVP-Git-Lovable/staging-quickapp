@@ -10,6 +10,8 @@ import PicklistPackingStage from '@/components/packing/stages/PicklistPackingSta
 import InvoiceDispatchStage from '@/components/packing/stages/InvoiceDispatchStage';
 import PrimaryInvoiceStage from '@/components/packing/stages/PrimaryInvoiceStage';
 import DeliveryRunStage from '@/components/packing/stages/DeliveryRunStage';
+import PrimaryDispatchStage from '@/components/packing/stages/PrimaryDispatchStage';
+import PrimaryDeliveryStage from '@/components/packing/stages/PrimaryDeliveryStage';
 
 export default function PackingListDetail() {
   const { id } = useParams<{ id: string }>();
