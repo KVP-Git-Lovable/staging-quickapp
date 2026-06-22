@@ -643,37 +643,17 @@ export function useOfflineSync() {
           if (orderError) throw orderError;
 
 
-          // Update retailer's pending_amount for old format too
+          // Authoritative recompute from active credit orders (single source of truth).
           if (data.retailer_id) {
-            const { data: retailerData } = await supabase
-              .from('retailers')
-              .select('pending_amount')
-              .eq('id', data.retailer_id)
-              .single();
-            
-            const currentPending = retailerData?.pending_amount || 0;
-            const creditPending = data.credit_pending_amount || 0;
-            const previousCleared = data.previous_pending_cleared || 0;
-            
-            const newPending = data.is_credit_order 
-              ? currentPending + creditPending - previousCleared
-              : 0;
-            
-            console.log('💰 Updating retailer pending amount from sync (old format):', { 
-              retailerId: data.retailer_id, 
-              currentPending, 
-              creditPending,
-              previousCleared,
-              newPending 
-            });
-            
-            await supabase
-              .from('retailers')
-              .update({ 
-                pending_amount: Math.max(0, newPending),
-                last_order_date: new Date().toISOString().split('T')[0]
-              })
-              .eq('id', data.retailer_id);
+            try {
+              await supabase.rpc('recompute_retailer_pending', { p_retailer_id: data.retailer_id });
+              await supabase
+                .from('retailers')
+                .update({ last_order_date: new Date().toISOString().split('T')[0] })
+                .eq('id', data.retailer_id);
+            } catch (e) {
+              console.warn('[useOfflineSync] recompute_retailer_pending failed (old format):', e);
+            }
           }
 
           // Trigger visit status refresh (database trigger auto-updates visit status)
