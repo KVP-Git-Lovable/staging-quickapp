@@ -2017,6 +2017,30 @@ export const Cart = () => {
     }
   };
 
+  if (isEditMode && (editLoading || editBlockedReason)) {
+    return (
+      <Layout>
+        <div className="min-h-screen bg-background p-4">
+          <Card className="max-w-xl mx-auto mt-8">
+            <CardHeader>
+              <CardTitle>{editLoading ? 'Loading order…' : 'Edit not available'}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {editLoading ? (
+                <p className="text-muted-foreground text-sm">Checking edit permissions…</p>
+              ) : (
+                <>
+                  <p className="text-sm">{editBlockedReason}</p>
+                  <Button variant="outline" onClick={() => navigate(-1)}>Go back</Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="min-h-screen bg-background pb-20">
