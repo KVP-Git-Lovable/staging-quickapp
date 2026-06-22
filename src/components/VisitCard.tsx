@@ -53,7 +53,9 @@ import { VisitPointsDisplay, type VisitPointsBreakdown } from "./VisitPointsDisp
 import { CancelOrderDialog } from "./CancelOrderDialog";
 import { useActivityEvents, formatActivityDuration, type ActivityEvent } from "@/hooks/useActivityEvents";
 import { useFeedbackPolicyCheck } from "@/hooks/useFeedbackPolicyCheck";
-import { checkLocationAvailability, classifyLocationError } from "@/utils/locationStatus";
+import { checkLocationAvailability, classifyLocationError, requestLocationPermission } from "@/utils/locationStatus";
+import { openAppSettings } from "@/utils/permissions";
+import { Capacitor } from "@capacitor/core";
 import { reverseGeocode } from "@/utils/reverseGeocode";
 interface Visit {
   id: string;
