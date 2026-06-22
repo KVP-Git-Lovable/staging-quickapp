@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePackingList, PackingList } from '@/hooks/usePackingList';
 import PicklistPackingStage from '@/components/packing/stages/PicklistPackingStage';
 import InvoiceDispatchStage from '@/components/packing/stages/InvoiceDispatchStage';
+import PrimaryInvoiceStage from '@/components/packing/stages/PrimaryInvoiceStage';
 import DeliveryRunStage from '@/components/packing/stages/DeliveryRunStage';
 
 export default function PackingListDetail() {
@@ -96,7 +97,9 @@ export default function PackingListDetail() {
           />
         )}
         {(pl.status === 'packed' || pl.status === 'ready') && (
-          <InvoiceDispatchStage packingList={pl} onStatusChange={refreshStatus} />
+          pl.order_type === 'primary'
+            ? <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
+            : <InvoiceDispatchStage packingList={pl} onStatusChange={refreshStatus} />
         )}
         {(pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
           <DeliveryRunStage packingList={pl} onStatusChange={refreshStatus} />
