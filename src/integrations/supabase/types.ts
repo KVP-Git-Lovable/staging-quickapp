@@ -22159,6 +22159,15 @@ export type Database = {
         Returns: Json
       }
       expire_user_delegations: { Args: never; Returns: undefined }
+      finalize_order_edit: {
+        Args: {
+          p_edited_by: string
+          p_original_order_id: string
+          p_reason: string
+          p_replacement_order_id: string
+        }
+        Returns: Json
+      }
       generate_grn_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_primary_invoice_number: { Args: never; Returns: string }
