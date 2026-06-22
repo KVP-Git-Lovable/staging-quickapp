@@ -10,6 +10,8 @@ import { PackingList } from '@/hooks/usePackingList';
 import PicklistPackingStage from '@/components/packing/stages/PicklistPackingStage';
 import InvoiceDispatchStage from '@/components/packing/stages/InvoiceDispatchStage';
 import PrimaryInvoiceStage from '@/components/packing/stages/PrimaryInvoiceStage';
+import PrimaryDispatchStage from '@/components/packing/stages/PrimaryDispatchStage';
+import PrimaryDeliveryStage from '@/components/packing/stages/PrimaryDeliveryStage';
 import DeliveryRunStage from '@/components/packing/stages/DeliveryRunStage';
 
 export default function PackingListDetail() {
