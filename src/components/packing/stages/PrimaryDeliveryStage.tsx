@@ -292,8 +292,8 @@ export default function PrimaryDeliveryStage({ packingList, onStatusChange }: Pr
                   const isShort = l.delivered_qty < l.dispatched_qty;
                   const isFull = l.delivered_qty === l.dispatched_qty;
                   return (
-                    <>
-                      <tr key={l.batch_id} className={isShort ? 'bg-rose-50/60 dark:bg-rose-950/20' : ''}>
+                    <Fragment key={l.batch_id}>
+                      <tr className={isShort ? 'bg-rose-50/60 dark:bg-rose-950/20' : ''}>
                         <td className="py-2 text-muted-foreground">{i + 1}</td>
                         <td className="py-2 font-medium text-primary">{l.product_name}</td>
                         <td className="py-2 text-right">{l.dispatched_qty}</td>
