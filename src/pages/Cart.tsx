@@ -237,7 +237,7 @@ export const Cart = () => {
             .select('object_name, can_edit, can_read')
             .eq('profile_id', profileId)
             .eq('object_name', 'action_order_edit');
-          hasEdit = !!(perms && perms.some((p: any) => p.can_edit || p.can_read));
+          hasEdit = !!(perms && perms.some((p: any) => p.can_edit));
         }
         const permMap = { action_order_edit: hasEdit };
 
