@@ -966,7 +966,8 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
       schemeDetails
     });
 
-    return { blob, invoiceNumber: editedInvoice.invoice_number };
+    const stamped = await applyInvoiceWatermark(blob, { invoiceNumber: editedInvoice.invoice_number });
+    return { blob: stamped, invoiceNumber: editedInvoice.invoice_number };
   }
 
   // Fallback to generating from order data (original behavior)
