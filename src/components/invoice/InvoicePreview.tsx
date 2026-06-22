@@ -1,4 +1,5 @@
 import { DisplaySettingsMap } from "@/hooks/useInvoiceDisplaySettings";
+import InvoiceStatusBadge from "./InvoiceStatusBadge";
 
 // Number to words helper
 const numberToWords = (num: number): string => {
