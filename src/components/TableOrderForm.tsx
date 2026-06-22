@@ -438,6 +438,49 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     DEV_LOG && console.log('[TableOrderForm] Context switched, loaded rows:', rows.length, tableFormStorageKey);
   }, [tableFormStorageKey]);
 
+  // EDIT MODE: seed table rows from the already-seeded edit cart, so the
+  // originally-ordered products appear pre-filled and editable. Only runs
+  // when the table_form storage for this edit is empty.
+  useEffect(() => {
+    if (!isEditMode || products.length === 0) return;
+    try {
+      const existingRaw = localStorage.getItem(tableFormStorageKey);
+      const existing = existingRaw ? JSON.parse(existingRaw) : null;
+      const hasRows = Array.isArray(existing) && existing.some((r: any) => r && r.product && r.product.id);
+      if (hasRows) return;
+
+      const cartRaw = localStorage.getItem(`order_cart:edit:${editOrderId}`);
+      const cart = cartRaw ? JSON.parse(cartRaw) : [];
+      if (!Array.isArray(cart) || cart.length === 0) return;
+
+      const seeded: OrderRow[] = cart.map((it: any, idx: number) => {
+        const pid: string | undefined = it.product_id || (typeof it.id === 'string' ? it.id.split('_variant_')[0] : undefined);
+        const liveProduct = pid ? products.find(p => p.id === pid) : undefined;
+        const liveVariant = liveProduct && it.variant_id
+          ? liveProduct.variants?.find((v: any) => v.id === it.variant_id)
+          : undefined;
+        const qty = Number(it.quantity) || 0;
+        const rate = Number(it.rate) || 0;
+        return {
+          id: String(idx + 1),
+          productCode: (liveVariant as any)?.sku || liveProduct?.sku || pid || '',
+          product: liveProduct,
+          variant: liveVariant,
+          quantity: qty,
+          closingStock: Number(it.closingStock ?? (liveVariant as any)?.stock_quantity ?? liveProduct?.closing_stock ?? 0),
+          unit: it.unit || (liveProduct ? getDefaultOrderUnit(liveProduct) : 'pcs'),
+          total: Number(it.total) || qty * rate,
+        } as OrderRow;
+      });
+
+      localStorage.setItem(tableFormStorageKey, JSON.stringify(seeded));
+      setOrderRows(seeded);
+      console.log('[TableOrderForm][edit] Seeded', seeded.length, 'rows from edit cart');
+    } catch (e) {
+      console.error('[TableOrderForm][edit] seed from cart failed:', e);
+    }
+  }, [isEditMode, editOrderId, products.length, tableFormStorageKey]);
+
   // Re-link products from live products array when products load (only once after init)
 
   useEffect(() => {
