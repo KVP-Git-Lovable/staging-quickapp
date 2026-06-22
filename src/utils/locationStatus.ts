@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 
-export type LocationStatus = 'ready' | 'denied' | 'unavailable' | 'unknown';
+export type LocationStatus = 'ready' | 'prompt' | 'denied' | 'unavailable' | 'unknown';
 
 export interface LocationCheckResult {
   status: LocationStatus;
@@ -9,7 +9,10 @@ export interface LocationCheckResult {
 
 /**
  * Pre-check whether geolocation is available before attempting capture.
- * Returns a status + user-facing message (null when ready).
+ * Returns a status + user-facing message (null when ready/prompt).
+ *
+ * Does NOT trigger an OS permission prompt — that should only happen on an
+ * explicit user gesture. See `requestLocationPermission` for that.
  */
 export async function checkLocationAvailability(): Promise<LocationCheckResult> {
   try {
@@ -17,14 +20,15 @@ export async function checkLocationAvailability(): Promise<LocationCheckResult> 
       try {
         const { Geolocation } = await import('@capacitor/geolocation');
         const perm = await Geolocation.checkPermissions();
-        const granted = perm.location === 'granted' || perm.coarseLocation === 'granted';
-        if (!granted) {
-          return {
-            status: 'denied',
-            message: 'Location permission is off for the app — please enable it and try again.',
-          };
+        const state = perm.location || perm.coarseLocation;
+        if (state === 'granted') return { status: 'ready', message: null };
+        if (state === 'prompt' || state === 'prompt-with-rationale') {
+          return { status: 'prompt', message: null };
         }
-        return { status: 'ready', message: null };
+        return {
+          status: 'denied',
+          message: 'Location permission is off for the app — please enable it and try again.',
+        };
       } catch {
         return { status: 'unknown', message: null };
       }
@@ -38,6 +42,9 @@ export async function checkLocationAvailability(): Promise<LocationCheckResult> 
             status: 'denied',
             message: 'Location permission is off for the app — please enable it and try again.',
           };
+        }
+        if (res.state === 'prompt') {
+          return { status: 'prompt', message: null };
         }
         return { status: 'ready', message: null };
       } catch {
@@ -53,6 +60,31 @@ export async function checkLocationAvailability(): Promise<LocationCheckResult> 
     }
 
     return { status: 'unknown', message: null };
+  } catch {
+    return { status: 'unknown', message: null };
+  }
+}
+
+/**
+ * Request location permission. Safe to call on web (it's a no-op there since
+ * the browser asks implicitly on first `getCurrentPosition`). On native, this
+ * triggers the OS prompt when the current state is 'prompt'.
+ *
+ * MUST be called only from a user gesture handler (e.g. button click).
+ */
+export async function requestLocationPermission(): Promise<LocationCheckResult> {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const { Geolocation } = await import('@capacitor/geolocation');
+      const perm = await Geolocation.requestPermissions();
+      const state = perm.location || perm.coarseLocation;
+      if (state === 'granted') return { status: 'ready', message: null };
+      return {
+        status: 'denied',
+        message: 'Location permission is off for the app — please enable it in Settings and try again.',
+      };
+    }
+    return { status: 'ready', message: null };
   } catch {
     return { status: 'unknown', message: null };
   }
