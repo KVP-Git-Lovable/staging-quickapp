@@ -22168,9 +22168,17 @@ export type Database = {
         }
         Returns: Json
       }
+      finalize_primary_invoice_atomic: {
+        Args: { p_invoice_id: string }
+        Returns: Json
+      }
       generate_grn_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
       generate_primary_invoice_number: { Args: never; Returns: string }
+      generate_primary_invoices_atomic: {
+        Args: { p_packing_list_id: string }
+        Returns: Json
+      }
       generate_return_number: { Args: never; Returns: string }
       generate_shipment_number: { Args: never; Returns: string }
       generate_system_batch_code: {
