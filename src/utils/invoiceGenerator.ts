@@ -5,6 +5,7 @@ import autoTable from 'jspdf-autotable';
 import { supabase } from "@/integrations/supabase/client";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { getInvoiceDisplaySettingsMap, DisplaySettingsMap } from "@/hooks/useInvoiceDisplaySettings";
+import { applyInvoiceWatermark } from "@/utils/invoiceWatermark";
 
 /**
  * Compress an image (URL string or Blob) for PDF embedding.
@@ -965,7 +966,8 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
       schemeDetails
     });
 
-    return { blob, invoiceNumber: editedInvoice.invoice_number };
+    const stamped = await applyInvoiceWatermark(blob, { invoiceNumber: editedInvoice.invoice_number });
+    return { blob: stamped, invoiceNumber: editedInvoice.invoice_number };
   }
 
   // Fallback to generating from order data (original behavior)
@@ -1222,5 +1224,6 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
       break;
   }
 
-  return { blob, invoiceNumber };
+  const stamped = await applyInvoiceWatermark(blob, { invoiceNumber });
+  return { blob: stamped, invoiceNumber };
 }
