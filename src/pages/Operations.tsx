@@ -606,7 +606,10 @@ const Operations = () => {
           credit_paid_amount,
           payment_method,
           payment_status,
-          invoice_generated_at
+          invoice_generated_at,
+          is_edited,
+          edited_at,
+          edit_count
         `)
         .eq('status', 'confirmed')
         .order('created_at', { ascending: false });
