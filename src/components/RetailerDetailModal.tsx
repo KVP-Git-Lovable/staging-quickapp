@@ -611,14 +611,16 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
     try {
       const selectedBeat = beats.find(b => b.beat_id === formData.beat_id);
       
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('retailers')
         .update({
           name: formData.name,
           contact_name: formData.contact_name,
           contact_title: formData.contact_title,
           phone: formData.phone,
+          alternate_phone: (formData as any).alternate_phone ?? null,
           address: formData.address,
+          state: (formData as any).state ?? null,
           category: formData.category,
           priority: formData.priority,
           status: formData.status,
@@ -635,12 +637,23 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           beat_id: formData.beat_id,
           beat_name: selectedBeat?.beat_name || formData.beat_id,
           territory_id: formData.territory_id || null,
+          distributor_id: (formData as any).distributor_id ?? null,
+          photo_url: (formData as any).photo_url ?? null,
           manual_credit_score: formData.manual_credit_score,
-        })
+        }, { count: 'exact' })
         .eq('id', formData.id)
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      if ((count ?? 0) === 0) {
+        toast({
+          title: "Permission denied",
+          description: "You don't have permission to edit this retailer.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "Retailer updated",
