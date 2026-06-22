@@ -1793,9 +1793,16 @@ export const AddRetailer = () => {
                       <SelectValue placeholder={t('retailer.selectCategory')} />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
-                      {categories.map((category) => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                      ))}
+                      {(() => {
+                        const list = [...categories];
+                        const v = retailerData.category;
+                        if (v && !list.some(c => c.toLowerCase() === v.toLowerCase())) {
+                          list.unshift(v);
+                        }
+                        return list.map((category) => (
+                          <SelectItem key={category} value={category}>{category}</SelectItem>
+                        ));
+                      })()}
                     </SelectContent>
                   </Select>
                 </div>
