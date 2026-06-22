@@ -3815,7 +3815,20 @@ export const VisitCard = ({
         />
 
         {/* Location Capture Modal */}
-        <Dialog open={showLocationCaptureModal} onOpenChange={setShowLocationCaptureModal}>
+        <Dialog
+          open={showLocationCaptureModal}
+          onOpenChange={(open) => {
+            setShowLocationCaptureModal(open);
+            if (open) {
+              setLocationWarning(null);
+              setLocationReady(true);
+              checkLocationAvailability().then((r) => {
+                if (r.message) setLocationWarning(r.message);
+                setLocationReady(r.status !== 'denied' && r.status !== 'unavailable');
+              });
+            }
+          }}
+        >
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -3826,24 +3839,51 @@ export const VisitCard = ({
             <p className="text-sm text-muted-foreground">
               This retailer doesn't have a GPS location saved. Please capture the current location before placing an order.
             </p>
+            {locationWarning && (
+              <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
+                {locationWarning}
+              </div>
+            )}
             <div className="flex gap-2 justify-end mt-2">
               <Button variant="outline" size="sm" onClick={() => setShowLocationCaptureModal(false)}>
                 Cancel
               </Button>
-              <Button 
-                size="sm" 
-                disabled={isCapturingLocation}
+              <Button
+                size="sm"
+                disabled={isCapturingLocation || !locationReady}
                 onClick={async () => {
                   setIsCapturingLocation(true);
+                  setLocationWarning(null);
                   try {
                     const coords = await getResilientLocation();
                     const lat = coords.latitude;
                     const lng = coords.longitude;
                     const retailerId = (visit.retailerId || visit.id) as string;
 
+                    // Look up existing address so we don't overwrite a manual one
+                    const { data: existing } = await supabase
+                      .from('retailers')
+                      .select('address')
+                      .eq('id', retailerId)
+                      .maybeSingle();
+
+                    // Reverse-geocode in parallel; never block capture on geocode failure
+                    let address: string | null = null;
+                    try {
+                      address = await reverseGeocode(lat, lng);
+                    } catch {
+                      address = null;
+                    }
+
+                    const updatePayload: Record<string, any> = { latitude: lat, longitude: lng };
+                    const currentAddress = (existing?.address || '').trim();
+                    if (address && !currentAddress) {
+                      updatePayload.address = address;
+                    }
+
                     const { error } = await supabase
                       .from('retailers')
-                      .update({ latitude: lat, longitude: lng })
+                      .update(updatePayload)
                       .eq('id', retailerId);
 
                     if (error) throw error;
@@ -3854,13 +3894,20 @@ export const VisitCard = ({
 
                     toast({
                       title: "Location Captured",
-                      description: "Retailer location has been saved successfully. You can now place the order.",
+                      description: address && !currentAddress
+                        ? "Coordinates and address saved successfully."
+                        : "Retailer location has been saved successfully.",
                     });
                   } catch (err: any) {
                     console.error('Location capture error:', err);
+                    const { message, status } = classifyLocationError(err);
+                    setLocationWarning(message);
+                    if (status === 'denied' || status === 'unavailable') {
+                      setLocationReady(false);
+                    }
                     toast({
                       title: "Location Capture Failed",
-                      description: err?.message || "Could not get your current location. Please enable GPS and try again.",
+                      description: message,
                       variant: "destructive",
                     });
                   } finally {
