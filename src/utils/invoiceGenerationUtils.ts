@@ -51,33 +51,26 @@ export function shouldGenerateInvoiceAtDelivery(
 }
 
 /**
- * Mark order as invoice generated
+ * Mark order as invoice generated.
+ *
+ * NOTE: `invoice_generated_at` is now the DISPATCH lock (see canEditOrder).
+ * The invoice row itself is persisted automatically by a DB trigger when an
+ * order is confirmed, so this helper must NOT be called at order
+ * creation/confirmation. It is reserved for the dispatch step and is a no-op
+ * by default to avoid burning the edit window.
  */
 export async function markInvoiceGenerated(
-  orderId: string
+  _orderId: string
 ): Promise<InvoiceGenerationResult> {
-  try {
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        invoice_generated_at: new Date().toISOString()
-      })
-      .eq('id', orderId);
-
-    if (error) throw error;
-
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error marking invoice generated:', error);
-    return { 
-      success: false, 
-      error: error.message || 'Failed to mark invoice generated'
-    };
-  }
+  // Intentional no-op. Setting `invoice_generated_at` is now done at dispatch only.
+  return { success: true };
 }
 
 /**
- * Update order payment status after delivery collection
+ * Update order payment status after delivery collection.
+ *
+ * Does NOT touch `invoice_generated_at` — that field is reserved for dispatch
+ * and controls the order edit lock.
  */
 export async function updateOrderPaymentStatus(
   orderId: string,
@@ -89,11 +82,6 @@ export async function updateOrderPaymentStatus(
       payment_status: paymentStatus,
       amount_collected: amountCollected
     };
-
-    // If payment is collected (full or partial), mark invoice generation time
-    if (paymentStatus === 'paid' || paymentStatus === 'partial') {
-      updateData.invoice_generated_at = new Date().toISOString();
-    }
 
     const { error } = await supabase
       .from('orders')
