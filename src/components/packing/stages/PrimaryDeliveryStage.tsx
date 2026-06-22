@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Fragment } from 'react';
 import { format } from 'date-fns';
 import {
   Truck, Loader2, ArrowRight, Camera, PenLine, StickyNote,
