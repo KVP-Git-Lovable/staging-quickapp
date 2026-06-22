@@ -11,6 +11,12 @@ import { offlineStorage, STORES } from "@/lib/offlineStorage";
  * Frontend only does validation for fast UI feedback + cache cleanup.
  */
 
+export interface CancelOrderOptions {
+  settlement_method?: 'refund' | 'credit_note' | 'carry_forward' | null;
+  settlement_amount?: number;
+  van_stock_action?: 'collected' | 'damaged' | 'not_collected' | null;
+}
+
 export interface CancelOrderResult {
   success: boolean;
   error?: string;
@@ -21,6 +27,10 @@ export interface CancelOrderResult {
     pointsRemoved: number;
     invoiceCancelled: boolean;
     loyaltyPointsRemoved: number;
+    settlementMethod?: string | null;
+    settlementAmount?: number;
+    creditNoteNumber?: string | null;
+    vanStockAction?: string | null;
   };
 }
 
