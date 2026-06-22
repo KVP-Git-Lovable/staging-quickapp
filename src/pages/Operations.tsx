@@ -606,7 +606,10 @@ const Operations = () => {
           credit_paid_amount,
           payment_method,
           payment_status,
-          invoice_generated_at
+          invoice_generated_at,
+          is_edited,
+          edited_at,
+          edit_count
         `)
         .eq('status', 'confirmed')
         .order('created_at', { ascending: false });
@@ -674,10 +677,8 @@ const Operations = () => {
         const invoice = invoicesData?.find((i: any) => i.order_id === order.id);
         const itemsForOrder = (itemsData || []).filter((it: any) => it.order_id === order.id);
         
-        // Check if order was edited (updated_at differs from created_at by more than 5 seconds)
-        const createdTime = new Date(order.created_at).getTime();
-        const updatedTime = order.updated_at ? new Date(order.updated_at).getTime() : createdTime;
-        const isEdited = Math.abs(updatedTime - createdTime) > 5000; // 5 second threshold
+        // Edited flag is set ONLY when the order is updated via the edit dialog
+        const isEdited = (order as any).is_edited === true;
         
         return {
           id: order.id,
