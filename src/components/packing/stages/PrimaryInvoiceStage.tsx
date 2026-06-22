@@ -553,14 +553,17 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
         </Card>
       </div>
 
-      {/* Next-step bar */}
-      {allFinalized && (
-        <div className="sticky bottom-0 bg-card border-t -mx-4 px-4 py-3 flex items-center justify-end gap-3 z-10">
-          <Button onClick={handleProceedToDispatch}>
-            Proceed to Dispatch <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
-      )}
+      {/* Next-step bar — gated until every invoice on the list is finalized */}
+      <div className="sticky bottom-0 bg-card border-t -mx-4 px-4 py-3 flex items-center justify-between gap-3 z-10">
+        <p className="text-xs text-muted-foreground">
+          {allFinalized
+            ? 'All invoices finalized. Ready to prepare for dispatch.'
+            : `Finalize all ${invoices.length} invoice(s) to unlock dispatch.`}
+        </p>
+        <Button onClick={handleProceedToDispatch} disabled={!allFinalized}>
+          Prepare for Dispatch <ArrowRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
     </div>
   );
 }
