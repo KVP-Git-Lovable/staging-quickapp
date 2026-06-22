@@ -273,7 +273,7 @@ export default function PicklistPackingStage({ packingList, onStatusChange, onCa
       {/* Status Timeline */}
       <Card>
         <CardContent className="p-4">
-          <StatusTimeline status={packingList.status} />
+          <StatusTimeline status={activeStage === 'packing' && (packingList.status === 'draft' || packingList.status === 'picking') ? 'packed' : packingList.status} />
         </CardContent>
       </Card>
 
