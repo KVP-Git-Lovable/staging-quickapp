@@ -276,6 +276,7 @@ export const VisitCard = ({
   const [showCreditTalkingPoints, setShowCreditTalkingPoints] = useState(false);
   const [creditLimitData, setCreditLimitData] = useState<{ creditLimit: number; score: number; avgDso: number } | null>(null);
   const [showCancelOrderDialog, setShowCancelOrderDialog] = useState(false);
+  const [showEditPickerDialog, setShowEditPickerDialog] = useState(false);
   const {
     isVanSalesEnabled
   } = useVanSales();
