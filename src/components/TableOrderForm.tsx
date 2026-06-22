@@ -151,6 +151,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const savedData = localStorage.getItem(tableFormStorageKey);
       if (savedData) {
         const parsedData = JSON.parse(savedData);
+        if (isEditMode) {
+          const hasProductRows = Array.isArray(parsedData) && parsedData.some((row: any) => row?.product?.id);
+          return hasProductRows ? parsedData : [];
+        }
         if (Array.isArray(parsedData) && parsedData.length > 0) {
           DEV_LOG && console.log('[TableOrderForm] Loaded initial rows from storage:', parsedData.length);
           return parsedData;
@@ -159,11 +163,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     } catch (error) {
       console.error('[TableOrderForm] Error loading initial rows:', error);
     }
+    if (isEditMode) return [];
     return [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
   };
 
   const [orderRows, setOrderRows] = useState<OrderRow[]>(getInitialOrderRows);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [editSeedApplied, setEditSeedApplied] = useState(false);
   
   // Use ref to always have access to the latest orderRows for addToCart
   const orderRowsRef = useRef<OrderRow[]>(orderRows);
@@ -321,6 +327,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items (merged from', rawItems.length, 'rows)');
   };
 
+  const hasRealProductRows = (rows: unknown): rows is OrderRow[] => {
+    return Array.isArray(rows) && rows.some((row: any) => row?.product?.id);
+  };
+
 
   // Expose applyVoiceAutoFill to parent via ref
   useImperativeHandle(ref, () => ({
@@ -417,27 +427,42 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   useEffect(() => {
     // Reset init so we don't immediately overwrite loaded state
     setHasInitialized(false);
+    setEditSeedApplied(false);
 
     // Reset auto-apply tracking for the new context
     autoAppliedSchemesRef.current.clear();
     suppressedSchemesRef.current.clear();
 
     // Load rows for this retailer/visit
-    let rows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
+    let rows: OrderRow[] | null = null;
     try {
       const savedData = localStorage.getItem(tableFormStorageKey);
       const parsedData = savedData ? JSON.parse(savedData) : null;
-      if (Array.isArray(parsedData) && parsedData.length > 0) {
+      if (isEditMode) {
+        if (hasRealProductRows(parsedData)) {
+          rows = parsedData;
+          setEditSeedApplied(true);
+        }
+      } else if (Array.isArray(parsedData) && parsedData.length > 0) {
         rows = parsedData;
       }
     } catch (error) {
       console.error('[TableOrderForm] Error loading rows for key:', tableFormStorageKey, error);
     }
 
+    if (!rows && !isEditMode) {
+      rows = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
+    }
+
+    if (!rows) {
+      DEV_LOG && console.log('[TableOrderForm] Edit context switched, waiting for seed:', tableFormStorageKey);
+      return;
+    }
+
     setOrderRows(rows);
     syncRowsToCart(rows);
     DEV_LOG && console.log('[TableOrderForm] Context switched, loaded rows:', rows.length, tableFormStorageKey);
-  }, [tableFormStorageKey]);
+  }, [tableFormStorageKey, isEditMode]);
 
   // EDIT MODE: seed table rows directly from the original order_items in the
   // database. OrderEntry may still be populating the edit cart asynchronously,
@@ -452,7 +477,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         const existingRaw = localStorage.getItem(tableFormStorageKey);
         const existing = existingRaw ? JSON.parse(existingRaw) : null;
         const hasRows = Array.isArray(existing) && existing.some((r: any) => r && r.product && r.product.id);
-        if (hasRows) return;
+        if (hasRows) {
+          if (!cancelled) setEditSeedApplied(true);
+          return;
+        }
 
         const { data: items, error } = await supabase
           .from('order_items')
@@ -488,6 +516,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         if (!cancelled) {
           localStorage.setItem(tableFormStorageKey, JSON.stringify(seeded));
           setOrderRows(seeded);
+          syncRowsToCart(seeded);
+          setEditSeedApplied(true);
           console.log('[TableOrderForm][edit] Seeded', seeded.length, 'rows from original order_items');
         }
       } catch (e) {
@@ -503,6 +533,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
   useEffect(() => {
     if (products.length === 0 || hasInitialized) return; // Wait for products to load, only run once
+    if (isEditMode && !editSeedApplied) return; // Let edit seed become authoritative before re-linking
     
     const savedData = localStorage.getItem(tableFormStorageKey);
     if (savedData) {
@@ -541,7 +572,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       }
     }
     setHasInitialized(true);
-  }, [tableFormStorageKey, products.length, hasInitialized]);
+  }, [tableFormStorageKey, products.length, hasInitialized, isEditMode, editSeedApplied]);
 
   // Save table form data whenever orderRows change (but only after initialization)
   useEffect(() => {
@@ -1100,6 +1131,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     );
   }
 
+  const isEditSeedLoading = isEditMode && !editSeedApplied && !hasRealProductRows(orderRows);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -1133,7 +1166,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               
               {/* Table Rows - Responsive */}
               <div className="divide-y divide-border">
-                {orderRows.map((row, index) => {
+                {isEditSeedLoading ? (
+                  <div className="px-4 py-6 text-sm text-muted-foreground">Loading order…</div>
+                ) : orderRows.map((row, index) => {
                   // Get the item ID for matching free items (variant ID or product ID)
                   const rowItemId = row.variant?.id || row.product?.id;
                   
