@@ -1131,6 +1131,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     );
   }
 
+  const isEditSeedLoading = isEditMode && !editSeedApplied && !hasRealProductRows(orderRows);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -1164,7 +1166,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               
               {/* Table Rows - Responsive */}
               <div className="divide-y divide-border">
-                {orderRows.map((row, index) => {
+                {isEditSeedLoading ? (
+                  <div className="px-4 py-6 text-sm text-muted-foreground">Loading order…</div>
+                ) : orderRows.map((row, index) => {
                   // Get the item ID for matching free items (variant ID or product ID)
                   const rowItemId = row.variant?.id || row.product?.id;
                   
