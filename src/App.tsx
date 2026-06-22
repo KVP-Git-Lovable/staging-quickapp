@@ -559,6 +559,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         {/* D-1 Delivery Module Routes - Main App */}
         <Route path="/packing-list-management" element={<ProtectedRoute><PackingListManagementPage /></ProtectedRoute>} />
         <Route path="/packing-list/:id" element={<ProtectedRoute><PackingListDetailPage /></ProtectedRoute>} />
+        <Route path="/packing-list/:id/dispatch" element={<ProtectedRoute><PackingListDispatchPage /></ProtectedRoute>} />
         <Route path="/delivery-run" element={<ProtectedRoute><DeliveryRun /></ProtectedRoute>} />
 
 
