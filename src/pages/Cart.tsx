@@ -1172,6 +1172,10 @@ export const Cart = () => {
         return;
       }
 
+      if (isEditMode && !result.offline) {
+        toast({ title: 'Order edited successfully', description: 'The original order has been replaced.' });
+      }
+
 
       // Clear cart storage AND table form storage AND applied schemes for this visit/retailer
       localStorage.removeItem(activeStorageKey);
