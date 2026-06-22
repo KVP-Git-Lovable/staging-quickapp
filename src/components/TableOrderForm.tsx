@@ -539,6 +539,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         }
       } catch (e) {
         console.error('[TableOrderForm][edit] seed from order_items failed:', e);
+        if (!cancelled) {
+          const fallbackRows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
+          localStorage.setItem(tableFormStorageKey, JSON.stringify(fallbackRows));
+          setOrderRows(fallbackRows);
+          syncRowsToCart(fallbackRows);
+          setEditSeedApplied(true);
+        }
       }
     };
 
