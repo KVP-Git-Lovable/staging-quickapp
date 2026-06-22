@@ -663,14 +663,36 @@ export const OrderEntry = () => {
         const existing = localStorage.getItem(editKey);
         const isEmpty = !existing || existing === 'undefined' || existing === 'null' || existing === '[]';
         if (isEmpty) {
-          const { data: items } = await supabase
+          const { data: items, error: itemsError } = await supabase
             .from('order_items')
-            .select('id, product_id, variant_id, product_name, category, rate, unit, quantity, total, hsn_code, uom_id, uom_code, conversion_to_base, original_rate, discount_amount, closing_stock')
+            .select('id, product_id, variant_id, product_name, category, rate, unit, quantity, total, hsn_code, uom_id, uom_code, conversion_to_base, original_rate, discount_amount')
             .eq('order_id', editOrderId);
+          if (itemsError) {
+            console.error('[OrderEntry][edit] failed to load original order_items:', itemsError);
+            localStorage.setItem(editKey, JSON.stringify([]));
+            if (!cancelled) {
+              setCart([]);
+              syncQuantitiesFromCart([]);
+            }
+            return;
+          }
+          if (!Array.isArray(items) || items.length === 0) {
+            console.error('[OrderEntry][edit] no original order_items found for order:', editOrderId);
+            localStorage.setItem(editKey, JSON.stringify([]));
+            if (!cancelled) {
+              setCart([]);
+              syncQuantitiesFromCart([]);
+            }
+            return;
+          }
           const seeded: CartItem[] = (items || []).map((it: any) => {
             const cartId = it.variant_id
               ? `${it.product_id || it.id}_variant_${it.variant_id}`
               : (it.product_id || it.id);
+            const liveProduct = it.product_id ? products.find(p => p.id === it.product_id) : undefined;
+            const liveVariant = liveProduct && it.variant_id
+              ? liveProduct.variants?.find((v: any) => v.id === it.variant_id)
+              : undefined;
             return {
               id: cartId,
               name: it.product_name,
@@ -680,7 +702,7 @@ export const OrderEntry = () => {
               quantity: Number(it.quantity) || 0,
               total: Number(it.total) || 0,
               hsn_code: it.hsn_code || undefined,
-              closingStock: it.closing_stock ?? undefined,
+              closingStock: (liveVariant as any)?.stock_quantity ?? liveProduct?.closingStock ?? undefined,
               ...(it.product_id ? { product_id: it.product_id } : {}),
               ...(it.variant_id ? { variant_id: it.variant_id } : {}),
               ...(it.original_rate ? { original_rate: Number(it.original_rate) } : {}),

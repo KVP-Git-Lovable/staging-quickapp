@@ -484,14 +484,31 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
         const { data: items, error } = await supabase
           .from('order_items')
-          .select('id, product_id, variant_id, product_name, rate, unit, quantity, total, closing_stock')
+          .select('id, product_id, variant_id, product_name, rate, unit, quantity, total')
           .eq('order_id', editOrderId);
 
         if (error) {
           console.error('[TableOrderForm][edit] failed to load original order items:', error);
+          if (!cancelled) {
+            const fallbackRows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
+            localStorage.setItem(tableFormStorageKey, JSON.stringify(fallbackRows));
+            setOrderRows(fallbackRows);
+            syncRowsToCart(fallbackRows);
+            setEditSeedApplied(true);
+          }
           return;
         }
-        if (!Array.isArray(items) || items.length === 0) return;
+        if (!Array.isArray(items) || items.length === 0) {
+          console.error('[TableOrderForm][edit] no original order_items found for order:', editOrderId);
+          if (!cancelled) {
+            const fallbackRows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
+            localStorage.setItem(tableFormStorageKey, JSON.stringify(fallbackRows));
+            setOrderRows(fallbackRows);
+            syncRowsToCart(fallbackRows);
+            setEditSeedApplied(true);
+          }
+          return;
+        }
 
         const seeded: OrderRow[] = items.map((it: any, idx: number) => {
           const pid: string | undefined = it.product_id;
@@ -507,7 +524,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             product: liveProduct,
             variant: liveVariant,
             quantity: qty,
-            closingStock: Number(it.closing_stock ?? (liveVariant as any)?.stock_quantity ?? liveProduct?.closing_stock ?? 0),
+            closingStock: Number((liveVariant as any)?.stock_quantity ?? liveProduct?.closing_stock ?? 0),
             unit: it.unit || (liveProduct ? getDefaultOrderUnit(liveProduct) : 'pcs'),
             total: Number(it.total) || qty * rate,
           } as OrderRow;
@@ -522,6 +539,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         }
       } catch (e) {
         console.error('[TableOrderForm][edit] seed from order_items failed:', e);
+        if (!cancelled) {
+          const fallbackRows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
+          localStorage.setItem(tableFormStorageKey, JSON.stringify(fallbackRows));
+          setOrderRows(fallbackRows);
+          syncRowsToCart(fallbackRows);
+          setEditSeedApplied(true);
+        }
       }
     };
 
