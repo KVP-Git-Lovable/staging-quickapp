@@ -10992,6 +10992,8 @@ export type Database = {
           dispatched_at: string | null
           distributor_id: string | null
           distributor_name: string | null
+          edit_count: number
+          edited_at: string | null
           event_id: string | null
           id: string
           idempotency_key: string
@@ -10999,6 +11001,7 @@ export type Database = {
           invoice_number: string | null
           is_backorder: boolean | null
           is_credit_order: boolean | null
+          is_edited: boolean
           order_date: string | null
           order_source: string | null
           owner_id_snapshot: string | null
@@ -11045,6 +11048,8 @@ export type Database = {
           dispatched_at?: string | null
           distributor_id?: string | null
           distributor_name?: string | null
+          edit_count?: number
+          edited_at?: string | null
           event_id?: string | null
           id?: string
           idempotency_key: string
@@ -11052,6 +11057,7 @@ export type Database = {
           invoice_number?: string | null
           is_backorder?: boolean | null
           is_credit_order?: boolean | null
+          is_edited?: boolean
           order_date?: string | null
           order_source?: string | null
           owner_id_snapshot?: string | null
@@ -11098,6 +11104,8 @@ export type Database = {
           dispatched_at?: string | null
           distributor_id?: string | null
           distributor_name?: string | null
+          edit_count?: number
+          edited_at?: string | null
           event_id?: string | null
           id?: string
           idempotency_key?: string
@@ -11105,6 +11113,7 @@ export type Database = {
           invoice_number?: string | null
           is_backorder?: boolean | null
           is_credit_order?: boolean | null
+          is_edited?: boolean
           order_date?: string | null
           order_source?: string | null
           owner_id_snapshot?: string | null
