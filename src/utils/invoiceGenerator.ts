@@ -1224,5 +1224,6 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
       break;
   }
 
-  return { blob, invoiceNumber };
+  const stamped = await applyInvoiceWatermark(blob, { invoiceNumber });
+  return { blob: stamped, invoiceNumber };
 }
