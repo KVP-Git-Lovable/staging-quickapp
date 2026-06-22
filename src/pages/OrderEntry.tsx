@@ -1948,6 +1948,23 @@ export const OrderEntry = () => {
       onClick={handlePageInteraction}
       onTouchStart={handlePageInteraction}
     >
+      {/* Edit-order mode banner */}
+      {isEditMode && (
+        <div className="w-full px-2 sm:px-4 pt-2">
+          {editBlockedReason ? (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 text-destructive p-3 text-sm">
+              <div className="font-semibold mb-1">Cannot edit this order</div>
+              <div>{editBlockedReason}</div>
+              <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate(-1)}>Go Back</Button>
+            </div>
+          ) : (
+            <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 p-2.5 text-xs sm:text-sm">
+              <span className="font-semibold">Editing order</span>
+              {editLoading ? ' — loading original items…' : ' — submitting will create a new order that replaces the original.'}
+            </div>
+          )}
+        </div>
+      )}
       {/* Page Header - Fixed layout with stable positioning */}
       <div className="w-full px-2 sm:px-4 py-2 sm:py-3">
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
