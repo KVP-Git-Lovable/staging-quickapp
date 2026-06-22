@@ -1990,7 +1990,7 @@ export const OrderEntry = () => {
                   <span className="text-[8px] sm:text-[9px] leading-tight">{t('common.delete')}</span>
                 </Button>
                 
-                <Button variant="ghost" onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}${isPhoneOrder ? '&phoneOrder=true' : ''}`)} className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 sm:p-2 flex flex-col items-center gap-0 min-w-[42px] sm:min-w-[50px] relative">
+                <Button variant="ghost" onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}${isPhoneOrder ? '&phoneOrder=true' : ''}${isEditMode ? `&editOrderId=${encodeURIComponent(editOrderId)}` : ''}`)} className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 sm:p-2 flex flex-col items-center gap-0 min-w-[42px] sm:min-w-[50px] relative">
                   <div className="relative">
                     <ShoppingCart size={14} className="sm:w-4 sm:h-4" />
                     {cart.length > 0 && <Badge className="absolute -top-1 -right-1 h-3.5 w-3.5 sm:h-4 sm:w-4 flex items-center justify-center p-0 text-[9px] sm:text-[10px] bg-destructive text-destructive-foreground rounded-full border-0">
