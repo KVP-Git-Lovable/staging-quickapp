@@ -118,6 +118,8 @@ export const Cart = () => {
   const retailerId = searchParams.get("retailerId") || '';
   const retailerName = searchParams.get("retailer") || "Retailer Name";
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
+  const editOrderId = searchParams.get("editOrderId") || '';
+  const isEditMode = !!editOrderId;
   const { isPaymentProofMandatory } = usePaymentProofMandatory();
   const connectivityStatus = useConnectivity();
   const { isEnabled: isD1DeliveryEnabled } = useD1Delivery();
