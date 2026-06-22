@@ -1342,6 +1342,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                     ) : (
                       <p className="text-sm">{(formData as any).state || '-'}</p>
                     )}
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label className="text-xs text-muted-foreground">Location Tag</Label>
