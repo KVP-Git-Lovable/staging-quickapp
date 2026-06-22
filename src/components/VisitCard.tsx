@@ -3112,7 +3112,7 @@ export const VisitCard = ({
                           const vId = currentVisitId || visit.id;
                           const rId = (visit.retailerId || visit.id) as string;
                           const rName = visit.retailerName || '';
-                          navigate(`/cart?visitId=${encodeURIComponent(vId)}&retailerId=${encodeURIComponent(rId)}&retailer=${encodeURIComponent(rName)}&editOrderId=${encodeURIComponent(orderId)}`);
+                          navigate(`/order-entry?visitId=${encodeURIComponent(vId)}&retailerId=${encodeURIComponent(rId)}&retailer=${encodeURIComponent(rName)}&editOrderId=${encodeURIComponent(orderId)}`);
                         };
                         return (
                           <Button
