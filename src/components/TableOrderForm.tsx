@@ -164,6 +164,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
   const [orderRows, setOrderRows] = useState<OrderRow[]>(getInitialOrderRows);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [editSeedApplied, setEditSeedApplied] = useState(false);
   
   // Use ref to always have access to the latest orderRows for addToCart
   const orderRowsRef = useRef<OrderRow[]>(orderRows);
@@ -321,6 +322,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     DEV_LOG && console.log('[syncRowsToCart] Synced to cart:', cartItems.length, 'items (merged from', rawItems.length, 'rows)');
   };
 
+  const hasRealProductRows = (rows: unknown): rows is OrderRow[] => {
+    return Array.isArray(rows) && rows.some((row: any) => row?.product?.id);
+  };
+
 
   // Expose applyVoiceAutoFill to parent via ref
   useImperativeHandle(ref, () => ({
@@ -417,27 +422,42 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   useEffect(() => {
     // Reset init so we don't immediately overwrite loaded state
     setHasInitialized(false);
+    setEditSeedApplied(false);
 
     // Reset auto-apply tracking for the new context
     autoAppliedSchemesRef.current.clear();
     suppressedSchemesRef.current.clear();
 
     // Load rows for this retailer/visit
-    let rows: OrderRow[] = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
+    let rows: OrderRow[] | null = null;
     try {
       const savedData = localStorage.getItem(tableFormStorageKey);
       const parsedData = savedData ? JSON.parse(savedData) : null;
-      if (Array.isArray(parsedData) && parsedData.length > 0) {
+      if (isEditMode) {
+        if (hasRealProductRows(parsedData)) {
+          rows = parsedData;
+          setEditSeedApplied(true);
+        }
+      } else if (Array.isArray(parsedData) && parsedData.length > 0) {
         rows = parsedData;
       }
     } catch (error) {
       console.error('[TableOrderForm] Error loading rows for key:', tableFormStorageKey, error);
     }
 
+    if (!rows && !isEditMode) {
+      rows = [{ id: "1", productCode: "", quantity: 0, closingStock: 0, unit: "", total: 0 }];
+    }
+
+    if (!rows) {
+      DEV_LOG && console.log('[TableOrderForm] Edit context switched, waiting for seed:', tableFormStorageKey);
+      return;
+    }
+
     setOrderRows(rows);
     syncRowsToCart(rows);
     DEV_LOG && console.log('[TableOrderForm] Context switched, loaded rows:', rows.length, tableFormStorageKey);
-  }, [tableFormStorageKey]);
+  }, [tableFormStorageKey, isEditMode]);
 
   // EDIT MODE: seed table rows directly from the original order_items in the
   // database. OrderEntry may still be populating the edit cart asynchronously,
