@@ -94,6 +94,7 @@ const fmt = (n: number) => `₹${(n || 0).toLocaleString('en-IN', { minimumFract
 
 export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Props) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { generatePrimaryInvoices, finalizePrimaryInvoice, updatePackingListStatus, loading: hookLoading } = usePackingList();
 
   const [loading, setLoading] = useState(true);
