@@ -3825,9 +3825,16 @@ export const VisitCard = ({
             if (open) {
               setLocationWarning(null);
               setLocationReady(true);
+              setLocationDenied(false);
               checkLocationAvailability().then((r) => {
                 if (r.message) setLocationWarning(r.message);
-                setLocationReady(r.status !== 'denied' && r.status !== 'unavailable');
+                if (r.status === 'denied' || r.status === 'unavailable') {
+                  setLocationReady(false);
+                  setLocationDenied(r.status === 'denied');
+                } else if (r.status === 'prompt') {
+                  setLocationWarning('Tap Capture to allow location access.');
+                  setLocationReady(true);
+                }
               });
             }
           }}
@@ -3844,7 +3851,16 @@ export const VisitCard = ({
             </p>
             {locationWarning && (
               <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">
-                {locationWarning}
+                <div>{locationWarning}</div>
+                {locationDenied && Capacitor.isNativePlatform() && (
+                  <button
+                    type="button"
+                    className="mt-1 underline font-medium"
+                    onClick={() => openAppSettings()}
+                  >
+                    Open app settings
+                  </button>
+                )}
               </div>
             )}
             <div className="flex gap-2 justify-end mt-2">
@@ -3858,6 +3874,28 @@ export const VisitCard = ({
                   setIsCapturingLocation(true);
                   setLocationWarning(null);
                   try {
+                    // On native, if permission is still 'prompt', request it
+                    // now (this is a user gesture) before attempting capture.
+                    if (Capacitor.isNativePlatform()) {
+                      const pre = await checkLocationAvailability();
+                      if (pre.status === 'prompt') {
+                        const granted = await requestLocationPermission();
+                        if (granted.status !== 'ready') {
+                          setLocationWarning(granted.message || 'Location permission denied.');
+                          setLocationReady(false);
+                          setLocationDenied(granted.status === 'denied');
+                          setIsCapturingLocation(false);
+                          return;
+                        }
+                      } else if (pre.status === 'denied' || pre.status === 'unavailable') {
+                        setLocationWarning(pre.message);
+                        setLocationReady(false);
+                        setLocationDenied(pre.status === 'denied');
+                        setIsCapturingLocation(false);
+                        return;
+                      }
+                    }
+
                     const coords = await getResilientLocation();
                     const lat = coords.latitude;
                     const lng = coords.longitude;
@@ -3907,6 +3945,7 @@ export const VisitCard = ({
                     setLocationWarning(message);
                     if (status === 'denied' || status === 'unavailable') {
                       setLocationReady(false);
+                      setLocationDenied(status === 'denied');
                     }
                     toast({
                       title: "Location Capture Failed",
