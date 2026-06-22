@@ -227,6 +227,9 @@ export default function EditOrderDialog({ orderId, retailerName, open, onOpenCha
           tax_amount: totals.taxAmount,
           total_amount: totals.grandTotal,
           updated_at: new Date().toISOString(),
+          is_edited: true,
+          edited_at: new Date().toISOString(),
+          edit_count: (Number((orderData as any)?.edit_count) || 0) + 1,
         })
         .eq("id", orderId);
 
