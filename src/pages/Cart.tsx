@@ -170,6 +170,129 @@ export const Cart = () => {
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
+
+  // --- Phase 2b-3a: Edit mode state ---
+  const [editLoading, setEditLoading] = React.useState<boolean>(isEditMode);
+  const [editBlockedReason, setEditBlockedReason] = React.useState<string | null>(null);
+  const [editOriginalOrder, setEditOriginalOrder] = React.useState<{
+    id: string;
+    user_id?: string | null;
+    visit_id?: string | null;
+    retailer_id?: string | null;
+    total_amount?: number | null;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (!isEditMode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setEditLoading(true);
+        setEditBlockedReason(null);
+
+        if (!navigator.onLine) {
+          setEditBlockedReason('Editing requires an internet connection.');
+          return;
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (!uid) {
+          setEditBlockedReason("You don't have permission to edit orders.");
+          return;
+        }
+
+        // Fetch original order
+        const { data: order, error: orderErr } = await supabase
+          .from('orders')
+          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount')
+          .eq('id', editOrderId)
+          .maybeSingle();
+        if (orderErr || !order) {
+          setEditBlockedReason("This order can't be edited in its current state.");
+          return;
+        }
+
+        // Fetch policy (single row)
+        const { data: policyRow } = await supabase
+          .from('order_edit_policy')
+          .select('edit_enabled, editable_until')
+          .limit(1)
+          .maybeSingle();
+        const policy = policyRow
+          ? { edit_enabled: !!policyRow.edit_enabled, editable_until: policyRow.editable_until || 'invoice_generated' }
+          : { edit_enabled: true, editable_until: 'invoice_generated' as const };
+
+        // Fetch this user's permissions for action_order_edit
+        const { data: up } = await supabase
+          .from('user_profiles')
+          .select('profile_id')
+          .eq('user_id', uid)
+          .maybeSingle();
+        const profileId = up?.profile_id || null;
+        let hasEdit = false;
+        if (profileId) {
+          const { data: perms } = await supabase
+            .from('profile_object_permissions')
+            .select('object_name, can_edit, can_read')
+            .eq('profile_id', profileId)
+            .eq('object_name', 'action_order_edit');
+          hasEdit = !!(perms && perms.some((p: any) => p.can_edit || p.can_read));
+        }
+        const permMap = { action_order_edit: hasEdit };
+
+        const { canEditOrder } = await import('@/utils/canEditOrder');
+        const decision = canEditOrder(order as any, permMap as any, policy as any);
+        if (!decision.allowed) {
+          setEditBlockedReason(decision.reason);
+          return;
+        }
+
+        if (cancelled) return;
+        setEditOriginalOrder(order as any);
+
+        // Seed cart from order_items (only if edit cart not yet seeded)
+        const editKey = `order_cart:edit:${editOrderId}`;
+        const existing = localStorage.getItem(editKey);
+        const isEmpty = !existing || existing === 'undefined' || existing === 'null' || existing === '[]';
+        if (isEmpty) {
+          const { data: items } = await supabase
+            .from('order_items')
+            .select('id, product_id, variant_id, product_name, category, rate, unit, quantity, total, hsn_code, uom_id, uom_code, conversion_to_base, original_rate, discount_amount')
+            .eq('order_id', editOrderId);
+          const seeded: CartItem[] = (items || []).map((it: any) => {
+            const cartId = it.variant_id
+              ? `${it.product_id || it.id}_variant_${it.variant_id}`
+              : (it.product_id || it.id);
+            return {
+              id: cartId,
+              name: it.product_name,
+              category: it.category || '',
+              rate: Number(it.rate) || 0,
+              unit: it.unit || 'pcs',
+              quantity: Number(it.quantity) || 0,
+              total: Number(it.total) || 0,
+              hsn_code: it.hsn_code || undefined,
+              uom_id: it.uom_id ?? null,
+              uom_code: it.uom_code ?? null,
+              conversion_to_base: it.conversion_to_base ?? null,
+              ...(it.product_id ? { product_id: it.product_id } : {}),
+              ...(it.variant_id ? { variant_id: it.variant_id } : {}),
+              ...(it.original_rate ? { original_rate: Number(it.original_rate) } : {}),
+            } as any;
+          });
+          localStorage.setItem(editKey, JSON.stringify(seeded));
+          if (!cancelled) setCartItems(seeded);
+        }
+      } catch (e: any) {
+        console.error('[Cart][edit] bootstrap failed:', e);
+        if (!cancelled) setEditBlockedReason(e?.message || "This order can't be edited in its current state.");
+      } finally {
+        if (!cancelled) setEditLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isEditMode, editOrderId]);
   
   // Use scheme engine for calculations
   const { schemes, loading: schemesLoading } = useOfflineSchemes();
