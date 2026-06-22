@@ -1484,8 +1484,11 @@ export function usePackingList() {
       });
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Failed to finalize');
-      toast({ title: data.already_finalized ? 'Already finalized' : 'Invoice finalized' });
-      return data as { success: true; invoice_id: string; already_finalized?: boolean };
+      toast({
+        title: data.already_finalized ? 'Already finalized' : 'Invoice finalized',
+        description: data.invoice_number ? `Invoice #${data.invoice_number}` : undefined,
+      });
+      return data as { success: true; invoice_id: string; invoice_number: string; status: string; already_finalized?: boolean };
     } catch (err: any) {
       toast({ title: 'Finalize failed', description: err?.message || 'Unable to finalize invoice', variant: 'destructive' });
       return { success: false as const, error: err?.message };
