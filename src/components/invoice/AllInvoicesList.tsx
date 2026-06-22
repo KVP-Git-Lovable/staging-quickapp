@@ -196,7 +196,10 @@ export default function AllInvoicesList() {
                 {invoices.map((invoice) => (
                   <TableRow key={invoice.id}>
                     <TableCell className="font-medium">
-                      {invoice.invoice_number || "N/A"}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>{invoice.invoice_number || "N/A"}</span>
+                        <InvoiceStatusBadge invoiceNumber={invoice.invoice_number} variant="row" />
+                      </div>
                     </TableCell>
                     <TableCell>{invoice.retailer_name}</TableCell>
                     <TableCell>
