@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { usePackingList, PackingList } from '@/hooks/usePackingList';
 import { useToast } from '@/hooks/use-toast';
+import { buildPrimaryInvoiceBlob } from '@/utils/primaryInvoiceDocument';
 import StatusTimeline from './StatusTimeline';
 
 interface PrimaryInvoice {
@@ -234,6 +235,85 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     toast({ title: 'Ready for dispatch' });
   };
 
+  const buildBlobForActive = useCallback(async (): Promise<Blob | null> => {
+    const inv = invoices.find(i => i.id === activeInvoiceId);
+    if (!inv) return null;
+    const lines = linesByOrder[inv.order_id] || [];
+    // Fetch company for header
+    let company: any = {};
+    try {
+      const { data } = await supabase.from('companies').select('*').limit(1).maybeSingle();
+      company = data || {};
+    } catch {}
+    return buildPrimaryInvoiceBlob({
+      invoiceNumber: inv.invoice_number,
+      invoiceDate: inv.invoice_date,
+      isDraft: inv.status !== 'finalized',
+      distributor,
+      company,
+      lines: lines.map(l => ({
+        product_name: l.product_name,
+        hsn_code: l.hsn_code,
+        unit: l.unit,
+        packed_qty: l.packed_qty,
+        unit_price: l.unit_price,
+        discount_percent: l.discount_percent,
+        tax_percent: l.tax_percent,
+      })),
+    });
+  }, [invoices, activeInvoiceId, linesByOrder, distributor]);
+
+  const [docBusy, setDocBusy] = useState<'view' | 'download' | 'print' | null>(null);
+
+  const handleView = async () => {
+    setDocBusy('view');
+    try {
+      const blob = await buildBlobForActive();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: any) {
+      toast({ title: 'View failed', description: e?.message, variant: 'destructive' });
+    } finally { setDocBusy(null); }
+  };
+
+  const handleDownload = async () => {
+    setDocBusy('download');
+    try {
+      const blob = await buildBlobForActive();
+      if (!blob) return;
+      const inv = invoices.find(i => i.id === activeInvoiceId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${inv?.invoice_number || 'invoice'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast({ title: 'Download failed', description: e?.message, variant: 'destructive' });
+    } finally { setDocBusy(null); }
+  };
+
+  const handlePrint = async () => {
+    setDocBusy('print');
+    try {
+      const blob = await buildBlobForActive();
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, '_blank');
+      if (w) {
+        w.addEventListener('load', () => { try { w.focus(); w.print(); } catch {} });
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: any) {
+      toast({ title: 'Print failed', description: e?.message, variant: 'destructive' });
+    } finally { setDocBusy(null); }
+  };
+
+
   const activeInvoice = invoices.find(i => i.id === activeInvoiceId) || null;
   const activeOrder = activeInvoice ? ordersById[activeInvoice.order_id] : null;
   const activeLines = activeInvoice ? (linesByOrder[activeInvoice.order_id] || []) : [];
@@ -303,7 +383,11 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
             <FileText className="h-5 w-5 text-primary" />
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold">{activeInvoice?.invoice_number}</h3>
+                <h3 className="font-semibold">
+                  {activeInvoice?.status === 'finalized'
+                    ? activeInvoice.invoice_number
+                    : 'Draft invoice (no number assigned)'}
+                </h3>
                 <Badge
                   className={activeInvoice?.status === 'finalized'
                     ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
@@ -313,25 +397,33 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground">
-                {activeInvoice?.invoice_date && `Invoice date: ${format(new Date(activeInvoice.invoice_date), 'dd MMM yyyy')}`}
+                {activeInvoice?.status === 'finalized' && activeInvoice.finalized_at
+                  ? `Finalized: ${format(new Date(activeInvoice.finalized_at), 'dd MMM yyyy, HH:mm')}`
+                  : activeInvoice?.invoice_date
+                    ? `Invoice date: ${format(new Date(activeInvoice.invoice_date), 'dd MMM yyyy')}`
+                    : ''}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => toast({ title: 'View invoice', description: 'PDF preview coming soon' })}>
-              <Eye className="h-4 w-4 mr-1" /> View
+            <Button variant="outline" size="sm" onClick={handleView} disabled={docBusy !== null}>
+              {docBusy === 'view' ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Eye className="h-4 w-4 mr-1" />} View
             </Button>
-            <Button variant="outline" size="sm" onClick={() => toast({ title: 'Download', description: 'PDF coming soon' })}>
-              <Download className="h-4 w-4 mr-1" /> Download
+            <Button variant="outline" size="sm" onClick={handleDownload} disabled={docBusy !== null}>
+              {docBusy === 'download' ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />} Download
             </Button>
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="h-4 w-4 mr-1" /> Print
+            <Button variant="outline" size="sm" onClick={handlePrint} disabled={docBusy !== null}>
+              {docBusy === 'print' ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Printer className="h-4 w-4 mr-1" />} Print
             </Button>
-            {activeInvoice && activeInvoice.status !== 'finalized' && (
+            {activeInvoice && activeInvoice.status !== 'finalized' ? (
               <Button size="sm" onClick={() => handleFinalize(activeInvoice.id)} disabled={hookLoading}>
                 <CheckCircle2 className="h-4 w-4 mr-1" /> Finalize Invoice
               </Button>
-            )}
+            ) : activeInvoice ? (
+              <Button size="sm" disabled variant="secondary">
+                <CheckCircle2 className="h-4 w-4 mr-1" /> Finalized ✓
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -342,7 +434,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
           <TabsList className="flex-wrap h-auto">
             {invoices.map(inv => (
               <TabsTrigger key={inv.id} value={inv.id}>
-                {inv.invoice_number}
+                {inv.status === 'finalized' ? inv.invoice_number : 'Draft'}
                 <span className="ml-2 text-xs text-muted-foreground">
                   {ordersById[inv.order_id]?.order_number}
                 </span>
@@ -356,7 +448,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
       {/* Info cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <InfoCard title="Invoice Details" rows={[
-          ['Number', activeInvoice?.invoice_number || '—'],
+          ['Number', activeInvoice?.status === 'finalized' ? (activeInvoice.invoice_number || '—') : '— (assigned on finalize)'],
           ['Date', activeInvoice ? format(new Date(activeInvoice.invoice_date), 'dd MMM yyyy') : '—'],
           ['Status', (activeInvoice?.status || 'draft').toUpperCase()],
         ]} />
@@ -461,14 +553,17 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
         </Card>
       </div>
 
-      {/* Next-step bar */}
-      {allFinalized && (
-        <div className="sticky bottom-0 bg-card border-t -mx-4 px-4 py-3 flex items-center justify-end gap-3 z-10">
-          <Button onClick={handleProceedToDispatch}>
-            Proceed to Dispatch <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
-      )}
+      {/* Next-step bar — gated until every invoice on the list is finalized */}
+      <div className="sticky bottom-0 bg-card border-t -mx-4 px-4 py-3 flex items-center justify-between gap-3 z-10">
+        <p className="text-xs text-muted-foreground">
+          {allFinalized
+            ? 'All invoices finalized. Ready to prepare for dispatch.'
+            : `Finalize all ${invoices.length} invoice(s) to unlock dispatch.`}
+        </p>
+        <Button onClick={handleProceedToDispatch} disabled={!allFinalized}>
+          Prepare for Dispatch <ArrowRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
     </div>
   );
 }
