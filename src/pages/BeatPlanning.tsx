@@ -533,13 +533,32 @@ export const BeatPlanning = () => {
       const day = String(selectedDate.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
       console.log('Submitting plan for date:', dateString, 'from selectedDate:', selectedDate);
-      
-      // Delete existing plans for this date
-      await supabase
+
+      // 1) Fetch existing planned beat_ids for this date so we can compute
+      //    the precise diff instead of doing a blanket DELETE + bulk INSERT
+      //    (which can leave stale rows when the DELETE is silently filtered
+      //    and then fail with a 23505 unique conflict on the bulk INSERT).
+      const { data: existingRows, error: fetchError } = await supabase
         .from('beat_plans')
-        .delete()
+        .select('beat_id')
         .eq('user_id', user.id)
         .eq('plan_date', dateString);
+      if (fetchError) throw fetchError;
+
+      const existingBeatIds = new Set((existingRows || []).map((r: any) => r.beat_id));
+      const selectedSet = new Set(selectedBeatIds);
+      const toRemove = [...existingBeatIds].filter(id => !selectedSet.has(id));
+
+      // 2) Remove only beats the user deselected
+      if (toRemove.length > 0) {
+        const { error: delError } = await supabase
+          .from('beat_plans')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('plan_date', dateString)
+          .in('beat_id', toRemove);
+        if (delError) throw delError;
+      }
 
       // CRITICAL FIX: Clear snapshot when beat plans change to prevent stale retailer data
       await clearMyVisitsSnapshot(user.id, dateString);
@@ -567,9 +586,10 @@ export const BeatPlanning = () => {
         };
       });
 
+      // 3) Upsert keeps existing rows and adds new ones without 23505 conflicts.
       const { error } = await supabase
         .from('beat_plans')
-        .insert(planData);
+        .upsert(planData, { onConflict: 'user_id,plan_date,beat_id' });
 
       if (error) throw error;
 
