@@ -149,12 +149,52 @@ export default function SecondaryCreatePanel({ distributorId: propDistributorId,
         });
       });
 
-      const uniqueBeats = Array.from(retailerMap.values())
-        .filter((retailer): retailer is RetailerBeatRow & { beat_id: string; beat_name: string } => Boolean(retailer.beat_id && retailer.beat_name))
-        .filter((retailer, index, arr) => arr.findIndex(item => item.beat_id === retailer.beat_id) === index)
-        .map(retailer => ({ id: retailer.beat_id, beat_name: retailer.beat_name }));
+      const derivedBeatIds = Array.from(new Set(
+        Array.from(retailerMap.values())
+          .map(retailer => retailer.beat_id)
+          .filter((beatId): beatId is string => Boolean(beatId))
+      ));
 
-      setBeats(uniqueBeats);
+      const [derivedBeatRows, explicitMappedBeats, directDistributorBeats] = await Promise.all([
+        derivedBeatIds.length > 0
+          ? supabase
+              .from('beats')
+              .select('id, beat_id, beat_name')
+              .in('beat_id', derivedBeatIds)
+              .eq('is_active', true)
+          : Promise.resolve({ data: [] as BeatRow[] }),
+        mappedBeatRowIds.size > 0
+          ? supabase
+              .from('beats')
+              .select('id, beat_id, beat_name')
+              .in('id', Array.from(mappedBeatRowIds))
+              .eq('is_active', true)
+          : Promise.resolve({ data: [] as BeatRow[] }),
+        supabase
+          .from('beats')
+          .select('id, beat_id, beat_name')
+          .eq('distributor_id', propDistributorId)
+          .eq('is_active', true),
+      ]);
+
+      const beatMap = new Map<string, Beat>();
+      [derivedBeatRows.data, explicitMappedBeats.data, directDistributorBeats.data].forEach(group => {
+        (group || []).forEach((beat: BeatRow) => {
+          if (beat.beat_id && beat.beat_name) {
+            beatMap.set(beat.beat_id, { id: beat.beat_id, beat_name: beat.beat_name });
+          }
+        });
+      });
+
+      Array.from(retailerMap.values())
+        .filter((retailer): retailer is RetailerBeatRow & { beat_id: string; beat_name: string } => Boolean(retailer.beat_id && retailer.beat_name))
+        .forEach(retailer => {
+          if (!beatMap.has(retailer.beat_id)) {
+            beatMap.set(retailer.beat_id, { id: retailer.beat_id, beat_name: retailer.beat_name });
+          }
+        });
+
+      setBeats(Array.from(beatMap.values()).sort((a, b) => a.beat_name.localeCompare(b.beat_name)));
     };
 
     loadBeats();
