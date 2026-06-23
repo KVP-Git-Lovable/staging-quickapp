@@ -541,7 +541,29 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
   }
 
   return (
-    <Card>
+    <div className="space-y-3">
+      {owner && (
+        <Card className="border-dashed border-primary/40 bg-primary/5">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center text-primary font-semibold text-sm shrink-0">
+                {(owner.full_name || '?').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                  Distributor Owner (Company)
+                </p>
+                <p className="text-sm font-semibold truncate">{owner.full_name || 'Unnamed user'}</p>
+                <p className="text-xs text-muted-foreground">
+                  Manages this distributor's users, logins & delivery access.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-[10px]">PROFILES</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
