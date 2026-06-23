@@ -294,7 +294,7 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       {/* Banner */}
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
         {allFinalized
-          ? '✓ All items packed, invoice finalized, ready for dispatch.'
+          ? `✓ Invoices finalized (${invoiceStats.finalized}/${invoiceStats.total}) — ready for dispatch.`
           : `Invoices finalized (${invoiceStats.finalized}/${invoiceStats.total}) — finalize all invoices before dispatching.`}
       </div>
 
