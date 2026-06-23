@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PackingList } from '@/hooks/usePackingList';
 import StatusTimeline from './StatusTimeline';
+import { getPrimaryPackingListInvoiceLookup } from './primaryInvoiceLookup';
 
 interface Props {
   packingList: PackingList;
@@ -90,7 +91,7 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
     (async () => {
       setLoading(true);
       try {
-        const [{ data: items }, { data: dist }, { data: wh }, { data: orderLinks }] = await Promise.all([
+        const [{ data: items }, { data: dist }, { data: wh }, invoiceLookup] = await Promise.all([
           supabase
             .from('packing_list_items')
             .select('id, ordered_qty, picked_qty, packing_list_item_batches(packed_qty, picked_qty, allocated_qty)')
@@ -101,7 +102,7 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
           pl.warehouse_id
             ? supabase.from('warehouses').select('id, name, city').eq('id', pl.warehouse_id).maybeSingle()
             : Promise.resolve({ data: null }),
-          supabase.from('packing_list_orders').select('order_id').eq('packing_list_id', packingList.id),
+          getPrimaryPackingListInvoiceLookup(packingList.id),
         ]);
 
         if (cancelled) return;
@@ -121,16 +122,7 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
         setDistributor(dist || null);
         setWarehouse(wh || null);
 
-        const orderIds = (orderLinks || []).map((r: any) => r.order_id);
-        if (orderIds.length) {
-          const { data: invs } = await supabase
-            .from('primary_invoices')
-            .select('id, status')
-            .in('order_id', orderIds);
-          const total = (invs || []).length;
-          const finalized = (invs || []).filter((i: any) => i.status === 'finalized').length;
-          setInvoiceStats({ total, finalized });
-        }
+        setInvoiceStats({ total: invoiceLookup.expectedCount, finalized: invoiceLookup.finalizedCount });
 
         // Destination default
         if (!form.dispatch_destination && dist) {
@@ -303,7 +295,7 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       <div className="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:border-emerald-900/40 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
         {allFinalized
           ? '✓ All items packed, invoice finalized, ready for dispatch.'
-          : `Finalize all invoices (${invoiceStats.finalized}/${invoiceStats.total}) before dispatching.`}
+          : `Invoices finalized (${invoiceStats.finalized}/${invoiceStats.total}) — finalize all invoices before dispatching.`}
       </div>
 
       {/* Stat cards */}
