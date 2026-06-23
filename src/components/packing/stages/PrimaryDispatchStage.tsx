@@ -142,6 +142,18 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       } finally {
         if (!cancelled) setLoading(false);
       }
+
+      // Load distributor's delivery-enabled users (parallel/independent)
+      if (pl.distributor_id) {
+        const { data: dus } = await supabase
+          .from('distributor_users')
+          .select('id, auth_user_id, full_name, phone, role, can_deliver, is_active')
+          .eq('distributor_id', pl.distributor_id)
+          .eq('can_deliver', true)
+          .eq('is_active', true)
+          .order('full_name', { ascending: true });
+        if (!cancelled) setDeliveryUsers((dus || []) as DeliveryUserOption[]);
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
