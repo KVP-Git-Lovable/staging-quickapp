@@ -39,23 +39,35 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { deductVanStockAfterDelivery } from '@/utils/inventoryReservation';
 
+type DeliveryKind = 'primary' | 'secondary';
+
+interface DeliveryLine {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit?: string;
+  // Primary only
+  batch_id?: string;
+}
+
 interface DeliveryOrder {
   id: string;
+  kind: DeliveryKind;
   retailer_id: string;
   retailer_name: string;
   retailer_address: string;
   retailer_phone: string;
   beat_name: string;
   total_amount: number;
-  items: Array<{
-    product_id: string;
-    product_name: string;
-    quantity: number;
-    unit?: string;
-  }>;
+  items: DeliveryLine[];
   delivery_status: 'dispatched' | 'delivered' | 'partial' | 'failed';
   delivery_notes?: string;
   delivery_proof_url?: string;
+  // Primary only
+  packing_list_number?: string;
+  dispatched_at?: string | null;
+  total_packages?: number | null;
+  total_units?: number;
 }
 
 export default function DeliveryRun() {
@@ -74,6 +86,8 @@ export default function DeliveryRun() {
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [kindFilter, setKindFilter] = useState<'all' | DeliveryKind>('all');
+  const [primaryLineQty, setPrimaryLineQty] = useState<Record<string, string>>({});
 
   // Get current user
   useEffect(() => {
@@ -120,8 +134,9 @@ export default function DeliveryRun() {
 
         if (error) throw error;
 
-        const formattedDeliveries: DeliveryOrder[] = (orders || []).map((order: any) => ({
+        const secondaryDeliveries: DeliveryOrder[] = (orders || []).map((order: any) => ({
           id: order.id,
+          kind: 'secondary',
           retailer_id: order.retailer_id,
           retailer_name: order.retailers?.name || 'Unknown',
           retailer_address: order.retailers?.address || '',
@@ -134,7 +149,77 @@ export default function DeliveryRun() {
           delivery_proof_url: order.delivery_proof_url
         }));
 
-        setDeliveries(formattedDeliveries);
+        // Primary source: packing_lists assigned to me, dispatched (or already delivered)
+        const { data: pls } = await supabase
+          .from('packing_lists')
+          .select(`
+            id, packing_list_number, dispatched_at, total_packages, total_value, dispatch_destination,
+            pod_photo_url, pod_notes, status, distributor_id,
+            distributors(name, city, address),
+            packing_list_items(
+              id, product_id, ordered_qty, picked_qty,
+              products(name, base_uom),
+              packing_list_item_batches(id, packed_qty, picked_qty, allocated_qty, delivered_qty)
+            )
+          `)
+          .eq('assigned_agent_id', userId)
+          .eq('order_type', 'primary')
+          .in('status', ['dispatched', 'delivered', 'completed'])
+          .order('dispatched_at', { ascending: true });
+
+        const primaryDeliveries: DeliveryOrder[] = (pls || []).map((p: any) => {
+          const items: DeliveryLine[] = [];
+          let totalUnits = 0;
+          (p.packing_list_items || []).forEach((it: any) => {
+            const batches = it.packing_list_item_batches || [];
+            if (batches.length === 0) {
+              const qty = Number(it.picked_qty || it.ordered_qty || 0);
+              totalUnits += qty;
+              items.push({
+                product_id: it.product_id,
+                product_name: it.products?.name || 'Item',
+                quantity: qty,
+                unit: it.products?.base_uom || 'pcs',
+              });
+            } else {
+              batches.forEach((b: any) => {
+                const qty = Number(b.packed_qty || b.picked_qty || b.allocated_qty || 0);
+                totalUnits += qty;
+                items.push({
+                  product_id: it.product_id,
+                  product_name: it.products?.name || 'Item',
+                  quantity: qty,
+                  unit: it.products?.base_uom || 'pcs',
+                  batch_id: b.id,
+                });
+              });
+            }
+          });
+          const destName = p.distributors?.name || p.dispatch_destination || 'Distributor';
+          const destCity = p.distributors?.city || '';
+          const status: DeliveryOrder['delivery_status'] =
+            p.status === 'dispatched' ? 'dispatched' : 'delivered';
+          return {
+            id: p.id,
+            kind: 'primary',
+            retailer_id: p.distributor_id,
+            retailer_name: destCity ? `${destName} — ${destCity}` : destName,
+            retailer_address: p.distributors?.address || p.dispatch_destination || '',
+            retailer_phone: '',
+            beat_name: 'Primary DC',
+            total_amount: Number(p.total_value || 0),
+            items,
+            delivery_status: status,
+            delivery_notes: p.pod_notes || undefined,
+            delivery_proof_url: p.pod_photo_url || undefined,
+            packing_list_number: p.packing_list_number,
+            dispatched_at: p.dispatched_at,
+            total_packages: p.total_packages,
+            total_units: totalUnits,
+          };
+        });
+
+        setDeliveries([...primaryDeliveries, ...secondaryDeliveries]);
       } catch (error) {
         console.error('Error loading deliveries:', error);
         toast({
@@ -155,6 +240,16 @@ export default function DeliveryRun() {
     setDeliveryStatus('delivered');
     setDeliveryNotes('');
     setProofImage(null);
+    if (delivery.kind === 'primary') {
+      const seed: Record<string, string> = {};
+      delivery.items.forEach((it, idx) => {
+        const key = it.batch_id || `${idx}`;
+        seed[key] = String(it.quantity);
+      });
+      setPrimaryLineQty(seed);
+    } else {
+      setPrimaryLineQty({});
+    }
     setShowDeliveryDialog(true);
   };
 
@@ -200,31 +295,59 @@ export default function DeliveryRun() {
         }
       }
 
-      // Update order
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          delivery_status: deliveryStatus,
-          delivery_notes: deliveryNotes,
-          delivery_proof_url: proofUrl,
-          delivered_at: deliveryStatus === 'delivered' ? new Date().toISOString() : null
-        })
-        .eq('id', selectedDelivery.id);
+      if (selectedDelivery.kind === 'primary') {
+        // Primary delivery via atomic RPC
+        const lines = selectedDelivery.items
+          .filter((it) => !!it.batch_id)
+          .map((it, idx) => ({
+            batch_id: it.batch_id,
+            delivered_qty: Number(primaryLineQty[it.batch_id || `${idx}`] ?? it.quantity) || 0,
+            short_delivery_reason:
+              deliveryStatus === 'partial' || deliveryStatus === 'failed'
+                ? (deliveryNotes || deliveryStatus)
+                : null,
+          }));
 
-      if (updateError) throw updateError;
-
-      // Deduct van stock for delivered items
-      if (deliveryStatus === 'delivered' || deliveryStatus === 'partial') {
-        const deliveredItems = selectedDelivery.items.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity
-        }));
-
-        await deductVanStockAfterDelivery(
-          userId,
-          format(new Date(), 'yyyy-MM-dd'),
-          deliveredItems
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+          'confirm_primary_delivery_atomic' as any,
+          {
+            p_packing_list_id: selectedDelivery.id,
+            p_received_by: null,
+            p_delivered_at: new Date().toISOString(),
+            p_pod_photo_url: proofUrl,
+            p_pod_signature_url: null,
+            p_pod_notes: deliveryNotes || null,
+            p_lines: lines,
+          } as any
         );
+        if (rpcErr) throw rpcErr;
+        const res: any = rpcRes;
+        if (res && res.success === false) throw new Error(res.error || 'Delivery confirm failed');
+      } else {
+        // Secondary: existing flow (orders + van stock)
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            delivery_status: deliveryStatus,
+            delivery_notes: deliveryNotes,
+            delivery_proof_url: proofUrl,
+            delivered_at: deliveryStatus === 'delivered' ? new Date().toISOString() : null
+          })
+          .eq('id', selectedDelivery.id);
+
+        if (updateError) throw updateError;
+
+        if (deliveryStatus === 'delivered' || deliveryStatus === 'partial') {
+          const deliveredItems = selectedDelivery.items.map((item) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+          }));
+          await deductVanStockAfterDelivery(
+            userId,
+            format(new Date(), 'yyyy-MM-dd'),
+            deliveredItems
+          );
+        }
       }
 
       // Update local state
@@ -262,11 +385,17 @@ export default function DeliveryRun() {
   };
 
   // Calculate stats
-  const totalDeliveries = deliveries.length;
-  const completedDeliveries = deliveries.filter(d => d.delivery_status === 'delivered').length;
-  const partialDeliveries = deliveries.filter(d => d.delivery_status === 'partial').length;
-  const failedDeliveries = deliveries.filter(d => d.delivery_status === 'failed').length;
-  const pendingDeliveries = deliveries.filter(d => d.delivery_status === 'dispatched').length;
+  const filteredDeliveries = deliveries.filter((d) =>
+    kindFilter === 'all' ? true : d.kind === kindFilter
+  );
+  const primaryCount = deliveries.filter((d) => d.kind === 'primary').length;
+  const secondaryCount = deliveries.filter((d) => d.kind === 'secondary').length;
+
+  const totalDeliveries = filteredDeliveries.length;
+  const completedDeliveries = filteredDeliveries.filter(d => d.delivery_status === 'delivered').length;
+  const partialDeliveries = filteredDeliveries.filter(d => d.delivery_status === 'partial').length;
+  const failedDeliveries = filteredDeliveries.filter(d => d.delivery_status === 'failed').length;
+  const pendingDeliveries = filteredDeliveries.filter(d => d.delivery_status === 'dispatched').length;
   const progress = totalDeliveries > 0 ? ((completedDeliveries + partialDeliveries + failedDeliveries) / totalDeliveries) * 100 : 0;
 
   const getStatusBadge = (status: string) => {
@@ -354,9 +483,30 @@ export default function DeliveryRun() {
         </Card>
       </div>
 
+      {/* Filter chips */}
+      <div className="px-4 pb-2 flex items-center gap-2">
+        {(['all', 'primary', 'secondary'] as const).map((k) => {
+          const count = k === 'all' ? deliveries.length : k === 'primary' ? primaryCount : secondaryCount;
+          const active = kindFilter === k;
+          return (
+            <button
+              key={k}
+              onClick={() => setKindFilter(k)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                active
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:bg-muted'
+              }`}
+            >
+              {k.charAt(0).toUpperCase() + k.slice(1)} <span className="opacity-70">({count})</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Deliveries List */}
       <div className="px-4 space-y-3">
-        {deliveries.length === 0 ? (
+        {filteredDeliveries.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -364,7 +514,7 @@ export default function DeliveryRun() {
             </CardContent>
           </Card>
         ) : (
-          deliveries.map((delivery, index) => (
+          filteredDeliveries.map((delivery, index) => (
             <Card 
               key={delivery.id} 
               className={`overflow-hidden ${delivery.delivery_status === 'dispatched' ? 'border-primary/50' : ''}`}
@@ -377,29 +527,63 @@ export default function DeliveryRun() {
                     }`}>
                       <span className="text-sm font-bold">{index + 1}</span>
                     </div>
-                    {index < deliveries.length - 1 && (
+                    {index < filteredDeliveries.length - 1 && (
                       <div className="w-0.5 h-full min-h-[40px] bg-border mt-2" />
                     )}
                   </div>
                   
                   <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium">{delivery.retailer_name}</p>
-                        <p className="text-sm text-muted-foreground">{delivery.beat_name}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{delivery.retailer_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {delivery.kind === 'primary' && delivery.packing_list_number
+                            ? delivery.packing_list_number
+                            : delivery.beat_name}
+                        </p>
                       </div>
-                      {getStatusBadge(delivery.delivery_status)}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={
+                            delivery.kind === 'primary'
+                              ? 'border-primary/40 text-primary bg-primary/5 text-[10px]'
+                              : 'border-muted-foreground/30 text-muted-foreground text-[10px]'
+                          }
+                        >
+                          {delivery.kind.toUpperCase()}
+                        </Badge>
+                        {getStatusBadge(delivery.delivery_status)}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      <span className="truncate">{delivery.retailer_address || 'No address'}</span>
-                    </div>
+                    {delivery.kind === 'secondary' && (
+                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        <span className="truncate">{delivery.retailer_address || 'No address'}</span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between mt-4">
                       <div>
-                        <p className="text-sm text-muted-foreground">{delivery.items.length} items</p>
-                        <p className="font-semibold">₹{delivery.total_amount.toLocaleString()}</p>
+                        {delivery.kind === 'primary' ? (
+                          <>
+                            <p className="text-sm text-muted-foreground">
+                              {delivery.total_units ?? 0} units
+                              {delivery.total_packages ? ` · ${delivery.total_packages} cartons` : ''}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {delivery.dispatched_at
+                                ? `Dispatched ${format(new Date(delivery.dispatched_at), 'HH:mm')}`
+                                : 'Dispatched'}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm text-muted-foreground">{delivery.items.length} items</p>
+                            <p className="font-semibold">₹{delivery.total_amount.toLocaleString()}</p>
+                          </>
+                        )}
                       </div>
                       
                       <div className="flex gap-2">
@@ -450,17 +634,48 @@ export default function DeliveryRun() {
           <div className="space-y-4 py-4">
             {/* Order Summary */}
             <div className="bg-muted p-3 rounded-lg">
-              <p className="text-sm font-medium mb-2">Order Items</p>
-              {selectedDelivery?.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between text-sm">
-                  <span>{item.product_name}</span>
-                  <span>{item.quantity} {item.unit || 'pcs'}</span>
+              <p className="text-sm font-medium mb-2">
+                {selectedDelivery?.kind === 'primary' ? 'Dispatched Items' : 'Order Items'}
+              </p>
+              {selectedDelivery?.items.map((item, idx) => {
+                const key = item.batch_id || `${idx}`;
+                const editable =
+                  selectedDelivery.kind === 'primary' &&
+                  !!item.batch_id &&
+                  deliveryStatus !== 'delivered';
+                return (
+                  <div key={idx} className="flex justify-between items-center text-sm py-1">
+                    <span className="truncate pr-2">{item.product_name}</span>
+                    {editable ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          max={item.quantity}
+                          value={primaryLineQty[key] ?? String(item.quantity)}
+                          onChange={(e) =>
+                            setPrimaryLineQty((p) => ({ ...p, [key]: e.target.value }))
+                          }
+                          className="w-16 h-7 px-2 rounded border bg-background text-right text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          / {item.quantity} {item.unit || 'pcs'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span>
+                        {item.quantity} {item.unit || 'pcs'}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {selectedDelivery?.kind !== 'primary' && (
+                <div className="border-t mt-2 pt-2 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>₹{selectedDelivery?.total_amount.toLocaleString()}</span>
                 </div>
-              ))}
-              <div className="border-t mt-2 pt-2 flex justify-between font-semibold">
-                <span>Total</span>
-                <span>₹{selectedDelivery?.total_amount.toLocaleString()}</span>
-              </div>
+              )}
             </div>
 
             {/* Status Selection */}
