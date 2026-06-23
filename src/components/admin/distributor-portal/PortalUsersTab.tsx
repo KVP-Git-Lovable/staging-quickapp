@@ -12,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Users, Building, Mail, Phone, Calendar } from 'lucide-react';
+import { Users, Building, Mail, Phone, Calendar, Truck } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -25,6 +26,7 @@ interface PortalUser {
   user_level: string;
   user_status: string;
   is_active: boolean;
+  can_deliver: boolean;
   last_login_at: string | null;
   created_at: string;
   distributor_id: string;
@@ -163,6 +165,9 @@ export const PortalUsersTab = ({ searchQuery }: PortalUsersTabProps) => {
                   <TableHead>Distributor</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-center">
+                    <span className="inline-flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Can Deliver</span>
+                  </TableHead>
                   <TableHead>Last Login</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
@@ -194,6 +199,28 @@ export const PortalUsersTab = ({ searchQuery }: PortalUsersTabProps) => {
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(user.user_status, user.is_active)}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(user.user_status, user.is_active)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={!!user.can_deliver}
+                        onCheckedChange={async (checked) => {
+                          // Optimistic
+                          setUsers(prev => prev.map(u => u.id === user.id ? { ...u, can_deliver: checked } : u));
+                          const { error } = await supabase
+                            .from('distributor_users')
+                            .update({ can_deliver: checked } as any)
+                            .eq('id', user.id);
+                          if (error) {
+                            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, can_deliver: !checked } : u));
+                            toast.error('Failed to update delivery access');
+                          } else {
+                            toast.success(checked ? 'Delivery access granted' : 'Delivery access removed');
+                          }
+                        }}
+                      />
                     </TableCell>
                     <TableCell>
                       {user.last_login_at ? (

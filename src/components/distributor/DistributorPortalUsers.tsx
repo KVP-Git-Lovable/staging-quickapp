@@ -48,6 +48,7 @@ interface DistributorUser {
   designation: string | null;
   user_level: string | null;
   is_active: boolean;
+  can_deliver: boolean;
   created_at: string;
   approved_at: string | null;
   approved_by: string | null;
@@ -55,6 +56,11 @@ interface DistributorUser {
   user_status: 'initiated' | 'active' | 'inactive' | 'deactivated';
   auth_user_id: string | null;
   email_sent_at: string | null;
+}
+
+interface DistributorOwnerInfo {
+  id: string;
+  full_name: string | null;
 }
 
 interface DistributorPortalUsersProps {
@@ -86,6 +92,7 @@ const USER_STATUSES = [
 
 export function DistributorPortalUsers({ distributorId, distributorName }: DistributorPortalUsersProps) {
   const [users, setUsers] = useState<DistributorUser[]>([]);
+  const [owner, setOwner] = useState<DistributorOwnerInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -120,18 +127,49 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('distributor_users')
-        .select('*')
-        .eq('distributor_id', distributorId)
-        .order('created_at', { ascending: false });
+      const [{ data, error }, { data: distData }] = await Promise.all([
+        supabase
+          .from('distributor_users')
+          .select('*')
+          .eq('distributor_id', distributorId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('distributors')
+          .select('owner_id, owner_name, profiles:owner_id(id, full_name)')
+          .eq('id', distributorId)
+          .maybeSingle(),
+      ]);
 
       if (error) throw error;
       setUsers((data || []) as DistributorUser[]);
+      const p: any = (distData as any)?.profiles;
+      if (p?.id) {
+        setOwner({ id: p.id, full_name: p.full_name ?? (distData as any)?.owner_name ?? null });
+      } else if ((distData as any)?.owner_id) {
+        setOwner({ id: (distData as any).owner_id, full_name: (distData as any).owner_name ?? null });
+      } else {
+        setOwner(null);
+      }
     } catch (error: any) {
       toast.error("Failed to load portal users: " + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleCanDeliver = async (userId: string, current: boolean) => {
+    // Optimistic update
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, can_deliver: !current } : u));
+    const { error } = await supabase
+      .from('distributor_users')
+      .update({ can_deliver: !current } as any)
+      .eq('id', userId);
+    if (error) {
+      // Revert
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, can_deliver: current } : u));
+      toast.error("Failed to update delivery access: " + error.message);
+    } else {
+      toast.success(!current ? "Delivery access granted" : "Delivery access removed");
     }
   };
 
@@ -503,7 +541,29 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
   }
 
   return (
-    <Card>
+    <div className="space-y-3">
+      {owner && (
+        <Card className="border-dashed border-primary/40 bg-primary/5">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-full bg-primary/15 flex items-center justify-center text-primary font-semibold text-sm shrink-0">
+                {(owner.full_name || '?').charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+                  Distributor Owner (Company)
+                </p>
+                <p className="text-sm font-semibold truncate">{owner.full_name || 'Unnamed user'}</p>
+                <p className="text-xs text-muted-foreground">
+                  Manages this distributor's users, logins & delivery access.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-[10px]">PROFILES</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -736,10 +796,22 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
                       <p className="text-xs text-muted-foreground mt-0.5">{user.designation}</p>
                     )}
                   </div>
-                  <Switch
-                    checked={user.is_active}
-                    onCheckedChange={() => toggleUserStatus(user.id, user.is_active)}
-                  />
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Active</span>
+                      <Switch
+                        checked={user.is_active}
+                        onCheckedChange={() => toggleUserStatus(user.id, user.is_active)}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Can Deliver</span>
+                      <Switch
+                        checked={!!user.can_deliver}
+                        onCheckedChange={() => toggleCanDeliver(user.id, !!user.can_deliver)}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Contact Info */}
@@ -921,5 +993,6 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
         </DialogContent>
       </Dialog>
     </Card>
+    </div>
   );
 }
