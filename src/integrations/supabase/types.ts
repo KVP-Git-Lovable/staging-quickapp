@@ -11556,6 +11556,8 @@ export type Database = {
       }
       packing_lists: {
         Row: {
+          assigned_agent_id: string | null
+          assigned_delivery_user_id: string | null
           created_at: string | null
           created_by: string | null
           delivered_at: string | null
@@ -11568,6 +11570,7 @@ export type Database = {
           dispatch_vehicle: string | null
           dispatched_at: string | null
           distributor_id: string | null
+          driver_phone: string | null
           id: string
           lr_gr_number: string | null
           notes: string | null
@@ -11593,6 +11596,8 @@ export type Database = {
           warehouse_id: string | null
         }
         Insert: {
+          assigned_agent_id?: string | null
+          assigned_delivery_user_id?: string | null
           created_at?: string | null
           created_by?: string | null
           delivered_at?: string | null
@@ -11605,6 +11610,7 @@ export type Database = {
           dispatch_vehicle?: string | null
           dispatched_at?: string | null
           distributor_id?: string | null
+          driver_phone?: string | null
           id?: string
           lr_gr_number?: string | null
           notes?: string | null
@@ -11630,6 +11636,8 @@ export type Database = {
           warehouse_id?: string | null
         }
         Update: {
+          assigned_agent_id?: string | null
+          assigned_delivery_user_id?: string | null
           created_at?: string | null
           created_by?: string | null
           delivered_at?: string | null
@@ -11642,6 +11650,7 @@ export type Database = {
           dispatch_vehicle?: string | null
           dispatched_at?: string | null
           distributor_id?: string | null
+          driver_phone?: string | null
           id?: string
           lr_gr_number?: string | null
           notes?: string | null
@@ -11667,6 +11676,13 @@ export type Database = {
           warehouse_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "packing_lists_assigned_delivery_user_id_fkey"
+            columns: ["assigned_delivery_user_id"]
+            isOneToOne: false
+            referencedRelation: "distributor_users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "packing_lists_distributor_id_fkey"
             columns: ["distributor_id"]
