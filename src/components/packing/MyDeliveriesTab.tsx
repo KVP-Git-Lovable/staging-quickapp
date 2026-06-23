@@ -232,7 +232,38 @@ export default function MyDeliveriesTab() {
           });
         }
 
+        // ============ PRIMARY packing-list deliveries ============
+        // Primary lists are assigned directly via packing_lists.assigned_agent_id
+        // (auth user id). They are NOT in packing_list_assignments and NOT filtered
+        // by delivery_date — show whenever status='dispatched'.
+        const { data: primaryLists, error: primaryErr } = await supabase
+          .from('packing_lists')
+          .select('id, packing_list_number, delivery_date, total_orders, total_items, total_value, total_packages, status, dispatch_destination, dispatched_at')
+          .eq('assigned_agent_id', userId)
+          .eq('order_type', 'primary')
+          .eq('status', 'dispatched');
+
+        console.log('[MyDeliveries] Primary lists:', primaryLists, 'err:', primaryErr);
+
+        for (const pl of primaryLists || []) {
+          packingListsWithOrders.push({
+            id: pl.id,
+            packing_list_number: pl.packing_list_number,
+            delivery_date: pl.delivery_date,
+            total_orders: pl.total_orders ?? 1,
+            total_items: pl.total_items ?? 0,
+            total_value: pl.total_value ?? 0,
+            status: pl.status,
+            orders: [],
+            is_primary: true,
+            dispatch_destination: pl.dispatch_destination,
+            total_packages: pl.total_packages,
+            dispatched_at: pl.dispatched_at,
+          });
+        }
+
         setAssignedPackingLists(packingListsWithOrders);
+
         
         // Auto-expand today's packing lists
         const todayLists = packingListsWithOrders
