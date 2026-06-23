@@ -171,6 +171,8 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
   const persistForm = async () => {
     await supabase.from('packing_lists').update({
       dispatch_driver: form.dispatch_driver || null,
+      driver_phone: form.driver_phone || null,
+      assigned_delivery_user_id: form.assigned_delivery_user_id || null,
       dispatch_vehicle: form.dispatch_vehicle || null,
       vehicle_type: form.vehicle_type || null,
       transporter_name: form.transporter_name || null,
@@ -182,6 +184,17 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       dispatch_destination: form.dispatch_destination || null,
       dispatch_notes: form.dispatch_notes || null,
     } as any).eq('id', packingList.id);
+  };
+
+  const selectDriver = (deliveryUserId: string) => {
+    const u = deliveryUsers.find((x) => x.id === deliveryUserId);
+    if (!u) return;
+    setForm((f) => ({
+      ...f,
+      assigned_delivery_user_id: u.id,
+      dispatch_driver: u.full_name || '',
+      driver_phone: u.phone || '',
+    }));
   };
 
   const handleSaveAssignment = async () => {
