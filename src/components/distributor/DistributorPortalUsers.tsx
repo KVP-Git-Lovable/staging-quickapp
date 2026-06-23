@@ -796,10 +796,22 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
                       <p className="text-xs text-muted-foreground mt-0.5">{user.designation}</p>
                     )}
                   </div>
-                  <Switch
-                    checked={user.is_active}
-                    onCheckedChange={() => toggleUserStatus(user.id, user.is_active)}
-                  />
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Active</span>
+                      <Switch
+                        checked={user.is_active}
+                        onCheckedChange={() => toggleUserStatus(user.id, user.is_active)}
+                      />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Can Deliver</span>
+                      <Switch
+                        checked={!!user.can_deliver}
+                        onCheckedChange={() => toggleCanDeliver(user.id, !!user.can_deliver)}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Contact Info */}
