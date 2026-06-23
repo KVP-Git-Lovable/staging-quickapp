@@ -75,6 +75,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<PrimaryInvoice[]>([]);
   const [ordersById, setOrdersById] = useState<Record<string, PrimaryOrderInfo>>({});
+  const [invoiceStats, setInvoiceStats] = useState<{ expected: number; finalized: number }>({ expected: 0, finalized: 0 });
   const [distributor, setDistributor] = useState<DistributorInfo | null>(null);
   const [linesByOrder, setLinesByOrder] = useState<Record<string, InvoiceLine[]>>({});
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
@@ -83,9 +84,10 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     setLoading(true);
     try {
       // Linked primary orders for this packing list
-      const { orders: orderList, orderIds, invoices: invs } = await getPrimaryPackingListInvoiceLookup(packingList.id);
+      const { orders: orderList, orderIds, invoices: invs, expectedCount, finalizedCount } = await getPrimaryPackingListInvoiceLookup(packingList.id);
       setOrdersById(orderList.reduce((acc, o) => { acc[o.id] = o; return acc; }, {} as Record<string, PrimaryOrderInfo>));
       setInvoices(invs);
+      setInvoiceStats({ expected: expectedCount, finalized: finalizedCount });
       setActiveInvoiceId(prev => prev && invs.some(i => i.id === prev) ? prev : invs[0]?.id || null);
 
       // Distributor
@@ -304,7 +306,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     return { gross, disc, taxable, tax, total: taxable + tax };
   }, [activeLines]);
 
-  const allFinalized = invoices.length > 0 && invoices.every(i => i.status === 'finalized');
+  const allFinalized = invoiceStats.expected > 0 && invoiceStats.finalized === invoiceStats.expected;
 
   if (loading) {
     return (
@@ -531,7 +533,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
         <p className="text-xs text-muted-foreground">
           {allFinalized
             ? 'All invoices finalized. Ready to prepare for dispatch.'
-            : `Finalize all ${invoices.length} invoice(s) to unlock dispatch.`}
+            : `Invoices finalized (${invoiceStats.finalized}/${invoiceStats.expected}) — finalize all invoices to unlock dispatch.`}
         </p>
         <Button onClick={handleProceedToDispatch} disabled={!allFinalized}>
           Prepare for Dispatch <ArrowRight className="h-4 w-4 ml-1" />
