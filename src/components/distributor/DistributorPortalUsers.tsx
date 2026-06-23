@@ -48,6 +48,7 @@ interface DistributorUser {
   designation: string | null;
   user_level: string | null;
   is_active: boolean;
+  can_deliver: boolean;
   created_at: string;
   approved_at: string | null;
   approved_by: string | null;
@@ -55,6 +56,11 @@ interface DistributorUser {
   user_status: 'initiated' | 'active' | 'inactive' | 'deactivated';
   auth_user_id: string | null;
   email_sent_at: string | null;
+}
+
+interface DistributorOwnerInfo {
+  id: string;
+  full_name: string | null;
 }
 
 interface DistributorPortalUsersProps {
