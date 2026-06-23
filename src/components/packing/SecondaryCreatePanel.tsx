@@ -89,7 +89,11 @@ export default function SecondaryCreatePanel({ distributorId: propDistributorId,
         .eq('id', propDistributorId)
         .single();
 
-      const distributorName = distData?.name || '';
+      const distributorName = (distData?.name || '').trim();
+      // First significant word, e.g. "Joyicecream Distributor" -> "Joyicecream".
+      // Retailers often store parent_name as the brand only (e.g. "JOYICECREAM"),
+      // so an exact ilike on the full name misses them — match by prefix instead.
+      const distributorFirstToken = distributorName.split(/\s+/)[0] || '';
       const retailerMap = new Map<string, RetailerBeatRow>();
 
       const { data: mappedRetailers } = await supabase
@@ -99,11 +103,17 @@ export default function SecondaryCreatePanel({ distributorId: propDistributorId,
 
       const mappedRetailerIds = (mappedRetailers || []).map(row => row.retailer_id).filter(Boolean);
 
-      const [directRetailers, parentRetailers, mappedRetailerRows] = await Promise.all([
+      const [directRetailers, parentRetailers, parentExactRetailers, mappedRetailerRows] = await Promise.all([
         supabase
           .from('retailers')
           .select('id, beat_id, beat_name')
           .eq('distributor_id', propDistributorId),
+        distributorFirstToken
+          ? supabase
+              .from('retailers')
+              .select('id, beat_id, beat_name')
+              .ilike('parent_name', `${distributorFirstToken}%`)
+          : Promise.resolve({ data: [] as RetailerBeatRow[] }),
         distributorName
           ? supabase
               .from('retailers')
@@ -118,7 +128,7 @@ export default function SecondaryCreatePanel({ distributorId: propDistributorId,
           : Promise.resolve({ data: [] as RetailerBeatRow[] }),
       ]);
 
-      [directRetailers.data, parentRetailers.data, mappedRetailerRows.data].forEach(group => {
+      [directRetailers.data, parentRetailers.data, parentExactRetailers.data, mappedRetailerRows.data].forEach(group => {
         (group || []).forEach((retailer: RetailerBeatRow) => {
           if (retailer?.id) retailerMap.set(retailer.id, retailer);
         });
