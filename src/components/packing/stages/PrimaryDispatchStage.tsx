@@ -231,8 +231,10 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       const { data, error } = await supabase.rpc('dispatch_primary_packing_list_atomic' as any, {
         p_packing_list_id: packingList.id,
         p_dispatch: {
+          assigned_delivery_user_id: form.assigned_delivery_user_id,
           dispatch_vehicle: form.dispatch_vehicle,
           dispatch_driver: form.dispatch_driver,
+          driver_phone: form.driver_phone,
           transporter_name: form.transporter_name,
           lr_gr_number: form.lr_gr_number,
           vehicle_type: form.vehicle_type,
