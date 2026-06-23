@@ -27,6 +27,7 @@ interface Props {
 }
 
 interface DispatchForm {
+  assigned_delivery_user_id: string;
   dispatch_driver: string;
   driver_phone: string;
   dispatch_vehicle: string;
@@ -39,6 +40,14 @@ interface DispatchForm {
   dispatch_date: string;
   dispatch_destination: string;
   dispatch_notes: string;
+}
+
+interface DeliveryUserOption {
+  id: string;
+  auth_user_id: string | null;
+  full_name: string;
+  phone: string | null;
+  role: string | null;
 }
 
 const fmtNum = (n: number | null | undefined) =>
