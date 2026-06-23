@@ -20,6 +20,8 @@ interface DistributorInfo {
   name: string;
   gst_number: string | null;
   state: string | null;
+  address: string | null;
+  email: string | null;
   phone: string | null;
   contact_person: string | null;
   credit_limit: number | null;
