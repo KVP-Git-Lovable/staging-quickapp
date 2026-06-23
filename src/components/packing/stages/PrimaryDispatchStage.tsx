@@ -67,9 +67,12 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
   const [warehouse, setWarehouse] = useState<any>(null);
   const [invoiceStats, setInvoiceStats] = useState<{ total: number; finalized: number }>({ total: 0, finalized: 0 });
 
+  const [deliveryUsers, setDeliveryUsers] = useState<DeliveryUserOption[]>([]);
+
   const [form, setForm] = useState<DispatchForm>({
+    assigned_delivery_user_id: pl.assigned_delivery_user_id || '',
     dispatch_driver: pl.dispatch_driver || '',
-    driver_phone: '',
+    driver_phone: pl.driver_phone || '',
     dispatch_vehicle: pl.dispatch_vehicle || '',
     vehicle_type: pl.vehicle_type || '',
     transporter_name: pl.transporter_name || '',
