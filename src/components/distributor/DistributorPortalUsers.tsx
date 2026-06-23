@@ -127,18 +127,49 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('distributor_users')
-        .select('*')
-        .eq('distributor_id', distributorId)
-        .order('created_at', { ascending: false });
+      const [{ data, error }, { data: distData }] = await Promise.all([
+        supabase
+          .from('distributor_users')
+          .select('*')
+          .eq('distributor_id', distributorId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('distributors')
+          .select('owner_id, owner_name, profiles:owner_id(id, full_name)')
+          .eq('id', distributorId)
+          .maybeSingle(),
+      ]);
 
       if (error) throw error;
       setUsers((data || []) as DistributorUser[]);
+      const p: any = (distData as any)?.profiles;
+      if (p?.id) {
+        setOwner({ id: p.id, full_name: p.full_name ?? (distData as any)?.owner_name ?? null });
+      } else if ((distData as any)?.owner_id) {
+        setOwner({ id: (distData as any).owner_id, full_name: (distData as any).owner_name ?? null });
+      } else {
+        setOwner(null);
+      }
     } catch (error: any) {
       toast.error("Failed to load portal users: " + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleCanDeliver = async (userId: string, current: boolean) => {
+    // Optimistic update
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, can_deliver: !current } : u));
+    const { error } = await supabase
+      .from('distributor_users')
+      .update({ can_deliver: !current } as any)
+      .eq('id', userId);
+    if (error) {
+      // Revert
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, can_deliver: current } : u));
+      toast.error("Failed to update delivery access: " + error.message);
+    } else {
+      toast.success(!current ? "Delivery access granted" : "Delivery access removed");
     }
   };
 
