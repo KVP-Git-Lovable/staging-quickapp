@@ -295,31 +295,59 @@ export default function DeliveryRun() {
         }
       }
 
-      // Update order
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          delivery_status: deliveryStatus,
-          delivery_notes: deliveryNotes,
-          delivery_proof_url: proofUrl,
-          delivered_at: deliveryStatus === 'delivered' ? new Date().toISOString() : null
-        })
-        .eq('id', selectedDelivery.id);
+      if (selectedDelivery.kind === 'primary') {
+        // Primary delivery via atomic RPC
+        const lines = selectedDelivery.items
+          .filter((it) => !!it.batch_id)
+          .map((it, idx) => ({
+            batch_id: it.batch_id,
+            delivered_qty: Number(primaryLineQty[it.batch_id || `${idx}`] ?? it.quantity) || 0,
+            short_delivery_reason:
+              deliveryStatus === 'partial' || deliveryStatus === 'failed'
+                ? (deliveryNotes || deliveryStatus)
+                : null,
+          }));
 
-      if (updateError) throw updateError;
-
-      // Deduct van stock for delivered items
-      if (deliveryStatus === 'delivered' || deliveryStatus === 'partial') {
-        const deliveredItems = selectedDelivery.items.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity
-        }));
-
-        await deductVanStockAfterDelivery(
-          userId,
-          format(new Date(), 'yyyy-MM-dd'),
-          deliveredItems
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+          'confirm_primary_delivery_atomic' as any,
+          {
+            p_packing_list_id: selectedDelivery.id,
+            p_received_by: null,
+            p_delivered_at: new Date().toISOString(),
+            p_pod_photo_url: proofUrl,
+            p_pod_signature_url: null,
+            p_pod_notes: deliveryNotes || null,
+            p_lines: lines,
+          } as any
         );
+        if (rpcErr) throw rpcErr;
+        const res: any = rpcRes;
+        if (res && res.success === false) throw new Error(res.error || 'Delivery confirm failed');
+      } else {
+        // Secondary: existing flow (orders + van stock)
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({
+            delivery_status: deliveryStatus,
+            delivery_notes: deliveryNotes,
+            delivery_proof_url: proofUrl,
+            delivered_at: deliveryStatus === 'delivered' ? new Date().toISOString() : null
+          })
+          .eq('id', selectedDelivery.id);
+
+        if (updateError) throw updateError;
+
+        if (deliveryStatus === 'delivered' || deliveryStatus === 'partial') {
+          const deliveredItems = selectedDelivery.items.map((item) => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+          }));
+          await deductVanStockAfterDelivery(
+            userId,
+            format(new Date(), 'yyyy-MM-dd'),
+            deliveredItems
+          );
+        }
       }
 
       // Update local state
