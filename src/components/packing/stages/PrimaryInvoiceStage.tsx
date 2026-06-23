@@ -20,6 +20,8 @@ interface DistributorInfo {
   name: string;
   gst_number: string | null;
   state: string | null;
+  address: string | null;
+  email: string | null;
   phone: string | null;
   contact_person: string | null;
   credit_limit: number | null;
@@ -76,7 +78,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
   const [invoices, setInvoices] = useState<PrimaryInvoice[]>([]);
   const [ordersById, setOrdersById] = useState<Record<string, PrimaryOrderInfo>>({});
   const [invoiceStats, setInvoiceStats] = useState<{ expected: number; finalized: number }>({ expected: 0, finalized: 0 });
-  const [distributor, setDistributor] = useState<DistributorInfo | null>(null);
+  const [buyerById, setBuyerById] = useState<Record<string, DistributorInfo>>({});
   const [linesByOrder, setLinesByOrder] = useState<Record<string, InvoiceLine[]>>({});
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
 
@@ -90,15 +92,21 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
       setInvoiceStats({ expected: expectedCount, finalized: finalizedCount });
       setActiveInvoiceId(prev => prev && invs.some(i => i.id === prev) ? prev : invs[0]?.id || null);
 
-      // Distributor
-      const distId = packingList.distributor_id || orderList[0]?.distributor_id;
-      if (distId) {
-        const { data: d } = await supabase
+      // BUYER distributors — resolved from each invoice's distributor_id (the child / Billed To party).
+      // Never resolve from packing_lists.distributor_id (that's the SELLER / fulfilling distributor).
+      const buyerIds = Array.from(new Set(
+        invs.map(i => i.distributor_id).filter((v): v is string => !!v)
+      ));
+      if (buyerIds.length) {
+        const { data: ds } = await supabase
           .from('distributors')
-          .select('id, name, gst_number, state, phone, contact_person, credit_limit, outstanding_amount')
-          .eq('id', distId)
-          .maybeSingle();
-        setDistributor((d as DistributorInfo) || null);
+          .select('id, name, gst_number, state, address, email, phone, contact_person, credit_limit, outstanding_amount')
+          .in('id', buyerIds);
+        const map: Record<string, DistributorInfo> = {};
+        (ds || []).forEach((d: any) => { map[d.id] = d as DistributorInfo; });
+        setBuyerById(map);
+      } else {
+        setBuyerById({});
       }
 
       // Lines (order_items + packed qty per item)
@@ -214,12 +222,14 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
       company = data || {};
     } catch {}
     const isDraft = inv.status !== 'finalized' || /^DRAFT-/i.test(inv.invoice_number || '');
+    // Buyer = the invoice's distributor_id (child / Billed To). NOT packing_lists.distributor_id.
+    const buyer = inv.distributor_id ? buyerById[inv.distributor_id] || null : null;
     return buildPrimaryInvoiceBlob({
       invoiceNumber: inv.invoice_number,
       invoiceDate: inv.invoice_date,
       dueDate: inv.due_date,
       isDraft,
-      distributor,
+      distributor: buyer,
       company,
       orderNumber: order?.order_number || null,
       orderDate: order?.order_date || null,
@@ -236,7 +246,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
         tax_percent: l.tax_percent,
       })),
     });
-  }, [invoices, activeInvoiceId, linesByOrder, distributor, ordersById, packingList]);
+  }, [invoices, activeInvoiceId, linesByOrder, buyerById, ordersById, packingList]);
 
   const [docBusy, setDocBusy] = useState<'view' | 'download' | 'print' | null>(null);
 
@@ -292,6 +302,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
   const activeInvoice = invoices.find(i => i.id === activeInvoiceId) || null;
   const activeOrder = activeInvoice ? ordersById[activeInvoice.order_id] : null;
   const activeLines = activeInvoice ? (linesByOrder[activeInvoice.order_id] || []) : [];
+  const distributor = activeInvoice?.distributor_id ? (buyerById[activeInvoice.distributor_id] || null) : null;
 
   const totals = useMemo(() => {
     let gross = 0, disc = 0, taxable = 0, tax = 0;
