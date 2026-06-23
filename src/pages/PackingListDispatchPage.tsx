@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PackingList } from '@/hooks/usePackingList';
 import PrimaryDispatchStage from '@/components/packing/stages/PrimaryDispatchStage';
 import PrimaryDeliveryStage from '@/components/packing/stages/PrimaryDeliveryStage';
+import PrimaryInvoiceStage from '@/components/packing/stages/PrimaryInvoiceStage';
 
 interface Props {
   /** When true, omit the global Layout chrome (used inside nested portal routes). */
@@ -20,11 +21,31 @@ export default function PackingListDispatchPage({ bare = false }: Props) {
   const navigate = useNavigate();
   const [pl, setPl] = useState<PackingList | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasFinalizedInvoice, setHasFinalizedInvoice] = useState<boolean>(true);
 
   const load = async () => {
     if (!id) return;
     const { data } = await supabase.from('packing_lists').select('*').eq('id', id).single();
     setPl(data as PackingList);
+    // Check finalized primary invoices for linked orders
+    if (data && (data as any).order_type === 'primary') {
+      const { data: links } = await supabase
+        .from('packing_list_orders')
+        .select('order_id')
+        .eq('packing_list_id', id);
+      const orderIds = (links || []).map((r: any) => r.order_id);
+      if (orderIds.length) {
+        const { data: invs } = await supabase
+          .from('primary_invoices')
+          .select('id, status')
+          .in('order_id', orderIds);
+        const total = (invs || []).length;
+        const finalized = (invs || []).filter((i: any) => i.status === 'finalized').length;
+        setHasFinalizedInvoice(total > 0 && finalized === total);
+      } else {
+        setHasFinalizedInvoice(false);
+      }
+    }
   };
 
   useEffect(() => {
@@ -75,7 +96,15 @@ export default function PackingListDispatchPage({ bare = false }: Props) {
       </div>
 
       <div className="p-4 space-y-4">
-        {pl.status === 'ready' && (
+        {pl.status === 'ready' && !hasFinalizedInvoice && (
+          <>
+            <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900/40 p-3 text-sm text-amber-800 dark:text-amber-200">
+              No finalized primary invoice for this packing list yet. Generate and finalize the invoice below before dispatching.
+            </div>
+            <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
+          </>
+        )}
+        {pl.status === 'ready' && hasFinalizedInvoice && (
           <PrimaryDispatchStage packingList={pl} onStatusChange={refreshStatus} />
         )}
         {(pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
