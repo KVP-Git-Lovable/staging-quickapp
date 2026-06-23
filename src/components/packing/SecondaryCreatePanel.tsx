@@ -101,13 +101,22 @@ export default function SecondaryCreatePanel({ distributorId: propDistributorId,
       // so an exact ilike on the full name misses them — match by prefix instead.
       const distributorFirstToken = distributorName.split(/\s+/)[0] || '';
       const retailerMap = new Map<string, RetailerBeatRow>();
+      const mappedBeatRowIds = new Set<string>();
 
       const { data: mappedRetailers } = await supabase
         .from('distributor_retailer_mappings')
         .select('retailer_id')
         .eq('distributor_id', propDistributorId);
 
+      const { data: mappedBeatRows } = await supabase
+        .from('distributor_beat_mappings')
+        .select('beat_id')
+        .eq('distributor_id', propDistributorId);
+
       const mappedRetailerIds = (mappedRetailers || []).map(row => row.retailer_id).filter(Boolean);
+      (mappedBeatRows || []).forEach(row => {
+        if (row.beat_id) mappedBeatRowIds.add(row.beat_id);
+      });
 
       const [directRetailers, parentRetailers, parentExactRetailers, mappedRetailerRows] = await Promise.all([
         supabase
