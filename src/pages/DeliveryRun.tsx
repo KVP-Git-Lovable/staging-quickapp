@@ -149,77 +149,9 @@ export default function DeliveryRun() {
           delivery_proof_url: order.delivery_proof_url
         }));
 
-        // Primary source: packing_lists assigned to me, dispatched (or already delivered)
-        const { data: pls } = await supabase
-          .from('packing_lists')
-          .select(`
-            id, packing_list_number, dispatched_at, total_packages, total_value, dispatch_destination,
-            pod_photo_url, pod_notes, status, distributor_id,
-            distributors(name, city, address),
-            packing_list_items(
-              id, product_id, ordered_qty, picked_qty,
-              products(name, base_uom),
-              packing_list_item_batches(id, packed_qty, picked_qty, allocated_qty, delivered_qty)
-            )
-          `)
-          .eq('assigned_agent_id', userId)
-          .eq('order_type', 'primary')
-          .in('status', ['dispatched', 'delivered', 'completed'])
-          .order('dispatched_at', { ascending: true });
-
-        const primaryDeliveries: DeliveryOrder[] = (pls || []).map((p: any) => {
-          const items: DeliveryLine[] = [];
-          let totalUnits = 0;
-          (p.packing_list_items || []).forEach((it: any) => {
-            const batches = it.packing_list_item_batches || [];
-            if (batches.length === 0) {
-              const qty = Number(it.picked_qty || it.ordered_qty || 0);
-              totalUnits += qty;
-              items.push({
-                product_id: it.product_id,
-                product_name: it.products?.name || 'Item',
-                quantity: qty,
-                unit: it.products?.base_uom || 'pcs',
-              });
-            } else {
-              batches.forEach((b: any) => {
-                const qty = Number(b.packed_qty || b.picked_qty || b.allocated_qty || 0);
-                totalUnits += qty;
-                items.push({
-                  product_id: it.product_id,
-                  product_name: it.products?.name || 'Item',
-                  quantity: qty,
-                  unit: it.products?.base_uom || 'pcs',
-                  batch_id: b.id,
-                });
-              });
-            }
-          });
-          const destName = p.distributors?.name || p.dispatch_destination || 'Distributor';
-          const destCity = p.distributors?.city || '';
-          const status: DeliveryOrder['delivery_status'] =
-            p.status === 'dispatched' ? 'dispatched' : 'delivered';
-          return {
-            id: p.id,
-            kind: 'primary',
-            retailer_id: p.distributor_id,
-            retailer_name: destCity ? `${destName} — ${destCity}` : destName,
-            retailer_address: p.distributors?.address || p.dispatch_destination || '',
-            retailer_phone: '',
-            beat_name: 'Primary DC',
-            total_amount: Number(p.total_value || 0),
-            items,
-            delivery_status: status,
-            delivery_notes: p.pod_notes || undefined,
-            delivery_proof_url: p.pod_photo_url || undefined,
-            packing_list_number: p.packing_list_number,
-            dispatched_at: p.dispatched_at,
-            total_packages: p.total_packages,
-            total_units: totalUnits,
-          };
-        });
-
-        setDeliveries([...primaryDeliveries, ...secondaryDeliveries]);
+        // Primary packing-list completion is driven by the child distributor's GRN,
+        // not by this delivery run. Only secondary retailer deliveries are shown here.
+        setDeliveries(secondaryDeliveries);
       } catch (error) {
         console.error('Error loading deliveries:', error);
         toast({
