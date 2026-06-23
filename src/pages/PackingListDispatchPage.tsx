@@ -96,7 +96,15 @@ export default function PackingListDispatchPage({ bare = false }: Props) {
       </div>
 
       <div className="p-4 space-y-4">
-        {pl.status === 'ready' && (
+        {pl.status === 'ready' && !hasFinalizedInvoice && (
+          <>
+            <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-900/40 p-3 text-sm text-amber-800 dark:text-amber-200">
+              No finalized primary invoice for this packing list yet. Generate and finalize the invoice below before dispatching.
+            </div>
+            <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
+          </>
+        )}
+        {pl.status === 'ready' && hasFinalizedInvoice && (
           <PrimaryDispatchStage packingList={pl} onStatusChange={refreshStatus} />
         )}
         {(pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
