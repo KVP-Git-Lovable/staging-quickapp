@@ -107,12 +107,6 @@ export default function PackingListDetail() {
               <Button onClick={() => navigate('dispatch')}>Open Dispatch</Button>
             </div>
           )}
-          {pl.order_type === 'primary' && pl.status === 'ready' && (
-            <div className="rounded-md border bg-card p-4 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">Finalize the primary invoice, then dispatch.</div>
-              <Button onClick={() => navigate('dispatch')}>Open Invoice / Dispatch</Button>
-            </div>
-          )}
           {pl.order_type !== 'primary' && (pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
             <DeliveryRunStage packingList={pl} onStatusChange={refreshStatus} />
           )}
