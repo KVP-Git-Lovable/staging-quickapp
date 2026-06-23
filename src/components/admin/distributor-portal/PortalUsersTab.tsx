@@ -165,6 +165,9 @@ export const PortalUsersTab = ({ searchQuery }: PortalUsersTabProps) => {
                   <TableHead>Distributor</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-center">
+                    <span className="inline-flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Can Deliver</span>
+                  </TableHead>
                   <TableHead>Last Login</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
