@@ -385,11 +385,17 @@ export default function DeliveryRun() {
   };
 
   // Calculate stats
-  const totalDeliveries = deliveries.length;
-  const completedDeliveries = deliveries.filter(d => d.delivery_status === 'delivered').length;
-  const partialDeliveries = deliveries.filter(d => d.delivery_status === 'partial').length;
-  const failedDeliveries = deliveries.filter(d => d.delivery_status === 'failed').length;
-  const pendingDeliveries = deliveries.filter(d => d.delivery_status === 'dispatched').length;
+  const filteredDeliveries = deliveries.filter((d) =>
+    kindFilter === 'all' ? true : d.kind === kindFilter
+  );
+  const primaryCount = deliveries.filter((d) => d.kind === 'primary').length;
+  const secondaryCount = deliveries.filter((d) => d.kind === 'secondary').length;
+
+  const totalDeliveries = filteredDeliveries.length;
+  const completedDeliveries = filteredDeliveries.filter(d => d.delivery_status === 'delivered').length;
+  const partialDeliveries = filteredDeliveries.filter(d => d.delivery_status === 'partial').length;
+  const failedDeliveries = filteredDeliveries.filter(d => d.delivery_status === 'failed').length;
+  const pendingDeliveries = filteredDeliveries.filter(d => d.delivery_status === 'dispatched').length;
   const progress = totalDeliveries > 0 ? ((completedDeliveries + partialDeliveries + failedDeliveries) / totalDeliveries) * 100 : 0;
 
   const getStatusBadge = (status: string) => {
