@@ -302,6 +302,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
   const activeInvoice = invoices.find(i => i.id === activeInvoiceId) || null;
   const activeOrder = activeInvoice ? ordersById[activeInvoice.order_id] : null;
   const activeLines = activeInvoice ? (linesByOrder[activeInvoice.order_id] || []) : [];
+  const distributor = activeInvoice?.distributor_id ? (buyerById[activeInvoice.distributor_id] || null) : null;
 
   const totals = useMemo(() => {
     let gross = 0, disc = 0, taxable = 0, tax = 0;
