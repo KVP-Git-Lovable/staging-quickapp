@@ -222,12 +222,14 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
       company = data || {};
     } catch {}
     const isDraft = inv.status !== 'finalized' || /^DRAFT-/i.test(inv.invoice_number || '');
+    // Buyer = the invoice's distributor_id (child / Billed To). NOT packing_lists.distributor_id.
+    const buyer = inv.distributor_id ? buyerById[inv.distributor_id] || null : null;
     return buildPrimaryInvoiceBlob({
       invoiceNumber: inv.invoice_number,
       invoiceDate: inv.invoice_date,
       dueDate: inv.due_date,
       isDraft,
-      distributor,
+      distributor: buyer,
       company,
       orderNumber: order?.order_number || null,
       orderDate: order?.order_date || null,
@@ -244,7 +246,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
         tax_percent: l.tax_percent,
       })),
     });
-  }, [invoices, activeInvoiceId, linesByOrder, distributor, ordersById, packingList]);
+  }, [invoices, activeInvoiceId, linesByOrder, buyerById, ordersById, packingList]);
 
   const [docBusy, setDocBusy] = useState<'view' | 'download' | 'print' | null>(null);
 
