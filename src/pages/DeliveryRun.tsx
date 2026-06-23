@@ -240,6 +240,16 @@ export default function DeliveryRun() {
     setDeliveryStatus('delivered');
     setDeliveryNotes('');
     setProofImage(null);
+    if (delivery.kind === 'primary') {
+      const seed: Record<string, string> = {};
+      delivery.items.forEach((it, idx) => {
+        const key = it.batch_id || `${idx}`;
+        seed[key] = String(it.quantity);
+      });
+      setPrimaryLineQty(seed);
+    } else {
+      setPrimaryLineQty({});
+    }
     setShowDeliveryDialog(true);
   };
 
