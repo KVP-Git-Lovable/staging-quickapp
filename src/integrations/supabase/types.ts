@@ -22950,6 +22950,10 @@ export type Database = {
         Returns: Json
       }
       sync_order_with_items_v2: { Args: { p_payload: Json }; Returns: Json }
+      sync_primary_packing_list_delivery: {
+        Args: { p_packing_list_id: string }
+        Returns: undefined
+      }
       to_base_qty: {
         Args: { p_product_id: string; p_qty: number; p_uom_code: string }
         Returns: number
