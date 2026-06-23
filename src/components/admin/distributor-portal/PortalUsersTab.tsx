@@ -201,6 +201,28 @@ export const PortalUsersTab = ({ searchQuery }: PortalUsersTabProps) => {
                       {getStatusBadge(user.user_status, user.is_active)}
                     </TableCell>
                     <TableCell>
+                      {getStatusBadge(user.user_status, user.is_active)}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={!!user.can_deliver}
+                        onCheckedChange={async (checked) => {
+                          // Optimistic
+                          setUsers(prev => prev.map(u => u.id === user.id ? { ...u, can_deliver: checked } : u));
+                          const { error } = await supabase
+                            .from('distributor_users')
+                            .update({ can_deliver: checked } as any)
+                            .eq('id', user.id);
+                          if (error) {
+                            setUsers(prev => prev.map(u => u.id === user.id ? { ...u, can_deliver: !checked } : u));
+                            toast.error('Failed to update delivery access');
+                          } else {
+                            toast.success(checked ? 'Delivery access granted' : 'Delivery access removed');
+                          }
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
                       {user.last_login_at ? (
                         <div className="flex items-center gap-1 text-sm">
                           <Calendar className="h-3 w-3" />
