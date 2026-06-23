@@ -235,7 +235,10 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     }
     onStatusChange('ready');
     toast({ title: 'Ready for dispatch' });
-    navigate('dispatch');
+    // Avoid double-appending when this stage is already mounted under the /dispatch route
+    if (!/\/dispatch\/?$/.test(window.location.pathname)) {
+      navigate('dispatch');
+    }
   };
 
   const buildBlobForActive = useCallback(async (): Promise<Blob | null> => {
