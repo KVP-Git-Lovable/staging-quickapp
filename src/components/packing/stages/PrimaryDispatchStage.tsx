@@ -403,8 +403,30 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Assign Vehicle &amp; Driver</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-2">
-            <FormField label="Driver / Agent" value={form.dispatch_driver} onChange={(v) => setForm({ ...form, dispatch_driver: v })} />
-            <FormField label="Driver Phone" value={form.driver_phone} onChange={(v) => setForm({ ...form, driver_phone: v })} />
+            <div className="space-y-1 col-span-2">
+              <Label className="text-xs">Driver / Agent</Label>
+              <Select value={form.assigned_delivery_user_id} onValueChange={selectDriver}>
+                <SelectTrigger>
+                  <SelectValue placeholder={deliveryUsers.length ? 'Select a delivery user…' : 'No delivery-enabled users found'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {deliveryUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      <span className="font-medium">{u.full_name}</span>
+                      {u.role ? <span className="text-muted-foreground"> · {u.role}</span> : null}
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-emerald-600">can deliver</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Only this distributor's active <code>can_deliver</code> users — no free typing.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Driver Phone</Label>
+              <Input value={form.driver_phone} readOnly placeholder="Auto-filled from selected user" className="bg-muted/40" />
+            </div>
             <FormField label="Vehicle Number" value={form.dispatch_vehicle} onChange={(v) => setForm({ ...form, dispatch_vehicle: v })} />
             <FormField label="Vehicle Type" value={form.vehicle_type} onChange={(v) => setForm({ ...form, vehicle_type: v })} />
             <FormField label="Transporter" value={form.transporter_name} onChange={(v) => setForm({ ...form, transporter_name: v })} />
