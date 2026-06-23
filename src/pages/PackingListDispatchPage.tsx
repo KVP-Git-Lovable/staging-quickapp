@@ -10,6 +10,7 @@ import { PackingList } from '@/hooks/usePackingList';
 import PrimaryDispatchStage from '@/components/packing/stages/PrimaryDispatchStage';
 import PrimaryDeliveryStage from '@/components/packing/stages/PrimaryDeliveryStage';
 import PrimaryInvoiceStage from '@/components/packing/stages/PrimaryInvoiceStage';
+import { getPrimaryPackingListInvoiceLookup } from '@/components/packing/stages/primaryInvoiceLookup';
 
 interface Props {
   /** When true, omit the global Layout chrome (used inside nested portal routes). */
@@ -29,22 +30,8 @@ export default function PackingListDispatchPage({ bare = false }: Props) {
     setPl(data as PackingList);
     // Check finalized primary invoices for linked orders
     if (data && (data as any).order_type === 'primary') {
-      const { data: orders } = await supabase
-        .from('primary_orders')
-        .select('id')
-        .eq('packing_list_id', id);
-      const orderIds = (orders || []).map((r: any) => r.id);
-      if (orderIds.length) {
-        const { data: invs } = await supabase
-          .from('primary_invoices')
-          .select('id, status')
-          .in('order_id', orderIds);
-        const total = (invs || []).length;
-        const finalized = (invs || []).filter((i: any) => i.status === 'finalized').length;
-        setHasFinalizedInvoice(total > 0 && finalized === total);
-      } else {
-        setHasFinalizedInvoice(false);
-      }
+      const invoiceLookup = await getPrimaryPackingListInvoiceLookup(id);
+      setHasFinalizedInvoice(invoiceLookup.ready);
     }
   };
 
