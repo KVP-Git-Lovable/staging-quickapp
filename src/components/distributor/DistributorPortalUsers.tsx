@@ -981,5 +981,6 @@ export function DistributorPortalUsers({ distributorId, distributorName }: Distr
         </DialogContent>
       </Dialog>
     </Card>
+    </div>
   );
 }
