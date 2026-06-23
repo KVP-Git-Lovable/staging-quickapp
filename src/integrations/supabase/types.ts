@@ -22771,6 +22771,15 @@ export type Database = {
         Returns: Json
       }
       pm_is_project_member: { Args: { project_uuid: string }; Returns: boolean }
+      portal_can_read_beat: {
+        Args: { p_beat_id: string; p_beat_row_id?: string }
+        Returns: boolean
+      }
+      portal_can_read_order: { Args: { p_order_id: string }; Returns: boolean }
+      portal_can_read_retailer: {
+        Args: { p_retailer_id: string }
+        Returns: boolean
+      }
       portal_login_by_phone: {
         Args: { p_phone: string }
         Returns: {
