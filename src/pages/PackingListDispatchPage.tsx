@@ -29,11 +29,11 @@ export default function PackingListDispatchPage({ bare = false }: Props) {
     setPl(data as PackingList);
     // Check finalized primary invoices for linked orders
     if (data && (data as any).order_type === 'primary') {
-      const { data: links } = await supabase
-        .from('packing_list_orders')
-        .select('order_id')
+      const { data: orders } = await supabase
+        .from('primary_orders')
+        .select('id')
         .eq('packing_list_id', id);
-      const orderIds = (links || []).map((r: any) => r.order_id);
+      const orderIds = (orders || []).map((r: any) => r.id);
       if (orderIds.length) {
         const { data: invs } = await supabase
           .from('primary_invoices')
