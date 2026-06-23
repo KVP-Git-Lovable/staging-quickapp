@@ -39,23 +39,35 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { deductVanStockAfterDelivery } from '@/utils/inventoryReservation';
 
+type DeliveryKind = 'primary' | 'secondary';
+
+interface DeliveryLine {
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit?: string;
+  // Primary only
+  batch_id?: string;
+}
+
 interface DeliveryOrder {
   id: string;
+  kind: DeliveryKind;
   retailer_id: string;
   retailer_name: string;
   retailer_address: string;
   retailer_phone: string;
   beat_name: string;
   total_amount: number;
-  items: Array<{
-    product_id: string;
-    product_name: string;
-    quantity: number;
-    unit?: string;
-  }>;
+  items: DeliveryLine[];
   delivery_status: 'dispatched' | 'delivered' | 'partial' | 'failed';
   delivery_notes?: string;
   delivery_proof_url?: string;
+  // Primary only
+  packing_list_number?: string;
+  dispatched_at?: string | null;
+  total_packages?: number | null;
+  total_units?: number;
 }
 
 export default function DeliveryRun() {
