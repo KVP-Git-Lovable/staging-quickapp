@@ -92,6 +92,7 @@ const USER_STATUSES = [
 
 export function DistributorPortalUsers({ distributorId, distributorName }: DistributorPortalUsersProps) {
   const [users, setUsers] = useState<DistributorUser[]>([]);
+  const [owner, setOwner] = useState<DistributorOwnerInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
