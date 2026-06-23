@@ -72,7 +72,12 @@ interface AssignedPackingList {
   total_value: number;
   status: string;
   orders: DeliveryOrder[];
+  is_primary?: boolean;
+  dispatch_destination?: string | null;
+  total_packages?: number | null;
+  dispatched_at?: string | null;
 }
+
 
 export default function MyDeliveriesTab() {
   const { toast } = useToast();
