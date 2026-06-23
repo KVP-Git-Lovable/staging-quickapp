@@ -86,6 +86,8 @@ export default function DeliveryRun() {
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [kindFilter, setKindFilter] = useState<'all' | DeliveryKind>('all');
+  const [primaryLineQty, setPrimaryLineQty] = useState<Record<string, string>>({});
 
   // Get current user
   useEffect(() => {
