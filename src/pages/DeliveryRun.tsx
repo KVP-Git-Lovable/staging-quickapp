@@ -483,9 +483,30 @@ export default function DeliveryRun() {
         </Card>
       </div>
 
+      {/* Filter chips */}
+      <div className="px-4 pb-2 flex items-center gap-2">
+        {(['all', 'primary', 'secondary'] as const).map((k) => {
+          const count = k === 'all' ? deliveries.length : k === 'primary' ? primaryCount : secondaryCount;
+          const active = kindFilter === k;
+          return (
+            <button
+              key={k}
+              onClick={() => setKindFilter(k)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition ${
+                active
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-card text-muted-foreground border-border hover:bg-muted'
+              }`}
+            >
+              {k.charAt(0).toUpperCase() + k.slice(1)} <span className="opacity-70">({count})</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Deliveries List */}
       <div className="px-4 space-y-3">
-        {deliveries.length === 0 ? (
+        {filteredDeliveries.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
@@ -493,7 +514,7 @@ export default function DeliveryRun() {
             </CardContent>
           </Card>
         ) : (
-          deliveries.map((delivery, index) => (
+          filteredDeliveries.map((delivery, index) => (
             <Card 
               key={delivery.id} 
               className={`overflow-hidden ${delivery.delivery_status === 'dispatched' ? 'border-primary/50' : ''}`}
