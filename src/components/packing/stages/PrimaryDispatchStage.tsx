@@ -27,6 +27,7 @@ interface Props {
 }
 
 interface DispatchForm {
+  assigned_delivery_user_id: string;
   dispatch_driver: string;
   driver_phone: string;
   dispatch_vehicle: string;
@@ -39,6 +40,14 @@ interface DispatchForm {
   dispatch_date: string;
   dispatch_destination: string;
   dispatch_notes: string;
+}
+
+interface DeliveryUserOption {
+  id: string;
+  auth_user_id: string | null;
+  full_name: string;
+  phone: string | null;
+  role: string | null;
 }
 
 const fmtNum = (n: number | null | undefined) =>
@@ -58,9 +67,12 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
   const [warehouse, setWarehouse] = useState<any>(null);
   const [invoiceStats, setInvoiceStats] = useState<{ total: number; finalized: number }>({ total: 0, finalized: 0 });
 
+  const [deliveryUsers, setDeliveryUsers] = useState<DeliveryUserOption[]>([]);
+
   const [form, setForm] = useState<DispatchForm>({
+    assigned_delivery_user_id: pl.assigned_delivery_user_id || '',
     dispatch_driver: pl.dispatch_driver || '',
-    driver_phone: '',
+    driver_phone: pl.driver_phone || '',
     dispatch_vehicle: pl.dispatch_vehicle || '',
     vehicle_type: pl.vehicle_type || '',
     transporter_name: pl.transporter_name || '',
@@ -130,6 +142,18 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       } finally {
         if (!cancelled) setLoading(false);
       }
+
+      // Load distributor's delivery-enabled users (parallel/independent)
+      if (pl.distributor_id) {
+        const { data: dus } = await supabase
+          .from('distributor_users')
+          .select('id, auth_user_id, full_name, phone, role, can_deliver, is_active')
+          .eq('distributor_id', pl.distributor_id)
+          .eq('can_deliver', true)
+          .eq('is_active', true)
+          .order('full_name', { ascending: true });
+        if (!cancelled) setDeliveryUsers((dus || []) as DeliveryUserOption[]);
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,6 +171,8 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
   const persistForm = async () => {
     await supabase.from('packing_lists').update({
       dispatch_driver: form.dispatch_driver || null,
+      driver_phone: form.driver_phone || null,
+      assigned_delivery_user_id: form.assigned_delivery_user_id || null,
       dispatch_vehicle: form.dispatch_vehicle || null,
       vehicle_type: form.vehicle_type || null,
       transporter_name: form.transporter_name || null,
@@ -158,6 +184,17 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       dispatch_destination: form.dispatch_destination || null,
       dispatch_notes: form.dispatch_notes || null,
     } as any).eq('id', packingList.id);
+  };
+
+  const selectDriver = (deliveryUserId: string) => {
+    const u = deliveryUsers.find((x) => x.id === deliveryUserId);
+    if (!u) return;
+    setForm((f) => ({
+      ...f,
+      assigned_delivery_user_id: u.id,
+      dispatch_driver: u.full_name || '',
+      driver_phone: u.phone || '',
+    }));
   };
 
   const handleSaveAssignment = async () => {
@@ -184,14 +221,20 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       toast({ variant: 'destructive', title: 'Cannot dispatch', description: 'Finalize all invoices and assign driver + vehicle first.' });
       return;
     }
+    if (!form.assigned_delivery_user_id) {
+      toast({ variant: 'destructive', title: 'Driver required', description: 'Select a delivery-enabled user from the distributor.' });
+      return;
+    }
     setSubmitting(true);
     try {
       await persistForm();
       const { data, error } = await supabase.rpc('dispatch_primary_packing_list_atomic' as any, {
         p_packing_list_id: packingList.id,
         p_dispatch: {
+          assigned_delivery_user_id: form.assigned_delivery_user_id,
           dispatch_vehicle: form.dispatch_vehicle,
           dispatch_driver: form.dispatch_driver,
+          driver_phone: form.driver_phone,
           transporter_name: form.transporter_name,
           lr_gr_number: form.lr_gr_number,
           vehicle_type: form.vehicle_type,
@@ -360,8 +403,30 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Assign Vehicle &amp; Driver</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-3 py-2">
-            <FormField label="Driver / Agent" value={form.dispatch_driver} onChange={(v) => setForm({ ...form, dispatch_driver: v })} />
-            <FormField label="Driver Phone" value={form.driver_phone} onChange={(v) => setForm({ ...form, driver_phone: v })} />
+            <div className="space-y-1 col-span-2">
+              <Label className="text-xs">Driver / Agent</Label>
+              <Select value={form.assigned_delivery_user_id} onValueChange={selectDriver}>
+                <SelectTrigger>
+                  <SelectValue placeholder={deliveryUsers.length ? 'Select a delivery user…' : 'No delivery-enabled users found'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {deliveryUsers.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      <span className="font-medium">{u.full_name}</span>
+                      {u.role ? <span className="text-muted-foreground"> · {u.role}</span> : null}
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-emerald-600">can deliver</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Only this distributor's active <code>can_deliver</code> users — no free typing.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Driver Phone</Label>
+              <Input value={form.driver_phone} readOnly placeholder="Auto-filled from selected user" className="bg-muted/40" />
+            </div>
             <FormField label="Vehicle Number" value={form.dispatch_vehicle} onChange={(v) => setForm({ ...form, dispatch_vehicle: v })} />
             <FormField label="Vehicle Type" value={form.vehicle_type} onChange={(v) => setForm({ ...form, vehicle_type: v })} />
             <FormField label="Transporter" value={form.transporter_name} onChange={(v) => setForm({ ...form, transporter_name: v })} />
