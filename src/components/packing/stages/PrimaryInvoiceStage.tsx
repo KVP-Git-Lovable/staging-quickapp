@@ -78,7 +78,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
   const [invoices, setInvoices] = useState<PrimaryInvoice[]>([]);
   const [ordersById, setOrdersById] = useState<Record<string, PrimaryOrderInfo>>({});
   const [invoiceStats, setInvoiceStats] = useState<{ expected: number; finalized: number }>({ expected: 0, finalized: 0 });
-  const [distributor, setDistributor] = useState<DistributorInfo | null>(null);
+  const [buyerById, setBuyerById] = useState<Record<string, DistributorInfo>>({});
   const [linesByOrder, setLinesByOrder] = useState<Record<string, InvoiceLine[]>>({});
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
 
@@ -92,15 +92,21 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
       setInvoiceStats({ expected: expectedCount, finalized: finalizedCount });
       setActiveInvoiceId(prev => prev && invs.some(i => i.id === prev) ? prev : invs[0]?.id || null);
 
-      // Distributor
-      const distId = packingList.distributor_id || orderList[0]?.distributor_id;
-      if (distId) {
-        const { data: d } = await supabase
+      // BUYER distributors — resolved from each invoice's distributor_id (the child / Billed To party).
+      // Never resolve from packing_lists.distributor_id (that's the SELLER / fulfilling distributor).
+      const buyerIds = Array.from(new Set(
+        invs.map(i => i.distributor_id).filter((v): v is string => !!v)
+      ));
+      if (buyerIds.length) {
+        const { data: ds } = await supabase
           .from('distributors')
-          .select('id, name, gst_number, state, phone, contact_person, credit_limit, outstanding_amount')
-          .eq('id', distId)
-          .maybeSingle();
-        setDistributor((d as DistributorInfo) || null);
+          .select('id, name, gst_number, state, address, email, phone, contact_person, credit_limit, outstanding_amount')
+          .in('id', buyerIds);
+        const map: Record<string, DistributorInfo> = {};
+        (ds || []).forEach((d: any) => { map[d.id] = d as DistributorInfo; });
+        setBuyerById(map);
+      } else {
+        setBuyerById({});
       }
 
       // Lines (order_items + packed qty per item)
