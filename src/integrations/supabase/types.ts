@@ -6092,6 +6092,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           auth_user_id: string | null
+          can_deliver: boolean
           created_at: string
           designation: string | null
           distributor_id: string
@@ -6113,6 +6114,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           auth_user_id?: string | null
+          can_deliver?: boolean
           created_at?: string
           designation?: string | null
           distributor_id: string
@@ -6134,6 +6136,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           auth_user_id?: string | null
+          can_deliver?: boolean
           created_at?: string
           designation?: string | null
           distributor_id?: string
@@ -6337,6 +6340,13 @@ export type Database = {
           years_of_relationship?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "distributors_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "distributors_parent_id_fkey"
             columns: ["parent_id"]
@@ -22700,6 +22710,10 @@ export type Database = {
         Returns: boolean
       }
       is_coordinator: { Args: { p_uid: string }; Returns: boolean }
+      is_distributor_owner_of: {
+        Args: { _distributor_id: string }
+        Returns: boolean
+      }
       is_manager: { Args: { user_id_param: string }; Returns: boolean }
       is_requester_for_request: {
         Args: { request_id: string; user_id: string }
