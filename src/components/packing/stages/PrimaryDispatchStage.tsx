@@ -221,6 +221,10 @@ export default function PrimaryDispatchStage({ packingList, onStatusChange }: Pr
       toast({ variant: 'destructive', title: 'Cannot dispatch', description: 'Finalize all invoices and assign driver + vehicle first.' });
       return;
     }
+    if (!form.assigned_delivery_user_id) {
+      toast({ variant: 'destructive', title: 'Driver required', description: 'Select a delivery-enabled user from the distributor.' });
+      return;
+    }
     setSubmitting(true);
     try {
       await persistForm();
