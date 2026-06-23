@@ -13,32 +13,7 @@ import { usePackingList, PackingList } from '@/hooks/usePackingList';
 import { useToast } from '@/hooks/use-toast';
 import { buildPrimaryInvoiceBlob } from '@/utils/primaryInvoiceDocument';
 import StatusTimeline from './StatusTimeline';
-
-interface PrimaryInvoice {
-  id: string;
-  invoice_number: string;
-  invoice_date: string;
-  due_date: string | null;
-  status: string;
-  order_id: string;
-  distributor_id: string | null;
-  subtotal: number;
-  discount_amount: number;
-  tax_amount: number;
-  total_amount: number;
-  finalized_at: string | null;
-}
-
-interface OrderInfo {
-  id: string;
-  order_number: string;
-  order_date: string;
-  payment_terms: string | null;
-  payment_term: string | null;
-  credit_limit: number | null;
-  available_credit_at_order: number | null;
-  distributor_id: string | null;
-}
+import { getPrimaryPackingListInvoiceLookup, PrimaryInvoice, PrimaryOrderInfo } from './primaryInvoiceLookup';
 
 interface DistributorInfo {
   id: string;
@@ -99,7 +74,8 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
 
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<PrimaryInvoice[]>([]);
-  const [ordersById, setOrdersById] = useState<Record<string, OrderInfo>>({});
+  const [ordersById, setOrdersById] = useState<Record<string, PrimaryOrderInfo>>({});
+  const [invoiceStats, setInvoiceStats] = useState<{ expected: number; finalized: number }>({ expected: 0, finalized: 0 });
   const [distributor, setDistributor] = useState<DistributorInfo | null>(null);
   const [linesByOrder, setLinesByOrder] = useState<Record<string, InvoiceLine[]>>({});
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
@@ -108,24 +84,10 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     setLoading(true);
     try {
       // Linked primary orders for this packing list
-      const { data: orders } = await supabase
-        .from('primary_orders')
-        .select('id, order_number, order_date, payment_terms, payment_term, credit_limit, available_credit_at_order, distributor_id')
-        .eq('packing_list_id', packingList.id);
-      const orderList = (orders || []) as OrderInfo[];
-      const orderIds = orderList.map(o => o.id);
-      setOrdersById(orderList.reduce((acc, o) => { acc[o.id] = o; return acc; }, {} as Record<string, OrderInfo>));
-
-      // Existing invoices
-      let invs: PrimaryInvoice[] = [];
-      if (orderIds.length) {
-        const { data } = await supabase
-          .from('primary_invoices')
-          .select('id, invoice_number, invoice_date, due_date, status, order_id, distributor_id, subtotal, discount_amount, tax_amount, total_amount, finalized_at')
-          .in('order_id', orderIds);
-        invs = (data || []) as PrimaryInvoice[];
-      }
+      const { orders: orderList, orderIds, invoices: invs, expectedCount, finalizedCount } = await getPrimaryPackingListInvoiceLookup(packingList.id);
+      setOrdersById(orderList.reduce((acc, o) => { acc[o.id] = o; return acc; }, {} as Record<string, PrimaryOrderInfo>));
       setInvoices(invs);
+      setInvoiceStats({ expected: expectedCount, finalized: finalizedCount });
       setActiveInvoiceId(prev => prev && invs.some(i => i.id === prev) ? prev : invs[0]?.id || null);
 
       // Distributor
@@ -344,7 +306,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
     return { gross, disc, taxable, tax, total: taxable + tax };
   }, [activeLines]);
 
-  const allFinalized = invoices.length > 0 && invoices.every(i => i.status === 'finalized');
+  const allFinalized = invoiceStats.expected > 0 && invoiceStats.finalized === invoiceStats.expected;
 
   if (loading) {
     return (
@@ -571,7 +533,7 @@ export default function PrimaryInvoiceStage({ packingList, onStatusChange }: Pro
         <p className="text-xs text-muted-foreground">
           {allFinalized
             ? 'All invoices finalized. Ready to prepare for dispatch.'
-            : `Finalize all ${invoices.length} invoice(s) to unlock dispatch.`}
+            : `Invoices finalized (${invoiceStats.finalized}/${invoiceStats.expected}) — finalize all invoices to unlock dispatch.`}
         </p>
         <Button onClick={handleProceedToDispatch} disabled={!allFinalized}>
           Prepare for Dispatch <ArrowRight className="h-4 w-4 ml-1" />
