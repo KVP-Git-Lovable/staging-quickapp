@@ -404,7 +404,8 @@ export function usePackingList() {
           .select('name')
           .eq('id', filters.distributorId)
           .single();
-        const distName = distRecord?.name;
+        const distName = distRecord?.name?.trim();
+        const distFirstToken = distName?.split(/\s+/)[0]?.toLowerCase();
 
         ordersWithRetailer = ordersWithRetailer.filter((order: any) => {
           const originalOrder = (data || []).find((o: any) => o.id === order.id);
@@ -413,8 +414,10 @@ export function usePackingList() {
           // Fallback: retailer's distributor_id matches
           const rInfo = retailerMap[order.retailer_id];
           if (rInfo?.distributor_id === filters.distributorId) return true;
-          // Fallback: retailer's parent_name matches distributor name
-          if (distName && rInfo?.parent_name === distName) return true;
+          // Fallback: retailer's parent_name matches distributor name or brand prefix
+          const parentName = rInfo?.parent_name?.trim().toLowerCase();
+          if (distName && parentName === distName.toLowerCase()) return true;
+          if (distFirstToken && parentName?.startsWith(distFirstToken)) return true;
           return false;
         });
       }
