@@ -527,29 +527,63 @@ export default function DeliveryRun() {
                     }`}>
                       <span className="text-sm font-bold">{index + 1}</span>
                     </div>
-                    {index < deliveries.length - 1 && (
+                    {index < filteredDeliveries.length - 1 && (
                       <div className="w-0.5 h-full min-h-[40px] bg-border mt-2" />
                     )}
                   </div>
                   
                   <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-medium">{delivery.retailer_name}</p>
-                        <p className="text-sm text-muted-foreground">{delivery.beat_name}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{delivery.retailer_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {delivery.kind === 'primary' && delivery.packing_list_number
+                            ? delivery.packing_list_number
+                            : delivery.beat_name}
+                        </p>
                       </div>
-                      {getStatusBadge(delivery.delivery_status)}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={
+                            delivery.kind === 'primary'
+                              ? 'border-primary/40 text-primary bg-primary/5 text-[10px]'
+                              : 'border-muted-foreground/30 text-muted-foreground text-[10px]'
+                          }
+                        >
+                          {delivery.kind.toUpperCase()}
+                        </Badge>
+                        {getStatusBadge(delivery.delivery_status)}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      <span className="truncate">{delivery.retailer_address || 'No address'}</span>
-                    </div>
+                    {delivery.kind === 'secondary' && (
+                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        <span className="truncate">{delivery.retailer_address || 'No address'}</span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between mt-4">
                       <div>
-                        <p className="text-sm text-muted-foreground">{delivery.items.length} items</p>
-                        <p className="font-semibold">₹{delivery.total_amount.toLocaleString()}</p>
+                        {delivery.kind === 'primary' ? (
+                          <>
+                            <p className="text-sm text-muted-foreground">
+                              {delivery.total_units ?? 0} units
+                              {delivery.total_packages ? ` · ${delivery.total_packages} cartons` : ''}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {delivery.dispatched_at
+                                ? `Dispatched ${format(new Date(delivery.dispatched_at), 'HH:mm')}`
+                                : 'Dispatched'}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm text-muted-foreground">{delivery.items.length} items</p>
+                            <p className="font-semibold">₹{delivery.total_amount.toLocaleString()}</p>
+                          </>
+                        )}
                       </div>
                       
                       <div className="flex gap-2">
