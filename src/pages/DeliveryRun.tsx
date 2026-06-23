@@ -634,17 +634,48 @@ export default function DeliveryRun() {
           <div className="space-y-4 py-4">
             {/* Order Summary */}
             <div className="bg-muted p-3 rounded-lg">
-              <p className="text-sm font-medium mb-2">Order Items</p>
-              {selectedDelivery?.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between text-sm">
-                  <span>{item.product_name}</span>
-                  <span>{item.quantity} {item.unit || 'pcs'}</span>
+              <p className="text-sm font-medium mb-2">
+                {selectedDelivery?.kind === 'primary' ? 'Dispatched Items' : 'Order Items'}
+              </p>
+              {selectedDelivery?.items.map((item, idx) => {
+                const key = item.batch_id || `${idx}`;
+                const editable =
+                  selectedDelivery.kind === 'primary' &&
+                  !!item.batch_id &&
+                  deliveryStatus !== 'delivered';
+                return (
+                  <div key={idx} className="flex justify-between items-center text-sm py-1">
+                    <span className="truncate pr-2">{item.product_name}</span>
+                    {editable ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min={0}
+                          max={item.quantity}
+                          value={primaryLineQty[key] ?? String(item.quantity)}
+                          onChange={(e) =>
+                            setPrimaryLineQty((p) => ({ ...p, [key]: e.target.value }))
+                          }
+                          className="w-16 h-7 px-2 rounded border bg-background text-right text-sm"
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          / {item.quantity} {item.unit || 'pcs'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span>
+                        {item.quantity} {item.unit || 'pcs'}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+              {selectedDelivery?.kind !== 'primary' && (
+                <div className="border-t mt-2 pt-2 flex justify-between font-semibold">
+                  <span>Total</span>
+                  <span>₹{selectedDelivery?.total_amount.toLocaleString()}</span>
                 </div>
-              ))}
-              <div className="border-t mt-2 pt-2 flex justify-between font-semibold">
-                <span>Total</span>
-                <span>₹{selectedDelivery?.total_amount.toLocaleString()}</span>
-              </div>
+              )}
             </div>
 
             {/* Status Selection */}
