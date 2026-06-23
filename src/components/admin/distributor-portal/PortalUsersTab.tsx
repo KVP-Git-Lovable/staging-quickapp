@@ -12,7 +12,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Users, Building, Mail, Phone, Calendar } from 'lucide-react';
+import { Users, Building, Mail, Phone, Calendar, Truck } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -25,6 +26,7 @@ interface PortalUser {
   user_level: string;
   user_status: string;
   is_active: boolean;
+  can_deliver: boolean;
   last_login_at: string | null;
   created_at: string;
   distributor_id: string;
