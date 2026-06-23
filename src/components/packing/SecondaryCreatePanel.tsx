@@ -27,6 +27,12 @@ interface Beat {
   beat_name: string;
 }
 
+interface BeatRow {
+  id: string;
+  beat_id: string | null;
+  beat_name: string | null;
+}
+
 interface RetailerGroup {
   retailer_id: string;
   retailer_name: string;
