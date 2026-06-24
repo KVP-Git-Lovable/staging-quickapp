@@ -497,6 +497,56 @@ export const SchemeApplicabilitySelector = ({
               </div>
             </CollapsibleContent>
           </Collapsible>
+
+          {/* Distributor Section */}
+          <Collapsible open={expandedSections.distributor} onOpenChange={() => toggleSection('distributor')}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-rose-600" />
+                  <span>By Distributor</span>
+                  {getSelectedCount('distributor') > 0 && (
+                    <Badge variant="secondary" className="ml-2">{getSelectedCount('distributor')}</Badge>
+                  )}
+                </div>
+                {expandedSections.distributor ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <div className="border rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-rose-50 p-2 rounded">
+                  <Info className="h-3 w-3" />
+                  <span>Applies to all primary orders placed by selected distributors</span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search distributors..."
+                    value={searchFilters.distributor}
+                    onChange={(e) => setSearchFilters(prev => ({ ...prev, distributor: e.target.value }))}
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <ScrollArea className="h-[150px]">
+                  <div className="space-y-1">
+                    {filteredDistributors.map(d => (
+                      <div key={d.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded">
+                        <Checkbox
+                          checked={isEntitySelected('distributor', d.id)}
+                          onCheckedChange={() => toggleEntity('distributor', d.id, d.name)}
+                        />
+                        <span className="text-sm">{d.name}</span>
+                      </div>
+                    ))}
+                    {filteredDistributors.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No distributors found</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
         </div>
       )}
     </div>
