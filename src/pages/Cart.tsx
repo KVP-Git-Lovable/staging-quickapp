@@ -896,9 +896,18 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
-      // EDIT MODE: the cart must NOT collect a payment. finalize_order_edit
-      // carries the original's payment onto the replacement automatically.
-      // To collect more during an edit, use the standalone Pay button afterward.
+      // EDIT MODE: the cart must NOT collect a payment as part of the order
+      // insert itself. The replacement is created with paid=0/pending=total;
+      // finalize_order_edit then carries the original's payment and (below)
+      // reconciles to the edited payment intent (full/partial/credit) using
+      // a single delta collection — never a credit note.
+      const editIntendedPaid = !isEditMode ? 0 :
+        paymentType === 'full'    ? totalAmount :
+        paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
+      const editDeltaProofUrl =
+        paymentMethod === 'cheque' ? chequePhotoUrl :
+        paymentMethod === 'upi'    ? upiPhotoUrl :
+        paymentMethod === 'neft'   ? neftPhotoUrl : "";
       if (isEditMode) {
         isCreditOrder = true;
         creditPaid = 0;
@@ -1197,11 +1206,64 @@ export const Cart = () => {
       // --- Phase 2b-3a: finalize edit (replace original via RPC) ---
       if (isEditMode && editOrderId && result.order?.id && !result.offline) {
         try {
+          // Compute delta vs. original paid; if positive, collect ONE new
+          // collection for the delta and pass it to finalize_order_edit.
+          let editNewCollectionId: string | null = null;
+          try {
+            const { data: origRow } = await (supabase as any)
+              .from('orders')
+              .select('credit_paid_amount, retailer_id')
+              .eq('id', editOrderId)
+              .maybeSingle();
+            const origPaid = Number(origRow?.credit_paid_amount || 0);
+            const delta = Number((editIntendedPaid - origPaid).toFixed(2));
+            if (delta > 0 && validRetailerId) {
+              const { data: ret } = await supabase
+                .from('retailers')
+                .select('owner_id, user_id')
+                .eq('id', validRetailerId)
+                .maybeSingle();
+              const revenueOwnerId = (ret as any)?.owner_id || (ret as any)?.user_id || currentUserId;
+              const { data: collection, error: collErr } = await (supabase as any)
+                .from('retailer_payment_collections')
+                .insert({
+                  retailer_id: validRetailerId,
+                  amount: delta,
+                  payment_method: paymentMethod || 'cash',
+                  payment_proof_url: editDeltaProofUrl || null,
+                  collected_by_user_id: currentUserId,
+                  revenue_owner_id: revenueOwnerId,
+                  notes: 'Edit delta collection',
+                })
+                .select('id')
+                .single();
+              if (collErr || !collection) throw collErr || new Error('edit delta collection insert failed');
+              editNewCollectionId = (collection as any).id;
+            }
+          } catch (collectErr) {
+            console.error('[Cart][edit] delta collection failed:', collectErr);
+            toast({
+              title: 'Edit Failed',
+              description: 'Could not record the additional payment for this edit.',
+              variant: 'destructive',
+            });
+            try {
+              await supabase.rpc('cancel_order_atomic', {
+                p_order_id: result.order.id,
+                p_reason: 'Edit delta collection failed - rollback',
+                p_cancelled_by: currentUserId,
+              } as any);
+            } catch {}
+            return;
+          }
+
           const { data: finData, error: finErr } = await supabase.rpc('finalize_order_edit', {
             p_original_order_id: editOrderId,
             p_replacement_order_id: result.order.id,
             p_edited_by: currentUserId,
             p_reason: 'Order edited',
+            p_target_paid: editIntendedPaid,
+            p_new_collection_id: editNewCollectionId,
           } as any);
           const ok = !finErr && (finData as any)?.success === true;
           if (!ok) {
@@ -1222,6 +1284,18 @@ export const Cart = () => {
             });
             // Do NOT clear edit cart on failure
             return;
+          }
+
+          // Post-finalize: re-fetch replacement to render real server values.
+          try {
+            const { data: freshOrder } = await (supabase as any)
+              .from('orders')
+              .select('id, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, payment_status, previous_pending_cleared')
+              .eq('id', result.order.id)
+              .maybeSingle();
+            if (freshOrder) syncedOrderRow = freshOrder;
+          } catch (refetchErr) {
+            console.warn('[Cart][edit] Post-finalize re-fetch failed:', refetchErr);
           }
         } catch (e: any) {
           console.error('[Cart][edit] finalize threw, rolling back:', e);
@@ -1791,7 +1865,15 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
-      // EDIT MODE (D-1): cart must NOT collect payment; finalize_order_edit transfers it.
+      // EDIT MODE (D-1): cart must NOT collect payment as part of insert;
+      // finalize_order_edit reconciles to the edited payment intent below.
+      const editIntendedPaidD1 = !isEditMode ? 0 :
+        paymentType === 'full'    ? totalAmount :
+        paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
+      const editDeltaProofUrlD1 =
+        paymentMethod === 'cheque' ? chequePhotoUrl :
+        paymentMethod === 'upi'    ? upiPhotoUrl :
+        paymentMethod === 'neft'   ? neftPhotoUrl : "";
       if (isEditMode) {
         isCreditOrder = true;
         creditPaid = 0;
@@ -2041,11 +2123,63 @@ export const Cart = () => {
       // --- Phase 2b-3a: finalize edit (D-1 path) ---
       if (isEditMode && editOrderId && result.order?.id && !result.offline) {
         try {
+          // Compute delta vs. original paid and (if positive) collect ONCE.
+          let editNewCollectionIdD1: string | null = null;
+          try {
+            const { data: origRow } = await (supabase as any)
+              .from('orders')
+              .select('credit_paid_amount, retailer_id')
+              .eq('id', editOrderId)
+              .maybeSingle();
+            const origPaid = Number(origRow?.credit_paid_amount || 0);
+            const delta = Number((editIntendedPaidD1 - origPaid).toFixed(2));
+            if (delta > 0 && validRetailerId) {
+              const { data: ret } = await supabase
+                .from('retailers')
+                .select('owner_id, user_id')
+                .eq('id', validRetailerId)
+                .maybeSingle();
+              const revenueOwnerId = (ret as any)?.owner_id || (ret as any)?.user_id || currentUserId;
+              const { data: collection, error: collErr } = await (supabase as any)
+                .from('retailer_payment_collections')
+                .insert({
+                  retailer_id: validRetailerId,
+                  amount: delta,
+                  payment_method: paymentMethod || 'cash',
+                  payment_proof_url: editDeltaProofUrlD1 || null,
+                  collected_by_user_id: currentUserId,
+                  revenue_owner_id: revenueOwnerId,
+                  notes: 'Edit delta collection (D-1)',
+                })
+                .select('id')
+                .single();
+              if (collErr || !collection) throw collErr || new Error('edit delta collection insert failed');
+              editNewCollectionIdD1 = (collection as any).id;
+            }
+          } catch (collectErr) {
+            console.error('[Cart][edit][D-1] delta collection failed:', collectErr);
+            try {
+              await supabase.rpc('cancel_order_atomic', {
+                p_order_id: result.order.id,
+                p_reason: 'Edit delta collection failed - rollback',
+                p_cancelled_by: currentUserId,
+              } as any);
+            } catch {}
+            toast({
+              title: 'Edit Failed',
+              description: 'Could not record the additional payment for this edit.',
+              variant: 'destructive',
+            });
+            return;
+          }
+
           const { data: finData, error: finErr } = await supabase.rpc('finalize_order_edit', {
             p_original_order_id: editOrderId,
             p_replacement_order_id: result.order.id,
             p_edited_by: currentUserId,
             p_reason: 'Order edited',
+            p_target_paid: editIntendedPaidD1,
+            p_new_collection_id: editNewCollectionIdD1,
           } as any);
           const ok = !finErr && (finData as any)?.success === true;
           if (!ok) {
@@ -2062,6 +2196,18 @@ export const Cart = () => {
               variant: 'destructive',
             });
             return;
+          }
+
+          // Post-finalize re-fetch for accurate Today's Order summary.
+          try {
+            const { data: freshOrder } = await (supabase as any)
+              .from('orders')
+              .select('id, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, payment_status, previous_pending_cleared')
+              .eq('id', result.order.id)
+              .maybeSingle();
+            if (freshOrder) syncedOrderRowD1 = freshOrder;
+          } catch (refetchErr) {
+            console.warn('[Cart][edit][D-1] Post-finalize re-fetch failed:', refetchErr);
           }
         } catch (e: any) {
           try {
