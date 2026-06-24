@@ -1705,9 +1705,10 @@ export const Cart = () => {
         isCreditOrder = true;
         const paidAmount = parseFloat(partialAmount);
         previousPendingCleared = Math.min(pendingAmountFromPrevious, paidAmount);
-        creditPaid = paidAmount;
-        newTotalPending = totalDue - paidAmount;
-        creditPending = newTotalPending;
+        const paidOnThisOrder = Math.max(0, paidAmount - previousPendingCleared);
+        creditPaid = paidOnThisOrder;
+        creditPending = Math.max(0, totalAmount - paidOnThisOrder);
+        newTotalPending = Math.max(0, totalDue - paidAmount);
         orderPaymentMethod = paymentMethod;
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
