@@ -95,6 +95,23 @@ async function resolveCreditTerms(
         source: "retailer",
       };
     }
+  }
+  // Retailer-only row (no distributor) — supports retailers without a distributor.
+  const { data: rNullRow } = await sb
+    .from("distributor_retailer_credit_limits")
+    .select("credit_limit, credit_days")
+    .eq("retailer_id", retailerId)
+    .is("distributor_id", null)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (rNullRow) {
+    return {
+      credit_limit: rNullRow.credit_limit == null ? null : Number(rNullRow.credit_limit),
+      credit_days: rNullRow.credit_days == null ? null : Number(rNullRow.credit_days),
+      source: "retailer",
+    };
+  }
+  if (distributorId) {
     const { data: drow } = await sb
       .from("distributor_credit_limits")
       .select("credit_limit, credit_days")
@@ -108,6 +125,7 @@ async function resolveCreditTerms(
       };
     }
   }
+
   const { data: cfg } = await sb
     .from("credit_management_config")
     .select("payment_term_days")
@@ -162,8 +180,11 @@ export function useRetailerCreditHistory(
         )
         .eq("retailer_id", retailerId)
         .eq("is_credit_order", true)
+        .neq("status", "cancelled")
+        .is("replaced_by_order_id", null)
         .order("order_date", { ascending: false })
         .limit(500);
+
       if (from) ordersQuery = ordersQuery.gte("order_date", from);
       if (to) ordersQuery = ordersQuery.lte("order_date", to);
 

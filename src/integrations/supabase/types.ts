@@ -5379,7 +5379,7 @@ export type Database = {
           created_at: string
           credit_days: number
           credit_limit: number
-          distributor_id: string
+          distributor_id: string | null
           id: string
           is_active: boolean
           retailer_id: string
@@ -5389,7 +5389,7 @@ export type Database = {
           created_at?: string
           credit_days?: number
           credit_limit?: number
-          distributor_id: string
+          distributor_id?: string | null
           id?: string
           is_active?: boolean
           retailer_id: string
@@ -5399,7 +5399,7 @@ export type Database = {
           created_at?: string
           credit_days?: number
           credit_limit?: number
-          distributor_id?: string
+          distributor_id?: string | null
           id?: string
           is_active?: boolean
           retailer_id?: string
