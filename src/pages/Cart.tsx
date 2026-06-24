@@ -126,6 +126,7 @@ export const Cart = () => {
   const { isEnabled: isOrderBasedDeliveryEnabled } = useOrderBasedDelivery();
   const { isVanSalesEnabled } = useVanSales();
   const [companyQrCode, setCompanyQrCode] = React.useState<string | null>(null);
+  const [editReason, setEditReason] = React.useState<string>('');
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
