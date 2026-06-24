@@ -250,8 +250,9 @@ export function CreditHistorySection({ retailerId }: Props) {
                   const allocs = allocByOrder.get(o.id) || [];
                   const isPaid = (o.payment_status || "").toLowerCase() === "paid";
                   return (
-                    <>
-                      <TableRow key={o.id} className="text-[11px]">
+                    <Fragment key={o.id}>
+                      <TableRow className="text-[11px]">
+
                         <TableCell className="px-2 py-1.5">
                           <button
                             className="p-0.5 hover:bg-muted rounded"
