@@ -2365,7 +2365,7 @@ export const VisitCard = ({
 
           const { data, error } = await supabase
             .from('orders')
-            .select('id, user_id, created_at, total_amount, is_credit_order, credit_paid_amount, invoice_number, idempotency_key, invoice_generated_at, dispatched_at, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
+            .select('id, user_id, created_at, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, invoice_number, idempotency_key, invoice_generated_at, dispatched_at, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
             .eq('retailer_id', retailerId)
             .in('status', ['confirmed', 'delivered'])
             .eq('order_date', selectedDate || toLocalISODate(targetDate))
