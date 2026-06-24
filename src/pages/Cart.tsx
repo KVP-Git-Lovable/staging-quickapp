@@ -896,6 +896,18 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
+      // EDIT MODE: the cart must NOT collect a payment. finalize_order_edit
+      // carries the original's payment onto the replacement automatically.
+      // To collect more during an edit, use the standalone Pay button afterward.
+      if (isEditMode) {
+        isCreditOrder = true;
+        creditPaid = 0;
+        creditPending = totalAmount;
+        previousPendingCleared = 0;
+        newTotalPending = totalDue;
+        paymentProofUrl = "";
+      }
+
       console.time('⚡ Order Submission');
 
       // ALWAYS ensure we have a visit for this order (phone orders AND regular orders)
@@ -1131,7 +1143,7 @@ export const Cart = () => {
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
       let syncedOrderRow: any = null;
       let syncedOrderAllocations: any[] = [];
-      if (atOrderAmountPaid > 0 && validRetailerId && !result.offline && result.order?.id) {
+      if (!isEditMode && atOrderAmountPaid > 0 && validRetailerId && !result.offline && result.order?.id) {
         try {
           const { data: ret } = await supabase
             .from('retailers')
@@ -1779,6 +1791,16 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
+      // EDIT MODE (D-1): cart must NOT collect payment; finalize_order_edit transfers it.
+      if (isEditMode) {
+        isCreditOrder = true;
+        creditPaid = 0;
+        creditPending = totalAmount;
+        previousPendingCleared = 0;
+        newTotalPending = totalDue;
+        paymentProofUrl = "";
+      }
+
       // Ensure visit exists (same logic as handleSubmitOrder)
       let actualVisitId = validVisitId;
       const today = getLocalTodayDate();
@@ -1967,7 +1989,7 @@ export const Cart = () => {
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
       let syncedOrderRowD1: any = null;
       let syncedOrderAllocationsD1: any[] = [];
-      if (atOrderAmountPaidD1 > 0 && validRetailerId && !result.offline && result.order?.id) {
+      if (!isEditMode && atOrderAmountPaidD1 > 0 && validRetailerId && !result.offline && result.order?.id) {
         try {
           const { data: ret } = await supabase
             .from('retailers')
