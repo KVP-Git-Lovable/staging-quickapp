@@ -896,9 +896,18 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
-      // EDIT MODE: the cart must NOT collect a payment. finalize_order_edit
-      // carries the original's payment onto the replacement automatically.
-      // To collect more during an edit, use the standalone Pay button afterward.
+      // EDIT MODE: the cart must NOT collect a payment as part of the order
+      // insert itself. The replacement is created with paid=0/pending=total;
+      // finalize_order_edit then carries the original's payment and (below)
+      // reconciles to the edited payment intent (full/partial/credit) using
+      // a single delta collection — never a credit note.
+      const editIntendedPaid = !isEditMode ? 0 :
+        paymentType === 'full'    ? totalAmount :
+        paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
+      const editDeltaProofUrl =
+        paymentMethod === 'cheque' ? chequePhotoUrl :
+        paymentMethod === 'upi'    ? upiPhotoUrl :
+        paymentMethod === 'neft'   ? neftPhotoUrl : "";
       if (isEditMode) {
         isCreditOrder = true;
         creditPaid = 0;
