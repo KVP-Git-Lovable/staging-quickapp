@@ -98,6 +98,7 @@ const CreatePrimaryOrder = () => {
     loadData();
     loadCreditInfo();
     loadDistributor();
+    loadSchemes();
   }, [distributorId, navigate]); // eslint-disable-line
 
   useEffect(() => {
