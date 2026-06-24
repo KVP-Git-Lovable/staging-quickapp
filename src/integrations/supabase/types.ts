@@ -22834,6 +22834,15 @@ export type Database = {
         }
         Returns: string
       }
+      reflow_allocation_fifo: {
+        Args: {
+          p_amount: number
+          p_collection_id: string
+          p_exclude_order_id: string
+          p_retailer_id: string
+        }
+        Returns: number
+      }
       refresh_daily_admin_summary: {
         Args: { p_date: string }
         Returns: undefined
