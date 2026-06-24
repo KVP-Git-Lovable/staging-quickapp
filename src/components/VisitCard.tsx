@@ -616,15 +616,17 @@ export const VisitCard = ({
                 setLastOrderItems(Array.from(grouped.values()));
               }
               
-              // Calculate payment states
+              // Calculate payment states from server-authoritative per-order values
               const creditOrders = matchingOrders.filter((o: any) => !!o.is_credit_order);
               const cashOrders = matchingOrders.filter((o: any) => !o.is_credit_order);
               const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
               const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
-              const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+              const todaysPending = creditOrders.reduce((sum: number, o: any) => sum + Number(
+                o.credit_pending_amount ?? (Number(o.total_amount || 0) - Number(o.credit_paid_amount || 0))
+              ), 0);
               
               setPaidTodayAmount(paidFromCash + totalPaidFromCredit);
-              setCreditPendingAmount(Math.max(0, creditOrdersTotal - totalPaidFromCredit));
+              setCreditPendingAmount(Math.max(0, todaysPending));
               setIsCreditOrder(creditOrders.length > 0);
             }
           }
