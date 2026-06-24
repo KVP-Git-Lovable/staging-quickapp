@@ -564,7 +564,12 @@ export const SchemeMaster = () => {
     });
     // Load applicability rules for this scheme
     loadApplicabilityRules(scheme.id);
+    // Ensure products list is populated for the edit dialog (multi-product selector)
+    if (products.length === 0) {
+      fetchProducts();
+    }
     setIsSchemeDialogOpen(true);
+
   };
 
   const loadApplicabilityRules = async (schemeId: string) => {
