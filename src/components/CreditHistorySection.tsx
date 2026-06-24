@@ -360,7 +360,7 @@ export function CreditHistorySection({ retailerId }: Props) {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </TableBody>
