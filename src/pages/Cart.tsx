@@ -1965,6 +1965,8 @@ export const Cart = () => {
       const atOrderAmountPaidD1 =
         paymentType === 'full' ? totalAmount :
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
+      let syncedOrderRowD1: any = null;
+      let syncedOrderAllocationsD1: any[] = [];
       if (atOrderAmountPaidD1 > 0 && validRetailerId && !result.offline && result.order?.id) {
         try {
           const { data: ret } = await supabase
@@ -1992,6 +1994,23 @@ export const Cart = () => {
             p_collection_id: (collection as any).id,
           });
           if (fifoErr) throw fifoErr;
+
+          // Re-fetch post-FIFO synced row + allocations.
+          try {
+            const { data: freshOrder } = await (supabase as any)
+              .from('orders')
+              .select('id, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, payment_status, previous_pending_cleared')
+              .eq('id', result.order.id)
+              .maybeSingle();
+            if (freshOrder) syncedOrderRowD1 = freshOrder;
+            const { data: allocs } = await (supabase as any)
+              .from('retailer_payment_allocations')
+              .select('id, order_id, amount, collection_id, created_at')
+              .eq('collection_id', (collection as any).id);
+            syncedOrderAllocationsD1 = allocs || [];
+          } catch (refetchErr) {
+            console.warn('[Cart][D-1] Post-FIFO re-fetch failed:', refetchErr);
+          }
         } catch (e) {
           console.error('[Cart][D-1] At-order FIFO payment failed:', e);
         }
