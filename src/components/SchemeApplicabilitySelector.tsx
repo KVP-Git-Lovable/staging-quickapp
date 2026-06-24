@@ -61,6 +61,12 @@ interface Salesperson {
   full_name: string;
 }
 
+interface Distributor {
+  id: string;
+  name: string;
+}
+
+
 export const SchemeApplicabilitySelector = ({
   applicabilityType,
   setApplicabilityType,
