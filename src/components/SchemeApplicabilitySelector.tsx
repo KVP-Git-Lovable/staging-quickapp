@@ -125,12 +125,17 @@ export const SchemeApplicabilitySelector = ({
       // Fetch salespersons
       const salespersonsRes = await supabase.from('profiles').select('id, full_name').order('full_name');
       if (salespersonsRes.data) setSalespersons(salespersonsRes.data as unknown as Salesperson[]);
+
+      // Fetch distributors
+      const distributorsRes = await supabase.from('distributors').select('id, name').order('name');
+      if (distributorsRes.data) setDistributors(distributorsRes.data as unknown as Distributor[]);
     } catch (error) {
       console.error('Error fetching applicability data:', error);
     } finally {
       setLoading(false);
     }
   };
+
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
