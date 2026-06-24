@@ -871,8 +871,8 @@ const CartStage = ({
                 <div className={cn(
                   "grid gap-3 items-center",
                   showSupplier
-                    ? "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_0.9fr_32px]"
-                    : "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_32px]"
+                    ? "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_0.8fr_32px]"
+                    : "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_32px]"
                 )}>
                   {/* Product */}
                   <Select
