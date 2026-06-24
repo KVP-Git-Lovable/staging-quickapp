@@ -14,6 +14,7 @@ import {
   Route, 
   Store, 
   User, 
+  Building2,
   ChevronDown, 
   ChevronRight,
   X,
@@ -21,6 +22,7 @@ import {
   Info
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
 
 export interface ApplicabilityRule {
   level: 'global' | 'territory' | 'beat' | 'retailer' | 'salesperson';
