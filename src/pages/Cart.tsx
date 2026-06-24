@@ -1791,6 +1791,16 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
+      // EDIT MODE (D-1): cart must NOT collect payment; finalize_order_edit transfers it.
+      if (isEditMode) {
+        isCreditOrder = true;
+        creditPaid = 0;
+        creditPending = totalAmount;
+        previousPendingCleared = 0;
+        newTotalPending = totalDue;
+        paymentProofUrl = "";
+      }
+
       // Ensure visit exists (same logic as handleSubmitOrder)
       let actualVisitId = validVisitId;
       const today = getLocalTodayDate();
