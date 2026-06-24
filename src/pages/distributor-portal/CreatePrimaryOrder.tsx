@@ -934,31 +934,7 @@ const CartStage = ({
                     disabled={!item.product_id}
                   />
 
-                  {/* Scheme (auto-applied, manually overridable) */}
-                  {(() => {
-                    const applicable = item.product_id ? getApplicableSchemes(item.product_id, item.quantity) : [];
-                    const disabled = !item.product_id || applicable.length === 0;
-                    return (
-                      <Select
-                        value={item.applied_scheme_id || 'none'}
-                        onValueChange={(v) => updateItem(index, {
-                          applied_scheme_id: v === 'none' ? null : v,
-                          scheme_manually_set: true,
-                        })}
-                        disabled={disabled}
-                      >
-                        <SelectTrigger className="h-10 truncate">
-                          <SelectValue placeholder={disabled ? 'No scheme' : 'Select scheme'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No scheme</SelectItem>
-                          {applicable.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>{describeScheme(s)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    );
-                  })()}
+
 
 
                   {/* My Stock chip */}
