@@ -198,6 +198,22 @@ const CreatePrimaryOrder = () => {
     } catch (err) { console.error('Credit check failed:', err); }
   };
 
+  const loadSchemes = async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from('product_schemes')
+        .select('id, name, scheme_type, product_id, free_product_id, discount_percentage, discount_amount, buy_quantity, free_quantity, condition_quantity, min_order_value, start_date, end_date, is_active')
+        .eq('is_active', true)
+        .or(`start_date.is.null,start_date.lte.${today}`)
+        .or(`end_date.is.null,end_date.gte.${today}`);
+      if (error) throw error;
+      setSchemes((data || []) as SchemeRow[]);
+    } catch (err) { console.error('Scheme load failed:', err); }
+  };
+
+
+
   const loadData = async () => {
     try {
       const { data: categoriesData } = await supabase
