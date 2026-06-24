@@ -22237,9 +22237,11 @@ export type Database = {
       finalize_order_edit: {
         Args: {
           p_edited_by: string
+          p_new_collection_id?: string
           p_original_order_id: string
           p_reason: string
           p_replacement_order_id: string
+          p_target_paid?: number
         }
         Returns: Json
       }
