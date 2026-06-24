@@ -2372,6 +2372,7 @@ export const VisitCard = ({
 
       // Then try Supabase (if online). Query by retailer + date only; RLS gates visibility.
       let dbOrders: any[] = [];
+      let dbReachable = false;
       if (navigator.onLine) {
         try {
           const controller = new AbortController();
@@ -2386,7 +2387,11 @@ export const VisitCard = ({
             .abortSignal(controller.signal);
 
           clearTimeout(timeoutId);
-          if (error) console.log('[VisitCard] DB orders query error:', error.message);
+          if (error) {
+            console.log('[VisitCard] DB orders query error:', error.message);
+          } else {
+            dbReachable = true;
+          }
           dbOrders = (data || []).map((o: any) => ({
             ...o,
             _source: o.user_id && o.user_id !== effectiveUserId ? 'teammate' : 'mine',
@@ -2429,14 +2434,18 @@ export const VisitCard = ({
         }
       });
       
-      // Add offline-only orders (not in DB yet) - check by both id AND idempotency_key
-      offlineOrders.forEach(offlineOrder => {
-        const alreadyInDB = dbOrderMap.has(offlineOrder.id) || 
-          (offlineOrder.idempotency_key && dbIdempotencyMap.has(offlineOrder.idempotency_key));
-        if (!alreadyInDB) {
-          mergedOrders.push(offlineOrder);
-        }
-      });
+      // Add offline-only orders ONLY when DB is unreachable.
+      // If DB responded, it is the source of truth — any offline order not in DB is
+      // either a cancelled/replaced original (post-edit) or already-synced stale data.
+      if (!dbReachable) {
+        offlineOrders.forEach(offlineOrder => {
+          const alreadyInDB = dbOrderMap.has(offlineOrder.id) || 
+            (offlineOrder.idempotency_key && dbIdempotencyMap.has(offlineOrder.idempotency_key));
+          if (!alreadyInDB) {
+            mergedOrders.push(offlineOrder);
+          }
+        });
+      }
       
       console.log('[VisitCard] Merged orders:', mergedOrders.length, 'with items:', mergedOrders.filter(o => o.items?.length > 0).length);
       
