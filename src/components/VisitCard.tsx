@@ -3851,9 +3851,13 @@ export const VisitCard = ({
               setOrderValueSource('db');
               const newCreditPending = remaining
                 .filter(o => o.is_credit_order)
-                .reduce((s, o) => s + (o.total_amount - o.credit_paid_amount), 0);
+                .reduce((s, o) => s + Number(
+                  (o as any).credit_pending_amount ?? (Number(o.total_amount || 0) - Number(o.credit_paid_amount || 0))
+                ), 0);
               setCreditPendingAmount(Math.max(0, newCreditPending));
-              const newPaid = remaining.reduce((s, o) => s + o.credit_paid_amount, 0);
+              const newPaid = remaining.reduce((s, o) => s + (
+                o.is_credit_order ? Number(o.credit_paid_amount || 0) : Number(o.total_amount || 0)
+              ), 0);
               setPaidTodayAmount(newPaid);
               setIsCreditOrder(remaining.some(o => o.is_credit_order));
               setLastOrderId(remaining[remaining.length - 1]?.id || null);
