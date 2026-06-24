@@ -1117,7 +1117,9 @@ export const VisitCard = ({
               const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
               const offlineOrders = cachedOrders.filter((o: any) => {
                 const orderDateStr = (o.order_date || o.created_at || '').split('T')[0];
-                return o.user_id === currentUserId && 
+                const isLive = o && o.status !== 'cancelled' && !o.replaced_by_order_id;
+                return isLive &&
+                       o.user_id === currentUserId && 
                        o.retailer_id === visitRetailerId && 
                        orderDateStr === targetDate;
               });
