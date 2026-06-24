@@ -21,7 +21,7 @@ import { getCurrentWeekRange, getCurrentMonthRange, getLastMonthRange, toLocalIS
 import { downloadCSV } from '@/utils/fileDownloader';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
-import EditOrderDialog from '@/components/EditOrderDialog';
+
 import { CancelOrderDialog, CancelableOrder } from '@/components/CancelOrderDialog';
 import { SignedImage } from '@/components/ui/signed-image';
 import { InvoicePDFGenerator } from '@/components/invoice/InvoicePDFGenerator';
