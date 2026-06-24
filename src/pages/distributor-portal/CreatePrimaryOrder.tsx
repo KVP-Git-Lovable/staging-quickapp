@@ -11,8 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ArrowLeft, Plus, Minus, Trash2, ShoppingBag, Save, Send,
-  CreditCard, ArrowRight, Check, Gift, FileText, Truck, Receipt,
+  CreditCard, ArrowRight, Check, Gift, FileText, Truck, Receipt, ChevronRight,
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { PaymentDetailsCard } from '@/components/distributor-portal/PaymentDetailsCard';
 import ShippingAddressPicker from '@/components/distributor-portal/ShippingAddressPicker';
@@ -804,6 +805,20 @@ const CartStage = ({
       : products.filter((p: Product) => p.category_id === selectedCategory);
 
   const showSupplier = supplierStock !== null;
+  const [offersOpen, setOffersOpen] = useState(false);
+
+  // Group applicable schemes by product line for the offers dialog.
+  const offersByProduct = orderItems
+    .filter((it: OrderItem) => !!it.product_id)
+    .map((it: OrderItem) => ({
+      key: `${it.product_id}-${it.unit}`,
+      product_name: it.product_name,
+      quantity: it.quantity,
+      schemes: getApplicableSchemes(it.product_id, it.quantity),
+    }))
+    .filter((g: any) => g.schemes.length > 0);
+
+
 
   return (
     <Card className="rounded-xl shadow-sm">
@@ -837,17 +852,17 @@ const CartStage = ({
         <div className={cn(
           "hidden md:grid gap-3 px-1 pb-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-b",
           showSupplier
-            ? "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_0.8fr_32px]"
-            : "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_32px]"
+            ? "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_0.9fr_32px]"
+            : "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_32px]"
         )}>
           <div>Product</div>
           <div>Unit</div>
           <div>Qty</div>
-          <div>Scheme</div>
           <div>My Stock</div>
           {showSupplier && <div>Supplier Stock</div>}
           <div />
         </div>
+
 
         <div className="divide-y">
           {orderItems.map((item: OrderItem, index: number) => {
@@ -874,8 +889,8 @@ const CartStage = ({
                 <div className={cn(
                   "grid gap-3 items-center",
                   showSupplier
-                    ? "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_0.8fr_32px]"
-                    : "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_32px]"
+                    ? "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_0.9fr_32px]"
+                    : "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_32px]"
                 )}>
                   {/* Product */}
                   <Select
@@ -934,31 +949,7 @@ const CartStage = ({
                     disabled={!item.product_id}
                   />
 
-                  {/* Scheme (auto-applied, manually overridable) */}
-                  {(() => {
-                    const applicable = item.product_id ? getApplicableSchemes(item.product_id, item.quantity) : [];
-                    const disabled = !item.product_id || applicable.length === 0;
-                    return (
-                      <Select
-                        value={item.applied_scheme_id || 'none'}
-                        onValueChange={(v) => updateItem(index, {
-                          applied_scheme_id: v === 'none' ? null : v,
-                          scheme_manually_set: true,
-                        })}
-                        disabled={disabled}
-                      >
-                        <SelectTrigger className="h-10 truncate">
-                          <SelectValue placeholder={disabled ? 'No scheme' : 'Select scheme'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No scheme</SelectItem>
-                          {applicable.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>{describeScheme(s)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    );
-                  })()}
+
 
 
                   {/* My Stock chip */}
@@ -1021,10 +1012,36 @@ const CartStage = ({
         </div>
 
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" onClick={addEmptyRow} className="h-9">
               <Plus className="w-4 h-4 mr-1.5" /> Add Row
             </Button>
+            {(() => {
+              const applicableCount = orderItems.reduce((acc: number, it: OrderItem) => (
+                it.product_id ? acc + (getApplicableSchemes(it.product_id, it.quantity).length > 0 ? 1 : 0) : acc
+              ), 0);
+              return (
+                <button
+                  type="button"
+                  onClick={() => setOffersOpen(true)}
+                  className={cn(
+                    "inline-flex items-center gap-2 h-9 px-3 rounded-md",
+                    "bg-primary/10 hover:bg-primary/15 border border-primary/20 transition-colors"
+                  )}
+                >
+                  <Gift className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-medium text-primary">
+                    Apply Offers
+                    {applicableCount > 0 && (
+                      <span className="ml-1.5 text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
+                        {applicableCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-primary/60" />
+                </button>
+              );
+            })()}
           </div>
           {/* Totals block */}
           <div className="rounded-lg border bg-muted/20 p-4 space-y-1.5 text-sm">
@@ -1050,6 +1067,43 @@ const CartStage = ({
           </div>
         </div>
       </CardContent>
+
+      {/* Applicable offers dialog */}
+      <Dialog open={offersOpen} onOpenChange={setOffersOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gift className="w-4 h-4 text-primary" /> Applicable Offers
+            </DialogTitle>
+          </DialogHeader>
+          {offersByProduct.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No offers available for the products currently in your cart.
+            </div>
+          ) : (
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              {offersByProduct.map((g: any) => (
+                <div key={g.key} className="rounded-lg border p-3">
+                  <div className="text-sm font-semibold mb-2">
+                    {g.product_name}
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      Qty {g.quantity}
+                    </span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {g.schemes.map((s: any) => (
+                      <li key={s.id} className="flex items-start gap-2 text-xs">
+                        <Gift className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                        <span>{describeScheme(s)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
