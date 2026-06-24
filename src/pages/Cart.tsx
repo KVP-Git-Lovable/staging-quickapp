@@ -126,6 +126,7 @@ export const Cart = () => {
   const { isEnabled: isOrderBasedDeliveryEnabled } = useOrderBasedDelivery();
   const { isVanSalesEnabled } = useVanSales();
   const [companyQrCode, setCompanyQrCode] = React.useState<string | null>(null);
+  const [editReason, setEditReason] = React.useState<string>('');
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
@@ -1261,7 +1262,7 @@ export const Cart = () => {
             p_original_order_id: editOrderId,
             p_replacement_order_id: result.order.id,
             p_edited_by: currentUserId,
-            p_reason: 'Order edited',
+            p_reason: (editReason?.trim() || 'Order edited'),
             p_target_paid: editIntendedPaid,
             p_new_collection_id: editNewCollectionId,
           } as any);
@@ -2177,7 +2178,7 @@ export const Cart = () => {
             p_original_order_id: editOrderId,
             p_replacement_order_id: result.order.id,
             p_edited_by: currentUserId,
-            p_reason: 'Order edited',
+            p_reason: (editReason?.trim() || 'Order edited'),
             p_target_paid: editIntendedPaidD1,
             p_new_collection_id: editNewCollectionIdD1,
           } as any);
@@ -2381,12 +2382,26 @@ export const Cart = () => {
         </div>
 
         {isEditMode && (
-          <div className="w-full px-2 sm:px-4 pb-2">
+          <div className="w-full px-2 sm:px-4 pb-2 space-y-2">
             <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs sm:text-sm">
               <strong>Editing order</strong> — submitting will create a new order that replaces the original.
             </div>
+            <div className="rounded-md border bg-card px-3 py-2">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                Reason for edit <span className="text-muted-foreground/70">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={editReason}
+                onChange={(e) => setEditReason(e.target.value)}
+                placeholder="e.g. Customer changed quantity"
+                className="w-full text-sm rounded-md border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+                maxLength={200}
+              />
+            </div>
           </div>
         )}
+
 
         {/* Scrollable Content */}
         <div className="w-full px-2 sm:px-4 space-y-3">
