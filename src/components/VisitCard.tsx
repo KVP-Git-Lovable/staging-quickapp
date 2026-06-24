@@ -541,7 +541,10 @@ export const VisitCard = ({
         
         const matchingOrders = cachedOrders.filter((o: any) => {
           const orderDateStr = (o.order_date || o.created_at || '').split('T')[0];
-          return o.user_id === userId && 
+          // Exclude cancelled originals and orders replaced by an edit (live orders only)
+          const isLive = o && o.status !== 'cancelled' && !o.replaced_by_order_id;
+          return isLive &&
+                 o.user_id === userId && 
                  o.retailer_id === retailerId && 
                  orderDateStr === targetDateStr;
         });
@@ -1114,7 +1117,9 @@ export const VisitCard = ({
               const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
               const offlineOrders = cachedOrders.filter((o: any) => {
                 const orderDateStr = (o.order_date || o.created_at || '').split('T')[0];
-                return o.user_id === currentUserId && 
+                const isLive = o && o.status !== 'cancelled' && !o.replaced_by_order_id;
+                return isLive &&
+                       o.user_id === currentUserId && 
                        o.retailer_id === visitRetailerId && 
                        orderDateStr === targetDate;
               });
@@ -2348,6 +2353,8 @@ export const VisitCard = ({
 
         offlineOrders = cachedOrders.filter((o: any) => {
           if (o.retailer_id !== retailerId) return false;
+          // Exclude cancelled originals and orders replaced by an edit (live orders only)
+          if (o.status === 'cancelled' || o.replaced_by_order_id) return false;
           if (o.order_date) {
             const orderDateStr = o.order_date.split('T')[0];
             return orderDateStr === targetDateStr;
@@ -2365,6 +2372,7 @@ export const VisitCard = ({
 
       // Then try Supabase (if online). Query by retailer + date only; RLS gates visibility.
       let dbOrders: any[] = [];
+      let dbReachable = false;
       if (navigator.onLine) {
         try {
           const controller = new AbortController();
@@ -2379,7 +2387,11 @@ export const VisitCard = ({
             .abortSignal(controller.signal);
 
           clearTimeout(timeoutId);
-          if (error) console.log('[VisitCard] DB orders query error:', error.message);
+          if (error) {
+            console.log('[VisitCard] DB orders query error:', error.message);
+          } else {
+            dbReachable = true;
+          }
           dbOrders = (data || []).map((o: any) => ({
             ...o,
             _source: o.user_id && o.user_id !== effectiveUserId ? 'teammate' : 'mine',
@@ -2422,14 +2434,18 @@ export const VisitCard = ({
         }
       });
       
-      // Add offline-only orders (not in DB yet) - check by both id AND idempotency_key
-      offlineOrders.forEach(offlineOrder => {
-        const alreadyInDB = dbOrderMap.has(offlineOrder.id) || 
-          (offlineOrder.idempotency_key && dbIdempotencyMap.has(offlineOrder.idempotency_key));
-        if (!alreadyInDB) {
-          mergedOrders.push(offlineOrder);
-        }
-      });
+      // Add offline-only orders ONLY when DB is unreachable.
+      // If DB responded, it is the source of truth — any offline order not in DB is
+      // either a cancelled/replaced original (post-edit) or already-synced stale data.
+      if (!dbReachable) {
+        offlineOrders.forEach(offlineOrder => {
+          const alreadyInDB = dbOrderMap.has(offlineOrder.id) || 
+            (offlineOrder.idempotency_key && dbIdempotencyMap.has(offlineOrder.idempotency_key));
+          if (!alreadyInDB) {
+            mergedOrders.push(offlineOrder);
+          }
+        });
+      }
       
       console.log('[VisitCard] Merged orders:', mergedOrders.length, 'with items:', mergedOrders.filter(o => o.items?.length > 0).length);
       
