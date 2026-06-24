@@ -702,6 +702,8 @@ const CreatePrimaryOrder = () => {
             addEmptyRow={addEmptyRow}
             getProductPrice={getProductPrice}
             totals={totals}
+            getApplicableSchemes={getApplicableSchemes}
+            describeScheme={describeScheme}
           />
         )}
 
