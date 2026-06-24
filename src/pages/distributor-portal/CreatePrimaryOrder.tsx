@@ -834,12 +834,13 @@ const CartStage = ({
         <div className={cn(
           "hidden md:grid gap-3 px-1 pb-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-b",
           showSupplier
-            ? "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_0.9fr_32px]"
-            : "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_32px]"
+            ? "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_0.8fr_32px]"
+            : "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_32px]"
         )}>
           <div>Product</div>
           <div>Unit</div>
           <div>Qty</div>
+          <div>Scheme</div>
           <div>My Stock</div>
           {showSupplier && <div>Supplier Stock</div>}
           <div />
