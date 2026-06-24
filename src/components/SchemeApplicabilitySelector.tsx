@@ -25,11 +25,12 @@ import { cn } from '@/lib/utils';
 
 
 export interface ApplicabilityRule {
-  level: 'global' | 'territory' | 'beat' | 'retailer' | 'salesperson';
+  level: 'global' | 'territory' | 'beat' | 'retailer' | 'salesperson' | 'distributor';
   entityId: string;
   entityName: string;
   includeChildren: boolean;
 }
+
 
 interface SchemeApplicabilitySelectorProps {
   applicabilityType: 'global' | 'targeted' | 'hybrid';
