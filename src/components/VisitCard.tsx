@@ -541,7 +541,10 @@ export const VisitCard = ({
         
         const matchingOrders = cachedOrders.filter((o: any) => {
           const orderDateStr = (o.order_date || o.created_at || '').split('T')[0];
-          return o.user_id === userId && 
+          // Exclude cancelled originals and orders replaced by an edit (live orders only)
+          const isLive = o && o.status !== 'cancelled' && !o.replaced_by_order_id;
+          return isLive &&
+                 o.user_id === userId && 
                  o.retailer_id === retailerId && 
                  orderDateStr === targetDateStr;
         });
