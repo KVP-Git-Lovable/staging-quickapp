@@ -77,6 +77,7 @@ export const SchemeApplicabilitySelector = ({
   const [beats, setBeats] = useState<Beat[]>([]);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [salespersons, setSalespersons] = useState<Salesperson[]>([]);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Expanded sections
@@ -84,7 +85,8 @@ export const SchemeApplicabilitySelector = ({
     territory: false,
     beat: false,
     retailer: false,
-    salesperson: false
+    salesperson: false,
+    distributor: false
   });
   
   // Search filters
@@ -92,8 +94,10 @@ export const SchemeApplicabilitySelector = ({
     territory: '',
     beat: '',
     retailer: '',
-    salesperson: ''
+    salesperson: '',
+    distributor: ''
   });
+
 
   useEffect(() => {
     fetchData();
