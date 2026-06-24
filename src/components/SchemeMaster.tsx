@@ -205,26 +205,37 @@ export const SchemeMaster = () => {
       .select('id, sku, name, description, category_id, rate, unit, is_active')
       .eq('is_active', true)
       .order('name');
-    
-    if (productsError) throw productsError;
-    
-    // Fetch product variants
-    const { data: variantsData, error: variantsError } = await supabase
-      .from('product_variants')
-      .select(`
-        id, 
-        sku, 
-        variant_name, 
-        product_id, 
-        price, 
-        is_active,
-        product:products!product_id(name, category_id, unit)
-      `)
-      .eq('is_active', true)
-      .order('variant_name');
-    
-    if (variantsError) throw variantsError;
-    
+
+    if (productsError) {
+      console.error('[SchemeMaster] fetchProducts products error:', productsError);
+    }
+
+    // Fetch product variants (don't let this block the whole list if it errors)
+    let variantsData: any[] = [];
+    try {
+      const { data, error: variantsError } = await supabase
+        .from('product_variants')
+        .select(`
+          id,
+          sku,
+          variant_name,
+          product_id,
+          price,
+          is_active,
+          product:products!product_id(name, category_id, unit)
+        `)
+        .eq('is_active', true)
+        .order('variant_name');
+
+      if (variantsError) {
+        console.warn('[SchemeMaster] fetchProducts variants error (continuing without variants):', variantsError);
+      } else {
+        variantsData = data || [];
+      }
+    } catch (e) {
+      console.warn('[SchemeMaster] fetchProducts variants threw (continuing without variants):', e);
+    }
+
     // Combine products and variants into unified list
     const baseProducts: Product[] = (productsData || []).map(p => ({
       id: p.id,
@@ -237,7 +248,7 @@ export const SchemeMaster = () => {
       is_active: p.is_active,
       type: 'product' as const
     }));
-    
+
     const variantProducts: Product[] = (variantsData || []).map((v: any) => ({
       id: v.id,
       sku: v.sku || '',
@@ -250,14 +261,16 @@ export const SchemeMaster = () => {
       type: 'variant' as const,
       parent_product_id: v.product_id
     }));
-    
+
     // Combine and sort alphabetically
-    const allProducts = [...baseProducts, ...variantProducts].sort((a, b) => 
+    const allProducts = [...baseProducts, ...variantProducts].sort((a, b) =>
       a.name.localeCompare(b.name)
     );
-    
+
+    console.log('[SchemeMaster] fetchProducts loaded', { products: baseProducts.length, variants: variantProducts.length });
     setProducts(allProducts);
   };
+
 
   const fetchCategories = async () => {
     const { data, error } = await supabase
@@ -551,7 +564,12 @@ export const SchemeMaster = () => {
     });
     // Load applicability rules for this scheme
     loadApplicabilityRules(scheme.id);
+    // Ensure products list is populated for the edit dialog (multi-product selector)
+    if (products.length === 0) {
+      fetchProducts();
+    }
     setIsSchemeDialogOpen(true);
+
   };
 
   const loadApplicabilityRules = async (schemeId: string) => {
