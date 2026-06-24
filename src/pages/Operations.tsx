@@ -245,8 +245,6 @@ const Operations = () => {
   };
   
   // Edit order dialog state
-  const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
-  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<{ id: string; retailer_name: string } | null>(null);
 
   // Cancel order dialog state
   const [showCancelDialog, setShowCancelDialog] = useState(false);
