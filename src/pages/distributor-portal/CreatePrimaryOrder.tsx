@@ -805,6 +805,20 @@ const CartStage = ({
       : products.filter((p: Product) => p.category_id === selectedCategory);
 
   const showSupplier = supplierStock !== null;
+  const [offersOpen, setOffersOpen] = useState(false);
+
+  // Group applicable schemes by product line for the offers dialog.
+  const offersByProduct = orderItems
+    .filter((it: OrderItem) => !!it.product_id)
+    .map((it: OrderItem) => ({
+      key: `${it.product_id}-${it.unit}`,
+      product_name: it.product_name,
+      quantity: it.quantity,
+      schemes: getApplicableSchemes(it.product_id, it.quantity),
+    }))
+    .filter((g: any) => g.schemes.length > 0);
+
+
 
   return (
     <Card className="rounded-xl shadow-sm">
