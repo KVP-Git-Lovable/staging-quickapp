@@ -358,10 +358,17 @@ export const VisitCard = ({
   // Listen for order submission events to track checkout timing
   useEffect(() => {
     const handleOrderSubmitted = async (event: CustomEvent) => {
-      const { retailerId: eventRetailerId } = event.detail;
+      const { retailerId: eventRetailerId } = event.detail || {};
       const currentRetailerId = visit.retailerId || visit.id;
       if (eventRetailerId === currentRetailerId) {
         await recordAction('order_submitted');
+        // Force refresh from DB so post-payment (FIFO-applied) server values replace
+        // the optimistic pre-payment snapshot (paid=0 / pending=total).
+        try {
+          await loadLastOrder();
+        } catch (e) {
+          console.warn('[VisitCard] post-orderSubmitted refresh failed:', e);
+        }
       }
     };
     
