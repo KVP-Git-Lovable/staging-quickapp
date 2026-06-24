@@ -2176,8 +2176,12 @@ const Operations = () => {
                                   className="h-8 w-8"
                                   title="Edit Order"
                                   onClick={() => {
-                                    setSelectedOrderForEdit({ id: item.id, retailer_name: item.retailer_name });
-                                    setEditOrderDialogOpen(true);
+                                    const params = new URLSearchParams();
+                                    if ((item as any).visit_id) params.set('visitId', (item as any).visit_id);
+                                    if (item.retailer_id) params.set('retailerId', item.retailer_id);
+                                    if (item.retailer_name) params.set('retailer', item.retailer_name);
+                                    params.set('editOrderId', item.id);
+                                    navigate(`/order-entry?${params.toString()}`);
                                   }}
                                 >
                                   <Pencil size={16} />
