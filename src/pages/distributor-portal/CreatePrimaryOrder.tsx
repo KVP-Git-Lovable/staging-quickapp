@@ -795,6 +795,7 @@ const CartStage = ({
   categories, selectedCategory, setSelectedCategory,
   products, productsLoading, productUoms, productStock, supplierStock,
   orderItems, updateItem, removeItem, addEmptyRow, getProductPrice, totals,
+  getApplicableSchemes, describeScheme,
 }: any) => {
   const filtered = selectedCategory === 'all'
     ? products
