@@ -997,10 +997,36 @@ const CartStage = ({
         </div>
 
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" onClick={addEmptyRow} className="h-9">
               <Plus className="w-4 h-4 mr-1.5" /> Add Row
             </Button>
+            {(() => {
+              const applicableCount = orderItems.reduce((acc: number, it: OrderItem) => (
+                it.product_id ? acc + (getApplicableSchemes(it.product_id, it.quantity).length > 0 ? 1 : 0) : acc
+              ), 0);
+              return (
+                <button
+                  type="button"
+                  onClick={() => setOffersOpen(true)}
+                  className={cn(
+                    "inline-flex items-center gap-2 h-9 px-3 rounded-md",
+                    "bg-primary/10 hover:bg-primary/15 border border-primary/20 transition-colors"
+                  )}
+                >
+                  <Gift className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-medium text-primary">
+                    Apply Offers
+                    {applicableCount > 0 && (
+                      <span className="ml-1.5 text-[10px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
+                        {applicableCount}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-primary/60" />
+                </button>
+              );
+            })()}
           </div>
           {/* Totals block */}
           <div className="rounded-lg border bg-muted/20 p-4 space-y-1.5 text-sm">
