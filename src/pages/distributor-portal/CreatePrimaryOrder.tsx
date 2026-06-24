@@ -34,6 +34,17 @@ interface OrderItem {
   quantity: number; unit: string; unit_price: number; discount_percent: number;
   gst_percent: number; hsn_code?: string; sku?: string; image_url?: string;
   price_book_applied?: boolean; line_total: number; category_id?: string;
+  applied_scheme_id?: string | null;
+  scheme_manually_set?: boolean;
+}
+interface SchemeRow {
+  id: string; name: string; scheme_type: string;
+  product_id: string | null; free_product_id: string | null;
+  discount_percentage: number | null; discount_amount: number | null;
+  buy_quantity: number | null; free_quantity: number | null;
+  condition_quantity: number | null; min_order_value: number | null;
+  start_date: string | null; end_date: string | null;
+  is_active: boolean | null;
 }
 
 const DEFAULT_GST = 18;
@@ -50,6 +61,7 @@ const CreatePrimaryOrder = () => {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [productUoms, setProductUoms] = useState<Record<string, UomOption[]>>({});
   const [productStock, setProductStock] = useState<Record<string, number>>({});
+  const [schemes, setSchemes] = useState<SchemeRow[]>([]);
   const [supplierStock, setSupplierStock] = useState<Record<string, number> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
@@ -86,6 +98,7 @@ const CreatePrimaryOrder = () => {
     loadData();
     loadCreditInfo();
     loadDistributor();
+    loadSchemes();
   }, [distributorId, navigate]); // eslint-disable-line
 
   useEffect(() => {
@@ -184,6 +197,22 @@ const CreatePrimaryOrder = () => {
       }
     } catch (err) { console.error('Credit check failed:', err); }
   };
+
+  const loadSchemes = async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from('product_schemes')
+        .select('id, name, scheme_type, product_id, free_product_id, discount_percentage, discount_amount, buy_quantity, free_quantity, condition_quantity, min_order_value, start_date, end_date, is_active')
+        .eq('is_active', true)
+        .or(`start_date.is.null,start_date.lte.${today}`)
+        .or(`end_date.is.null,end_date.gte.${today}`);
+      if (error) throw error;
+      setSchemes((data || []) as SchemeRow[]);
+    } catch (err) { console.error('Scheme load failed:', err); }
+  };
+
+
 
   const loadData = async () => {
     try {
@@ -305,6 +334,50 @@ const CreatePrimaryOrder = () => {
       line_total: 0, category_id: 'all',
     }]);
   };
+
+  // ===== Scheme helpers =====
+  const getApplicableSchemes = (productId: string, qty: number): SchemeRow[] => {
+    if (!productId) return [];
+    return schemes.filter((s) => {
+      if (s.product_id && s.product_id !== productId) return false;
+      const minQty = Number(s.buy_quantity ?? s.condition_quantity ?? 0);
+      if (minQty > 0 && qty < minQty) return false;
+      return true;
+    });
+  };
+
+  const describeScheme = (s: SchemeRow): string => {
+    if (s.scheme_type === 'buy_x_get_y' && s.buy_quantity && s.free_quantity) {
+      return `${s.name} · Buy ${s.buy_quantity} Get ${s.free_quantity}`;
+    }
+    if (s.discount_percentage) return `${s.name} · ${s.discount_percentage}% off`;
+    if (s.discount_amount)     return `${s.name} · ₹${s.discount_amount} off`;
+    return s.name;
+  };
+
+  // Auto-apply best scheme when product or qty changes (unless user manually set one).
+  useEffect(() => {
+    if (schemes.length === 0) return;
+    let mutated = false;
+    const next = orderItems.map((it) => {
+      if (!it.product_id) return it;
+      const applicable = getApplicableSchemes(it.product_id, it.quantity);
+      // Drop a previously auto/manual selection that no longer qualifies.
+      if (it.applied_scheme_id && !applicable.find((s) => s.id === it.applied_scheme_id)) {
+        mutated = true;
+        return { ...it, applied_scheme_id: null, scheme_manually_set: false };
+      }
+      if (!it.applied_scheme_id && !it.scheme_manually_set && applicable.length > 0) {
+        mutated = true;
+        return { ...it, applied_scheme_id: applicable[0].id };
+      }
+      return it;
+    });
+    if (mutated) setOrderItems(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderItems.map(i => `${i.product_id}:${i.quantity}`).join('|'), schemes.length]);
+
+
 
   const totals = useMemo(() => {
     let subtotal = 0, totalDiscount = 0, cgst = 0, sgst = 0;
@@ -629,6 +702,8 @@ const CreatePrimaryOrder = () => {
             addEmptyRow={addEmptyRow}
             getProductPrice={getProductPrice}
             totals={totals}
+            getApplicableSchemes={getApplicableSchemes}
+            describeScheme={describeScheme}
           />
         )}
 
@@ -720,6 +795,7 @@ const CartStage = ({
   categories, selectedCategory, setSelectedCategory,
   products, productsLoading, productUoms, productStock, supplierStock,
   orderItems, updateItem, removeItem, addEmptyRow, getProductPrice, totals,
+  getApplicableSchemes, describeScheme,
 }: any) => {
   const filtered = selectedCategory === 'all'
     ? products
@@ -761,12 +837,13 @@ const CartStage = ({
         <div className={cn(
           "hidden md:grid gap-3 px-1 pb-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wide border-b",
           showSupplier
-            ? "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_0.9fr_32px]"
-            : "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_32px]"
+            ? "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_0.8fr_32px]"
+            : "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_32px]"
         )}>
           <div>Product</div>
           <div>Unit</div>
           <div>Qty</div>
+          <div>Scheme</div>
           <div>My Stock</div>
           {showSupplier && <div>Supplier Stock</div>}
           <div />
@@ -797,8 +874,8 @@ const CartStage = ({
                 <div className={cn(
                   "grid gap-3 items-center",
                   showSupplier
-                    ? "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_0.9fr_32px]"
-                    : "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_32px]"
+                    ? "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_0.8fr_32px]"
+                    : "md:grid-cols-[1.7fr_1fr_0.65fr_1.2fr_0.7fr_32px]"
                 )}>
                   {/* Product */}
                   <Select
@@ -856,6 +933,33 @@ const CartStage = ({
                     className="h-10 text-center"
                     disabled={!item.product_id}
                   />
+
+                  {/* Scheme (auto-applied, manually overridable) */}
+                  {(() => {
+                    const applicable = item.product_id ? getApplicableSchemes(item.product_id, item.quantity) : [];
+                    const disabled = !item.product_id || applicable.length === 0;
+                    return (
+                      <Select
+                        value={item.applied_scheme_id || 'none'}
+                        onValueChange={(v) => updateItem(index, {
+                          applied_scheme_id: v === 'none' ? null : v,
+                          scheme_manually_set: true,
+                        })}
+                        disabled={disabled}
+                      >
+                        <SelectTrigger className="h-10 truncate">
+                          <SelectValue placeholder={disabled ? 'No scheme' : 'Select scheme'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No scheme</SelectItem>
+                          {applicable.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>{describeScheme(s)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    );
+                  })()}
+
 
                   {/* My Stock chip */}
                   <div>
