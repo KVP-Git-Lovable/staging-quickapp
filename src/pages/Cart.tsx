@@ -1865,7 +1865,15 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
-      // EDIT MODE (D-1): cart must NOT collect payment; finalize_order_edit transfers it.
+      // EDIT MODE (D-1): cart must NOT collect payment as part of insert;
+      // finalize_order_edit reconciles to the edited payment intent below.
+      const editIntendedPaidD1 = !isEditMode ? 0 :
+        paymentType === 'full'    ? totalAmount :
+        paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
+      const editDeltaProofUrlD1 =
+        paymentMethod === 'cheque' ? chequePhotoUrl :
+        paymentMethod === 'upi'    ? upiPhotoUrl :
+        paymentMethod === 'neft'   ? neftPhotoUrl : "";
       if (isEditMode) {
         isCreditOrder = true;
         creditPaid = 0;
