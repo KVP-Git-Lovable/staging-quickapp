@@ -1989,7 +1989,7 @@ export const Cart = () => {
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
       let syncedOrderRowD1: any = null;
       let syncedOrderAllocationsD1: any[] = [];
-      if (atOrderAmountPaidD1 > 0 && validRetailerId && !result.offline && result.order?.id) {
+      if (!isEditMode && atOrderAmountPaidD1 > 0 && validRetailerId && !result.offline && result.order?.id) {
         try {
           const { data: ret } = await supabase
             .from('retailers')
