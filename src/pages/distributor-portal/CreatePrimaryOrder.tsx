@@ -1067,6 +1067,43 @@ const CartStage = ({
           </div>
         </div>
       </CardContent>
+
+      {/* Applicable offers dialog */}
+      <Dialog open={offersOpen} onOpenChange={setOffersOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gift className="w-4 h-4 text-primary" /> Applicable Offers
+            </DialogTitle>
+          </DialogHeader>
+          {offersByProduct.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No offers available for the products currently in your cart.
+            </div>
+          ) : (
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+              {offersByProduct.map((g: any) => (
+                <div key={g.key} className="rounded-lg border p-3">
+                  <div className="text-sm font-semibold mb-2">
+                    {g.product_name}
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      Qty {g.quantity}
+                    </span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {g.schemes.map((s: any) => (
+                      <li key={s.id} className="flex items-start gap-2 text-xs">
+                        <Gift className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                        <span>{describeScheme(s)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
