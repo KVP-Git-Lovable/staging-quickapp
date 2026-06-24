@@ -1297,7 +1297,15 @@ export const Cart = () => {
           order_date: orderDate,
           status: 'confirmed',
           visit_id: actualVisitId,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // Post-FIFO synced values (server-side truth). Fall back to local
+          // pre-FIFO values only when re-fetch wasn't possible (e.g. no payment).
+          is_credit_order: syncedOrderRow?.is_credit_order ?? isCreditOrder,
+          credit_paid_amount: syncedOrderRow?.credit_paid_amount ?? creditPaid,
+          credit_pending_amount: syncedOrderRow?.credit_pending_amount ?? creditPending,
+          payment_status: syncedOrderRow?.payment_status,
+          previous_pending_cleared: syncedOrderRow?.previous_pending_cleared ?? previousPendingCleared,
+          retailer_payment_allocations: syncedOrderAllocations,
         };
         
         // CRITICAL FIX: Update snapshot FIRST (must complete before navigation)
