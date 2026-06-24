@@ -358,10 +358,17 @@ export const VisitCard = ({
   // Listen for order submission events to track checkout timing
   useEffect(() => {
     const handleOrderSubmitted = async (event: CustomEvent) => {
-      const { retailerId: eventRetailerId } = event.detail;
+      const { retailerId: eventRetailerId } = event.detail || {};
       const currentRetailerId = visit.retailerId || visit.id;
       if (eventRetailerId === currentRetailerId) {
         await recordAction('order_submitted');
+        // Force refresh from DB so post-payment (FIFO-applied) server values replace
+        // the optimistic pre-payment snapshot (paid=0 / pending=total).
+        try {
+          await loadLastOrder();
+        } catch (e) {
+          console.warn('[VisitCard] post-orderSubmitted refresh failed:', e);
+        }
       }
     };
     
@@ -616,15 +623,17 @@ export const VisitCard = ({
                 setLastOrderItems(Array.from(grouped.values()));
               }
               
-              // Calculate payment states
+              // Calculate payment states from server-authoritative per-order values
               const creditOrders = matchingOrders.filter((o: any) => !!o.is_credit_order);
               const cashOrders = matchingOrders.filter((o: any) => !o.is_credit_order);
               const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
               const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
-              const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+              const todaysPending = creditOrders.reduce((sum: number, o: any) => sum + Number(
+                o.credit_pending_amount ?? (Number(o.total_amount || 0) - Number(o.credit_paid_amount || 0))
+              ), 0);
               
               setPaidTodayAmount(paidFromCash + totalPaidFromCredit);
-              setCreditPendingAmount(Math.max(0, creditOrdersTotal - totalPaidFromCredit));
+              setCreditPendingAmount(Math.max(0, todaysPending));
               setIsCreditOrder(creditOrders.length > 0);
             }
           }
@@ -1045,22 +1054,20 @@ export const VisitCard = ({
             const totalPendingCleared = ordersToday.reduce((sum, order) => sum + Number((order as any).previous_pending_cleared || 0), 0);
             setPreviousPendingCleared(totalPendingCleared);
 
-            // Split cash vs credit orders and aggregate properly
+            // Split cash vs credit orders and aggregate from server-authoritative per-order values
             const creditOrders = ordersToday.filter((o: any) => !!o.is_credit_order);
             const cashOrders = ordersToday.filter((o: any) => !o.is_credit_order);
             const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
-            const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
             const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
             const totalPaidToday = paidFromCash + totalPaidFromCredit;
+            const todaysPending = creditOrders.reduce((sum: number, o: any) => sum + Number(
+              (o as any).credit_pending_amount ?? (Number(o.total_amount || 0) - Number(o.credit_paid_amount || 0))
+            ), 0);
 
-            // Calculate pending using: (Previous pending + Current order) - Amount paid = Updated pending
-            // Use the retailer's pending_amount from state as the previous pending
-            const previousPending = pendingAmount || 0;
-            const updatedPending = Math.max(0, previousPending + creditOrdersTotal - totalPaidFromCredit);
             setIsCreditOrder(creditOrders.length > 0);
             setCreditPaidAmount(totalPaidFromCredit); // Credit paid amount today (for reference)
             setPaidTodayAmount(totalPaidToday); // Total paid amount today (cash + credit)
-            setCreditPendingAmount(updatedPending); // Updated pending after today's order
+            setCreditPendingAmount(Math.max(0, todaysPending)); // Today's order pending (per-order server value)
 
             // CRITICAL: Update local status to productive immediately when orders exist
             console.log('✅ [VisitCard] Orders exist - setting status to productive immediately');
@@ -2365,7 +2372,7 @@ export const VisitCard = ({
 
           const { data, error } = await supabase
             .from('orders')
-            .select('id, user_id, created_at, total_amount, is_credit_order, credit_paid_amount, invoice_number, idempotency_key, invoice_generated_at, dispatched_at, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
+            .select('id, user_id, created_at, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, invoice_number, idempotency_key, invoice_generated_at, dispatched_at, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
             .eq('retailer_id', retailerId)
             .in('status', ['confirmed', 'delivered'])
             .eq('order_date', selectedDate || toLocalISODate(targetDate))
@@ -2435,14 +2442,15 @@ export const VisitCard = ({
         const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
         const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
         const totalPaidToday = paidFromCash + totalPaidFromCredit;
-        const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
-        const updatedPending = Math.max(0, creditOrdersTotal - totalPaidFromCredit);
+        const todaysPending = creditOrders.reduce((sum: number, o: any) => sum + Number(
+          (o as any).credit_pending_amount ?? (Number(o.total_amount || 0) - Number(o.credit_paid_amount || 0))
+        ), 0);
         
         // Update the order value and payment states
         if (totalOrderValue > 0) {
           updateOrderValue(totalOrderValue, 'db');
           setPaidTodayAmount(totalPaidToday);
-          setCreditPendingAmount(updatedPending);
+          setCreditPendingAmount(Math.max(0, todaysPending));
           setIsCreditOrder(creditOrders.length > 0);
         }
         
@@ -3850,9 +3858,13 @@ export const VisitCard = ({
               setOrderValueSource('db');
               const newCreditPending = remaining
                 .filter(o => o.is_credit_order)
-                .reduce((s, o) => s + (o.total_amount - o.credit_paid_amount), 0);
+                .reduce((s, o) => s + Number(
+                  (o as any).credit_pending_amount ?? (Number(o.total_amount || 0) - Number(o.credit_paid_amount || 0))
+                ), 0);
               setCreditPendingAmount(Math.max(0, newCreditPending));
-              const newPaid = remaining.reduce((s, o) => s + o.credit_paid_amount, 0);
+              const newPaid = remaining.reduce((s, o) => s + (
+                o.is_credit_order ? Number(o.credit_paid_amount || 0) : Number(o.total_amount || 0)
+              ), 0);
               setPaidTodayAmount(newPaid);
               setIsCreditOrder(remaining.some(o => o.is_credit_order));
               setLastOrderId(remaining[remaining.length - 1]?.id || null);
