@@ -189,6 +189,8 @@ export const SchemeApplicabilitySelector = ({
       case 'territory': return 'Includes all beats & retailers within this territory';
       case 'beat': return 'Includes all retailers within this beat';
       case 'salesperson': return 'Includes all assigned territories, beats & retailers';
+      case 'distributor': return 'Applies to all primary orders placed by this distributor';
+
       case 'retailer': return 'Specific retailer only';
       default: return '';
     }
