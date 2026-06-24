@@ -34,6 +34,17 @@ interface OrderItem {
   quantity: number; unit: string; unit_price: number; discount_percent: number;
   gst_percent: number; hsn_code?: string; sku?: string; image_url?: string;
   price_book_applied?: boolean; line_total: number; category_id?: string;
+  applied_scheme_id?: string | null;
+  scheme_manually_set?: boolean;
+}
+interface SchemeRow {
+  id: string; name: string; scheme_type: string;
+  product_id: string | null; free_product_id: string | null;
+  discount_percentage: number | null; discount_amount: number | null;
+  buy_quantity: number | null; free_quantity: number | null;
+  condition_quantity: number | null; min_order_value: number | null;
+  start_date: string | null; end_date: string | null;
+  is_active: boolean | null;
 }
 
 const DEFAULT_GST = 18;
