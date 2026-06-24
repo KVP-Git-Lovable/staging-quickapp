@@ -89,7 +89,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Type
-  const [selectedType, setSelectedType] = useState<VisitTypeId>('customer_visit');
+  const [selectedType, setSelectedType] = useState<VisitTypeId>('joint_beat_visit');
   const activeType = VISIT_TYPES.find((t) => t.id === selectedType)!;
 
   // Shared
@@ -196,16 +196,6 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
     if (open && !isSubmitted) setCheckInHHMM(nowHHMM());
   }, [open]);
 
-  // Retailer search
-  useEffect(() => {
-    if (selectedType !== 'customer_visit') return;
-    if (!retailerSearch || retailerSearch.length < 2) { setRetailerResults([]); return; }
-    const t = setTimeout(async () => {
-      const { data } = await supabase.from('retailers').select('id, name').ilike('name', `%${retailerSearch}%`).limit(8);
-      setRetailerResults((data as any) || []);
-    }, 250);
-    return () => clearTimeout(t);
-  }, [retailerSearch, selectedType]);
 
   // Distributor search
   useEffect(() => {
@@ -222,24 +212,6 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
     return () => clearTimeout(t);
   }, [distributorSearch, selectedType]);
 
-  // Load beats
-  useEffect(() => {
-    if (selectedType !== 'beat_visit' || !user?.id) return;
-    getMyBeats(user.id)
-      .then((beats: any[]) => setAvailableBeats((beats || []).map((b) => ({ id: String(b.id ?? b.beat_id ?? ''), name: String(b.name ?? b.beat_name ?? 'Unnamed') }))))
-      .catch(() => {});
-  }, [selectedType, user?.id]);
-
-  // Auto-load shops_planned for beat_visit
-  useEffect(() => {
-    if (selectedType !== 'beat_visit' || !selectedBeatId || !activityDate || !user?.id) return;
-    supabase.from('beat_plans').select('beat_data')
-      .eq('user_id', user.id).eq('beat_id', selectedBeatId).eq('plan_date', format(activityDate, 'yyyy-MM-dd')).maybeSingle()
-      .then(({ data }: any) => {
-        const n = data?.beat_data?.retailers?.length || data?.beat_data?.planned_count || 0;
-        if (n) setShopsPlanned(n);
-      });
-  }, [selectedBeatId, activityDate, user?.id, selectedType]);
 
   // Auto-load subordinate beat plan for joint visit
   useEffect(() => {
@@ -292,7 +264,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   };
 
   const resetForm = () => {
-    setSelectedType('customer_visit');
+    setSelectedType('joint_beat_visit');
     setActivityDate(new Date());
     setCheckInHHMM(nowHHMM()); setCheckOutHHMM(''); setDurationMinutes(null);
     setGpsLat(null); setGpsLng(null); setRemarks('');
@@ -323,12 +295,9 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
     if (!isOnline) { toast.error('Activity logging requires internet'); return; }
     if (isSubmitted) { toast.info('Already saved — log check-out if ready'); return; }
 
-    if (selectedType === 'customer_visit' && !retailerId) { toast.error('Select a retailer'); return; }
-    if (selectedType === 'beat_visit' && !selectedBeatId) { toast.error('Select a beat'); return; }
     if (selectedType === 'joint_beat_visit' && !subordinateId) { toast.error('Select a subordinate'); return; }
     if (selectedType === 'new_beat_survey' && (!surveyBeatName || !surveyObservations)) { toast.error('Beat name and observations required'); return; }
     if (selectedType === 'distributor_visit' && !distributorId) { toast.error('Select a distributor'); return; }
-    if (selectedType === 'event_promotion' && !eventName) { toast.error('Enter event name'); return; }
     if (selectedType === 'meeting_training' && !topic) { toast.error('Enter a topic'); return; }
 
     setIsSubmitting(true);
@@ -352,13 +321,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
       let params: any = { ...common, activity_type: selectedType, visit_category: selectedType };
 
-      if (selectedType === 'customer_visit') {
-        params = { ...params, retailer_id: retailerId, retailer_name: retailerName,
-          outcome: outcome || undefined, contact_person: contactPerson || undefined, follow_up_date: followUpDate || undefined };
-      } else if (selectedType === 'beat_visit') {
-        params = { ...params, beat_id: selectedBeatId, beat_name: selectedBeatName,
-          shops_planned: shopsPlanned ?? undefined, shops_visited: shopsVisited ?? undefined, km_travelled: kmTravelled ?? undefined };
-      } else if (selectedType === 'joint_beat_visit') {
+      if (selectedType === 'joint_beat_visit') {
         params = { ...params,
           subordinate_user_id: subordinateId,
           beat_id: subordinateBeat?.beat_id, beat_name: subordinateBeat?.beat_name,
@@ -390,9 +353,6 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
       } else if (selectedType === 'distributor_visit') {
         params = { ...params, distributor_id: distributorId, distributor_name: distributorName,
           visit_purpose: visitPurpose || undefined, contact_person: contactPerson || undefined, outcome: outcome || undefined };
-      } else if (selectedType === 'event_promotion') {
-        params = { ...params, activity_sub_type: eventSubType, activity_name: eventName,
-          activity_place: eventPlace || undefined, actual_footfall: actualFootfall ?? undefined, sales_achieved: salesAchieved ?? undefined };
       } else if (selectedType === 'meeting_training') {
         params = { ...params, activity_sub_type: meetingSubType, topic, attendee_count: attendeeCount ?? undefined,
           activity_place: meetingPlace || undefined, duration_type: durationType,
@@ -841,41 +801,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
             </div>
           )}
 
-          {/* ── EVENT ─────────────────────────────────────── */}
-          {selectedType === 'event_promotion' && (
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs">Sub-type</Label>
-                <Select value={eventSubType} onValueChange={setEventSubType}>
-                  <SelectTrigger className="mt-1 h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Event">Event</SelectItem>
-                    <SelectItem value="Promotion">Promotion</SelectItem>
-                    <SelectItem value="Demo">Demo</SelectItem>
-                    <SelectItem value="Celebration">Celebration</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Event name <span className="text-destructive">*</span></Label>
-                <Input value={eventName} onChange={(e) => setEventName(e.target.value)} className="mt-1 h-9 text-sm" />
-              </div>
-              <div>
-                <Label className="text-xs">Place</Label>
-                <Input value={eventPlace} onChange={(e) => setEventPlace(e.target.value)} className="mt-1 h-9 text-sm" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">Actual footfall</Label>
-                  <Input type="number" value={actualFootfall ?? ''} onChange={(e) => setActualFootfall(e.target.value ? Number(e.target.value) : null)} className="mt-1 h-9 text-sm" />
-                </div>
-                <div>
-                  <Label className="text-xs">Sales achieved (₹)</Label>
-                  <Input type="number" value={salesAchieved ?? ''} onChange={(e) => setSalesAchieved(e.target.value ? Number(e.target.value) : null)} className="mt-1 h-9 text-sm" />
-                </div>
-              </div>
-            </div>
-          )}
+          {/* EVENT tab removed */}
 
           {/* ── MEETING ───────────────────────────────────── */}
           {selectedType === 'meeting_training' && (
