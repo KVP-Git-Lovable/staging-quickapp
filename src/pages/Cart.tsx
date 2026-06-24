@@ -1262,7 +1262,7 @@ export const Cart = () => {
             p_original_order_id: editOrderId,
             p_replacement_order_id: result.order.id,
             p_edited_by: currentUserId,
-            p_reason: 'Order edited',
+            p_reason: (editReason?.trim() || 'Order edited'),
             p_target_paid: editIntendedPaid,
             p_new_collection_id: editNewCollectionId,
           } as any);
