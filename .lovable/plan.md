@@ -1,46 +1,69 @@
-# Follow-up: tighten Fix 1 + Fix 2 env-key handling
+## Goal
+Restructure `src/pages/distributor-portal/CreatePrimaryOrder.tsx` (1554 lines) from a single-scroll form with a decorative 4-step stepper into a real 3-stage wizard. Pure layout/flow refactor — every pricing, scheme, GST, credit, draft, and submit calculation/mutation is reused verbatim.
 
-Two small, scoped tightenings on top of what just shipped.
+## Structure
 
-## 1. Make Fix 1's pre-check actually proactive
+`CreatePrimaryOrder.tsx` becomes the orchestrator:
+- Keeps all existing state (items, products, price book, snapshot, paymentConfig, credit, shipping, payment, etc.)
+- Keeps all existing data-load effects and submit/save-draft handlers untouched
+- Adds `currentStep` (1|2|3), `goNext`, `goBack`, `completedSteps`
+- Renders: header → `<Stepper>` → `<CreditStrip>` → active stage → `<WizardFooter>`
 
-Current behavior: `checkLocationAvailability()` runs only when the "Location Not Captured" dialog opens. That misses two real cases:
+Three new presentational components under `src/pages/distributor-portal/primary-order/`:
+1. `CartStage.tsx` — "Add Products" card with editable row table (Product / Unit / Qty / My Stock / Supplier Stock / delete), +Add Row, scheme-threshold hint, Apply Offers, right-aligned Subtotal/Discount/Total/incl-GST block.
+2. `ReviewStage.tsx` — read-style line rows with qty stepper, savings, totals card with Schemes Applied highlight + CGST/SGST (real per-product GST) + bold Total.
+3. `ConfirmStage.tsx` — savings banner; Billed To + Ship To side-by-side; Payment card; live credit room-left line; single commit line; (Submit handled by footer).
 
-- The dialog never opens because some other guard short-circuits first.
-- On web, `permissions.query({ name: 'geolocation' })` returns `'prompt'` for first-time use, so we say "ready" but the browser may still block.
-- Native: we currently only check, we never *request*. If permission is `'prompt'`, the capture click triggers the OS dialog; on `'denied'`, the user gets a destructive chip but no path forward.
+Three small shared bits in the same folder:
+- `WizardStepper.tsx` — 3 numbered circles, click-to-jump only for completed steps.
+- `CreditStrip.tsx` — slim bar: available · this order · % used · within-limit/over-limit pill; amber when this order pushes over; shows "room left" on Stage 3.
+- `WizardFooter.tsx` — single sticky footer: Back · Save Draft · [Next | Submit Primary Order] · Grand Total. Grand Total hidden on Stage 1 (cart shows it in its totals block).
+- `StockChips.tsx` — `MyStockChip` (exact, from `productStock`) + `SupplierStockChip` (soft signal via `useSupplierStock` hook with graceful RLS-deny hide).
 
-Changes in `src/utils/locationStatus.ts` and `src/components/VisitCard.tsx`:
+## Calculations / mutations — reused as-is
+Extract the existing computations (currently inline in the page) into pure helpers consumed by stages:
+- `subtotal`, `totalDiscount`, `totalGst` (per-line `gst_percent`), `grandTotal`, `creditUsedPercent`, `roomLeft`, `wouldExceedLimit`, savings-on-this-order.
+- Existing `handleSaveDraft`, `handleSubmit`, `addProduct`, `updateQuantity`, `removeItem`, scheme-application logic, snapshot/shipping resolver — moved to handlers on the page, passed to stages via props. No logic edits.
 
-- In `checkLocationAvailability()`:
-  - Add a `'prompt'` branch returning `{ status: 'prompt', message: null }` (new status) so the UI knows to show a softer hint like "Tap Capture to allow location access."
-  - On native, if state is `'prompt'`, call `Geolocation.requestPermissions()` lazily *only* when the user clicks Capture (not on dialog open — avoids a surprise OS prompt).
-- In the Capture button's click handler:
-  - Before `getResilientLocation()`, if status is `'prompt'` on native, call `requestPermissions()` first; if it comes back `'denied'`, surface the denied warning inline and stop.
-  - Keep the existing `classifyLocationError` catch path as the safety net.
-- Add an `openAppSettings` link in the chip when status is `'denied'` on native, reusing the existing `openAppSettings()` helper from `src/utils/permissions.ts` (already used by `PermissionRequestModal`). Web stays text-only.
+## Supplier stock (graceful)
+New `useSupplierStock(productIds)` hook:
+- Queries parent/supplier `distributor_inventory` for product ids.
+- On permission error / empty: returns `{ available: false, data: {} }` → CartStage hides the Supplier Stock column.
+- On success: maps to soft signal `in_stock | limited | out` (thresholds: 0 → out, ≤10 → limited, else in_stock). Never blocks submit.
 
-No changes to the database, no changes to capture payload.
+## Gating
+- Stage 1 → 2: `orderItems.length >= 1`.
+- Stage 2 → 3: always allowed.
+- Stage 3 Submit: existing validation (delivery date, shipping, payment proof when `paymentConfig` requires) — wired to the footer Submit button.
+- Stepper clicks only allowed to step ≤ `max(completedSteps)`.
 
-## 2. Confirm and lock down Fix 2's Google key resolution
+## Removed
+- Right sidebar Order Summary widget.
+- Sidebar Credit Validation widget.
+- Sticky bottom totals bar.
+- Header-area duplicate Save Draft + duplicate Submit.
+- The standalone "Credit Validation" step.
 
-Current: `src/utils/reverseGeocode.ts` reads `VITE_GOOGLE_MAPS_API_KEY` then falls back to `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY`. Both `.env` entries (`VITE_GOOGLE_MAPS_API_KEY`, `VITE_GOOGLE_GEOCODING_API_KEY`) are present but **empty**, meaning the util silently falls through to OSM Nominatim on most installs — addresses still save, but never via Google.
+## Out of scope
+- No DB schema changes.
+- No edits to secondary-sales flow, packing lists, invoice PDF, or any shared component used by secondary.
+- No change to existing pricing/scheme/GST/credit math.
 
-Changes in `src/utils/reverseGeocode.ts`:
+## Files
+- Edit: `src/pages/distributor-portal/CreatePrimaryOrder.tsx` (slim orchestrator)
+- New: `src/pages/distributor-portal/primary-order/WizardStepper.tsx`
+- New: `src/pages/distributor-portal/primary-order/CreditStrip.tsx`
+- New: `src/pages/distributor-portal/primary-order/WizardFooter.tsx`
+- New: `src/pages/distributor-portal/primary-order/StockChips.tsx`
+- New: `src/pages/distributor-portal/primary-order/CartStage.tsx`
+- New: `src/pages/distributor-portal/primary-order/ReviewStage.tsx`
+- New: `src/pages/distributor-portal/primary-order/ConfirmStage.tsx`
+- New: `src/hooks/useSupplierStock.ts`
 
-- Resolve the key in this order, picking the first non-empty value:
-  1. `VITE_GOOGLE_GEOCODING_API_KEY` (most specific)
-  2. `VITE_GOOGLE_MAPS_API_KEY`
-  3. `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` (managed connector)
-- Treat empty string the same as missing (current `&&` check passes `""` as falsy, but explicit `.trim()` guard makes intent clear).
-- Add a one-time `console.info` on first call when no key is found, so it's obvious in DevTools why Google is being skipped — no toast, no user-facing noise.
-- No new env vars introduced; nothing in `.env` changes.
+## Verification
+- Build passes (`tsgo` via auto-typecheck).
+- Manual: place a 2-line cart identical to the screenshot; confirm Subtotal/Discount/Total/CGST/SGST/Grand Total match pre-refactor values.
+- Edit mode (`editOrderId`) still loads existing order into the cart on Stage 1.
+- Credit strip turns amber when `grandTotal > available`.
 
-Optional follow-up (not in this change): the Google Maps Platform connector is the recommended path per project guidelines — if you want, we can route the geocode call through the connector gateway instead of the browser key, which gives you a single managed credential across the app. Say the word and I'll plan that separately.
-
-## Technical notes
-
-- New `LocationStatus` value: `'prompt'`. Update the union type and `LocationCheckResult.status`.
-- `@capacitor/geolocation` is already a dependency; no installs needed.
-- `openAppSettings` already exists in `src/utils/permissions.ts`.
-- Scope: `src/utils/locationStatus.ts`, `src/utils/reverseGeocode.ts`, `src/components/VisitCard.tsx` capture dialog block only. No DB, no other components.
+Approve to proceed.
