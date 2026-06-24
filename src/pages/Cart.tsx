@@ -2100,7 +2100,14 @@ export const Cart = () => {
           delivery_status: 'in_packing_list',
           delivery_date: deliveryDate,
           visit_id: actualVisitId,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          // Post-FIFO synced values (server-side truth).
+          is_credit_order: syncedOrderRowD1?.is_credit_order ?? isCreditOrder,
+          credit_paid_amount: syncedOrderRowD1?.credit_paid_amount ?? creditPaid,
+          credit_pending_amount: syncedOrderRowD1?.credit_pending_amount ?? creditPending,
+          payment_status: syncedOrderRowD1?.payment_status,
+          previous_pending_cleared: syncedOrderRowD1?.previous_pending_cleared ?? previousPendingCleared,
+          retailer_payment_allocations: syncedOrderAllocationsD1,
         };
         
         try {
