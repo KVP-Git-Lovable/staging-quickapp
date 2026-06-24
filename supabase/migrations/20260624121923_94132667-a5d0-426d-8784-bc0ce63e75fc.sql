@@ -1,0 +1,6 @@
+ALTER TABLE public.distributor_retailer_credit_limits ALTER COLUMN distributor_id DROP NOT NULL;
+ALTER TABLE public.distributor_retailer_credit_limits
+  DROP CONSTRAINT IF EXISTS distributor_retailer_credit_limi_distributor_id_retailer_id_key;
+ALTER TABLE public.distributor_retailer_credit_limits
+  ADD CONSTRAINT distributor_retailer_credit_limi_distributor_id_retailer_id_key
+  UNIQUE NULLS NOT DISTINCT (distributor_id, retailer_id);
