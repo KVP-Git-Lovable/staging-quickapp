@@ -31,12 +31,9 @@ interface AddActivityModalProps {
 }
 
 const VISIT_TYPES = [
-  { id: 'customer_visit',    label: 'Customer',     icon: Store,         color: 'green'  },
-  { id: 'beat_visit',        label: 'Beat visit',   icon: Route,         color: 'blue'   },
   { id: 'joint_beat_visit',  label: 'Joint visit',  icon: Users,         color: 'purple' },
   { id: 'new_beat_survey',   label: 'Route survey', icon: MapSearch,     color: 'teal'   },
   { id: 'distributor_visit', label: 'Distributor',  icon: Warehouse,     color: 'amber'  },
-  { id: 'event_promotion',   label: 'Event',        icon: Megaphone,     color: 'orange' },
   { id: 'meeting_training',  label: 'Meeting',      icon: CalendarEvent, color: 'gray'   },
 ] as const;
 
