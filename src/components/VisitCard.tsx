@@ -2435,14 +2435,15 @@ export const VisitCard = ({
         const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
         const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
         const totalPaidToday = paidFromCash + totalPaidFromCredit;
-        const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
-        const updatedPending = Math.max(0, creditOrdersTotal - totalPaidFromCredit);
+        const todaysPending = creditOrders.reduce((sum: number, o: any) => sum + Number(
+          (o as any).credit_pending_amount ?? (Number(o.total_amount || 0) - Number(o.credit_paid_amount || 0))
+        ), 0);
         
         // Update the order value and payment states
         if (totalOrderValue > 0) {
           updateOrderValue(totalOrderValue, 'db');
           setPaidTodayAmount(totalPaidToday);
-          setCreditPendingAmount(updatedPending);
+          setCreditPendingAmount(Math.max(0, todaysPending));
           setIsCreditOrder(creditOrders.length > 0);
         }
         
