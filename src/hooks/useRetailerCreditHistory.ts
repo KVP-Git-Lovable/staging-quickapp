@@ -6,6 +6,7 @@ const sb = supabase as any;
 export interface CreditOrder {
   id: string;
   order_number: string | null;
+  invoice_number: string | null;
   order_date: string | null;
   total_amount: number;
   credit_paid_amount: number;
@@ -19,6 +20,14 @@ export interface CreditOrder {
   collected_after_order: number;
   /** Amount paid at the cart at order-creation time (credit_paid_amount minus collected_after_order). */
   paid_at_order_time: number;
+  /** Last applied_at timestamp from allocations for this order. */
+  last_collection_date: string | null;
+  /** Days from order_date to last_collection_date when payment_status='paid'. */
+  days_to_clear: number | null;
+  /** Days from order_date to today when not paid. */
+  days_outstanding: number | null;
+  /** True when not paid and days_outstanding > credit_days. */
+  is_overdue: boolean;
 }
 
 export interface CollectionRow {
@@ -47,16 +56,83 @@ export interface CreditHistoryKPIs {
   avgDaysToClear: number | null;
 }
 
+export interface CreditTerms {
+  credit_limit: number | null;
+  credit_days: number | null;
+  source: "retailer" | "distributor" | "global" | "none";
+}
+
 export interface RetailerCreditHistory {
   kpis: CreditHistoryKPIs;
   orders: CreditOrder[];
   collections: CollectionRow[];
   allocations: AllocationRow[];
+  creditTerms: CreditTerms;
+  distributorId: string | null;
 }
 
-export function useRetailerCreditHistory(retailerId: string | null | undefined) {
+export interface DateRange {
+  from?: string | null; // YYYY-MM-DD
+  to?: string | null;   // YYYY-MM-DD
+}
+
+async function resolveCreditTerms(
+  retailerId: string,
+  distributorId: string | null
+): Promise<CreditTerms> {
+  if (distributorId) {
+    const { data: rrow } = await sb
+      .from("distributor_retailer_credit_limits")
+      .select("credit_limit, credit_days")
+      .eq("retailer_id", retailerId)
+      .eq("distributor_id", distributorId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (rrow) {
+      return {
+        credit_limit: rrow.credit_limit == null ? null : Number(rrow.credit_limit),
+        credit_days: rrow.credit_days == null ? null : Number(rrow.credit_days),
+        source: "retailer",
+      };
+    }
+    const { data: drow } = await sb
+      .from("distributor_credit_limits")
+      .select("credit_limit, credit_days")
+      .eq("distributor_id", distributorId)
+      .maybeSingle();
+    if (drow) {
+      return {
+        credit_limit: drow.credit_limit == null ? null : Number(drow.credit_limit),
+        credit_days: drow.credit_days == null ? null : Number(drow.credit_days),
+        source: "distributor",
+      };
+    }
+  }
+  const { data: cfg } = await sb
+    .from("credit_management_config")
+    .select("payment_term_days")
+    .eq("is_active", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (cfg && cfg.payment_term_days != null) {
+    return {
+      credit_limit: null,
+      credit_days: Number(cfg.payment_term_days),
+      source: "global",
+    };
+  }
+  return { credit_limit: null, credit_days: null, source: "none" };
+}
+
+export function useRetailerCreditHistory(
+  retailerId: string | null | undefined,
+  range?: DateRange
+) {
+  const from = range?.from || null;
+  const to = range?.to || null;
   return useQuery({
-    queryKey: ["retailer-credit-history", retailerId],
+    queryKey: ["retailer-credit-history", retailerId, from, to],
     enabled: !!retailerId,
     staleTime: 30_000,
     queryFn: async (): Promise<RetailerCreditHistory> => {
@@ -66,28 +142,46 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
           orders: [],
           collections: [],
           allocations: [],
+          creditTerms: { credit_limit: null, credit_days: null, source: "none" },
+          distributorId: null,
         };
       }
 
-      const [ordersRes, collectionsRes, retailerRes] = await Promise.all([
-        supabase
-          .from("orders")
-          .select(
-            "id, order_number, order_date, total_amount, credit_paid_amount, credit_pending_amount, payment_status, created_at"
-          )
-          .eq("retailer_id", retailerId)
-          .eq("is_credit_order", true)
-          .order("order_date", { ascending: false })
-          .limit(100),
-        sb
-          .from("retailer_payment_collections")
-          .select(
-            "id, created_at, amount, payment_method, payment_proof_url, collected_by_user_id, revenue_owner_id"
-          )
-          .eq("retailer_id", retailerId)
-          .order("created_at", { ascending: false })
-          .limit(100),
-        supabase.from("retailers").select("pending_amount").eq("id", retailerId).maybeSingle(),
+      // Resolve retailer's distributor first (needed for credit terms)
+      const { data: retailerRow } = await supabase
+        .from("retailers")
+        .select("pending_amount, distributor_id")
+        .eq("id", retailerId)
+        .maybeSingle();
+      const distributorId = (retailerRow as any)?.distributor_id || null;
+
+      let ordersQuery = supabase
+        .from("orders")
+        .select(
+          "id, order_number, invoice_number, order_date, total_amount, credit_paid_amount, credit_pending_amount, payment_status, created_at"
+        )
+        .eq("retailer_id", retailerId)
+        .eq("is_credit_order", true)
+        .order("order_date", { ascending: false })
+        .limit(500);
+      if (from) ordersQuery = ordersQuery.gte("order_date", from);
+      if (to) ordersQuery = ordersQuery.lte("order_date", to);
+
+      let collectionsQuery = sb
+        .from("retailer_payment_collections")
+        .select(
+          "id, created_at, amount, payment_method, payment_proof_url, collected_by_user_id, revenue_owner_id"
+        )
+        .eq("retailer_id", retailerId)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (from) collectionsQuery = collectionsQuery.gte("created_at", from);
+      if (to) collectionsQuery = collectionsQuery.lte("created_at", `${to}T23:59:59`);
+
+      const [ordersRes, collectionsRes, creditTerms] = await Promise.all([
+        ordersQuery,
+        collectionsQuery,
+        resolveCreditTerms(retailerId, distributorId),
       ]);
 
       const orders = (ordersRes.data || []) as CreditOrder[];
@@ -103,19 +197,21 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         allocations = (data || []) as AllocationRow[];
       }
 
-      // Per-order: sum of collections applied AFTER the order (via Mark Payment Received → FIFO)
+      // Per-order: sum of collections applied AFTER the order and last applied_at
       const collectedByOrder = new Map<string, number>();
+      const lastAppliedByOrder = new Map<string, string>();
       allocations.forEach((a) => {
         collectedByOrder.set(
           a.order_id,
           (collectedByOrder.get(a.order_id) || 0) + Number(a.amount_applied || 0)
         );
+        const cur = lastAppliedByOrder.get(a.order_id);
+        if (!cur || a.applied_at > cur) lastAppliedByOrder.set(a.order_id, a.applied_at);
       });
 
-      // Enrich each order with derived breakdown.
-      // original_credit_amount = what actually went on credit when order was placed
-      //                        = current pending + everything collected after the order
-      // paid_at_order_time     = what was paid up-front at the cart
+      const todayMs = Date.now();
+      const creditDays = creditTerms.credit_days;
+
       orders.forEach((o) => {
         const collected = Number(collectedByOrder.get(o.id) || 0);
         const pending = Number(o.credit_pending_amount || 0);
@@ -123,6 +219,30 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         o.collected_after_order = collected;
         o.original_credit_amount = Math.max(0, pending + collected);
         o.paid_at_order_time = Math.max(0, paid - collected);
+        o.last_collection_date = lastAppliedByOrder.get(o.id) || null;
+
+        const isPaid = (o.payment_status || "").toLowerCase() === "paid";
+        if (isPaid && o.order_date && o.last_collection_date) {
+          const d =
+            (new Date(o.last_collection_date).getTime() -
+              new Date(o.order_date).getTime()) /
+            (1000 * 60 * 60 * 24);
+          o.days_to_clear = Math.max(0, Math.round(d));
+        } else {
+          o.days_to_clear = null;
+        }
+        if (!isPaid && o.order_date) {
+          const d =
+            (todayMs - new Date(o.order_date).getTime()) / (1000 * 60 * 60 * 24);
+          o.days_outstanding = Math.max(0, Math.round(d));
+        } else {
+          o.days_outstanding = null;
+        }
+        o.is_overdue =
+          !isPaid &&
+          creditDays != null &&
+          o.days_outstanding != null &&
+          o.days_outstanding > creditDays;
       });
 
       // Resolve collector names
@@ -142,7 +262,6 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         });
       }
 
-      // KPIs — only the amount that ACTUALLY went on credit / was ACTUALLY collected later
       const totalCreditTaken = orders.reduce(
         (s, o) => s + Number(o.original_credit_amount || 0),
         0
@@ -151,36 +270,25 @@ export function useRetailerCreditHistory(retailerId: string | null | undefined) 
         (s, o) => s + Number(o.collected_after_order || 0),
         0
       );
-      const currentPending = Number((retailerRes.data as any)?.pending_amount || 0);
+      const currentPending = Number((retailerRow as any)?.pending_amount || 0);
 
-      // Avg days to clear: for orders that reached paid status, take max(applied_at) per order
-      const lastAppliedByOrder = new Map<string, string>();
-      allocations.forEach((a) => {
-        const cur = lastAppliedByOrder.get(a.order_id);
-        if (!cur || a.applied_at > cur) lastAppliedByOrder.set(a.order_id, a.applied_at);
-      });
       const days: number[] = [];
       orders.forEach((o) => {
-        if (o.payment_status === "paid" && o.order_date) {
-          const last = lastAppliedByOrder.get(o.id);
-          if (last) {
-            const d =
-              (new Date(last).getTime() - new Date(o.order_date).getTime()) /
-              (1000 * 60 * 60 * 24);
-            if (d >= 0) days.push(d);
-          }
-        }
+        if (o.days_to_clear != null) days.push(o.days_to_clear);
       });
       const avgDaysToClear =
-        days.length > 0 ? Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10 : null;
+        days.length > 0
+          ? Math.round((days.reduce((a, b) => a + b, 0) / days.length) * 10) / 10
+          : null;
 
       return {
         kpis: { totalCreditTaken, totalCleared, currentPending, avgDaysToClear },
         orders,
         collections,
         allocations,
+        creditTerms,
+        distributorId,
       };
     },
   });
 }
-
