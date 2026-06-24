@@ -166,6 +166,8 @@ export const SchemeApplicabilitySelector = ({
       case 'beat': return <Route className="h-4 w-4" />;
       case 'retailer': return <Store className="h-4 w-4" />;
       case 'salesperson': return <User className="h-4 w-4" />;
+      case 'distributor': return <Building2 className="h-4 w-4" />;
+
       default: return <Globe className="h-4 w-4" />;
     }
   };
