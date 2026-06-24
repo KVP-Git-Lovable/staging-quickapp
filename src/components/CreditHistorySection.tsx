@@ -458,7 +458,7 @@ function EditCreditTermsDialog({
   const [saving, setSaving] = useState(false);
 
   // Reset when opening
-  useMemo(() => {
+  useEffect(() => {
     if (open) {
       setLimit(currentLimit == null ? "" : String(currentLimit));
       setDays(currentDays == null ? "" : String(currentDays));
