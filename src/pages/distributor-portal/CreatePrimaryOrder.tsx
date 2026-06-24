@@ -847,8 +847,7 @@ const CartStage = ({
           {showSupplier && <div>Supplier Stock</div>}
           <div />
         </div>
-          <div />
-        </div>
+
 
         <div className="divide-y">
           {orderItems.map((item: OrderItem, index: number) => {
