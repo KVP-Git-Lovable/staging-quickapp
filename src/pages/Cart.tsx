@@ -874,24 +874,23 @@ export const Cart = () => {
         previousPendingCleared = 0;
         orderPaymentMethod = "credit";
       } else if (paymentType === "full") {
-        // Full payment - clear all dues
-        isCreditOrder = false;
-        newTotalPending = 0;
-        previousPendingCleared = pendingAmountFromPrevious;
-        creditPaid = totalAmount;
-        creditPending = 0;
+        // Full payment - routed through FIFO post-insert. Order row starts unpaid;
+        // apply_retailer_payment_fifo will clear oldest pending first (incl. this order).
+        isCreditOrder = true;
+        newTotalPending = Math.max(0, totalDue - totalAmount);
+        previousPendingCleared = 0;
+        creditPaid = 0;
+        creditPending = totalAmount;
         orderPaymentMethod = paymentMethod;
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       } else if (paymentType === "partial") {
-        // Partial payment
+        // Partial payment - routed through FIFO post-insert. Order row carries its
+        // OWN total as pending; FIFO RPC allocates the payment oldest-first.
         isCreditOrder = true;
         const paidAmount = parseFloat(partialAmount);
-        previousPendingCleared = Math.min(pendingAmountFromPrevious, paidAmount);
-        // Amount applied to THIS order = total paid minus what cleared previous pending.
-        const paidOnThisOrder = Math.max(0, paidAmount - previousPendingCleared);
-        creditPaid = paidOnThisOrder;
-        // Order row carries only ITS OWN unpaid (do NOT include retailer's previous pending).
-        creditPending = Math.max(0, totalAmount - paidOnThisOrder);
+        previousPendingCleared = 0;
+        creditPaid = 0;
+        creditPending = totalAmount;
         newTotalPending = Math.max(0, totalDue - paidAmount);
         orderPaymentMethod = paymentMethod;
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
