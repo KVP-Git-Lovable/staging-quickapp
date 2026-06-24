@@ -216,6 +216,11 @@ export const SchemeApplicabilitySelector = ({
     s.full_name?.toLowerCase().includes(searchFilters.salesperson.toLowerCase())
   );
 
+  const filteredDistributors = distributors.filter(d => 
+    d.name?.toLowerCase().includes(searchFilters.distributor.toLowerCase())
+  );
+
+
   if (loading) {
     return (
       <div className="p-4 text-center text-muted-foreground">
