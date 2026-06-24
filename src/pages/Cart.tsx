@@ -1129,6 +1129,8 @@ export const Cart = () => {
       const atOrderAmountPaid =
         paymentType === 'full' ? totalAmount :
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
+      let syncedOrderRow: any = null;
+      let syncedOrderAllocations: any[] = [];
       if (atOrderAmountPaid > 0 && validRetailerId && !result.offline && result.order?.id) {
         try {
           const { data: ret } = await supabase
@@ -1156,6 +1158,25 @@ export const Cart = () => {
             p_collection_id: (collection as any).id,
           });
           if (fifoErr) throw fifoErr;
+
+          // Re-fetch the order row + its FIFO allocations so the UI shows the
+          // post-allocation credit_paid_amount / credit_pending_amount (server-side
+          // truth), not the pre-FIFO local values that were used at insert time.
+          try {
+            const { data: freshOrder } = await (supabase as any)
+              .from('orders')
+              .select('id, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, payment_status, previous_pending_cleared')
+              .eq('id', result.order.id)
+              .maybeSingle();
+            if (freshOrder) syncedOrderRow = freshOrder;
+            const { data: allocs } = await (supabase as any)
+              .from('retailer_payment_allocations')
+              .select('id, order_id, amount, collection_id, created_at')
+              .eq('collection_id', (collection as any).id);
+            syncedOrderAllocations = allocs || [];
+          } catch (refetchErr) {
+            console.warn('[Cart] Post-FIFO re-fetch failed:', refetchErr);
+          }
         } catch (e) {
           console.error('[Cart] At-order FIFO payment failed:', e);
         }
