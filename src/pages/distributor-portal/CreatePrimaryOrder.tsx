@@ -335,6 +335,50 @@ const CreatePrimaryOrder = () => {
     }]);
   };
 
+  // ===== Scheme helpers =====
+  const getApplicableSchemes = (productId: string, qty: number): SchemeRow[] => {
+    if (!productId) return [];
+    return schemes.filter((s) => {
+      if (s.product_id && s.product_id !== productId) return false;
+      const minQty = Number(s.buy_quantity ?? s.condition_quantity ?? 0);
+      if (minQty > 0 && qty < minQty) return false;
+      return true;
+    });
+  };
+
+  const describeScheme = (s: SchemeRow): string => {
+    if (s.scheme_type === 'buy_x_get_y' && s.buy_quantity && s.free_quantity) {
+      return `${s.name} · Buy ${s.buy_quantity} Get ${s.free_quantity}`;
+    }
+    if (s.discount_percentage) return `${s.name} · ${s.discount_percentage}% off`;
+    if (s.discount_amount)     return `${s.name} · ₹${s.discount_amount} off`;
+    return s.name;
+  };
+
+  // Auto-apply best scheme when product or qty changes (unless user manually set one).
+  useEffect(() => {
+    if (schemes.length === 0) return;
+    let mutated = false;
+    const next = orderItems.map((it) => {
+      if (!it.product_id) return it;
+      const applicable = getApplicableSchemes(it.product_id, it.quantity);
+      // Drop a previously auto/manual selection that no longer qualifies.
+      if (it.applied_scheme_id && !applicable.find((s) => s.id === it.applied_scheme_id)) {
+        mutated = true;
+        return { ...it, applied_scheme_id: null, scheme_manually_set: false };
+      }
+      if (!it.applied_scheme_id && !it.scheme_manually_set && applicable.length > 0) {
+        mutated = true;
+        return { ...it, applied_scheme_id: applicable[0].id };
+      }
+      return it;
+    });
+    if (mutated) setOrderItems(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderItems.map(i => `${i.product_id}:${i.quantity}`).join('|'), schemes.length]);
+
+
+
   const totals = useMemo(() => {
     let subtotal = 0, totalDiscount = 0, cgst = 0, sgst = 0;
     orderItems.forEach((it) => {
