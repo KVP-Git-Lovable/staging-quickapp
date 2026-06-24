@@ -180,8 +180,11 @@ export function useRetailerCreditHistory(
         )
         .eq("retailer_id", retailerId)
         .eq("is_credit_order", true)
+        .neq("status", "cancelled")
+        .is("replaced_by_order_id", null)
         .order("order_date", { ascending: false })
         .limit(500);
+
       if (from) ordersQuery = ordersQuery.gte("order_date", from);
       if (to) ordersQuery = ordersQuery.lte("order_date", to);
 
