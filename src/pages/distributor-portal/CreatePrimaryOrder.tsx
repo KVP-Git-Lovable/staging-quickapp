@@ -61,6 +61,7 @@ const CreatePrimaryOrder = () => {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [productUoms, setProductUoms] = useState<Record<string, UomOption[]>>({});
   const [productStock, setProductStock] = useState<Record<string, number>>({});
+  const [schemes, setSchemes] = useState<SchemeRow[]>([]);
   const [supplierStock, setSupplierStock] = useState<Record<string, number> | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
