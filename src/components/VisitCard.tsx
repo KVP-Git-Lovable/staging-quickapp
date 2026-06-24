@@ -2353,6 +2353,8 @@ export const VisitCard = ({
 
         offlineOrders = cachedOrders.filter((o: any) => {
           if (o.retailer_id !== retailerId) return false;
+          // Exclude cancelled originals and orders replaced by an edit (live orders only)
+          if (o.status === 'cancelled' || o.replaced_by_order_id) return false;
           if (o.order_date) {
             const orderDateStr = o.order_date.split('T')[0];
             return orderDateStr === targetDateStr;
