@@ -896,6 +896,18 @@ export const Cart = () => {
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       }
 
+      // EDIT MODE: the cart must NOT collect a payment. finalize_order_edit
+      // carries the original's payment onto the replacement automatically.
+      // To collect more during an edit, use the standalone Pay button afterward.
+      if (isEditMode) {
+        isCreditOrder = true;
+        creditPaid = 0;
+        creditPending = totalAmount;
+        previousPendingCleared = 0;
+        newTotalPending = totalDue;
+        paymentProofUrl = "";
+      }
+
       console.time('⚡ Order Submission');
 
       // ALWAYS ensure we have a visit for this order (phone orders AND regular orders)
