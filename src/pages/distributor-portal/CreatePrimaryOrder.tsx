@@ -11,8 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ArrowLeft, Plus, Minus, Trash2, ShoppingBag, Save, Send,
-  CreditCard, ArrowRight, Check, Gift, FileText, Truck, Receipt,
+  CreditCard, ArrowRight, Check, Gift, FileText, Truck, Receipt, ChevronRight,
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { PaymentDetailsCard } from '@/components/distributor-portal/PaymentDetailsCard';
 import ShippingAddressPicker from '@/components/distributor-portal/ShippingAddressPicker';
