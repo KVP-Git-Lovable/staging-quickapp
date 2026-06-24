@@ -1047,22 +1047,20 @@ export const VisitCard = ({
             const totalPendingCleared = ordersToday.reduce((sum, order) => sum + Number((order as any).previous_pending_cleared || 0), 0);
             setPreviousPendingCleared(totalPendingCleared);
 
-            // Split cash vs credit orders and aggregate properly
+            // Split cash vs credit orders and aggregate from server-authoritative per-order values
             const creditOrders = ordersToday.filter((o: any) => !!o.is_credit_order);
             const cashOrders = ordersToday.filter((o: any) => !o.is_credit_order);
             const paidFromCash = cashOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
-            const creditOrdersTotal = creditOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
             const totalPaidFromCredit = creditOrders.reduce((sum: number, o: any) => sum + Number(o.credit_paid_amount || 0), 0);
             const totalPaidToday = paidFromCash + totalPaidFromCredit;
+            const todaysPending = creditOrders.reduce((sum: number, o: any) => sum + Number(
+              (o as any).credit_pending_amount ?? (Number(o.total_amount || 0) - Number(o.credit_paid_amount || 0))
+            ), 0);
 
-            // Calculate pending using: (Previous pending + Current order) - Amount paid = Updated pending
-            // Use the retailer's pending_amount from state as the previous pending
-            const previousPending = pendingAmount || 0;
-            const updatedPending = Math.max(0, previousPending + creditOrdersTotal - totalPaidFromCredit);
             setIsCreditOrder(creditOrders.length > 0);
             setCreditPaidAmount(totalPaidFromCredit); // Credit paid amount today (for reference)
             setPaidTodayAmount(totalPaidToday); // Total paid amount today (cash + credit)
-            setCreditPendingAmount(updatedPending); // Updated pending after today's order
+            setCreditPendingAmount(Math.max(0, todaysPending)); // Today's order pending (per-order server value)
 
             // CRITICAL: Update local status to productive immediately when orders exist
             console.log('✅ [VisitCard] Orders exist - setting status to productive immediately');
