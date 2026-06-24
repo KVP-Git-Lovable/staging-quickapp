@@ -2645,19 +2645,6 @@ const Operations = () => {
         </Card>
       </div>
 
-      {/* Edit Order Dialog */}
-      {selectedOrderForEdit && (
-        <EditOrderDialog
-          orderId={selectedOrderForEdit.id}
-          retailerName={selectedOrderForEdit.retailer_name}
-          open={editOrderDialogOpen}
-          onOpenChange={setEditOrderDialogOpen}
-          onSaved={() => {
-            fetchOrderData();
-            toast.success("Order updated - changes will reflect across the system");
-          }}
-        />
-      )}
 
       {/* Cancel Order Dialog */}
       {selectedOrderForCancel && (
