@@ -1693,20 +1693,21 @@ export const Cart = () => {
         previousPendingCleared = 0;
         orderPaymentMethod = "credit";
       } else if (paymentType === "full") {
-        isCreditOrder = false;
-        newTotalPending = 0;
-        previousPendingCleared = pendingAmountFromPrevious;
-        creditPaid = totalAmount;
-        creditPending = 0;
+        // Full payment - routed through FIFO post-insert.
+        isCreditOrder = true;
+        newTotalPending = Math.max(0, totalDue - totalAmount);
+        previousPendingCleared = 0;
+        creditPaid = 0;
+        creditPending = totalAmount;
         orderPaymentMethod = paymentMethod;
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
       } else if (paymentType === "partial") {
+        // Partial payment - routed through FIFO post-insert.
         isCreditOrder = true;
         const paidAmount = parseFloat(partialAmount);
-        previousPendingCleared = Math.min(pendingAmountFromPrevious, paidAmount);
-        const paidOnThisOrder = Math.max(0, paidAmount - previousPendingCleared);
-        creditPaid = paidOnThisOrder;
-        creditPending = Math.max(0, totalAmount - paidOnThisOrder);
+        previousPendingCleared = 0;
+        creditPaid = 0;
+        creditPending = totalAmount;
         newTotalPending = Math.max(0, totalDue - paidAmount);
         orderPaymentMethod = paymentMethod;
         paymentProofUrl = paymentMethod === "cheque" ? chequePhotoUrl : paymentMethod === "upi" ? upiPhotoUrl : paymentMethod === "neft" ? neftPhotoUrl : "";
