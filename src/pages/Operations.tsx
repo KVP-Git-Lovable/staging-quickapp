@@ -21,7 +21,7 @@ import { getCurrentWeekRange, getCurrentMonthRange, getLastMonthRange, toLocalIS
 import { downloadCSV } from '@/utils/fileDownloader';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
-import EditOrderDialog from '@/components/EditOrderDialog';
+
 import { CancelOrderDialog, CancelableOrder } from '@/components/CancelOrderDialog';
 import { SignedImage } from '@/components/ui/signed-image';
 import { InvoicePDFGenerator } from '@/components/invoice/InvoicePDFGenerator';
@@ -245,8 +245,6 @@ const Operations = () => {
   };
   
   // Edit order dialog state
-  const [editOrderDialogOpen, setEditOrderDialogOpen] = useState(false);
-  const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<{ id: string; retailer_name: string } | null>(null);
 
   // Cancel order dialog state
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -2176,8 +2174,12 @@ const Operations = () => {
                                   className="h-8 w-8"
                                   title="Edit Order"
                                   onClick={() => {
-                                    setSelectedOrderForEdit({ id: item.id, retailer_name: item.retailer_name });
-                                    setEditOrderDialogOpen(true);
+                                    const params = new URLSearchParams();
+                                    if ((item as any).visit_id) params.set('visitId', (item as any).visit_id);
+                                    if (item.retailer_id) params.set('retailerId', item.retailer_id);
+                                    if (item.retailer_name) params.set('retailer', item.retailer_name);
+                                    params.set('editOrderId', item.id);
+                                    navigate(`/order-entry?${params.toString()}`);
                                   }}
                                 >
                                   <Pencil size={16} />
@@ -2641,19 +2643,6 @@ const Operations = () => {
         </Card>
       </div>
 
-      {/* Edit Order Dialog */}
-      {selectedOrderForEdit && (
-        <EditOrderDialog
-          orderId={selectedOrderForEdit.id}
-          retailerName={selectedOrderForEdit.retailer_name}
-          open={editOrderDialogOpen}
-          onOpenChange={setEditOrderDialogOpen}
-          onSaved={() => {
-            fetchOrderData();
-            toast.success("Order updated - changes will reflect across the system");
-          }}
-        />
-      )}
 
       {/* Cancel Order Dialog */}
       {selectedOrderForCancel && (
