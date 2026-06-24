@@ -14,6 +14,7 @@ import {
   Route, 
   Store, 
   User, 
+  Building2,
   ChevronDown, 
   ChevronRight,
   X,
@@ -22,12 +23,14 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+
 export interface ApplicabilityRule {
-  level: 'global' | 'territory' | 'beat' | 'retailer' | 'salesperson';
+  level: 'global' | 'territory' | 'beat' | 'retailer' | 'salesperson' | 'distributor';
   entityId: string;
   entityName: string;
   includeChildren: boolean;
 }
+
 
 interface SchemeApplicabilitySelectorProps {
   applicabilityType: 'global' | 'targeted' | 'hybrid';
@@ -58,6 +61,12 @@ interface Salesperson {
   full_name: string;
 }
 
+interface Distributor {
+  id: string;
+  name: string;
+}
+
+
 export const SchemeApplicabilitySelector = ({
   applicabilityType,
   setApplicabilityType,
@@ -68,6 +77,7 @@ export const SchemeApplicabilitySelector = ({
   const [beats, setBeats] = useState<Beat[]>([]);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [salespersons, setSalespersons] = useState<Salesperson[]>([]);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Expanded sections
@@ -75,7 +85,8 @@ export const SchemeApplicabilitySelector = ({
     territory: false,
     beat: false,
     retailer: false,
-    salesperson: false
+    salesperson: false,
+    distributor: false
   });
   
   // Search filters
@@ -83,8 +94,10 @@ export const SchemeApplicabilitySelector = ({
     territory: '',
     beat: '',
     retailer: '',
-    salesperson: ''
+    salesperson: '',
+    distributor: ''
   });
+
 
   useEffect(() => {
     fetchData();
@@ -112,12 +125,17 @@ export const SchemeApplicabilitySelector = ({
       // Fetch salespersons
       const salespersonsRes = await supabase.from('profiles').select('id, full_name').order('full_name');
       if (salespersonsRes.data) setSalespersons(salespersonsRes.data as unknown as Salesperson[]);
+
+      // Fetch distributors
+      const distributorsRes = await supabase.from('distributors').select('id, name').order('name');
+      if (distributorsRes.data) setDistributors(distributorsRes.data as unknown as Distributor[]);
     } catch (error) {
       console.error('Error fetching applicability data:', error);
     } finally {
       setLoading(false);
     }
   };
+
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -148,6 +166,8 @@ export const SchemeApplicabilitySelector = ({
       case 'beat': return <Route className="h-4 w-4" />;
       case 'retailer': return <Store className="h-4 w-4" />;
       case 'salesperson': return <User className="h-4 w-4" />;
+      case 'distributor': return <Building2 className="h-4 w-4" />;
+
       default: return <Globe className="h-4 w-4" />;
     }
   };
@@ -158,6 +178,8 @@ export const SchemeApplicabilitySelector = ({
       case 'beat': return 'bg-green-100 text-green-700 border-green-200';
       case 'retailer': return 'bg-purple-100 text-purple-700 border-purple-200';
       case 'salesperson': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'distributor': return 'bg-rose-100 text-rose-700 border-rose-200';
+
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
@@ -167,6 +189,8 @@ export const SchemeApplicabilitySelector = ({
       case 'territory': return 'Includes all beats & retailers within this territory';
       case 'beat': return 'Includes all retailers within this beat';
       case 'salesperson': return 'Includes all assigned territories, beats & retailers';
+      case 'distributor': return 'Applies to all primary orders placed by this distributor';
+
       case 'retailer': return 'Specific retailer only';
       default: return '';
     }
@@ -191,6 +215,11 @@ export const SchemeApplicabilitySelector = ({
   const filteredSalespersons = salespersons.filter(s => 
     s.full_name?.toLowerCase().includes(searchFilters.salesperson.toLowerCase())
   );
+
+  const filteredDistributors = distributors.filter(d => 
+    d.name?.toLowerCase().includes(searchFilters.distributor.toLowerCase())
+  );
+
 
   if (loading) {
     return (
@@ -468,6 +497,56 @@ export const SchemeApplicabilitySelector = ({
               </div>
             </CollapsibleContent>
           </Collapsible>
+
+          {/* Distributor Section */}
+          <Collapsible open={expandedSections.distributor} onOpenChange={() => toggleSection('distributor')}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-rose-600" />
+                  <span>By Distributor</span>
+                  {getSelectedCount('distributor') > 0 && (
+                    <Badge variant="secondary" className="ml-2">{getSelectedCount('distributor')}</Badge>
+                  )}
+                </div>
+                {expandedSections.distributor ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <div className="border rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground bg-rose-50 p-2 rounded">
+                  <Info className="h-3 w-3" />
+                  <span>Applies to all primary orders placed by selected distributors</span>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search distributors..."
+                    value={searchFilters.distributor}
+                    onChange={(e) => setSearchFilters(prev => ({ ...prev, distributor: e.target.value }))}
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <ScrollArea className="h-[150px]">
+                  <div className="space-y-1">
+                    {filteredDistributors.map(d => (
+                      <div key={d.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded">
+                        <Checkbox
+                          checked={isEntitySelected('distributor', d.id)}
+                          onCheckedChange={() => toggleEntity('distributor', d.id, d.name)}
+                        />
+                        <span className="text-sm">{d.name}</span>
+                      </div>
+                    ))}
+                    {filteredDistributors.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">No distributors found</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
         </div>
       )}
     </div>

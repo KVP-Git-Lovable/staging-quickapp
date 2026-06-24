@@ -204,14 +204,34 @@ const CreatePrimaryOrder = () => {
       const today = new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from('product_schemes')
-        .select('id, name, scheme_type, product_id, free_product_id, discount_percentage, discount_amount, buy_quantity, free_quantity, condition_quantity, min_order_value, start_date, end_date, is_active')
+        .select('id, name, scheme_type, product_id, free_product_id, discount_percentage, discount_amount, buy_quantity, free_quantity, condition_quantity, min_order_value, start_date, end_date, is_active, applicability_type')
         .eq('is_active', true)
         .or(`start_date.is.null,start_date.lte.${today}`)
         .or(`end_date.is.null,end_date.gte.${today}`);
       if (error) throw error;
-      setSchemes((data || []) as SchemeRow[]);
+      const all = (data || []) as any[];
+
+      // Filter by applicability: global schemes always apply; targeted schemes only if
+      // there is a matching distributor rule for the current distributorId.
+      const targetedIds = all.filter(s => s.applicability_type === 'targeted').map(s => s.id);
+      let allowedTargetedIds = new Set<string>();
+      if (targetedIds.length > 0 && distributorId) {
+        const { data: rules } = await supabase
+          .from('scheme_applicability')
+          .select('scheme_id, applicability_level, entity_id')
+          .in('scheme_id', targetedIds)
+          .eq('applicability_level', 'distributor')
+          .eq('entity_id', distributorId);
+        (rules || []).forEach((r: any) => allowedTargetedIds.add(r.scheme_id));
+      }
+
+      const filtered = all.filter(s =>
+        s.applicability_type !== 'targeted' || allowedTargetedIds.has(s.id)
+      );
+      setSchemes(filtered as SchemeRow[]);
     } catch (err) { console.error('Scheme load failed:', err); }
   };
+
 
 
 
