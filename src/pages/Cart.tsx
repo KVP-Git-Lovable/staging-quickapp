@@ -1932,6 +1932,42 @@ export const Cart = () => {
           .eq('id', validRetailerId);
       }
 
+      // FIFO at-order payment (D-1 path): same flow as regular order.
+      const atOrderAmountPaidD1 =
+        paymentType === 'full' ? totalAmount :
+        paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
+      if (atOrderAmountPaidD1 > 0 && validRetailerId && !result.offline && result.order?.id) {
+        try {
+          const { data: ret } = await supabase
+            .from('retailers')
+            .select('owner_id, user_id')
+            .eq('id', validRetailerId)
+            .maybeSingle();
+          const revenueOwnerId = (ret as any)?.owner_id || (ret as any)?.user_id || currentUserId;
+          const { data: collection, error: collErr } = await (supabase as any)
+            .from('retailer_payment_collections')
+            .insert({
+              retailer_id: validRetailerId,
+              amount: atOrderAmountPaidD1,
+              payment_method: orderPaymentMethod,
+              payment_proof_url: paymentProofUrl || null,
+              collected_by_user_id: currentUserId,
+              revenue_owner_id: revenueOwnerId,
+            })
+            .select('id')
+            .single();
+          if (collErr || !collection) throw collErr || new Error('collection insert failed');
+          const { error: fifoErr } = await (supabase as any).rpc('apply_retailer_payment_fifo', {
+            p_retailer_id: validRetailerId,
+            p_amount: atOrderAmountPaidD1,
+            p_collection_id: (collection as any).id,
+          });
+          if (fifoErr) throw fifoErr;
+        } catch (e) {
+          console.error('[Cart][D-1] At-order FIFO payment failed:', e);
+        }
+      }
+
       // --- Phase 2b-3a: finalize edit (D-1 path) ---
       if (isEditMode && editOrderId && result.order?.id && !result.offline) {
         try {
