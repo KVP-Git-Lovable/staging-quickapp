@@ -202,7 +202,7 @@ export const SchemeMaster = () => {
     // Fetch base products
     const { data: productsData, error: productsError } = await supabase
       .from('products')
-      .select('id, sku, name, description, category_id, rate, unit, is_active')
+      .select('id, sku, name, description, category_id, rate, base_unit, is_active')
       .eq('is_active', true)
       .order('name');
 
