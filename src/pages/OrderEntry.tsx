@@ -445,6 +445,13 @@ export const OrderEntry = () => {
   // Check attendance on mount - OFFLINE FIRST
   useEffect(() => {
     const checkAttendance = async () => {
+      if (isAdminEdit) {
+        // Admin editing from Operations: bypass field-rep attendance gate.
+        setHasAttendance(true);
+        setAttendanceChecked(true);
+        setCheckingAttendance(false);
+        return;
+      }
       if (!userId) {
         setCheckingAttendance(false);
         return;
