@@ -618,13 +618,14 @@ export const OrderEntry = () => {
 
         const { data: order, error: orderErr } = await supabase
           .from('orders')
-          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount')
+          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, invoice_number')
           .eq('id', editOrderId)
           .maybeSingle();
         if (orderErr || !order) {
           setEditBlockedReason("This order can't be edited in its current state.");
           return;
         }
+        if (!cancelled) setEditInvoiceNumber((order as any)?.invoice_number || null);
 
         const { data: policyRow } = await supabase
           .from('order_edit_policy')
