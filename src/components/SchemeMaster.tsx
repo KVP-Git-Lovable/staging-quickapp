@@ -222,7 +222,7 @@ export const SchemeMaster = () => {
           product_id,
           price,
           is_active,
-          product:products!product_id(name, category_id, unit)
+          product:products!product_id(name, category_id, base_unit)
         `)
         .eq('is_active', true)
         .order('variant_name');
