@@ -417,6 +417,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/territory/:id" element={<ProtectedRoute><TerritoryDetail /></ProtectedRoute>} />
         <Route path="/admin-expense-management" element={<ProtectedRoute><AdminExpenseManagement /></ProtectedRoute>} />
         <Route path="/operations" element={<ProtectedRoute><Operations /></ProtectedRoute>} />
+        <Route path="/operations/edited-orders" element={<ProtectedRoute><EditedOrders /></ProtectedRoute>} />
         <Route path="/visit-planner" element={<ProtectedRoute><VisitPlanner /></ProtectedRoute>} />
         <Route path="/visits" element={<ProtectedRoute><BeatPlanning /></ProtectedRoute>} />
         <Route path="/beat-planning" element={<ProtectedRoute><BeatPlanning /></ProtectedRoute>} />
