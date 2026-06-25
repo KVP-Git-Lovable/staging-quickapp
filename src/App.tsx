@@ -122,6 +122,7 @@ import { RetailerDetail } from "./pages/RetailerDetail";
 import TerritoriesAndDistributors from "./pages/TerritoriesAndDistributors";
 import TerritoryDetail from "./pages/TerritoryDetail";
 import Operations from "./pages/Operations";
+import EditedOrders from "./pages/EditedOrders";
 import GPSTrack from "./pages/GPSTrack";
 import GPSTrackManagement from "./pages/GPSTrackManagement";
 import RetailManagement from "./pages/RetailManagement";
