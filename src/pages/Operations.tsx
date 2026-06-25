@@ -1245,6 +1245,9 @@ const Operations = () => {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={() => navigate('/operations/edited-orders')}>
+              <Pencil className="h-4 w-4 mr-2" /> Edited Orders
+            </Button>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Auto-refresh</span>
               <Switch 
