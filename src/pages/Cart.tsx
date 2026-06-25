@@ -184,6 +184,7 @@ export const Cart = () => {
     retailer_id?: string | null;
     total_amount?: number | null;
   } | null>(null);
+  const [editInvoiceNumber, setEditInvoiceNumber] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!isEditMode) return;
