@@ -483,16 +483,17 @@ export const OrderEntry = () => {
     };
     
     checkAttendance();
-  }, [userId]);
+  }, [userId, isAdminEdit]);
 
   // Global click handler - ANY click/touch inside Order Entry page triggers check-in
   const handlePageInteraction = useCallback(() => {
+    if (isAdminEdit) return; // No visit check-in capture for admin edits
     if (!hasRecordedFirstInteraction.current && userId) {
       hasRecordedFirstInteraction.current = true;
       console.log('📍 First page interaction - capturing check-in');
       recordAction('order').catch((err) => console.log('Check-in error (non-fatal):', err));
     }
-  }, [userId, recordAction]);
+  }, [userId, recordAction, isAdminEdit]);
   
   // Fetch retailer coordinates - CACHE FIRST, non-blocking
   useEffect(() => {
