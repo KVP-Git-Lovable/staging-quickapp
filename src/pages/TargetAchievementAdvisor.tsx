@@ -195,14 +195,6 @@ const TargetAchievementAdvisor = () => {
             {/* Header content */}
             <div className="relative px-4 pt-4 pb-6">
               <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => navigate(-1)}
-                  className="shrink-0 text-white/90 hover:text-white hover:bg-white/10"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
