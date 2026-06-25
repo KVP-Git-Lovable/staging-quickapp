@@ -254,6 +254,7 @@ export const Cart = () => {
 
         if (cancelled) return;
         setEditOriginalOrder(order as any);
+        setEditInvoiceNumber((order as any)?.invoice_number || null);
 
         // Seed cart from order_items (only if edit cart not yet seeded)
         const editKey = `order_cart:edit:${editOrderId}`;
