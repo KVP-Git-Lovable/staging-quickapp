@@ -209,7 +209,7 @@ export const Cart = () => {
         // Fetch original order
         const { data: order, error: orderErr } = await supabase
           .from('orders')
-          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, credit_pending_amount')
+          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, credit_pending_amount, invoice_number')
           .eq('id', editOrderId)
           .maybeSingle();
         if (orderErr || !order) {
