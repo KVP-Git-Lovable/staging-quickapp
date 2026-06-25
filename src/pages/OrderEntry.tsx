@@ -2007,7 +2007,9 @@ export const OrderEntry = () => {
             <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
               <div className="min-w-0 flex-1 overflow-hidden">
                 <CardTitle className="text-sm sm:text-base font-medium leading-tight truncate">
-                  {isPhoneOrder ? t('order.phoneOrderEntry') : t('order.orderEntry')}
+                  {isAdminEdit
+                    ? `Edit Order${editInvoiceNumber ? ` #${editInvoiceNumber}` : ''}`
+                    : (isPhoneOrder ? t('order.phoneOrderEntry') : t('order.orderEntry'))}
                 </CardTitle>
                 <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate max-w-[40vw] sm:max-w-none">{retailerName}</p>
                 <div className="flex items-center gap-1 mt-0.5">
