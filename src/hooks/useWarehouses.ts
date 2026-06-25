@@ -120,17 +120,20 @@ export const useWarehouses = (distributorId: string | null) => {
 
   const deleteWarehouse = async (id: string) => {
     if (!distributorId) throw new Error('No distributor ID');
-    const [inv, batches, txn] = await Promise.all([
-      supabase.from('distributor_inventory').select('id').eq('warehouse_id', id).limit(1),
-      supabase.from('inventory_batches').select('id').eq('warehouse_id', id).limit(1),
-      supabase.from('distributor_inventory_transactions').select('id').eq('warehouse_id', id).limit(1),
+    const [invStock, batchStock] = await Promise.all([
+      supabase.from('distributor_inventory').select('id').eq('warehouse_id', id).gt('quantity', 0).limit(1),
+      supabase.from('inventory_batches').select('id').eq('warehouse_id', id).gt('quantity', 0).limit(1),
     ]);
-    const hasUsage = (inv.data?.length || 0) > 0 || (batches.data?.length || 0) > 0 || (txn.data?.length || 0) > 0;
-    if (hasUsage) {
-      throw new Error('Cannot delete warehouse with existing inventory.');
+    if ((invStock.data?.length || 0) > 0 || (batchStock.data?.length || 0) > 0) {
+      throw new Error('This warehouse still holds stock. Transfer or clear its inventory before deleting it.');
     }
     const { error } = await supabase.from('warehouses').delete().eq('id', id);
-    if (error) throw error;
+    if (error) {
+      if ((error as any).code === '23503') {
+        throw new Error('This warehouse still holds stock. Transfer or clear its inventory before deleting it.');
+      }
+      throw error;
+    }
     await load();
   };
 
