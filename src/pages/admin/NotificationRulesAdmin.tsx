@@ -223,6 +223,19 @@ const NotificationRulesAdmin = () => {
                           />
                         </TableCell>
                         <TableCell className="text-right space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Fire now (send test notification to receivers)"
+                            disabled={fireMutation.isPending}
+                            onClick={() => {
+                              if (window.confirm(`Fire "${rule.name}" now? A [TEST] notification will be sent to its configured receivers.`)) {
+                                fireMutation.mutate(rule);
+                              }
+                            }}
+                          >
+                            <Zap size={14} className="text-amber-500" />
+                          </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
                             <Pencil size={14} />
                           </Button>
