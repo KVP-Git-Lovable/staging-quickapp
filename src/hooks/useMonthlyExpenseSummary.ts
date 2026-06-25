@@ -89,35 +89,47 @@ export const useMonthlyExpenseSummary = (userId: string | undefined, yearMonth: 
         beatTAMap.set(b.beat_id, ta);
       });
 
-      // Present dates
+      // Present dates (for DA)
       const presentDates = new Set(
         attendanceRes.data?.filter(a => ['present', 'regularized'].includes(a.status)).map(a => a.date) || []
       );
       const presentDays = presentDates.size;
 
+      // Leave dates — TA is not paid on leave days (mirrors BeatAllowanceManagement table)
+      const leaveDates = new Set(
+        attendanceRes.data?.filter(a => ['leave', 'on_leave', 'absent', 'half_day_leave'].includes(a.status)).map(a => a.date) || []
+      );
+
       // DA total
       const da = presentDays * daAmount;
 
-      // TA calculation per day + GPS km tracking
+      // TA calculation per beat-plan day (source of truth = beat_plans, same as Expense Details table)
       const dailyTA = new Map<string, number>();
       const dailyKm = new Map<string, number>();
-      if (taType === 'fixed') {
-        presentDates.forEach(d => dailyTA.set(d, fixedTa));
-      } else if (taType === 'from_gps') {
+      const planDates = new Set<string>(
+        (beatPlansRes.data || []).map((p: any) => p.plan_date as string)
+      );
+
+      if (taType === 'from_gps') {
         // Fetch GPS distances for the month
         const gpsDistances = await fetchMonthlyGPSDistances(userId, startStr, endStr);
-        presentDates.forEach(d => {
+        planDates.forEach(d => {
+          if (leaveDates.has(d)) return;
           const km = gpsDistances.get(d) || 0;
           dailyKm.set(d, km);
           dailyTA.set(d, Math.round(km * taPerKmRate * 100) / 100);
         });
+      } else if (taType === 'fixed') {
+        planDates.forEach(d => {
+          if (leaveDates.has(d)) return;
+          dailyTA.set(d, fixedTa);
+        });
       } else {
         // from_beat
         beatPlansRes.data?.forEach((plan: any) => {
-          if (presentDates.has(plan.plan_date)) {
-            const current = dailyTA.get(plan.plan_date) || 0;
-            dailyTA.set(plan.plan_date, current + (beatTAMap.get(plan.beat_id) || 0));
-          }
+          if (leaveDates.has(plan.plan_date)) return;
+          const current = dailyTA.get(plan.plan_date) || 0;
+          dailyTA.set(plan.plan_date, current + (beatTAMap.get(plan.beat_id) || 0));
         });
       }
 
