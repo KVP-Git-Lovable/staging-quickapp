@@ -83,6 +83,60 @@ const NotificationRulesAdmin = () => {
     setEditingRule(null);
   };
 
+  const renderTemplate = (tpl: string, ctx: Record<string, string>) =>
+    tpl
+      .replace(/\{user_name\}/g, ctx.user_name || 'User')
+      .replace(/\{module_name\}/g, ctx.module_name || '')
+      .replace(/\{record_name\}/g, ctx.record_name || '')
+      .replace(/\{date\}/g, new Date().toLocaleDateString())
+      .replace(/\{points\}/g, ctx.points || '');
+
+  const fireMutation = useMutation({
+    mutationFn: async (rule: NotificationRule) => {
+      let receiverIds: string[] = [];
+      if (rule.receiver_type === 'specific_user' && rule.receiver_user_id) {
+        receiverIds = [rule.receiver_user_id];
+      } else if (rule.receiver_type === 'employee') {
+        if (user?.id) receiverIds = [user.id];
+      } else if (rule.receiver_type === 'manager') {
+        if (user?.id) {
+          const { data } = await supabase.from('profiles').select('manager_id').eq('id', user.id).maybeSingle();
+          if ((data as any)?.manager_id) receiverIds = [(data as any).manager_id];
+        }
+      } else if (rule.receiver_type === 'admin') {
+        const { data } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
+        receiverIds = (data || []).map((r: any) => r.user_id);
+      } else if (rule.receiver_type === 'role' && rule.receiver_role) {
+        const { data } = await supabase.from('user_roles').select('user_id').eq('role', rule.receiver_role as any);
+        receiverIds = (data || []).map((r: any) => r.user_id);
+      }
+
+      receiverIds = Array.from(new Set(receiverIds.filter(Boolean)));
+      if (receiverIds.length === 0) throw new Error('No receivers resolved for this rule');
+
+      const ctx = {
+        user_name: (user as any)?.user_metadata?.full_name || user?.email || 'Admin',
+        module_name: rule.source_table.replace(/_/g, ' '),
+        record_name: '[Manual Fire]',
+        points: '',
+      };
+      const title = `[TEST] ${renderTemplate(rule.title_template, ctx)}`;
+      const message = renderTemplate(rule.message_template, ctx);
+
+      const rows = receiverIds.map(uid => ({
+        user_id: uid,
+        title,
+        message,
+        type: 'info',
+      }));
+      const { error } = await supabase.from('notifications').insert(rows);
+      if (error) throw error;
+      return receiverIds.length;
+    },
+    onSuccess: (count) => toast.success(`Fired notification to ${count} user(s)`),
+    onError: (err: any) => toast.error(err.message || 'Failed to fire rule'),
+  });
+
   const receiverLabel = (rule: NotificationRule) => {
     if (rule.receiver_type === 'role') return `Role: ${rule.receiver_role}`;
     if (rule.receiver_type === 'specific_user') return 'Specific User';
