@@ -244,7 +244,7 @@ export const SchemeMaster = () => {
       description: p.description || '',
       category_id: p.category_id || '',
       rate: p.rate,
-      unit: p.unit || '',
+      unit: p.base_unit || '',
       is_active: p.is_active,
       type: 'product' as const
     }));
