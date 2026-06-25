@@ -2360,7 +2360,11 @@ export const Cart = () => {
               {/* Left side - Title */}
               <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <CardTitle className="text-base sm:text-lg font-semibold leading-tight truncate">Cart</CardTitle>
+                  <CardTitle className="text-base sm:text-lg font-semibold leading-tight truncate">
+                    {isAdminEdit
+                      ? `Edit Order${editInvoiceNumber ? ` #${editInvoiceNumber}` : ''}`
+                      : 'Cart'}
+                  </CardTitle>
                   <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
                 </div>
               </div>
