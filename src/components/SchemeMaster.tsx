@@ -256,7 +256,7 @@ export const SchemeMaster = () => {
       description: '',
       category_id: v.product?.category_id || '',
       rate: v.price || 0,
-      unit: v.product?.unit || '',
+      unit: v.product?.base_unit || '',
       is_active: v.is_active,
       type: 'variant' as const,
       parent_product_id: v.product_id
