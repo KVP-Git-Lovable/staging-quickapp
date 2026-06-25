@@ -1,69 +1,96 @@
-## Goal
-Restructure `src/pages/distributor-portal/CreatePrimaryOrder.tsx` (1554 lines) from a single-scroll form with a decorative 4-step stepper into a real 3-stage wizard. Pure layout/flow refactor — every pricing, scheme, GST, credit, draft, and submit calculation/mutation is reused verbatim.
 
-## Structure
+# Secondary Packing List: Dispatch → Delivery
 
-`CreatePrimaryOrder.tsx` becomes the orchestrator:
-- Keeps all existing state (items, products, price book, snapshot, paymentConfig, credit, shipping, payment, etc.)
-- Keeps all existing data-load effects and submit/save-draft handlers untouched
-- Adds `currentStep` (1|2|3), `goNext`, `goBack`, `completedSteps`
-- Renders: header → `<Stepper>` → `<CreditStrip>` → active stage → `<WizardFooter>`
+Implements the back-half of the Secondary (B2R) packing-list workflow. **Primary (B2D) flow is left completely untouched.**
 
-Three new presentational components under `src/pages/distributor-portal/primary-order/`:
-1. `CartStage.tsx` — "Add Products" card with editable row table (Product / Unit / Qty / My Stock / Supplier Stock / delete), +Add Row, scheme-threshold hint, Apply Offers, right-aligned Subtotal/Discount/Total/incl-GST block.
-2. `ReviewStage.tsx` — read-style line rows with qty stepper, savings, totals card with Schemes Applied highlight + CGST/SGST (real per-product GST) + bold Total.
-3. `ConfirmStage.tsx` — savings banner; Billed To + Ship To side-by-side; Payment card; live credit room-left line; single commit line; (Submit handled by footer).
+## Scope split
 
-Three small shared bits in the same folder:
-- `WizardStepper.tsx` — 3 numbered circles, click-to-jump only for completed steps.
-- `CreditStrip.tsx` — slim bar: available · this order · % used · within-limit/over-limit pill; amber when this order pushes over; shows "room left" on Stage 3.
-- `WizardFooter.tsx` — single sticky footer: Back · Save Draft · [Next | Submit Primary Order] · Grand Total. Grand Total hidden on Stage 1 (cart shows it in its totals block).
-- `StockChips.tsx` — `MyStockChip` (exact, from `productStock`) + `SupplierStockChip` (soft signal via `useSupplierStock` hook with graceful RLS-deny hide).
+```
+Pick / Pack  ──►  Dispatch (NEW for secondary)  ──►  Delivery (NEW for secondary)  ──►  Reconcile
+   (shared)        Challan + E-way bill                 Per-retailer Tax Invoice         Close challan
+                                                        at POD                            + Van-return GRN
+```
 
-## Calculations / mutations — reused as-is
-Extract the existing computations (currently inline in the page) into pure helpers consumed by stages:
-- `subtotal`, `totalDiscount`, `totalGst` (per-line `gst_percent`), `grandTotal`, `creditUsedPercent`, `roomLeft`, `wouldExceedLimit`, savings-on-this-order.
-- Existing `handleSaveDraft`, `handleSubmit`, `addProduct`, `updateQuantity`, `removeItem`, scheme-application logic, snapshot/shipping resolver — moved to handlers on the page, passed to stages via props. No logic edits.
+## Part 1 — Database migration
 
-## Supplier stock (graceful)
-New `useSupplierStock(productIds)` hook:
-- Queries parent/supplier `distributor_inventory` for product ids.
-- On permission error / empty: returns `{ available: false, data: {} }` → CartStage hides the Supplier Stock column.
-- On success: maps to soft signal `in_stock | limited | out` (thresholds: 0 → out, ≤10 → limited, else in_stock). Never blocks submit.
+Three new tables (snapshot-style; reprints stay correct even if masters change):
 
-## Gating
-- Stage 1 → 2: `orderItems.length >= 1`.
-- Stage 2 → 3: always allowed.
-- Stage 3 Submit: existing validation (delivery date, shipping, payment proof when `paymentConfig` requires) — wired to the footer Submit button.
-- Stepper clicks only allowed to step ≤ `max(completedSteps)`.
+1. **`delivery_challans`** — header per van-load. Challan number `DC-YYYYMMDD-NNNN`, links `packing_list_id`, `packing_list_assignment_id`, `delivery_run_id`, `eway_bill_id`. Snapshots consignor (name/GSTIN/address) and transport (vehicle/transporter/driver). Status: `issued / dispatched / closed / cancelled`.
+2. **`delivery_challan_items`** — one row per product per retailer order. Snapshots `product_name`, `hsn_code`, `uom`, quantity, rate, value.
+3. **`eway_bills`** — generic e-way record; `document_type` = `delivery_challan` (secondary) or `tax_invoice` (future primary). Stores 12-digit EWB number from GST portal, validity, party/transport snapshot. Status: `active / cancelled / expired`.
 
-## Removed
-- Right sidebar Order Summary widget.
-- Sidebar Credit Validation widget.
-- Sticky bottom totals bar.
-- Header-area duplicate Save Draft + duplicate Submit.
-- The standalone "Credit Validation" step.
+**Config:** `eway_threshold_value numeric default 50000` on the existing company/settings table — overridable, no hardcoding.
 
-## Out of scope
-- No DB schema changes.
-- No edits to secondary-sales flow, packing lists, invoice PDF, or any shared component used by secondary.
-- No change to existing pricing/scheme/GST/credit math.
+**RLS:** mirror `packing_lists` policies — distributor sees own rows via the existing `get_distributor_id_for_auth_user()` helper; staff sees all. GRANTs to `authenticated` + `service_role`.
 
-## Files
-- Edit: `src/pages/distributor-portal/CreatePrimaryOrder.tsx` (slim orchestrator)
-- New: `src/pages/distributor-portal/primary-order/WizardStepper.tsx`
-- New: `src/pages/distributor-portal/primary-order/CreditStrip.tsx`
-- New: `src/pages/distributor-portal/primary-order/WizardFooter.tsx`
-- New: `src/pages/distributor-portal/primary-order/StockChips.tsx`
-- New: `src/pages/distributor-portal/primary-order/CartStage.tsx`
-- New: `src/pages/distributor-portal/primary-order/ReviewStage.tsx`
-- New: `src/pages/distributor-portal/primary-order/ConfirmStage.tsx`
-- New: `src/hooks/useSupplierStock.ts`
+**RPCs (atomic + idempotent):**
+- `generate_delivery_challan(p_packing_list_id)` — returns existing challan if non-cancelled one exists; otherwise snapshots consignor/transport, inserts items from packed lines (HSN + rate from `products`), rolls totals, attaches packing list to its existing `delivery_runs` row via `delivery_run_packing_lists`, sets `delivery_challans.delivery_run_id`.
+- `deliver_and_invoice_retailer_order(p_order_id, p_delivered_items jsonb, p_pod_url text, p_payment jsonb)` — guard against re-invoicing; inserts `distributor_secondary_invoices` + items with GST split from `products.gst_percentage` (ledger auto-posts via existing trigger `trg_auto_ledger_secondary_invoice`); updates order POD/delivery/payment fields; records undelivered units into `van_return_grn` / `van_return_grn_items`.
 
-## Verification
-- Build passes (`tsgo` via auto-typecheck).
-- Manual: place a 2-line cart identical to the screenshot; confirm Subtotal/Discount/Total/CGST/SGST/Grand Total match pre-refactor values.
-- Edit mode (`editOrderId`) still loads existing order into the cart on Stage 1.
-- Credit strip turns amber when `grandTotal > available`.
+## Part 2 — Dispatch UI (secondary only)
 
-Approve to proceed.
+Rewrite `src/components/packing/stages/InvoiceDispatchStage.tsx` to match the attached mock:
+
+- Header tiles: Retailers / Total Qty / Load Value / Agent · Van (from `packing_list_assignments`).
+- **Delivery Challan card** (Rule 55) — "Generate Delivery Challan" button. After generation, shows challan number, date, downloadable PDF.
+- **E-way Bill card** (Value-based) — threshold-gated:
+  - Under threshold → "Not required".
+  - At/over threshold → required banner with the load value, then a dialog to enter the portal-issued EWB number + validity. Disabled until challan exists.
+- Footer "Dispatch on Challan →" — disabled until challan (and EWB if required) are in place. On click, sets PL status `dispatched`, run starts.
+- **Remove** the legacy `generateInvoiceFromPackingList` write for secondary. Primary stays as-is.
+
+## Part 3 — Delivery UI (secondary only)
+
+Extend `DeliveryRunStage.tsx` per-stop:
+- Editable delivered qty per line (defaults to ordered, can go down).
+- POD capture (photo / signature → uploads to existing storage, sets `delivery_proof_url`).
+- Payment collected (amount + mode).
+- "Confirm Delivery & Generate Invoice" calls `deliver_and_invoice_retailer_order`. UI shows the new invoice number; offers print.
+- Returned/undelivered qty flagged per line — auto-pushed into van-return GRN by the RPC.
+
+## Part 4 — Reconcile & Close
+
+When all stops are completed:
+- Show **Loaded = Delivered + Returned** reconciliation panel.
+- Post the consolidated van-return GRN (reuse existing path).
+- Set `delivery_challans.status = 'closed'` and complete the delivery run.
+- No retailer GRN created.
+
+## Part 5 — Print templates
+
+Two new printable views (matching `challan-eway-documents.html`):
+- `DeliveryChallanPrint.tsx` — Rule 55 challan, line-sales consignee block, HSN + value table, EWB number stamped.
+- `EwayBillPrint.tsx` — EWB-01 layout.
+
+Reuse the existing PDF pipeline; store URL on the challan row.
+
+## Technical details
+
+- **Schema source of truth:** HSN and tax rate always pulled from `products.hsn_code` / `products.gst_percentage` at challan/invoice generation time and snapshotted onto the line rows.
+- **Idempotency:** challan RPC short-circuits if a non-cancelled challan exists for the PL; invoice RPC short-circuits if a finalized `distributor_secondary_invoices` exists for the order.
+- **Ledger:** never written manually — relies on existing `auto_ledger_on_secondary_invoice` trigger.
+- **Returns:** reuse `van_return_grn` / `van_return_grn_items`; no new return tables.
+- **Run linkage:** reuse the run already created at dispatch — link, don't duplicate, via `delivery_run_packing_lists`.
+- **Numbering:** challan numbers via a Postgres function mirroring the existing PL/invoice number generators.
+- **EWB API:** modeled as fields now (clean seam) — manual entry from GST portal in this iteration; auto-generation via GSP is a follow-up.
+
+## Files touched
+
+- `supabase/migrations/<new>.sql` — three tables, RLS, GRANTs, two RPCs, challan-number helper, config column.
+- `src/components/packing/stages/InvoiceDispatchStage.tsx` — rebuilt for secondary Dispatch stage.
+- `src/components/packing/stages/DeliveryRunStage.tsx` — per-stop delivery+invoice flow.
+- `src/components/packing/stages/SecondaryReconcileStage.tsx` — new reconciliation panel.
+- `src/components/packing/prints/DeliveryChallanPrint.tsx` — new.
+- `src/components/packing/prints/EwayBillPrint.tsx` — new.
+- `src/components/packing/dialogs/EwayBillEntryDialog.tsx` — new.
+- `src/pages/PackingListDetail.tsx` + `src/pages/distributor-portal/PackingListDetail.tsx` — route `dispatched`/`delivered`/`completed` for secondary through the new stages and the reconcile panel.
+
+## Acceptance
+
+- One challan per van-load (idempotent), correct items/HSN/qty/value; old generic-invoice write no longer fires for secondary.
+- Dispatch attaches PL to its existing run, links challan to run, run stops = PL's retailer orders.
+- Threshold-gated EWB; portal number prints on challan.
+- Per-stop confirm → one `distributor_secondary_invoices` row, ledger auto-posts, order POD/payment updated, returns land in `van_return_grn`.
+- Re-confirming a stop doesn't double-invoice.
+- Reconciliation closes challan; no retailer GRN.
+- Primary flow unchanged.
