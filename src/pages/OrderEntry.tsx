@@ -120,6 +120,9 @@ export const OrderEntry = () => {
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
   const editOrderId = searchParams.get("editOrderId") || '';
   const isEditMode = !!editOrderId;
+  const source = searchParams.get("source") || '';
+  const isAdminEdit = source === 'admin' && isEditMode;
+  const [editInvoiceNumber, setEditInvoiceNumber] = React.useState<string | null>(null);
   const {
     isCheckInMandatory,
     loading: checkInMandatoryLoading
