@@ -120,6 +120,8 @@ export const Cart = () => {
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
   const editOrderId = searchParams.get("editOrderId") || '';
   const isEditMode = !!editOrderId;
+  const source = searchParams.get("source") || '';
+  const isAdminEdit = source === 'admin' && isEditMode;
   const { isPaymentProofMandatory } = usePaymentProofMandatory();
   const connectivityStatus = useConnectivity();
   const { isEnabled: isD1DeliveryEnabled } = useD1Delivery();
