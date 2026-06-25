@@ -120,6 +120,8 @@ export const Cart = () => {
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
   const editOrderId = searchParams.get("editOrderId") || '';
   const isEditMode = !!editOrderId;
+  const source = searchParams.get("source") || '';
+  const isAdminEdit = source === 'admin' && isEditMode;
   const { isPaymentProofMandatory } = usePaymentProofMandatory();
   const connectivityStatus = useConnectivity();
   const { isEnabled: isD1DeliveryEnabled } = useD1Delivery();
@@ -182,6 +184,7 @@ export const Cart = () => {
     retailer_id?: string | null;
     total_amount?: number | null;
   } | null>(null);
+  const [editInvoiceNumber, setEditInvoiceNumber] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!isEditMode) return;
@@ -206,7 +209,7 @@ export const Cart = () => {
         // Fetch original order
         const { data: order, error: orderErr } = await supabase
           .from('orders')
-          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, credit_pending_amount')
+          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, credit_pending_amount, invoice_number')
           .eq('id', editOrderId)
           .maybeSingle();
         if (orderErr || !order) {
@@ -251,6 +254,7 @@ export const Cart = () => {
 
         if (cancelled) return;
         setEditOriginalOrder(order as any);
+        setEditInvoiceNumber((order as any)?.invoice_number || null);
 
         // Seed cart from order_items (only if edit cart not yet seeded)
         const editKey = `order_cart:edit:${editOrderId}`;
@@ -2356,7 +2360,11 @@ export const Cart = () => {
               {/* Left side - Title */}
               <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <CardTitle className="text-base sm:text-lg font-semibold leading-tight truncate">Cart</CardTitle>
+                  <CardTitle className="text-base sm:text-lg font-semibold leading-tight truncate">
+                    {isAdminEdit
+                      ? `Edit Order${editInvoiceNumber ? ` #${editInvoiceNumber}` : ''}`
+                      : 'Cart'}
+                  </CardTitle>
                   <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
                 </div>
               </div>

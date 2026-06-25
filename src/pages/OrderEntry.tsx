@@ -120,6 +120,9 @@ export const OrderEntry = () => {
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
   const editOrderId = searchParams.get("editOrderId") || '';
   const isEditMode = !!editOrderId;
+  const source = searchParams.get("source") || '';
+  const isAdminEdit = source === 'admin' && isEditMode;
+  const [editInvoiceNumber, setEditInvoiceNumber] = React.useState<string | null>(null);
   const {
     isCheckInMandatory,
     loading: checkInMandatoryLoading
@@ -442,6 +445,13 @@ export const OrderEntry = () => {
   // Check attendance on mount - OFFLINE FIRST
   useEffect(() => {
     const checkAttendance = async () => {
+      if (isAdminEdit) {
+        // Admin editing from Operations: bypass field-rep attendance gate.
+        setHasAttendance(true);
+        setAttendanceChecked(true);
+        setCheckingAttendance(false);
+        return;
+      }
       if (!userId) {
         setCheckingAttendance(false);
         return;
@@ -473,16 +483,17 @@ export const OrderEntry = () => {
     };
     
     checkAttendance();
-  }, [userId]);
+  }, [userId, isAdminEdit]);
 
   // Global click handler - ANY click/touch inside Order Entry page triggers check-in
   const handlePageInteraction = useCallback(() => {
+    if (isAdminEdit) return; // No visit check-in capture for admin edits
     if (!hasRecordedFirstInteraction.current && userId) {
       hasRecordedFirstInteraction.current = true;
       console.log('📍 First page interaction - capturing check-in');
       recordAction('order').catch((err) => console.log('Check-in error (non-fatal):', err));
     }
-  }, [userId, recordAction]);
+  }, [userId, recordAction, isAdminEdit]);
   
   // Fetch retailer coordinates - CACHE FIRST, non-blocking
   useEffect(() => {
@@ -615,13 +626,14 @@ export const OrderEntry = () => {
 
         const { data: order, error: orderErr } = await supabase
           .from('orders')
-          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount')
+          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, invoice_number')
           .eq('id', editOrderId)
           .maybeSingle();
         if (orderErr || !order) {
           setEditBlockedReason("This order can't be edited in its current state.");
           return;
         }
+        if (!cancelled) setEditInvoiceNumber((order as any)?.invoice_number || null);
 
         const { data: policyRow } = await supabase
           .from('order_edit_policy')
@@ -1995,7 +2007,9 @@ export const OrderEntry = () => {
             <div className="flex items-center gap-1 sm:gap-2 flex-1 min-w-0 overflow-hidden">
               <div className="min-w-0 flex-1 overflow-hidden">
                 <CardTitle className="text-sm sm:text-base font-medium leading-tight truncate">
-                  {isPhoneOrder ? t('order.phoneOrderEntry') : t('order.orderEntry')}
+                  {isAdminEdit
+                    ? `Edit Order${editInvoiceNumber ? ` #${editInvoiceNumber}` : ''}`
+                    : (isPhoneOrder ? t('order.phoneOrderEntry') : t('order.orderEntry'))}
                 </CardTitle>
                 <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate max-w-[40vw] sm:max-w-none">{retailerName}</p>
                 <div className="flex items-center gap-1 mt-0.5">
@@ -2029,7 +2043,7 @@ export const OrderEntry = () => {
                   <span className="text-[8px] sm:text-[9px] leading-tight">{t('common.delete')}</span>
                 </Button>
                 
-                <Button variant="ghost" onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}${isPhoneOrder ? '&phoneOrder=true' : ''}${isEditMode ? `&editOrderId=${encodeURIComponent(editOrderId)}` : ''}`)} className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 sm:p-2 flex flex-col items-center gap-0 min-w-[42px] sm:min-w-[50px] relative">
+                <Button variant="ghost" onClick={() => navigate(`/cart?visitId=${visitId}&retailerId=${retailerId}&retailer=${encodeURIComponent(retailerName)}${isPhoneOrder ? '&phoneOrder=true' : ''}${isEditMode ? `&editOrderId=${encodeURIComponent(editOrderId)}` : ''}${isAdminEdit ? '&source=admin' : ''}`)} className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 sm:p-2 flex flex-col items-center gap-0 min-w-[42px] sm:min-w-[50px] relative">
                   <div className="relative">
                     <ShoppingCart size={14} className="sm:w-4 sm:h-4" />
                     {cart.length > 0 && <Badge className="absolute -top-1 -right-1 h-3.5 w-3.5 sm:h-4 sm:w-4 flex items-center justify-center p-0 text-[9px] sm:text-[10px] bg-destructive text-destructive-foreground rounded-full border-0">
