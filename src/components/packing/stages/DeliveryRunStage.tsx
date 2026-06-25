@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePackingList, PackingList } from '@/hooks/usePackingList';
 import { useToast } from '@/hooks/use-toast';
 import StatusTimeline from './StatusTimeline';
+import SecondaryRetailerStops from './SecondaryRetailerStops';
 
 interface DispatchRow {
   id: string; product_name: string; unit: string | null;
@@ -292,6 +293,11 @@ export default function DeliveryRunStage({ packingList, onStatusChange }: Props)
               )}
             </CardContent>
           </Card>
+
+          {/* Secondary: per-retailer delivery + invoicing */}
+          {packingList.order_type === 'secondary' && isDispatched && !isDelivered && (
+            <SecondaryRetailerStops packingList={packingList} />
+          )}
 
           {/* Stage 7: Proof of delivery */}
           {(isDispatched && !isDelivered) && (

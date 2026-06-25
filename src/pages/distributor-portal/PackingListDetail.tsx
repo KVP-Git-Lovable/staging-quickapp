@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePackingList, PackingList } from '@/hooks/usePackingList';
 import PicklistPackingStage from '@/components/packing/stages/PicklistPackingStage';
 import InvoiceDispatchStage from '@/components/packing/stages/InvoiceDispatchStage';
+import SecondaryDispatchStage from '@/components/packing/stages/SecondaryDispatchStage';
 import PrimaryInvoiceStage from '@/components/packing/stages/PrimaryInvoiceStage';
 import DeliveryRunStage from '@/components/packing/stages/DeliveryRunStage';
 import PrimaryDispatchStage from '@/components/packing/stages/PrimaryDispatchStage';
@@ -101,7 +102,7 @@ export default function PackingListDetail() {
         {(pl.status === 'packed' || pl.status === 'ready') && (
           pl.order_type === 'primary'
             ? <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
-            : <InvoiceDispatchStage packingList={pl} onStatusChange={refreshStatus} />
+            : <SecondaryDispatchStage packingList={pl} onStatusChange={refreshStatus} />
         )}
         {pl.order_type === 'primary' && (pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
           <div className="rounded-md border bg-card p-4 flex items-center justify-between">

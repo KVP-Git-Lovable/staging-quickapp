@@ -2542,6 +2542,7 @@ export type Database = {
           currency: string
           date_format: string
           email: string | null
+          eway_threshold_value: number
           gstin: string | null
           header_logo_url: string | null
           header_name: string | null
@@ -2567,6 +2568,7 @@ export type Database = {
           currency?: string
           date_format?: string
           email?: string | null
+          eway_threshold_value?: number
           gstin?: string | null
           header_logo_url?: string | null
           header_name?: string | null
@@ -2592,6 +2594,7 @@ export type Database = {
           currency?: string
           date_format?: string
           email?: string | null
+          eway_threshold_value?: number
           gstin?: string | null
           header_logo_url?: string | null
           header_name?: string | null
@@ -3834,6 +3837,184 @@ export type Database = {
           table_name?: string
         }
         Relationships: []
+      }
+      delivery_challan_items: {
+        Row: {
+          challan_id: string
+          created_at: string
+          hsn_code: string | null
+          id: string
+          order_id: string | null
+          product_id: string | null
+          product_name: string | null
+          quantity: number
+          rate: number
+          uom: string | null
+          value: number
+        }
+        Insert: {
+          challan_id: string
+          created_at?: string
+          hsn_code?: string | null
+          id?: string
+          order_id?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          quantity?: number
+          rate?: number
+          uom?: string | null
+          value?: number
+        }
+        Update: {
+          challan_id?: string
+          created_at?: string
+          hsn_code?: string | null
+          id?: string
+          order_id?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          quantity?: number
+          rate?: number
+          uom?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_challan_items_challan_id_fkey"
+            columns: ["challan_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_challans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_challan_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_challan_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_challans: {
+        Row: {
+          challan_date: string
+          challan_number: string
+          consignor_address: string | null
+          consignor_gstin: string | null
+          consignor_name: string | null
+          created_at: string
+          created_by: string | null
+          delivery_run_id: string | null
+          distributor_id: string
+          driver_name: string | null
+          eway_bill_id: string | null
+          id: string
+          notes: string | null
+          packing_list_assignment_id: string | null
+          packing_list_id: string
+          pdf_url: string | null
+          reason: string
+          status: string
+          total_qty: number
+          total_value: number
+          transporter_name: string | null
+          updated_at: string
+          vehicle_number: string | null
+        }
+        Insert: {
+          challan_date?: string
+          challan_number: string
+          consignor_address?: string | null
+          consignor_gstin?: string | null
+          consignor_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_run_id?: string | null
+          distributor_id: string
+          driver_name?: string | null
+          eway_bill_id?: string | null
+          id?: string
+          notes?: string | null
+          packing_list_assignment_id?: string | null
+          packing_list_id: string
+          pdf_url?: string | null
+          reason?: string
+          status?: string
+          total_qty?: number
+          total_value?: number
+          transporter_name?: string | null
+          updated_at?: string
+          vehicle_number?: string | null
+        }
+        Update: {
+          challan_date?: string
+          challan_number?: string
+          consignor_address?: string | null
+          consignor_gstin?: string | null
+          consignor_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          delivery_run_id?: string | null
+          distributor_id?: string
+          driver_name?: string | null
+          eway_bill_id?: string | null
+          id?: string
+          notes?: string | null
+          packing_list_assignment_id?: string | null
+          packing_list_id?: string
+          pdf_url?: string | null
+          reason?: string
+          status?: string
+          total_qty?: number
+          total_value?: number
+          transporter_name?: string | null
+          updated_at?: string
+          vehicle_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_challans_delivery_run_id_fkey"
+            columns: ["delivery_run_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_challans_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_challans_eway_bill_fk"
+            columns: ["eway_bill_id"]
+            isOneToOne: false
+            referencedRelation: "eway_bills"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_challans_packing_list_assignment_id_fkey"
+            columns: ["packing_list_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "packing_list_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_challans_packing_list_id_fkey"
+            columns: ["packing_list_id"]
+            isOneToOne: false
+            referencedRelation: "packing_lists"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       delivery_exceptions: {
         Row: {
@@ -6960,6 +7141,105 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eway_bills: {
+        Row: {
+          approx_distance_km: number | null
+          challan_id: string | null
+          consignment_value: number
+          created_at: string
+          created_by: string | null
+          dispatch_place: string | null
+          distributor_id: string
+          document_date: string | null
+          document_number: string | null
+          document_type: string
+          eway_bill_number: string | null
+          from_gstin: string | null
+          generated_date: string | null
+          id: string
+          mode: string | null
+          ship_to_place: string | null
+          status: string
+          sub_type: string | null
+          supply_type: string | null
+          to_gstin: string | null
+          transaction_type: string | null
+          transporter_name: string | null
+          valid_from: string | null
+          valid_until: string | null
+          vehicle_number: string | null
+        }
+        Insert: {
+          approx_distance_km?: number | null
+          challan_id?: string | null
+          consignment_value?: number
+          created_at?: string
+          created_by?: string | null
+          dispatch_place?: string | null
+          distributor_id: string
+          document_date?: string | null
+          document_number?: string | null
+          document_type: string
+          eway_bill_number?: string | null
+          from_gstin?: string | null
+          generated_date?: string | null
+          id?: string
+          mode?: string | null
+          ship_to_place?: string | null
+          status?: string
+          sub_type?: string | null
+          supply_type?: string | null
+          to_gstin?: string | null
+          transaction_type?: string | null
+          transporter_name?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+          vehicle_number?: string | null
+        }
+        Update: {
+          approx_distance_km?: number | null
+          challan_id?: string | null
+          consignment_value?: number
+          created_at?: string
+          created_by?: string | null
+          dispatch_place?: string | null
+          distributor_id?: string
+          document_date?: string | null
+          document_number?: string | null
+          document_type?: string
+          eway_bill_number?: string | null
+          from_gstin?: string | null
+          generated_date?: string | null
+          id?: string
+          mode?: string | null
+          ship_to_place?: string | null
+          status?: string
+          sub_type?: string | null
+          supply_type?: string | null
+          to_gstin?: string | null
+          transaction_type?: string | null
+          transporter_name?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+          vehicle_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "eway_bills_challan_id_fkey"
+            columns: ["challan_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_challans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "eway_bills_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "distributors"
             referencedColumns: ["id"]
           },
         ]
@@ -22171,6 +22451,15 @@ export type Database = {
         Args: { p_packing_list_id: string }
         Returns: Json
       }
+      deliver_and_invoice_retailer_order: {
+        Args: {
+          p_delivered_items: Json
+          p_order_id: string
+          p_payment: Json
+          p_pod_url: string
+        }
+        Returns: Json
+      }
       detect_retailer_duplicates: {
         Args: {
           p_address: string
@@ -22262,6 +22551,14 @@ export type Database = {
       finalize_primary_invoice_atomic: {
         Args: { p_invoice_id: string }
         Returns: Json
+      }
+      generate_delivery_challan: {
+        Args: { p_packing_list_id: string }
+        Returns: Json
+      }
+      generate_delivery_challan_number: {
+        Args: { p_date: string }
+        Returns: string
       }
       generate_grn_number: { Args: never; Returns: string }
       generate_invoice_number: { Args: never; Returns: string }
