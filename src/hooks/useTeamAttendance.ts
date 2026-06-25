@@ -693,8 +693,14 @@ export const useTeamAttendance = (
         }
       });
 
-    // Pending first, then processed (most recent first)
-    return [...engineApprovals, ...legacyRegApprovals, ...processedApprovals];
+    // Pending first (newest created first), then processed
+    const getCreated = (a: any): number => {
+      const src = (pendingStepsData as any[]).find((x: any) => (x.entityData?.id || x.entityId) === a.id);
+      const c = src?.entityData?.created_at;
+      return c ? new Date(c).getTime() : 0;
+    };
+    const sortedEngine = [...engineApprovals].sort((a, b) => getCreated(b) - getCreated(a));
+    return [...sortedEngine, ...legacyRegApprovals, ...processedApprovals];
   }, [pendingStepsData, processedStepsData, pendingRegularizations, profiles, approvalUserIds]);
 
   // handleLeaveAction: uses approval engine if approvalRequestId present, else legacy direct update
