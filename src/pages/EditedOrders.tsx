@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Info, RefreshCw, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -27,31 +27,25 @@ interface EditLogRow {
 const fmtMoney = (n: any) =>
   `₹${Number(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
-function getInvoiceNo(row: EditLogRow): string {
-  return (
-    row.replacement_snapshot?.order?.invoice_number ||
-    row.original_snapshot?.order?.invoice_number ||
-    row.original_order_id.slice(0, 8)
-  );
-}
-
 function getItems(snap: any): any[] {
   if (!snap) return [];
   return snap.items || snap.order_items || [];
 }
 
-interface ItemDiff {
-  type: 'removed' | 'added' | 'changed';
-  product_id: string;
-  product_name?: string;
-  before?: any;
-  after?: any;
-  changedFields?: string[];
-}
-
 const ITEM_FIELDS = ['quantity', 'rate', 'discount_amount', 'discount_percent', 'scheme_id', 'scheme_name', 'line_total', 'total_amount'];
 
-function computeItemDiff(original: any, replacement: any): ItemDiff[] {
+type ItemStatus = 'added' | 'removed' | 'changed' | 'unchanged';
+
+interface MergedItem {
+  product_id: string;
+  product_name: string;
+  before?: any;
+  after?: any;
+  status: ItemStatus;
+  changedFields: string[];
+}
+
+function mergeItems(original: any, replacement: any): MergedItem[] {
   const origItems = getItems(original);
   const replItems = getItems(replacement);
   const origMap = new Map<string, any>();
@@ -59,47 +53,147 @@ function computeItemDiff(original: any, replacement: any): ItemDiff[] {
   const replMap = new Map<string, any>();
   replItems.forEach((i: any) => i?.product_id && replMap.set(i.product_id, i));
 
-  const diffs: ItemDiff[] = [];
-  for (const [pid, oi] of origMap) {
-    if (!replMap.has(pid)) {
-      diffs.push({ type: 'removed', product_id: pid, product_name: oi.product_name || oi.name, before: oi });
+  const allIds = new Set<string>([...origMap.keys(), ...replMap.keys()]);
+  const merged: MergedItem[] = [];
+  for (const pid of allIds) {
+    const before = origMap.get(pid);
+    const after = replMap.get(pid);
+    const name = before?.product_name || before?.name || after?.product_name || after?.name || pid;
+    if (before && !after) {
+      merged.push({ product_id: pid, product_name: name, before, status: 'removed', changedFields: [] });
+    } else if (!before && after) {
+      merged.push({ product_id: pid, product_name: name, after, status: 'added', changedFields: [] });
     } else {
-      const ri = replMap.get(pid);
       const changed: string[] = [];
       for (const f of ITEM_FIELDS) {
-        if (oi[f] !== undefined || ri[f] !== undefined) {
-          if (String(oi[f] ?? '') !== String(ri[f] ?? '')) changed.push(f);
+        if (before[f] !== undefined || after[f] !== undefined) {
+          if (String(before[f] ?? '') !== String(after[f] ?? '')) changed.push(f);
         }
       }
-      if (changed.length) {
-        diffs.push({ type: 'changed', product_id: pid, product_name: oi.product_name || oi.name || ri.product_name, before: oi, after: ri, changedFields: changed });
-      }
+      merged.push({
+        product_id: pid,
+        product_name: name,
+        before,
+        after,
+        status: changed.length ? 'changed' : 'unchanged',
+        changedFields: changed,
+      });
     }
   }
-  for (const [pid, ri] of replMap) {
-    if (!origMap.has(pid)) {
-      diffs.push({ type: 'added', product_id: pid, product_name: ri.product_name || ri.name, after: ri });
-    }
-  }
-  return diffs;
+  return merged.sort((a, b) => a.product_name.localeCompare(b.product_name));
+}
+
+function lineTotal(it: any): number {
+  if (!it) return 0;
+  const lt = it.line_total ?? it.total_amount;
+  if (lt !== undefined && lt !== null) return Number(lt);
+  return Number(it.quantity ?? 0) * Number(it.rate ?? 0);
 }
 
 const ORDER_FIELDS = ['total_amount', 'payment_method', 'credit_paid_amount', 'credit_pending_amount', 'payment_status'];
 
-function computeOrderDiff(original: any, replacement: any) {
-  const o = original?.order || {};
-  const r = replacement?.order || {};
-  return ORDER_FIELDS
-    .filter(f => String(o[f] ?? '') !== String(r[f] ?? ''))
-    .map(f => ({ field: f, before: o[f], after: r[f] }));
+const statusStyles: Record<ItemStatus, string> = {
+  added: 'bg-emerald-50 dark:bg-emerald-950/30',
+  removed: 'bg-rose-50 dark:bg-rose-950/30',
+  changed: 'bg-amber-50 dark:bg-amber-950/30',
+  unchanged: '',
+};
+
+const statusBadge: Record<ItemStatus, { label: string; cls: string } | null> = {
+  added: { label: 'Added', cls: 'bg-emerald-600 hover:bg-emerald-600 text-white' },
+  removed: { label: 'Removed', cls: 'bg-rose-600 hover:bg-rose-600 text-white' },
+  changed: { label: 'Changed', cls: 'bg-amber-500 hover:bg-amber-500 text-white' },
+  unchanged: null,
+};
+
+function FieldCell({ side, item, field, formatter, changedFields }: { side: 'before' | 'after'; item: any; field: string; formatter?: (v: any) => string; changedFields?: string[] }) {
+  if (!item) return <span className="text-muted-foreground">—</span>;
+  const val = item[field];
+  const display = formatter ? formatter(val) : String(val ?? '—');
+  const isChanged = changedFields?.includes(field);
+  return <span className={isChanged ? (side === 'before' ? 'line-through text-rose-700 dark:text-rose-300' : 'font-semibold text-emerald-700 dark:text-emerald-300') : ''}>{display}</span>;
+}
+
+function SideTable({ side, items, headerInvoice }: { side: 'before' | 'after'; items: MergedItem[]; headerInvoice: string }) {
+  return (
+    <div className="rounded-lg border bg-background overflow-hidden">
+      <div className={`px-4 py-2 border-b text-xs font-semibold uppercase tracking-wide ${side === 'before' ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-200' : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200'}`}>
+        {side === 'before' ? 'Before' : 'After'} · {headerInvoice}
+      </div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-[90px]">Status</TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead className="text-right w-[70px]">Qty</TableHead>
+            <TableHead className="text-right w-[90px]">Rate</TableHead>
+            <TableHead className="text-right w-[110px]">Line Total</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.length === 0 ? (
+            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-4">No items</TableCell></TableRow>
+          ) : items.map(m => {
+            const it = side === 'before' ? m.before : m.after;
+            // Hide rows where this side has nothing (removed shown only on before; added only on after)
+            const shouldShow = !!it;
+            const badge = statusBadge[m.status];
+            return (
+              <TableRow key={m.product_id} className={statusStyles[m.status]}>
+                <TableCell>
+                  {shouldShow && badge ? <Badge className={`${badge.cls} text-[10px]`}>{badge.label}</Badge> : <span className="text-muted-foreground text-xs">—</span>}
+                </TableCell>
+                <TableCell className="font-medium">{shouldShow ? m.product_name : <span className="text-muted-foreground italic">—</span>}</TableCell>
+                <TableCell className="text-right">
+                  <FieldCell side={side} item={it} field="quantity" changedFields={m.changedFields} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <FieldCell side={side} item={it} field="rate" formatter={fmtMoney} changedFields={m.changedFields} />
+                </TableCell>
+                <TableCell className="text-right">
+                  {it ? <span className={m.status === 'changed' ? (side === 'before' ? 'line-through text-rose-700 dark:text-rose-300' : 'font-semibold text-emerald-700 dark:text-emerald-300') : ''}>{fmtMoney(lineTotal(it))}</span> : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function OrderSummary({ side, order, changedFields }: { side: 'before' | 'after'; order: any; changedFields: string[] }) {
+  const get = (f: string) => order?.[f];
+  const cls = (f: string) => changedFields.includes(f) ? (side === 'before' ? 'line-through text-rose-700 dark:text-rose-300' : 'font-semibold text-emerald-700 dark:text-emerald-300') : 'font-medium';
+  return (
+    <div className={`rounded-lg border p-3 text-xs space-y-1 ${side === 'before' ? 'bg-rose-50/40 dark:bg-rose-950/20' : 'bg-emerald-50/40 dark:bg-emerald-950/20'}`}>
+      <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className={cls('total_amount')}>{fmtMoney(get('total_amount'))}</span></div>
+      <div className="flex justify-between"><span className="text-muted-foreground">Payment Method</span><span className={cls('payment_method')}>{get('payment_method') || '—'}</span></div>
+      <div className="flex justify-between"><span className="text-muted-foreground">Paid</span><span className={cls('credit_paid_amount')}>{fmtMoney(get('credit_paid_amount'))}</span></div>
+      <div className="flex justify-between"><span className="text-muted-foreground">Pending</span><span className={cls('credit_pending_amount')}>{fmtMoney(get('credit_pending_amount'))}</span></div>
+      <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span className={cls('payment_status')}>{get('payment_status') || '—'}</span></div>
+    </div>
+  );
 }
 
 const EditedOrders: React.FC = () => {
   const navigate = useNavigate();
   const [rows, setRows] = useState<EditLogRow[]>([]);
+  const [invoiceMap, setInvoiceMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState('');
+
+  const getInvoiceNo = (row: EditLogRow): string => {
+    return (
+      (row.replacement_order_id && invoiceMap[row.replacement_order_id]) ||
+      (row.original_order_id && invoiceMap[row.original_order_id]) ||
+      row.replacement_snapshot?.order?.invoice_number ||
+      row.original_snapshot?.order?.invoice_number ||
+      row.original_order_id?.slice(0, 8) ||
+      '—'
+    );
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -111,16 +205,36 @@ const EditedOrders: React.FC = () => {
         .limit(500);
       if (error) throw error;
       const logs = (data || []) as EditLogRow[];
+
+      // Editor names
       const userIds = Array.from(new Set(logs.map(l => l.edited_by).filter(Boolean))) as string[];
-      let nameMap = new Map<string, string>();
+      const nameMap = new Map<string, string>();
       if (userIds.length) {
-        const { data: profs } = await (supabase as any)
+        const { data: profs } = await supabase
           .from('profiles')
-          .select('user_id, full_name')
-          .in('user_id', userIds);
-        (profs || []).forEach((p: any) => nameMap.set(p.user_id, p.full_name || p.user_id));
+          .select('id, full_name, username')
+          .in('id', userIds);
+        (profs || []).forEach((p: any) => nameMap.set(p.id, p.full_name || p.username || p.id));
       }
-      setRows(logs.map(l => ({ ...l, editor_name: l.edited_by ? (nameMap.get(l.edited_by) || l.edited_by.slice(0, 8)) : '—' })));
+
+      // Invoice numbers
+      const orderIds = Array.from(new Set(
+        logs.flatMap(l => [l.replacement_order_id, l.original_order_id]).filter(Boolean)
+      )) as string[];
+      const invMap: Record<string, string> = {};
+      if (orderIds.length) {
+        const { data: ords } = await supabase
+          .from('orders')
+          .select('id, invoice_number')
+          .in('id', orderIds);
+        (ords || []).forEach((o: any) => { if (o.invoice_number) invMap[o.id] = o.invoice_number; });
+      }
+      setInvoiceMap(invMap);
+
+      setRows(logs.map(l => ({
+        ...l,
+        editor_name: l.edited_by ? (nameMap.get(l.edited_by) || l.edited_by.slice(0, 8)) : '—',
+      })));
     } catch (e: any) {
       console.error(e);
       toast.error(e.message || 'Failed to load edit logs');
@@ -139,7 +253,8 @@ const EditedOrders: React.FC = () => {
       (r.editor_name || '').toLowerCase().includes(q) ||
       (r.reason || '').toLowerCase().includes(q)
     );
-  }, [rows, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, search, invoiceMap]);
 
   return (
     <Layout>
@@ -191,10 +306,15 @@ const EditedOrders: React.FC = () => {
                   ) : filtered.map(row => {
                     const open = !!expanded[row.id];
                     const summary = row.edit_summary || {};
-                    const oldTotal = summary.old_total ?? row.original_snapshot?.order?.total_amount;
-                    const newTotal = summary.new_total ?? row.replacement_snapshot?.order?.total_amount;
-                    const itemDiffs = open ? computeItemDiff(row.original_snapshot, row.replacement_snapshot) : [];
-                    const orderDiffs = open ? computeOrderDiff(row.original_snapshot, row.replacement_snapshot) : [];
+                    const oldTotal = summary.old_total_amount ?? summary.old_total ?? row.original_snapshot?.order?.total_amount;
+                    const newTotal = summary.new_total_amount ?? summary.new_total ?? row.replacement_snapshot?.order?.total_amount;
+                    const hasSnapshots = !!(row.original_snapshot || row.replacement_snapshot);
+                    const merged = open && hasSnapshots ? mergeItems(row.original_snapshot, row.replacement_snapshot) : [];
+                    const orderChanged = open && hasSnapshots
+                      ? ORDER_FIELDS.filter(f => String(row.original_snapshot?.order?.[f] ?? '') !== String(row.replacement_snapshot?.order?.[f] ?? ''))
+                      : [];
+                    const beforeInv = (row.original_order_id && invoiceMap[row.original_order_id]) || row.original_snapshot?.order?.invoice_number || (row.original_order_id?.slice(0, 8) ?? '—');
+                    const afterInv = (row.replacement_order_id && invoiceMap[row.replacement_order_id]) || row.replacement_snapshot?.order?.invoice_number || (row.replacement_order_id?.slice(0, 8) ?? '—');
                     return (
                       <React.Fragment key={row.id}>
                         <TableRow className="cursor-pointer" onClick={() => setExpanded(s => ({ ...s, [row.id]: !s[row.id] }))}>
@@ -215,66 +335,27 @@ const EditedOrders: React.FC = () => {
                         {open && (
                           <TableRow>
                             <TableCell colSpan={7} className="bg-muted/30">
-                              <div className="space-y-4 py-2">
-                                <div>
-                                  <h4 className="font-semibold text-sm mb-2">Item Changes</h4>
-                                  {itemDiffs.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">No item-level changes detected.</p>
-                                  ) : (
-                                    <div className="space-y-1">
-                                      {itemDiffs.map((d, i) => (
-                                        <div key={i} className="text-sm flex items-start gap-3 p-2 bg-background rounded border">
-                                          <Badge variant={d.type === 'added' ? 'default' : d.type === 'removed' ? 'destructive' : 'secondary'} className="uppercase shrink-0">
-                                            {d.type}
-                                          </Badge>
-                                          <div className="flex-1">
-                                            <div className="font-medium">{d.product_name || d.product_id}</div>
-                                            {d.type === 'changed' && d.changedFields && (
-                                              <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                                                {d.changedFields.map(f => (
-                                                  <div key={f}>
-                                                    <span className="font-medium">{f}:</span>{' '}
-                                                    <span className="line-through">{String(d.before?.[f] ?? '—')}</span>
-                                                    {' → '}
-                                                    <span className="text-foreground">{String(d.after?.[f] ?? '—')}</span>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            )}
-                                            {d.type === 'added' && (
-                                              <div className="text-xs text-muted-foreground mt-1">
-                                                qty {d.after?.quantity} @ {fmtMoney(d.after?.rate)}
-                                              </div>
-                                            )}
-                                            {d.type === 'removed' && (
-                                              <div className="text-xs text-muted-foreground mt-1">
-                                                qty {d.before?.quantity} @ {fmtMoney(d.before?.rate)}
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      ))}
+                              <div className="py-3 space-y-4">
+                                {!hasSnapshots ? (
+                                  <div className="flex items-start gap-2 rounded-lg border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/40 p-3 text-sm text-blue-900 dark:text-blue-200">
+                                    <Info className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <div>
+                                      Detailed item-level before/after was not recorded for this edit (it predates the audit-snapshot feature).
+                                      Totals and payment changes are shown above.
                                     </div>
-                                  )}
-                                </div>
-
-                                <div>
-                                  <h4 className="font-semibold text-sm mb-2">Order-Level Changes</h4>
-                                  {orderDiffs.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">No order-level changes detected.</p>
-                                  ) : (
-                                    <div className="space-y-1">
-                                      {orderDiffs.map(d => (
-                                        <div key={d.field} className="text-sm p-2 bg-background rounded border">
-                                          <span className="font-medium">{d.field}:</span>{' '}
-                                          <span className="line-through text-muted-foreground">{String(d.before ?? '—')}</span>
-                                          {' → '}
-                                          <span>{String(d.after ?? '—')}</span>
-                                        </div>
-                                      ))}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                      <SideTable side="before" items={merged} headerInvoice={beforeInv} />
+                                      <SideTable side="after" items={merged} headerInvoice={afterInv} />
                                     </div>
-                                  )}
-                                </div>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                      <OrderSummary side="before" order={row.original_snapshot?.order} changedFields={orderChanged} />
+                                      <OrderSummary side="after" order={row.replacement_snapshot?.order} changedFields={orderChanged} />
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
