@@ -2182,6 +2182,7 @@ const Operations = () => {
                                     if (item.retailer_id) params.set('retailerId', item.retailer_id);
                                     if (item.retailer_name) params.set('retailer', item.retailer_name);
                                     params.set('editOrderId', item.id);
+                                    params.set('source', 'admin');
                                     navigate(`/order-entry?${params.toString()}`);
                                   }}
                                 >
