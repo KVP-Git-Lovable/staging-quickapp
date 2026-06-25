@@ -10904,8 +10904,10 @@ export type Database = {
           edited_by: string | null
           id: string
           original_order_id: string
+          original_snapshot: Json | null
           reason: string | null
           replacement_order_id: string | null
+          replacement_snapshot: Json | null
         }
         Insert: {
           created_at?: string
@@ -10913,8 +10915,10 @@ export type Database = {
           edited_by?: string | null
           id?: string
           original_order_id: string
+          original_snapshot?: Json | null
           reason?: string | null
           replacement_order_id?: string | null
+          replacement_snapshot?: Json | null
         }
         Update: {
           created_at?: string
@@ -10922,8 +10926,10 @@ export type Database = {
           edited_by?: string | null
           id?: string
           original_order_id?: string
+          original_snapshot?: Json | null
           reason?: string | null
           replacement_order_id?: string | null
+          replacement_snapshot?: Json | null
         }
         Relationships: []
       }
