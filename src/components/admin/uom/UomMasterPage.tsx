@@ -748,10 +748,17 @@ export const UomMasterPageContent: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs text-muted-foreground flex-1">
-          All units across all categories. Each category has a primary (purchase) and a secondary (sales) default that pre-fills product forms. All units including base units can be enabled or disabled — disabling a base unit hides it from new product forms and order entry, but existing products already using it are unaffected.
-        </p>
+      <div className="flex items-start justify-between gap-3 rounded-md border border-teal-500/30 bg-teal-500/5 p-3">
+        <div className="flex-1 space-y-1">
+          <p className="text-xs font-semibold text-teal-700 dark:text-teal-300">
+            Universal conversions are set once here. Packaging like “1 box = 24 pcs” is set per product.
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Weight / Volume / Length use fixed physics factors (KG=1000g, LITRE=1000ml, INCH=25.4mm…). Pack/count categories
+            (Quantity, Packaging, Medication, Electronics) leave the factor blank — it's defined on each product. Disabled units
+            never appear in product unit pickers or order entry.
+          </p>
+        </div>
         <Button variant="outline" size="sm" onClick={() => setShowCategoryManager(true)}>
           Manage categories
         </Button>
