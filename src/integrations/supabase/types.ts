@@ -19515,6 +19515,7 @@ export type Database = {
           category: string
           category_id: string | null
           code: string
+          conversion_to_base: number | null
           created_at: string
           id: string
           is_base: boolean
@@ -19525,6 +19526,7 @@ export type Database = {
           category: string
           category_id?: string | null
           code: string
+          conversion_to_base?: number | null
           created_at?: string
           id?: string
           is_base?: boolean
@@ -19535,6 +19537,7 @@ export type Database = {
           category?: string
           category_id?: string | null
           code?: string
+          conversion_to_base?: number | null
           created_at?: string
           id?: string
           is_base?: boolean
