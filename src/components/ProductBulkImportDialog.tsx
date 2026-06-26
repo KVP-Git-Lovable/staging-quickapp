@@ -238,9 +238,12 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
             </div>
 
             {importing && (
-              <p className="text-xs text-muted-foreground">
-                Importing… {progress.done}/{progress.total}
-              </p>
+              <div className="space-y-1">
+                <Progress value={progress.total ? (progress.done / progress.total) * 100 : 0} />
+                <p className="text-xs text-muted-foreground">
+                  Importing… {progress.done}/{progress.total}
+                </p>
+              </div>
             )}
 
             {result && (
