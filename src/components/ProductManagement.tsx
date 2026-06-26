@@ -969,10 +969,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Sync
                   </Button>
-                  <Button variant="outline" onClick={() => importInputRef.current?.click()}>
-                    <FileText className="h-4 w-4 mr-2" />
-                    Import Product Data
-                  </Button>
+                  <ProductBulkImportDialog
+                    onImported={() => fetchData()}
+                    trigger={
+                      <Button variant="outline">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Bulk Import
+                      </Button>
+                    }
+                  />
                   <input
                     ref={importInputRef}
                     type="file"
