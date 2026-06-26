@@ -20,10 +20,23 @@ import {
   validateImportRows,
   executeImport,
   buildErrorReportBlob,
+  getPendingCategoryNames,
+  createPendingCategories,
   type ValidatedRow,
   type ImportResult,
 } from '@/utils/productImportRunner';
 import { uploadProductImagesBySku, type ImageUploadOutcome } from '@/utils/productImageBatchUpload';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 interface Props {
   trigger: React.ReactNode;
@@ -48,13 +61,20 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
   const [imgProgress, setImgProgress] = useState({ done: 0, total: 0 });
   const imgRef = useRef<HTMLInputElement>(null);
 
+  // New-categories confirmation state
+  const [pendingCategories, setPendingCategories] = useState<string[]>([]);
+  const [showCategoryConfirm, setShowCategoryConfirm] = useState(false);
+
   const reset = () => {
     setValidated(null);
     setResult(null);
     setOutcomes(null);
     setProgress({ done: 0, total: 0 });
     setImgProgress({ done: 0, total: 0 });
+    setPendingCategories([]);
+    setShowCategoryConfirm(false);
   };
+
 
   const handleFile = async (file?: File) => {
     if (!file) return;
@@ -82,11 +102,29 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
 
   const runImport = async () => {
     if (!validated) return;
+    const newCats = getPendingCategoryNames(validated);
+    if (newCats.length > 0) {
+      setPendingCategories(newCats);
+      setShowCategoryConfirm(true);
+      return;
+    }
+    await executeImportNow();
+  };
+
+  const executeImportNow = async () => {
+    if (!validated) return;
     const ctx = (window as any).__importCtx;
     if (!ctx) { toast.error('Validation context missing — re-upload the file'); return; }
     setImporting(true);
     setProgress({ done: 0, total: validated.length });
     try {
+      if (pendingCategories.length > 0) {
+        const { created, failed } = await createPendingCategories(pendingCategories, ctx);
+        if (failed.length > 0) {
+          toast.error(`Failed to create ${failed.length} categories: ${failed.map((f) => f.name).join(', ')}`);
+        }
+        if (created > 0) toast.success(`Created ${created} new categor${created === 1 ? 'y' : 'ies'}`);
+      }
       const res = await executeImport(validated, ctx, (done, total) => setProgress({ done, total }));
       setResult(res);
       toast.success(
@@ -98,8 +136,10 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
       toast.error(`Import failed: ${e?.message ?? 'unknown'}`);
     } finally {
       setImporting(false);
+      setPendingCategories([]);
     }
   };
+
 
   const downloadErrors = () => {
     if (!result || result.errorRows.length === 0) return;
@@ -305,6 +345,34 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      <AlertDialog open={showCategoryConfirm} onOpenChange={setShowCategoryConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Create {pendingCategories.length} new categor{pendingCategories.length === 1 ? 'y' : 'ies'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The following categor{pendingCategories.length === 1 ? 'y was' : 'ies were'} not found and will be
+              created before importing products. Cancel if any are typos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ScrollArea className="max-h-60 border rounded p-3">
+            <ul className="text-sm space-y-1">
+              {pendingCategories.map((name) => (
+                <li key={name} className="font-mono">• {name}</li>
+              ))}
+            </ul>
+          </ScrollArea>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingCategories([])}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowCategoryConfirm(false); executeImportNow(); }}>
+              Create & import
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
+

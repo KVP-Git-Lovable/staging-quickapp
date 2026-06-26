@@ -76,7 +76,8 @@ export interface ValidatedRow {
     description: string | null;
     brand: string | null;
     product_type: string | null;
-    category_id: string;
+    category_id: string;                 // empty string when pending_category_name is set
+    pending_category_name: string | null; // original-cased name to create before import
     gst_percentage: number;
     hsn_code: string | null;
     tax_master_id: string | null;
@@ -101,6 +102,7 @@ export interface ValidatedRow {
     }>;
   };
 }
+
 
 export interface ValidationContext {
   categoriesByName: Map<string, string>;          // lower name → id
@@ -193,8 +195,10 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
     if (!priceBasisCode) errors.push('price_basis_unit is required');
     if (!defSalesCode) errors.push('default_sales_unit is required');
 
-    const categoryId = categoryName ? ctx.categoriesByName.get(categoryName.toLowerCase()) : undefined;
-    if (categoryName && !categoryId) errors.push(`unknown category "${categoryName}"`);
+    const categoryLookup = categoryName ? ctx.categoriesByName.get(categoryName.toLowerCase()) : undefined;
+    const categoryId = categoryLookup ?? '';
+    const pendingCategoryName = categoryName && !categoryLookup ? categoryName : null;
+
 
     const baseUom = resolveUom(ctx, baseCode);
     if (baseCode && !baseUom) errors.push(`unknown base_unit "${baseCode}"`);
@@ -293,16 +297,18 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
       warnings,
       raw,
     };
-    if (ok && baseUom && categoryId && gst != null && rate != null && priceBasisUom && defSalesUom) {
+    if (ok && baseUom && (categoryId || pendingCategoryName) && gst != null && rate != null && priceBasisUom && defSalesUom) {
       row.resolved = {
         name,
         description: textOrNull(raw['description']),
         brand: textOrNull(raw['brand']),
         product_type: textOrNull(raw['product_type']),
         category_id: categoryId,
+        pending_category_name: pendingCategoryName,
         gst_percentage: gst,
         hsn_code: textOrNull(raw['hsn_code']),
         tax_master_id: taxId,
+
         rate,
         base_unit: baseUom.code,
         base_uom_id: baseUom.id,
@@ -359,13 +365,28 @@ export async function executeImport(
     }
 
     const r = v.resolved;
+    // Resolve any pending (newly-created) category from the context map.
+    let categoryId = r.category_id;
+    if (!categoryId && r.pending_category_name) {
+      categoryId = ctx.categoriesByName.get(r.pending_category_name.trim().toLowerCase()) ?? '';
+    }
+    if (!categoryId) {
+      result.failed++;
+      result.errorRows.push({
+        row: v.rowNumber,
+        sku: v.sku,
+        reason: `category "${r.pending_category_name ?? ''}" was not created`,
+      });
+      continue;
+    }
+
     const productPayload = {
       sku: v.sku,
       name: r.name,
       description: r.description,
       brand: r.brand,
       product_type: r.product_type,
-      category_id: r.category_id,
+      category_id: categoryId,
       gst_percentage: r.gst_percentage,
       hsn_code: r.hsn_code,
       tax_master_id: r.tax_master_id,
@@ -380,6 +401,7 @@ export async function executeImport(
       is_active: r.is_active,
       is_discontinued: r.is_discontinued,
     };
+
 
     const wasExisting = ctx.existingSkus.has(v.sku);
 
@@ -448,3 +470,51 @@ export function buildErrorReportBlob(
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 }
+
+
+
+/**
+ * Return the unique set of category names that need to be created,
+ * preserving the original casing of the first occurrence in the file.
+ * Deduplicated case-insensitively + trimmed.
+ */
+export function getPendingCategoryNames(validated: ValidatedRow[]): string[] {
+  const seen = new Map<string, string>(); // lowercase → original-cased
+  for (const v of validated) {
+    const name = v.resolved?.pending_category_name?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (!seen.has(key)) seen.set(key, name);
+  }
+  return Array.from(seen.values());
+}
+
+/**
+ * Create the given category names in product_categories (one insert per unique
+ * name) and populate ctx.categoriesByName so executeImport can resolve them.
+ * Safe to call with an empty list.
+ */
+export async function createPendingCategories(
+  names: string[],
+  ctx: ValidationContext,
+): Promise<{ created: number; failed: Array<{ name: string; reason: string }> }> {
+  const failed: Array<{ name: string; reason: string }> = [];
+  let created = 0;
+  for (const name of names) {
+    const key = name.trim().toLowerCase();
+    if (ctx.categoriesByName.has(key)) continue;
+    const { data, error } = await supabase
+      .from('product_categories')
+      .insert({ name: name.trim() })
+      .select('id')
+      .single();
+    if (error || !data) {
+      failed.push({ name, reason: error?.message ?? 'insert failed' });
+      continue;
+    }
+    ctx.categoriesByName.set(key, (data as any).id);
+    created++;
+  }
+  return { created, failed };
+}
+
