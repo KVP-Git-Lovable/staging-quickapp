@@ -195,8 +195,10 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
     if (!priceBasisCode) errors.push('price_basis_unit is required');
     if (!defSalesCode) errors.push('default_sales_unit is required');
 
-    const categoryId = categoryName ? ctx.categoriesByName.get(categoryName.toLowerCase()) : undefined;
-    if (categoryName && !categoryId) errors.push(`unknown category "${categoryName}"`);
+    const categoryLookup = categoryName ? ctx.categoriesByName.get(categoryName.toLowerCase()) : undefined;
+    const categoryId = categoryLookup ?? '';
+    const pendingCategoryName = categoryName && !categoryLookup ? categoryName : null;
+
 
     const baseUom = resolveUom(ctx, baseCode);
     if (baseCode && !baseUom) errors.push(`unknown base_unit "${baseCode}"`);
