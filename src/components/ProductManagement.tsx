@@ -99,7 +99,7 @@ const normalizeProductBaseUnitCategory = (value?: string | null) => {
 
 const ProductManagement = () => {
   const navigate = useNavigate();
-  const importInputRef = useRef<HTMLInputElement>(null);
+  
   const [unitsValue, setUnitsValue] = useState<ProductUnitsEditorValue>(() => emptyProductUnitsEditorValue());
   const [savingProduct, setSavingProduct] = useState(false);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
