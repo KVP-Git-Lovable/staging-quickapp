@@ -114,16 +114,23 @@ export interface ValidationContext {
     conversion_to_base: number | null;
     enabled: boolean;
   }>;
-  taxByName: Map<string, string>;
+  taxByName: Map<string, { id: string; total_rate: number | null }>;
+  taxByRate: Map<number, { id: string; total_rate: number; name: string }>; // active only, gst% → tax row
   existingSkus: Set<string>;
 }
+
+const rateKey = (n: number | null | undefined): number | null => {
+  if (n == null) return null;
+  // Normalise to 2 decimals so 5 / 5.0 / 5.00 collide.
+  return Math.round(Number(n) * 100) / 100;
+};
 
 export async function loadValidationContext(): Promise<ValidationContext> {
   const [{ data: cats }, { data: uoms }, { data: enabled }, { data: taxes }] = await Promise.all([
     supabase.from('product_categories').select('id, name'),
     supabase.from('uom_master').select('id, code, category, is_base, conversion_to_base'),
     supabase.from('enabled_units').select('uom_id, enabled'),
-    supabase.from('tax_masters').select('id, name'),
+    supabase.from('tax_masters').select('id, name, total_rate, is_active'),
   ]);
 
   const enabledSet = new Set((enabled ?? []).filter((e: any) => e.enabled).map((e: any) => e.uom_id));
@@ -137,6 +144,19 @@ export async function loadValidationContext(): Promise<ValidationContext> {
       conversion_to_base: (u as any).conversion_to_base,
       enabled: enabledSet.has((u as any).id),
     });
+  }
+
+  // Build tax lookup maps — by name (any), by rate (active only).
+  const taxByName = new Map<string, { id: string; total_rate: number | null }>();
+  const taxByRate = new Map<number, { id: string; total_rate: number; name: string }>();
+  for (const t of (taxes ?? []) as any[]) {
+    const rate = t.total_rate == null ? null : Number(t.total_rate);
+    taxByName.set(String(t.name).trim().toLowerCase(), { id: t.id, total_rate: rate });
+    if (t.is_active && rate != null) {
+      const k = rateKey(rate)!;
+      // First-write-wins keeps behaviour deterministic when two active rows share a rate.
+      if (!taxByRate.has(k)) taxByRate.set(k, { id: t.id, total_rate: rate, name: String(t.name) });
+    }
   }
 
   // Pull existing SKUs in pages.
@@ -156,7 +176,8 @@ export async function loadValidationContext(): Promise<ValidationContext> {
   return {
     categoriesByName: new Map((cats ?? []).map((c: any) => [String(c.name).trim().toLowerCase(), c.id])),
     uomByCode,
-    taxByName: new Map((taxes ?? []).map((t: any) => [String(t.name).trim().toLowerCase(), t.id])),
+    taxByName,
+    taxByRate,
     existingSkus: existing,
   };
 }
