@@ -61,13 +61,20 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
   const [imgProgress, setImgProgress] = useState({ done: 0, total: 0 });
   const imgRef = useRef<HTMLInputElement>(null);
 
+  // New-categories confirmation state
+  const [pendingCategories, setPendingCategories] = useState<string[]>([]);
+  const [showCategoryConfirm, setShowCategoryConfirm] = useState(false);
+
   const reset = () => {
     setValidated(null);
     setResult(null);
     setOutcomes(null);
     setProgress({ done: 0, total: 0 });
     setImgProgress({ done: 0, total: 0 });
+    setPendingCategories([]);
+    setShowCategoryConfirm(false);
   };
+
 
   const handleFile = async (file?: File) => {
     if (!file) return;
