@@ -29,6 +29,7 @@ import { ProductUnitsEditor, emptyProductUnitsEditorValue, type ProductUnitsEdit
 import { reconcileProductUomMapping, hydrateUnitsEditorFromProduct } from '@/lib/productUomPersistence';
 import { exportProductsMaster } from '@/utils/exportProductsMaster';
 import { ProductBulkImportDialog } from '@/components/ProductBulkImportDialog';
+import { ProductExportDialog } from '@/components/ProductExportDialog';
 import { optimizeImage } from '@/utils/imageOptimizer';
 
 interface ProductCategory {
