@@ -239,7 +239,19 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
     if (taxName) {
       const t = ctx.taxByName.get(taxName.toLowerCase());
       if (!t) errors.push(`unknown tax_master "${taxName}"`);
-      else taxId = t;
+      else taxId = t.id;
+    }
+
+    // Auto-link by gst_percentage when tax_master_id is still unresolved.
+    // This prevents the "tax_master_id = null when gst is present" damage.
+    let effectiveGst = gst;
+    if (!taxId && gst != null) {
+      const k = rateKey(gst);
+      const byRate = k != null ? ctx.taxByRate.get(k) : undefined;
+      if (byRate) {
+        taxId = byRate.id;
+        effectiveGst = byRate.total_rate; // keep the two in lockstep
+      }
     }
 
     // Mapping rows.
