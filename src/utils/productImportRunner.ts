@@ -365,13 +365,28 @@ export async function executeImport(
     }
 
     const r = v.resolved;
+    // Resolve any pending (newly-created) category from the context map.
+    let categoryId = r.category_id;
+    if (!categoryId && r.pending_category_name) {
+      categoryId = ctx.categoriesByName.get(r.pending_category_name.trim().toLowerCase()) ?? '';
+    }
+    if (!categoryId) {
+      result.failed++;
+      result.errorRows.push({
+        row: v.rowNumber,
+        sku: v.sku,
+        reason: `category "${r.pending_category_name ?? ''}" was not created`,
+      });
+      continue;
+    }
+
     const productPayload = {
       sku: v.sku,
       name: r.name,
       description: r.description,
       brand: r.brand,
       product_type: r.product_type,
-      category_id: r.category_id,
+      category_id: categoryId,
       gst_percentage: r.gst_percentage,
       hsn_code: r.hsn_code,
       tax_master_id: r.tax_master_id,
@@ -386,6 +401,7 @@ export async function executeImport(
       is_active: r.is_active,
       is_discontinued: r.is_discontinued,
     };
+
 
     const wasExisting = ctx.existingSkus.has(v.sku);
 
