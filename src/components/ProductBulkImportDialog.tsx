@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Download, FileUp, Image as ImageIcon, Loader2, Upload, FileSpreadsheet } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import { downloadProductImportTemplate } from '@/utils/productImportTemplate';
 import {
   parseImportFile,
@@ -237,9 +238,12 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
             </div>
 
             {importing && (
-              <p className="text-xs text-muted-foreground">
-                Importing… {progress.done}/{progress.total}
-              </p>
+              <div className="space-y-1">
+                <Progress value={progress.total ? (progress.done / progress.total) * 100 : 0} />
+                <p className="text-xs text-muted-foreground">
+                  Importing… {progress.done}/{progress.total}
+                </p>
+              </div>
             )}
 
             {result && (
