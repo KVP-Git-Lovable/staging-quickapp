@@ -469,6 +469,9 @@ export function buildErrorReportBlob(
   return new Blob([out], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
+}
+
+
 
 /**
  * Return the unique set of category names that need to be created,
