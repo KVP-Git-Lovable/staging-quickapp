@@ -345,6 +345,34 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      <AlertDialog open={showCategoryConfirm} onOpenChange={setShowCategoryConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Create {pendingCategories.length} new categor{pendingCategories.length === 1 ? 'y' : 'ies'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The following categor{pendingCategories.length === 1 ? 'y was' : 'ies were'} not found and will be
+              created before importing products. Cancel if any are typos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <ScrollArea className="max-h-60 border rounded p-3">
+            <ul className="text-sm space-y-1">
+              {pendingCategories.map((name) => (
+                <li key={name} className="font-mono">• {name}</li>
+              ))}
+            </ul>
+          </ScrollArea>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingCategories([])}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShowCategoryConfirm(false); executeImportNow(); }}>
+              Create & import
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
+
