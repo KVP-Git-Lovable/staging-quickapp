@@ -27,8 +27,9 @@ import { PaginationControls } from '@/components/ui/PaginationControls';
 import { useNavigate } from 'react-router-dom';
 import { ProductUnitsEditor, emptyProductUnitsEditorValue, type ProductUnitsEditorValue } from '@/components/admin/uom/ProductUnitsEditor';
 import { reconcileProductUomMapping, hydrateUnitsEditorFromProduct } from '@/lib/productUomPersistence';
-import { exportProductsMaster } from '@/utils/exportProductsMaster';
+
 import { ProductBulkImportDialog } from '@/components/ProductBulkImportDialog';
+import { ProductExportDialog } from '@/components/ProductExportDialog';
 import { optimizeImage } from '@/utils/imageOptimizer';
 
 interface ProductCategory {
@@ -98,7 +99,7 @@ const normalizeProductBaseUnitCategory = (value?: string | null) => {
 
 const ProductManagement = () => {
   const navigate = useNavigate();
-  const importInputRef = useRef<HTMLInputElement>(null);
+  
   const [unitsValue, setUnitsValue] = useState<ProductUnitsEditorValue>(() => emptyProductUnitsEditorValue());
   const [savingProduct, setSavingProduct] = useState(false);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -544,99 +545,9 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     }
   };
 
-  const handleExportCsv = () => {
-    try {
-      const rows = filteredProducts;
-      const headers = ['SKU', 'Manufacturer Code', 'Name', 'Category', 'Rate', 'Unit', 'Base Unit', 'Conversion Factor', 'HSN/SAC', 'Barcode', 'Active'];
-      const escape = (v: any) => {
-        const s = v === null || v === undefined ? '' : String(v);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      };
-      const lines = [headers.join(',')];
-      for (const p of rows) {
-        const catName = categories.find(c => c.id === p.category_id)?.name || '';
-        lines.push([p.sku, (p as any).product_number || '', p.name, catName, p.rate, p.unit, p.base_unit, p.conversion_factor, (p as any).hsn_code || '', p.barcode || '', p.is_active ? 'yes' : 'no'].map(escape).join(','));
-      }
-      const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `products-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`Exported ${rows.length} products`);
-    } catch (e) {
-      console.error(e);
-      toast.error('Export failed');
-    }
-  };
+  // Legacy CSV export/import removed. Use ProductExportDialog +
+  // ProductBulkImportDialog for the validated XLSX round-trip flow.
 
-  const handleImportCsv = async (file?: File) => {
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-      if (lines.length < 2) {
-        toast.error('CSV is empty');
-        return;
-      }
-      const parseLine = (line: string): string[] => {
-        const out: string[] = [];
-        let cur = '';
-        let inQ = false;
-        for (let i = 0; i < line.length; i++) {
-          const c = line[i];
-          if (inQ) {
-            if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
-            else if (c === '"') inQ = false;
-            else cur += c;
-          } else {
-            if (c === ',') { out.push(cur); cur = ''; }
-            else if (c === '"') inQ = true;
-            else cur += c;
-          }
-        }
-        out.push(cur);
-        return out;
-      };
-      const headers = parseLine(lines[0]).map(h => h.trim().toLowerCase());
-      const idx = (n: string) => headers.indexOf(n);
-      const sIdx = idx('sku');
-      const nIdx = idx('name');
-      if (sIdx < 0 || nIdx < 0) {
-        toast.error('CSV must contain SKU and Name columns');
-        return;
-      }
-      const toInsert = lines.slice(1).map(parseLine).map((r) => ({
-        sku: r[sIdx]?.trim(),
-        name: r[nIdx]?.trim(),
-        product_number: idx('manufacturer code') >= 0 ? (r[idx('manufacturer code')] || null) : null,
-        rate: Number(r[idx('rate')] || 0) || 0,
-        unit: r[idx('unit')] || 'piece',
-        base_unit_category: normalizeProductBaseUnitCategory(r[idx('base unit')] || 'kg'),
-        conversion_factor: Number(r[idx('conversion factor')] || 1) || 1,
-        hsn_code: idx('hsn/sac') >= 0 ? (r[idx('hsn/sac')] || null) : null,
-        barcode: idx('barcode') >= 0 ? (r[idx('barcode')] || null) : null,
-        is_active: (r[idx('active')] || 'yes').toLowerCase() !== 'no',
-      })).filter(r => r.sku && r.name);
-      if (toInsert.length === 0) {
-        toast.error('No valid rows found');
-        return;
-      }
-      toast.loading(`Importing ${toInsert.length} products...`);
-      const { error } = await supabase.from('products').insert(toInsert as any);
-      if (error) throw error;
-      toast.success(`Imported ${toInsert.length} products`);
-      fetchData();
-    } catch (e: any) {
-      console.error(e);
-      toast.error(`Import failed: ${e.message || e}`);
-    } finally {
-      if (importInputRef.current) importInputRef.current.value = '';
-    }
-  };
 
   const handleProductSubmit = async () => {
     setSavingProduct(true);
@@ -978,33 +889,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       </Button>
                     }
                   />
-                  <input
-                    ref={importInputRef}
-                    type="file"
-                    accept=".csv"
-                    className="hidden"
-                    onChange={(e) => handleImportCsv(e.target.files?.[0])}
+                  <ProductExportDialog
+                    trigger={
+                      <Button variant="outline">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Products
+                      </Button>
+                    }
                   />
-                  <Button variant="outline" onClick={handleExportCsv}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Products
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      const tid = toast.loading('Exporting all products...');
-                      try {
-                        await exportProductsMaster();
-                        toast.success('Product master exported', { id: tid });
-                      } catch (e: any) {
-                        console.error(e);
-                        toast.error(`Export failed: ${e?.message ?? 'unknown'}`, { id: tid });
-                      }
-                    }}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export All (XLSX)
-                  </Button>
+
                   <Button
                     variant="destructive"
                     onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL active products and variants' })}
