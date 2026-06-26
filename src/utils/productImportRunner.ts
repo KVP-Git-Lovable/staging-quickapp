@@ -373,47 +373,27 @@ export interface ImportResult {
   errorRows: Array<{ row: number; sku: string; reason: string }>;
 }
 
-export async function executeImport(
-  validated: ValidatedRow[],
+const CHUNK_SIZE = 300;
+
+/**
+ * Build the products row payload for a single validated row.
+ * Returns null + reason if the row is unusable at execute time
+ * (e.g. its pending category wasn't created).
+ */
+function buildProductPayload(
+  v: ValidatedRow,
   ctx: ValidationContext,
-  onProgress?: (done: number, total: number) => void,
-): Promise<ImportResult> {
-  const result: ImportResult = {
-    inserted: 0,
-    updated: 0,
-    skipped: 0,
-    failed: 0,
-    errorRows: [],
-  };
-
-  let done = 0;
-  for (const v of validated) {
-    done++;
-    onProgress?.(done, validated.length);
-
-    if (!v.ok || !v.resolved) {
-      result.skipped++;
-      for (const e of v.errors) result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e });
-      continue;
-    }
-
-    const r = v.resolved;
-    // Resolve any pending (newly-created) category from the context map.
-    let categoryId = r.category_id;
-    if (!categoryId && r.pending_category_name) {
-      categoryId = ctx.categoriesByName.get(r.pending_category_name.trim().toLowerCase()) ?? '';
-    }
-    if (!categoryId) {
-      result.failed++;
-      result.errorRows.push({
-        row: v.rowNumber,
-        sku: v.sku,
-        reason: `category "${r.pending_category_name ?? ''}" was not created`,
-      });
-      continue;
-    }
-
-    const productPayload = {
+): { payload: Record<string, any>; mappings: NonNullable<ValidatedRow['resolved']>['mappings'] } | { error: string } {
+  const r = v.resolved!;
+  let categoryId = r.category_id;
+  if (!categoryId && r.pending_category_name) {
+    categoryId = ctx.categoriesByName.get(r.pending_category_name.trim().toLowerCase()) ?? '';
+  }
+  if (!categoryId) {
+    return { error: `category "${r.pending_category_name ?? ''}" was not created` };
+  }
+  return {
+    payload: {
       sku: v.sku,
       name: r.name,
       description: r.description,
@@ -433,29 +413,45 @@ export async function executeImport(
       net_volume_ml: r.net_volume_ml,
       is_active: r.is_active,
       is_discontinued: r.is_discontinued,
-    };
+    },
+    mappings: r.mappings,
+  };
+}
 
-
+/**
+ * Fallback path when a chunk-level operation fails: process the chunk's rows
+ * one-by-one so we can attribute the failure to specific SKUs and let the
+ * rest of the import continue.
+ */
+async function executeChunkPerRow(
+  chunk: ValidatedRow[],
+  ctx: ValidationContext,
+  result: ImportResult,
+): Promise<void> {
+  for (const v of chunk) {
+    const built = buildProductPayload(v, ctx);
+    if ('error' in built) {
+      result.failed++;
+      result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: built.error });
+      continue;
+    }
     const wasExisting = ctx.existingSkus.has(v.sku);
-
     try {
-      // Upsert by SKU (relies on the products_sku_unique constraint).
-      const { data: upserted, error: upErr } = await supabase
+      const { data: up, error: upErr } = await supabase
         .from('products')
-        .upsert(productPayload, { onConflict: 'sku' })
+        .upsert(built.payload, { onConflict: 'sku' })
         .select('id')
         .single();
       if (upErr) throw upErr;
-      const productId = (upserted as any).id as string;
+      const productId = (up as any).id as string;
 
-      // Replace mappings: delete + insert.
       const { error: delErr } = await supabase
         .from('product_uom_mapping')
         .delete()
         .eq('product_id', productId);
       if (delErr) throw delErr;
 
-      const mappingRows = r.mappings.map((m) => ({
+      const rows = built.mappings.map((m) => ({
         product_id: productId,
         uom_id: m.uom_id,
         conversion_to_base: m.conversion_to_base,
@@ -464,6 +460,139 @@ export async function executeImport(
         is_default_sales: m.is_default_sales,
         is_active: true,
       }));
+      if (rows.length) {
+        const { error: insErr } = await supabase.from('product_uom_mapping').insert(rows);
+        if (insErr) throw insErr;
+      }
+      if (wasExisting) result.updated++; else result.inserted++;
+      ctx.existingSkus.add(v.sku);
+    } catch (e: any) {
+      result.failed++;
+      result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e?.message ?? String(e) });
+    }
+  }
+}
+
+/**
+ * Chunked bulk importer. ~300 rows per chunk:
+ *   1. one upsert into products (returns id+sku)
+ *   2. one delete from product_uom_mapping (in product_ids)
+ *   3. one insert into product_uom_mapping (all chunk rows)
+ *
+ * Cuts ~3 calls per row to ~3 calls per 300 rows. If any chunk-level op
+ * fails, that single chunk falls back to per-row processing so failures
+ * are attributed to specific SKUs and the rest of the import continues.
+ */
+export async function executeImport(
+  validated: ValidatedRow[],
+  ctx: ValidationContext,
+  onProgress?: (done: number, total: number) => void,
+): Promise<ImportResult> {
+  const result: ImportResult = {
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    failed: 0,
+    errorRows: [],
+  };
+
+  // 1. Pre-pass: separate invalid (skip + log) from importable rows.
+  const importable: ValidatedRow[] = [];
+  for (const v of validated) {
+    if (!v.ok || !v.resolved) {
+      result.skipped++;
+      for (const e of v.errors) result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e });
+      continue;
+    }
+    importable.push(v);
+  }
+
+  const total = validated.length;
+  let done = validated.length - importable.length;
+  onProgress?.(done, total);
+
+  // 2. Process in chunks.
+  for (let i = 0; i < importable.length; i += CHUNK_SIZE) {
+    const chunk = importable.slice(i, i + CHUNK_SIZE);
+
+    // Build payloads + remember mappings per SKU.
+    const payloads: Record<string, any>[] = [];
+    const mappingsBySku = new Map<string, NonNullable<ValidatedRow['resolved']>['mappings']>();
+    const buildFailures: ValidatedRow[] = [];
+
+    for (const v of chunk) {
+      const built = buildProductPayload(v, ctx);
+      if ('error' in built) {
+        result.failed++;
+        result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: built.error });
+        buildFailures.push(v);
+        continue;
+      }
+      payloads.push(built.payload);
+      mappingsBySku.set(v.sku, built.mappings);
+    }
+
+    if (payloads.length === 0) {
+      done += chunk.length;
+      onProgress?.(done, total);
+      continue;
+    }
+
+    const usableChunk = chunk.filter((v) => mappingsBySku.has(v.sku));
+
+    try {
+      // (a) Bulk upsert products.
+      const { data: upserted, error: upErr } = await supabase
+        .from('products')
+        .upsert(payloads, { onConflict: 'sku' })
+        .select('id, sku');
+      if (upErr) throw upErr;
+
+      const idBySku = new Map<string, string>();
+      for (const row of (upserted ?? []) as any[]) {
+        idBySku.set(String(row.sku), String(row.id));
+      }
+
+      // Any SKU we couldn't resolve back — treat as failed.
+      const resolvedSkus = new Set<string>();
+      const productIds: string[] = [];
+      for (const v of usableChunk) {
+        const id = idBySku.get(v.sku);
+        if (!id) {
+          result.failed++;
+          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: 'upsert returned no id for sku' });
+          continue;
+        }
+        resolvedSkus.add(v.sku);
+        productIds.push(id);
+      }
+
+      // (b) Bulk delete existing mappings for the chunk.
+      if (productIds.length > 0) {
+        const { error: delErr } = await supabase
+          .from('product_uom_mapping')
+          .delete()
+          .in('product_id', productIds);
+        if (delErr) throw delErr;
+      }
+
+      // (c) Bulk insert new mappings.
+      const mappingRows: Record<string, any>[] = [];
+      for (const v of usableChunk) {
+        if (!resolvedSkus.has(v.sku)) continue;
+        const productId = idBySku.get(v.sku)!;
+        for (const m of mappingsBySku.get(v.sku) ?? []) {
+          mappingRows.push({
+            product_id: productId,
+            uom_id: m.uom_id,
+            conversion_to_base: m.conversion_to_base,
+            is_base: m.is_base,
+            is_price_basis: m.is_price_basis,
+            is_default_sales: m.is_default_sales,
+            is_active: true,
+          });
+        }
+      }
       if (mappingRows.length > 0) {
         const { error: insErr } = await supabase
           .from('product_uom_mapping')
@@ -471,16 +600,26 @@ export async function executeImport(
         if (insErr) throw insErr;
       }
 
-      if (wasExisting) result.updated++; else result.inserted++;
-      ctx.existingSkus.add(v.sku);
+      // Count outcomes for SKUs that made it through.
+      for (const v of usableChunk) {
+        if (!resolvedSkus.has(v.sku)) continue;
+        if (ctx.existingSkus.has(v.sku)) result.updated++;
+        else {
+          result.inserted++;
+          ctx.existingSkus.add(v.sku);
+        }
+      }
     } catch (e: any) {
-      result.failed++;
-      result.errorRows.push({
-        row: v.rowNumber,
-        sku: v.sku,
-        reason: e?.message ?? String(e),
-      });
+      // Chunk-level failure — fall back to per-row so we can attribute it.
+      console.warn(
+        `[importRunner] chunk ${i / CHUNK_SIZE + 1} bulk path failed (${e?.message ?? e}); retrying row-by-row`,
+      );
+      // Roll back the "already counted" assumption: per-row path will recount.
+      await executeChunkPerRow(usableChunk, ctx, result);
     }
+
+    done += chunk.length;
+    onProgress?.(done, total);
   }
 
   return result;
