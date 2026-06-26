@@ -28,6 +28,8 @@ import { useNavigate } from 'react-router-dom';
 import { ProductUnitsEditor, emptyProductUnitsEditorValue, type ProductUnitsEditorValue } from '@/components/admin/uom/ProductUnitsEditor';
 import { reconcileProductUomMapping, hydrateUnitsEditorFromProduct } from '@/lib/productUomPersistence';
 import { exportProductsMaster } from '@/utils/exportProductsMaster';
+import { ProductBulkImportDialog } from '@/components/ProductBulkImportDialog';
+import { optimizeImage } from '@/utils/imageOptimizer';
 
 interface ProductCategory {
   id: string;
@@ -763,13 +765,14 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   const processProductPhoto = async (file: File) => {
     setUploadingPhoto(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+      // Shared optimizer: resize/compress/strip-EXIF before upload.
+      const optimized = await optimizeImage(file, { maxDim: 1280, quality: 0.8 });
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${optimized.ext}`;
       const filePath = `products/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('product-photos')
-        .upload(filePath, file);
+        .upload(filePath, optimized.blob, { contentType: optimized.mime });
 
       if (uploadError) throw uploadError;
 
@@ -966,10 +969,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Sync
                   </Button>
-                  <Button variant="outline" onClick={() => importInputRef.current?.click()}>
-                    <FileText className="h-4 w-4 mr-2" />
-                    Import Product Data
-                  </Button>
+                  <ProductBulkImportDialog
+                    onImported={() => fetchData()}
+                    trigger={
+                      <Button variant="outline">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Bulk Import
+                      </Button>
+                    }
+                  />
                   <input
                     ref={importInputRef}
                     type="file"
