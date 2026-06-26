@@ -888,33 +888,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       </Button>
                     }
                   />
-                  <input
-                    ref={importInputRef}
-                    type="file"
-                    accept=".csv"
-                    className="hidden"
-                    onChange={(e) => handleImportCsv(e.target.files?.[0])}
+                  <ProductExportDialog
+                    trigger={
+                      <Button variant="outline">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Products
+                      </Button>
+                    }
                   />
-                  <Button variant="outline" onClick={handleExportCsv}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Export Products
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      const tid = toast.loading('Exporting all products...');
-                      try {
-                        await exportProductsMaster();
-                        toast.success('Product master exported', { id: tid });
-                      } catch (e: any) {
-                        console.error(e);
-                        toast.error(`Export failed: ${e?.message ?? 'unknown'}`, { id: tid });
-                      }
-                    }}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export All (XLSX)
-                  </Button>
+
                   <Button
                     variant="destructive"
                     onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL active products and variants' })}
