@@ -47,7 +47,47 @@ const filenameFromUrl = (url?: string | null): string => {
   }
 };
 
-export async function exportProductsMaster(): Promise<void> {
+export const EXPORT_ALL_COLUMNS = [
+  'sku',
+  'name',
+  'description',
+  'brand',
+  'category',
+  'product_type',
+  'gst_percentage',
+  'hsn_code',
+  'tax_master',
+  'rate',
+  'base_unit',
+  'price_basis_unit',
+  'default_sales_unit',
+  'unit_1',
+  'unit_1_factor',
+  'unit_2',
+  'unit_2_factor',
+  'unit_3',
+  'unit_3_factor',
+  'opening_stock',
+  'reorder_level',
+  'net_weight_g',
+  'net_volume_ml',
+  'image_file',
+  'is_active',
+  'is_discontinued',
+] as const;
+
+export const EXPORT_MANDATORY_COLUMNS = [
+  'sku',
+  'name',
+  'category',
+  'gst_percentage',
+  'rate',
+  'base_unit',
+  'price_basis_unit',
+  'default_sales_unit',
+] as const;
+
+export async function exportProductsMaster(columns?: string[]): Promise<void> {
   // 1. Lookup tables (small, single shot is fine).
   const [{ data: cats }, { data: uoms }, { data: taxes }] = await Promise.all([
     supabase.from('product_categories').select('id, name'),
