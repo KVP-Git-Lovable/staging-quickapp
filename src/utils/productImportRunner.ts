@@ -76,7 +76,8 @@ export interface ValidatedRow {
     description: string | null;
     brand: string | null;
     product_type: string | null;
-    category_id: string;
+    category_id: string;                 // empty string when pending_category_name is set
+    pending_category_name: string | null; // original-cased name to create before import
     gst_percentage: number;
     hsn_code: string | null;
     tax_master_id: string | null;
@@ -101,6 +102,7 @@ export interface ValidatedRow {
     }>;
   };
 }
+
 
 export interface ValidationContext {
   categoriesByName: Map<string, string>;          // lower name → id
