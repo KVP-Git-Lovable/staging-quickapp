@@ -469,4 +469,49 @@ export function buildErrorReportBlob(
   return new Blob([out], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
+
+/**
+ * Return the unique set of category names that need to be created,
+ * preserving the original casing of the first occurrence in the file.
+ * Deduplicated case-insensitively + trimmed.
+ */
+export function getPendingCategoryNames(validated: ValidatedRow[]): string[] {
+  const seen = new Map<string, string>(); // lowercase → original-cased
+  for (const v of validated) {
+    const name = v.resolved?.pending_category_name?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (!seen.has(key)) seen.set(key, name);
+  }
+  return Array.from(seen.values());
 }
+
+/**
+ * Create the given category names in product_categories (one insert per unique
+ * name) and populate ctx.categoriesByName so executeImport can resolve them.
+ * Safe to call with an empty list.
+ */
+export async function createPendingCategories(
+  names: string[],
+  ctx: ValidationContext,
+): Promise<{ created: number; failed: Array<{ name: string; reason: string }> }> {
+  const failed: Array<{ name: string; reason: string }> = [];
+  let created = 0;
+  for (const name of names) {
+    const key = name.trim().toLowerCase();
+    if (ctx.categoriesByName.has(key)) continue;
+    const { data, error } = await supabase
+      .from('product_categories')
+      .insert({ name: name.trim() })
+      .select('id')
+      .single();
+    if (error || !data) {
+      failed.push({ name, reason: error?.message ?? 'insert failed' });
+      continue;
+    }
+    ctx.categoriesByName.set(key, (data as any).id);
+    created++;
+  }
+  return { created, failed };
+}
+
