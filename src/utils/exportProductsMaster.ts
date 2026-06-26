@@ -118,35 +118,11 @@ export async function exportProductsMaster(columns?: string[]): Promise<void> {
     mapByProduct.set(m.product_id, arr);
   }
 
-  // 4. Build rows in the exact column order.
-  const header = [
-    'sku',
-    'name',
-    'description',
-    'brand',
-    'category',
-    'product_type',
-    'gst_percentage',
-    'hsn_code',
-    'tax_master',
-    'rate',
-    'base_unit',
-    'price_basis_unit',
-    'default_sales_unit',
-    'unit_1',
-    'unit_1_factor',
-    'unit_2',
-    'unit_2_factor',
-    'unit_3',
-    'unit_3_factor',
-    'opening_stock',
-    'reorder_level',
-    'net_weight_g',
-    'net_volume_ml',
-    'image_file',
-    'is_active',
-    'is_discontinued',
-  ];
+  // 4. Build rows in the exact column order. Filter by selection but keep the
+  // canonical order, and always include mandatory columns.
+  const selected = new Set(columns ?? EXPORT_ALL_COLUMNS);
+  for (const m of EXPORT_MANDATORY_COLUMNS) selected.add(m);
+  const header = EXPORT_ALL_COLUMNS.filter((c) => selected.has(c));
 
   let missingPrice = 0,
     missingHsn = 0,
