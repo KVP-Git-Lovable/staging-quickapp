@@ -102,11 +102,29 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
 
   const runImport = async () => {
     if (!validated) return;
+    const newCats = getPendingCategoryNames(validated);
+    if (newCats.length > 0) {
+      setPendingCategories(newCats);
+      setShowCategoryConfirm(true);
+      return;
+    }
+    await executeImportNow();
+  };
+
+  const executeImportNow = async () => {
+    if (!validated) return;
     const ctx = (window as any).__importCtx;
     if (!ctx) { toast.error('Validation context missing — re-upload the file'); return; }
     setImporting(true);
     setProgress({ done: 0, total: validated.length });
     try {
+      if (pendingCategories.length > 0) {
+        const { created, failed } = await createPendingCategories(pendingCategories, ctx);
+        if (failed.length > 0) {
+          toast.error(`Failed to create ${failed.length} categories: ${failed.map((f) => f.name).join(', ')}`);
+        }
+        if (created > 0) toast.success(`Created ${created} new categor${created === 1 ? 'y' : 'ies'}`);
+      }
       const res = await executeImport(validated, ctx, (done, total) => setProgress({ done, total }));
       setResult(res);
       toast.success(
@@ -118,8 +136,10 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
       toast.error(`Import failed: ${e?.message ?? 'unknown'}`);
     } finally {
       setImporting(false);
+      setPendingCategories([]);
     }
   };
+
 
   const downloadErrors = () => {
     if (!result || result.errorRows.length === 0) return;
