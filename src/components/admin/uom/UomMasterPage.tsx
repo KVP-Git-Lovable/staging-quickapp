@@ -119,7 +119,7 @@ const AddCustomUnitDialog: React.FC<{
   const [name, setName] = useState('');
   const [conv, setConv] = useState('');
   const [saving, setSaving] = useState(false);
-  const isQuantity = category === 'Quantity';
+  const isUniversal = UNIVERSAL.has(category);
 
   useEffect(() => {
     if (open) {
@@ -137,10 +137,10 @@ const AddCustomUnitDialog: React.FC<{
       return;
     }
     let convVal: number | null = null;
-    if (!isQuantity) {
+    if (isUniversal) {
       const parsed = parseFloat(conv);
       if (!parsed || parsed <= 0) {
-        toast.error('Enter a positive conversion factor');
+        toast.error(`Enter a positive conversion factor (1 ${cleanCode} = ? base units)`);
         return;
       }
       convVal = parsed;
@@ -201,7 +201,7 @@ const AddCustomUnitDialog: React.FC<{
           <div>
             <Label className="text-xs">
               Conversion to base unit
-              {isQuantity && (
+              {!isUniversal && (
                 <span className="ml-2 text-muted-foreground">— defined per product</span>
               )}
             </Label>
@@ -210,8 +210,8 @@ const AddCustomUnitDialog: React.FC<{
               step="any"
               value={conv}
               onChange={(e) => setConv(e.target.value)}
-              disabled={isQuantity}
-              placeholder={isQuantity ? 'N/A — set on each product' : '1 unit = ? base units'}
+              disabled={!isUniversal}
+              placeholder={isUniversal ? '1 unit = ? base units' : 'Per product — e.g. 1 BOX = 24 PIECE on each product'}
             />
           </div>
         </div>
@@ -559,7 +559,7 @@ export const UomMasterPageContent: React.FC = () => {
     const [{ data: masters, error: e1 }, { data: enabled, error: e2 }, cats] = await Promise.all([
       supabase
         .from('uom_master')
-        .select('id, code, name, category, is_base, is_system')
+        .select('id, code, name, category, is_base, is_system, conversion_to_base' as any)
         .order('category')
         .order('name'),
       supabase
@@ -586,7 +586,7 @@ export const UomMasterPageContent: React.FC = () => {
         is_default: e?.is_default ?? false,
         is_default_sales: e?.is_default_sales ?? false,
         is_default_purchase: e?.is_default_purchase ?? false,
-        conversion_to_base: null, // per-product, not on uom_master
+        conversion_to_base: m.conversion_to_base != null ? Number(m.conversion_to_base) : null,
         is_base: !!m.is_base,
         is_system: !!m.is_system,
       };
