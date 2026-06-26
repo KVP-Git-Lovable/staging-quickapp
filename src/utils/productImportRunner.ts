@@ -338,7 +338,7 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
         product_type: textOrNull(raw['product_type']),
         category_id: categoryId,
         pending_category_name: pendingCategoryName,
-        gst_percentage: gst,
+        gst_percentage: effectiveGst ?? gst,
         hsn_code: textOrNull(raw['hsn_code']),
         tax_master_id: taxId,
 
