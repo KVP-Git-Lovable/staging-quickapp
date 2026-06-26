@@ -27,6 +27,7 @@ import { PaginationControls } from '@/components/ui/PaginationControls';
 import { useNavigate } from 'react-router-dom';
 import { ProductUnitsEditor, emptyProductUnitsEditorValue, type ProductUnitsEditorValue } from '@/components/admin/uom/ProductUnitsEditor';
 import { reconcileProductUomMapping, hydrateUnitsEditorFromProduct } from '@/lib/productUomPersistence';
+import { exportProductsMaster } from '@/utils/exportProductsMaster';
 
 interface ProductCategory {
   id: string;
@@ -979,6 +980,22 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                   <Button variant="outline" onClick={handleExportCsv}>
                     <Download className="h-4 w-4 mr-2" />
                     Export Products
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={async () => {
+                      const tid = toast.loading('Exporting all products...');
+                      try {
+                        await exportProductsMaster();
+                        toast.success('Product master exported', { id: tid });
+                      } catch (e: any) {
+                        console.error(e);
+                        toast.error(`Export failed: ${e?.message ?? 'unknown'}`, { id: tid });
+                      }
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export All (XLSX)
                   </Button>
                   <Button
                     variant="destructive"
