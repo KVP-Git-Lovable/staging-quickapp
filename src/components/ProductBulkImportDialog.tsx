@@ -20,10 +20,23 @@ import {
   validateImportRows,
   executeImport,
   buildErrorReportBlob,
+  getPendingCategoryNames,
+  createPendingCategories,
   type ValidatedRow,
   type ImportResult,
 } from '@/utils/productImportRunner';
 import { uploadProductImagesBySku, type ImageUploadOutcome } from '@/utils/productImageBatchUpload';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 interface Props {
   trigger: React.ReactNode;
