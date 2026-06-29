@@ -550,7 +550,23 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
           {/* Product Search */}
           <Card>
             <CardContent className="p-3 space-y-3">
+              {/* Category filter */}
+              <div>
+                <Label className="text-xs text-muted-foreground">Category</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="h-10 mt-1">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px] bg-background z-50">
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Popover open={productDropdownOpen} onOpenChange={setProductDropdownOpen}>
+
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
