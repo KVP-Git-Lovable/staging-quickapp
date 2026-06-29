@@ -945,6 +945,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           form={productForm}
                           categories={categories}
                           territories={territories}
+                          taxMasters={taxMasters}
                           onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
                         />
                         <ProductExtendedFields
