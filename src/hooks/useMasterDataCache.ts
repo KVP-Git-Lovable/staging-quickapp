@@ -31,18 +31,24 @@ export function useMasterDataCache() {
       console.log('[Cache] Syncing active products for offline order entry...');
       
       // Fetch data FIRST, only clear cache if fetch succeeds
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .or('is_active.eq.true,is_active.is.null');
+      // PAGINATED: PostgREST caps individual requests at 1,000 rows — loop until short page.
+      const products = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('products')
+          .select(PRODUCT_PICKER_COLUMNS)
+          .or('is_active.eq.true,is_active.is.null')
+          .order('name')
+          .range(from, to)
+      );
 
-      if (productsError) throw productsError;
-
-      // Cache only active variants
-      const { data: variants } = await supabase
-        .from('product_variants')
-        .select('*')
-        .or('is_active.eq.true,is_active.is.null');
+      // Cache only active variants (also paginated)
+      const variants = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('product_variants')
+          .select('*')
+          .or('is_active.eq.true,is_active.is.null')
+          .range(from, to)
+      );
 
       // Only clear and update cache if all fetches succeeded
       if (products) {
