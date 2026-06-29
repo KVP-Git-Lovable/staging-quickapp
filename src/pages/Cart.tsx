@@ -2041,14 +2041,15 @@ export const Cart = () => {
         packing_list_id: null
       };
 
-      const orderItems = cartItems.map(item => {
+      const orderItems = enrichedItems.map((item, idx) => {
         const itemDiscount = orderCalculation.itemDiscounts[item.id] || 0;
         const currentRate = getDisplayRate(item);
         const originalRate = (item as any).original_rate || currentRate;
         const discountPerItem = item.quantity > 0 ? itemDiscount / item.quantity : 0;
         const itemTotal = computeItemTotal(item);
-        const sgstAmount = itemTotal * 0.025;
-        const cgstAmount = itemTotal * 0.025;
+        const lineTax = submissionLineTaxes[idx];
+        const sgstAmount = lineTax?.sgst ?? 0;
+        const cgstAmount = lineTax?.cgst ?? 0;
         
         const isUUID = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
         let productId: string | null = (item as any).product_id || item.id;
