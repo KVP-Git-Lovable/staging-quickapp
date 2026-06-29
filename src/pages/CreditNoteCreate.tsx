@@ -13,6 +13,7 @@ import CreditNoteReview from "@/components/credit-note/CreditNoteReview";
 import { generateCreditNotePDF, getNextCreditNoteNumber, CreditNoteItem } from "@/utils/creditNoteGenerator";
 import { downloadPDF } from "@/utils/fileDownloader";
 import { useAuth } from "@/hooks/useAuth";
+import { computeLineTax } from "@/utils/taxCalc";
 
 const REASONS = [
   { value: "unsold_stock", label: "Unsold Stock" },
