@@ -2636,11 +2636,11 @@ export const Cart = () => {
 
                 <div className="border-t pt-2 space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>CGST (2.5%):</span>
+                    <span>CGST:</span>
                     <span>₹{formatExact(getCGST())}</span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>SGST (2.5%):</span>
+                    <span>SGST:</span>
                     <span>₹{formatExact(getSGST())}</span>
                   </div>
                 </div>
