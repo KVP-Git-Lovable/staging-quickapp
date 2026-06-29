@@ -247,6 +247,14 @@ export const VisitCard = ({
     distributor_name?: string | null;
   }>>([]);
   const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
+  // FIFO side-effect of today's payment: how much of OLDER outstanding invoices
+  // got cleared automatically when today's collection ran through
+  // apply_retailer_payment_fifo. Sourced from retailer_payment_allocations
+  // rows scoped to today's date whose order_id is NOT in today's order list.
+  const [oldPaymentsCleared, setOldPaymentsCleared] = useState<{
+    amount: number;
+    lastDate: string | null;
+  }>({ amount: 0, lastDate: null });
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
