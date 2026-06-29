@@ -65,9 +65,10 @@ const returnReasons = [
 const units = ['Piece', 'Box', 'Case', 'Kg', 'grams', 'Litre', 'ml', 'Dozen', 'Pack', 'Carton'];
 
 export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete }: ReturnStockFormProps) {
+  const { products: cachedProducts, loading: cacheLoading, fetchProducts } = useOfflineOrderEntry();
   const [products, setProducts] = useState<Product[]>([]);
   const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [generatingCN, setGeneratingCN] = useState(false);
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -88,39 +89,37 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
   const [otherReason, setOtherReason] = useState<string>('');
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
 
+  // Kick off the shared cache-first product load (paginated + IndexedDB cached).
+  // Replaces the previous unbounded products + product_variants embed query
+  // that timed out on large catalogs and surfaced "Failed to load products".
   useEffect(() => {
-    loadProducts();
-  }, []);
-
-  const loadProducts = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`id, name, unit, rate, sku, gst_percentage, product_variants (id, variant_name, sku, price)`)
-        .eq('is_active', true)
-        .order('name');
-
-      if (error) throw error;
-
-      const productsWithVariants: Product[] = (data || []).map(p => ({
-        id: p.id,
-        name: p.name,
-        unit: p.unit,
-        rate: p.rate,
-        sku: p.sku || undefined,
-        gst_percentage: (p as any).gst_percentage ?? null,
-        variants: (p.product_variants || []) as ProductVariant[]
-      }));
-
-      setProducts(productsWithVariants);
-    } catch (error: any) {
-      console.error('Error loading products:', error);
+    fetchProducts().catch(err => {
+      console.error('[ReturnStockForm] fetchProducts failed', err);
       toast.error('Failed to load products');
-    } finally {
-      setLoading(false);
-    }
-  };
+    });
+  }, [fetchProducts]);
+
+  // Map the shared cache shape into the local Product shape this form expects.
+  useEffect(() => {
+    if (!cachedProducts) return;
+    const mapped: Product[] = (cachedProducts as any[]).map(p => ({
+      id: p.id,
+      name: p.name,
+      unit: p.unit,
+      rate: Number(p.rate ?? 0),
+      sku: p.sku || undefined,
+      gst_percentage: (p as any).gst_percentage ?? null,
+      variants: ((p.variants || []) as any[]).map(v => ({
+        id: v.id,
+        variant_name: v.variant_name,
+        sku: v.sku,
+        price: Number(v.price ?? v.rate ?? 0),
+      })) as ProductVariant[],
+    }));
+    setProducts(mapped);
+    setLoading(cacheLoading && mapped.length === 0);
+  }, [cachedProducts, cacheLoading]);
+
 
   const handleAddReturn = () => {
     const errors: string[] = [];
