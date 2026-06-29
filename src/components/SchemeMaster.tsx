@@ -199,39 +199,40 @@ export const SchemeMaster = () => {
   };
 
   const fetchProducts = async () => {
-    // Fetch base products
-    const { data: productsData, error: productsError } = await supabase
-      .from('products')
-      .select('id, sku, name, description, category_id, rate, base_unit, is_active')
-      .eq('is_active', true)
-      .order('name');
-
-    if (productsError) {
+    // Fetch base products (paginated to bypass PostgREST 1k cap)
+    let productsData: any[] = [];
+    try {
+      productsData = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('products')
+          .select('id, sku, name, description, category_id, rate, base_unit, is_active')
+          .eq('is_active', true)
+          .order('name')
+          .range(from, to)
+      );
+    } catch (productsError) {
       console.error('[SchemeMaster] fetchProducts products error:', productsError);
     }
 
     // Fetch product variants (don't let this block the whole list if it errors)
     let variantsData: any[] = [];
     try {
-      const { data, error: variantsError } = await supabase
-        .from('product_variants')
-        .select(`
-          id,
-          sku,
-          variant_name,
-          product_id,
-          price,
-          is_active,
-          product:products!product_id(name, category_id, base_unit)
-        `)
-        .eq('is_active', true)
-        .order('variant_name');
-
-      if (variantsError) {
-        console.warn('[SchemeMaster] fetchProducts variants error (continuing without variants):', variantsError);
-      } else {
-        variantsData = data || [];
-      }
+      variantsData = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('product_variants')
+          .select(`
+            id,
+            sku,
+            variant_name,
+            product_id,
+            price,
+            is_active,
+            product:products!product_id(name, category_id, base_unit)
+          `)
+          .eq('is_active', true)
+          .order('variant_name')
+          .range(from, to)
+      );
     } catch (e) {
       console.warn('[SchemeMaster] fetchProducts variants threw (continuing without variants):', e);
     }
