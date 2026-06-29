@@ -3788,14 +3788,24 @@ export const VisitCard = ({
         <StockDataModal isOpen={showStockDataModal} onClose={() => setShowStockDataModal(false)} retailerId={(visit.retailerId || visit.id) as string} retailerName={visit.retailerName} />
 
         {/* Payment Marking Modal */}
-        <PaymentMarkingModal open={showPaymentModal} onOpenChange={setShowPaymentModal} retailerId={(visit.retailerId || visit.id) as string} currentPendingAmount={pendingAmount} onPaymentMarked={(newPendingAmount: number) => {
+        <PaymentMarkingModal open={showPaymentModal} onOpenChange={setShowPaymentModal} retailerId={(visit.retailerId || visit.id) as string} currentPendingAmount={pendingAmount} onPaymentMarked={async (newPendingAmount: number) => {
         // Update local state immediately with the new pending amount
         setPendingAmount(newPendingAmount);
         if (newPendingAmount === 0) {
           setPendingSinceDate(null);
         }
+        // Authoritative refetch so Today's Order Paid/Pending reflect FIFO allocation
+        try {
+          await loadLastOrder();
+          // Retry once after recompute_retailer_pending settles
+          setTimeout(() => { loadLastOrder().catch(() => {}); }, 600);
+        } catch (e) {
+          console.warn('[VisitCard] post-payment refresh failed:', e);
+        }
         // Also dispatch event for any other listeners
-        window.dispatchEvent(new CustomEvent('visitStatusChanged'));
+        window.dispatchEvent(new CustomEvent('visitStatusChanged', {
+          detail: { retailerId: (visit.retailerId || visit.id) as string }
+        }));
       }} />
 
 
