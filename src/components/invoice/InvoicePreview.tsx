@@ -319,11 +319,14 @@ export default function InvoicePreview({
               }
               
               const itemTotal = qty * rate;
-              const lineRate = Number(
+              const fallbackRate = Number(
                 (item as any).tax_rate_snapshot ??
                 (item as any).gst_percentage ??
                 0
               ) || 0;
+              const cgstRate = Number((item as any).cgst_rate ?? (fallbackRate / 2)) || 0;
+              const sgstRate = Number((item as any).sgst_rate ?? (fallbackRate / 2)) || 0;
+              const igstRate = Number((item as any).igst_rate ?? 0) || 0;
               return (
                 <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                   <td className="border border-gray-300 p-2 text-center text-xs">{index + 1}</td>
@@ -339,7 +342,10 @@ export default function InvoicePreview({
                     ₹{rate.toFixed(2)}
                   </td>
                   <td className="border border-gray-300 p-2 text-center text-xs">
-                    {lineRate > 0 ? `${lineRate}%` : "-"}
+                    {igstRate > 0 ? `IGST ${igstRate}%` : (cgstRate > 0 ? `${cgstRate}%` : '-')}
+                  </td>
+                  <td className="border border-gray-300 p-2 text-center text-xs">
+                    {igstRate > 0 ? '-' : (sgstRate > 0 ? `${sgstRate}%` : '-')}
                   </td>
                   <td className="border border-gray-300 p-2 text-right text-xs">
                     ₹{itemTotal.toFixed(2)}
