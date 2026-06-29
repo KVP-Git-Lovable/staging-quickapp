@@ -158,6 +158,8 @@ const emptyProductForm = () => ({
   barcode_image_url: '',
   qr_code: '',
   hsn_code: '',
+  tax_master_id: null as string | null,
+  gst_percentage: null as number | null,
   // Extended fields
   product_type: 'Finished Good',
   gross_weight_g: null as number | null,
