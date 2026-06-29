@@ -560,7 +560,10 @@ const TaxMaster = () => {
                           </div>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="sm" variant="ghost" onClick={() => openMapping(tax.id, tax.name)} title="Map Products">
+                          <Button size="sm" variant="outline" onClick={() => openProductManager('bracket', tax.id)} title="Manage products in this bracket">
+                            <Package className="h-4 w-4 mr-1" /> Manage
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => openMapping(tax.id, tax.name)} title="Map Variants (legacy)">
                             <Package className="h-4 w-4" />
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => openEdit(tax)}>
