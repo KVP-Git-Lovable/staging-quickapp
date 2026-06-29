@@ -18,6 +18,7 @@ export interface SelectedItem {
   returnQuantity: number;
   rate: number;
   barcode: string;
+  gstRate: number; // GST% sourced from order_item snapshot (preferred) or product fallback
 }
 
 interface RetailerInvoiceListProps {
