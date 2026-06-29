@@ -300,7 +300,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         schemes: row.product!.schemes || [],
         display_unit: selectedUnit,
         display_quantity: Number(row.quantity) || 0,
-        hsn_code: (row.product as any)?.hsn_code || null
+        hsn_code: (row.product as any)?.hsn_code || null,
+        gst_percentage: (row.product as any)?.gst_percentage ?? null,
+        tax_master_id: (row.product as any)?.tax_master_id ?? null
       };
 
     });

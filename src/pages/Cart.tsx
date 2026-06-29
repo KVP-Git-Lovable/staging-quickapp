@@ -37,6 +37,7 @@ import { useD1Delivery } from "@/hooks/useD1Delivery";
 import { useOrderBasedDelivery } from "@/hooks/useOrderBasedDelivery";
 import { useVanSales } from "@/hooks/useVanSales";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
+import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
 
 interface CartItem {
   id: string;
@@ -48,6 +49,8 @@ interface CartItem {
   quantity: number;
   total: number;
   hsn_code?: string;
+  gst_percentage?: number | null;
+  tax_master_id?: string | null;
   uom_id?: string | null;
   uom_code?: string | null;
   conversion_to_base?: number | null;
@@ -625,25 +628,61 @@ export const Cart = () => {
       return 0;
     }
   };
-  const getCGST = () => {
-    const amountAfterDiscount = getAmountAfterDiscount();
-    return amountAfterDiscount * 2.5 / 100; // 2.5% CGST
-  };
-  const getSGST = () => {
-    const amountAfterDiscount = getAmountAfterDiscount();
-    return amountAfterDiscount * 2.5 / 100; // 2.5% SGST
-  };
+  // Per-line GST using shared computeLineTax helper.
+  // Recomputes on qty/price/discount/scheme changes only.
+  const lineTaxes = React.useMemo(() => {
+    return cartItems.map(it => computeLineTax({
+      taxableAmount: computeItemTotal(it),
+      gstPercentage: (it as any).gst_percentage,
+    }));
+  }, [cartItems, orderCalculation.itemDiscounts]);
+  const taxTotals = React.useMemo(() => sumLineTaxes(lineTaxes), [lineTaxes]);
+
+  const getCGST = () => taxTotals.cgst;
+  const getSGST = () => taxTotals.sgst;
   const getFinalTotal = () => {
     try {
-      const amountAfterDiscount = getAmountAfterDiscount();
-      const cgst = getCGST();
-      const sgst = getSGST();
-      return Math.max(0, amountAfterDiscount + cgst + sgst);
+      return Math.max(0, getAmountAfterDiscount() + taxTotals.cgst + taxTotals.sgst + taxTotals.igst + taxTotals.cess);
     } catch (error) {
       console.error('Error computing final total:', error);
       return 0;
     }
   };
+
+  // Fetch any missing gst_percentages for current cart items in one query.
+  // Returns a new array with gst_percentage filled where it can be resolved.
+  const ensureGstPercentages = async (items: CartItem[]): Promise<CartItem[]> => {
+    const missingIds = Array.from(new Set(
+      items
+        .filter(it => it.gst_percentage == null)
+        .map(it => (it as any).product_id || (typeof it.id === 'string' && it.id.includes('_variant_') ? it.id.split('_variant_')[0] : it.id))
+        .filter((v): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v))
+    ));
+    if (missingIds.length === 0) return items;
+    try {
+      const { data } = await supabase
+        .from('products')
+        .select('id, gst_percentage, hsn_code, tax_master_id')
+        .in('id', missingIds);
+      const byId = new Map<string, any>((data || []).map(p => [p.id, p]));
+      return items.map(it => {
+        if (it.gst_percentage != null) return it;
+        const pid = (it as any).product_id || (typeof it.id === 'string' && it.id.includes('_variant_') ? it.id.split('_variant_')[0] : it.id);
+        const p = byId.get(pid);
+        if (!p) return it;
+        return {
+          ...it,
+          gst_percentage: p.gst_percentage ?? null,
+          hsn_code: it.hsn_code || p.hsn_code || undefined,
+          tax_master_id: (it as any).tax_master_id || p.tax_master_id || null,
+        } as CartItem;
+      });
+    } catch (e) {
+      console.warn('[Cart] ensureGstPercentages failed (offline?):', e);
+      return items;
+    }
+  };
+
 
   // Check if the visit date allows order submission
   const canSubmitOrder = () => {
@@ -850,13 +889,22 @@ export const Cart = () => {
         });
         return;
       }
+      // Submit-time fallback: ensure every cart item has a GST rate before computing tax.
+      const enrichedItems = await ensureGstPercentages(cartItems);
+      if (enrichedItems !== cartItems) setCartItems(enrichedItems);
+      const submissionLineTaxes = enrichedItems.map(it => computeLineTax({
+        taxableAmount: computeItemTotal(it),
+        gstPercentage: (it as any).gst_percentage,
+      }));
+      const submissionTaxTotals = sumLineTaxes(submissionLineTaxes);
+
       const subtotal = getSubtotal();
       const discountAmount = getDiscount();
-      const cgstAmount = getCGST();
-      const sgstAmount = getSGST();
+      const cgstAmount = submissionTaxTotals.cgst;
+      const sgstAmount = submissionTaxTotals.sgst;
       // CRITICAL: Round total amount ONCE at the source to ensure consistency
       // This prevents different values being stored in DB vs cache vs snapshot
-      const totalAmount = Math.round(getFinalTotal());
+      const totalAmount = Math.round(Math.max(0, getAmountAfterDiscount() + submissionTaxTotals.cgst + submissionTaxTotals.sgst));
       // Prepare IDs
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
       const validVisitId = visitId && /^[0-9a-fA-F-]{36}$/.test(visitId) ? visitId : null;
@@ -1028,17 +1076,18 @@ export const Cart = () => {
         // Note: scheme_details removed as column doesn't exist in orders table
       };
 
-      const orderItems = cartItems.map(item => {
+      const orderItems = enrichedItems.map((item, idx) => {
         const itemDiscount = orderCalculation.itemDiscounts[item.id] || 0;
         const currentRate = getDisplayRate(item);
         // Use original_rate from cart item if available (set by TableOrderForm), otherwise use current rate
         const originalRate = (item as any).original_rate || currentRate;
         const discountPerItem = item.quantity > 0 ? itemDiscount / item.quantity : 0;
         const itemTotal = computeItemTotal(item);
-        
-        // Calculate per-item GST (2.5% SGST + 2.5% CGST)
-        const sgstAmount = itemTotal * 0.025;
-        const cgstAmount = itemTotal * 0.025;
+
+        // Per-line GST from shared computeLineTax (intrastate: CGST+SGST = gst%/2 each)
+        const lineTax = submissionLineTaxes[idx];
+        const sgstAmount = lineTax?.sgst ?? 0;
+        const cgstAmount = lineTax?.cgst ?? 0;
         
         // Split composite cart id "baseProductId_variant_variantId" into proper FK fields.
         // product_id MUST be the base product UUID (FK to products.id);
@@ -1558,23 +1607,23 @@ export const Cart = () => {
               .single();
 
             if (!invoiceError && invoiceRecord) {
-              const invoiceItems = cartItems.map(item => {
+              const invoiceItems = enrichedItems.map(item => {
                 const quantity = Number(item.quantity || 0);
                 const rate = Number(getDisplayRate(item));
                 const taxableAmount = quantity * rate;
-                const cgst = (taxableAmount * 2.5) / 100;
-                const sgst = (taxableAmount * 2.5) / 100;
-                const totalWithTax = taxableAmount + cgst + sgst;
+                const gstPct = Number((item as any).gst_percentage) || 0;
+                const lt = computeLineTax({ taxableAmount, gstPercentage: gstPct });
+                const totalWithTax = taxableAmount + lt.cgst + lt.sgst + lt.igst + lt.cess;
                 return {
                   invoice_id: invoiceRecord.id,
                   description: item.name,
                   quantity,
                   unit_price: rate,
                   taxable_amount: taxableAmount,
-                  cgst_rate: 2.5,
-                  cgst_amount: cgst,
-                  sgst_rate: 2.5,
-                  sgst_amount: sgst,
+                  cgst_rate: gstPct / 2,
+                  cgst_amount: lt.cgst,
+                  sgst_rate: gstPct / 2,
+                  sgst_amount: lt.sgst,
                   total_amount: totalWithTax
                 };
               });
@@ -1797,11 +1846,20 @@ export const Cart = () => {
         return;
       }
 
+      // Submit-time fallback: ensure every cart item has a GST rate before computing tax.
+      const enrichedItems = await ensureGstPercentages(cartItems);
+      if (enrichedItems !== cartItems) setCartItems(enrichedItems);
+      const submissionLineTaxes = enrichedItems.map(it => computeLineTax({
+        taxableAmount: computeItemTotal(it),
+        gstPercentage: (it as any).gst_percentage,
+      }));
+      const submissionTaxTotals = sumLineTaxes(submissionLineTaxes);
+
       const subtotal = getSubtotal();
       const discountAmount = getDiscount();
-      const cgstAmount = getCGST();
-      const sgstAmount = getSGST();
-      const totalAmount = Math.round(getFinalTotal());
+      const cgstAmount = submissionTaxTotals.cgst;
+      const sgstAmount = submissionTaxTotals.sgst;
+      const totalAmount = Math.round(Math.max(0, getAmountAfterDiscount() + submissionTaxTotals.cgst + submissionTaxTotals.sgst));
       
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
       const validVisitId = visitId && /^[0-9a-fA-F-]{36}$/.test(visitId) ? visitId : null;
@@ -1983,14 +2041,15 @@ export const Cart = () => {
         packing_list_id: null
       };
 
-      const orderItems = cartItems.map(item => {
+      const orderItems = enrichedItems.map((item, idx) => {
         const itemDiscount = orderCalculation.itemDiscounts[item.id] || 0;
         const currentRate = getDisplayRate(item);
         const originalRate = (item as any).original_rate || currentRate;
         const discountPerItem = item.quantity > 0 ? itemDiscount / item.quantity : 0;
         const itemTotal = computeItemTotal(item);
-        const sgstAmount = itemTotal * 0.025;
-        const cgstAmount = itemTotal * 0.025;
+        const lineTax = submissionLineTaxes[idx];
+        const sgstAmount = lineTax?.sgst ?? 0;
+        const cgstAmount = lineTax?.cgst ?? 0;
         
         const isUUID = (v: any) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
         let productId: string | null = (item as any).product_id || item.id;
@@ -2577,11 +2636,11 @@ export const Cart = () => {
 
                 <div className="border-t pt-2 space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>CGST (2.5%):</span>
+                    <span>CGST:</span>
                     <span>₹{formatExact(getCGST())}</span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>SGST (2.5%):</span>
+                    <span>SGST:</span>
                     <span>₹{formatExact(getSGST())}</span>
                   </div>
                 </div>
