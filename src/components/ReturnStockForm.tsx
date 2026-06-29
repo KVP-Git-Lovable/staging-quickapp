@@ -184,6 +184,9 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       const optionsMap: Record<string, { invoice_number: string; order_id: string; created_at: string; matched_quantity: number; matched_rate: number }[]> = {};
       const defaultSelections: Record<string, string> = {};
 
+      // Resolved per-line GST% from the most recent matching order_item snapshot.
+      const resolvedGstByKey: Record<string, number> = {};
+
       if (pastOrders) {
         for (const item of returnItems) {
           const key = item.variantId ? `${item.productId}_${item.variantId}` : item.productId;
@@ -205,6 +208,13 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                   matched_quantity: matchedItem.quantity || 0,
                   matched_rate: matchedItem.rate || 0,
                 });
+              }
+              if (resolvedGstByKey[key] == null) {
+                const snap = Number(matchedItem.tax_rate_snapshot);
+                const cg = Number(matchedItem.cgst_rate);
+                const sg = Number(matchedItem.sgst_rate);
+                if (Number.isFinite(snap) && snap > 0) resolvedGstByKey[key] = snap;
+                else if (Number.isFinite(cg) && Number.isFinite(sg) && (cg + sg) > 0) resolvedGstByKey[key] = cg + sg;
               }
             }
           }
@@ -230,6 +240,15 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
           if (optionsMap[key].length > 0 && !selectedInvoices[key]) {
             defaultSelections[key] = optionsMap[key][0].invoice_number;
           }
+        }
+
+        // Upgrade ReturnItem gstRate using the snapshot from the original order line when available.
+        if (Object.keys(resolvedGstByKey).length > 0) {
+          setReturnItems(prev => prev.map(it => {
+            const k = it.variantId ? `${it.productId}_${it.variantId}` : it.productId;
+            const r = resolvedGstByKey[k];
+            return r != null ? { ...it, gstRate: r } : it;
+          }));
         }
       }
 
