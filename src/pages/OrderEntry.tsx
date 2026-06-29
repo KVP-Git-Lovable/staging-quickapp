@@ -25,6 +25,7 @@ import { CompetitionDataForm } from "@/components/CompetitionDataForm";
 import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
+import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { WifiOff, Wifi, MapPin, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "@/components/RetailerVisitDetailsModal";
