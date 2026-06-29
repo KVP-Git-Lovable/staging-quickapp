@@ -151,9 +151,11 @@ export const OrderEntry = () => {
     }
     // Reset the in-memory de-dupe guard so the next fetchOfflineProducts
     // actually re-reads the freshly cached rows instead of returning early.
-    (fetchOfflineProducts as any)?.reset?.();
+    // Reset the in-memory de-dupe guard so the next fetchOfflineProducts
+    // actually re-reads the freshly cached rows instead of returning early.
+    resetOfflineProductsGuard?.();
     await fetchOfflineProducts();
-  }, [forceRefreshMasterData, fetchOfflineProducts]);
+  }, [forceRefreshMasterData, fetchOfflineProducts, resetOfflineProductsGuard]);
 
   // On OPEN: if online and cache is older than ~10 min, kick a background refresh
   // so newly-added products appear without waiting for the 45-min interval.
