@@ -2666,14 +2666,30 @@ export const Cart = () => {
                   </div>}
 
                 <div className="border-t pt-2 space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>CGST:</span>
-                    <span>₹{formatExact(getCGST())}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>SGST:</span>
-                    <span>₹{formatExact(getSGST())}</span>
-                  </div>
+                  {(() => {
+                    const rates = Array.from(new Set(
+                      lineTaxes.filter(l => l && l.taxRate > 0).map(l => l.taxRate)
+                    ));
+                    const uniform = rates.length === 1 ? rates[0] : null;
+                    const half = uniform != null ? +(uniform / 2).toFixed(2) : null;
+                    return (
+                      <>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>CGST{half != null ? ` @ ${half}%` : ''}:</span>
+                          <span>₹{formatExact(getCGST())}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>SGST{half != null ? ` @ ${half}%` : ''}:</span>
+                          <span>₹{formatExact(getSGST())}</span>
+                        </div>
+                        {rates.length > 1 && (
+                          <div className="text-[10px] text-muted-foreground italic">
+                            Mixed GST rates: {rates.sort((a,b)=>a-b).map(r => `${r}%`).join(', ')}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div className="flex justify-between text-xs font-medium border-t border-dashed mt-1 pt-1">
                     <span>Total Tax:</span>
                     <span>₹{formatExact(taxTotals.cgst + taxTotals.sgst + taxTotals.igst + taxTotals.cess)}</span>
