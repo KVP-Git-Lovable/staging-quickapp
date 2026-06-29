@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
 interface PriceBook {
   id: string;
@@ -81,7 +82,7 @@ const PriceBookDetail = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [priceBookRes, entriesRes, productsRes, categoriesRes] = await Promise.all([
+      const [priceBookRes, entriesRes, productsAll, categoriesRes] = await Promise.all([
         supabase.from('price_books').select('*').eq('id', id).single(),
         supabase
           .from('price_book_entries')
@@ -92,11 +93,14 @@ const PriceBookDetail = () => {
           `)
           .eq('price_book_id', id)
           .order('created_at', { ascending: false }),
-        supabase
-          .from('products')
-          .select('id, name, unit, rate, category_id, product_variants(id, variant_name, price)')
-          .eq('is_active', true)
-          .order('name'),
+        fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from('products')
+            .select('id, name, unit, rate, category_id, product_variants(id, variant_name, price)')
+            .eq('is_active', true)
+            .order('name')
+            .range(from, to)
+        ),
         supabase
           .from('product_categories')
           .select('id, name')
@@ -105,7 +109,6 @@ const PriceBookDetail = () => {
 
       if (priceBookRes.error) throw priceBookRes.error;
       if (entriesRes.error) throw entriesRes.error;
-      if (productsRes.error) throw productsRes.error;
 
       setPriceBook({
         ...priceBookRes.data,
@@ -115,7 +118,7 @@ const PriceBookDetail = () => {
       setCategories(categoriesRes.data || []);
       
       // Map products to match Product interface
-      const mappedProducts: Product[] = (productsRes.data || []).map((p: any) => ({
+      const mappedProducts: Product[] = (productsAll || []).map((p: any) => ({
         id: p.id,
         name: p.name,
         unit: p.unit,

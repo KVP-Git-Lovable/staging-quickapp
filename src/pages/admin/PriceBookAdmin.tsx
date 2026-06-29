@@ -17,6 +17,7 @@ import { ArrowLeft, Plus, Search, BookOpen, Calendar, Copy, Edit, MoreVertical, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
 interface PriceBook {
   id: string;
@@ -184,10 +185,13 @@ const PriceBookAdmin = () => {
       if (error) throw error;
 
       // Auto-add all products to the price book
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, rate, product_variants(id, price)')
-        .eq('is_active', true);
+      const products = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('products')
+          .select('id, rate, product_variants(id, price)')
+          .eq('is_active', true)
+          .range(from, to)
+      );
 
       if (products && products.length > 0) {
         const entries: any[] = [];

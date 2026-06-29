@@ -21,6 +21,7 @@ import { formatAddress, hasMinimumAddress } from '@/lib/addressFormat';
 import { useSavedAddresses } from '@/hooks/useSavedAddresses';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { cn } from '@/lib/utils';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
 interface Category { id: string; name: string; }
 interface PriceBookEntry { product_id: string; variant_id: string | null; final_price: number; list_price: number; }
@@ -258,11 +259,14 @@ const CreatePrimaryOrder = () => {
         setPriceBookEntries(priceEntries);
       }
 
-      const { data: productsData, error } = await supabase
-        .from('products')
-        .select('*, product_categories(id, name), product_variants(*)')
-        .eq('is_active', true).order('name');
-      if (error) throw error;
+      const productsData = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('products')
+          .select('*, product_categories(id, name), product_variants(*)')
+          .eq('is_active', true)
+          .order('name')
+          .range(from, to)
+      );
 
       const enriched = (productsData || []).map((p: any) => {
         const pe = priceEntries.find((e) => e.product_id === p.id && e.variant_id === null);
