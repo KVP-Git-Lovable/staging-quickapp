@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { upsertSingleCartItem, upsertCartItems } from '@/utils/customerCartHelper';
 import { toast } from 'sonner';
 import { normalizeUnit, collapseWhitespace, findBestMatch, buildProductShortlist } from '@/utils/productFuzzyMatch';
+import { resolveProduct } from '@/utils/resolveProduct';
 
 export interface VoiceOrderItem {
   id: string;
