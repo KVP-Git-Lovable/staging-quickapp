@@ -3073,7 +3073,25 @@ export const VisitCard = ({
                       <span className="text-warning">Pending Amount:</span>
                       <span className="font-medium text-warning">₹{Math.round(creditPendingAmount).toLocaleString()}</span>
                     </div>
+                    {oldPaymentsCleared.amount > 0 && (
+                      <div className="flex justify-between items-start text-xs pt-1 mt-1 border-t border-amber-200 dark:border-amber-700">
+                        <span className="text-muted-foreground">
+                          Old payment cleared (FIFO):
+                          {oldPaymentsCleared.lastDate && (
+                            <span className="block text-[10px] text-muted-foreground/80">
+                              on {new Date(oldPaymentsCleared.lastDate).toLocaleDateString('en-IN', {
+                                day: '2-digit', month: 'short', year: 'numeric',
+                              })}
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-medium text-success">
+                          ₹{Math.round(oldPaymentsCleared.amount).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
+                  
                   
                   {/* Individual Orders - show each order separately when multiple exist */}
                   {loadingOrder && <div className="text-xs text-muted-foreground mt-2">Loading...</div>}
