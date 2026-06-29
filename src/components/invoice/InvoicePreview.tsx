@@ -1,5 +1,7 @@
 import { DisplaySettingsMap } from "@/hooks/useInvoiceDisplaySettings";
 import InvoiceStatusBadge from "./InvoiceStatusBadge";
+import { resolveLineTax } from "@/utils/taxCalc";
+
 
 // Number to words helper
 const numberToWords = (num: number): string => {
