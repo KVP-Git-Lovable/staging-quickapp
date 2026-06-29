@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { cn } from '@/lib/utils';
 import { computeLineTax } from '@/utils/taxCalc';
+import { useOfflineOrderEntry } from '@/hooks/useOfflineOrderEntry';
 
 interface Product {
   id: string;
