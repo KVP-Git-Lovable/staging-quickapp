@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { downloadPDF } from "@/utils/fileDownloader";
+import { resolveLineTax } from "@/utils/taxCalc";
+
 
 interface InvoiceTemplate3Props {
   company: any;
@@ -111,9 +113,12 @@ export default function InvoiceTemplate3({
 
       // Totals with elegant spacing
       const subtotal = cartItems.reduce((sum, item) => sum + (item.quantity || 0) * (item.rate || item.price || 0), 0);
-      const cgst = subtotal * 0.025;
-      const sgst = subtotal * 0.025;
-      const total = subtotal + cgst + sgst;
+      const lineTaxes = cartItems.map((it: any) => resolveLineTax(it));
+      const cgst = lineTaxes.reduce((s, l) => s + l.cgst, 0);
+      const sgst = lineTaxes.reduce((s, l) => s + l.sgst, 0);
+      const igst = lineTaxes.reduce((s, l) => s + l.igst, 0);
+      const cess = lineTaxes.reduce((s, l) => s + l.cess, 0);
+      const total = subtotal + cgst + sgst + igst + cess;
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
@@ -125,13 +130,25 @@ export default function InvoiceTemplate3({
       doc.text(`₹${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
       yPos += 6;
       
-      doc.text("CGST (2.5%):", labelX, yPos);
+      doc.text("CGST:", labelX, yPos);
       doc.text(`₹${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
       yPos += 6;
       
-      doc.text("SGST (2.5%):", labelX, yPos);
+      doc.text("SGST:", labelX, yPos);
       doc.text(`₹${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
-      yPos += 8;
+      yPos += 6;
+
+      if (igst > 0) {
+        doc.text("IGST:", labelX, yPos);
+        doc.text(`₹${igst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+        yPos += 6;
+      }
+      if (cess > 0) {
+        doc.text("CESS:", labelX, yPos);
+        doc.text(`₹${cess.toFixed(2)}`, rightCol, yPos, { align: "right" });
+        yPos += 6;
+      }
+      yPos += 2;
       
       // Total with line
       doc.setLineWidth(0.5);
@@ -141,6 +158,7 @@ export default function InvoiceTemplate3({
       doc.setFont("helvetica", "bold");
       doc.text("TOTAL:", labelX, yPos + 4);
       doc.text(`₹${total.toFixed(2)}`, rightCol, yPos + 4, { align: "right" });
+
       
       yPos += 15;
 

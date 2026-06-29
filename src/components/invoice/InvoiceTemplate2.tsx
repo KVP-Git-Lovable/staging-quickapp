@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { downloadPDF } from "@/utils/fileDownloader";
+import { resolveLineTax } from "@/utils/taxCalc";
+
 
 interface InvoiceTemplate2Props {
   company: any;
@@ -118,15 +120,19 @@ export default function InvoiceTemplate2({
 
       // Totals Section with Box
       const subtotal = cartItems.reduce((sum, item) => sum + (item.quantity || 0) * (item.rate || item.price || 0), 0);
-      const cgst = subtotal * 0.025;
-      const sgst = subtotal * 0.025;
-      const total = subtotal + cgst + sgst;
+      const lineTaxes = cartItems.map((it: any) => resolveLineTax(it));
+      const cgst = lineTaxes.reduce((s, l) => s + l.cgst, 0);
+      const sgst = lineTaxes.reduce((s, l) => s + l.sgst, 0);
+      const igst = lineTaxes.reduce((s, l) => s + l.igst, 0);
+      const cess = lineTaxes.reduce((s, l) => s + l.cess, 0);
+      const total = subtotal + cgst + sgst + igst + cess;
 
       const rightCol = pageWidth - 15;
       const labelX = pageWidth - 75;
 
+      const extraRows = (igst > 0 ? 1 : 0) + (cess > 0 ? 1 : 0);
       doc.setFillColor(245, 247, 250);
-      doc.rect(labelX - 10, yPos - 5, rightCol - labelX + 25, 35, "F");
+      doc.rect(labelX - 10, yPos - 5, rightCol - labelX + 25, 35 + extraRows * 6, "F");
 
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
@@ -134,18 +140,31 @@ export default function InvoiceTemplate2({
       doc.text(`₹${subtotal.toFixed(2)}`, rightCol, yPos, { align: "right" });
       yPos += 6;
       
-      doc.text("CGST (2.5%):", labelX, yPos);
+      doc.text("CGST:", labelX, yPos);
       doc.text(`₹${cgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
       yPos += 6;
       
-      doc.text("SGST (2.5%):", labelX, yPos);
+      doc.text("SGST:", labelX, yPos);
       doc.text(`₹${sgst.toFixed(2)}`, rightCol, yPos, { align: "right" });
-      yPos += 8;
-      
+      yPos += 6;
+
+      if (igst > 0) {
+        doc.text("IGST:", labelX, yPos);
+        doc.text(`₹${igst.toFixed(2)}`, rightCol, yPos, { align: "right" });
+        yPos += 6;
+      }
+      if (cess > 0) {
+        doc.text("CESS:", labelX, yPos);
+        doc.text(`₹${cess.toFixed(2)}`, rightCol, yPos, { align: "right" });
+        yPos += 6;
+      }
+      yPos += 2;
+
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.text("Total:", labelX, yPos);
       doc.text(`₹${total.toFixed(2)}`, rightCol, yPos, { align: "right" });
+
       
       yPos += 20;
 

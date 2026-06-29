@@ -1,5 +1,7 @@
 import { DisplaySettingsMap } from "@/hooks/useInvoiceDisplaySettings";
 import InvoiceStatusBadge from "./InvoiceStatusBadge";
+import { resolveLineTax } from "@/utils/taxCalc";
+
 
 // Number to words helper
 const numberToWords = (num: number): string => {
@@ -127,9 +129,14 @@ export default function InvoicePreview({
     
     return sum + qty * rate;
   }, 0);
-  const cgst = subtotal * 0.025;
-  const sgst = subtotal * 0.025;
-  const total = subtotal + cgst + sgst;
+  // Phase 4: read per-line stored tax from order_items; fall back to helper for legacy lines.
+  const lineTaxes = cartItems.map((it: any) => resolveLineTax(it));
+  const cgst = lineTaxes.reduce((s, l) => s + l.cgst, 0);
+  const sgst = lineTaxes.reduce((s, l) => s + l.sgst, 0);
+  const igst = lineTaxes.reduce((s, l) => s + l.igst, 0);
+  const cess = lineTaxes.reduce((s, l) => s + l.cess, 0);
+  const total = subtotal + cgst + sgst + igst + cess;
+
   
   // Amount in words
   const totalInWords = numberToWords(Math.round(total)) + ' Rupees Only';
@@ -354,18 +361,31 @@ export default function InvoicePreview({
           {isEnabled('totals_tax_breakdown') && (
             <>
               <div className="flex justify-between mb-2">
-                <span className="font-bold text-xs">SGST (2.5%)</span>
+                <span className="font-bold text-xs">SGST</span>
                 <span className="text-xs">₹{sgst.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between mb-3">
-                <span className="font-bold text-xs">CGST (2.5%)</span>
+              <div className="flex justify-between mb-2">
+                <span className="font-bold text-xs">CGST</span>
                 <span className="text-xs">₹{cgst.toFixed(2)}</span>
               </div>
+              {igst > 0 && (
+                <div className="flex justify-between mb-2">
+                  <span className="font-bold text-xs">IGST</span>
+                  <span className="text-xs">₹{igst.toFixed(2)}</span>
+                </div>
+              )}
+              {cess > 0 && (
+                <div className="flex justify-between mb-3">
+                  <span className="font-bold text-xs">CESS</span>
+                  <span className="text-xs">₹{cess.toFixed(2)}</span>
+                </div>
+              )}
             </>
           )}
           <div className={`${styles.totalBox} p-2 rounded flex justify-center items-center`}>
             <span className="font-bold text-sm">Total amount: ₹{Math.round(total)}</span>
           </div>
+
         </div>
       </div>
 
