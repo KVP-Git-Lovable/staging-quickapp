@@ -79,6 +79,17 @@ export default function RetailerInvoiceList({ retailerId, selectedItems, onSelec
     if (exists) {
       onSelectionChange(selectedItems.filter((s) => !(s.orderId === orderId && s.productId === item.product_id)));
     } else {
+      // Resolve GST%: prefer the line's stored snapshot (so the credit note matches the original invoice),
+      // else cgst+sgst rates, else the product's current gst_percentage.
+      const snapshot = Number(item.tax_rate_snapshot);
+      const cgstR = Number(item.cgst_rate);
+      const sgstR = Number(item.sgst_rate);
+      const productGst = Number(item.products?.gst_percentage);
+      let gstRate = 0;
+      if (Number.isFinite(snapshot) && snapshot > 0) gstRate = snapshot;
+      else if (Number.isFinite(cgstR) && Number.isFinite(sgstR) && (cgstR + sgstR) > 0) gstRate = cgstR + sgstR;
+      else if (Number.isFinite(productGst) && productGst > 0) gstRate = productGst;
+
       onSelectionChange([
         ...selectedItems,
         {
@@ -92,6 +103,7 @@ export default function RetailerInvoiceList({ retailerId, selectedItems, onSelec
           returnQuantity: Number(item.quantity) || 0,
           rate: Number(item.rate) || 0,
           barcode: item.barcode || item.sku || "",
+          gstRate,
         },
       ]);
     }
