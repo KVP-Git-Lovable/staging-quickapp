@@ -1234,20 +1234,39 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
             }
           }
           
-          // Also check if it's a variant (product_id might be variant_id in some cases)
-          if (!enrichedItem.hsn_code) {
+          // Variant display name resolution (DISPLAY ONLY — tax/amounts are NEVER
+          // recomputed; they always come from the stored order_items snapshot).
+          // When the line carries a variant_id, fetch base + variant and route the
+          // display label through resolveProduct so a variant with NULL overrides
+          // inherits the base name — same rule used in order entry / portals.
+          if (item.variant_id) {
+            try {
+              const { data: variantData } = await supabase
+                .from("product_variants")
+                .select("id, variant_name, sku, hsn_code, price, product_id")
+                .eq("id", item.variant_id)
+                .maybeSingle();
+              if (variantData) {
+                const { data: baseData } = await supabase
+                  .from("products")
+                  .select("id, name, sku, hsn_code, rate, image_url, sku_image_url")
+                  .eq("id", variantData.product_id)
+                  .maybeSingle();
+                const resolved = resolveProduct(baseData || { id: variantData.product_id, name: enrichedItem.product_name }, variantData);
+                // Display label only — tax/amount fields untouched.
+                enrichedItem.product_name = resolved.display_name || enrichedItem.product_name;
+                if (!enrichedItem.hsn_code) enrichedItem.hsn_code = resolved.hsn_code || enrichedItem.hsn_code;
+              }
+            } catch { /* offline / RLS — keep snapshot */ }
+          } else if (!enrichedItem.hsn_code) {
+            // Legacy fallback: product_id may itself be a variant id in old data.
             const { data: variantData } = await supabase
               .from("product_variants")
               .select("hsn_code, price")
               .eq("id", item.product_id)
               .maybeSingle();
-            
-            if (variantData?.hsn_code) {
-              enrichedItem.hsn_code = variantData.hsn_code;
-            }
-            if (variantData?.price && variantData.price > 1) {
-              enrichedItem.precise_rate_per_kg = variantData.price;
-            }
+            if (variantData?.hsn_code) enrichedItem.hsn_code = variantData.hsn_code;
+            if (variantData?.price && variantData.price > 1) enrichedItem.precise_rate_per_kg = variantData.price;
           }
         } catch (e) {
           // Offline or error - continue with item as-is
