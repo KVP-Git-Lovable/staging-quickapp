@@ -210,7 +210,8 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
 
     if (!name) errors.push('name is required');
     if (!categoryName) errors.push('category is required');
-    if (gst == null || gst < 0 || gst > 100) errors.push('gst_percentage must be 0..100');
+    // GST is OPTIONAL — only validate if a value was provided.
+    if (gst != null && (gst < 0 || gst > 100)) errors.push('gst_percentage must be 0..100');
     if (rate == null || rate <= 0) errors.push('rate must be > 0');
     if (!baseCode) errors.push('base_unit is required');
     if (!priceBasisCode) errors.push('price_basis_unit is required');
