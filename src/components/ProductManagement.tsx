@@ -331,6 +331,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     setTerritories(data || []);
   };
 
+  const fetchTaxMasters = async () => {
+    const { data, error } = await supabase
+      .from('tax_masters')
+      .select('id, name, total_rate, is_active')
+      .eq('is_active', true)
+      .order('total_rate', { ascending: true });
+    if (error) { console.error('Failed to load tax masters', error); return; }
+    setTaxMasters((data || []).map((t: any) => ({ id: t.id, name: t.name, total_rate: t.total_rate })));
+  };
+
   // Generate QR code content
   const generateQRCode = (type: 'product' | 'variant', sku: string, name: string) => {
     return `${type}:${sku}:${name}`;
