@@ -73,6 +73,8 @@ interface ProductFormData {
   barcode_image_url?: string;
   qr_code?: string;
   hsn_code?: string;
+  tax_master_id?: string | null;
+  gst_percentage?: number | null;
   is_focused_product: boolean;
   focused_type?: 'fixed_date' | 'recurring' | 'keep_open';
   focused_due_date: string;
@@ -85,10 +87,17 @@ interface ProductFormData {
   };
 }
 
+interface TaxMasterOption {
+  id: string;
+  name: string;
+  total_rate: number | null;
+}
+
 interface ProductFormFieldsProps {
   form: ProductFormData;
   categories: ProductCategory[];
   territories: Territory[];
+  taxMasters?: TaxMasterOption[];
   onFormChange: (updates: Partial<ProductFormData>) => void;
 }
 
@@ -96,6 +105,7 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
   form,
   categories,
   territories,
+  taxMasters = [],
   onFormChange
 }) => {
   const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
@@ -314,6 +324,43 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
           placeholder="Enter HSN/SAC code"
         />
       </div>
+
+      {/* GST Bracket (Tax Master) */}
+      <div>
+        <Label htmlFor="tax_master_id">GST Bracket</Label>
+        <Select
+          value={form.tax_master_id || '__unassigned__'}
+          onValueChange={(v) => {
+            if (v === '__unassigned__') {
+              onFormChange({ tax_master_id: null });
+            } else {
+              const sel = taxMasters.find(t => t.id === v);
+              onFormChange({
+                tax_master_id: v,
+                gst_percentage: sel?.total_rate ?? form.gst_percentage ?? null,
+              });
+            }
+          }}
+        >
+          <SelectTrigger id="tax_master_id">
+            <SelectValue placeholder="Select GST bracket" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__unassigned__">— Unassigned (no tax) —</SelectItem>
+            {taxMasters.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.name}{t.total_rate != null ? ` (${t.total_rate}%)` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">
+          {form.tax_master_id
+            ? `Rate: ${form.gst_percentage ?? 0}% (auto-synced from bracket)`
+            : 'Unassigned — no GST will apply until a bracket is set.'}
+        </p>
+      </div>
+
 
       {/* Barcode Upload */}
       <div>

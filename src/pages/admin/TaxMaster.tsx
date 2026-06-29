@@ -89,6 +89,21 @@ const TaxMaster = () => {
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
+  // Bracket / Unassigned products manager
+  const [pmOpen, setPmOpen] = useState(false);
+  const [pmMode, setPmMode] = useState<'unassigned' | 'bracket'>('unassigned');
+  const [pmBracketId, setPmBracketId] = useState<string | null>(null);
+  const [pmProducts, setPmProducts] = useState<Array<{ id: string; name: string; sku: string; gst_percentage: number | null; tax_master_id: string | null; category_name: string | null }>>([]);
+  const [pmLoading, setPmLoading] = useState(false);
+  const [pmSearch, setPmSearch] = useState('');
+  const [pmPage, setPmPage] = useState(0);
+  const [pmTotal, setPmTotal] = useState(0);
+  const PM_PAGE_SIZE = 50;
+  const [pmSelected, setPmSelected] = useState<Set<string>>(new Set());
+  const [pmTargetBracket, setPmTargetBracket] = useState<string>('');
+  const [pmSaving, setPmSaving] = useState(false);
+  const [unassignedCount, setUnassignedCount] = useState(0);
+
   useEffect(() => {
     if (!authLoading && hasAdminAccess) loadTaxes();
   }, [authLoading, hasAdminAccess]);
@@ -128,10 +143,79 @@ const TaxMaster = () => {
         })),
       }));
       setTaxes(result);
+
+      // Unassigned product count (head-only for badge)
+      const { count: unCount } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .is('tax_master_id', null);
+      setUnassignedCount(unCount || 0);
     } catch (e: any) {
       toast.error('Failed to load tax masters');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPmProducts = async (mode: 'unassigned' | 'bracket', bracketId: string | null, search: string, page: number) => {
+    setPmLoading(true);
+    try {
+      let q = supabase
+        .from('products')
+        .select('id, name, sku, gst_percentage, tax_master_id, product_categories(name)', { count: 'exact' });
+      if (mode === 'unassigned') q = q.is('tax_master_id', null);
+      else if (bracketId) q = q.eq('tax_master_id', bracketId);
+      const trimmed = search.trim();
+      if (trimmed) q = q.or(`name.ilike.%${trimmed}%,sku.ilike.%${trimmed}%`);
+      const from = page * PM_PAGE_SIZE;
+      const to = from + PM_PAGE_SIZE - 1;
+      const { data, count, error } = await q.order('name').range(from, to);
+      if (error) throw error;
+      setPmProducts((data || []).map((p: any) => ({
+        id: p.id, name: p.name, sku: p.sku,
+        gst_percentage: p.gst_percentage, tax_master_id: p.tax_master_id,
+        category_name: p.product_categories?.name ?? null,
+      })));
+      setPmTotal(count || 0);
+    } catch (e: any) {
+      toast.error(`Failed to load products: ${e.message}`);
+    } finally {
+      setPmLoading(false);
+    }
+  };
+
+  const openProductManager = (mode: 'unassigned' | 'bracket', bracketId: string | null = null) => {
+    setPmMode(mode);
+    setPmBracketId(bracketId);
+    setPmSearch('');
+    setPmPage(0);
+    setPmSelected(new Set());
+    setPmTargetBracket('');
+    setPmOpen(true);
+    loadPmProducts(mode, bracketId, '', 0);
+  };
+
+  const handleBulkMove = async () => {
+    if (pmSelected.size === 0) { toast.error('Select at least one product'); return; }
+    if (!pmTargetBracket) { toast.error('Choose a target GST bracket'); return; }
+    setPmSaving(true);
+    try {
+      const ids = Array.from(pmSelected);
+      const { error } = await supabase
+        .from('products')
+        .update({ tax_master_id: pmTargetBracket })
+        .in('id', ids);
+      if (error) throw error;
+      toast.success(`Moved ${ids.length} product(s) to the selected bracket`);
+      setPmSelected(new Set());
+      await Promise.all([
+        loadPmProducts(pmMode, pmBracketId, pmSearch, pmPage),
+        loadTaxes(),
+      ]);
+    } catch (e: any) {
+      toast.error(`Bulk move failed: ${e.message}`);
+    } finally {
+      setPmSaving(false);
     }
   };
 
@@ -413,6 +497,30 @@ const TaxMaster = () => {
             <Card><CardContent className="py-12 text-center text-muted-foreground">No taxes configured yet. Click "Create Tax" to get started.</CardContent></Card>
           ) : (
             <div className="grid gap-4">
+              {/* Unassigned safety-net card */}
+              <Card className={unassignedCount > 0 ? 'border-red-300 bg-red-50/40 dark:bg-red-950/10' : ''}>
+                <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-foreground">Unassigned Products</h3>
+                      <Badge variant={unassignedCount > 0 ? 'destructive' : 'secondary'} className="text-xs">
+                        {unassignedCount.toLocaleString()}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Products without a GST bracket. Assign them so they're taxed correctly.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={unassignedCount > 0 ? 'destructive' : 'outline'}
+                    onClick={() => openProductManager('unassigned')}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Review & Assign
+                  </Button>
+                </CardContent>
+              </Card>
               {taxes.map(tax => {
                 const enabledComps = tax.components.filter(c => c.is_enabled);
                 const totalPct = enabledComps.reduce((s, c) => s + c.percentage, 0);
@@ -452,7 +560,10 @@ const TaxMaster = () => {
                           </div>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="sm" variant="ghost" onClick={() => openMapping(tax.id, tax.name)} title="Map Products">
+                          <Button size="sm" variant="outline" onClick={() => openProductManager('bracket', tax.id)} title="Manage products in this bracket">
+                            <Package className="h-4 w-4 mr-1" /> Manage
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => openMapping(tax.id, tax.name)} title="Map Variants (legacy)">
                             <Package className="h-4 w-4" />
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => openEdit(tax)}>
@@ -676,6 +787,118 @@ const TaxMaster = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Products Manager (Unassigned / per-bracket) */}
+      <Dialog open={pmOpen} onOpenChange={setPmOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {pmMode === 'unassigned'
+                ? 'Unassigned Products'
+                : `Products in: ${taxes.find(t => t.id === pmBracketId)?.name ?? 'bracket'}`}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 flex-1 overflow-hidden">
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="relative flex-1 min-w-[220px]">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-8"
+                  placeholder="Search by name or SKU…"
+                  value={pmSearch}
+                  onChange={e => {
+                    setPmSearch(e.target.value);
+                    setPmPage(0);
+                    loadPmProducts(pmMode, pmBracketId, e.target.value, 0);
+                  }}
+                />
+              </div>
+              <Select value={pmTargetBracket} onValueChange={setPmTargetBracket}>
+                <SelectTrigger className="w-[220px]"><SelectValue placeholder="Move to bracket…" /></SelectTrigger>
+                <SelectContent>
+                  {taxes.filter(t => t.is_active && t.id !== pmBracketId).map(t => {
+                    const total = t.components.filter(c => c.is_enabled).reduce((s, c) => s + c.percentage, 0);
+                    return <SelectItem key={t.id} value={t.id}>{t.name} ({total}%)</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+              <Button size="sm" onClick={handleBulkMove} disabled={pmSaving || pmSelected.size === 0 || !pmTargetBracket}>
+                {pmSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Move {pmSelected.size > 0 ? `(${pmSelected.size})` : ''}
+              </Button>
+            </div>
+
+            <div className="flex-1 overflow-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={pmProducts.length > 0 && pmSelected.size === pmProducts.length}
+                        onCheckedChange={(checked) => {
+                          if (checked) setPmSelected(new Set(pmProducts.map(p => p.id)));
+                          else setPmSelected(new Set());
+                        }}
+                      />
+                    </TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Current GST</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pmLoading ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-6"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
+                  ) : pmProducts.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No products found.</TableCell></TableRow>
+                  ) : pmProducts.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={pmSelected.has(p.id)}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(pmSelected);
+                            if (checked) next.add(p.id); else next.delete(p.id);
+                            setPmSelected(next);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                      <TableCell>{p.category_name || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        {p.tax_master_id == null ? (
+                          <Badge variant="destructive" className="text-xs">Unassigned</Badge>
+                        ) : (
+                          <span>{p.gst_percentage ?? 0}%</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Showing {pmProducts.length === 0 ? 0 : pmPage * PM_PAGE_SIZE + 1}–{pmPage * PM_PAGE_SIZE + pmProducts.length} of {pmTotal}
+              </span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={pmPage === 0 || pmLoading}
+                  onClick={() => { const np = pmPage - 1; setPmPage(np); loadPmProducts(pmMode, pmBracketId, pmSearch, np); }}>
+                  Previous
+                </Button>
+                <Button size="sm" variant="outline" disabled={(pmPage + 1) * PM_PAGE_SIZE >= pmTotal || pmLoading}
+                  onClick={() => { const np = pmPage + 1; setPmPage(np); loadPmProducts(pmMode, pmBracketId, pmSearch, np); }}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Layout>

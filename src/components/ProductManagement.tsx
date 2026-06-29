@@ -107,6 +107,7 @@ const ProductManagement = () => {
   
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [territories, setTerritories] = useState<Territory[]>([]);
+  const [taxMasters, setTaxMasters] = useState<Array<{ id: string; name: string; total_rate: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
@@ -157,6 +158,8 @@ const emptyProductForm = () => ({
   barcode_image_url: '',
   qr_code: '',
   hsn_code: '',
+  tax_master_id: null as string | null,
+  gst_percentage: null as number | null,
   // Extended fields
   product_type: 'Finished Good',
   gross_weight_g: null as number | null,
@@ -309,7 +312,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchCategories(), fetchProducts(), fetchVariants(), fetchTerritories()]);
+      await Promise.all([fetchCategories(), fetchProducts(), fetchVariants(), fetchTerritories(), fetchTaxMasters()]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch data');
@@ -326,6 +329,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     
     if (error) throw error;
     setTerritories(data || []);
+  };
+
+  const fetchTaxMasters = async () => {
+    const { data, error } = await supabase
+      .from('tax_masters')
+      .select('id, name, total_rate, is_active')
+      .eq('is_active', true)
+      .order('total_rate', { ascending: true });
+    if (error) { console.error('Failed to load tax masters', error); return; }
+    setTaxMasters((data || []).map((t: any) => ({ id: t.id, name: t.name, total_rate: t.total_rate })));
   };
 
   // Generate QR code content
@@ -581,6 +594,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             barcode: productForm.barcode || null,
             qr_code: qrCode,
             hsn_code: productForm.hsn_code || null,
+            tax_master_id: productForm.tax_master_id || null,
+            gst_percentage: productForm.gst_percentage,
             product_type: productForm.product_type || 'Finished Good',
             gross_weight_g: productForm.gross_weight_g,
             packaging_weight_g: productForm.packaging_weight_g,
@@ -620,6 +635,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             barcode: productForm.barcode || null,
             qr_code: qrCode,
             hsn_code: productForm.hsn_code || null,
+            tax_master_id: productForm.tax_master_id || null,
+            gst_percentage: productForm.gst_percentage,
             product_type: productForm.product_type || 'Finished Good',
             gross_weight_g: productForm.gross_weight_g,
             packaging_weight_g: productForm.packaging_weight_g,
@@ -928,6 +945,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           form={productForm}
                           categories={categories}
                           territories={territories}
+                          taxMasters={taxMasters}
                           onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
                         />
                         <ProductExtendedFields
@@ -1077,6 +1095,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                                   barcode_image_url: (product as any).barcode_image_url || '',
                                   qr_code: (product as any).qr_code || '',
                                   hsn_code: (product as any).hsn_code || '',
+                                  tax_master_id: (product as any).tax_master_id ?? null,
+                                  gst_percentage: (product as any).gst_percentage ?? null,
                                   product_type: (product as any).product_type || 'Finished Good',
                                   gross_weight_g: (product as any).gross_weight_g ?? null,
                                   packaging_weight_g: (product as any).packaging_weight_g ?? null,
