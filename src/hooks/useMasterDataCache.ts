@@ -50,20 +50,15 @@ export function useMasterDataCache() {
           .range(from, to)
       );
 
-      // Only clear and update cache if all fetches succeeded
+      // Only clear and update cache if all fetches succeeded.
+      // BATCH write — single underlying storage write instead of N awaits.
       if (products) {
-        await offlineStorage.clear(STORES.PRODUCTS);
-        for (const product of products) {
-          await offlineStorage.save(STORES.PRODUCTS, product);
-        }
+        await offlineStorage.replaceAll(STORES.PRODUCTS, products);
         console.log(`[Cache] ✅ ${products.length} active products cached`);
       }
 
       if (variants) {
-        await offlineStorage.clear(STORES.VARIANTS);
-        for (const variant of variants) {
-          await offlineStorage.save(STORES.VARIANTS, variant);
-        }
+        await offlineStorage.replaceAll(STORES.VARIANTS, variants);
         console.log(`[Cache] ✅ ${variants.length} variants cached`);
       }
 
