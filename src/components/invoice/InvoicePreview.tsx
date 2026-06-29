@@ -361,18 +361,31 @@ export default function InvoicePreview({
           {isEnabled('totals_tax_breakdown') && (
             <>
               <div className="flex justify-between mb-2">
-                <span className="font-bold text-xs">SGST (2.5%)</span>
+                <span className="font-bold text-xs">SGST</span>
                 <span className="text-xs">₹{sgst.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between mb-3">
-                <span className="font-bold text-xs">CGST (2.5%)</span>
+              <div className="flex justify-between mb-2">
+                <span className="font-bold text-xs">CGST</span>
                 <span className="text-xs">₹{cgst.toFixed(2)}</span>
               </div>
+              {igst > 0 && (
+                <div className="flex justify-between mb-2">
+                  <span className="font-bold text-xs">IGST</span>
+                  <span className="text-xs">₹{igst.toFixed(2)}</span>
+                </div>
+              )}
+              {cess > 0 && (
+                <div className="flex justify-between mb-3">
+                  <span className="font-bold text-xs">CESS</span>
+                  <span className="text-xs">₹{cess.toFixed(2)}</span>
+                </div>
+              )}
             </>
           )}
           <div className={`${styles.totalBox} p-2 rounded flex justify-center items-center`}>
             <span className="font-bold text-sm">Total amount: ₹{Math.round(total)}</span>
           </div>
+
         </div>
       </div>
 
