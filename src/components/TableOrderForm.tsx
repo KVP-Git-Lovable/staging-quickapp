@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag } from "lucide-react";
+import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
