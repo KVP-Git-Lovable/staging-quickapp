@@ -45,9 +45,13 @@ export default function CreditNoteCreate() {
     fetchRetailers();
   }, []);
 
+  // Per-line tax via shared helper using each item's original GST% (snapshot or product fallback).
+  const lineTaxes = selectedItems.map((i) =>
+    computeLineTax({ taxableAmount: i.returnQuantity * i.rate, gstPercentage: i.gstRate })
+  );
   const subTotal = selectedItems.reduce((s, i) => s + i.returnQuantity * i.rate, 0);
-  const sgst = subTotal * 0.025;
-  const cgst = subTotal * 0.025;
+  const sgst = lineTaxes.reduce((s, l) => s + l.sgst, 0);
+  const cgst = lineTaxes.reduce((s, l) => s + l.cgst, 0);
   const total = subTotal + sgst + cgst;
 
   const handleGenerate = async () => {
