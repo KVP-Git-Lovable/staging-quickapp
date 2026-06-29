@@ -325,6 +325,43 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
         />
       </div>
 
+      {/* GST Bracket (Tax Master) */}
+      <div>
+        <Label htmlFor="tax_master_id">GST Bracket</Label>
+        <Select
+          value={form.tax_master_id || '__unassigned__'}
+          onValueChange={(v) => {
+            if (v === '__unassigned__') {
+              onFormChange({ tax_master_id: null });
+            } else {
+              const sel = taxMasters.find(t => t.id === v);
+              onFormChange({
+                tax_master_id: v,
+                gst_percentage: sel?.total_rate ?? form.gst_percentage ?? null,
+              });
+            }
+          }}
+        >
+          <SelectTrigger id="tax_master_id">
+            <SelectValue placeholder="Select GST bracket" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__unassigned__">— Unassigned (no tax) —</SelectItem>
+            {taxMasters.map((t) => (
+              <SelectItem key={t.id} value={t.id}>
+                {t.name}{t.total_rate != null ? ` (${t.total_rate}%)` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">
+          {form.tax_master_id
+            ? `Rate: ${form.gst_percentage ?? 0}% (auto-synced from bracket)`
+            : 'Unassigned — no GST will apply until a bracket is set.'}
+        </p>
+      </div>
+
+
       {/* Barcode Upload */}
       <div>
         <Label htmlFor="barcode_upload">Barcode Image</Label>
