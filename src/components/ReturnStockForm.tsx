@@ -96,7 +96,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     try {
       const { data, error } = await supabase
         .from('products')
-        .select(`id, name, unit, rate, sku, product_variants (id, variant_name, sku, price)`)
+        .select(`id, name, unit, rate, sku, gst_percentage, product_variants (id, variant_name, sku, price)`)
         .eq('is_active', true)
         .order('name');
 
@@ -108,6 +108,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         unit: p.unit,
         rate: p.rate,
         sku: p.sku || undefined,
+        gst_percentage: (p as any).gst_percentage ?? null,
         variants: (p.product_variants || []) as ProductVariant[]
       }));
 
