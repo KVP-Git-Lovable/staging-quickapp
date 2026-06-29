@@ -380,17 +380,20 @@ export function UserFYPlanTarget({
   };
 
   const loadProductsWithCategories = async () => {
-    const { data: products } = await supabase
-      .from('products')
-      .select(`
-        id, 
-        name, 
-        rate,
-        category_id,
-        product_categories(id, name)
-      `)
-      .eq('is_active', true)
-      .order('name');
+    const products = await fetchAllPaginated<any>((from, to) =>
+      supabase
+        .from('products')
+        .select(`
+          id, 
+          name, 
+          rate,
+          category_id,
+          product_categories(id, name)
+        `)
+        .eq('is_active', true)
+        .order('name')
+        .range(from, to)
+    );
 
     if (products) {
       const categoryMap = new Map<string, ProductCategory>();
