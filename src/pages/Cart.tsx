@@ -2539,13 +2539,19 @@ export const Cart = () => {
                             <p className="text-xs text-muted-foreground">₹{ratePerDisplayUnit.toFixed(2)}/{displayUnit}</p>
                           )}
                           
-                          {/* GST per line */}
-                          {lineTax && lineTax.taxRate > 0 && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              GST {lineTax.taxRate}% • CGST ₹{lineTax.cgst.toFixed(2)} + SGST ₹{lineTax.sgst.toFixed(2)}
-                              {lineTax.igst > 0 && <> • IGST ₹{lineTax.igst.toFixed(2)}</>}
-                            </p>
-                          )}
+                          {/* GST per line — show rate next to each component */}
+                          {lineTax && lineTax.taxRate > 0 && (() => {
+                            const half = +(lineTax.taxRate / 2).toFixed(2);
+                            return (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {lineTax.igst > 0 ? (
+                                  <>IGST {lineTax.taxRate}% ₹{lineTax.igst.toFixed(2)}</>
+                                ) : (
+                                  <>CGST {half}% ₹{lineTax.cgst.toFixed(2)} • SGST {half}% ₹{lineTax.sgst.toFixed(2)}</>
+                                )}
+                              </p>
+                            );
+                          })()}
 
                           {/* Show applied scheme details */}
                           {itemSchemes.length > 0 && (
