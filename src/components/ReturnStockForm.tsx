@@ -148,7 +148,8 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       unit: selectedUnit || product.unit,
       returnQuantity,
       returnReason: returnReason === 'Other' ? `Other: ${otherReason.trim()}` : returnReason,
-      price: itemPrice
+      price: itemPrice,
+      gstRate: Number(product.gst_percentage) || 0,
     };
 
     setReturnItems(prev => [...prev, newItem]);
