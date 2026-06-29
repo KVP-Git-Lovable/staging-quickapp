@@ -23,8 +23,10 @@ interface Product {
   rate: number;
   sku?: string;
   gst_percentage?: number | null;
+  category?: string;
   variants?: ProductVariant[];
 }
+
 
 interface ProductVariant {
   id: string;
@@ -88,6 +90,8 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
   const [selectedUnit, setSelectedUnit] = useState<string>('Kg');
   const [otherReason, setOtherReason] = useState<string>('');
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
 
   // Kick off the shared cache-first product load (paginated + IndexedDB cached).
   // Replaces the previous unbounded products + product_variants embed query
@@ -109,6 +113,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       rate: Number(p.rate ?? 0),
       sku: p.sku || undefined,
       gst_percentage: (p as any).gst_percentage ?? null,
+      category: p.category?.name || undefined,
       variants: ((p.variants || []) as any[]).map(v => ({
         id: v.id,
         variant_name: v.variant_name,
@@ -116,6 +121,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         price: Number(v.price ?? v.rate ?? 0),
       })) as ProductVariant[],
     }));
+
     setProducts(mapped);
     setLoading(cacheLoading && mapped.length === 0);
   }, [cachedProducts, cacheLoading]);
@@ -455,23 +461,34 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     setStep(1);
   };
 
+  const categories = (() => {
+    const set = new Set<string>();
+    products.forEach(p => { if (p.category) set.add(p.category); });
+    return Array.from(set).sort();
+  })();
+
   const getProductOptions = () => {
-    const options: Array<{ value: string; label: string; sku?: string; price: number }> = [];
-    products.forEach(product => {
-      options.push({ value: product.id, label: product.name, sku: product.sku, price: product.rate });
+    const options: Array<{ value: string; label: string; sku?: string; price: number; category?: string }> = [];
+    const filtered = selectedCategory === 'all'
+      ? products
+      : products.filter(p => (p.category || 'Uncategorized') === selectedCategory);
+    filtered.forEach(product => {
+      options.push({ value: product.id, label: product.name, sku: product.sku, price: product.rate, category: product.category });
       if (product.variants && product.variants.length > 0) {
         product.variants.forEach(variant => {
           options.push({
             value: `${product.id}_variant_${variant.id}`,
             label: variant.variant_name,
             sku: variant.sku,
-            price: variant.price
+            price: variant.price,
+            category: product.category,
           });
         });
       }
     });
     return options;
   };
+
 
   const getSelectedProductLabel = () => {
     if (!selectedProduct) return 'Search product...';
@@ -533,7 +550,23 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
           {/* Product Search */}
           <Card>
             <CardContent className="p-3 space-y-3">
+              {/* Category filter */}
+              <div>
+                <Label className="text-xs text-muted-foreground">Category</Label>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="h-10 mt-1">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px] bg-background z-50">
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Popover open={productDropdownOpen} onOpenChange={setProductDropdownOpen}>
+
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
