@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { submitOrderWithOfflineSupport } from '@/utils/offlineOrderUtils';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
 interface Product {
   id: string;
