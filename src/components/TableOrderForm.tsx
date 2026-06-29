@@ -784,6 +784,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       sku: string;
       price: number;
       type: 'product' | 'variant';
+      resolved?: ResolvedProduct;
     }> = [];
 
     // Filter only active products (driven directly by Product Master)
@@ -796,27 +797,33 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
     activeProducts.forEach(product => {
       // Always add base product as a selectable option (even if it has variants)
+      const baseResolved = resolveProduct(product);
       options.push({
         value: product.id,
-        label: `${product.name} | ₹${product.rate}`,
+        label: `${baseResolved.display_name} | ₹${baseResolved.rate}`,
         product,
-        sku: product.sku,
-        price: product.rate,
+        sku: baseResolved.sku || product.sku,
+        price: baseResolved.rate,
         type: 'product',
+        resolved: baseResolved,
       });
 
       // Add active variants; null/undefined is treated as active throughout order entry
       if (product.variants && product.variants.length > 0) {
         product.variants.forEach(variant => {
           if (variant.is_active !== false) {
+            // Resolve variant against base — NULL variant fields inherit from base
+            // so a variant with no overrides never renders blank.
+            const r = resolveProduct(product, variant);
             options.push({
               value: `${product.id}_variant_${variant.id}`,
-              label: `${variant.variant_name} | ₹${variant.price}`,
+              label: `${r.display_name} | ₹${r.rate}`,
               product,
               variant,
-              sku: variant.sku,
-              price: variant.price,
+              sku: r.sku || '',
+              price: r.rate,
               type: 'variant',
+              resolved: r,
             });
           }
         });
