@@ -143,10 +143,79 @@ const TaxMaster = () => {
         })),
       }));
       setTaxes(result);
+
+      // Unassigned product count (head-only for badge)
+      const { count: unCount } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .is('tax_master_id', null);
+      setUnassignedCount(unCount || 0);
     } catch (e: any) {
       toast.error('Failed to load tax masters');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPmProducts = async (mode: 'unassigned' | 'bracket', bracketId: string | null, search: string, page: number) => {
+    setPmLoading(true);
+    try {
+      let q = supabase
+        .from('products')
+        .select('id, name, sku, gst_percentage, tax_master_id, product_categories(name)', { count: 'exact' });
+      if (mode === 'unassigned') q = q.is('tax_master_id', null);
+      else if (bracketId) q = q.eq('tax_master_id', bracketId);
+      const trimmed = search.trim();
+      if (trimmed) q = q.or(`name.ilike.%${trimmed}%,sku.ilike.%${trimmed}%`);
+      const from = page * PM_PAGE_SIZE;
+      const to = from + PM_PAGE_SIZE - 1;
+      const { data, count, error } = await q.order('name').range(from, to);
+      if (error) throw error;
+      setPmProducts((data || []).map((p: any) => ({
+        id: p.id, name: p.name, sku: p.sku,
+        gst_percentage: p.gst_percentage, tax_master_id: p.tax_master_id,
+        category_name: p.product_categories?.name ?? null,
+      })));
+      setPmTotal(count || 0);
+    } catch (e: any) {
+      toast.error(`Failed to load products: ${e.message}`);
+    } finally {
+      setPmLoading(false);
+    }
+  };
+
+  const openProductManager = (mode: 'unassigned' | 'bracket', bracketId: string | null = null) => {
+    setPmMode(mode);
+    setPmBracketId(bracketId);
+    setPmSearch('');
+    setPmPage(0);
+    setPmSelected(new Set());
+    setPmTargetBracket('');
+    setPmOpen(true);
+    loadPmProducts(mode, bracketId, '', 0);
+  };
+
+  const handleBulkMove = async () => {
+    if (pmSelected.size === 0) { toast.error('Select at least one product'); return; }
+    if (!pmTargetBracket) { toast.error('Choose a target GST bracket'); return; }
+    setPmSaving(true);
+    try {
+      const ids = Array.from(pmSelected);
+      const { error } = await supabase
+        .from('products')
+        .update({ tax_master_id: pmTargetBracket })
+        .in('id', ids);
+      if (error) throw error;
+      toast.success(`Moved ${ids.length} product(s) to the selected bracket`);
+      setPmSelected(new Set());
+      await Promise.all([
+        loadPmProducts(pmMode, pmBracketId, pmSearch, pmPage),
+        loadTaxes(),
+      ]);
+    } catch (e: any) {
+      toast.error(`Bulk move failed: ${e.message}`);
+    } finally {
+      setPmSaving(false);
     }
   };
 
