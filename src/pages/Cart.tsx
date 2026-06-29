@@ -1121,8 +1121,16 @@ export const Cart = () => {
           quantity: item.quantity,
           total: itemTotal,
           hsn_code: (item as any).hsn_code || null, // Include HSN if available
+          tax_master_id: (item as any).tax_master_id ?? null,
+          tax_rate_snapshot: lineTax?.taxRate ?? 0,
+          cgst_rate: (lineTax?.taxRate ?? 0) / 2,
+          sgst_rate: (lineTax?.taxRate ?? 0) / 2,
+          cgst_amount: cgstAmount,
           sgst_amount: sgstAmount,
-          cgst_amount: cgstAmount
+          igst_rate: 0,
+          igst_amount: 0,
+          cess_rate: 0,
+          cess_amount: lineTax?.cess ?? 0,
         };
       });
 
