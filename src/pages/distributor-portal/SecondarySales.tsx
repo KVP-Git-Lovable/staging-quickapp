@@ -353,15 +353,16 @@ const SecondarySales = () => {
       group.orders.push(order);
       group.totalValue += order.total_amount || 0;
 
-      // Aggregate products
+      // Aggregate products (display label via shared resolver)
       order.items?.forEach(item => {
-        const existingProduct = group.products.find(p => p.productName === item.product_name);
+        const label = resolveItemName(item);
+        const existingProduct = group.products.find(p => p.productName === label);
         if (existingProduct) {
           existingProduct.quantity += item.quantity;
           existingProduct.total += item.total;
         } else {
           group.products.push({
-            productName: item.product_name,
+            productName: label,
             quantity: item.quantity,
             unit: item.unit,
             total: item.total
@@ -379,10 +380,10 @@ const SecondarySales = () => {
 
     orders.forEach(order => {
       order.items?.forEach(item => {
-        const key = item.product_name;
+        const key = resolveItemName(item);
         if (!productMap.has(key)) {
           productMap.set(key, {
-            productName: item.product_name,
+            productName: key,
             unit: item.unit,
             totalQuantity: 0,
             totalValue: 0,
