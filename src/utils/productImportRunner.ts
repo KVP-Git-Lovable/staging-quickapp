@@ -331,7 +331,7 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
       warnings,
       raw,
     };
-    if (ok && baseUom && (categoryId || pendingCategoryName) && gst != null && rate != null && priceBasisUom && defSalesUom) {
+    if (ok && baseUom && (categoryId || pendingCategoryName) && rate != null && priceBasisUom && defSalesUom) {
       row.resolved = {
         name,
         description: textOrNull(raw['description']),
@@ -339,7 +339,8 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
         product_type: textOrNull(raw['product_type']),
         category_id: categoryId,
         pending_category_name: pendingCategoryName,
-        gst_percentage: effectiveGst ?? gst,
+        // GST is optional — leave null when blank so the product imports as UNASSIGNED.
+        gst_percentage: effectiveGst != null ? effectiveGst : (gst != null ? gst : null),
         hsn_code: textOrNull(raw['hsn_code']),
         tax_master_id: taxId,
 
