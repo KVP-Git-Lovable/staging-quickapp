@@ -87,10 +87,17 @@ interface ProductFormData {
   };
 }
 
+interface TaxMasterOption {
+  id: string;
+  name: string;
+  total_rate: number | null;
+}
+
 interface ProductFormFieldsProps {
   form: ProductFormData;
   categories: ProductCategory[];
   territories: Territory[];
+  taxMasters?: TaxMasterOption[];
   onFormChange: (updates: Partial<ProductFormData>) => void;
 }
 
