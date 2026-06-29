@@ -89,6 +89,21 @@ const TaxMaster = () => {
   const [showOnlySelected, setShowOnlySelected] = useState(false);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
 
+  // Bracket / Unassigned products manager
+  const [pmOpen, setPmOpen] = useState(false);
+  const [pmMode, setPmMode] = useState<'unassigned' | 'bracket'>('unassigned');
+  const [pmBracketId, setPmBracketId] = useState<string | null>(null);
+  const [pmProducts, setPmProducts] = useState<Array<{ id: string; name: string; sku: string; gst_percentage: number | null; tax_master_id: string | null; category_name: string | null }>>([]);
+  const [pmLoading, setPmLoading] = useState(false);
+  const [pmSearch, setPmSearch] = useState('');
+  const [pmPage, setPmPage] = useState(0);
+  const [pmTotal, setPmTotal] = useState(0);
+  const PM_PAGE_SIZE = 50;
+  const [pmSelected, setPmSelected] = useState<Set<string>>(new Set());
+  const [pmTargetBracket, setPmTargetBracket] = useState<string>('');
+  const [pmSaving, setPmSaving] = useState(false);
+  const [unassignedCount, setUnassignedCount] = useState(0);
+
   useEffect(() => {
     if (!authLoading && hasAdminAccess) loadTaxes();
   }, [authLoading, hasAdminAccess]);
