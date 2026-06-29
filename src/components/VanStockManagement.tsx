@@ -354,7 +354,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         // Fetch all products where is_active is true OR null (treat null as active)
         const { data: productsData, error: productsError } = await supabase
           .from('products')
-          .select('id, name, unit, rate')
+          .select('id, name, unit, rate, gst_percentage')
           .or('is_active.eq.true,is_active.is.null')
           .order('name');
         
