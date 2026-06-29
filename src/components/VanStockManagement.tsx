@@ -1471,10 +1471,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         finalY = 20;
       }
 
-      // Tax breakdown box
-      const cgst = totalTaxable * 0.025;
-      const sgst = totalTaxable * 0.025;
+      // Tax breakdown box (uses per-line totals computed above)
       const grandTotal = totalTaxable + cgst + sgst;
+      
       
       const boxWidth = 75;
       const boxX = pageWidth - boxWidth - 14;
