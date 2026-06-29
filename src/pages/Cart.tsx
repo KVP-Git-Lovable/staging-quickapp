@@ -2499,7 +2499,8 @@ export const Cart = () => {
             </CardContent>
           </Card> : <>
             <div className="space-y-2">
-          {cartItems.map(item => {
+          {cartItems.map((item, itemIdx) => {
+            const lineTax = lineTaxes[itemIdx];
             const discount = computeItemDiscount(item);
             const finalPrice = computeItemTotal(item);
             const hasDiscount = discount > 0;
@@ -2538,6 +2539,14 @@ export const Cart = () => {
                             <p className="text-xs text-muted-foreground">₹{ratePerDisplayUnit.toFixed(2)}/{displayUnit}</p>
                           )}
                           
+                          {/* GST per line */}
+                          {lineTax && lineTax.taxRate > 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              GST {lineTax.taxRate}% • CGST ₹{lineTax.cgst.toFixed(2)} + SGST ₹{lineTax.sgst.toFixed(2)}
+                              {lineTax.igst > 0 && <> • IGST ₹{lineTax.igst.toFixed(2)}</>}
+                            </p>
+                          )}
+
                           {/* Show applied scheme details */}
                           {itemSchemes.length > 0 && (
                             <div className="mt-1 space-y-0.5">
@@ -2658,6 +2667,10 @@ export const Cart = () => {
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>SGST:</span>
                     <span>₹{formatExact(getSGST())}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-medium border-t border-dashed mt-1 pt-1">
+                    <span>Total Tax:</span>
+                    <span>₹{formatExact(taxTotals.cgst + taxTotals.sgst + taxTotals.igst + taxTotals.cess)}</span>
                   </div>
                 </div>
 
