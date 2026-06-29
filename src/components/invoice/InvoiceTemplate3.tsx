@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
 import { downloadPDF } from "@/utils/fileDownloader";
+import { resolveLineTax } from "@/utils/taxCalc";
+
 
 interface InvoiceTemplate3Props {
   company: any;
