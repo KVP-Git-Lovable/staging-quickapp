@@ -185,10 +185,13 @@ const PriceBookAdmin = () => {
       if (error) throw error;
 
       // Auto-add all products to the price book
-      const { data: products } = await supabase
-        .from('products')
-        .select('id, rate, product_variants(id, price)')
-        .eq('is_active', true);
+      const products = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('products')
+          .select('id, rate, product_variants(id, price)')
+          .eq('is_active', true)
+          .range(from, to)
+      );
 
       if (products && products.length > 0) {
         const entries: any[] = [];
