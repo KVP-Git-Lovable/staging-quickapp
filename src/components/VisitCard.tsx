@@ -2458,6 +2458,47 @@ export const VisitCard = ({
       console.log('[VisitCard] Merged orders:', mergedOrders.length, 'with items:', mergedOrders.filter(o => o.items?.length > 0).length);
       
       setOrdersTodayList(mergedOrders as any);
+
+      // FIFO "old payment cleared" detection.
+      // When a credit order is placed today and a payment is collected, the
+      // server runs apply_retailer_payment_fifo which clears OLDER pending
+      // invoices first. We surface that here so the rep can see e.g.
+      // "Old payment cleared: ₹50 on 12 Jun 2026" right inside Today's Order.
+      try {
+        const todayOrderIds = mergedOrders.map((o: any) => o.id).filter(Boolean);
+        if (navigator.onLine) {
+          const { data: allocRows } = await supabase
+            .from('retailer_payment_allocations' as any)
+            .select('order_id, amount_applied, applied_at, created_at')
+            .eq('retailer_id', retailerId)
+            .gte('created_at', dayStart.toISOString())
+            .lte('created_at', dayEnd.toISOString());
+
+          const oldAllocs = (allocRows || []).filter(
+            (r: any) => r.order_id && !todayOrderIds.includes(r.order_id)
+          );
+          if (oldAllocs.length > 0) {
+            const totalCleared = oldAllocs.reduce(
+              (s: number, r: any) => s + Number(r.amount_applied || 0),
+              0
+            );
+            const lastDate = oldAllocs
+              .map((r: any) => r.applied_at || r.created_at)
+              .filter(Boolean)
+              .sort()
+              .pop() as string | undefined;
+            setOldPaymentsCleared({
+              amount: totalCleared,
+              lastDate: lastDate || null,
+            });
+          } else {
+            setOldPaymentsCleared({ amount: 0, lastDate: null });
+          }
+        }
+      } catch (e) {
+        console.log('[VisitCard] old-payment-cleared lookup failed (non-fatal):', e);
+      }
+
       if (mergedOrders.length > 0) {
         // CRITICAL FIX: Also calculate and set order totals when loading order details
         const totalOrderValue = mergedOrders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
