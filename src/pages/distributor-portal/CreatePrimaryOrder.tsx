@@ -22,6 +22,9 @@ import { useSavedAddresses } from '@/hooks/useSavedAddresses';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { cn } from '@/lib/utils';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ChevronsUpDown } from 'lucide-react';
 
 interface Category { id: string; name: string; }
 interface PriceBookEntry { product_id: string; variant_id: string | null; final_price: number; list_price: number; }
@@ -917,32 +920,72 @@ const CartStage = ({
                     : "md:grid-cols-[2fr_1.1fr_0.7fr_0.8fr_32px]"
                 )}>
                   {/* Product */}
-                  <Select
-                    value={item.product_id || ''}
-                    onValueChange={(v) => {
-                      const p = products.find((pr: Product) => pr.id === v);
-                      if (!p) return;
-                      const price = getProductPrice(p);
-                      const defaultUom = (productUoms[v] && productUoms[v][0]?.code) || p.unit || 'pieces';
-                      updateItem(index, {
-                        product_id: p.id, product_name: p.name, unit: defaultUom,
-                        unit_price: price, hsn_code: p.hsn_code,
-                        sku: (p as any).sku, image_url: (p as any).image_url,
-                        price_book_applied: p.priceBookPrice !== undefined,
-                        category_id: p.category_id,
-                        line_total: item.quantity * price,
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Choose product…" /></SelectTrigger>
-                    <SelectContent>
-                      {productsLoading ? <SelectItem value="loading" disabled>Loading…</SelectItem>
-                        : filtered.length === 0 ? <SelectItem value="none" disabled>No products</SelectItem>
-                          : filtered.map((p: Product) => (
-                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                          ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className="h-10 w-full justify-between font-normal"
+                      >
+                        <span className="truncate">
+                          {item.product_id
+                            ? (products.find((pr: Product) => pr.id === item.product_id)?.name ?? 'Choose product…')
+                            : 'Choose product…'}
+                        </span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[260px]" align="start">
+                      <Command
+                        filter={(value, search) => {
+                          const p = products.find((pr: Product) => pr.id === value);
+                          const hay = `${p?.name ?? ''} ${(p as any)?.sku ?? ''}`.toLowerCase();
+                          return hay.includes(search.toLowerCase()) ? 1 : 0;
+                        }}
+                      >
+                        <CommandInput placeholder="Search product or SKU…" />
+                        <CommandList>
+                          {productsLoading ? (
+                            <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
+                          ) : (
+                            <>
+                              <CommandEmpty>No products found.</CommandEmpty>
+                              <CommandGroup>
+                                {filtered.map((p: Product) => (
+                                  <CommandItem
+                                    key={p.id}
+                                    value={p.id}
+                                    onSelect={(v) => {
+                                      const prod = products.find((pr: Product) => pr.id === v);
+                                      if (!prod) return;
+                                      const price = getProductPrice(prod);
+                                      const defaultUom = (productUoms[v] && productUoms[v][0]?.code) || prod.unit || 'pieces';
+                                      updateItem(index, {
+                                        product_id: prod.id, product_name: prod.name, unit: defaultUom,
+                                        unit_price: price, hsn_code: prod.hsn_code,
+                                        sku: (prod as any).sku, image_url: (prod as any).image_url,
+                                        price_book_applied: prod.priceBookPrice !== undefined,
+                                        category_id: prod.category_id,
+                                        line_total: item.quantity * price,
+                                      });
+                                      (document.activeElement as HTMLElement)?.blur();
+                                    }}
+                                  >
+                                    <Check className={cn('mr-2 h-4 w-4', item.product_id === p.id ? 'opacity-100' : 'opacity-0')} />
+                                    <span className="truncate">{p.name}</span>
+                                    {(p as any).sku && (
+                                      <span className="ml-2 text-xs text-muted-foreground">{(p as any).sku}</span>
+                                    )}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </>
+                          )}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+
 
                   {/* Unit */}
                   <Select value={item.unit} onValueChange={(v) => updateItem(index, { unit: v })} disabled={!item.product_id}>
