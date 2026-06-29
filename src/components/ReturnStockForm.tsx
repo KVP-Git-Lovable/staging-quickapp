@@ -113,6 +113,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       rate: Number(p.rate ?? 0),
       sku: p.sku || undefined,
       gst_percentage: (p as any).gst_percentage ?? null,
+      category: p.category?.name || undefined,
       variants: ((p.variants || []) as any[]).map(v => ({
         id: v.id,
         variant_name: v.variant_name,
@@ -120,6 +121,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         price: Number(v.price ?? v.rate ?? 0),
       })) as ProductVariant[],
     }));
+
     setProducts(mapped);
     setLoading(cacheLoading && mapped.length === 0);
   }, [cachedProducts, cacheLoading]);
