@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
 interface PriceBook {
   id: string;
