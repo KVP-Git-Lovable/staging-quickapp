@@ -180,6 +180,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
+  // Per-row search text for the product picker. Only one popover is open at a time,
+  // but we key by row to keep results scoped if multiple rows ever render at once.
+  const [pickerSearch, setPickerSearch] = useState<{ [key: string]: string }>({});
+  const [refreshingProducts, setRefreshingProducts] = useState(false);
+  // How many matches to render at once. The full list can be 8k+ products —
+  // rendering all of them locks the main thread; 50 is responsive + scrollable.
+  const PICKER_RENDER_LIMIT = 50;
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showSchemesModal, setShowSchemesModal] = useState(false);
