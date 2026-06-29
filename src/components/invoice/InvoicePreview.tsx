@@ -295,7 +295,8 @@ export default function InvoicePreview({
               )}
               <th className="border border-gray-300 p-2 text-center text-xs">QTY</th>
               <th className="border border-gray-300 p-2 text-right text-xs">PRICE</th>
-              <th className="border border-gray-300 p-2 text-center text-xs">GST%</th>
+              <th className="border border-gray-300 p-2 text-center text-xs">CGST%</th>
+              <th className="border border-gray-300 p-2 text-center text-xs">SGST%</th>
               <th className="border border-gray-300 p-2 text-right text-xs">TOTAL</th>
             </tr>
           </thead>
@@ -318,11 +319,14 @@ export default function InvoicePreview({
               }
               
               const itemTotal = qty * rate;
-              const lineRate = Number(
+              const fallbackRate = Number(
                 (item as any).tax_rate_snapshot ??
                 (item as any).gst_percentage ??
                 0
               ) || 0;
+              const cgstRate = Number((item as any).cgst_rate ?? (fallbackRate / 2)) || 0;
+              const sgstRate = Number((item as any).sgst_rate ?? (fallbackRate / 2)) || 0;
+              const igstRate = Number((item as any).igst_rate ?? 0) || 0;
               return (
                 <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                   <td className="border border-gray-300 p-2 text-center text-xs">{index + 1}</td>
@@ -338,7 +342,10 @@ export default function InvoicePreview({
                     ₹{rate.toFixed(2)}
                   </td>
                   <td className="border border-gray-300 p-2 text-center text-xs">
-                    {lineRate > 0 ? `${lineRate}%` : "-"}
+                    {igstRate > 0 ? `IGST ${igstRate}%` : (cgstRate > 0 ? `${cgstRate}%` : '-')}
+                  </td>
+                  <td className="border border-gray-300 p-2 text-center text-xs">
+                    {igstRate > 0 ? '-' : (sgstRate > 0 ? `${sgstRate}%` : '-')}
                   </td>
                   <td className="border border-gray-300 p-2 text-right text-xs">
                     ₹{itemTotal.toFixed(2)}
@@ -349,6 +356,55 @@ export default function InvoicePreview({
           </tbody>
         </table>
       </div>
+
+      {/* Rate-wise GST summary (GST compliant) */}
+      {(() => {
+        const groups = new Map<number, { taxable: number; cgst: number; sgst: number; igst: number; cess: number }>();
+        cartItems.forEach((it: any, i: number) => {
+          const lt = lineTaxes[i];
+          if (!lt || lt.taxRate <= 0) return;
+          const key = Number(lt.taxRate) || 0;
+          const g = groups.get(key) || { taxable: 0, cgst: 0, sgst: 0, igst: 0, cess: 0 };
+          g.taxable += Number((lt as any).taxableAmount ?? 0) || 0;
+          g.cgst += lt.cgst; g.sgst += lt.sgst; g.igst += lt.igst; g.cess += lt.cess;
+          groups.set(key, g);
+        });
+        if (groups.size === 0) return null;
+        const rows = Array.from(groups.entries()).sort((a, b) => a[0] - b[0]);
+        return (
+          <div className="mb-4">
+            <h3 className="font-bold text-xs mb-2">GST RATE-WISE SUMMARY</h3>
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className={styles.tableHeader}>
+                  <th className="border border-gray-300 p-1 text-center">RATE</th>
+                  <th className="border border-gray-300 p-1 text-right">TAXABLE</th>
+                  <th className="border border-gray-300 p-1 text-right">CGST</th>
+                  <th className="border border-gray-300 p-1 text-right">SGST</th>
+                  {rows.some(([, v]) => v.igst > 0) && (
+                    <th className="border border-gray-300 p-1 text-right">IGST</th>
+                  )}
+                  <th className="border border-gray-300 p-1 text-right">TOTAL TAX</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(([rate, v]) => (
+                  <tr key={rate}>
+                    <td className="border border-gray-300 p-1 text-center">{rate}%</td>
+                    <td className="border border-gray-300 p-1 text-right">₹{v.taxable.toFixed(2)}</td>
+                    <td className="border border-gray-300 p-1 text-right">₹{v.cgst.toFixed(2)}</td>
+                    <td className="border border-gray-300 p-1 text-right">₹{v.sgst.toFixed(2)}</td>
+                    {rows.some(([, vv]) => vv.igst > 0) && (
+                      <td className="border border-gray-300 p-1 text-right">₹{v.igst.toFixed(2)}</td>
+                    )}
+                    <td className="border border-gray-300 p-1 text-right">₹{(v.cgst + v.sgst + v.igst + v.cess).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {/* Scheme Details */}
       {schemeDetails && schemeDetails.trim() && (

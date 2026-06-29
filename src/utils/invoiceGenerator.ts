@@ -516,7 +516,11 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       (item as any).gst_percentage ??
       0
     ) || 0;
-    const gstStr = lineGstRate > 0 ? `${lineGstRate}%` : "-";
+    const cgstRate = Number((item as any).cgst_rate ?? (lineGstRate / 2)) || 0;
+    const sgstRate = Number((item as any).sgst_rate ?? (lineGstRate / 2)) || 0;
+    const igstRate = Number((item as any).igst_rate ?? 0) || 0;
+    const cgstStr = igstRate > 0 ? `IGST ${igstRate}%` : (cgstRate > 0 ? `${cgstRate}%` : "-");
+    const sgstStr = igstRate > 0 ? "-" : (sgstRate > 0 ? `${sgstRate}%` : "-");
     
     // If there are item-level discounts in the order, show MRP and Offer columns
     if (hasAnyItemDiscount) {
@@ -530,7 +534,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         qtyStr,
         `Rs.${formatExact(originalRate)}`, // MRP - exact
         hasItemDiscount ? `Rs.${formatExact(effectiveRate)}` : "-", // Offer Price (or "-" if no discount for this item)
-        gstStr,
+        cgstStr,
+        sgstStr,
         `Rs.${formatExact(rowTotal)}`, // Row total - use stored value
       ];
     } else {
@@ -542,7 +547,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         displayUnit,
         qtyStr,
         `Rs.${formatExact(effectiveRate)}`, // Price (from stored total)
-        gstStr,
+        cgstStr,
+        sgstStr,
         `Rs.${formatExact(rowTotal)}`, // Row total - use stored value
       ];
     }
@@ -550,8 +556,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   // Table headers based on whether item-level discounts exist
   const tableHeaders = hasAnyItemDiscount 
-    ? [["NO", "PRODUCT", "HSN", "UNIT", "QTY", "MRP", "OFFER", "GST%", "TOTAL"]]
-    : [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "GST%", "TOTAL"]];
+    ? [["NO", "PRODUCT", "HSN", "UNIT", "QTY", "MRP", "OFFER", "CGST%", "SGST%", "TOTAL"]]
+    : [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "CGST%", "SGST%", "TOTAL"]];
 
   // Column styles based on whether item-level discounts exist
   const columnStyles = hasAnyItemDiscount
@@ -561,20 +567,22 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         2: { cellWidth: 14, halign: "center" as const },
         3: { cellWidth: 12, halign: "center" as const },
         4: { cellWidth: 10, halign: "center" as const },
-        5: { cellWidth: 20, halign: "right" as const },
-        6: { cellWidth: 20, halign: "right" as const },
+        5: { cellWidth: 18, halign: "right" as const },
+        6: { cellWidth: 18, halign: "right" as const },
         7: { cellWidth: 14, halign: "center" as const },
-        8: { cellWidth: 22, halign: "right" as const },
+        8: { cellWidth: 14, halign: "center" as const },
+        9: { cellWidth: 22, halign: "right" as const },
       }
     : {
         0: { cellWidth: 12, halign: "center" as const },
         1: { cellWidth: 'auto' as const, halign: "left" as const },
         2: { cellWidth: 18, halign: "center" as const },
-        3: { cellWidth: 16, halign: "center" as const },
-        4: { cellWidth: 13, halign: "center" as const },
-        5: { cellWidth: 22, halign: "right" as const },
+        3: { cellWidth: 14, halign: "center" as const },
+        4: { cellWidth: 12, halign: "center" as const },
+        5: { cellWidth: 20, halign: "right" as const },
         6: { cellWidth: 14, halign: "center" as const },
-        7: { cellWidth: 26, halign: "right" as const },
+        7: { cellWidth: 14, halign: "center" as const },
+        8: { cellWidth: 24, halign: "right" as const },
       };
 
   autoTable(doc, {
@@ -650,6 +658,48 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   // Convert total to words (use rounded total for consistency)
   const roundedTotal = Math.round(total);
   const totalInWords = numberToWords(roundedTotal) + " Rupees Only";
+
+  // Rate-wise GST summary (GST compliant) — grouped by line gst rate
+  {
+    const groups = new Map<number, { taxable: number; cgst: number; sgst: number; igst: number; cess: number }>();
+    cartItems.forEach((it: any, i: number) => {
+      const lt = lineTaxes[i];
+      if (!lt || lt.taxRate <= 0) return;
+      const key = Number(lt.taxRate) || 0;
+      const g = groups.get(key) || { taxable: 0, cgst: 0, sgst: 0, igst: 0, cess: 0 };
+      g.taxable += Number((lt as any).taxableAmount ?? 0) || 0;
+      g.cgst += lt.cgst; g.sgst += lt.sgst; g.igst += lt.igst; g.cess += lt.cess;
+      groups.set(key, g);
+    });
+    if (groups.size > 0) {
+      const anyIgst = Array.from(groups.values()).some(v => v.igst > 0);
+      const head = anyIgst
+        ? [["RATE", "TAXABLE", "CGST", "SGST", "IGST", "TOTAL TAX"]]
+        : [["RATE", "TAXABLE", "CGST", "SGST", "TOTAL TAX"]];
+      const body = Array.from(groups.entries()).sort((a, b) => a[0] - b[0]).map(([rate, v]) => {
+        const totalTax = v.cgst + v.sgst + v.igst + v.cess;
+        const row = [
+          `${rate}%`,
+          `Rs.${formatExact(v.taxable)}`,
+          `Rs.${formatExact(v.cgst)}`,
+          `Rs.${formatExact(v.sgst)}`,
+        ];
+        if (anyIgst) row.push(`Rs.${formatExact(v.igst)}`);
+        row.push(`Rs.${formatExact(totalTax)}`);
+        return row;
+      });
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 4,
+        head,
+        body,
+        theme: "grid",
+        styles: { fontSize: 7, cellPadding: 1.5, textColor: [0, 0, 0], lineColor: [200, 200, 200], lineWidth: 0.3 },
+        headStyles: { fillColor: [55, 65, 81], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7, halign: "center" },
+        margin: { left: 15, right: 15 },
+        tableWidth: 'auto',
+      });
+    }
+  }
 
   // Totals section - compact box
   yPos = (doc as any).lastAutoTable.finalY + 6;

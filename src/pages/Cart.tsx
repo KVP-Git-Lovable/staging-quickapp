@@ -2539,13 +2539,19 @@ export const Cart = () => {
                             <p className="text-xs text-muted-foreground">₹{ratePerDisplayUnit.toFixed(2)}/{displayUnit}</p>
                           )}
                           
-                          {/* GST per line */}
-                          {lineTax && lineTax.taxRate > 0 && (
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
-                              GST {lineTax.taxRate}% • CGST ₹{lineTax.cgst.toFixed(2)} + SGST ₹{lineTax.sgst.toFixed(2)}
-                              {lineTax.igst > 0 && <> • IGST ₹{lineTax.igst.toFixed(2)}</>}
-                            </p>
-                          )}
+                          {/* GST per line — show rate next to each component */}
+                          {lineTax && lineTax.taxRate > 0 && (() => {
+                            const half = +(lineTax.taxRate / 2).toFixed(2);
+                            return (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {lineTax.igst > 0 ? (
+                                  <>IGST {lineTax.taxRate}% ₹{lineTax.igst.toFixed(2)}</>
+                                ) : (
+                                  <>CGST {half}% ₹{lineTax.cgst.toFixed(2)} • SGST {half}% ₹{lineTax.sgst.toFixed(2)}</>
+                                )}
+                              </p>
+                            );
+                          })()}
 
                           {/* Show applied scheme details */}
                           {itemSchemes.length > 0 && (
@@ -2660,14 +2666,30 @@ export const Cart = () => {
                   </div>}
 
                 <div className="border-t pt-2 space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>CGST:</span>
-                    <span>₹{formatExact(getCGST())}</span>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>SGST:</span>
-                    <span>₹{formatExact(getSGST())}</span>
-                  </div>
+                  {(() => {
+                    const rates = Array.from(new Set(
+                      lineTaxes.filter(l => l && l.taxRate > 0).map(l => l.taxRate)
+                    ));
+                    const uniform = rates.length === 1 ? rates[0] : null;
+                    const half = uniform != null ? +(uniform / 2).toFixed(2) : null;
+                    return (
+                      <>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>CGST{half != null ? ` @ ${half}%` : ''}:</span>
+                          <span>₹{formatExact(getCGST())}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>SGST{half != null ? ` @ ${half}%` : ''}:</span>
+                          <span>₹{formatExact(getSGST())}</span>
+                        </div>
+                        {rates.length > 1 && (
+                          <div className="text-[10px] text-muted-foreground italic">
+                            Mixed GST rates: {rates.sort((a,b)=>a-b).map(r => `${r}%`).join(', ')}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   <div className="flex justify-between text-xs font-medium border-t border-dashed mt-1 pt-1">
                     <span>Total Tax:</span>
                     <span>₹{formatExact(taxTotals.cgst + taxTotals.sgst + taxTotals.igst + taxTotals.cess)}</span>
