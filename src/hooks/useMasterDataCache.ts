@@ -5,6 +5,12 @@ import { useConnectivity } from './useConnectivity';
 import { useAuth } from './useAuth';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { useManagedInterval } from '@/utils/intervalManager';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+
+// Trimmed columns for picker / order-entry use case (avoids select('*')
+// pulling rarely-used heavy fields). Kept in sync with TableOrderForm needs.
+const PRODUCT_PICKER_COLUMNS =
+  'id, name, sku, product_number, rate, unit, base_unit, base_unit_category, category_id, closing_stock, gst_percentage, hsn_code, tax_master_id, default_sales_uom_id, price_basis_uom_id, is_active';
 
 // Progress callback type for cache warming UI
 export type CacheProgressCallback = (stepId: string, status: 'loading' | 'done' | 'error') => void;
@@ -25,18 +31,24 @@ export function useMasterDataCache() {
       console.log('[Cache] Syncing active products for offline order entry...');
       
       // Fetch data FIRST, only clear cache if fetch succeeds
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .or('is_active.eq.true,is_active.is.null');
+      // PAGINATED: PostgREST caps individual requests at 1,000 rows — loop until short page.
+      const products = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('products')
+          .select(PRODUCT_PICKER_COLUMNS)
+          .or('is_active.eq.true,is_active.is.null')
+          .order('name')
+          .range(from, to)
+      );
 
-      if (productsError) throw productsError;
-
-      // Cache only active variants
-      const { data: variants } = await supabase
-        .from('product_variants')
-        .select('*')
-        .or('is_active.eq.true,is_active.is.null');
+      // Cache only active variants (also paginated)
+      const variants = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('product_variants')
+          .select('*')
+          .or('is_active.eq.true,is_active.is.null')
+          .range(from, to)
+      );
 
       // Only clear and update cache if all fetches succeeded
       if (products) {
@@ -432,8 +444,13 @@ export function useMasterDataCache() {
     try {
       // Products
       onProgress('products', 'loading');
-      const { data: products } = await supabase.from('products').select('*').or('is_active.eq.true,is_active.is.null');
-      const { data: variants } = await supabase.from('product_variants').select('*').or('is_active.eq.true,is_active.is.null');
+      // PAGINATED to load EVERY active product/variant (no 1k cap)
+      const products = await fetchAllPaginated<any>((from, to) =>
+        supabase.from('products').select(PRODUCT_PICKER_COLUMNS).or('is_active.eq.true,is_active.is.null').order('name').range(from, to)
+      );
+      const variants = await fetchAllPaginated<any>((from, to) =>
+        supabase.from('product_variants').select('*').or('is_active.eq.true,is_active.is.null').range(from, to)
+      );
       if (products) {
         await offlineStorage.clear(STORES.PRODUCTS);
         for (const p of products) await offlineStorage.save(STORES.PRODUCTS, p);

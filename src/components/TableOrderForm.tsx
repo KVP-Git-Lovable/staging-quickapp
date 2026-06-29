@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag } from "lucide-react";
+import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -180,6 +180,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [openComboboxes, setOpenComboboxes] = useState<{ [key: string]: boolean }>({});
+  // Per-row search text for the product picker. Only one popover is open at a time,
+  // but we key by row to keep results scoped if multiple rows ever render at once.
+  const [pickerSearch, setPickerSearch] = useState<{ [key: string]: string }>({});
+  const [refreshingProducts, setRefreshingProducts] = useState(false);
+  // How many matches to render at once. The full list can be 8k+ products —
+  // rendering all of them locks the main thread; 50 is responsive + scrollable.
+  const PICKER_RENDER_LIMIT = 50;
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showSchemesModal, setShowSchemesModal] = useState(false);
@@ -1163,8 +1170,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     <div className="space-y-4">
       <Card>
         <CardContent className="p-0">
-          {/* Category Filter */}
-          <div className="px-2 md:px-4 py-2 md:py-3 border-b border-border bg-background">
+          {/* Category Filter + Refresh Products */}
+          <div className="px-2 md:px-4 py-2 md:py-3 border-b border-border bg-background flex flex-wrap items-center gap-2">
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="h-9 md:h-10 text-xs md:text-sm w-full md:w-64 bg-background">
                 <SelectValue placeholder="All Categories" />
@@ -1178,7 +1185,33 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                 ))}
               </SelectContent>
             </Select>
+            {onReloadProducts && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 md:h-10 text-xs md:text-sm ml-auto"
+                disabled={refreshingProducts}
+                onClick={async () => {
+                  try {
+                    setRefreshingProducts(true);
+                    await onReloadProducts();
+                    toast({ title: 'Products updated', description: 'Latest catalog loaded.' });
+                  } catch (err) {
+                    console.error('[TableOrderForm] Refresh products failed', err);
+                    toast({ title: 'Refresh failed', description: 'Could not update products. Try again.', variant: 'destructive' });
+                  } finally {
+                    setRefreshingProducts(false);
+                  }
+                }}
+                title="Reload products from server"
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', refreshingProducts && 'animate-spin')} />
+                {refreshingProducts ? 'Refreshing…' : 'Refresh products'}
+              </Button>
+            )}
           </div>
+
           
           <div className="w-full">
             {/* Table Header - Responsive */}
@@ -1250,48 +1283,70 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[280px] md:w-[320px] p-0 bg-background z-50" align="start">
-                          <Command className="bg-background">
-                            <CommandInput placeholder="Search products..." className="h-9 md:h-10 text-xs md:text-sm" />
-                            <CommandList className="bg-background max-h-[250px] md:max-h-[300px]">
-                              <CommandEmpty>No product found.</CommandEmpty>
-                              <CommandGroup className="bg-background">
-                                {productOptions.map((option) => (
-                                  <CommandItem
-                                    key={option.value}
-                                    value={option.label}
-                                    onSelect={() => handleProductSelect(row.id, option.value)}
-                                    className="text-xs md:text-sm bg-background hover:bg-accent py-2"
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-3 w-3 md:h-4 md:w-4",
-                                        row.product?.id === option.product.id && 
-                                        (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      )}
-                                    />
-                                    <div className="flex-1 flex items-center gap-1.5">
-                                      {(option.variant ? isFocusedProductActive(option.variant) : isFocusedProductActive(option.product)) && (
-                                        <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
-                                      )}
-                                      {hasActiveSchemes(option.product) && (
-                                        <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
-                                      )}
-                                      <div className="flex-1">
-                                        <div className="font-medium">{option.label}</div>
-                                        <div className="text-[10px] md:text-xs text-muted-foreground">
-                                          SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                          {(() => {
+                            const search = (pickerSearch[row.id] || '').trim().toLowerCase();
+                            const matches = search
+                              ? productOptions.filter(o =>
+                                  o.label.toLowerCase().includes(search) ||
+                                  (o.sku || '').toLowerCase().includes(search)
+                                )
+                              : productOptions;
+                            const visible = matches.slice(0, PICKER_RENDER_LIMIT);
+                            return (
+                              <Command className="bg-background" shouldFilter={false}>
+                                <CommandInput
+                                  placeholder="Search products..."
+                                  className="h-9 md:h-10 text-xs md:text-sm"
+                                  value={pickerSearch[row.id] || ''}
+                                  onValueChange={(v) => setPickerSearch(prev => ({ ...prev, [row.id]: v }))}
+                                />
+                                <CommandList className="bg-background max-h-[250px] md:max-h-[300px]">
+                                  <CommandEmpty>No product found.</CommandEmpty>
+                                  <CommandGroup className="bg-background">
+                                    {visible.map((option) => (
+                                      <CommandItem
+                                        key={option.value}
+                                        value={option.value}
+                                        onSelect={() => handleProductSelect(row.id, option.value)}
+                                        className="text-xs md:text-sm bg-background hover:bg-accent py-2"
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-3 w-3 md:h-4 md:w-4",
+                                            row.product?.id === option.product.id &&
+                                            (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        <div className="flex-1 flex items-center gap-1.5">
+                                          {(option.variant ? isFocusedProductActive(option.variant) : isFocusedProductActive(option.product)) && (
+                                            <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
+                                          )}
+                                          {hasActiveSchemes(option.product) && (
+                                            <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                                          )}
+                                          <div className="flex-1">
+                                            <div className="font-medium">{option.label}</div>
+                                            <div className="text-[10px] md:text-xs text-muted-foreground">
+                                              SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                                            </div>
+                                          </div>
                                         </div>
-                                      </div>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                  <div className="px-2 py-1.5 text-[10px] md:text-xs text-muted-foreground border-t bg-muted/30">
+                                    Showing {visible.length} of {matches.length}
+                                    {matches.length > visible.length ? ' — type to search' : ''}
+                                  </div>
+                                </CommandList>
+                              </Command>
+                            );
+                          })()}
                         </PopoverContent>
                       </Popover>
+
                        {row.product && (() => {
                          const displayUnit = row.uomCode || row.unit;
                          const originalRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase);
