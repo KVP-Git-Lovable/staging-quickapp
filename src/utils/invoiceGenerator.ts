@@ -556,8 +556,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   // Table headers based on whether item-level discounts exist
   const tableHeaders = hasAnyItemDiscount 
-    ? [["NO", "PRODUCT", "HSN", "UNIT", "QTY", "MRP", "OFFER", "GST%", "TOTAL"]]
-    : [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "GST%", "TOTAL"]];
+    ? [["NO", "PRODUCT", "HSN", "UNIT", "QTY", "MRP", "OFFER", "CGST%", "SGST%", "TOTAL"]]
+    : [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "CGST%", "SGST%", "TOTAL"]];
 
   // Column styles based on whether item-level discounts exist
   const columnStyles = hasAnyItemDiscount
@@ -567,20 +567,22 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         2: { cellWidth: 14, halign: "center" as const },
         3: { cellWidth: 12, halign: "center" as const },
         4: { cellWidth: 10, halign: "center" as const },
-        5: { cellWidth: 20, halign: "right" as const },
-        6: { cellWidth: 20, halign: "right" as const },
+        5: { cellWidth: 18, halign: "right" as const },
+        6: { cellWidth: 18, halign: "right" as const },
         7: { cellWidth: 14, halign: "center" as const },
-        8: { cellWidth: 22, halign: "right" as const },
+        8: { cellWidth: 14, halign: "center" as const },
+        9: { cellWidth: 22, halign: "right" as const },
       }
     : {
         0: { cellWidth: 12, halign: "center" as const },
         1: { cellWidth: 'auto' as const, halign: "left" as const },
         2: { cellWidth: 18, halign: "center" as const },
-        3: { cellWidth: 16, halign: "center" as const },
-        4: { cellWidth: 13, halign: "center" as const },
-        5: { cellWidth: 22, halign: "right" as const },
+        3: { cellWidth: 14, halign: "center" as const },
+        4: { cellWidth: 12, halign: "center" as const },
+        5: { cellWidth: 20, halign: "right" as const },
         6: { cellWidth: 14, halign: "center" as const },
-        7: { cellWidth: 26, halign: "right" as const },
+        7: { cellWidth: 14, halign: "center" as const },
+        8: { cellWidth: 24, halign: "right" as const },
       };
 
   autoTable(doc, {
