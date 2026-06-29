@@ -295,7 +295,8 @@ export default function InvoicePreview({
               )}
               <th className="border border-gray-300 p-2 text-center text-xs">QTY</th>
               <th className="border border-gray-300 p-2 text-right text-xs">PRICE</th>
-              <th className="border border-gray-300 p-2 text-center text-xs">GST%</th>
+              <th className="border border-gray-300 p-2 text-center text-xs">CGST%</th>
+              <th className="border border-gray-300 p-2 text-center text-xs">SGST%</th>
               <th className="border border-gray-300 p-2 text-right text-xs">TOTAL</th>
             </tr>
           </thead>
