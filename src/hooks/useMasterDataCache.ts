@@ -161,9 +161,7 @@ export function useMasterDataCache() {
       if (competitorsError) throw competitorsError;
 
       if (competitors) {
-        for (const competitor of competitors) {
-          await offlineStorage.save(STORES.COMPETITION_MASTER, competitor);
-        }
+        await offlineStorage.replaceAll(STORES.COMPETITION_MASTER, competitors);
         console.log(`Cached ${competitors.length} competitors`);
       }
 
@@ -176,9 +174,7 @@ export function useMasterDataCache() {
       if (skusError) throw skusError;
 
       if (skus) {
-        for (const sku of skus) {
-          await offlineStorage.save(STORES.COMPETITION_SKUS, sku);
-        }
+        await offlineStorage.replaceAll(STORES.COMPETITION_SKUS, skus);
         console.log(`Cached ${skus.length} competition SKUs`);
       }
       onProgress?.('competition', 'done');
