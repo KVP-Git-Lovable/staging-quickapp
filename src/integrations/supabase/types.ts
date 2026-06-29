@@ -15007,8 +15007,15 @@ export type Database = {
         Row: {
           barcode: string | null
           barcode_image_url: string | null
+          base_unit: string | null
+          base_unit_category: string | null
+          brand: string | null
+          category_id: string | null
+          country_of_origin: string | null
           created_at: string
           created_by: string | null
+          default_sales_uom_id: string | null
+          description: string | null
           discontinued_date: string | null
           discount_amount: number | null
           discount_percentage: number | null
@@ -15017,16 +15024,27 @@ export type Database = {
           focused_target_quantity: number | null
           focused_territories: string[] | null
           focused_type: string | null
+          gst_percentage: number | null
           hsn_code: string | null
           id: string
           is_active: boolean | null
           is_discontinued: boolean | null
           is_focused_product: boolean | null
+          manufacturer: string | null
+          net_volume_ml: number | null
+          net_weight_g: number | null
           price: number
+          price_basis_uom_id: string | null
           product_id: string
+          product_type: string | null
           qr_code: string | null
+          reorder_level: number | null
+          reorder_quantity: number | null
           sku: string
+          sku_image_url: string | null
+          standard_cost: number | null
           stock_quantity: number
+          tax_master_id: string | null
           uom_id: string | null
           updated_at: string
           updated_by: string | null
@@ -15039,8 +15057,15 @@ export type Database = {
         Insert: {
           barcode?: string | null
           barcode_image_url?: string | null
+          base_unit?: string | null
+          base_unit_category?: string | null
+          brand?: string | null
+          category_id?: string | null
+          country_of_origin?: string | null
           created_at?: string
           created_by?: string | null
+          default_sales_uom_id?: string | null
+          description?: string | null
           discontinued_date?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
@@ -15049,16 +15074,27 @@ export type Database = {
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
           focused_type?: string | null
+          gst_percentage?: number | null
           hsn_code?: string | null
           id?: string
           is_active?: boolean | null
           is_discontinued?: boolean | null
           is_focused_product?: boolean | null
+          manufacturer?: string | null
+          net_volume_ml?: number | null
+          net_weight_g?: number | null
           price?: number
+          price_basis_uom_id?: string | null
           product_id: string
+          product_type?: string | null
           qr_code?: string | null
+          reorder_level?: number | null
+          reorder_quantity?: number | null
           sku: string
+          sku_image_url?: string | null
+          standard_cost?: number | null
           stock_quantity?: number
+          tax_master_id?: string | null
           uom_id?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -15071,8 +15107,15 @@ export type Database = {
         Update: {
           barcode?: string | null
           barcode_image_url?: string | null
+          base_unit?: string | null
+          base_unit_category?: string | null
+          brand?: string | null
+          category_id?: string | null
+          country_of_origin?: string | null
           created_at?: string
           created_by?: string | null
+          default_sales_uom_id?: string | null
+          description?: string | null
           discontinued_date?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
@@ -15081,16 +15124,27 @@ export type Database = {
           focused_target_quantity?: number | null
           focused_territories?: string[] | null
           focused_type?: string | null
+          gst_percentage?: number | null
           hsn_code?: string | null
           id?: string
           is_active?: boolean | null
           is_discontinued?: boolean | null
           is_focused_product?: boolean | null
+          manufacturer?: string | null
+          net_volume_ml?: number | null
+          net_weight_g?: number | null
           price?: number
+          price_basis_uom_id?: string | null
           product_id?: string
+          product_type?: string | null
           qr_code?: string | null
+          reorder_level?: number | null
+          reorder_quantity?: number | null
           sku?: string
+          sku_image_url?: string | null
+          standard_cost?: number | null
           stock_quantity?: number
+          tax_master_id?: string | null
           uom_id?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -15102,10 +15156,38 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "product_variants_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_default_sales_uom_id_fkey"
+            columns: ["default_sales_uom_id"]
+            isOneToOne: false
+            referencedRelation: "uom_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_price_basis_uom_id_fkey"
+            columns: ["price_basis_uom_id"]
+            isOneToOne: false
+            referencedRelation: "uom_master"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "product_variants_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_tax_master_id_fkey"
+            columns: ["tax_master_id"]
+            isOneToOne: false
+            referencedRelation: "tax_masters"
             referencedColumns: ["id"]
           },
         ]
