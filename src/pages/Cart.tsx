@@ -2539,6 +2539,14 @@ export const Cart = () => {
                             <p className="text-xs text-muted-foreground">₹{ratePerDisplayUnit.toFixed(2)}/{displayUnit}</p>
                           )}
                           
+                          {/* GST per line */}
+                          {lineTax && lineTax.taxRate > 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              GST {lineTax.taxRate}% • CGST ₹{lineTax.cgst.toFixed(2)} + SGST ₹{lineTax.sgst.toFixed(2)}
+                              {lineTax.igst > 0 && <> • IGST ₹{lineTax.igst.toFixed(2)}</>}
+                            </p>
+                          )}
+
                           {/* Show applied scheme details */}
                           {itemSchemes.length > 0 && (
                             <div className="mt-1 space-y-0.5">
