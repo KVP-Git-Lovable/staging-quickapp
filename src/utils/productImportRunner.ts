@@ -78,7 +78,7 @@ export interface ValidatedRow {
     product_type: string | null;
     category_id: string;                 // empty string when pending_category_name is set
     pending_category_name: string | null; // original-cased name to create before import
-    gst_percentage: number;
+    gst_percentage: number | null;
     hsn_code: string | null;
     tax_master_id: string | null;
     rate: number;
