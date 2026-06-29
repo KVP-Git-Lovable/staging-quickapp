@@ -115,16 +115,14 @@ export function useOfflineOrderEntry() {
       setProducts(enrichedProducts);
       setLoading(false);
 
-      // Cache for offline use - do this in background
-      offlineStorage.clear(STORES.PRODUCTS).then(() => {
-        enrichedProducts.forEach(product => offlineStorage.save(STORES.PRODUCTS, product));
-      });
-      offlineStorage.clear(STORES.VARIANTS).then(() => {
-        variantsData?.forEach(variant => offlineStorage.save(STORES.VARIANTS, variant));
-      });
-      offlineStorage.clear(STORES.SCHEMES).then(() => {
-        schemesData?.forEach(scheme => offlineStorage.save(STORES.SCHEMES, scheme));
-      });
+      // Cache for offline use — BATCH writes (single underlying write per store)
+      // to avoid the multi-second freeze caused by N awaited per-row puts.
+      offlineStorage.replaceAll(STORES.PRODUCTS, enrichedProducts).catch(err =>
+        console.warn('[useOfflineOrderEntry] cache products failed', err));
+      offlineStorage.replaceAll(STORES.VARIANTS, variantsData || []).catch(err =>
+        console.warn('[useOfflineOrderEntry] cache variants failed', err));
+      offlineStorage.replaceAll(STORES.SCHEMES, schemesData || []).catch(err =>
+        console.warn('[useOfflineOrderEntry] cache schemes failed', err));
 
       console.log(`✅ Synced ${enrichedProducts.length} products from network (background)`);
     } catch (error) {
