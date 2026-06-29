@@ -1170,8 +1170,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     <div className="space-y-4">
       <Card>
         <CardContent className="p-0">
-          {/* Category Filter */}
-          <div className="px-2 md:px-4 py-2 md:py-3 border-b border-border bg-background">
+          {/* Category Filter + Refresh Products */}
+          <div className="px-2 md:px-4 py-2 md:py-3 border-b border-border bg-background flex flex-wrap items-center gap-2">
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="h-9 md:h-10 text-xs md:text-sm w-full md:w-64 bg-background">
                 <SelectValue placeholder="All Categories" />
@@ -1185,7 +1185,33 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                 ))}
               </SelectContent>
             </Select>
+            {onReloadProducts && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 md:h-10 text-xs md:text-sm ml-auto"
+                disabled={refreshingProducts}
+                onClick={async () => {
+                  try {
+                    setRefreshingProducts(true);
+                    await onReloadProducts();
+                    toast({ title: 'Products updated', description: 'Latest catalog loaded.' });
+                  } catch (err) {
+                    console.error('[TableOrderForm] Refresh products failed', err);
+                    toast({ title: 'Refresh failed', description: 'Could not update products. Try again.', variant: 'destructive' });
+                  } finally {
+                    setRefreshingProducts(false);
+                  }
+                }}
+                title="Reload products from server"
+              >
+                <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', refreshingProducts && 'animate-spin')} />
+                {refreshingProducts ? 'Refreshing…' : 'Refresh products'}
+              </Button>
+            )}
           </div>
+
           
           <div className="w-full">
             {/* Table Header - Responsive */}
