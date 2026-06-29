@@ -2668,6 +2668,10 @@ export const Cart = () => {
                     <span>SGST:</span>
                     <span>₹{formatExact(getSGST())}</span>
                   </div>
+                  <div className="flex justify-between text-xs font-medium border-t border-dashed mt-1 pt-1">
+                    <span>Total Tax:</span>
+                    <span>₹{formatExact(taxTotals.cgst + taxTotals.sgst + taxTotals.igst + taxTotals.cess)}</span>
+                  </div>
                 </div>
 
                 <div className="flex justify-between text-base font-bold border-t pt-2">
