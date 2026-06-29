@@ -483,10 +483,11 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     return returnItems.reduce((sum, item) => sum + item.price * item.returnQuantity, 0);
   };
 
-  // Review calculations
+  // Review calculations — per-line GST via shared helper.
+  const reviewLineTaxes = returnItems.map(i => computeLineTax({ taxableAmount: i.price * i.returnQuantity, gstPercentage: i.gstRate }));
   const subTotal = returnItems.reduce((sum, item) => sum + item.price * item.returnQuantity, 0);
-  const sgstAmount = subTotal * 0.025;
-  const cgstAmount = subTotal * 0.025;
+  const sgstAmount = reviewLineTaxes.reduce((s, l) => s + l.sgst, 0);
+  const cgstAmount = reviewLineTaxes.reduce((s, l) => s + l.cgst, 0);
   const grandTotal = subTotal + sgstAmount + cgstAmount;
 
   if (loading) {
