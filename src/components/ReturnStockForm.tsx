@@ -300,9 +300,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         const key = item.variantId ? `${item.productId}_${item.variantId}` : item.productId;
         const refInvoice = selectedInvoices[key] || 'N/A';
         const total = item.price * item.returnQuantity;
-        const taxableAmount = total;
-        const sgst = taxableAmount * 0.025;
-        const cgst = taxableAmount * 0.025;
+        const lt = computeLineTax({ taxableAmount: total, gstPercentage: item.gstRate });
 
         return {
           product_name: item.variantName ? `${item.productName} - ${item.variantName}` : item.productName,
@@ -311,9 +309,9 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
           quantity: item.returnQuantity,
           rate: item.price,
           total,
-          taxable_amount: taxableAmount,
-          sgst_amount: sgst,
-          cgst_amount: cgst,
+          taxable_amount: lt.taxableAmount,
+          sgst_amount: lt.sgst,
+          cgst_amount: lt.cgst,
           original_invoice_number: refInvoice,
         };
       });
