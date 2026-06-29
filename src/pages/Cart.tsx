@@ -1846,11 +1846,20 @@ export const Cart = () => {
         return;
       }
 
+      // Submit-time fallback: ensure every cart item has a GST rate before computing tax.
+      const enrichedItems = await ensureGstPercentages(cartItems);
+      if (enrichedItems !== cartItems) setCartItems(enrichedItems);
+      const submissionLineTaxes = enrichedItems.map(it => computeLineTax({
+        taxableAmount: computeItemTotal(it),
+        gstPercentage: (it as any).gst_percentage,
+      }));
+      const submissionTaxTotals = sumLineTaxes(submissionLineTaxes);
+
       const subtotal = getSubtotal();
       const discountAmount = getDiscount();
-      const cgstAmount = getCGST();
-      const sgstAmount = getSGST();
-      const totalAmount = Math.round(getFinalTotal());
+      const cgstAmount = submissionTaxTotals.cgst;
+      const sgstAmount = submissionTaxTotals.sgst;
+      const totalAmount = Math.round(Math.max(0, getAmountAfterDiscount() + submissionTaxTotals.cgst + submissionTaxTotals.sgst));
       
       const validRetailerId = retailerId && /^[0-9a-fA-F-]{36}$/.test(retailerId) ? retailerId : null;
       const validVisitId = visitId && /^[0-9a-fA-F-]{36}$/.test(visitId) ? visitId : null;
