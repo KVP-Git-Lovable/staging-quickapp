@@ -137,6 +137,40 @@ export const OrderEntry = () => {
     fetchProducts: fetchOfflineProducts
   } = useOfflineOrderEntry();
 
+  // Force-refresh the full master data cache (re-syncs products end-to-end).
+  // Used by the "Refresh products" button + the 10-min staleness check on open.
+  const { forceRefreshMasterData } = useMasterDataCache();
+
+  // Manual refresh: re-sync product master AND reload the picker list.
+  const reloadProductsFromMaster = useCallback(async () => {
+    try {
+      await forceRefreshMasterData();
+    } catch (err) {
+      console.warn('[OrderEntry] forceRefreshMasterData failed, falling back to local fetch', err);
+    }
+    // Reset the in-memory de-dupe guard so the next fetchOfflineProducts
+    // actually re-reads the freshly cached rows instead of returning early.
+    (fetchOfflineProducts as any)?.reset?.();
+    await fetchOfflineProducts();
+  }, [forceRefreshMasterData, fetchOfflineProducts]);
+
+  // On OPEN: if online and cache is older than ~10 min, kick a background refresh
+  // so newly-added products appear without waiting for the 45-min interval.
+  useEffect(() => {
+    if (!navigator.onLine) return;
+    const lastCached = parseInt(localStorage.getItem('master_data_cached_at') || '0', 10);
+    const tenMinAgo = Date.now() - 10 * 60 * 1000;
+    if (!lastCached || lastCached < tenMinAgo) {
+      console.log('[OrderEntry] Master data >10 min old — background refresh');
+      forceRefreshMasterData().catch(err =>
+        console.warn('[OrderEntry] Background master refresh failed', err)
+      );
+    }
+    // Run once when the screen mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   // PERF: keep Order Entry ultra-fast even on slow/no network
   const DEV_LOG = false;
 
