@@ -659,6 +659,48 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const roundedTotal = Math.round(total);
   const totalInWords = numberToWords(roundedTotal) + " Rupees Only";
 
+  // Rate-wise GST summary (GST compliant) — grouped by line gst rate
+  {
+    const groups = new Map<number, { taxable: number; cgst: number; sgst: number; igst: number; cess: number }>();
+    cartItems.forEach((it: any, i: number) => {
+      const lt = lineTaxes[i];
+      if (!lt || lt.taxRate <= 0) return;
+      const key = Number(lt.taxRate) || 0;
+      const g = groups.get(key) || { taxable: 0, cgst: 0, sgst: 0, igst: 0, cess: 0 };
+      g.taxable += Number((lt as any).taxableAmount ?? 0) || 0;
+      g.cgst += lt.cgst; g.sgst += lt.sgst; g.igst += lt.igst; g.cess += lt.cess;
+      groups.set(key, g);
+    });
+    if (groups.size > 0) {
+      const anyIgst = Array.from(groups.values()).some(v => v.igst > 0);
+      const head = anyIgst
+        ? [["RATE", "TAXABLE", "CGST", "SGST", "IGST", "TOTAL TAX"]]
+        : [["RATE", "TAXABLE", "CGST", "SGST", "TOTAL TAX"]];
+      const body = Array.from(groups.entries()).sort((a, b) => a[0] - b[0]).map(([rate, v]) => {
+        const totalTax = v.cgst + v.sgst + v.igst + v.cess;
+        const row = [
+          `${rate}%`,
+          `Rs.${formatExact(v.taxable)}`,
+          `Rs.${formatExact(v.cgst)}`,
+          `Rs.${formatExact(v.sgst)}`,
+        ];
+        if (anyIgst) row.push(`Rs.${formatExact(v.igst)}`);
+        row.push(`Rs.${formatExact(totalTax)}`);
+        return row;
+      });
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 4,
+        head,
+        body,
+        theme: "grid",
+        styles: { fontSize: 7, cellPadding: 1.5, textColor: [0, 0, 0], lineColor: [200, 200, 200], lineWidth: 0.3 },
+        headStyles: { fillColor: [55, 65, 81], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7, halign: "center" },
+        margin: { left: 15, right: 15 },
+        tableWidth: 'auto',
+      });
+    }
+  }
+
   // Totals section - compact box
   yPos = (doc as any).lastAutoTable.finalY + 6;
   
