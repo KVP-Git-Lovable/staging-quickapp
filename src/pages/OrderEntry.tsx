@@ -134,7 +134,8 @@ export const OrderEntry = () => {
     products: cachedProducts,
     loading: offlineLoading,
     isOnline,
-    fetchProducts: fetchOfflineProducts
+    fetchProducts: fetchOfflineProducts,
+    resetFetchGuard: resetOfflineProductsGuard
   } = useOfflineOrderEntry();
 
   // Force-refresh the full master data cache (re-syncs products end-to-end).
