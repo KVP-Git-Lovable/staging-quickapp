@@ -10,6 +10,7 @@ import { CustomerPortalUser } from '@/hooks/useCustomerPortalAuth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRetailerPriceBook, usePriceBookEntries } from '@/hooks/useRetailerPriceBook';
 import { getLocalTodayDate } from '@/utils/dateUtils';
+import { resolveProduct } from '@/utils/resolveProduct';
 
 interface ContextType {
   retailer: CustomerPortalUser;
