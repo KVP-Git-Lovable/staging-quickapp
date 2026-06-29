@@ -105,6 +105,7 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
   form,
   categories,
   territories,
+  taxMasters = [],
   onFormChange
 }) => {
   const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
