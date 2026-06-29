@@ -1387,13 +1387,16 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       }
       yPos += 6;
 
-      // Calculate totals
+      // Calculate totals — per-product GST via computeLineTax (no flat 5%).
       let totalKGs = 0;
       let totalTaxable = 0;
+      let cgst = 0;
+      let sgst = 0;
       const tableData = savedItems.map((item: any) => {
         const product = products.find(p => p.id === item.product_id);
         const priceWithGST = product?.rate || 0;
-        const priceWithoutGST = priceWithGST / 1.05;
+        const gstPct = Number(product?.gst_percentage) || 0;
+        const priceWithoutGST = gstPct > 0 ? priceWithGST / (1 + gstPct / 100) : priceWithGST;
         const qty = item.start_qty || 0;
         const unit = (item.unit || '').toLowerCase();
         
@@ -1409,7 +1412,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         }
         
         const totalVal = priceWithoutGST * qtyInKG;
-        totalTaxable += totalVal;
+        const lt = computeLineTax({ taxableAmount: totalVal, gstPercentage: gstPct });
+        totalTaxable += lt.taxableAmount;
+        cgst += lt.cgst;
+        sgst += lt.sgst;
         
         return [
           item.product_name,
