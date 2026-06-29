@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Link2 } from "lucide-react";
 import { SelectedItem } from "./RetailerInvoiceList";
+import { computeLineTax } from "@/utils/taxCalc";
 
 interface CreditNoteReviewProps {
   items: SelectedItem[];
@@ -10,9 +11,13 @@ interface CreditNoteReviewProps {
 }
 
 export default function CreditNoteReview({ items, reason, reasonNotes }: CreditNoteReviewProps) {
+  // Per-line tax using each line's original GST% (from the order_item snapshot or product fallback).
+  const lineTaxes = items.map((i) =>
+    computeLineTax({ taxableAmount: i.returnQuantity * i.rate, gstPercentage: i.gstRate })
+  );
   const subTotal = items.reduce((sum, i) => sum + i.returnQuantity * i.rate, 0);
-  const sgst = subTotal * 0.025;
-  const cgst = subTotal * 0.025;
+  const sgst = lineTaxes.reduce((s, l) => s + l.sgst, 0);
+  const cgst = lineTaxes.reduce((s, l) => s + l.cgst, 0);
   const total = subTotal + sgst + cgst;
 
   const groupedByInvoice = items.reduce((acc, item) => {
