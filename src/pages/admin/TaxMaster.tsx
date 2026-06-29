@@ -789,6 +789,118 @@ const TaxMaster = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Products Manager (Unassigned / per-bracket) */}
+      <Dialog open={pmOpen} onOpenChange={setPmOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {pmMode === 'unassigned'
+                ? 'Unassigned Products'
+                : `Products in: ${taxes.find(t => t.id === pmBracketId)?.name ?? 'bracket'}`}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 flex-1 overflow-hidden">
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="relative flex-1 min-w-[220px]">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-8"
+                  placeholder="Search by name or SKU…"
+                  value={pmSearch}
+                  onChange={e => {
+                    setPmSearch(e.target.value);
+                    setPmPage(0);
+                    loadPmProducts(pmMode, pmBracketId, e.target.value, 0);
+                  }}
+                />
+              </div>
+              <Select value={pmTargetBracket} onValueChange={setPmTargetBracket}>
+                <SelectTrigger className="w-[220px]"><SelectValue placeholder="Move to bracket…" /></SelectTrigger>
+                <SelectContent>
+                  {taxes.filter(t => t.is_active && t.id !== pmBracketId).map(t => {
+                    const total = t.components.filter(c => c.is_enabled).reduce((s, c) => s + c.percentage, 0);
+                    return <SelectItem key={t.id} value={t.id}>{t.name} ({total}%)</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+              <Button size="sm" onClick={handleBulkMove} disabled={pmSaving || pmSelected.size === 0 || !pmTargetBracket}>
+                {pmSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                Move {pmSelected.size > 0 ? `(${pmSelected.size})` : ''}
+              </Button>
+            </div>
+
+            <div className="flex-1 overflow-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={pmProducts.length > 0 && pmSelected.size === pmProducts.length}
+                        onCheckedChange={(checked) => {
+                          if (checked) setPmSelected(new Set(pmProducts.map(p => p.id)));
+                          else setPmSelected(new Set());
+                        }}
+                      />
+                    </TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Current GST</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pmLoading ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-6"><Loader2 className="h-5 w-5 animate-spin inline" /></TableCell></TableRow>
+                  ) : pmProducts.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No products found.</TableCell></TableRow>
+                  ) : pmProducts.map(p => (
+                    <TableRow key={p.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={pmSelected.has(p.id)}
+                          onCheckedChange={(checked) => {
+                            const next = new Set(pmSelected);
+                            if (checked) next.add(p.id); else next.delete(p.id);
+                            setPmSelected(next);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                      <TableCell>{p.category_name || '—'}</TableCell>
+                      <TableCell className="text-right">
+                        {p.tax_master_id == null ? (
+                          <Badge variant="destructive" className="text-xs">Unassigned</Badge>
+                        ) : (
+                          <span>{p.gst_percentage ?? 0}%</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Showing {pmProducts.length === 0 ? 0 : pmPage * PM_PAGE_SIZE + 1}–{pmPage * PM_PAGE_SIZE + pmProducts.length} of {pmTotal}
+              </span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={pmPage === 0 || pmLoading}
+                  onClick={() => { const np = pmPage - 1; setPmPage(np); loadPmProducts(pmMode, pmBracketId, pmSearch, np); }}>
+                  Previous
+                </Button>
+                <Button size="sm" variant="outline" disabled={(pmPage + 1) * PM_PAGE_SIZE >= pmTotal || pmLoading}
+                  onClick={() => { const np = pmPage + 1; setPmPage(np); loadPmProducts(pmMode, pmBracketId, pmSearch, np); }}>
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
