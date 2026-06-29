@@ -20,6 +20,7 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 // xlsx, jspdf, jspdf-autotable loaded dynamically in handlers
 import { syncOrdersToVanStock, recalculateVanStock } from '@/utils/vanStockSync';
 import { downloadExcel, downloadPDF } from '@/utils/fileDownloader';
+import { computeLineTax } from '@/utils/taxCalc';
 import { cacheVanStockForOffline } from '@/utils/localVanStockSync';
 import { getOrdersForDate, calculateOrderedQuantitiesByProduct } from '@/utils/ordersForDate';
 
