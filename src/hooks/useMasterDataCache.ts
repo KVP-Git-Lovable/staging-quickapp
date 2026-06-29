@@ -252,12 +252,9 @@ export function useMasterDataCache() {
 
       if (error) throw error;
 
-      // Only clear and update cache if fetch succeeded
+      // Only clear and update cache if fetch succeeded (single batched write)
       if (beatPlans) {
-        await offlineStorage.clear(STORES.BEAT_PLANS);
-        for (const plan of beatPlans) {
-          await offlineStorage.save(STORES.BEAT_PLANS, plan);
-        }
+        await offlineStorage.replaceAll(STORES.BEAT_PLANS, beatPlans);
         console.log(`[Cache] ✅ ${beatPlans.length} beat plans cached (today + 3 days)`);
       }
       onProgress?.('beatPlans', 'done');
