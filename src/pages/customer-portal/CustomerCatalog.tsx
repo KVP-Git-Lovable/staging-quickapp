@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { resolveProduct } from '@/utils/resolveProduct';
 
 interface ContextType {
   retailer: CustomerPortalUser;
@@ -301,18 +302,22 @@ const CustomerCatalog = () => {
         if (data.length < pageSize) break;
         from += pageSize;
       }
-      return all.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        sku: p.sku || p.product_number || undefined,
-        rate: Number(p.rate ?? 0),
-        // Always prefer the globally enabled unit from the Unit of Measure Master.
-        // Fall back to the product's default sales UOM, then legacy `unit` text.
-        // Hardcoded to PC per request — display unit always shows Pieces in customer portal catalog.
-        unit: 'PC',
-        category_id: p.category_id || undefined,
-        closing_stock: Number(p.closing_stock ?? 0),
-      })) as Product[];
+      return all.map((p: any) => {
+        // Route through the shared resolver so variants with null overrides inherit base.
+        // Catalog currently lists base products only (no variant rows fetched here),
+        // but we use resolveProduct so any future variant expansion behaves identically.
+        const r = resolveProduct(p, null);
+        return {
+          id: r.product_id,
+          name: r.display_name,
+          sku: r.sku || p.product_number || undefined,
+          rate: r.rate,
+          // Hardcoded to PC per requirement — display unit always shows Pieces in customer portal catalog.
+          unit: 'PC',
+          category_id: r.category_id || undefined,
+          closing_stock: Number(p.closing_stock ?? 0),
+        } as Product;
+      });
     },
     staleTime: 2 * 60 * 1000,
   });

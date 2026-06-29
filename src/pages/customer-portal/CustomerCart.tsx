@@ -10,6 +10,7 @@ import { CustomerPortalUser } from '@/hooks/useCustomerPortalAuth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRetailerPriceBook, usePriceBookEntries } from '@/hooks/useRetailerPriceBook';
 import { getLocalTodayDate } from '@/utils/dateUtils';
+import { resolveProduct } from '@/utils/resolveProduct';
 
 interface ContextType {
   retailer: CustomerPortalUser;
@@ -100,18 +101,23 @@ const CustomerCart = () => {
 
       return cartData.map((c: any) => {
         const product = productMap.get(c.product_id) as any;
-        const effectivePrice = priceMap[c.product_id] ?? product?.rate ?? 0;
+        // Shared resolver: variant overrides win; nulls inherit base. Cart currently
+        // stores product_id only (no variant_id) so we pass null variant — pricing
+        // and gst still flow through the resolver so behavior matches order entry.
+        const r = resolveProduct(product || { id: c.product_id }, null);
+        const priceBookPrice = priceMap[c.product_id];
+        const effectivePrice = priceBookPrice ?? r.rate;
         return {
           id: c.id,
           product_id: c.product_id,
           quantity: c.quantity,
           unit: c.unit,
           source: c.source,
-          product_name: product?.name || 'Unknown Product',
+          product_name: r.display_name || 'Unknown Product',
           product_price: Number(effectivePrice),
           product_category: product?.category_id ? (categoryMap[product.category_id] || 'General') : 'General',
-          category_id: product?.category_id || undefined,
-          gst_percentage: Number(product?.gst_percentage ?? 0) || 0,
+          category_id: r.category_id || undefined,
+          gst_percentage: Number(r.gst_percentage ?? 0) || 0,
         } as CartItem;
       });
     },

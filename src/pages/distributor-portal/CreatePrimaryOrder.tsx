@@ -25,6 +25,7 @@ import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ChevronsUpDown } from 'lucide-react';
+import { resolveProduct } from '@/utils/resolveProduct';
 
 interface Category { id: string; name: string; }
 interface PriceBookEntry { product_id: string; variant_id: string | null; final_price: number; list_price: number; }
@@ -271,16 +272,27 @@ const CreatePrimaryOrder = () => {
           .range(from, to)
       );
 
-      const enriched = (productsData || []).map((p: any) => {
+      // Build product rows. Base products are routed through resolveProduct so any
+      // variant with NULL overrides will inherit base fields identically (when this
+      // surface starts expanding variants as picker rows). For now we list base only;
+      // when a variant exists with own price/sku, resolveProduct(base, variant) yields
+      // the merged display row consistent with order entry.
+      const enriched = (productsData || []).flatMap((p: any) => {
         const pe = priceEntries.find((e) => e.product_id === p.id && e.variant_id === null);
-        return {
+        const baseResolved = resolveProduct(p, null);
+        const baseRow = {
           ...p,
-          category_id: p.product_categories?.id,
+          category_id: p.product_categories?.id ?? baseResolved.category_id,
           category_name: p.product_categories?.name,
-          price: Number(p.rate ?? p.price ?? 0),
-          unit: p.unit || p.base_unit || 'pieces',
+          name: baseResolved.display_name,
+          sku: baseResolved.sku,
+          hsn_code: baseResolved.hsn_code,
+          image_url: baseResolved.image_url,
+          price: baseResolved.rate,
+          unit: baseResolved.base_unit || p.unit || 'pieces',
           priceBookPrice: pe?.final_price,
         };
+        return [baseRow];
       });
       setProducts(enriched);
 
