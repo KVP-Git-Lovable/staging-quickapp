@@ -1,6 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveProduct } from '@/utils/resolveProduct';
+
+/**
+ * Per-line product label resolution. Orders here are read-only snapshots, but we
+ * route the displayed name through the shared resolver so when an item carries
+ * variant metadata, the resolved display_name is shown — keeping parity with
+ * order entry / customer portal / invoice.
+ */
+const resolveItemName = (item: any): string => {
+  // Snapshot already carries product_name/variant_name; treat the snapshot row as
+  // the base and (if present) its variant_* fields as the variant override.
+  const base = { id: item.product_id, name: item.product_name };
+  const variant = item.variant_id
+    ? { id: item.variant_id, variant_name: item.variant_name, sku: item.variant_sku }
+    : null;
+  return resolveProduct(base, variant).display_name || item.product_name;
+};
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
