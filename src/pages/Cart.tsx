@@ -37,6 +37,7 @@ import { useD1Delivery } from "@/hooks/useD1Delivery";
 import { useOrderBasedDelivery } from "@/hooks/useOrderBasedDelivery";
 import { useVanSales } from "@/hooks/useVanSales";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
+import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
 
 interface CartItem {
   id: string;
