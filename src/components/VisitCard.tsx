@@ -247,6 +247,14 @@ export const VisitCard = ({
     distributor_name?: string | null;
   }>>([]);
   const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
+  // FIFO side-effect of today's payment: how much of OLDER outstanding invoices
+  // got cleared automatically when today's collection ran through
+  // apply_retailer_payment_fifo. Sourced from retailer_payment_allocations
+  // rows scoped to today's date whose order_id is NOT in today's order list.
+  const [oldPaymentsCleared, setOldPaymentsCleared] = useState<{
+    amount: number;
+    lastDate: string | null;
+  }>({ amount: 0, lastDate: null });
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showCameraCapture, setShowCameraCapture] = useState(false);
@@ -2450,6 +2458,47 @@ export const VisitCard = ({
       console.log('[VisitCard] Merged orders:', mergedOrders.length, 'with items:', mergedOrders.filter(o => o.items?.length > 0).length);
       
       setOrdersTodayList(mergedOrders as any);
+
+      // FIFO "old payment cleared" detection.
+      // When a credit order is placed today and a payment is collected, the
+      // server runs apply_retailer_payment_fifo which clears OLDER pending
+      // invoices first. We surface that here so the rep can see e.g.
+      // "Old payment cleared: ₹50 on 12 Jun 2026" right inside Today's Order.
+      try {
+        const todayOrderIds = mergedOrders.map((o: any) => o.id).filter(Boolean);
+        if (navigator.onLine) {
+          const { data: allocRows } = await supabase
+            .from('retailer_payment_allocations' as any)
+            .select('order_id, amount_applied, applied_at, created_at')
+            .eq('retailer_id', retailerId)
+            .gte('created_at', dayStart.toISOString())
+            .lte('created_at', dayEnd.toISOString());
+
+          const oldAllocs = (allocRows || []).filter(
+            (r: any) => r.order_id && !todayOrderIds.includes(r.order_id)
+          );
+          if (oldAllocs.length > 0) {
+            const totalCleared = oldAllocs.reduce(
+              (s: number, r: any) => s + Number(r.amount_applied || 0),
+              0
+            );
+            const lastDate = oldAllocs
+              .map((r: any) => r.applied_at || r.created_at)
+              .filter(Boolean)
+              .sort()
+              .pop() as string | undefined;
+            setOldPaymentsCleared({
+              amount: totalCleared,
+              lastDate: lastDate || null,
+            });
+          } else {
+            setOldPaymentsCleared({ amount: 0, lastDate: null });
+          }
+        }
+      } catch (e) {
+        console.log('[VisitCard] old-payment-cleared lookup failed (non-fatal):', e);
+      }
+
       if (mergedOrders.length > 0) {
         // CRITICAL FIX: Also calculate and set order totals when loading order details
         const totalOrderValue = mergedOrders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
@@ -3024,7 +3073,25 @@ export const VisitCard = ({
                       <span className="text-warning">Pending Amount:</span>
                       <span className="font-medium text-warning">₹{Math.round(creditPendingAmount).toLocaleString()}</span>
                     </div>
+                    {oldPaymentsCleared.amount > 0 && (
+                      <div className="flex justify-between items-start text-xs pt-1 mt-1 border-t border-amber-200 dark:border-amber-700">
+                        <span className="text-muted-foreground">
+                          Old payment cleared (FIFO):
+                          {oldPaymentsCleared.lastDate && (
+                            <span className="block text-[10px] text-muted-foreground/80">
+                              on {new Date(oldPaymentsCleared.lastDate).toLocaleDateString('en-IN', {
+                                day: '2-digit', month: 'short', year: 'numeric',
+                              })}
+                            </span>
+                          )}
+                        </span>
+                        <span className="font-medium text-success">
+                          ₹{Math.round(oldPaymentsCleared.amount).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
+                  
                   
                   {/* Individual Orders - show each order separately when multiple exist */}
                   {loadingOrder && <div className="text-xs text-muted-foreground mt-2">Loading...</div>}
