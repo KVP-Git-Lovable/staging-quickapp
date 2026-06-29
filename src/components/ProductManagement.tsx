@@ -312,7 +312,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchCategories(), fetchProducts(), fetchVariants(), fetchTerritories()]);
+      await Promise.all([fetchCategories(), fetchProducts(), fetchVariants(), fetchTerritories(), fetchTaxMasters()]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch data');
