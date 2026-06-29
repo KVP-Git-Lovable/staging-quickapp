@@ -1109,6 +1109,10 @@ export const Cart = () => {
           id: rawCompositeId,
           product_id: productId,
           variant_id: variantId,
+          // SKUs let the server-side RPC re-resolve product_id/variant_id if the
+          // cached UUID is stale (product re-created or imported with a new id).
+          sku: (item as any).sku || null,
+          variant_sku: (item as any).variant_sku || null,
           product_name: item.name,
           category: item.category,
           rate: currentRate - discountPerItem, // Store discounted rate
@@ -2074,6 +2078,9 @@ export const Cart = () => {
           id: item.id,
           product_id: productId,
           variant_id: variantId,
+          // SKUs let the RPC re-resolve product_id/variant_id from a stale cache.
+          sku: (item as any).sku || null,
+          variant_sku: (item as any).variant_sku || null,
           product_name: item.name,
           category: item.category,
           rate: currentRate - discountPerItem,
