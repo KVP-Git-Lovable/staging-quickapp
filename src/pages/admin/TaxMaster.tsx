@@ -497,6 +497,30 @@ const TaxMaster = () => {
             <Card><CardContent className="py-12 text-center text-muted-foreground">No taxes configured yet. Click "Create Tax" to get started.</CardContent></Card>
           ) : (
             <div className="grid gap-4">
+              {/* Unassigned safety-net card */}
+              <Card className={unassignedCount > 0 ? 'border-red-300 bg-red-50/40 dark:bg-red-950/10' : ''}>
+                <CardContent className="p-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-foreground">Unassigned Products</h3>
+                      <Badge variant={unassignedCount > 0 ? 'destructive' : 'secondary'} className="text-xs">
+                        {unassignedCount.toLocaleString()}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Products without a GST bracket. Assign them so they're taxed correctly.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={unassignedCount > 0 ? 'destructive' : 'outline'}
+                    onClick={() => openProductManager('unassigned')}
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Review & Assign
+                  </Button>
+                </CardContent>
+              </Card>
               {taxes.map(tax => {
                 const enabledComps = tax.components.filter(c => c.is_enabled);
                 const totalPct = enabledComps.reduce((s, c) => s + c.percentage, 0);
