@@ -1283,48 +1283,70 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-[280px] md:w-[320px] p-0 bg-background z-50" align="start">
-                          <Command className="bg-background">
-                            <CommandInput placeholder="Search products..." className="h-9 md:h-10 text-xs md:text-sm" />
-                            <CommandList className="bg-background max-h-[250px] md:max-h-[300px]">
-                              <CommandEmpty>No product found.</CommandEmpty>
-                              <CommandGroup className="bg-background">
-                                {productOptions.map((option) => (
-                                  <CommandItem
-                                    key={option.value}
-                                    value={option.label}
-                                    onSelect={() => handleProductSelect(row.id, option.value)}
-                                    className="text-xs md:text-sm bg-background hover:bg-accent py-2"
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-3 w-3 md:h-4 md:w-4",
-                                        row.product?.id === option.product.id && 
-                                        (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
-                                          ? "opacity-100"
-                                          : "opacity-0"
-                                      )}
-                                    />
-                                    <div className="flex-1 flex items-center gap-1.5">
-                                      {(option.variant ? isFocusedProductActive(option.variant) : isFocusedProductActive(option.product)) && (
-                                        <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
-                                      )}
-                                      {hasActiveSchemes(option.product) && (
-                                        <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
-                                      )}
-                                      <div className="flex-1">
-                                        <div className="font-medium">{option.label}</div>
-                                        <div className="text-[10px] md:text-xs text-muted-foreground">
-                                          SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                          {(() => {
+                            const search = (pickerSearch[row.id] || '').trim().toLowerCase();
+                            const matches = search
+                              ? productOptions.filter(o =>
+                                  o.label.toLowerCase().includes(search) ||
+                                  (o.sku || '').toLowerCase().includes(search)
+                                )
+                              : productOptions;
+                            const visible = matches.slice(0, PICKER_RENDER_LIMIT);
+                            return (
+                              <Command className="bg-background" shouldFilter={false}>
+                                <CommandInput
+                                  placeholder="Search products..."
+                                  className="h-9 md:h-10 text-xs md:text-sm"
+                                  value={pickerSearch[row.id] || ''}
+                                  onValueChange={(v) => setPickerSearch(prev => ({ ...prev, [row.id]: v }))}
+                                />
+                                <CommandList className="bg-background max-h-[250px] md:max-h-[300px]">
+                                  <CommandEmpty>No product found.</CommandEmpty>
+                                  <CommandGroup className="bg-background">
+                                    {visible.map((option) => (
+                                      <CommandItem
+                                        key={option.value}
+                                        value={option.value}
+                                        onSelect={() => handleProductSelect(row.id, option.value)}
+                                        className="text-xs md:text-sm bg-background hover:bg-accent py-2"
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-3 w-3 md:h-4 md:w-4",
+                                            row.product?.id === option.product.id &&
+                                            (!row.variant && !option.variant || row.variant?.id === option.variant?.id)
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        <div className="flex-1 flex items-center gap-1.5">
+                                          {(option.variant ? isFocusedProductActive(option.variant) : isFocusedProductActive(option.product)) && (
+                                            <Star size={12} className="fill-yellow-500 text-yellow-500 flex-shrink-0" />
+                                          )}
+                                          {hasActiveSchemes(option.product) && (
+                                            <Sparkles size={12} className="fill-orange-500 text-orange-500 flex-shrink-0" />
+                                          )}
+                                          <div className="flex-1">
+                                            <div className="font-medium">{option.label}</div>
+                                            <div className="text-[10px] md:text-xs text-muted-foreground">
+                                              SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                                            </div>
+                                          </div>
                                         </div>
-                                      </div>
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                  <div className="px-2 py-1.5 text-[10px] md:text-xs text-muted-foreground border-t bg-muted/30">
+                                    Showing {visible.length} of {matches.length}
+                                    {matches.length > visible.length ? ' — type to search' : ''}
+                                  </div>
+                                </CommandList>
+                              </Command>
+                            );
+                          })()}
                         </PopoverContent>
                       </Popover>
+
                        {row.product && (() => {
                          const displayUnit = row.uomCode || row.unit;
                          const originalRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase);
