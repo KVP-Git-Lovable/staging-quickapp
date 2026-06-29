@@ -258,11 +258,31 @@ export function useOfflineOrderEntry() {
     });
   };
 
+  // Force the next fetchProducts() to actually re-read the cache and re-sync,
+  // bypassing the hasFetchedRef de-dupe guard. Used by the "Refresh products"
+  // button so newly-added rows in the cache propagate to the picker.
+  const resetFetchGuard = useCallback(() => {
+    hasFetchedRef.current = false;
+  }, []);
+
+  // Auto-react to a global "masterDataRefreshed" event (dispatched by
+  // useMasterDataCache.forceRefreshMasterData) so background refreshes that
+  // happen elsewhere in the app also update the order-entry product list.
+  useEffect(() => {
+    const handler = () => {
+      hasFetchedRef.current = false;
+      fetchProducts().catch(err => console.warn('[useOfflineOrderEntry] reload after masterDataRefreshed failed', err));
+    };
+    window.addEventListener('masterDataRefreshed', handler);
+    return () => window.removeEventListener('masterDataRefreshed', handler);
+  }, [fetchProducts]);
+
   return {
     products,
     loading,
     isOnline,
     fetchProducts,
+    resetFetchGuard,
     submitOrder
   };
 }
