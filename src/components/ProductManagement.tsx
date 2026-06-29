@@ -107,6 +107,7 @@ const ProductManagement = () => {
   
   const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [territories, setTerritories] = useState<Territory[]>([]);
+  const [taxMasters, setTaxMasters] = useState<Array<{ id: string; name: string; total_rate: number | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
