@@ -329,10 +329,7 @@ export function useMasterDataCache() {
       if (error) throw error;
 
       if (orders) {
-        await offlineStorage.clear(STORES.ORDERS);
-        for (const order of orders) {
-          await offlineStorage.save(STORES.ORDERS, order);
-        }
+        await offlineStorage.replaceAll(STORES.ORDERS, orders);
         console.log(`[Cache] ✅ ${orders.length} orders cached`);
       }
       onProgress?.('orders', 'done');
