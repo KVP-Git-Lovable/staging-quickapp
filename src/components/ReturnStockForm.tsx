@@ -23,8 +23,10 @@ interface Product {
   rate: number;
   sku?: string;
   gst_percentage?: number | null;
+  category?: string;
   variants?: ProductVariant[];
 }
+
 
 interface ProductVariant {
   id: string;
