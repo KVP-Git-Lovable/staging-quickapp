@@ -89,27 +89,34 @@ export default function EditInvoiceDialog({ orderId, invoiceNumber, open, onOpen
 
         if (cartError) throw cartError;
 
+        // Phase 4: read stored per-line tax from order_items; fall back to helper for legacy lines.
+        const { resolveLineTax } = await import("@/utils/taxCalc");
+
         const itemsData = (cartItems || []).map((item: any) => {
-          const quantity = item.quantity || 0;
-          const pricePerUnit = item.rate || 0;
-          const taxableAmount = quantity * pricePerUnit;
-          const cgstAmount = taxableAmount * 0.025;
-          const sgstAmount = taxableAmount * 0.025;
-          const totalAmount = taxableAmount + cgstAmount + sgstAmount;
+          const quantity = Number(item.quantity) || 0;
+          const pricePerUnit = Number(item.rate) || 0;
+          const taxableAmount = Number(item.total ?? quantity * pricePerUnit) || 0;
+
+          const lt = resolveLineTax(item);
+          const cgstAmount = lt.cgst;
+          const sgstAmount = lt.sgst;
+          const gstRate = Number(item.tax_rate_snapshot ?? lt.taxRate) || 0;
+          const totalAmount = taxableAmount + cgstAmount + sgstAmount + lt.igst + lt.cess;
 
           return {
             description: item.product_name,
-            hsn_sac: "",
+            hsn_sac: item.hsn_code || "",
             quantity,
             unit: item.unit,
             price_per_unit: pricePerUnit,
-            gst_rate: 5,
+            gst_rate: gstRate,
             taxable_amount: taxableAmount,
             cgst_amount: cgstAmount,
             sgst_amount: sgstAmount,
             total_amount: totalAmount,
           };
         });
+
 
         setItems(itemsData);
         setInvoiceData({ ...order });
