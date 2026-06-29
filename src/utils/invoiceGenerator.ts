@@ -598,9 +598,11 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     margin: { left: 15, right: 15 },
   });
 
-  // Calculate totals - CRITICAL: Use order-level values when available
-  // This ensures invoice totals match exactly what cart showed at order time
-  const hasStoredTotals = normalizedItems.some(item => 
+  // Calculate totals - read stored per-line tax from order_items (Phase 4).
+  // Falls back to computeLineTax only when a line has no stored tax (legacy orders).
+  const { resolveLineTax: _resolveLineTax } = await import('@/utils/taxCalc');
+
+  const hasStoredTotals = normalizedItems.some(item =>
     item.taxable_amount != null && item.sgst_amount != null && item.cgst_amount != null
   );
 
@@ -609,7 +611,6 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     if (hasStoredTotals && item.taxable_amount != null) {
       return sum + Number(item.taxable_amount);
     }
-    // Use stored total from order_items
     return sum + (item._storedTotal || 0);
   }, 0);
 
@@ -617,22 +618,20 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const appliedOrderDiscount = orderDiscount || 0;
   const subtotal = Math.max(0, itemSubtotal - appliedOrderDiscount);
 
-  // Calculate GST on discounted subtotal
-  const sgst = hasStoredTotals
-    ? cartItems.reduce((sum, item) => sum + (Number(item.sgst_amount) || 0), 0)
-    : subtotal * 0.025;
-
-  const cgst = hasStoredTotals
-    ? cartItems.reduce((sum, item) => sum + (Number(item.cgst_amount) || 0), 0)
-    : subtotal * 0.025;
+  // Sum per-line stored tax (CGST/SGST/IGST/CESS) — fallback per line via helper.
+  const lineTaxes = cartItems.map((it: any) => _resolveLineTax(it));
+  const cgst = lineTaxes.reduce((s, l) => s + l.cgst, 0);
+  const sgst = lineTaxes.reduce((s, l) => s + l.sgst, 0);
+  const igst = lineTaxes.reduce((s, l) => s + l.igst, 0);
+  const cess = lineTaxes.reduce((s, l) => s + l.cess, 0);
 
   // CRITICAL: If orderTotal is provided, use it directly (this is the finalized amount)
-  // This ensures invoice total matches exactly what was shown in cart
-  const total = orderTotal 
-    ? orderTotal 
+  const total = orderTotal
+    ? orderTotal
     : (hasStoredTotals && cartItems.some(item => item.total_amount != null)
         ? cartItems.reduce((sum, item) => sum + (Number(item.total_amount) || 0), 0)
-        : (subtotal + sgst + cgst));
+        : (subtotal + cgst + sgst + igst + cess));
+
   
   // Note: totalDiscount tracks item-level discounts, order-level discount is shown separately
   
