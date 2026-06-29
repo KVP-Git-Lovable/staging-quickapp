@@ -461,23 +461,34 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     setStep(1);
   };
 
+  const categories = (() => {
+    const set = new Set<string>();
+    products.forEach(p => { if (p.category) set.add(p.category); });
+    return Array.from(set).sort();
+  })();
+
   const getProductOptions = () => {
-    const options: Array<{ value: string; label: string; sku?: string; price: number }> = [];
-    products.forEach(product => {
-      options.push({ value: product.id, label: product.name, sku: product.sku, price: product.rate });
+    const options: Array<{ value: string; label: string; sku?: string; price: number; category?: string }> = [];
+    const filtered = selectedCategory === 'all'
+      ? products
+      : products.filter(p => (p.category || 'Uncategorized') === selectedCategory);
+    filtered.forEach(product => {
+      options.push({ value: product.id, label: product.name, sku: product.sku, price: product.rate, category: product.category });
       if (product.variants && product.variants.length > 0) {
         product.variants.forEach(variant => {
           options.push({
             value: `${product.id}_variant_${variant.id}`,
             label: variant.variant_name,
             sku: variant.sku,
-            price: variant.price
+            price: variant.price,
+            category: product.category,
           });
         });
       }
     });
     return options;
   };
+
 
   const getSelectedProductLabel = () => {
     if (!selectedProduct) return 'Search product...';
