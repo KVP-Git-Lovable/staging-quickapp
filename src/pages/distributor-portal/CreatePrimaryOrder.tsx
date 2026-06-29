@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { ChevronsUpDown } from 'lucide-react';
 
 interface Category { id: string; name: string; }
 interface PriceBookEntry { product_id: string; variant_id: string | null; final_price: number; list_price: number; }
