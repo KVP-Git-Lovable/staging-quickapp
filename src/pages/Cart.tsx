@@ -1076,17 +1076,18 @@ export const Cart = () => {
         // Note: scheme_details removed as column doesn't exist in orders table
       };
 
-      const orderItems = cartItems.map(item => {
+      const orderItems = enrichedItems.map((item, idx) => {
         const itemDiscount = orderCalculation.itemDiscounts[item.id] || 0;
         const currentRate = getDisplayRate(item);
         // Use original_rate from cart item if available (set by TableOrderForm), otherwise use current rate
         const originalRate = (item as any).original_rate || currentRate;
         const discountPerItem = item.quantity > 0 ? itemDiscount / item.quantity : 0;
         const itemTotal = computeItemTotal(item);
-        
-        // Calculate per-item GST (2.5% SGST + 2.5% CGST)
-        const sgstAmount = itemTotal * 0.025;
-        const cgstAmount = itemTotal * 0.025;
+
+        // Per-line GST from shared computeLineTax (intrastate: CGST+SGST = gst%/2 each)
+        const lineTax = submissionLineTaxes[idx];
+        const sgstAmount = lineTax?.sgst ?? 0;
+        const cgstAmount = lineTax?.cgst ?? 0;
         
         // Split composite cart id "baseProductId_variant_variantId" into proper FK fields.
         // product_id MUST be the base product UUID (FK to products.id);
