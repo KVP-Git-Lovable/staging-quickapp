@@ -17,6 +17,7 @@ import { ArrowLeft, Plus, Search, BookOpen, Calendar, Copy, Edit, MoreVertical, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
 interface PriceBook {
   id: string;
