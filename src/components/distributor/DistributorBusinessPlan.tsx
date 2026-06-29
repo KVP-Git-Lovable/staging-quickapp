@@ -129,11 +129,14 @@ export function DistributorBusinessPlan({ distributorId }: Props) {
   };
 
   const loadProducts = async () => {
-    const { data } = await supabase
-      .from('products')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('name');
+    const data = await fetchAllPaginated<any>((from, to) =>
+      supabase
+        .from('products')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name')
+        .range(from, to)
+    );
     setProducts(data || []);
   };
 
