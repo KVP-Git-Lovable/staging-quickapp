@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { upsertSingleCartItem, upsertCartItems } from '@/utils/customerCartHelper';
 import { toast } from 'sonner';
 import { normalizeUnit, collapseWhitespace, findBestMatch, buildProductShortlist } from '@/utils/productFuzzyMatch';
+import { resolveProduct } from '@/utils/resolveProduct';
 
 export interface VoiceOrderItem {
   id: string;
@@ -413,8 +414,10 @@ export const useVoiceOrderAssistant = (products: VoiceProduct[], retailerId?: st
         console.log('🎤 Match result:', { searchTerm, product: product?.name, variant: variant?.variant_name, confidence });
         if (product) {
           const voiceUnit = normalizeUnit(order.unit || 'kg');
-          const itemRate = variant?.price ?? product.rate ?? 0;
-          const itemSku = variant?.sku || product.sku || '';
+          // Use shared resolver so a variant with NULL overrides inherits base price/sku/name
+          const resolved = resolveProduct(product, variant || null);
+          const itemRate = resolved.rate;
+          const itemSku = resolved.sku || '';
           newItems.push({
             id: crypto.randomUUID(),
             productId: product.id,
