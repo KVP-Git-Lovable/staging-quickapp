@@ -13,6 +13,7 @@ import { Badge } from './ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { cn } from '@/lib/utils';
+import { computeLineTax } from '@/utils/taxCalc';
 
 interface Product {
   id: string;
@@ -20,6 +21,7 @@ interface Product {
   unit: string;
   rate: number;
   sku?: string;
+  gst_percentage?: number | null;
   variants?: ProductVariant[];
 }
 
@@ -39,6 +41,7 @@ interface ReturnItem {
   returnQuantity: number;
   returnReason: string;
   price: number;
+  gstRate: number; // resolved at add-time from product.gst_percentage
 }
 
 interface ReturnStockFormProps {
