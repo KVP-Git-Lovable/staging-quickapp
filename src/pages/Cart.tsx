@@ -49,6 +49,8 @@ interface CartItem {
   quantity: number;
   total: number;
   hsn_code?: string;
+  gst_percentage?: number | null;
+  tax_master_id?: string | null;
   uom_id?: string | null;
   uom_code?: string | null;
   conversion_to_base?: number | null;
