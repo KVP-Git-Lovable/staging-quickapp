@@ -516,7 +516,11 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       (item as any).gst_percentage ??
       0
     ) || 0;
-    const gstStr = lineGstRate > 0 ? `${lineGstRate}%` : "-";
+    const cgstRate = Number((item as any).cgst_rate ?? (lineGstRate / 2)) || 0;
+    const sgstRate = Number((item as any).sgst_rate ?? (lineGstRate / 2)) || 0;
+    const igstRate = Number((item as any).igst_rate ?? 0) || 0;
+    const cgstStr = igstRate > 0 ? `IGST ${igstRate}%` : (cgstRate > 0 ? `${cgstRate}%` : "-");
+    const sgstStr = igstRate > 0 ? "-" : (sgstRate > 0 ? `${sgstRate}%` : "-");
     
     // If there are item-level discounts in the order, show MRP and Offer columns
     if (hasAnyItemDiscount) {
@@ -530,7 +534,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         qtyStr,
         `Rs.${formatExact(originalRate)}`, // MRP - exact
         hasItemDiscount ? `Rs.${formatExact(effectiveRate)}` : "-", // Offer Price (or "-" if no discount for this item)
-        gstStr,
+        cgstStr,
+        sgstStr,
         `Rs.${formatExact(rowTotal)}`, // Row total - use stored value
       ];
     } else {
@@ -542,7 +547,8 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         displayUnit,
         qtyStr,
         `Rs.${formatExact(effectiveRate)}`, // Price (from stored total)
-        gstStr,
+        cgstStr,
+        sgstStr,
         `Rs.${formatExact(rowTotal)}`, // Row total - use stored value
       ];
     }
