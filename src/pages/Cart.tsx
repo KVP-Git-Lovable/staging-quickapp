@@ -628,25 +628,61 @@ export const Cart = () => {
       return 0;
     }
   };
-  const getCGST = () => {
-    const amountAfterDiscount = getAmountAfterDiscount();
-    return amountAfterDiscount * 2.5 / 100; // 2.5% CGST
-  };
-  const getSGST = () => {
-    const amountAfterDiscount = getAmountAfterDiscount();
-    return amountAfterDiscount * 2.5 / 100; // 2.5% SGST
-  };
+  // Per-line GST using shared computeLineTax helper.
+  // Recomputes on qty/price/discount/scheme changes only.
+  const lineTaxes = React.useMemo(() => {
+    return cartItems.map(it => computeLineTax({
+      taxableAmount: computeItemTotal(it),
+      gstPercentage: (it as any).gst_percentage,
+    }));
+  }, [cartItems, orderCalculation.itemDiscounts]);
+  const taxTotals = React.useMemo(() => sumLineTaxes(lineTaxes), [lineTaxes]);
+
+  const getCGST = () => taxTotals.cgst;
+  const getSGST = () => taxTotals.sgst;
   const getFinalTotal = () => {
     try {
-      const amountAfterDiscount = getAmountAfterDiscount();
-      const cgst = getCGST();
-      const sgst = getSGST();
-      return Math.max(0, amountAfterDiscount + cgst + sgst);
+      return Math.max(0, getAmountAfterDiscount() + taxTotals.cgst + taxTotals.sgst + taxTotals.igst + taxTotals.cess);
     } catch (error) {
       console.error('Error computing final total:', error);
       return 0;
     }
   };
+
+  // Fetch any missing gst_percentages for current cart items in one query.
+  // Returns a new array with gst_percentage filled where it can be resolved.
+  const ensureGstPercentages = async (items: CartItem[]): Promise<CartItem[]> => {
+    const missingIds = Array.from(new Set(
+      items
+        .filter(it => it.gst_percentage == null)
+        .map(it => (it as any).product_id || (typeof it.id === 'string' && it.id.includes('_variant_') ? it.id.split('_variant_')[0] : it.id))
+        .filter((v): v is string => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v))
+    ));
+    if (missingIds.length === 0) return items;
+    try {
+      const { data } = await supabase
+        .from('products')
+        .select('id, gst_percentage, hsn_code, tax_master_id')
+        .in('id', missingIds);
+      const byId = new Map<string, any>((data || []).map(p => [p.id, p]));
+      return items.map(it => {
+        if (it.gst_percentage != null) return it;
+        const pid = (it as any).product_id || (typeof it.id === 'string' && it.id.includes('_variant_') ? it.id.split('_variant_')[0] : it.id);
+        const p = byId.get(pid);
+        if (!p) return it;
+        return {
+          ...it,
+          gst_percentage: p.gst_percentage ?? null,
+          hsn_code: it.hsn_code || p.hsn_code || undefined,
+          tax_master_id: (it as any).tax_master_id || p.tax_master_id || null,
+        } as CartItem;
+      });
+    } catch (e) {
+      console.warn('[Cart] ensureGstPercentages failed (offline?):', e);
+      return items;
+    }
+  };
+
 
   // Check if the visit date allows order submission
   const canSubmitOrder = () => {
