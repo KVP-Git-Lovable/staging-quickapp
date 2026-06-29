@@ -87,18 +87,12 @@ export function useMasterDataCache() {
         .select('*');
 
       if (schemes) {
-        await offlineStorage.clear(STORES.SCHEMES);
-        for (const scheme of schemes) {
-          await offlineStorage.save(STORES.SCHEMES, scheme);
-        }
+        await offlineStorage.replaceAll(STORES.SCHEMES, schemes);
         console.log(`[Cache] ✅ ${schemes.length} schemes cached`);
       }
 
       if (categories) {
-        await offlineStorage.clear(STORES.CATEGORIES);
-        for (const category of categories) {
-          await offlineStorage.save(STORES.CATEGORIES, category);
-        }
+        await offlineStorage.replaceAll(STORES.CATEGORIES, categories);
         console.log(`[Cache] ✅ ${categories.length} categories cached`);
       }
 
