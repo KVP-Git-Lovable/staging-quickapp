@@ -21,6 +21,7 @@ import { formatAddress, hasMinimumAddress } from '@/lib/addressFormat';
 import { useSavedAddresses } from '@/hooks/useSavedAddresses';
 import { useWarehouses } from '@/hooks/useWarehouses';
 import { cn } from '@/lib/utils';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
 interface Category { id: string; name: string; }
 interface PriceBookEntry { product_id: string; variant_id: string | null; final_price: number; list_price: number; }
