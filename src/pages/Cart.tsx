@@ -2499,7 +2499,8 @@ export const Cart = () => {
             </CardContent>
           </Card> : <>
             <div className="space-y-2">
-          {cartItems.map(item => {
+          {cartItems.map((item, itemIdx) => {
+            const lineTax = lineTaxes[itemIdx];
             const discount = computeItemDiscount(item);
             const finalPrice = computeItemTotal(item);
             const hasDiscount = discount > 0;
