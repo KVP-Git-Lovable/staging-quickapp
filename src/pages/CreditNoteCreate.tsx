@@ -88,22 +88,25 @@ export default function CreditNoteCreate() {
       if (error) throw error;
 
       // Insert items
-      const itemRows = selectedItems.map((item) => ({
-        credit_note_id: cn.id,
-        original_order_id: item.orderId,
-        original_invoice_number: item.invoiceNumber,
-        product_id: item.productId,
-        product_name: item.productName,
-        hsn_code: item.hsnCode,
-        unit: item.unit,
-        quantity: item.returnQuantity,
-        rate: item.rate,
-        total: item.returnQuantity * item.rate,
-        taxable_amount: item.returnQuantity * item.rate,
-        sgst_amount: item.returnQuantity * item.rate * 0.025,
-        cgst_amount: item.returnQuantity * item.rate * 0.025,
-        barcode: item.barcode || null,
-      }));
+      const itemRows = selectedItems.map((item, idx) => {
+        const lt = lineTaxes[idx];
+        return {
+          credit_note_id: cn.id,
+          original_order_id: item.orderId,
+          original_invoice_number: item.invoiceNumber,
+          product_id: item.productId,
+          product_name: item.productName,
+          hsn_code: item.hsnCode,
+          unit: item.unit,
+          quantity: item.returnQuantity,
+          rate: item.rate,
+          total: item.returnQuantity * item.rate,
+          taxable_amount: lt.taxableAmount,
+          sgst_amount: lt.sgst,
+          cgst_amount: lt.cgst,
+          barcode: item.barcode || null,
+        };
+      });
 
       const { error: itemError } = await supabase.from("credit_note_items").insert(itemRows as any);
       if (itemError) throw itemError;
@@ -117,19 +120,22 @@ export default function CreditNoteCreate() {
         retailerData = data || {};
       }
 
-      const pdfItems: CreditNoteItem[] = selectedItems.map((i) => ({
-        product_name: i.productName,
-        hsn_code: i.hsnCode,
-        unit: i.unit,
-        quantity: i.returnQuantity,
-        rate: i.rate,
-        total: i.returnQuantity * i.rate,
-        taxable_amount: i.returnQuantity * i.rate,
-        sgst_amount: i.returnQuantity * i.rate * 0.025,
-        cgst_amount: i.returnQuantity * i.rate * 0.025,
-        original_invoice_number: i.invoiceNumber,
-        barcode: i.barcode,
-      }));
+      const pdfItems: CreditNoteItem[] = selectedItems.map((i, idx) => {
+        const lt = lineTaxes[idx];
+        return {
+          product_name: i.productName,
+          hsn_code: i.hsnCode,
+          unit: i.unit,
+          quantity: i.returnQuantity,
+          rate: i.rate,
+          total: i.returnQuantity * i.rate,
+          taxable_amount: lt.taxableAmount,
+          sgst_amount: lt.sgst,
+          cgst_amount: lt.cgst,
+          original_invoice_number: i.invoiceNumber,
+          barcode: i.barcode,
+        };
+      });
 
       const referenceInvoices = [...new Set(selectedItems.map((i) => i.invoiceNumber))];
 
