@@ -374,6 +374,8 @@ export const VisitCard = ({
         // the optimistic pre-payment snapshot (paid=0 / pending=total).
         try {
           await loadLastOrder();
+          // Retry once after recompute_retailer_pending / FIFO settles on server
+          setTimeout(() => { loadLastOrder().catch(() => {}); }, 600);
         } catch (e) {
           console.warn('[VisitCard] post-orderSubmitted refresh failed:', e);
         }
@@ -385,6 +387,24 @@ export const VisitCard = ({
       window.removeEventListener('orderSubmitted', handleOrderSubmitted as EventListener);
     };
   }, [visit.retailerId, visit.id, recordAction]);
+
+  // Refetch authoritative order data on window focus / tab visibility change so
+  // navigating back to the visits screen automatically refreshes Today's Order.
+  useEffect(() => {
+    const currentRetailerId = visit.retailerId || visit.id;
+    if (!currentRetailerId) return;
+    const refresh = () => {
+      if (!hasOrderToday && !visit.hasOrder) return;
+      loadLastOrder().catch(() => {});
+    };
+    const onVisibility = () => { if (document.visibilityState === 'visible') refresh(); };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [visit.retailerId, visit.id, hasOrderToday, visit.hasOrder]);
 
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   
