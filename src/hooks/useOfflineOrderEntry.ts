@@ -69,31 +69,33 @@ export function useOfflineOrderEntry() {
   // Background sync function - defined before fetchProducts
   const syncProductsInBackground = async () => {
     try {
-      // Fetch all products where is_active is true OR null (treat null as active)
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select(`
-          *,
-          category:product_categories(name)
-        `)
-        .or('is_active.eq.true,is_active.is.null')
-        .order('name');
+      // Fetch all products where is_active is true OR null (PAGINATED — no 1k cap)
+      const productsData = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('products')
+          .select(`*, category:product_categories(name)`)
+          .or('is_active.eq.true,is_active.is.null')
+          .order('name')
+          .range(from, to)
+      );
 
-      if (productsError) throw productsError;
+      // Fetch all active schemes (is_active true or null) — paginated
+      const schemesData = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('product_schemes')
+          .select('*')
+          .or('is_active.eq.true,is_active.is.null')
+          .range(from, to)
+      );
 
-      // Fetch all active schemes (is_active true or null)
-      const { data: schemesData } = await supabase
-        .from('product_schemes')
-        .select('*')
-        .or('is_active.eq.true,is_active.is.null');
-
-      // Fetch all active variants (is_active true or null)
-      const { data: variantsData, error: variantsError } = await supabase
-        .from('product_variants')
-        .select('*')
-        .or('is_active.eq.true,is_active.is.null');
-
-      if (variantsError) throw variantsError;
+      // Fetch all active variants (paginated)
+      const variantsData = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('product_variants')
+          .select('*')
+          .or('is_active.eq.true,is_active.is.null')
+          .range(from, to)
+      );
 
       const variantsByProductId = new Map<string, any[]>();
 
