@@ -3022,7 +3022,7 @@ export const OrderEntry = () => {
         ref={tableFormRef}
         products={cachedProducts}
         loading={offlineLoading}
-        onReloadProducts={fetchOfflineProducts}
+        onReloadProducts={reloadProductsFromMaster}
         onCartUpdate={handleBulkCartUpdate}
         onStockUpdate={(productId, stockQuantity, productName) => {
           saveStockData(productId, stockQuantity, productName);
