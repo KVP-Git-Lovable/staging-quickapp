@@ -509,6 +509,14 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
     
     // Format quantity - show decimals only if needed
     const qtyStr = Number.isInteger(displayQty) ? displayQty.toString() : displayQty.toFixed(2);
+
+    // GST rate per line: prefer persisted snapshot, then product gst_percentage (legacy)
+    const lineGstRate = Number(
+      (item as any).tax_rate_snapshot ??
+      (item as any).gst_percentage ??
+      0
+    ) || 0;
+    const gstStr = lineGstRate > 0 ? `${lineGstRate}%` : "-";
     
     // If there are item-level discounts in the order, show MRP and Offer columns
     if (hasAnyItemDiscount) {
@@ -522,6 +530,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         qtyStr,
         `Rs.${formatExact(originalRate)}`, // MRP - exact
         hasItemDiscount ? `Rs.${formatExact(effectiveRate)}` : "-", // Offer Price (or "-" if no discount for this item)
+        gstStr,
         `Rs.${formatExact(rowTotal)}`, // Row total - use stored value
       ];
     } else {
@@ -533,6 +542,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
         displayUnit,
         qtyStr,
         `Rs.${formatExact(effectiveRate)}`, // Price (from stored total)
+        gstStr,
         `Rs.${formatExact(rowTotal)}`, // Row total - use stored value
       ];
     }
@@ -540,29 +550,31 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
 
   // Table headers based on whether item-level discounts exist
   const tableHeaders = hasAnyItemDiscount 
-    ? [["NO", "PRODUCT", "HSN", "UNIT", "QTY", "MRP", "OFFER", "TOTAL"]]
-    : [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "TOTAL"]];
+    ? [["NO", "PRODUCT", "HSN", "UNIT", "QTY", "MRP", "OFFER", "GST%", "TOTAL"]]
+    : [["NO", "PRODUCT", "HSN/SAC", "UNIT", "QTY", "PRICE", "GST%", "TOTAL"]];
 
   // Column styles based on whether item-level discounts exist
   const columnStyles = hasAnyItemDiscount
     ? {
-        0: { cellWidth: 12, halign: "center" as const },
+        0: { cellWidth: 10, halign: "center" as const },
         1: { cellWidth: 'auto' as const, halign: "left" as const },
-        2: { cellWidth: 16, halign: "center" as const },
-        3: { cellWidth: 14, halign: "center" as const },
-        4: { cellWidth: 12, halign: "center" as const },
-        5: { cellWidth: 22, halign: "right" as const },
-        6: { cellWidth: 22, halign: "right" as const },
-        7: { cellWidth: 24, halign: "right" as const },
+        2: { cellWidth: 14, halign: "center" as const },
+        3: { cellWidth: 12, halign: "center" as const },
+        4: { cellWidth: 10, halign: "center" as const },
+        5: { cellWidth: 20, halign: "right" as const },
+        6: { cellWidth: 20, halign: "right" as const },
+        7: { cellWidth: 14, halign: "center" as const },
+        8: { cellWidth: 22, halign: "right" as const },
       }
     : {
-        0: { cellWidth: 15, halign: "center" as const },
+        0: { cellWidth: 12, halign: "center" as const },
         1: { cellWidth: 'auto' as const, halign: "left" as const },
-        2: { cellWidth: 20, halign: "center" as const },
-        3: { cellWidth: 18, halign: "center" as const },
-        4: { cellWidth: 15, halign: "center" as const },
-        5: { cellWidth: 25, halign: "right" as const },
-        6: { cellWidth: 28, halign: "right" as const },
+        2: { cellWidth: 18, halign: "center" as const },
+        3: { cellWidth: 16, halign: "center" as const },
+        4: { cellWidth: 13, halign: "center" as const },
+        5: { cellWidth: 22, halign: "right" as const },
+        6: { cellWidth: 14, halign: "center" as const },
+        7: { cellWidth: 26, halign: "right" as const },
       };
 
   autoTable(doc, {
