@@ -13,6 +13,7 @@ import { Badge } from './ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { cn } from '@/lib/utils';
+import { computeLineTax } from '@/utils/taxCalc';
 
 interface Product {
   id: string;
@@ -20,6 +21,7 @@ interface Product {
   unit: string;
   rate: number;
   sku?: string;
+  gst_percentage?: number | null;
   variants?: ProductVariant[];
 }
 
@@ -39,6 +41,7 @@ interface ReturnItem {
   returnQuantity: number;
   returnReason: string;
   price: number;
+  gstRate: number; // resolved at add-time from product.gst_percentage
 }
 
 interface ReturnStockFormProps {
@@ -93,7 +96,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     try {
       const { data, error } = await supabase
         .from('products')
-        .select(`id, name, unit, rate, sku, product_variants (id, variant_name, sku, price)`)
+        .select(`id, name, unit, rate, sku, gst_percentage, product_variants (id, variant_name, sku, price)`)
         .eq('is_active', true)
         .order('name');
 
@@ -105,6 +108,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         unit: p.unit,
         rate: p.rate,
         sku: p.sku || undefined,
+        gst_percentage: (p as any).gst_percentage ?? null,
         variants: (p.product_variants || []) as ProductVariant[]
       }));
 
@@ -144,7 +148,8 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
       unit: selectedUnit || product.unit,
       returnQuantity,
       returnReason: returnReason === 'Other' ? `Other: ${otherReason.trim()}` : returnReason,
-      price: itemPrice
+      price: itemPrice,
+      gstRate: Number(product.gst_percentage) || 0,
     };
 
     setReturnItems(prev => [...prev, newItem]);
@@ -162,7 +167,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     try {
       const { data: pastOrders, error: ordersError } = await supabase
         .from('orders')
-        .select('id, invoice_number, created_at, status, order_items!order_items_order_id_fkey(product_id, product_name, quantity, rate)')
+        .select('id, invoice_number, created_at, status, order_items!order_items_order_id_fkey(product_id, product_name, quantity, rate, tax_rate_snapshot, cgst_rate, sgst_rate)')
         .eq('retailer_id', retailerId)
         .not('invoice_number', 'is', null)
         .neq('status', 'cancelled')
@@ -178,6 +183,9 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
 
       const optionsMap: Record<string, { invoice_number: string; order_id: string; created_at: string; matched_quantity: number; matched_rate: number }[]> = {};
       const defaultSelections: Record<string, string> = {};
+
+      // Resolved per-line GST% from the most recent matching order_item snapshot.
+      const resolvedGstByKey: Record<string, number> = {};
 
       if (pastOrders) {
         for (const item of returnItems) {
@@ -200,6 +208,13 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                   matched_quantity: matchedItem.quantity || 0,
                   matched_rate: matchedItem.rate || 0,
                 });
+              }
+              if (resolvedGstByKey[key] == null) {
+                const snap = Number(matchedItem.tax_rate_snapshot);
+                const cg = Number(matchedItem.cgst_rate);
+                const sg = Number(matchedItem.sgst_rate);
+                if (Number.isFinite(snap) && snap > 0) resolvedGstByKey[key] = snap;
+                else if (Number.isFinite(cg) && Number.isFinite(sg) && (cg + sg) > 0) resolvedGstByKey[key] = cg + sg;
               }
             }
           }
@@ -225,6 +240,15 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
           if (optionsMap[key].length > 0 && !selectedInvoices[key]) {
             defaultSelections[key] = optionsMap[key][0].invoice_number;
           }
+        }
+
+        // Upgrade ReturnItem gstRate using the snapshot from the original order line when available.
+        if (Object.keys(resolvedGstByKey).length > 0) {
+          setReturnItems(prev => prev.map(it => {
+            const k = it.variantId ? `${it.productId}_${it.variantId}` : it.productId;
+            const r = resolvedGstByKey[k];
+            return r != null ? { ...it, gstRate: r } : it;
+          }));
         }
       }
 
@@ -276,9 +300,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
         const key = item.variantId ? `${item.productId}_${item.variantId}` : item.productId;
         const refInvoice = selectedInvoices[key] || 'N/A';
         const total = item.price * item.returnQuantity;
-        const taxableAmount = total;
-        const sgst = taxableAmount * 0.025;
-        const cgst = taxableAmount * 0.025;
+        const lt = computeLineTax({ taxableAmount: total, gstPercentage: item.gstRate });
 
         return {
           product_name: item.variantName ? `${item.productName} - ${item.variantName}` : item.productName,
@@ -287,9 +309,9 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
           quantity: item.returnQuantity,
           rate: item.price,
           total,
-          taxable_amount: taxableAmount,
-          sgst_amount: sgst,
-          cgst_amount: cgst,
+          taxable_amount: lt.taxableAmount,
+          sgst_amount: lt.sgst,
+          cgst_amount: lt.cgst,
           original_invoice_number: refInvoice,
         };
       });
@@ -461,10 +483,11 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
     return returnItems.reduce((sum, item) => sum + item.price * item.returnQuantity, 0);
   };
 
-  // Review calculations
+  // Review calculations — per-line GST via shared helper.
+  const reviewLineTaxes = returnItems.map(i => computeLineTax({ taxableAmount: i.price * i.returnQuantity, gstPercentage: i.gstRate }));
   const subTotal = returnItems.reduce((sum, item) => sum + item.price * item.returnQuantity, 0);
-  const sgstAmount = subTotal * 0.025;
-  const cgstAmount = subTotal * 0.025;
+  const sgstAmount = reviewLineTaxes.reduce((s, l) => s + l.sgst, 0);
+  const cgstAmount = reviewLineTaxes.reduce((s, l) => s + l.cgst, 0);
   const grandTotal = subTotal + sgstAmount + cgstAmount;
 
   if (loading) {

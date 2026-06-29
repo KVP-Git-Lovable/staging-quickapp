@@ -20,6 +20,7 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 // xlsx, jspdf, jspdf-autotable loaded dynamically in handlers
 import { syncOrdersToVanStock, recalculateVanStock } from '@/utils/vanStockSync';
 import { downloadExcel, downloadPDF } from '@/utils/fileDownloader';
+import { computeLineTax } from '@/utils/taxCalc';
 import { cacheVanStockForOffline } from '@/utils/localVanStockSync';
 import { getOrdersForDate, calculateOrderedQuantitiesByProduct } from '@/utils/ordersForDate';
 
@@ -137,6 +138,7 @@ interface Product {
   name: string;
   unit: string;
   rate: number;
+  gst_percentage?: number | null;
 }
 
 interface StockItem {
@@ -323,6 +325,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           name: p.name,
           unit: p.unit,
           rate: p.rate || 0,
+          gst_percentage: p.gst_percentage ?? null,
           variants: (cachedVariants || []).filter((v: any) => v.product_id === p.id && v.is_active !== false)
         }));
         
@@ -338,7 +341,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 id: v.id,
                 name: v.variant_name,
                 unit: p.unit,
-                rate: v.price || p.rate
+                rate: v.price || p.rate,
+                gst_percentage: p.gst_percentage ?? null,
               });
             });
           }
@@ -352,7 +356,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         // Fetch all products where is_active is true OR null (treat null as active)
         const { data: productsData, error: productsError } = await supabase
           .from('products')
-          .select('id, name, unit, rate')
+          .select('id, name, unit, rate, gst_percentage')
           .or('is_active.eq.true,is_active.is.null')
           .order('name');
         
@@ -382,7 +386,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               id: p.id,
               name: p.name,
               unit: p.unit,
-              rate: p.rate
+              rate: p.rate,
+              gst_percentage: p.gst_percentage ?? null,
             });
             // Add active variants as separate entries
             if (p.variants && p.variants.length > 0) {
@@ -391,7 +396,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   id: v.id,
                   name: v.variant_name,
                   unit: p.unit,
-                  rate: v.price || p.rate
+                  rate: v.price || p.rate,
+                  gst_percentage: p.gst_percentage ?? null,
                 });
               });
             }
@@ -1172,12 +1178,15 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       hour: '2-digit', minute: '2-digit', hour12: true
     });
 
-    // Calculate totals
+    // Calculate totals — per-product GST via computeLineTax (no flat 5%).
     let totalTaxable = 0;
+    let cgst = 0;
+    let sgst = 0;
     const itemsData = savedItems.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
       const priceWithGST = product?.rate || 0;
-      const priceWithoutGST = priceWithGST / 1.05;
+      const gstPct = Number(product?.gst_percentage) || 0;
+      const priceWithoutGST = gstPct > 0 ? priceWithGST / (1 + gstPct / 100) : priceWithGST;
       const unit = (item.unit || '').toLowerCase();
       const qty = item.start_qty || 0;
       
@@ -1189,7 +1198,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       }
       
       const totalValue = priceWithoutGST * qtyInKG;
-      totalTaxable += totalValue;
+      const lt = computeLineTax({ taxableAmount: totalValue, gstPercentage: gstPct });
+      totalTaxable += lt.taxableAmount;
+      cgst += lt.cgst;
+      sgst += lt.sgst;
       
       return {
         'Product': item.product_name,
@@ -1200,8 +1212,6 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       };
     });
 
-    const cgst = totalTaxable * 0.025;
-    const sgst = totalTaxable * 0.025;
     const grandTotal = totalTaxable + cgst + sgst;
 
     // Create worksheet with header info
@@ -1377,13 +1387,16 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       }
       yPos += 6;
 
-      // Calculate totals
+      // Calculate totals — per-product GST via computeLineTax (no flat 5%).
       let totalKGs = 0;
       let totalTaxable = 0;
+      let cgst = 0;
+      let sgst = 0;
       const tableData = savedItems.map((item: any) => {
         const product = products.find(p => p.id === item.product_id);
         const priceWithGST = product?.rate || 0;
-        const priceWithoutGST = priceWithGST / 1.05;
+        const gstPct = Number(product?.gst_percentage) || 0;
+        const priceWithoutGST = gstPct > 0 ? priceWithGST / (1 + gstPct / 100) : priceWithGST;
         const qty = item.start_qty || 0;
         const unit = (item.unit || '').toLowerCase();
         
@@ -1399,7 +1412,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         }
         
         const totalVal = priceWithoutGST * qtyInKG;
-        totalTaxable += totalVal;
+        const lt = computeLineTax({ taxableAmount: totalVal, gstPercentage: gstPct });
+        totalTaxable += lt.taxableAmount;
+        cgst += lt.cgst;
+        sgst += lt.sgst;
         
         return [
           item.product_name,
@@ -1455,10 +1471,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         finalY = 20;
       }
 
-      // Tax breakdown box
-      const cgst = totalTaxable * 0.025;
-      const sgst = totalTaxable * 0.025;
+      // Tax breakdown box (uses per-line totals computed above)
       const grandTotal = totalTaxable + cgst + sgst;
+      
       
       const boxWidth = 75;
       const boxX = pageWidth - boxWidth - 14;

@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Link2 } from "lucide-react";
 import { SelectedItem } from "./RetailerInvoiceList";
+import { computeLineTax } from "@/utils/taxCalc";
 
 interface CreditNoteReviewProps {
   items: SelectedItem[];
@@ -10,9 +11,13 @@ interface CreditNoteReviewProps {
 }
 
 export default function CreditNoteReview({ items, reason, reasonNotes }: CreditNoteReviewProps) {
+  // Per-line tax using each line's original GST% (from the order_item snapshot or product fallback).
+  const lineTaxes = items.map((i) =>
+    computeLineTax({ taxableAmount: i.returnQuantity * i.rate, gstPercentage: i.gstRate })
+  );
   const subTotal = items.reduce((sum, i) => sum + i.returnQuantity * i.rate, 0);
-  const sgst = subTotal * 0.025;
-  const cgst = subTotal * 0.025;
+  const sgst = lineTaxes.reduce((s, l) => s + l.sgst, 0);
+  const cgst = lineTaxes.reduce((s, l) => s + l.cgst, 0);
   const total = subTotal + sgst + cgst;
 
   const groupedByInvoice = items.reduce((acc, item) => {
@@ -59,17 +64,25 @@ export default function CreditNoteReview({ items, reason, reasonNotes }: CreditN
           {Object.entries(groupedByInvoice).map(([inv, invItems]) => (
             <div key={inv}>
               <p className="text-xs font-semibold text-muted-foreground mb-1">From Invoice: {inv}</p>
-              {invItems.map((item, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm py-1 border-b last:border-0">
-                  <div>
-                    <span className="font-medium">{item.productName}</span>
-                    <span className="text-muted-foreground text-xs ml-2">
-                      {item.returnQuantity} × ₹{item.rate.toFixed(2)}
-                    </span>
+              {invItems.map((item, idx) => {
+                const lt = computeLineTax({ taxableAmount: item.returnQuantity * item.rate, gstPercentage: item.gstRate });
+                return (
+                  <div key={idx} className="py-1 border-b last:border-0 space-y-0.5">
+                    <div className="flex justify-between items-center text-sm">
+                      <div>
+                        <span className="font-medium">{item.productName}</span>
+                        <span className="text-muted-foreground text-xs ml-2">
+                          {item.returnQuantity} × ₹{item.rate.toFixed(2)}
+                        </span>
+                      </div>
+                      <span className="font-medium">₹{(item.returnQuantity * item.rate).toFixed(2)}</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground pl-1">
+                      CGST {(lt.taxRate / 2).toFixed(2)}% ₹{lt.cgst.toFixed(2)} • SGST {(lt.taxRate / 2).toFixed(2)}% ₹{lt.sgst.toFixed(2)}
+                    </div>
                   </div>
-                  <span className="font-medium">₹{(item.returnQuantity * item.rate).toFixed(2)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </CardContent>
@@ -82,11 +95,11 @@ export default function CreditNoteReview({ items, reason, reasonNotes }: CreditN
             <span>₹{subTotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span>SGST (2.5%)</span>
+            <span>SGST</span>
             <span>₹{sgst.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span>CGST (2.5%)</span>
+            <span>CGST</span>
             <span>₹{cgst.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-sm font-bold border-t pt-2">
