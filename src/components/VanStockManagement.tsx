@@ -325,6 +325,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           name: p.name,
           unit: p.unit,
           rate: p.rate || 0,
+          gst_percentage: p.gst_percentage ?? null,
           variants: (cachedVariants || []).filter((v: any) => v.product_id === p.id && v.is_active !== false)
         }));
         
@@ -340,7 +341,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 id: v.id,
                 name: v.variant_name,
                 unit: p.unit,
-                rate: v.price || p.rate
+                rate: v.price || p.rate,
+                gst_percentage: p.gst_percentage ?? null,
               });
             });
           }
