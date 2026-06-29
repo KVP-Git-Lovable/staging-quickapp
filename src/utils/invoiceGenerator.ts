@@ -652,8 +652,10 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   const hasOrderLevelDiscount = appliedOrderDiscount > 0;
   const rowHeight = 5;
   const totalRowHeight = 7;
-  // Rows: SUB-TOTAL, (DISCOUNT if any), SGST, CGST, then TOTAL bar
-  const numRows = 3 + (hasOrderLevelDiscount ? 1 : 0);
+  const showIgst = igst > 0;
+  const showCess = cess > 0;
+  // Rows: SUB-TOTAL, (DISCOUNT if any), SGST, CGST, (IGST?), (CESS?), then TOTAL bar
+  const numRows = 3 + (hasOrderLevelDiscount ? 1 : 0) + (showIgst ? 1 : 0) + (showCess ? 1 : 0);
   const totalsBoxHeight = (numRows * rowHeight) + totalRowHeight + 4;
   
   // Draw border box
@@ -683,12 +685,24 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   }
   
   innerY += rowHeight;
-  doc.text("SGST (2.5%)", totalsBoxX + labelOffset, innerY);
+  doc.text("SGST", totalsBoxX + labelOffset, innerY);
   doc.text(`Rs.${formatExact(sgst)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
   
   innerY += rowHeight;
-  doc.text("CGST (2.5%)", totalsBoxX + labelOffset, innerY);
+  doc.text("CGST", totalsBoxX + labelOffset, innerY);
   doc.text(`Rs.${formatExact(cgst)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
+
+  if (showIgst) {
+    innerY += rowHeight;
+    doc.text("IGST", totalsBoxX + labelOffset, innerY);
+    doc.text(`Rs.${formatExact(igst)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
+  }
+  if (showCess) {
+    innerY += rowHeight;
+    doc.text("CESS", totalsBoxX + labelOffset, innerY);
+    doc.text(`Rs.${formatExact(cess)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
+  }
+
 
   // Total amount bar (green)
   innerY += rowHeight + 1;
