@@ -73,6 +73,8 @@ interface ProductFormData {
   barcode_image_url?: string;
   qr_code?: string;
   hsn_code?: string;
+  tax_master_id?: string | null;
+  gst_percentage?: number | null;
   is_focused_product: boolean;
   focused_type?: 'fixed_date' | 'recurring' | 'keep_open';
   focused_due_date: string;
