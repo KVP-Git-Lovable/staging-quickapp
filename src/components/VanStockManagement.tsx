@@ -137,6 +137,7 @@ interface Product {
   name: string;
   unit: string;
   rate: number;
+  gst_percentage?: number | null;
 }
 
 interface StockItem {
