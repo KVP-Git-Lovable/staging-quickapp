@@ -1095,6 +1095,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                                   barcode_image_url: (product as any).barcode_image_url || '',
                                   qr_code: (product as any).qr_code || '',
                                   hsn_code: (product as any).hsn_code || '',
+                                  tax_master_id: (product as any).tax_master_id ?? null,
+                                  gst_percentage: (product as any).gst_percentage ?? null,
                                   product_type: (product as any).product_type || 'Finished Good',
                                   gross_weight_g: (product as any).gross_weight_g ?? null,
                                   packaging_weight_g: (product as any).packaging_weight_g ?? null,
