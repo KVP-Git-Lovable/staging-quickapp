@@ -291,10 +291,7 @@ export function useMasterDataCache() {
       if (error) throw error;
 
       if (visits) {
-        await offlineStorage.clear(STORES.VISITS);
-        for (const visit of visits) {
-          await offlineStorage.save(STORES.VISITS, visit);
-        }
+        await offlineStorage.replaceAll(STORES.VISITS, visits);
         console.log(`[Cache] ✅ ${visits.length} visits cached`);
       }
       onProgress?.('visits', 'done');
