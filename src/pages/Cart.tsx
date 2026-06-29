@@ -1607,23 +1607,23 @@ export const Cart = () => {
               .single();
 
             if (!invoiceError && invoiceRecord) {
-              const invoiceItems = cartItems.map(item => {
+              const invoiceItems = enrichedItems.map(item => {
                 const quantity = Number(item.quantity || 0);
                 const rate = Number(getDisplayRate(item));
                 const taxableAmount = quantity * rate;
-                const cgst = (taxableAmount * 2.5) / 100;
-                const sgst = (taxableAmount * 2.5) / 100;
-                const totalWithTax = taxableAmount + cgst + sgst;
+                const gstPct = Number((item as any).gst_percentage) || 0;
+                const lt = computeLineTax({ taxableAmount, gstPercentage: gstPct });
+                const totalWithTax = taxableAmount + lt.cgst + lt.sgst + lt.igst + lt.cess;
                 return {
                   invoice_id: invoiceRecord.id,
                   description: item.name,
                   quantity,
                   unit_price: rate,
                   taxable_amount: taxableAmount,
-                  cgst_rate: 2.5,
-                  cgst_amount: cgst,
-                  sgst_rate: 2.5,
-                  sgst_amount: sgst,
+                  cgst_rate: gstPct / 2,
+                  cgst_amount: lt.cgst,
+                  sgst_rate: gstPct / 2,
+                  sgst_amount: lt.sgst,
                   total_amount: totalWithTax
                 };
               });
