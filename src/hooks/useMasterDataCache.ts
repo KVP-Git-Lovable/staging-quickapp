@@ -444,8 +444,13 @@ export function useMasterDataCache() {
     try {
       // Products
       onProgress('products', 'loading');
-      const { data: products } = await supabase.from('products').select('*').or('is_active.eq.true,is_active.is.null');
-      const { data: variants } = await supabase.from('product_variants').select('*').or('is_active.eq.true,is_active.is.null');
+      // PAGINATED to load EVERY active product/variant (no 1k cap)
+      const products = await fetchAllPaginated<any>((from, to) =>
+        supabase.from('products').select(PRODUCT_PICKER_COLUMNS).or('is_active.eq.true,is_active.is.null').order('name').range(from, to)
+      );
+      const variants = await fetchAllPaginated<any>((from, to) =>
+        supabase.from('product_variants').select('*').or('is_active.eq.true,is_active.is.null').range(from, to)
+      );
       if (products) {
         await offlineStorage.clear(STORES.PRODUCTS);
         for (const p of products) await offlineStorage.save(STORES.PRODUCTS, p);
