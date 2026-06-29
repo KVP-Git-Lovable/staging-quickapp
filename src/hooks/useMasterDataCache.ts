@@ -50,20 +50,15 @@ export function useMasterDataCache() {
           .range(from, to)
       );
 
-      // Only clear and update cache if all fetches succeeded
+      // Only clear and update cache if all fetches succeeded.
+      // BATCH write — single underlying storage write instead of N awaits.
       if (products) {
-        await offlineStorage.clear(STORES.PRODUCTS);
-        for (const product of products) {
-          await offlineStorage.save(STORES.PRODUCTS, product);
-        }
+        await offlineStorage.replaceAll(STORES.PRODUCTS, products);
         console.log(`[Cache] ✅ ${products.length} active products cached`);
       }
 
       if (variants) {
-        await offlineStorage.clear(STORES.VARIANTS);
-        for (const variant of variants) {
-          await offlineStorage.save(STORES.VARIANTS, variant);
-        }
+        await offlineStorage.replaceAll(STORES.VARIANTS, variants);
         console.log(`[Cache] ✅ ${variants.length} variants cached`);
       }
 
@@ -92,18 +87,12 @@ export function useMasterDataCache() {
         .select('*');
 
       if (schemes) {
-        await offlineStorage.clear(STORES.SCHEMES);
-        for (const scheme of schemes) {
-          await offlineStorage.save(STORES.SCHEMES, scheme);
-        }
+        await offlineStorage.replaceAll(STORES.SCHEMES, schemes);
         console.log(`[Cache] ✅ ${schemes.length} schemes cached`);
       }
 
       if (categories) {
-        await offlineStorage.clear(STORES.CATEGORIES);
-        for (const category of categories) {
-          await offlineStorage.save(STORES.CATEGORIES, category);
-        }
+        await offlineStorage.replaceAll(STORES.CATEGORIES, categories);
         console.log(`[Cache] ✅ ${categories.length} categories cached`);
       }
 
@@ -139,12 +128,9 @@ export function useMasterDataCache() {
 
       if (error) throw error;
 
-      // Only clear and update cache if fetch succeeded
+      // Only clear and update cache if fetch succeeded (single batched write)
       if (beats) {
-        await offlineStorage.clear(STORES.BEATS);
-        for (const beat of beats) {
-          await offlineStorage.save(STORES.BEATS, beat);
-        }
+        await offlineStorage.replaceAll(STORES.BEATS, beats);
         console.log(`[Cache] ✅ ${beats.length} active beats cached`);
       }
       onProgress?.('beats', 'done');
@@ -175,9 +161,7 @@ export function useMasterDataCache() {
       if (competitorsError) throw competitorsError;
 
       if (competitors) {
-        for (const competitor of competitors) {
-          await offlineStorage.save(STORES.COMPETITION_MASTER, competitor);
-        }
+        await offlineStorage.replaceAll(STORES.COMPETITION_MASTER, competitors);
         console.log(`Cached ${competitors.length} competitors`);
       }
 
@@ -190,9 +174,7 @@ export function useMasterDataCache() {
       if (skusError) throw skusError;
 
       if (skus) {
-        for (const sku of skus) {
-          await offlineStorage.save(STORES.COMPETITION_SKUS, sku);
-        }
+        await offlineStorage.replaceAll(STORES.COMPETITION_SKUS, skus);
         console.log(`Cached ${skus.length} competition SKUs`);
       }
       onProgress?.('competition', 'done');
@@ -270,12 +252,9 @@ export function useMasterDataCache() {
 
       if (error) throw error;
 
-      // Only clear and update cache if fetch succeeded
+      // Only clear and update cache if fetch succeeded (single batched write)
       if (beatPlans) {
-        await offlineStorage.clear(STORES.BEAT_PLANS);
-        for (const plan of beatPlans) {
-          await offlineStorage.save(STORES.BEAT_PLANS, plan);
-        }
+        await offlineStorage.replaceAll(STORES.BEAT_PLANS, beatPlans);
         console.log(`[Cache] ✅ ${beatPlans.length} beat plans cached (today + 3 days)`);
       }
       onProgress?.('beatPlans', 'done');
@@ -312,10 +291,7 @@ export function useMasterDataCache() {
       if (error) throw error;
 
       if (visits) {
-        await offlineStorage.clear(STORES.VISITS);
-        for (const visit of visits) {
-          await offlineStorage.save(STORES.VISITS, visit);
-        }
+        await offlineStorage.replaceAll(STORES.VISITS, visits);
         console.log(`[Cache] ✅ ${visits.length} visits cached`);
       }
       onProgress?.('visits', 'done');
@@ -353,10 +329,7 @@ export function useMasterDataCache() {
       if (error) throw error;
 
       if (orders) {
-        await offlineStorage.clear(STORES.ORDERS);
-        for (const order of orders) {
-          await offlineStorage.save(STORES.ORDERS, order);
-        }
+        await offlineStorage.replaceAll(STORES.ORDERS, orders);
         console.log(`[Cache] ✅ ${orders.length} orders cached`);
       }
       onProgress?.('orders', 'done');
@@ -452,12 +425,10 @@ export function useMasterDataCache() {
         supabase.from('product_variants').select('*').or('is_active.eq.true,is_active.is.null').range(from, to)
       );
       if (products) {
-        await offlineStorage.clear(STORES.PRODUCTS);
-        for (const p of products) await offlineStorage.save(STORES.PRODUCTS, p);
+        await offlineStorage.replaceAll(STORES.PRODUCTS, products);
       }
       if (variants) {
-        await offlineStorage.clear(STORES.VARIANTS);
-        for (const v of variants) await offlineStorage.save(STORES.VARIANTS, v);
+        await offlineStorage.replaceAll(STORES.VARIANTS, variants);
       }
       summary.products = (products?.length || 0) + (variants?.length || 0);
       onItemCount?.('products', summary.products);
@@ -468,12 +439,10 @@ export function useMasterDataCache() {
       const { data: schemes } = await supabase.from('product_schemes').select('*').or('is_active.eq.true,is_active.is.null');
       const { data: categories } = await supabase.from('product_categories').select('*');
       if (schemes) {
-        await offlineStorage.clear(STORES.SCHEMES);
-        for (const s of schemes) await offlineStorage.save(STORES.SCHEMES, s);
+        await offlineStorage.replaceAll(STORES.SCHEMES, schemes);
       }
       if (categories) {
-        await offlineStorage.clear(STORES.CATEGORIES);
-        for (const c of categories) await offlineStorage.save(STORES.CATEGORIES, c);
+        await offlineStorage.replaceAll(STORES.CATEGORIES, categories);
       }
       summary.schemes = (schemes?.length || 0) + (categories?.length || 0);
       onItemCount?.('schemes', summary.schemes);
@@ -483,8 +452,7 @@ export function useMasterDataCache() {
       onProgress('beats', 'loading');
       const { data: beats } = await supabase.from('beats').select('*').eq('is_active', true).eq('user_id', user.id);
       if (beats) {
-        await offlineStorage.clear(STORES.BEATS);
-        for (const b of beats) await offlineStorage.save(STORES.BEATS, b);
+        await offlineStorage.replaceAll(STORES.BEATS, beats);
       }
       summary.beats = beats?.length || 0;
       onItemCount?.('beats', summary.beats);
@@ -516,8 +484,7 @@ export function useMasterDataCache() {
         .gte('plan_date', todayStr)
         .lte('plan_date', threeDaysStr);
       if (beatPlans) {
-        await offlineStorage.clear(STORES.BEAT_PLANS);
-        for (const bp of beatPlans) await offlineStorage.save(STORES.BEAT_PLANS, bp);
+        await offlineStorage.replaceAll(STORES.BEAT_PLANS, beatPlans);
       }
       summary.beatPlans = beatPlans?.length || 0;
       onItemCount?.('beatPlans', summary.beatPlans);
@@ -528,10 +495,10 @@ export function useMasterDataCache() {
       const { data: competitors } = await supabase.from('competition_master').select('*');
       const { data: skus } = await supabase.from('competition_skus').select('*').eq('is_active', true);
       if (competitors) {
-        for (const c of competitors) await offlineStorage.save(STORES.COMPETITION_MASTER, c);
+        await offlineStorage.replaceAll(STORES.COMPETITION_MASTER, competitors);
       }
       if (skus) {
-        for (const s of skus) await offlineStorage.save(STORES.COMPETITION_SKUS, s);
+        await offlineStorage.replaceAll(STORES.COMPETITION_SKUS, skus);
       }
       summary.competition = (competitors?.length || 0) + (skus?.length || 0);
       onItemCount?.('competition', summary.competition);
@@ -541,8 +508,7 @@ export function useMasterDataCache() {
       onProgress('visits', 'loading');
       const { data: visits } = await supabase.from('visits').select('*').eq('user_id', user.id).eq('planned_date', todayStr);
       if (visits) {
-        await offlineStorage.clear(STORES.VISITS);
-        for (const v of visits) await offlineStorage.save(STORES.VISITS, v);
+        await offlineStorage.replaceAll(STORES.VISITS, visits);
       }
       summary.visits = visits?.length || 0;
       onItemCount?.('visits', summary.visits);
@@ -557,8 +523,7 @@ export function useMasterDataCache() {
         .gte('created_at', `${todayStr}T00:00:00`)
         .lte('created_at', `${todayStr}T23:59:59`);
       if (orders) {
-        await offlineStorage.clear(STORES.ORDERS);
-        for (const o of orders) await offlineStorage.save(STORES.ORDERS, o);
+        await offlineStorage.replaceAll(STORES.ORDERS, orders);
       }
       summary.orders = orders?.length || 0;
       onItemCount?.('orders', summary.orders);

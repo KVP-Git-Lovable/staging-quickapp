@@ -106,11 +106,9 @@ export const useOfflineSchemes = () => {
       
       console.log('[useOfflineSchemes] Formatted schemes with product names:', formattedSchemes.length);
 
-      // Clear old cache and save new schemes
-      await offlineStorage.clear(STORES.SCHEMES);
-      for (const scheme of formattedSchemes) {
-        await offlineStorage.save(STORES.SCHEMES, scheme);
-      }
+      // Clear old cache and save new schemes in a SINGLE batched write
+      // (avoids N sequential awaited puts that froze the UI on large catalogs).
+      await offlineStorage.replaceAll(STORES.SCHEMES, formattedSchemes);
 
       console.log('[useOfflineSchemes] Synced', formattedSchemes.length, 'schemes');
       setSchemes(formattedSchemes);

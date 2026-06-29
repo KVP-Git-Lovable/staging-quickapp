@@ -179,6 +179,41 @@ class OfflineStorage {
     }
   }
 
+  // BATCH upsert: merge many records into a store with a SINGLE underlying write.
+  // Replaces the legacy `for (const r of rows) await save(...)` pattern that
+  // re-read + re-parsed + re-wrote the entire JSON blob N times (O(N²) and
+  // the cause of multi-second UI freezes at ~8k+ products).
+  async saveMany<T extends { id?: string | number }>(storeName: string, records: T[]): Promise<void> {
+    await this.ensureReady();
+    if (!records || records.length === 0) return;
+
+    try {
+      const items = await this.getStoreData<T>(storeName);
+      const indexById = new Map<any, number>();
+      items.forEach((it: any, idx) => { if (it?.id != null) indexById.set(it.id, idx); });
+
+      for (const rec of records) {
+        const r: any = rec as any;
+        if (r.id == null) {
+          r.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+        }
+        const existingIdx = indexById.get(r.id);
+        if (existingIdx !== undefined) {
+          items[existingIdx] = r;
+        } else {
+          indexById.set(r.id, items.length);
+          items.push(r);
+        }
+      }
+
+      await this.setStoreData(storeName, items as any[]);
+      console.log(`[OfflineStorage] ✅ saveMany ${records.length} → ${storeName} (single write)`);
+    } catch (error) {
+      console.error(`[OfflineStorage] ❌ saveMany failed for ${storeName}:`, error);
+      throw error;
+    }
+  }
+
   async getById<T>(storeName: string, id: string): Promise<T | null> {
     await this.ensureReady();
     
