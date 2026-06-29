@@ -365,7 +365,7 @@ export default function InvoicePreview({
           if (!lt || lt.taxRate <= 0) return;
           const key = Number(lt.taxRate) || 0;
           const g = groups.get(key) || { taxable: 0, cgst: 0, sgst: 0, igst: 0, cess: 0 };
-          g.taxable += Number(lt.taxableAmount ?? lt.taxable ?? 0) || 0;
+          g.taxable += Number((lt as any).taxableAmount ?? 0) || 0;
           g.cgst += lt.cgst; g.sgst += lt.sgst; g.igst += lt.igst; g.cess += lt.cess;
           groups.set(key, g);
         });
