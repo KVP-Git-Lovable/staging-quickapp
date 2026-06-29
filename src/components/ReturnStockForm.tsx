@@ -90,6 +90,8 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
   const [selectedUnit, setSelectedUnit] = useState<string>('Kg');
   const [otherReason, setOtherReason] = useState<string>('');
   const [productDropdownOpen, setProductDropdownOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
 
   // Kick off the shared cache-first product load (paginated + IndexedDB cached).
   // Replaces the previous unbounded products + product_variants embed query
