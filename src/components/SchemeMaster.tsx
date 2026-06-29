@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { Plus, Edit2, Trash2, Gift, Search, Loader2, AlertTriangle, TrendingUp, Calendar, Globe, MapPin, Settings, Bot, Sparkles, RefreshCw } from 'lucide-react';
 import { SchemeFormFields } from './SchemeFormFields';
 import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
