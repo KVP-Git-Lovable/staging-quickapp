@@ -77,12 +77,14 @@ export const RunTestsScreen = () => {
 
       for (const actionId of selectedActions) {
         try {
-          const r = await runSingleAction(actionId, runId);
+          setCurrentLabel(actionId);
+          const r: any = await runSingleAction(actionId, runId);
           const row: ResultRow = {
             label: r.actionLabel,
             pass: r.pass,
             durationMs: r.durationMs,
             errorMessage: r.errorMessage,
+            manual: r.manual,
           };
           all.push(row);
           setResults((prev) => [...prev, row]);
@@ -92,6 +94,7 @@ export const RunTestsScreen = () => {
           setResults((prev) => [...prev, row]);
         }
       }
+      setCurrentLabel(null);
 
       if (runId) await finishRun(runId, all);
     } catch (e: any) {
