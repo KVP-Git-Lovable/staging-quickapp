@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildRetailerContext,
+  buildDistributorContext,
+  filterAvailableProducts,
   isProductAvailable,
   type AvailabilityRow,
   type RetailerContext,
