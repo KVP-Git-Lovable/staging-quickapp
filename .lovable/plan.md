@@ -1,65 +1,49 @@
-## Root cause
+## Plan — Fix QA APK: visit creation, beats mirror, Run Tests screen
 
-The `table()` helper in `src/lib/tableRouter.ts` works correctly, but **almost no code in the app uses it**. A grep shows only two files import `tableRouter`: `src/qa/runner.ts` and `src/App.tsx`. Every other screen, hook, and service calls `supabase.from('retailers')`, `supabase.from('orders')`, etc. with the **hard-coded production table name**.
+### 1) "Failed to create visit" in QA APK
 
-So in the QA APK:
-- `VITE_TABLE_PREFIX=qa_` is set correctly.
-- The QA banner reads `isQAMode()` and shows "writes to qa_* tables only".
-- But every actual `supabase.from(...)` call ignores the prefix and hits the real `public.retailers`, `public.orders`, etc.
+**Root cause.** `CreateNewVisitModal` inserts into `beat_plans` (it plans a beat for a date, i.e. "creates a visit"). `beat_plans` is NOT in `QA_MIRRORED_TABLES`, so the QA Supabase proxy blocks the insert with `QA_BLOCKED`, and the modal surfaces it as "Failed to create visit." A few related tables (`beats`, `daily_beat_plans`, `retailer_beat_assignments`) have the same problem the moment QA users touch beat/visit flows.
 
-That's why "June stored" landed in `retailers` and why the app shows prod data — the QA build is talking to the same prod tables as the prod build.
+**Fix.**
+- New migration creates `qa_` mirrors that don't exist yet:
+  - `qa_beats` (full mirror of `public.beats` — `CREATE TABLE … (LIKE public.beats INCLUDING ALL)` minus FKs to non-mirrored prod tables).
+  - `qa_beat_plans`.
+  - `qa_daily_beat_plans`.
+  - `qa_retailer_beat_assignments`.
+  - Each gets the standard 4-step block: `CREATE TABLE` → `GRANT SELECT/INSERT/UPDATE/DELETE` to `authenticated` + `ALL` to `service_role` → `ENABLE RLS` → permissive policy (`USING (true) WITH CHECK (true)`) matching the existing `qa_*` table style. No anon grants — QA is auth-only.
+- Extend `QA_MIRRORED_TABLES` in `src/lib/tableRouter.ts` with: `beats`, `beat_plans`, `daily_beat_plans`, `retailer_beat_assignments`.
+- Harden the QA wrapper in `src/integrations/supabase/client.ts`: if the caller passes a name that already starts with `qa_`, treat it as mirrored (pass through, no block). This stops the wrapper from blocking legitimate writes to `qa_test_runs` / `qa_test_logs` and any future `qa_*` table that code references directly.
 
-Refactoring hundreds of `supabase.from('x')` call sites to use `table('x')` is impractical and error-prone. The fix is to route at the client level.
+After this, `CreateNewVisitModal` writes to `qa_beat_plans` and the toast becomes "Visit Created".
 
-## Fix (single source of truth: wrap the Supabase client)
+### 2) Beats mirror
 
-1. **Define the QA mirror set** in `src/lib/tableRouter.ts`:
-   ```ts
-   export const QA_MIRRORED_TABLES = new Set([
-     'retailers', 'visits', 'orders', 'order_items',
-     'attendance', 'gps_tracking', 'retailer_visit_logs',
-     'products', 'inst_leads',
-     // plus the QA-only logging tables already prefixed: test_runs, test_logs, sync_audit_log
-   ]);
-   ```
-   These match the `qa_*` tables that already exist in the database.
+Covered by the same migration above (`qa_beats` + the dependent `qa_beat_plans` / `qa_daily_beat_plans` / `qa_retailer_beat_assignments`) and the `QA_MIRRORED_TABLES` update. Any read/write in QA that goes through `supabase.from('beats')` will land on `qa_beats` automatically — no page changes required.
 
-2. **Wrap the Supabase client** in `src/integrations/supabase/client.ts` with a `Proxy` so that, **only when `VITE_APP_MODE === 'qa'`**, calls to `supabase.from(name)` are transparently rewritten:
-   - If `name ∈ QA_MIRRORED_TABLES` → forward to `qa_<name>`.
-   - Otherwise → forward unchanged (reference data like `profiles`, `beats`, `products` lookups, etc., have no QA mirror and must keep reading from prod, which matches what the QA system was designed for).
-   - In **production builds the Proxy is a no-op** (returns the real client untouched), so prod behavior is byte-identical.
-   - The auto-generated `client.ts` header comment will be preserved by exporting the wrapped client from the same file; no edits to `types.ts`.
+### 3) "Run Tests (QA)" — "Something went wrong" + add runnable samples
 
-3. **Block writes to non-mirrored tables in QA** to stop accidental prod-data pollution:
-   - In QA mode only, intercept `insert / update / upsert / delete` on tables not in `QA_MIRRORED_TABLES` and:
-     - log a `console.error` with the table name and stack,
-     - return a rejected PostgrestResponse-shaped error `"QA build: writes to public.<table> are blocked"`.
-   - Reads on non-mirrored tables stay allowed (so the app can still render reference data).
+**Why it crashes.** Two compounding problems:
+- The runner writes to `qa_test_runs` / `qa_test_logs` via `supabase.from(...)`. The QA wrapper sees those names are not in `QA_MIRRORED_TABLES` and returns a `QA_BLOCKED` shape. Every step then logs a noisy error and never actually persists, but the click path still works. The crash itself is most likely a render-time exception that the global ErrorBoundary catches as "Something went wrong" — the screen calls hooks after an early `return <Navigate />`, violating the rules of hooks when `isQAMode` flips. We'll fix that by moving the `useState` / `useMemo` calls above the early return.
+- All flows/actions are `skipped`, so even when the page does render, "Run Selected" is permanently disabled and looks broken.
 
-4. **RPC handling in QA**:
-   - Many RPCs (`sync_order_with_items_v2`, `finalize_order_edit`, `apply_retailer_payment_fifo`, etc.) write to `public.orders`/`public.order_items` directly and have no QA equivalents.
-   - Add an allow-list `QA_SAFE_RPCS` of RPCs known to be read-only or already QA-aware. In QA mode, calls to RPCs not on the list are blocked the same way as writes, with a clear error.
-   - This is intentionally conservative: it surfaces every place that needs a `qa_` RPC variant, instead of silently corrupting prod.
+**Fix.**
+- `src/qa/screens/RunTestsScreen.tsx`: move `useState` / `useMemo` hooks above the `if (!isQAMode) return <Navigate/>` early return; wrap `runSelected` in try/catch so a thrown step error becomes a failed result row instead of bubbling to the ErrorBoundary.
+- The wrapper change in (1) also lets `qa_test_runs` / `qa_test_logs` inserts actually land.
+- Add real, runnable sample actions (`skipped: false`) that exercise the QA routing end-to-end against `qa_*` tables only:
+  - `smoke.count-retailers` — `select count` head:true on `qa_retailers`, passes if no error.
+  - `smoke.list-products` — fetches 5 rows from `qa_products`.
+  - `retailer.create-temp` — inserts a throwaway retailer into `qa_retailers` with a `QA-TEST-<uuid>` name, then deletes it; passes if both succeed.
+  - `visit.create-temp` — inserts then deletes a `qa_beat_plans` row for the current user + today (depends on the migration above).
+- Add a runnable sample flow `flow.smoke` chaining `smoke.count-retailers` → `smoke.list-products` → `retailer.create-temp` so users see a green/red trail when they click Run.
+- Leave the existing `skipped` placeholder actions in place — they document what still needs service extraction.
 
-5. **Drop the now-redundant `table()` indirection at call sites** that already adopted it (only `src/qa/runner.ts`); after the Proxy wrapper exists, `runner.ts` can call `supabase.from('retailers')` directly and still hit `qa_retailers`. Keep `table()` exported for any code that needs the raw string (e.g., building a `realtime` channel filter), but it's no longer required for `.from(...)`.
+### Acceptance
 
-6. **Banner copy update** in `QAModeBanner` to reflect the new contract:
-   > "QA MODE — mirrored tables route to `qa_*`; writes to non-mirrored prod tables and unsafe RPCs are blocked."
+- QA APK can create a visit; row appears in `qa_beat_plans`, never in `public.beat_plans`.
+- Creating/reading a beat in QA hits `qa_beats`.
+- Opening `/qa/run-tests` in the QA APK no longer shows "Something went wrong"; selecting "Smoke" and clicking Run shows pass rows, and a row appears in `qa_test_runs` with linked `qa_test_logs`.
+- Production build is unaffected (wrapper is a no-op when `VITE_APP_MODE !== 'qa'`).
 
-7. **Verification steps after build**:
-   - Rebuild `npm run build:qa && npx cap sync android` and install the QA flavor.
-   - Create a retailer → confirm row appears in `qa_retailers`, not `retailers`.
-   - Open Retailers list → confirm it reads from `qa_retailers` (empty except for the new one).
-   - Try an action that uses a non-mirrored write (e.g., create a leave application) → confirm the QA build surfaces the "writes blocked" error instead of writing to prod.
-   - Run `npm run build:prod` and smoke-test a normal flow to confirm the Proxy is a no-op.
+### Out of scope
 
-## What this does NOT change
-
-- No production database schema changes.
-- No production code paths (Proxy is gated on `VITE_APP_MODE === 'qa'`).
-- No edits to `src/integrations/supabase/types.ts`.
-- Existing `qa_*` migrations and the Run Tests module continue to work; they just stop being the only path that respects the prefix.
-
-## Follow-up (not in this fix)
-
-Some screens will hit "RPC blocked in QA" once #4 lands — that's the correct signal that we still need `qa_*` variants for those RPCs (orders, payments, edits). Those can be added incrementally without touching the client wrapper again.
+- Extracting `CreateNewVisitModal` / order-entry logic into service modules so the remaining `skipped` actions can run. That's the separate Phase-2 service-extraction pass already noted in the screen's amber banner.
