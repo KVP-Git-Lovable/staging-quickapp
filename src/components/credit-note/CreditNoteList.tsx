@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +7,18 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Download, Loader2, FileText, ChevronDown, ChevronUp, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { generateCreditNotePDF, CreditNoteItem } from "@/utils/creditNoteGenerator";
-import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { useMyPendingSteps, useProcessApprovalStep } from "@/hooks/useApprovalEngine";
 
 export default function CreditNoteList() {
-  const { hasAdminAccess } = useAdminAccess();
+  const { data: pendingSteps = [], refetch: refetchPendingSteps } = useMyPendingSteps();
+  const { processStep } = useProcessApprovalStep();
+
+  const cnPendingSteps = useMemo(
+    () => pendingSteps.filter((s) => s.entityType === "credit_note"),
+    [pendingSteps]
+  );
+  const hasPendingApprovals = cnPendingSteps.length > 0;
+
   const [tab, setTab] = useState<"issued" | "pending">("issued");
   const [issued, setIssued] = useState<any[]>([]);
   const [pending, setPending] = useState<any[]>([]);
@@ -18,6 +26,13 @@ export default function CreditNoteList() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Map credit_note_id -> approvalRequestId for engine calls
+  const stepByCnId = useMemo(() => {
+    const m = new Map<string, { approvalRequestId: string }>();
+    cnPendingSteps.forEach((s) => m.set(s.entityId, { approvalRequestId: s.approvalRequestId }));
+    return m;
+  }, [cnPendingSteps]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -28,20 +43,20 @@ export default function CreditNoteList() {
       .order("created_at", { ascending: false })
       .limit(200);
 
-    const pendingQ = hasAdminAccess
+    const pendingIds = cnPendingSteps.map((s) => s.entityId);
+    const pendingQ = pendingIds.length
       ? supabase
           .from("credit_notes")
           .select("*, credit_note_items(*)")
-          .eq("approval_status", "pending")
+          .in("id", pendingIds)
           .order("created_at", { ascending: false })
-          .limit(200)
       : Promise.resolve({ data: [], error: null } as any);
 
     const [iRes, pRes] = await Promise.all([issuedQ, pendingQ]);
     if (!iRes.error && iRes.data) setIssued(iRes.data);
     if (!pRes.error && pRes.data) setPending(pRes.data);
     setLoading(false);
-  }, [hasAdminAccess]);
+  }, [cnPendingSteps]);
 
   useEffect(() => {
     fetchAll();
@@ -112,15 +127,15 @@ export default function CreditNoteList() {
   };
 
   const handleApprove = async (cn: any) => {
+    const step = stepByCnId.get(cn.id);
+    if (!step) {
+      toast.error("No pending approval step for you on this credit note");
+      return;
+    }
     setActingId(cn.id);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.rpc("approve_credit_note", {
-        p_cn_id: cn.id,
-        p_approver: userData.user?.id,
-      });
-      if (error) throw error;
-      toast.success(`Approved ${cn.credit_note_number}`);
+      await processStep(step.approvalRequestId, "approved");
+      await refetchPendingSteps();
       await fetchAll();
     } catch (e: any) {
       toast.error(e.message || "Failed to approve");
@@ -130,18 +145,17 @@ export default function CreditNoteList() {
   };
 
   const handleReject = async (cn: any) => {
+    const step = stepByCnId.get(cn.id);
+    if (!step) {
+      toast.error("No pending approval step for you on this credit note");
+      return;
+    }
     const reason = window.prompt("Reason for rejection?");
     if (!reason || !reason.trim()) return;
     setActingId(cn.id);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      const { error } = await supabase.rpc("reject_credit_note", {
-        p_cn_id: cn.id,
-        p_approver: userData.user?.id,
-        p_reason: reason.trim(),
-      });
-      if (error) throw error;
-      toast.success(`Rejected ${cn.credit_note_number}`);
+      await processStep(step.approvalRequestId, "rejected", reason.trim());
+      await refetchPendingSteps();
       await fetchAll();
     } catch (e: any) {
       toast.error(e.message || "Failed to reject");
@@ -177,6 +191,7 @@ export default function CreditNoteList() {
 
   const renderRow = (cn: any, isPending: boolean) => {
     const expanded = expandedId === cn.id;
+    const canAct = isPending && stepByCnId.has(cn.id);
     return (
       <Card key={cn.id}>
         <CardContent className="py-3 px-4">
@@ -203,7 +218,7 @@ export default function CreditNoteList() {
               </div>
             </button>
             <div className="flex items-center gap-2">
-              {isPending && hasAdminAccess ? (
+              {canAct ? (
                 <>
                   <Button
                     size="sm"
@@ -268,7 +283,7 @@ export default function CreditNoteList() {
     <div className="space-y-3">{issued.map((cn) => renderRow(cn, false))}</div>
   );
 
-  if (!hasAdminAccess) return issuedList;
+  if (!hasPendingApprovals) return issuedList;
 
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v as any)}>

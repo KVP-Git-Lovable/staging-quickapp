@@ -23816,10 +23816,6 @@ export type Database = {
         }
         Returns: Json
       }
-      approve_credit_note: {
-        Args: { p_approver: string; p_cn_id: string }
-        Returns: Json
-      }
       assign_retailer_to_beat: {
         Args: { p_beat_id: string; p_reason?: string; p_retailer_id: string }
         Returns: Json
@@ -24747,10 +24743,6 @@ export type Database = {
       refresh_user_monthly_summary: {
         Args: { p_month: number; p_user_id: string; p_year: number }
         Returns: undefined
-      }
-      reject_credit_note: {
-        Args: { p_approver: string; p_cn_id: string; p_reason: string }
-        Returns: Json
       }
       release_all_packing_list_reservations: {
         Args: { p_packing_list_id: string }

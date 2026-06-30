@@ -28,7 +28,7 @@ export interface ApprovalRequest {
 export interface PendingStep {
   // approval_request fields
   approvalRequestId: string;
-  entityType: 'leave' | 'regularization' | 'expense';
+  entityType: 'leave' | 'regularization' | 'expense' | 'credit_note';
   entityId: string;
   currentLevel: number;
   totalLevels: number;
@@ -109,7 +109,7 @@ export const useMyPendingSteps = () => {
         })
         .map((s: any): PendingStep => ({
           approvalRequestId: s.approval_request_id,
-          entityType: s.approval_requests.entity_type as 'leave' | 'regularization',
+          entityType: s.approval_requests.entity_type as 'leave' | 'regularization' | 'expense' | 'credit_note',
           entityId: s.approval_requests.entity_id,
           currentLevel: s.approval_requests.current_level,
           totalLevels: s.approval_requests.total_levels,
