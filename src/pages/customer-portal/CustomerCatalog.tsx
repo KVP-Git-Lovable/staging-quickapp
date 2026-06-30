@@ -284,7 +284,7 @@ const CustomerCatalog = () => {
   }, [enabledUnits]);
 
   // Fetch products for selected category
-  const { data: products = [], isLoading: productsLoading } = useQuery({
+  const { data: rawProducts = [], isLoading: productsLoading } = useQuery({
     queryKey: ['catalog-products', selectedCategory, activeUnitCode],
     queryFn: async () => {
       const pageSize = 1000;
