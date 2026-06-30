@@ -144,25 +144,7 @@ export const VariantExtendedFields: React.FC<Props> = ({ form, inherited, onForm
               placeholder="0.00"
             />
           </div>
-          <div>
-            <Label htmlFor="variant_tax_rate">
-              Variant Tax Rate %{inherited?.taxRate != null ? ` (product: ${inherited.taxRate}%)` : ''}
-            </Label>
-            <Input
-              id="variant_tax_rate"
-              type="number"
-              min={0}
-              max={100}
-              step="0.01"
-              value={form.variant_tax_rate ?? ''}
-              onChange={(e) => {
-                if (e.target.value === '') { onFormChange({ variant_tax_rate: null }); return; }
-                const v = Math.min(100, Math.max(0, parseFloat(e.target.value)));
-                onFormChange({ variant_tax_rate: v });
-              }}
-              placeholder="0"
-            />
-          </div>
+          {/* Variant Tax Rate % removed in Phase 4 — tax now flows via GST Bracket (tax_master_id) below. */}
         </div>
       </div>
 

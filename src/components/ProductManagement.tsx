@@ -456,7 +456,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
         uom_id: (variantForm as any).uom_id || null,
         variant_weight_g: (variantForm as any).variant_weight_g,
         variant_cost: (variantForm as any).variant_cost,
-        variant_tax_rate: (variantForm as any).variant_tax_rate,
+        variant_tax_rate: null, // Phase 4: legacy raw % retired; tax flows via tax_master_id only.
         is_discontinued: !!(variantForm as any).is_discontinued,
         discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null,
         ...overridePayload,
