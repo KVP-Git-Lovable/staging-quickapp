@@ -676,7 +676,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             description: productForm.description,
             category_id: productForm.category_id || null,
             rate: productForm.rate,
-            unit: productForm.unit,
+            // `unit` is not a column on products — unit info lives in product_uom_mapping
+            // and is persisted by reconcileProductUomMapping below.
             base_unit_category: baseUnitCategory,
             conversion_factor: productForm.conversion_factor,
             closing_stock: productForm.closing_stock,
