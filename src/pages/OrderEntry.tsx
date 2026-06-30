@@ -386,6 +386,8 @@ export const OrderEntry = () => {
   const [retailerLat, setRetailerLat] = useState<number | undefined>(undefined);
   const [retailerLng, setRetailerLng] = useState<number | undefined>(undefined);
   const [retailerBeatId, setRetailerBeatId] = useState<string | undefined>(undefined);
+  // Phase 7-3: full retailer record (state/region/zone/territory_id/distributor_id) for availability ctx.
+  const [selectedRetailerForAvail, setSelectedRetailerForAvail] = useState<any>(null);
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   const [hasTrackedVisit, setHasTrackedVisit] = useState(false);
   const [isSettingLocation, setIsSettingLocation] = useState(false);
