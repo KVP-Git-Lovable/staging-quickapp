@@ -26,6 +26,7 @@ import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
+import { buildRetailerContext, filterAvailableProducts } from "@/utils/productAvailability";
 import { WifiOff, Wifi, MapPin, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "@/components/RetailerVisitDetailsModal";
