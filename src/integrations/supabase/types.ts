@@ -23983,6 +23983,10 @@ export type Database = {
         }
         Returns: Json
       }
+      create_product_with_uoms: {
+        Args: { p_price_overrides?: Json; p_product: Json; p_uoms?: Json }
+        Returns: string
+      }
       create_user_delegation: {
         Args: {
           p_beat_ids: string[]
@@ -24909,6 +24913,15 @@ export type Database = {
       update_picking_atomic: {
         Args: { p_batch_row_id: string; p_picked_qty: number }
         Returns: Json
+      }
+      update_product_with_uoms: {
+        Args: {
+          p_price_overrides?: Json
+          p_product: Json
+          p_product_id: string
+          p_uoms?: Json
+        }
+        Returns: string
       }
       update_security_info: {
         Args: { new_hint_answer: string; new_hint_question: string }
