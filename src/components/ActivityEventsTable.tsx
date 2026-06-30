@@ -58,7 +58,19 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }: ActivityEventsTableProps) => {
   const { fetchActivitiesForDate, updateActivityLocation } = useActivityEvents();
+  const { types: activityTypeMaster } = useActivityTypes();
   const navigate = useNavigate();
+
+  // Match incoming activity_type by name or code → master row.
+  const humanize = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const resolveTypeMeta = (key: string | null | undefined): { label: string; colorClass: string } => {
+    if (!key) return { label: 'Other', colorClass: NEUTRAL };
+    const hit = activityTypeMaster.find((t) => t.name === key || t.code === key);
+    return {
+      label: hit?.name ?? humanize(key),
+      colorClass: (hit?.color && COLOR_CLASS[hit.color]) || NEUTRAL,
+    };
+  };
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [visitStatuses, setVisitStatuses] = useState<Record<string, VisitStatus>>({});
   const [eventTotals, setEventTotals] = useState<Record<string, { revenue: number; orders: number }>>({});
