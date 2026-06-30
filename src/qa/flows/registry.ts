@@ -28,5 +28,20 @@ export const allQAFlows: QATestFlow[] = [
       { actionId: 'order.create' },
     ],
   },
+  {
+    id: 'flow.offline-order-lifecycle',
+    label: 'Offline order: queue → sync → verify',
+    description:
+      'End-to-end: with the app forced offline via the in-app ' +
+      'manual-offline toggle, the tester places an order; the ' +
+      'action confirms it lands in the local sync queue with ' +
+      'pending status, then restores network and confirms exactly ' +
+      'one matching row appears server-side with no duplicates.',
+    stopOnFailure: true,
+    steps: [
+      { actionId: 'offline.order-queued-locally' },
+      { actionId: 'offline.sync-completes-and-clears-queue' },
+    ],
+  },
 ];
 
