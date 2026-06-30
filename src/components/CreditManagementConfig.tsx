@@ -44,6 +44,46 @@ interface Territory {
 
 export const CreditManagementConfig = () => {
   const queryClient = useQueryClient();
+
+  // ---- Credit Note approval toggle (credit_note_config) ----
+  const { data: cnConfig, isLoading: cnConfigLoading } = useQuery({
+    queryKey: ['credit-note-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('credit_note_config')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const updateCnConfig = useMutation({
+    mutationFn: async (requires_approval: boolean) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id ?? null;
+      if (cnConfig?.id) {
+        const { error } = await supabase
+          .from('credit_note_config')
+          .update({ requires_approval, updated_at: new Date().toISOString(), updated_by: uid })
+          .eq('id', cnConfig.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('credit_note_config')
+          .insert({ requires_approval, updated_by: uid });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['credit-note-config'] });
+      toast.success('Setting saved');
+    },
+    onError: (e: any) => toast.error(e.message || 'Failed to save setting'),
+  });
+
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<Partial<CreditConfig> | null>(null);
   const [territoryPopoverOpen, setTerritoryPopoverOpen] = useState(false);
