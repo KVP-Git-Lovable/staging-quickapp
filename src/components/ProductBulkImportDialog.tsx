@@ -129,7 +129,7 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
       const res = await executeImport(validated, ctx, (done, total) => setProgress({ done, total }));
       setResult(res);
       toast.success(
-        `Import complete: ${res.inserted} inserted, ${res.updated} updated, ${res.skipped + res.failed} skipped`,
+        `Import complete: ${res.inserted + res.updated} products, ${res.variantsInserted + res.variantsUpdated} variants; ${res.skipped + res.failed + res.variantsSkipped + res.variantsFailed} skipped`,
       );
       onImported?.();
     } catch (e: any) {
