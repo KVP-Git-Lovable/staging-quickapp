@@ -21,6 +21,8 @@ import { ProductFormFields } from './ProductFormFields';
 import { ProductExtendedFields } from './ProductExtendedFields';
 import { VariantFocusedFields } from './VariantFocusedFields';
 import { VariantExtendedFields } from './VariantExtendedFields';
+import { VariantOverrideFields, emptyVariantOverrides, type VariantOverrideValues } from './VariantOverrideFields';
+import { resolveProduct } from '@/utils/resolveProduct';
 import { migrateProducts } from '@/utils/productMigration';
 import { usePagination } from '@/hooks/usePagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
@@ -188,6 +190,7 @@ const emptyVariantForm = (): any => ({
   variant_type: 'Other', uom_id: null as string | null, variant_weight_g: null as number | null,
   variant_cost: null as number | null, variant_tax_rate: null as number | null,
   is_discontinued: false, discontinued_date: null as string | null,
+  ...emptyVariantOverrides(),
 });
 
 const [productForm, setProductForm] = useState(emptyProductForm());
@@ -225,6 +228,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     variant_tax_rate: null as number | null,
     is_discontinued: false,
     discontinued_date: null as string | null,
+    ...emptyVariantOverrides(),
   } as any);
 
   const executeDeleteAllProducts = async () => {
@@ -416,72 +420,65 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       // Generate QR code if not exists
       const qrCode = variantForm.qr_code || generateQRCode('variant', variantSku, variantForm.variant_name);
 
+      // Phase 4: per-field override columns — NULL means "inherit from base".
+      const overrideKeys: (keyof VariantOverrideValues)[] = [
+        'tax_master_id', 'gst_percentage', 'category_id', 'brand', 'hsn_code',
+        'product_type', 'description', 'default_sales_uom_id', 'price_basis_uom_id',
+        'base_unit', 'net_weight_g', 'net_volume_ml', 'standard_cost',
+        'sku_image_url', 'reorder_level', 'reorder_quantity', 'manufacturer',
+        'country_of_origin',
+      ];
+      const overridePayload: Record<string, any> = {};
+      for (const k of overrideKeys) {
+        const v = (variantForm as any)[k];
+        overridePayload[k] = (v === '' || v === undefined) ? null : v;
+      }
+
+      const corePayload = {
+        product_id: variantForm.product_id,
+        variant_name: variantForm.variant_name,
+        sku: variantSku,
+        price: variantForm.price,
+        stock_quantity: variantForm.stock_quantity,
+        discount_percentage: variantForm.discount_percentage,
+        discount_amount: variantForm.discount_amount,
+        is_active: variantForm.is_active,
+        is_focused_product: variantForm.is_focused_product,
+        focused_type: (variantForm as any).focused_type || null,
+        focused_due_date: variantForm.focused_due_date || null,
+        focused_target_quantity: variantForm.focused_target_quantity || 0,
+        focused_territories: variantForm.focused_territories || [],
+        focused_recurring_config: (variantForm as any).focused_recurring_config || null,
+        barcode: variantForm.barcode || null,
+        qr_code: qrCode,
+        barcode_image_url: (variantForm as any).barcode_image_url || null,
+        variant_type: (variantForm as any).variant_type || 'Other',
+        uom_id: (variantForm as any).uom_id || null,
+        variant_weight_g: (variantForm as any).variant_weight_g,
+        variant_cost: (variantForm as any).variant_cost,
+        variant_tax_rate: (variantForm as any).variant_tax_rate,
+        is_discontinued: !!(variantForm as any).is_discontinued,
+        discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null,
+        ...overridePayload,
+      };
+
       if (variantForm.id) {
         const { error } = await supabase
           .from('product_variants')
-          .update({
-            product_id: variantForm.product_id,
-            variant_name: variantForm.variant_name,
-            sku: variantSku,
-            price: variantForm.price,
-            stock_quantity: variantForm.stock_quantity,
-            discount_percentage: variantForm.discount_percentage,
-            discount_amount: variantForm.discount_amount,
-            is_active: variantForm.is_active,
-            is_focused_product: variantForm.is_focused_product,
-            focused_type: (variantForm as any).focused_type || null,
-            focused_due_date: variantForm.focused_due_date || null,
-            focused_target_quantity: variantForm.focused_target_quantity || 0,
-            focused_territories: variantForm.focused_territories || [],
-            focused_recurring_config: (variantForm as any).focused_recurring_config || null,
-            barcode: variantForm.barcode || null,
-            qr_code: qrCode,
-            barcode_image_url: (variantForm as any).barcode_image_url || null,
-            variant_type: (variantForm as any).variant_type || 'Other',
-            uom_id: (variantForm as any).uom_id || null,
-            variant_weight_g: (variantForm as any).variant_weight_g,
-            variant_cost: (variantForm as any).variant_cost,
-            variant_tax_rate: (variantForm as any).variant_tax_rate,
-            is_discontinued: !!(variantForm as any).is_discontinued,
-            discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null
-          })
+          .update(corePayload)
           .eq('id', variantForm.id);
-        
+
         if (error) throw error;
         toast.success('Variant updated successfully');
       } else {
         const { error } = await supabase
           .from('product_variants')
-          .insert({
-            product_id: variantForm.product_id,
-            variant_name: variantForm.variant_name,
-            sku: variantSku,
-            price: variantForm.price,
-            stock_quantity: variantForm.stock_quantity,
-            discount_percentage: variantForm.discount_percentage,
-            discount_amount: variantForm.discount_amount,
-            is_active: variantForm.is_active,
-            is_focused_product: variantForm.is_focused_product,
-            focused_type: (variantForm as any).focused_type || null,
-            focused_due_date: variantForm.focused_due_date || null,
-            focused_target_quantity: variantForm.focused_target_quantity || 0,
-            focused_territories: variantForm.focused_territories || [],
-            focused_recurring_config: (variantForm as any).focused_recurring_config || null,
-            barcode: variantForm.barcode || null,
-            qr_code: qrCode,
-            barcode_image_url: (variantForm as any).barcode_image_url || null,
-            variant_type: (variantForm as any).variant_type || 'Other',
-            uom_id: (variantForm as any).uom_id || null,
-            variant_weight_g: (variantForm as any).variant_weight_g,
-            variant_cost: (variantForm as any).variant_cost,
-            variant_tax_rate: (variantForm as any).variant_tax_rate,
-            is_discontinued: !!(variantForm as any).is_discontinued,
-            discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null
-          });
-        
+          .insert(corePayload);
+
         if (error) throw error;
         toast.success('Variant created successfully');
       }
+
       
       setIsVariantDialogOpen(false);
       setVariantForm(emptyVariantForm());
@@ -1550,6 +1547,40 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                         />
                       );
                     })()}
+
+                    {/* Phase 4: per-field inherit/override editor for variant master columns */}
+                    {(() => {
+                      const parent: any = products.find((p) => p.id === variantForm.product_id) || {};
+                      const overrideValues: VariantOverrideValues = {
+                        tax_master_id: (variantForm as any).tax_master_id ?? null,
+                        gst_percentage: (variantForm as any).gst_percentage ?? null,
+                        category_id: (variantForm as any).category_id ?? null,
+                        brand: (variantForm as any).brand ?? null,
+                        hsn_code: (variantForm as any).hsn_code ?? null,
+                        product_type: (variantForm as any).product_type ?? null,
+                        description: (variantForm as any).description ?? null,
+                        default_sales_uom_id: (variantForm as any).default_sales_uom_id ?? null,
+                        price_basis_uom_id: (variantForm as any).price_basis_uom_id ?? null,
+                        base_unit: (variantForm as any).base_unit ?? null,
+                        net_weight_g: (variantForm as any).net_weight_g ?? null,
+                        net_volume_ml: (variantForm as any).net_volume_ml ?? null,
+                        standard_cost: (variantForm as any).standard_cost ?? null,
+                        sku_image_url: (variantForm as any).sku_image_url ?? null,
+                        reorder_level: (variantForm as any).reorder_level ?? null,
+                        reorder_quantity: (variantForm as any).reorder_quantity ?? null,
+                        manufacturer: (variantForm as any).manufacturer ?? null,
+                        country_of_origin: (variantForm as any).country_of_origin ?? null,
+                      };
+                      return (
+                        <VariantOverrideFields
+                          base={parent}
+                          values={overrideValues}
+                          categories={categories}
+                          taxMasters={taxMasters}
+                          onChange={(patch) => setVariantForm({ ...variantForm, ...patch } as any)}
+                        />
+                      );
+                    })()}
                     </div>
                   </ScrollArea>
                   <DialogFooter>
@@ -1579,12 +1610,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {variants.filter(v => v.product_id === selectedProductForVariants && productStatusMatches(v.is_active)).map((variant) => (
+                  {variants.filter(v => v.product_id === selectedProductForVariants && productStatusMatches(v.is_active)).map((variant) => {
+                    const baseForVariant: any = products.find((p) => p.id === variant.product_id) || {};
+                    const r = resolveProduct(baseForVariant, variant);
+                    return (
                     <TableRow key={variant.id}>
-                      <TableCell className="font-mono">{variant.sku}</TableCell>
+                      <TableCell className="font-mono">{variant.sku || r.sku}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span>{variant.variant_name}</span>
+                          <span>{r.display_name}</span>
                           {variant.is_focused_product && (
                             <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
                               Focused
@@ -1592,7 +1626,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>₹{variant.price.toFixed(2)}</TableCell>
+                      <TableCell>₹{Number(r.rate).toFixed(2)}</TableCell>
                       <TableCell>{variant.stock_quantity}</TableCell>
                       <TableCell>
                         {variant.discount_percentage > 0 && (
@@ -1615,11 +1649,12 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                               setVariantForm({
                                 ...variant,
                                 product_number: (variant as any).product_number || '',
-                                description: (variant as any).description || '',
-                                base_unit: (variant as any).base_unit || 'kg',
+                                // Keep DB nulls as nulls so the override editor reads "Inherited" correctly.
+                                description: (variant as any).description ?? null,
+                                base_unit: (variant as any).base_unit ?? null,
                                 unit: (variant as any).unit || 'piece',
                                 conversion_factor: (variant as any).conversion_factor || 1,
-                                hsn_code: (variant as any).hsn_code || '',
+                                hsn_code: (variant as any).hsn_code ?? null,
                                 is_focused_product: variant.is_focused_product || false,
                                 focused_type: (variant as any).focused_type || undefined,
                                 focused_due_date: variant.focused_due_date || '',
@@ -1635,7 +1670,23 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                                 variant_cost: (variant as any).variant_cost ?? null,
                                 variant_tax_rate: (variant as any).variant_tax_rate ?? null,
                                 is_discontinued: !!(variant as any).is_discontinued,
-                                discontinued_date: (variant as any).discontinued_date || null
+                                discontinued_date: (variant as any).discontinued_date || null,
+                                // Phase-4 override columns: preserve NULL = inherit.
+                                tax_master_id: (variant as any).tax_master_id ?? null,
+                                gst_percentage: (variant as any).gst_percentage ?? null,
+                                category_id: (variant as any).category_id ?? null,
+                                brand: (variant as any).brand ?? null,
+                                product_type: (variant as any).product_type ?? null,
+                                default_sales_uom_id: (variant as any).default_sales_uom_id ?? null,
+                                price_basis_uom_id: (variant as any).price_basis_uom_id ?? null,
+                                net_weight_g: (variant as any).net_weight_g ?? null,
+                                net_volume_ml: (variant as any).net_volume_ml ?? null,
+                                standard_cost: (variant as any).standard_cost ?? null,
+                                sku_image_url: (variant as any).sku_image_url ?? null,
+                                reorder_level: (variant as any).reorder_level ?? null,
+                                reorder_quantity: (variant as any).reorder_quantity ?? null,
+                                manufacturer: (variant as any).manufacturer ?? null,
+                                country_of_origin: (variant as any).country_of_origin ?? null,
                               });
                               setIsVariantDialogOpen(true);
                             }}
@@ -1652,7 +1703,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );})}
                 </TableBody>
               </Table>
             </ScrollArea>
