@@ -126,14 +126,23 @@ export const RunTestsScreen = () => {
         <CardContent className="flex gap-3 p-4 text-sm">
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
           <p className="text-amber-900">
-            All entity actions are currently <strong>skipped</strong> — their
-            business logic still lives inline inside pages and hooks. Use the
-            real screens in the QA APK to exercise <code>qa_*</code> writes via
-            table-prefix routing. Service extraction will unlock these actions
-            in a follow-up pass.
+            Tests drive the real app UI — you will see the app navigate between
+            screens automatically while a test runs. This is expected. Each test
+            passes only when the UI confirms success <em>and</em> a matching{' '}
+            <code>qa_*</code> row is found. Flows requiring native capabilities
+            (camera, GPS) are marked <strong>Manual step required</strong>.
           </p>
         </CardContent>
       </Card>
+
+      {running && currentLabel && (
+        <Card className="border-blue-300 bg-blue-50/60">
+          <CardContent className="flex items-center gap-3 p-3 text-sm text-blue-900">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Running: <strong>{currentLabel}</strong>…</span>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
