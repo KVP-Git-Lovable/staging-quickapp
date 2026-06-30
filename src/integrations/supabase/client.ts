@@ -27,7 +27,7 @@ const rawClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
  *     • `rpc(name, ...)` is blocked unless `name` is in QA_SAFE_RPCS.
  *   This prevents the QA APK from silently polluting production data.
  */
-function buildQAClient(client: SupabaseClient<Database>): SupabaseClient<Database> {
+function buildQAClient(client: any): any {
   const prefix = qaTablePrefix();
 
   const blockedWriteError = (table: string) => {
