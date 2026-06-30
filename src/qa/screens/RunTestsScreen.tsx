@@ -270,7 +270,9 @@ export const RunTestsScreen = () => {
                 {results.map((r, i) => (
                   <div key={i}>
                     <div className="flex items-start gap-3 py-1.5">
-                      {r.pass ? (
+                      {r.manual ? (
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      ) : r.pass ? (
                         <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                       ) : (
                         <XCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
@@ -281,6 +283,11 @@ export const RunTestsScreen = () => {
                           <span className="text-xs text-muted-foreground">
                             {r.durationMs.toFixed(0)}ms
                           </span>
+                          {r.manual && (
+                            <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-900 border-amber-300">
+                              Manual step required
+                            </Badge>
+                          )}
                         </div>
                         {r.errorMessage && (
                           <div className="text-xs text-red-700 mt-0.5 break-words">
