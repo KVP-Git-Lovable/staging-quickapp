@@ -22635,6 +22635,7 @@ export type Database = {
       van_return_grn_items: {
         Row: {
           created_at: string
+          disposition: string | null
           id: string
           product_id: string
           return_grn_id: string
@@ -22645,6 +22646,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          disposition?: string | null
           id?: string
           product_id: string
           return_grn_id: string
@@ -22655,6 +22657,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          disposition?: string | null
           id?: string
           product_id?: string
           return_grn_id?: string
@@ -23562,6 +23565,16 @@ export type Database = {
       }
     }
     Functions: {
+      _post_credit_note_to_ledger: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_cn_id: string
+          p_primary_order: string
+          p_retailer_id: string
+        }
+        Returns: undefined
+      }
       _safe_uuid: { Args: { p: string }; Returns: string }
       admin_deactivate_all_products: { Args: never; Returns: Json }
       allocate_inventory_batches: {
@@ -23597,6 +23610,10 @@ export type Database = {
           p_collection_id: string
           p_retailer_id: string
         }
+        Returns: Json
+      }
+      approve_credit_note: {
+        Args: { p_approver: string; p_cn_id: string }
         Returns: Json
       }
       assign_retailer_to_beat: {
@@ -23866,6 +23883,17 @@ export type Database = {
         Returns: Json
       }
       expire_user_delegations: { Args: never; Returns: undefined }
+      finalize_credit_note: {
+        Args: {
+          p_created_by: string
+          p_lines: Json
+          p_reason: string
+          p_reason_notes: string
+          p_retailer_id: string
+          p_visit_id: string
+        }
+        Returns: Json
+      }
       finalize_order_edit: {
         Args: {
           p_edited_by: string
@@ -24492,6 +24520,10 @@ export type Database = {
       refresh_user_monthly_summary: {
         Args: { p_month: number; p_user_id: string; p_year: number }
         Returns: undefined
+      }
+      reject_credit_note: {
+        Args: { p_approver: string; p_cn_id: string; p_reason: string }
+        Returns: Json
       }
       release_all_packing_list_reservations: {
         Args: { p_packing_list_id: string }
