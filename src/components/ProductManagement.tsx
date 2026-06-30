@@ -1703,7 +1703,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );})}
                 </TableBody>
               </Table>
             </ScrollArea>
