@@ -134,3 +134,57 @@ describe('buildRetailerContext', () => {
     expect(ctx.user_id).toBe('u-fallback');
   });
 });
+
+describe('filterAvailableProducts', () => {
+  type P = { id: string; base_id?: string; name: string };
+  const products: P[] = [
+    { id: 'p-1', name: 'Always visible' },
+    { id: 'p-2', name: 'North only' },
+    { id: 'p-3', name: 'Excluded in Kerala' },
+    { id: 'v-4', base_id: 'p-2', name: 'Variant of North only' },
+  ];
+  const getBaseId = (p: P) => p.base_id ?? p.id;
+
+  const map = new Map<string, AvailabilityRow[]>([
+    ['p-2', [row('region', 'North', 'include', 'p-2')]],
+    ['p-3', [row('state', 'Kerala', 'exclude', 'p-3')]],
+  ]);
+
+  it('keeps unrestricted products and applies include rules via base id', () => {
+    const northCtx = ctxIndia({ region: 'North', state: 'Delhi' });
+    const out = filterAvailableProducts(products, getBaseId, map, northCtx);
+    expect(out.map((p) => p.id).sort()).toEqual(['p-1', 'p-2', 'p-3', 'v-4']);
+  });
+
+  it('hides include-gated product (and its variant) outside the included region', () => {
+    const southCtx = ctxIndia({ region: 'South', state: 'Karnataka' });
+    const out = filterAvailableProducts(products, getBaseId, map, southCtx);
+    expect(out.map((p) => p.id).sort()).toEqual(['p-1', 'p-3']);
+  });
+
+  it('exclude rule hides the product in the matching state', () => {
+    const keralaCtx = ctxIndia({ region: 'South', state: 'Kerala' });
+    const out = filterAvailableProducts(products, getBaseId, map, keralaCtx);
+    expect(out.map((p) => p.id)).toEqual(['p-1']);
+  });
+
+  it('no map / empty map => no filtering', () => {
+    expect(filterAvailableProducts(products, getBaseId, null, ctxIndia()).length).toBe(4);
+    expect(filterAvailableProducts(products, getBaseId, new Map(), ctxIndia()).length).toBe(4);
+  });
+});
+
+describe('buildDistributorContext', () => {
+  it('pulls region/zone from territory and sets distributor_id from id', () => {
+    const terrs = new Map([['t-9', { region: 'East', zone: 'Kolkata' }]]);
+    const ctx = buildDistributorContext(
+      { id: 'd-9', state: 'WB', territory_id: 't-9' },
+      terrs,
+      'u-9'
+    );
+    expect(ctx).toEqual({
+      state: 'WB', region: 'East', zone: 'Kolkata',
+      territory_id: 't-9', distributor_id: 'd-9', user_id: 'u-9',
+    });
+  });
+});
