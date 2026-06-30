@@ -800,7 +800,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
               {isSubmitted ? 'Close' : 'Cancel'}
             </Button>
             <Button
-              className={cn('flex-1 h-9 text-sm', activeType && TYPE_COLOR[activeType.color])}
+              className="flex-1 h-9 text-sm"
               onClick={handleSubmit}
               disabled={isSubmitting || isSubmitted || !isOnline}
             >
