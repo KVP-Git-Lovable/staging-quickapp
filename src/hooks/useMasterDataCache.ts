@@ -400,6 +400,7 @@ export function useMasterDataCache() {
       await cacheRetailers(onProgress);
       await cacheBeatPlans(onProgress);
       await cacheCompetitionData(onProgress);
+      await cacheProductAvailability(onProgress);
       await cacheVisits(onProgress);
       await cacheOrders(onProgress);
       
@@ -415,7 +416,7 @@ export function useMasterDataCache() {
       console.error('[Cache] Cache warming failed:', error);
       return false;
     }
-  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheVisits, cacheOrders]);
+  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability, cacheVisits, cacheOrders]);
 
   // Full sync with item counts - returns summary for UI
   type SyncSummaryLocal = {
