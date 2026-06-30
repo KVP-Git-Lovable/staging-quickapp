@@ -749,6 +749,7 @@ export function useMasterDataCache() {
     cacheRetailers,
     cacheBeatPlans,
     cacheCompetitionData,
+    cacheProductAvailability,
     cacheVisits,
     cacheOrders,
     cacheAllMasterData,
@@ -756,6 +757,10 @@ export function useMasterDataCache() {
     warmCacheWithProgress,
     fullOfflineSync,
     loadCachedData,
+    // Phase 7-1 — exposed for the resolver (consumed in Phase 7-3).
+    availabilityByProductId,
+    territoriesById,
+    reloadAvailabilityMaps,
     isOnline
   };
 }
