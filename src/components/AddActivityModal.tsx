@@ -213,7 +213,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
   // Auto-load subordinate beat plan for joint visit
   useEffect(() => {
-    if (selectedType !== 'joint_beat_visit' || !subordinateId || !activityDate) { setSubordinateBeat(null); setBeatLoadError(false); return; }
+    if (!isJoint || !subordinateId || !activityDate) { setSubordinateBeat(null); setBeatLoadError(false); return; }
     supabase.from('beat_plans').select('id, beat_id, beat_name, beat_data')
       .eq('user_id', subordinateId).eq('plan_date', format(activityDate, 'yyyy-MM-dd')).maybeSingle()
       .then(({ data }: any) => {
@@ -262,7 +262,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   };
 
   const resetForm = () => {
-    setSelectedType('joint_beat_visit');
+    setSelectedType(JOINT);
     setActivityDate(new Date());
     setCheckInHHMM(nowHHMM()); setCheckOutHHMM(''); setDurationMinutes(null);
     setGpsLat(null); setGpsLng(null); setRemarks('');
