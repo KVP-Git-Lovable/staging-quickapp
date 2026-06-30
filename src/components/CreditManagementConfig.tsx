@@ -398,27 +398,151 @@ export const CreditManagementConfig = () => {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Credit Note Approval</CardTitle>
-          <CardDescription>
-            When ON, a credit note is held as Pending Approval and does not reduce the retailer's balance until an admin approves it. When OFF, credit notes post immediately.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="cn-requires-approval" className="font-medium">
-              Require admin approval for credit notes
-            </Label>
-            <Switch
-              id="cn-requires-approval"
-              checked={!!cnConfig?.requires_approval}
-              disabled={cnConfigLoading || updateCnConfig.isPending}
-              onCheckedChange={(v) => updateCnConfig.mutate(v)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {(can('credit_note_settings', 'read') || canEditCnSettings || !permsLoading) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Credit Note Settings</CardTitle>
+            <CardDescription>
+              When approval is ON, a credit note is held as Pending Approval and does not reduce the retailer's balance until it is approved. When OFF, credit notes post immediately.
+              {!canEditCnSettings && (
+                <span className="block mt-1 text-xs italic">
+                  You don't have permission to change these settings (read-only view).
+                </span>
+              )}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="cn-requires-approval" className="font-medium">
+                Require approval for credit notes
+              </Label>
+              <Switch
+                id="cn-requires-approval"
+                checked={requiresApproval}
+                disabled={!canEditCnSettings || cnConfigLoading || updateCnConfig.isPending}
+                onCheckedChange={(v) => updateCnConfig.mutate(v)}
+              />
+            </div>
+
+            {requiresApproval && (
+              <div className="space-y-4 border-t pt-4">
+                <div>
+                  <Label className="font-medium">Who approves credit notes</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Choose how approvers are determined when a credit note is submitted.
+                  </p>
+                </div>
+
+                <RadioGroup
+                  value={approverMode}
+                  onValueChange={(v) => canEditCnSettings && setApproverMode(v as 'manager' | 'specific')}
+                  disabled={!canEditCnSettings}
+                  className="space-y-2"
+                >
+                  <div className="flex items-start space-x-2">
+                    <RadioGroupItem value="manager" id="appr-mode-manager" disabled={!canEditCnSettings} />
+                    <div className="space-y-0.5">
+                      <Label htmlFor="appr-mode-manager" className="font-normal cursor-pointer">
+                        Manager hierarchy
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Route the request through the submitter's reporting chain.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <RadioGroupItem value="specific" id="appr-mode-specific" disabled={!canEditCnSettings} />
+                    <div className="space-y-0.5 w-full">
+                      <Label htmlFor="appr-mode-specific" className="font-normal cursor-pointer">
+                        Specific person
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Always send the approval request to one designated user.
+                      </p>
+                    </div>
+                  </div>
+                </RadioGroup>
+
+                {approverMode === 'specific' && (
+                  <div className="space-y-2 pl-6">
+                    <Label className="text-sm">Approver</Label>
+                    <Popover open={approverPickerOpen} onOpenChange={(o) => canEditCnSettings && setApproverPickerOpen(o)}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          disabled={!canEditCnSettings}
+                          className="w-full md:w-96 justify-between"
+                        >
+                          {selectedApproverName || 'Select a user…'}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[24rem] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search user…" />
+                          <CommandList>
+                            <CommandEmpty>No users found.</CommandEmpty>
+                            <CommandGroup>
+                              {(activeUsers ?? []).map((u) => (
+                                <CommandItem
+                                  key={u.id}
+                                  value={`${u.full_name ?? ''} ${u.id}`}
+                                  onSelect={() => {
+                                    setSpecificApproverId(u.id);
+                                    setApproverPickerOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'mr-2 h-4 w-4',
+                                      specificApproverId === u.id ? 'opacity-100' : 'opacity-0'
+                                    )}
+                                  />
+                                  {u.full_name || '(no name)'}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                )}
+
+                {specificMissing && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Please select a specific approver before saving — credit notes will be blocked otherwise.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => saveApproverConfig.mutate()}
+                    disabled={
+                      !canEditCnSettings ||
+                      cnApprovalLoading ||
+                      saveApproverConfig.isPending ||
+                      specificMissing
+                    }
+                  >
+                    {saveApproverConfig.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save approver settings
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
 
       <Card>
 
