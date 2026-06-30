@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { useConnectivity } from './useConnectivity';
@@ -6,6 +6,7 @@ import { useAuth } from './useAuth';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { useManagedInterval } from '@/utils/intervalManager';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+import type { AvailabilityRow, TerritoryLookupEntry } from '@/utils/productAvailability';
 
 // Trimmed columns for picker / order-entry use case (avoids select('*')
 // pulling rarely-used heavy fields). Kept in sync with TableOrderForm needs.
