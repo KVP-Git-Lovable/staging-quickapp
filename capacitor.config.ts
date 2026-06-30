@@ -4,11 +4,7 @@ const config: CapacitorConfig = {
   appId: 'com.kvp.salesnavigator',
   appName: 'SalesNavigator',
   webDir: 'dist',
-  server: {
-    url: 'https://field-sales-navigator.lovable.app',
-    androidScheme: 'https',
-    cleartext: false
-  },
+  
   webView: {
     allowMixedContent: true
   },

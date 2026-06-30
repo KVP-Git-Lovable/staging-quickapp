@@ -15753,6 +15753,1158 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_attendance: {
+        Row: {
+          check_in_address: string | null
+          check_in_location: Json | null
+          check_in_photo_url: string | null
+          check_in_time: string | null
+          check_out_address: string | null
+          check_out_location: Json | null
+          check_out_photo_url: string | null
+          check_out_time: string | null
+          created_at: string
+          date: string
+          face_match_confidence: number | null
+          face_match_confidence_out: number | null
+          face_verification_status: string | null
+          face_verification_status_out: string | null
+          id: string
+          locked: boolean
+          locked_at: string | null
+          locked_by: string | null
+          manual_override_reason: string | null
+          notes: string | null
+          qa_run_id: string | null
+          regularized_request_id: string | null
+          status: string
+          total_hours: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_in_address?: string | null
+          check_in_location?: Json | null
+          check_in_photo_url?: string | null
+          check_in_time?: string | null
+          check_out_address?: string | null
+          check_out_location?: Json | null
+          check_out_photo_url?: string | null
+          check_out_time?: string | null
+          created_at?: string
+          date?: string
+          face_match_confidence?: number | null
+          face_match_confidence_out?: number | null
+          face_verification_status?: string | null
+          face_verification_status_out?: string | null
+          id?: string
+          locked?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
+          manual_override_reason?: string | null
+          notes?: string | null
+          qa_run_id?: string | null
+          regularized_request_id?: string | null
+          status?: string
+          total_hours?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_in_address?: string | null
+          check_in_location?: Json | null
+          check_in_photo_url?: string | null
+          check_in_time?: string | null
+          check_out_address?: string | null
+          check_out_location?: Json | null
+          check_out_photo_url?: string | null
+          check_out_time?: string | null
+          created_at?: string
+          date?: string
+          face_match_confidence?: number | null
+          face_match_confidence_out?: number | null
+          face_verification_status?: string | null
+          face_verification_status_out?: string | null
+          id?: string
+          locked?: boolean
+          locked_at?: string | null
+          locked_by?: string | null
+          manual_override_reason?: string | null
+          notes?: string | null
+          qa_run_id?: string | null
+          regularized_request_id?: string | null
+          status?: string
+          total_hours?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_gps_tracking: {
+        Row: {
+          accuracy: number | null
+          created_at: string
+          date: string
+          heading: number | null
+          id: string
+          latitude: number
+          longitude: number
+          qa_run_id: string | null
+          speed: number | null
+          timestamp: string
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          created_at?: string
+          date?: string
+          heading?: number | null
+          id?: string
+          latitude: number
+          longitude: number
+          qa_run_id?: string | null
+          speed?: number | null
+          timestamp?: string
+          user_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          created_at?: string
+          date?: string
+          heading?: number | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          qa_run_id?: string | null
+          speed?: number | null
+          timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_inst_leads: {
+        Row: {
+          address: string | null
+          annual_potential_value: number | null
+          assigned_to: string | null
+          city: string | null
+          company_name: string
+          converted_account_id: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          industry_type: string | null
+          lead_name: string
+          lead_source: string | null
+          lead_status: string | null
+          notes: string | null
+          phone: string | null
+          pincode: string | null
+          qa_run_id: string | null
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          annual_potential_value?: number | null
+          assigned_to?: string | null
+          city?: string | null
+          company_name: string
+          converted_account_id?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          industry_type?: string | null
+          lead_name: string
+          lead_source?: string | null
+          lead_status?: string | null
+          notes?: string | null
+          phone?: string | null
+          pincode?: string | null
+          qa_run_id?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          annual_potential_value?: number | null
+          assigned_to?: string | null
+          city?: string | null
+          company_name?: string
+          converted_account_id?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          industry_type?: string | null
+          lead_name?: string
+          lead_source?: string | null
+          lead_status?: string | null
+          notes?: string | null
+          phone?: string | null
+          pincode?: string | null
+          qa_run_id?: string | null
+          state?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_order_items: {
+        Row: {
+          backorder_qty: number | null
+          category: string
+          cess_amount: number | null
+          cess_rate: number | null
+          cgst_amount: number | null
+          cgst_rate: number | null
+          conversion_to_base: number | null
+          created_at: string
+          discount_amount: number | null
+          hsn_code: string | null
+          id: string
+          igst_amount: number | null
+          igst_rate: number | null
+          order_id: string
+          original_rate: number | null
+          product_id: string | null
+          product_name: string
+          qa_run_id: string | null
+          quantity: number
+          rate: number
+          sgst_amount: number | null
+          sgst_rate: number | null
+          tax_master_id: string | null
+          tax_rate_snapshot: number | null
+          total: number
+          unit: string
+          uom_code: string | null
+          uom_id: string | null
+          variant_id: string | null
+        }
+        Insert: {
+          backorder_qty?: number | null
+          category: string
+          cess_amount?: number | null
+          cess_rate?: number | null
+          cgst_amount?: number | null
+          cgst_rate?: number | null
+          conversion_to_base?: number | null
+          created_at?: string
+          discount_amount?: number | null
+          hsn_code?: string | null
+          id?: string
+          igst_amount?: number | null
+          igst_rate?: number | null
+          order_id: string
+          original_rate?: number | null
+          product_id?: string | null
+          product_name: string
+          qa_run_id?: string | null
+          quantity: number
+          rate: number
+          sgst_amount?: number | null
+          sgst_rate?: number | null
+          tax_master_id?: string | null
+          tax_rate_snapshot?: number | null
+          total: number
+          unit: string
+          uom_code?: string | null
+          uom_id?: string | null
+          variant_id?: string | null
+        }
+        Update: {
+          backorder_qty?: number | null
+          category?: string
+          cess_amount?: number | null
+          cess_rate?: number | null
+          cgst_amount?: number | null
+          cgst_rate?: number | null
+          conversion_to_base?: number | null
+          created_at?: string
+          discount_amount?: number | null
+          hsn_code?: string | null
+          id?: string
+          igst_amount?: number | null
+          igst_rate?: number | null
+          order_id?: string
+          original_rate?: number | null
+          product_id?: string | null
+          product_name?: string
+          qa_run_id?: string | null
+          quantity?: number
+          rate?: number
+          sgst_amount?: number | null
+          sgst_rate?: number | null
+          tax_master_id?: string | null
+          tax_rate_snapshot?: number | null
+          total?: number
+          unit?: string
+          uom_code?: string | null
+          uom_id?: string | null
+          variant_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_orders: {
+        Row: {
+          amount_collected: number | null
+          assigned_agent_id: string | null
+          assigned_van_id: string | null
+          beat_id: string | null
+          beat_name_snapshot: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          counter_customer_id: string | null
+          created_at: string
+          credit_paid_amount: number | null
+          credit_pending_amount: number | null
+          delivered_at: string | null
+          delivery_date: string | null
+          delivery_notes: string | null
+          delivery_payment_method: string | null
+          delivery_proof_url: string | null
+          delivery_status: string | null
+          discount_amount: number | null
+          dispatched_at: string | null
+          distributor_id: string | null
+          distributor_name: string | null
+          edit_count: number
+          edited_at: string | null
+          event_id: string | null
+          id: string
+          idempotency_key: string
+          invoice_generated_at: string | null
+          invoice_number: string | null
+          is_backorder: boolean | null
+          is_credit_order: boolean | null
+          is_edited: boolean
+          order_date: string | null
+          order_source: string | null
+          owner_id_snapshot: string | null
+          packing_list_id: string | null
+          parent_order_id: string | null
+          payment_method: string | null
+          payment_proof_url: string | null
+          payment_status: string | null
+          picked_at: string | null
+          previous_pending_cleared: number | null
+          qa_run_id: string | null
+          replaced_by_order_id: string | null
+          replaces_order_id: string | null
+          retailer_id: string | null
+          retailer_name: string
+          sales_channel: string
+          short_items: Json | null
+          status: string
+          subtotal: number
+          territory_id: string | null
+          total_amount: number
+          updated_at: string
+          upi_last_four_code: string | null
+          user_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          amount_collected?: number | null
+          assigned_agent_id?: string | null
+          assigned_van_id?: string | null
+          beat_id?: string | null
+          beat_name_snapshot?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          counter_customer_id?: string | null
+          created_at?: string
+          credit_paid_amount?: number | null
+          credit_pending_amount?: number | null
+          delivered_at?: string | null
+          delivery_date?: string | null
+          delivery_notes?: string | null
+          delivery_payment_method?: string | null
+          delivery_proof_url?: string | null
+          delivery_status?: string | null
+          discount_amount?: number | null
+          dispatched_at?: string | null
+          distributor_id?: string | null
+          distributor_name?: string | null
+          edit_count?: number
+          edited_at?: string | null
+          event_id?: string | null
+          id?: string
+          idempotency_key: string
+          invoice_generated_at?: string | null
+          invoice_number?: string | null
+          is_backorder?: boolean | null
+          is_credit_order?: boolean | null
+          is_edited?: boolean
+          order_date?: string | null
+          order_source?: string | null
+          owner_id_snapshot?: string | null
+          packing_list_id?: string | null
+          parent_order_id?: string | null
+          payment_method?: string | null
+          payment_proof_url?: string | null
+          payment_status?: string | null
+          picked_at?: string | null
+          previous_pending_cleared?: number | null
+          qa_run_id?: string | null
+          replaced_by_order_id?: string | null
+          replaces_order_id?: string | null
+          retailer_id?: string | null
+          retailer_name: string
+          sales_channel?: string
+          short_items?: Json | null
+          status?: string
+          subtotal: number
+          territory_id?: string | null
+          total_amount: number
+          updated_at?: string
+          upi_last_four_code?: string | null
+          user_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          amount_collected?: number | null
+          assigned_agent_id?: string | null
+          assigned_van_id?: string | null
+          beat_id?: string | null
+          beat_name_snapshot?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          counter_customer_id?: string | null
+          created_at?: string
+          credit_paid_amount?: number | null
+          credit_pending_amount?: number | null
+          delivered_at?: string | null
+          delivery_date?: string | null
+          delivery_notes?: string | null
+          delivery_payment_method?: string | null
+          delivery_proof_url?: string | null
+          delivery_status?: string | null
+          discount_amount?: number | null
+          dispatched_at?: string | null
+          distributor_id?: string | null
+          distributor_name?: string | null
+          edit_count?: number
+          edited_at?: string | null
+          event_id?: string | null
+          id?: string
+          idempotency_key?: string
+          invoice_generated_at?: string | null
+          invoice_number?: string | null
+          is_backorder?: boolean | null
+          is_credit_order?: boolean | null
+          is_edited?: boolean
+          order_date?: string | null
+          order_source?: string | null
+          owner_id_snapshot?: string | null
+          packing_list_id?: string | null
+          parent_order_id?: string | null
+          payment_method?: string | null
+          payment_proof_url?: string | null
+          payment_status?: string | null
+          picked_at?: string | null
+          previous_pending_cleared?: number | null
+          qa_run_id?: string | null
+          replaced_by_order_id?: string | null
+          replaces_order_id?: string | null
+          retailer_id?: string | null
+          retailer_name?: string
+          sales_channel?: string
+          short_items?: Json | null
+          status?: string
+          subtotal?: number
+          territory_id?: string | null
+          total_amount?: number
+          updated_at?: string
+          upi_last_four_code?: string | null
+          user_id?: string
+          visit_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_products: {
+        Row: {
+          barcode: string | null
+          barcode_image_url: string | null
+          base_unit: string | null
+          base_unit_category: string
+          brand: string | null
+          category_id: string | null
+          closing_stock: number | null
+          conversion_factor: number | null
+          cost_currency: string | null
+          country_of_origin: string | null
+          created_at: string
+          created_by: string | null
+          default_purchase_uom_id: string | null
+          default_sales_uom_id: string | null
+          description: string | null
+          discontinuation_reason: string | null
+          discontinued_date: string | null
+          focused_due_date: string | null
+          focused_recurring_config: Json | null
+          focused_target_quantity: number | null
+          focused_territories: string[] | null
+          focused_type: string | null
+          gross_weight_g: number | null
+          gst_percentage: number | null
+          hsn_code: string | null
+          id: string
+          is_active: boolean | null
+          is_discontinued: boolean | null
+          is_focused_product: boolean | null
+          last_cost_update: string | null
+          manufacturer: string | null
+          name: string
+          net_volume_ml: number | null
+          net_weight_g: number | null
+          opening_stock: number | null
+          packaging_weight_g: number | null
+          price_basis_uom_id: string | null
+          primary_supplier_id: string | null
+          product_number: string | null
+          product_type: string | null
+          qa_run_id: string | null
+          qr_code: string | null
+          rate: number
+          reorder_level: number | null
+          reorder_quantity: number | null
+          sku: string
+          sku_image_url: string | null
+          standard_cost: number | null
+          tax_master_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          barcode?: string | null
+          barcode_image_url?: string | null
+          base_unit?: string | null
+          base_unit_category?: string
+          brand?: string | null
+          category_id?: string | null
+          closing_stock?: number | null
+          conversion_factor?: number | null
+          cost_currency?: string | null
+          country_of_origin?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_purchase_uom_id?: string | null
+          default_sales_uom_id?: string | null
+          description?: string | null
+          discontinuation_reason?: string | null
+          discontinued_date?: string | null
+          focused_due_date?: string | null
+          focused_recurring_config?: Json | null
+          focused_target_quantity?: number | null
+          focused_territories?: string[] | null
+          focused_type?: string | null
+          gross_weight_g?: number | null
+          gst_percentage?: number | null
+          hsn_code?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_discontinued?: boolean | null
+          is_focused_product?: boolean | null
+          last_cost_update?: string | null
+          manufacturer?: string | null
+          name: string
+          net_volume_ml?: number | null
+          net_weight_g?: number | null
+          opening_stock?: number | null
+          packaging_weight_g?: number | null
+          price_basis_uom_id?: string | null
+          primary_supplier_id?: string | null
+          product_number?: string | null
+          product_type?: string | null
+          qa_run_id?: string | null
+          qr_code?: string | null
+          rate?: number
+          reorder_level?: number | null
+          reorder_quantity?: number | null
+          sku: string
+          sku_image_url?: string | null
+          standard_cost?: number | null
+          tax_master_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          barcode?: string | null
+          barcode_image_url?: string | null
+          base_unit?: string | null
+          base_unit_category?: string
+          brand?: string | null
+          category_id?: string | null
+          closing_stock?: number | null
+          conversion_factor?: number | null
+          cost_currency?: string | null
+          country_of_origin?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_purchase_uom_id?: string | null
+          default_sales_uom_id?: string | null
+          description?: string | null
+          discontinuation_reason?: string | null
+          discontinued_date?: string | null
+          focused_due_date?: string | null
+          focused_recurring_config?: Json | null
+          focused_target_quantity?: number | null
+          focused_territories?: string[] | null
+          focused_type?: string | null
+          gross_weight_g?: number | null
+          gst_percentage?: number | null
+          hsn_code?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_discontinued?: boolean | null
+          is_focused_product?: boolean | null
+          last_cost_update?: string | null
+          manufacturer?: string | null
+          name?: string
+          net_volume_ml?: number | null
+          net_weight_g?: number | null
+          opening_stock?: number | null
+          packaging_weight_g?: number | null
+          price_basis_uom_id?: string | null
+          primary_supplier_id?: string | null
+          product_number?: string | null
+          product_type?: string | null
+          qa_run_id?: string | null
+          qr_code?: string | null
+          rate?: number
+          reorder_level?: number | null
+          reorder_quantity?: number | null
+          sku?: string
+          sku_image_url?: string | null
+          standard_cost?: number | null
+          tax_master_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      qa_retailer_visit_logs: {
+        Row: {
+          action_type: string | null
+          created_at: string
+          distance_meters: number | null
+          end_time: string | null
+          id: string
+          is_phone_order: boolean | null
+          location_feedback_notes: string | null
+          location_feedback_reason: string | null
+          location_status: string | null
+          qa_run_id: string | null
+          retailer_id: string
+          start_latitude: number | null
+          start_longitude: number | null
+          start_time: string
+          time_spent_seconds: number | null
+          updated_at: string
+          user_id: string
+          visit_date: string
+          visit_id: string | null
+        }
+        Insert: {
+          action_type?: string | null
+          created_at?: string
+          distance_meters?: number | null
+          end_time?: string | null
+          id?: string
+          is_phone_order?: boolean | null
+          location_feedback_notes?: string | null
+          location_feedback_reason?: string | null
+          location_status?: string | null
+          qa_run_id?: string | null
+          retailer_id: string
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time: string
+          time_spent_seconds?: number | null
+          updated_at?: string
+          user_id: string
+          visit_date: string
+          visit_id?: string | null
+        }
+        Update: {
+          action_type?: string | null
+          created_at?: string
+          distance_meters?: number | null
+          end_time?: string | null
+          id?: string
+          is_phone_order?: boolean | null
+          location_feedback_notes?: string | null
+          location_feedback_reason?: string | null
+          location_status?: string | null
+          qa_run_id?: string | null
+          retailer_id?: string
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time?: string
+          time_spent_seconds?: number | null
+          updated_at?: string
+          user_id?: string
+          visit_date?: string
+          visit_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_retailers: {
+        Row: {
+          account_holder_name: string | null
+          address: string
+          alternate_phone: string | null
+          avg_monthly_orders_3m: number | null
+          avg_order_per_visit_3m: number | null
+          bank_account: string | null
+          bank_name: string | null
+          beat_id: string
+          beat_name: string | null
+          category: string | null
+          competitors: string[] | null
+          contact_name: string | null
+          contact_title: string | null
+          created_at: string
+          created_by: string | null
+          distributor_id: string | null
+          duplicate_of: string | null
+          duplicate_risk_score: number
+          entity_type: string
+          first_order_placed: boolean
+          first_visit_completed: boolean
+          gst_number: string | null
+          id: string
+          ifsc: string | null
+          last_order_date: string | null
+          last_order_value: number | null
+          last_visit_date: string | null
+          latitude: number | null
+          location_tag: string | null
+          logo_url: string | null
+          longitude: number | null
+          manual_credit_score: number | null
+          name: string
+          notes: string | null
+          order_value: number | null
+          owner_id: string | null
+          owner_name: string | null
+          parent_name: string | null
+          parent_type: string | null
+          pending_amount: number | null
+          phone: string | null
+          photo_url: string | null
+          portal_enabled: boolean | null
+          portal_pin: string | null
+          potential: string | null
+          priority: string | null
+          productive_visits_3m: number | null
+          qa_run_id: string | null
+          qr_upi: string | null
+          quality_last_calculated_at: string | null
+          retail_type: string | null
+          retailer_confirmed: boolean
+          shop_front_visible: boolean
+          state: string | null
+          status: string | null
+          terms_conditions: string | null
+          territory_id: string | null
+          total_visits_3m: number | null
+          unverified_order_count: number
+          updated_at: string
+          user_id: string
+          verification_address: boolean | null
+          verification_contact: boolean | null
+          verification_method: string | null
+          verification_notes: string | null
+          verification_score: number | null
+          verification_territory: boolean | null
+          verified: boolean
+          verified_at: string | null
+          verified_by: string | null
+          verified_by_name: string | null
+          whatsapp_verified: boolean
+        }
+        Insert: {
+          account_holder_name?: string | null
+          address: string
+          alternate_phone?: string | null
+          avg_monthly_orders_3m?: number | null
+          avg_order_per_visit_3m?: number | null
+          bank_account?: string | null
+          bank_name?: string | null
+          beat_id: string
+          beat_name?: string | null
+          category?: string | null
+          competitors?: string[] | null
+          contact_name?: string | null
+          contact_title?: string | null
+          created_at?: string
+          created_by?: string | null
+          distributor_id?: string | null
+          duplicate_of?: string | null
+          duplicate_risk_score?: number
+          entity_type?: string
+          first_order_placed?: boolean
+          first_visit_completed?: boolean
+          gst_number?: string | null
+          id?: string
+          ifsc?: string | null
+          last_order_date?: string | null
+          last_order_value?: number | null
+          last_visit_date?: string | null
+          latitude?: number | null
+          location_tag?: string | null
+          logo_url?: string | null
+          longitude?: number | null
+          manual_credit_score?: number | null
+          name: string
+          notes?: string | null
+          order_value?: number | null
+          owner_id?: string | null
+          owner_name?: string | null
+          parent_name?: string | null
+          parent_type?: string | null
+          pending_amount?: number | null
+          phone?: string | null
+          photo_url?: string | null
+          portal_enabled?: boolean | null
+          portal_pin?: string | null
+          potential?: string | null
+          priority?: string | null
+          productive_visits_3m?: number | null
+          qa_run_id?: string | null
+          qr_upi?: string | null
+          quality_last_calculated_at?: string | null
+          retail_type?: string | null
+          retailer_confirmed?: boolean
+          shop_front_visible?: boolean
+          state?: string | null
+          status?: string | null
+          terms_conditions?: string | null
+          territory_id?: string | null
+          total_visits_3m?: number | null
+          unverified_order_count?: number
+          updated_at?: string
+          user_id: string
+          verification_address?: boolean | null
+          verification_contact?: boolean | null
+          verification_method?: string | null
+          verification_notes?: string | null
+          verification_score?: number | null
+          verification_territory?: boolean | null
+          verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_by_name?: string | null
+          whatsapp_verified?: boolean
+        }
+        Update: {
+          account_holder_name?: string | null
+          address?: string
+          alternate_phone?: string | null
+          avg_monthly_orders_3m?: number | null
+          avg_order_per_visit_3m?: number | null
+          bank_account?: string | null
+          bank_name?: string | null
+          beat_id?: string
+          beat_name?: string | null
+          category?: string | null
+          competitors?: string[] | null
+          contact_name?: string | null
+          contact_title?: string | null
+          created_at?: string
+          created_by?: string | null
+          distributor_id?: string | null
+          duplicate_of?: string | null
+          duplicate_risk_score?: number
+          entity_type?: string
+          first_order_placed?: boolean
+          first_visit_completed?: boolean
+          gst_number?: string | null
+          id?: string
+          ifsc?: string | null
+          last_order_date?: string | null
+          last_order_value?: number | null
+          last_visit_date?: string | null
+          latitude?: number | null
+          location_tag?: string | null
+          logo_url?: string | null
+          longitude?: number | null
+          manual_credit_score?: number | null
+          name?: string
+          notes?: string | null
+          order_value?: number | null
+          owner_id?: string | null
+          owner_name?: string | null
+          parent_name?: string | null
+          parent_type?: string | null
+          pending_amount?: number | null
+          phone?: string | null
+          photo_url?: string | null
+          portal_enabled?: boolean | null
+          portal_pin?: string | null
+          potential?: string | null
+          priority?: string | null
+          productive_visits_3m?: number | null
+          qa_run_id?: string | null
+          qr_upi?: string | null
+          quality_last_calculated_at?: string | null
+          retail_type?: string | null
+          retailer_confirmed?: boolean
+          shop_front_visible?: boolean
+          state?: string | null
+          status?: string | null
+          terms_conditions?: string | null
+          territory_id?: string | null
+          total_visits_3m?: number | null
+          unverified_order_count?: number
+          updated_at?: string
+          user_id?: string
+          verification_address?: boolean | null
+          verification_contact?: boolean | null
+          verification_method?: string | null
+          verification_notes?: string | null
+          verification_score?: number | null
+          verification_territory?: boolean | null
+          verified?: boolean
+          verified_at?: string | null
+          verified_by?: string | null
+          verified_by_name?: string | null
+          whatsapp_verified?: boolean
+        }
+        Relationships: []
+      }
+      qa_sync_audit_log: {
+        Row: {
+          action: string
+          attempt_count: number | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          error_message: string | null
+          id: string
+          payload: Json | null
+          qa_run_id: string | null
+          status: string
+          synced_at: string | null
+        }
+        Insert: {
+          action: string
+          attempt_count?: number | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          qa_run_id?: string | null
+          status?: string
+          synced_at?: string | null
+        }
+        Update: {
+          action?: string
+          attempt_count?: number | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          qa_run_id?: string | null
+          status?: string
+          synced_at?: string | null
+        }
+        Relationships: []
+      }
+      qa_test_logs: {
+        Row: {
+          assertion_details: Json | null
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          metadata_json: Json | null
+          module_name: string | null
+          records_created: Json | null
+          records_deleted: Json | null
+          started_at: string
+          status: string
+          step_name: string | null
+          test_name: string
+          test_run_id: string
+        }
+        Insert: {
+          assertion_details?: Json | null
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata_json?: Json | null
+          module_name?: string | null
+          records_created?: Json | null
+          records_deleted?: Json | null
+          started_at?: string
+          status?: string
+          step_name?: string | null
+          test_name: string
+          test_run_id: string
+        }
+        Update: {
+          assertion_details?: Json | null
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          metadata_json?: Json | null
+          module_name?: string | null
+          records_created?: Json | null
+          records_deleted?: Json | null
+          started_at?: string
+          status?: string
+          step_name?: string | null
+          test_name?: string
+          test_run_id?: string
+        }
+        Relationships: []
+      }
+      qa_test_runs: {
+        Row: {
+          android_version: string | null
+          apk_version: string | null
+          build_type: string | null
+          completed_at: string | null
+          device_name: string | null
+          failed_tests: number | null
+          id: string
+          notes: string | null
+          overall_status: string | null
+          passed_tests: number | null
+          run_id: string
+          started_at: string
+          tester_email: string | null
+          tester_id: string | null
+          total_tests: number | null
+        }
+        Insert: {
+          android_version?: string | null
+          apk_version?: string | null
+          build_type?: string | null
+          completed_at?: string | null
+          device_name?: string | null
+          failed_tests?: number | null
+          id?: string
+          notes?: string | null
+          overall_status?: string | null
+          passed_tests?: number | null
+          run_id?: string
+          started_at?: string
+          tester_email?: string | null
+          tester_id?: string | null
+          total_tests?: number | null
+        }
+        Update: {
+          android_version?: string | null
+          apk_version?: string | null
+          build_type?: string | null
+          completed_at?: string | null
+          device_name?: string | null
+          failed_tests?: number | null
+          id?: string
+          notes?: string | null
+          overall_status?: string | null
+          passed_tests?: number | null
+          run_id?: string
+          started_at?: string
+          tester_email?: string | null
+          tester_id?: string | null
+          total_tests?: number | null
+        }
+        Relationships: []
+      }
+      qa_visits: {
+        Row: {
+          check_in_address: string | null
+          check_in_location: Json | null
+          check_in_photo_url: string | null
+          check_in_time: string | null
+          check_out_address: string | null
+          check_out_location: Json | null
+          check_out_photo_url: string | null
+          check_out_time: string | null
+          completion_source: string | null
+          created_at: string
+          feedback: Json | null
+          id: string
+          location_match_in: boolean | null
+          location_match_out: boolean | null
+          no_order_reason: string | null
+          planned_date: string
+          qa_run_id: string | null
+          retailer_id: string | null
+          skip_check_in_reason: string | null
+          skip_check_in_time: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          visit_type: string | null
+        }
+        Insert: {
+          check_in_address?: string | null
+          check_in_location?: Json | null
+          check_in_photo_url?: string | null
+          check_in_time?: string | null
+          check_out_address?: string | null
+          check_out_location?: Json | null
+          check_out_photo_url?: string | null
+          check_out_time?: string | null
+          completion_source?: string | null
+          created_at?: string
+          feedback?: Json | null
+          id?: string
+          location_match_in?: boolean | null
+          location_match_out?: boolean | null
+          no_order_reason?: string | null
+          planned_date: string
+          qa_run_id?: string | null
+          retailer_id?: string | null
+          skip_check_in_reason?: string | null
+          skip_check_in_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          visit_type?: string | null
+        }
+        Update: {
+          check_in_address?: string | null
+          check_in_location?: Json | null
+          check_in_photo_url?: string | null
+          check_in_time?: string | null
+          check_out_address?: string | null
+          check_out_location?: Json | null
+          check_out_photo_url?: string | null
+          check_out_time?: string | null
+          completion_source?: string | null
+          created_at?: string
+          feedback?: Json | null
+          id?: string
+          location_match_in?: boolean | null
+          location_match_out?: boolean | null
+          no_order_reason?: string | null
+          planned_date?: string
+          qa_run_id?: string | null
+          retailer_id?: string | null
+          skip_check_in_reason?: string | null
+          skip_check_in_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          visit_type?: string | null
+        }
+        Relationships: []
+      }
       recommendation_feedback: {
         Row: {
           created_at: string | null
@@ -22513,6 +23665,7 @@ export type Database = {
       cleanup_expired_recommendations: { Args: never; Returns: undefined }
       cleanup_expired_reset_tokens: { Args: never; Returns: undefined }
       cleanup_old_execution_logs: { Args: never; Returns: undefined }
+      cleanup_qa_run: { Args: { p_run_id: string }; Returns: Json }
       clear_company_feature_override: {
         Args: { p_company_id: string; p_feature_key: string }
         Returns: undefined
@@ -23299,6 +24452,7 @@ export type Database = {
         Args: { p_packing_list_id: string }
         Returns: Json
       }
+      reset_all_qa_data: { Args: never; Returns: undefined }
       resolve_effective_leave_policy: {
         Args: { p_leave_type_id: string; p_user_id: string }
         Returns: Json
