@@ -55,7 +55,7 @@ export function ProductAvailabilityEditor({ productId }: Props) {
     (async () => {
       setLoading(true);
       try {
-        const [{ data: rulesData }, terrs, dists, profs] = await Promise.all([
+        const [{ data: rulesData }, terrs, dists, profs, retailerStates] = await Promise.all([
           supabase
             .from('product_availability')
             .select('id, product_id, scope_type, scope_value, mode')
@@ -67,7 +67,10 @@ export function ProductAvailabilityEditor({ productId }: Props) {
                 .select('id, name, region, zone')
                 .order('name', { ascending: true })
                 .range(from, to)
-          ),
+          ).catch((err) => {
+            console.warn('[Availability] failed to load territories:', err);
+            return [];
+          }),
           fetchAllPaginated<{ id: string; name: string; state: string | null }>(
             (from, to) =>
               supabase
@@ -75,15 +78,27 @@ export function ProductAvailabilityEditor({ productId }: Props) {
                 .select('id, name, state')
                 .order('name', { ascending: true })
                 .range(from, to)
-          ),
-          fetchAllPaginated<{ user_id: string; full_name: string | null }>(
+          ).catch((err) => {
+            console.warn('[Availability] failed to load distributors:', err);
+            return [];
+          }),
+          fetchAllPaginated<{ id: string; full_name: string | null }>(
             (from, to) =>
               supabase
                 .from('profiles')
-                .select('user_id, full_name')
+                .select('id, full_name')
                 .order('full_name', { ascending: true })
                 .range(from, to)
-          ),
+          ).catch((err) => {
+            console.warn('[Availability] failed to load profiles:', err);
+            return [];
+          }),
+          fetchAllPaginated<{ state: string | null }>((from, to) =>
+            supabase.from('retailers').select('state').not('state', 'is', null).range(from, to)
+          ).catch((err) => {
+            console.warn('[Availability] failed to load retailer states:', err);
+            return [];
+          }),
         ]);
         if (cancelled) return;
 
@@ -92,8 +107,8 @@ export function ProductAvailabilityEditor({ productId }: Props) {
         setDistributors((dists ?? []).map((d) => ({ id: d.id, name: d.name })));
         setUsers(
           (profs ?? [])
-            .filter((p) => p.user_id && p.full_name)
-            .map((p) => ({ user_id: p.user_id, full_name: p.full_name as string }))
+            .filter((p) => p.id && p.full_name)
+            .map((p) => ({ user_id: p.id, full_name: p.full_name as string }))
         );
 
         const regionSet = new Set<string>();
@@ -109,10 +124,6 @@ export function ProductAvailabilityEditor({ productId }: Props) {
         for (const d of dists ?? []) {
           if (d.state) stateSet.add(d.state);
         }
-        // also pull distinct retailer states (paginated)
-        const retailerStates = await fetchAllPaginated<{ state: string | null }>((from, to) =>
-          supabase.from('retailers').select('state').not('state', 'is', null).range(from, to)
-        );
         for (const r of retailerStates ?? []) {
           if (r.state) stateSet.add(r.state);
         }
