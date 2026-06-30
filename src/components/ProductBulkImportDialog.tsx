@@ -129,7 +129,7 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
       const res = await executeImport(validated, ctx, (done, total) => setProgress({ done, total }));
       setResult(res);
       toast.success(
-        `Import complete: ${res.inserted} inserted, ${res.updated} updated, ${res.skipped + res.failed} skipped`,
+        `Import complete: ${res.inserted + res.updated} products, ${res.variantsInserted + res.variantsUpdated} variants; ${res.skipped + res.failed + res.variantsSkipped + res.variantsFailed} skipped`,
       );
       onImported?.();
     } catch (e: any) {
@@ -227,6 +227,12 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
               {validated && (
                 <>
                   <Badge variant="secondary">{validated.length} rows</Badge>
+                  <Badge variant="outline">
+                    {validated.filter((r) => r.kind === 'product').length} products
+                  </Badge>
+                  <Badge variant="outline">
+                    {validated.filter((r) => r.kind === 'variant').length} variants
+                  </Badge>
                   <Badge className="bg-emerald-600">{validated.filter((r) => r.ok).length} OK</Badge>
                   <Badge variant="destructive">{validated.filter((r) => !r.ok).length} with errors</Badge>
                   <Button onClick={runImport} disabled={importing || validated.every((r) => !r.ok)}>
@@ -247,16 +253,26 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
             )}
 
             {result && (
-              <div className="flex items-center gap-2 text-sm">
-                <Badge className="bg-emerald-600">Inserted: {result.inserted}</Badge>
-                <Badge className="bg-blue-600">Updated: {result.updated}</Badge>
-                <Badge variant="secondary">Skipped (invalid): {result.skipped}</Badge>
-                <Badge variant="destructive">Failed: {result.failed}</Badge>
-                {result.errorRows.length > 0 && (
-                  <Button size="sm" variant="outline" onClick={downloadErrors}>
-                    <Download className="h-4 w-4 mr-2" />Download error report
-                  </Button>
-                )}
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">Products:</span>
+                  <Badge className="bg-emerald-600">Inserted: {result.inserted}</Badge>
+                  <Badge className="bg-blue-600">Updated: {result.updated}</Badge>
+                  <Badge variant="secondary">Skipped: {result.skipped}</Badge>
+                  <Badge variant="destructive">Failed: {result.failed}</Badge>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold">Variants:</span>
+                  <Badge className="bg-emerald-600">Inserted: {result.variantsInserted}</Badge>
+                  <Badge className="bg-blue-600">Updated: {result.variantsUpdated}</Badge>
+                  <Badge variant="secondary">Skipped: {result.variantsSkipped}</Badge>
+                  <Badge variant="destructive">Failed: {result.variantsFailed}</Badge>
+                  {result.errorRows.length > 0 && (
+                    <Button size="sm" variant="outline" onClick={downloadErrors}>
+                      <Download className="h-4 w-4 mr-2" />Download error report
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -267,6 +283,7 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
                     <TableRow>
                       <TableHead className="w-16">Row</TableHead>
                       <TableHead className="w-32">SKU</TableHead>
+                      <TableHead className="w-24">Kind</TableHead>
                       <TableHead className="w-24">Status</TableHead>
                       <TableHead>Issues</TableHead>
                     </TableRow>
@@ -276,6 +293,11 @@ export function ProductBulkImportDialog({ trigger, onImported }: Props) {
                       <TableRow key={r.rowNumber} className={r.ok ? '' : 'bg-destructive/5'}>
                         <TableCell>{r.rowNumber}</TableCell>
                         <TableCell className="font-mono text-xs">{r.sku || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px]">
+                            {r.kind === 'variant' ? 'Variant' : 'Product'}
+                          </Badge>
+                        </TableCell>
                         <TableCell>
                           {r.ok
                             ? <Badge className="bg-emerald-600">OK</Badge>

@@ -64,9 +64,39 @@ export async function parseImportFile(file: File): Promise<ParseResult> {
   return { rows, unknownHeaders: Array.from(unknown) };
 }
 
+export type RowKind = 'product' | 'variant';
+
+export interface VariantResolved {
+  parent_sku: string;
+  variant_name: string;
+  price: number | null;
+  stock_quantity: number | null;
+  is_active: boolean;
+  // Override columns — null means inherit from parent.
+  tax_master_id: string | null;
+  gst_percentage: number | null;
+  category_id: string | null;
+  brand: string | null;
+  hsn_code: string | null;
+  product_type: string | null;
+  description: string | null;
+  default_sales_uom_id: string | null;
+  price_basis_uom_id: string | null;
+  base_unit: string | null;
+  net_weight_g: number | null;
+  net_volume_ml: number | null;
+  standard_cost: number | null;
+  sku_image_url: string | null;
+  reorder_level: number | null;
+  reorder_quantity: number | null;
+  manufacturer: string | null;
+  country_of_origin: string | null;
+}
+
 export interface ValidatedRow {
   rowNumber: number;        // 1-based, matches sheet row (header = 1).
   sku: string;
+  kind: RowKind;
   ok: boolean;
   errors: string[];
   warnings: string[];
@@ -101,6 +131,7 @@ export interface ValidatedRow {
       is_default_sales: boolean;
     }>;
   };
+  variantResolved?: VariantResolved;
 }
 
 
@@ -187,15 +218,127 @@ function resolveUom(ctx: ValidationContext, code: string | null) {
   return ctx.uomByCode.get(code.trim().toUpperCase()) ?? null;
 }
 
+
 export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): ValidatedRow[] {
   const out: ValidatedRow[] = [];
   const seenSkus = new Set<string>();
+
+  // Pre-pass: collect base-row SKUs in this file so variant rows can reference
+  // a parent that doesn't exist in the DB yet (Phase A creates it).
+  const baseSkusInFile = new Set<string>();
+  for (const raw of rows) {
+    const parentSku = textOrNull(raw['parent_sku']);
+    const sku = textOrNull(raw['sku']);
+    if (!parentSku && sku) baseSkusInFile.add(sku);
+  }
 
   rows.forEach((raw, i) => {
     const errors: string[] = [];
     const warnings: string[] = [];
 
     const sku = textOrNull(raw['sku']) ?? '';
+    const parentSku = textOrNull(raw['parent_sku']) ?? '';
+    const kind: RowKind = parentSku ? 'variant' : 'product';
+
+    // Shared SKU validation.
+    if (!sku) errors.push('sku is required');
+    else if (seenSkus.has(sku)) errors.push(`duplicate sku in file: ${sku}`);
+    else seenSkus.add(sku);
+
+    if (kind === 'variant') {
+      // --- VARIANT ROW ---
+      const variantName = textOrNull(raw['variant_name']) ?? '';
+      if (!variantName) errors.push('variant_name is required for variant rows');
+
+      // Parent must resolve.
+      const parentExistsInDb = ctx.existingSkus.has(parentSku);
+      const parentInFile = baseSkusInFile.has(parentSku);
+      if (!parentExistsInDb && !parentInFile) {
+        errors.push(`parent_sku not found: ${parentSku}`);
+      }
+      if (parentSku === sku) errors.push('parent_sku must differ from sku');
+
+      // Override resolution (all optional — blank = inherit / null).
+      const gst = numOrNull(raw['gst_percentage']);
+      if (gst != null && (gst < 0 || gst > 100)) errors.push('gst_percentage must be 0..100');
+
+      const taxName = textOrNull(raw['tax_master']);
+      let taxId: string | null = null;
+      let effectiveGst: number | null = gst;
+      if (taxName) {
+        const t = ctx.taxByName.get(taxName.toLowerCase());
+        if (!t) errors.push(`unknown tax_master "${taxName}"`);
+        else { taxId = t.id; effectiveGst = t.total_rate; }
+      }
+      if (!taxId && gst != null) {
+        const k = rateKey(gst);
+        const byRate = k != null ? ctx.taxByRate.get(k) : undefined;
+        if (byRate) { taxId = byRate.id; effectiveGst = byRate.total_rate; }
+      }
+
+      const categoryName = textOrNull(raw['category']);
+      let categoryId: string | null = null;
+      if (categoryName) {
+        const c = ctx.categoriesByName.get(categoryName.toLowerCase());
+        if (!c) errors.push(`unknown category "${categoryName}" (variant rows do not auto-create categories)`);
+        else categoryId = c;
+      }
+
+      const resolveOptUom = (code: string | null, label: string): string | null => {
+        if (!code) return null;
+        const u = ctx.uomByCode.get(code.trim().toUpperCase());
+        if (!u) { errors.push(`unknown ${label} "${code}"`); return null; }
+        if (!u.enabled) { errors.push(`${label} "${code}" is disabled`); return null; }
+        return u.id;
+      };
+      const defSalesUomId = resolveOptUom(textOrNull(raw['default_sales_unit']), 'default_sales_unit');
+      const priceBasisUomId = resolveOptUom(textOrNull(raw['price_basis_unit']), 'price_basis_unit');
+
+      const rate = numOrNull(raw['rate']);
+      if (rate != null && rate <= 0) errors.push('rate must be > 0 when provided');
+
+      const ok = errors.length === 0;
+      const row: ValidatedRow = {
+        rowNumber: i + 2,
+        sku,
+        kind,
+        ok,
+        errors,
+        warnings,
+        raw,
+      };
+      if (ok) {
+        row.variantResolved = {
+          parent_sku: parentSku,
+          variant_name: variantName,
+          price: rate,
+          stock_quantity: numOrNull(raw['opening_stock']),
+          is_active: raw['is_active'] == null || raw['is_active'] === '' ? true : truthy(raw['is_active']),
+          tax_master_id: taxId,
+          gst_percentage: effectiveGst,
+          category_id: categoryId,
+          brand: textOrNull(raw['brand']),
+          hsn_code: textOrNull(raw['hsn_code']),
+          product_type: textOrNull(raw['product_type']),
+          description: textOrNull(raw['description']),
+          default_sales_uom_id: defSalesUomId,
+          price_basis_uom_id: priceBasisUomId,
+          base_unit: textOrNull(raw['base_unit']),
+          net_weight_g: numOrNull(raw['net_weight_g']),
+          net_volume_ml: numOrNull(raw['net_volume_ml']),
+          standard_cost: numOrNull(raw['standard_cost']),
+          sku_image_url: textOrNull(raw['sku_image_url']),
+          reorder_level: numOrNull(raw['reorder_level']),
+          reorder_quantity: numOrNull(raw['reorder_quantity']),
+          manufacturer: textOrNull(raw['manufacturer']),
+          country_of_origin: textOrNull(raw['country_of_origin']),
+        };
+      }
+      out.push(row);
+      return;
+    }
+
+    // --- BASE PRODUCT ROW (unchanged behavior) ---
     const name = textOrNull(raw['name']) ?? '';
     const categoryName = textOrNull(raw['category']) ?? '';
     const gst = numOrNull(raw['gst_percentage']);
@@ -204,13 +347,8 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
     const priceBasisCode = textOrNull(raw['price_basis_unit']);
     const defSalesCode = textOrNull(raw['default_sales_unit']);
 
-    if (!sku) errors.push('sku is required');
-    else if (seenSkus.has(sku)) errors.push(`duplicate sku in file: ${sku}`);
-    else seenSkus.add(sku);
-
     if (!name) errors.push('name is required');
     if (!categoryName) errors.push('category is required');
-    // GST is OPTIONAL — only validate if a value was provided.
     if (gst != null && (gst < 0 || gst > 100)) errors.push('gst_percentage must be 0..100');
     if (rate == null || rate <= 0) errors.push('rate must be > 0');
     if (!baseCode) errors.push('base_unit is required');
@@ -243,15 +381,13 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
       else taxId = t.id;
     }
 
-    // Auto-link by gst_percentage when tax_master_id is still unresolved.
-    // This prevents the "tax_master_id = null when gst is present" damage.
     let effectiveGst = gst;
     if (!taxId && gst != null) {
       const k = rateKey(gst);
       const byRate = k != null ? ctx.taxByRate.get(k) : undefined;
       if (byRate) {
         taxId = byRate.id;
-        effectiveGst = byRate.total_rate; // keep the two in lockstep
+        effectiveGst = byRate.total_rate;
       }
     }
 
@@ -287,21 +423,16 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
       const isDimensional = DIMENSIONAL_CATEGORIES.has((u.category || '').toLowerCase());
       const sameCategoryAsBase = baseUom && u.category === baseUom.category;
       if (isDimensional && sameCategoryAsBase) {
-        // Inherit physics from uom_master unless an explicit factor was given.
         conv = s.factor ?? (u.conversion_to_base != null ? Number(u.conversion_to_base) : null);
         if (conv == null || conv <= 0) {
           errors.push(`unit "${s.code}" has no conversion_to_base in master; provide unit_n_factor`);
           continue;
         }
       } else {
-        // PACK/COUNT — per-product factor mandatory.
         if (s.factor == null || s.factor <= 0) {
           errors.push(`unit "${s.code}" is pack/count; unit_n_factor > 0 is required`);
           continue;
         }
-        // For pack units against a dimensional base, factor is units of base per pack
-        // (e.g. 1 BAG = 30000g) — but user supplies pieces; we treat factor as base units.
-        // For Quantity base (PIECE), factor = qty per piece (e.g. 1 BOX = 24).
         conv = s.factor;
       }
       mappings.push({
@@ -314,7 +445,6 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
       seenUomIds.add(u.id);
     }
 
-    // price_basis / default_sales must be among mapped units.
     if (priceBasisUom && !seenUomIds.has(priceBasisUom.id)) {
       errors.push(`price_basis_unit "${priceBasisCode}" must be the base or one of unit_1/2/3`);
     }
@@ -324,8 +454,9 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
 
     const ok = errors.length === 0;
     const row: ValidatedRow = {
-      rowNumber: i + 2, // header is row 1
+      rowNumber: i + 2,
       sku,
+      kind,
       ok,
       errors,
       warnings,
@@ -339,7 +470,6 @@ export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): V
         product_type: textOrNull(raw['product_type']),
         category_id: categoryId,
         pending_category_name: pendingCategoryName,
-        // GST is optional — leave null when blank so the product imports as UNASSIGNED.
         gst_percentage: effectiveGst != null ? effectiveGst : (gst != null ? gst : null),
         hsn_code: textOrNull(raw['hsn_code']),
         tax_master_id: taxId,
@@ -372,7 +502,11 @@ export interface ImportResult {
   updated: number;
   skipped: number;
   failed: number;
-  errorRows: Array<{ row: number; sku: string; reason: string }>;
+  variantsInserted: number;
+  variantsUpdated: number;
+  variantsSkipped: number;
+  variantsFailed: number;
+  errorRows: Array<{ row: number; sku: string; reason: string; kind?: RowKind }>;
 }
 
 const CHUNK_SIZE = 300;
@@ -495,39 +629,44 @@ export async function executeImport(
     updated: 0,
     skipped: 0,
     failed: 0,
+    variantsInserted: 0,
+    variantsUpdated: 0,
+    variantsSkipped: 0,
+    variantsFailed: 0,
     errorRows: [],
   };
 
-  // 1. Pre-pass: separate invalid (skip + log) from importable rows.
+  // 0. Split by kind.
+  const baseRows = validated.filter((v) => v.kind === 'product');
+  const variantRows = validated.filter((v) => v.kind === 'variant');
+
+  // 1. Pre-pass on BASE rows: separate invalid from importable.
   const importable: ValidatedRow[] = [];
-  for (const v of validated) {
+  for (const v of baseRows) {
     if (!v.ok || !v.resolved) {
       result.skipped++;
-      for (const e of v.errors) result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e });
+      for (const e of v.errors) result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e, kind: 'product' });
       continue;
     }
     importable.push(v);
   }
 
   const total = validated.length;
-  let done = validated.length - importable.length;
+  let done = baseRows.length - importable.length;
   onProgress?.(done, total);
 
-  // 2. Process in chunks.
+  // 2. Process BASE rows in chunks (existing logic — unchanged).
   for (let i = 0; i < importable.length; i += CHUNK_SIZE) {
     const chunk = importable.slice(i, i + CHUNK_SIZE);
 
-    // Build payloads + remember mappings per SKU.
     const payloads: Record<string, any>[] = [];
     const mappingsBySku = new Map<string, NonNullable<ValidatedRow['resolved']>['mappings']>();
-    const buildFailures: ValidatedRow[] = [];
 
     for (const v of chunk) {
       const built = buildProductPayload(v, ctx);
       if ('error' in built) {
         result.failed++;
-        result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: built.error });
-        buildFailures.push(v);
+        result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: built.error, kind: 'product' });
         continue;
       }
       payloads.push(built.payload);
@@ -543,7 +682,6 @@ export async function executeImport(
     const usableChunk = chunk.filter((v) => mappingsBySku.has(v.sku));
 
     try {
-      // (a) Bulk upsert products.
       const { data: upserted, error: upErr } = await supabase
         .from('products')
         .upsert(payloads, { onConflict: 'sku' })
@@ -555,21 +693,19 @@ export async function executeImport(
         idBySku.set(String(row.sku), String(row.id));
       }
 
-      // Any SKU we couldn't resolve back — treat as failed.
       const resolvedSkus = new Set<string>();
       const productIds: string[] = [];
       for (const v of usableChunk) {
         const id = idBySku.get(v.sku);
         if (!id) {
           result.failed++;
-          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: 'upsert returned no id for sku' });
+          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: 'upsert returned no id for sku', kind: 'product' });
           continue;
         }
         resolvedSkus.add(v.sku);
         productIds.push(id);
       }
 
-      // (b) Bulk delete existing mappings for the chunk.
       if (productIds.length > 0) {
         const { error: delErr } = await supabase
           .from('product_uom_mapping')
@@ -578,7 +714,6 @@ export async function executeImport(
         if (delErr) throw delErr;
       }
 
-      // (c) Bulk insert new mappings.
       const mappingRows: Record<string, any>[] = [];
       for (const v of usableChunk) {
         if (!resolvedSkus.has(v.sku)) continue;
@@ -602,7 +737,6 @@ export async function executeImport(
         if (insErr) throw insErr;
       }
 
-      // Count outcomes for SKUs that made it through.
       for (const v of usableChunk) {
         if (!resolvedSkus.has(v.sku)) continue;
         if (ctx.existingSkus.has(v.sku)) result.updated++;
@@ -612,16 +746,122 @@ export async function executeImport(
         }
       }
     } catch (e: any) {
-      // Chunk-level failure — fall back to per-row so we can attribute it.
       console.warn(
         `[importRunner] chunk ${i / CHUNK_SIZE + 1} bulk path failed (${e?.message ?? e}); retrying row-by-row`,
       );
-      // Roll back the "already counted" assumption: per-row path will recount.
       await executeChunkPerRow(usableChunk, ctx, result);
     }
 
     done += chunk.length;
     onProgress?.(done, total);
+  }
+
+  // 3. Phase B — VARIANT rows.
+  if (variantRows.length > 0) {
+    // Invalid variants first.
+    const importableVariants: ValidatedRow[] = [];
+    for (const v of variantRows) {
+      if (!v.ok || !v.variantResolved) {
+        result.variantsSkipped++;
+        for (const e of v.errors) result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e, kind: 'variant' });
+        done++;
+        onProgress?.(done, total);
+        continue;
+      }
+      importableVariants.push(v);
+    }
+
+    if (importableVariants.length > 0) {
+      // Build fresh sku → product_id map for every parent_sku referenced.
+      const parentSkus = Array.from(new Set(importableVariants.map((v) => v.variantResolved!.parent_sku)));
+      const parentIdBySku = new Map<string, string>();
+      for (let i = 0; i < parentSkus.length; i += 500) {
+        const batch = parentSkus.slice(i, i + 500);
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, sku')
+          .in('sku', batch);
+        if (error) {
+          // Hard fail: can't resolve any parent.
+          for (const v of importableVariants) {
+            result.variantsFailed++;
+            result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: `parent lookup failed: ${error.message}`, kind: 'variant' });
+            done++;
+          }
+          onProgress?.(done, total);
+          return result;
+        }
+        for (const r of (data ?? []) as any[]) parentIdBySku.set(String(r.sku), String(r.id));
+      }
+
+      // Existing variant SKUs (for inserted vs updated count).
+      const variantSkus = importableVariants.map((v) => v.sku);
+      const existingVariantSkus = new Set<string>();
+      for (let i = 0; i < variantSkus.length; i += 500) {
+        const batch = variantSkus.slice(i, i + 500);
+        const { data } = await supabase
+          .from('product_variants')
+          .select('sku')
+          .in('sku', batch);
+        for (const r of (data ?? []) as any[]) if (r.sku) existingVariantSkus.add(String(r.sku));
+      }
+
+      // Per-row upsert (variant counts are typically smaller; per-row keeps
+      // attribution exact while still skipping a failed parent only).
+      for (const v of importableVariants) {
+        const r = v.variantResolved!;
+        const productId = parentIdBySku.get(r.parent_sku);
+        if (!productId) {
+          result.variantsFailed++;
+          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: `parent_sku not found: ${r.parent_sku}`, kind: 'variant' });
+          done++;
+          onProgress?.(done, total);
+          continue;
+        }
+        const payload: Record<string, any> = {
+          product_id: productId,
+          sku: v.sku,
+          variant_name: r.variant_name,
+          price: r.price,
+          stock_quantity: r.stock_quantity ?? 0,
+          is_active: r.is_active,
+          // Override columns — null = inherit at read time via resolveProduct.
+          tax_master_id: r.tax_master_id,
+          gst_percentage: r.gst_percentage,
+          category_id: r.category_id,
+          brand: r.brand,
+          hsn_code: r.hsn_code,
+          product_type: r.product_type,
+          description: r.description,
+          default_sales_uom_id: r.default_sales_uom_id,
+          price_basis_uom_id: r.price_basis_uom_id,
+          base_unit: r.base_unit,
+          net_weight_g: r.net_weight_g,
+          net_volume_ml: r.net_volume_ml,
+          standard_cost: r.standard_cost,
+          sku_image_url: r.sku_image_url,
+          reorder_level: r.reorder_level,
+          reorder_quantity: r.reorder_quantity,
+          manufacturer: r.manufacturer,
+          country_of_origin: r.country_of_origin,
+          // Retired legacy field — tax flows via tax_master_id.
+          variant_tax_rate: null,
+        };
+        try {
+          const { error } = await supabase
+            .from('product_variants')
+            .upsert(payload, { onConflict: 'sku' });
+          if (error) throw error;
+          if (existingVariantSkus.has(v.sku)) result.variantsUpdated++;
+          else result.variantsInserted++;
+        } catch (e: any) {
+          result.variantsFailed++;
+          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e?.message ?? String(e), kind: 'variant' });
+        }
+        done++;
+        onProgress?.(done, total);
+      }
+    }
   }
 
   return result;
@@ -632,10 +872,10 @@ export async function executeImport(
  * "download error report" link.
  */
 export function buildErrorReportBlob(
-  errors: Array<{ row: number; sku: string; reason: string }>,
+  errors: Array<{ row: number; sku: string; reason: string; kind?: RowKind }>,
 ): Blob {
   const ws = XLSX.utils.json_to_sheet(errors, {
-    header: ['row', 'sku', 'reason'],
+    header: ['row', 'kind', 'sku', 'reason'],
   });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Errors');
