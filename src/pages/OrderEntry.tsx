@@ -1112,8 +1112,35 @@ export const OrderEntry = () => {
   }, [isOnline, fetchOfflineProducts]);
   */
 
+  // Phase 7-3: build availability ctx for the selected retailer (if any).
+  // No retailer selected => show all products.
+  const availabilityCtx = useMemo(
+    () => buildRetailerContext(selectedRetailerForAvail, territoriesById, userId),
+    [selectedRetailerForAvail, territoriesById, userId]
+  );
+
+  // Filter master cache by availability for downstream consumers (TableOrderForm, Voice).
+  const availableCachedProducts = useMemo(() => {
+    if (!validRetailerId || !selectedRetailerForAvail) return cachedProducts;
+    return filterAvailableProducts(
+      cachedProducts as any[],
+      (p) => p.id,
+      availabilityByProductId,
+      availabilityCtx
+    );
+  }, [cachedProducts, validRetailerId, selectedRetailerForAvail, availabilityByProductId, availabilityCtx]);
+
   // Filter products by category and search term
   const filteredProducts = products.filter(product => {
+    // Phase 7-3: availability gate (default visible if no retailer or no rules).
+    if (validRetailerId && selectedRetailerForAvail) {
+      const rows = availabilityByProductId.get(product.id);
+      if (rows && rows.length > 0) {
+        // re-use isProductAvailable via filterAvailableProducts shape
+        const ok = filterAvailableProducts([product as any], (p: any) => p.id, availabilityByProductId, availabilityCtx).length === 1;
+        if (!ok) return false;
+      }
+    }
     // Category filter
     const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
 
