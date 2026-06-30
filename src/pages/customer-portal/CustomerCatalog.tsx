@@ -24,6 +24,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { resolveProduct } from '@/utils/resolveProduct';
+import { usePortalAvailability, useRetailerStateLookup } from '@/hooks/usePortalAvailability';
+import { buildRetailerContext, filterAvailableProducts } from '@/utils/productAvailability';
 
 interface ContextType {
   retailer: CustomerPortalUser;
