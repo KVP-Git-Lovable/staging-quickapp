@@ -76,13 +76,19 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   const { user } = useAuth();
   const { createActivity, updateVisitCheckOut } = useActivityEvents();
   const { subordinates } = useSubordinates();
+  const { types: activityTypes } = useActivityTypes();
   const connectivity = useConnectivity();
   const isOnline = connectivity === 'online';
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Type
-  const [selectedType, setSelectedType] = useState<VisitTypeId>('joint_beat_visit');
-  const activeType = VISIT_TYPES.find((t) => t.id === selectedType)!;
+  // Type — value is the master type's `name` (matches what's stored on activity_events.activity_type)
+  const [selectedType, setSelectedType] = useState<string>(JOINT);
+  const isJoint       = selectedType === JOINT;
+  const isSurvey      = selectedType === SURVEY;
+  const isDistributor = selectedType === DISTRIBUTOR;
+  const isMeeting     = selectedType === MEETING;
+  // Look up the matching master row (for code / requires_check_in / default_duration_minutes).
+  const activeTypeRow = activityTypes.find((t) => t.name === selectedType);
 
   // Shared
   const [activityDate, setActivityDate] = useState<Date>(new Date());
