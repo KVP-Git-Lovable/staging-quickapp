@@ -97,6 +97,8 @@ const CreatePrimaryOrder = () => {
   const [maxReachedStep, setMaxReachedStep] = useState<1 | 2 | 3>(1);
 
   const distributorId = localStorage.getItem('distributor_id');
+  // Phase 7-3: distributor portal needs availability maps for its own ctx.
+  const { availabilityByProductId, territoriesById } = usePortalAvailability();
 
   const { warehouses: allWarehouses } = useWarehouses(distributorId);
   const { addresses: savedAddresses, create: createSavedAddress } = useSavedAddresses(distributorId);
