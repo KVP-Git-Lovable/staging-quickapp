@@ -1547,6 +1547,40 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                         />
                       );
                     })()}
+
+                    {/* Phase 4: per-field inherit/override editor for variant master columns */}
+                    {(() => {
+                      const parent: any = products.find((p) => p.id === variantForm.product_id) || {};
+                      const overrideValues: VariantOverrideValues = {
+                        tax_master_id: (variantForm as any).tax_master_id ?? null,
+                        gst_percentage: (variantForm as any).gst_percentage ?? null,
+                        category_id: (variantForm as any).category_id ?? null,
+                        brand: (variantForm as any).brand ?? null,
+                        hsn_code: (variantForm as any).hsn_code ?? null,
+                        product_type: (variantForm as any).product_type ?? null,
+                        description: (variantForm as any).description ?? null,
+                        default_sales_uom_id: (variantForm as any).default_sales_uom_id ?? null,
+                        price_basis_uom_id: (variantForm as any).price_basis_uom_id ?? null,
+                        base_unit: (variantForm as any).base_unit ?? null,
+                        net_weight_g: (variantForm as any).net_weight_g ?? null,
+                        net_volume_ml: (variantForm as any).net_volume_ml ?? null,
+                        standard_cost: (variantForm as any).standard_cost ?? null,
+                        sku_image_url: (variantForm as any).sku_image_url ?? null,
+                        reorder_level: (variantForm as any).reorder_level ?? null,
+                        reorder_quantity: (variantForm as any).reorder_quantity ?? null,
+                        manufacturer: (variantForm as any).manufacturer ?? null,
+                        country_of_origin: (variantForm as any).country_of_origin ?? null,
+                      };
+                      return (
+                        <VariantOverrideFields
+                          base={parent}
+                          values={overrideValues}
+                          categories={categories}
+                          taxMasters={taxMasters}
+                          onChange={(patch) => setVariantForm({ ...variantForm, ...patch } as any)}
+                        />
+                      );
+                    })()}
                     </div>
                   </ScrollArea>
                   <DialogFooter>
