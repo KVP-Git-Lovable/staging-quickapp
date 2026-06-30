@@ -41,6 +41,9 @@ export const TodaySummary = () => {
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
   const { user } = useAuth();
+  const { types: activityTypesMaster } = useActivityTypes();
+  const activityTypesRef = useRef(activityTypesMaster);
+  activityTypesRef.current = activityTypesMaster;
   const isAdmin = false; // No longer used for gating; kept for backward compat in data loading
   
   // Hierarchical user filter (for managers)
