@@ -606,11 +606,12 @@ export function useMasterDataCache() {
         cacheBeats()
       ]);
       
-      // Phase 2: IMPORTANT - Load products and schemes (needed for order entry)
-      console.log('[Cache] Phase 2: Loading important data (products + schemes)...');
+      // Phase 2: IMPORTANT - Load products, schemes, availability rules (order entry)
+      console.log('[Cache] Phase 2: Loading important data (products + schemes + availability)...');
       await Promise.all([
         cacheProducts(),
-        cacheSchemes()
+        cacheSchemes(),
+        cacheProductAvailability()
       ]);
       
       // Phase 3: DEFERRED - Load competition data in background (not urgent)
@@ -624,7 +625,7 @@ export function useMasterDataCache() {
     } catch (error) {
       console.error('[Cache] Error syncing offline data:', error);
     }
-  }, [isOnline, user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
+  }, [isOnline, user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability]);
 
   // Force refresh master data AND notify UI to reload from storage
   const forceRefreshMasterData = useCallback(async () => {
