@@ -420,72 +420,65 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       // Generate QR code if not exists
       const qrCode = variantForm.qr_code || generateQRCode('variant', variantSku, variantForm.variant_name);
 
+      // Phase 4: per-field override columns — NULL means "inherit from base".
+      const overrideKeys: (keyof VariantOverrideValues)[] = [
+        'tax_master_id', 'gst_percentage', 'category_id', 'brand', 'hsn_code',
+        'product_type', 'description', 'default_sales_uom_id', 'price_basis_uom_id',
+        'base_unit', 'net_weight_g', 'net_volume_ml', 'standard_cost',
+        'sku_image_url', 'reorder_level', 'reorder_quantity', 'manufacturer',
+        'country_of_origin',
+      ];
+      const overridePayload: Record<string, any> = {};
+      for (const k of overrideKeys) {
+        const v = (variantForm as any)[k];
+        overridePayload[k] = (v === '' || v === undefined) ? null : v;
+      }
+
+      const corePayload = {
+        product_id: variantForm.product_id,
+        variant_name: variantForm.variant_name,
+        sku: variantSku,
+        price: variantForm.price,
+        stock_quantity: variantForm.stock_quantity,
+        discount_percentage: variantForm.discount_percentage,
+        discount_amount: variantForm.discount_amount,
+        is_active: variantForm.is_active,
+        is_focused_product: variantForm.is_focused_product,
+        focused_type: (variantForm as any).focused_type || null,
+        focused_due_date: variantForm.focused_due_date || null,
+        focused_target_quantity: variantForm.focused_target_quantity || 0,
+        focused_territories: variantForm.focused_territories || [],
+        focused_recurring_config: (variantForm as any).focused_recurring_config || null,
+        barcode: variantForm.barcode || null,
+        qr_code: qrCode,
+        barcode_image_url: (variantForm as any).barcode_image_url || null,
+        variant_type: (variantForm as any).variant_type || 'Other',
+        uom_id: (variantForm as any).uom_id || null,
+        variant_weight_g: (variantForm as any).variant_weight_g,
+        variant_cost: (variantForm as any).variant_cost,
+        variant_tax_rate: (variantForm as any).variant_tax_rate,
+        is_discontinued: !!(variantForm as any).is_discontinued,
+        discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null,
+        ...overridePayload,
+      };
+
       if (variantForm.id) {
         const { error } = await supabase
           .from('product_variants')
-          .update({
-            product_id: variantForm.product_id,
-            variant_name: variantForm.variant_name,
-            sku: variantSku,
-            price: variantForm.price,
-            stock_quantity: variantForm.stock_quantity,
-            discount_percentage: variantForm.discount_percentage,
-            discount_amount: variantForm.discount_amount,
-            is_active: variantForm.is_active,
-            is_focused_product: variantForm.is_focused_product,
-            focused_type: (variantForm as any).focused_type || null,
-            focused_due_date: variantForm.focused_due_date || null,
-            focused_target_quantity: variantForm.focused_target_quantity || 0,
-            focused_territories: variantForm.focused_territories || [],
-            focused_recurring_config: (variantForm as any).focused_recurring_config || null,
-            barcode: variantForm.barcode || null,
-            qr_code: qrCode,
-            barcode_image_url: (variantForm as any).barcode_image_url || null,
-            variant_type: (variantForm as any).variant_type || 'Other',
-            uom_id: (variantForm as any).uom_id || null,
-            variant_weight_g: (variantForm as any).variant_weight_g,
-            variant_cost: (variantForm as any).variant_cost,
-            variant_tax_rate: (variantForm as any).variant_tax_rate,
-            is_discontinued: !!(variantForm as any).is_discontinued,
-            discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null
-          })
+          .update(corePayload)
           .eq('id', variantForm.id);
-        
+
         if (error) throw error;
         toast.success('Variant updated successfully');
       } else {
         const { error } = await supabase
           .from('product_variants')
-          .insert({
-            product_id: variantForm.product_id,
-            variant_name: variantForm.variant_name,
-            sku: variantSku,
-            price: variantForm.price,
-            stock_quantity: variantForm.stock_quantity,
-            discount_percentage: variantForm.discount_percentage,
-            discount_amount: variantForm.discount_amount,
-            is_active: variantForm.is_active,
-            is_focused_product: variantForm.is_focused_product,
-            focused_type: (variantForm as any).focused_type || null,
-            focused_due_date: variantForm.focused_due_date || null,
-            focused_target_quantity: variantForm.focused_target_quantity || 0,
-            focused_territories: variantForm.focused_territories || [],
-            focused_recurring_config: (variantForm as any).focused_recurring_config || null,
-            barcode: variantForm.barcode || null,
-            qr_code: qrCode,
-            barcode_image_url: (variantForm as any).barcode_image_url || null,
-            variant_type: (variantForm as any).variant_type || 'Other',
-            uom_id: (variantForm as any).uom_id || null,
-            variant_weight_g: (variantForm as any).variant_weight_g,
-            variant_cost: (variantForm as any).variant_cost,
-            variant_tax_rate: (variantForm as any).variant_tax_rate,
-            is_discontinued: !!(variantForm as any).is_discontinued,
-            discontinued_date: (variantForm as any).is_discontinued ? ((variantForm as any).discontinued_date || null) : null
-          });
-        
+          .insert(corePayload);
+
         if (error) throw error;
         toast.success('Variant created successfully');
       }
+
       
       setIsVariantDialogOpen(false);
       setVariantForm(emptyVariantForm());
