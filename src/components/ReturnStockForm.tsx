@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card, CardContent } from './ui/card';
@@ -122,6 +122,61 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
   const [returnQuantity, setReturnQuantity] = useState<number>(0);
   const [returnReason, setReturnReason] = useState<string>('');
   const [otherReason, setOtherReason] = useState<string>('');
+
+  // Date filter for invoice-line picker (client-side, over already-loaded returnableLines)
+  type FilterMode = 'all' | 'relative' | 'specific';
+  type RelUnit = 'day' | 'week' | 'month' | 'year';
+  type RelDir = 'within' | 'older';
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [relN, setRelN] = useState<number>(6);
+  const [relUnit, setRelUnit] = useState<RelUnit>('month');
+  const [relDir, setRelDir] = useState<RelDir>('within');
+  const [specificDate, setSpecificDate] = useState<string>(''); // yyyy-mm-dd
+
+  // Reset filter whenever product changes
+  useEffect(() => {
+    setFilterMode('all');
+    setRelN(6);
+    setRelUnit('month');
+    setRelDir('within');
+    setSpecificDate('');
+  }, [selectedProduct]);
+
+  const displayedLines = useMemo(() => {
+    if (filterMode === 'all') return returnableLines;
+    if (filterMode === 'specific') {
+      if (!specificDate) return returnableLines;
+      return returnableLines.filter(l => {
+        if (!l.order_date) return false;
+        const d = new Date(l.order_date);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}` === specificDate;
+      });
+    }
+    // relative
+    const n = Math.max(0, Math.floor(relN || 0));
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    if (relUnit === 'day') cutoff.setDate(cutoff.getDate() - n);
+    else if (relUnit === 'week') cutoff.setDate(cutoff.getDate() - n * 7);
+    else if (relUnit === 'month') cutoff.setMonth(cutoff.getMonth() - n);
+    else if (relUnit === 'year') cutoff.setFullYear(cutoff.getFullYear() - n);
+    return returnableLines.filter(l => {
+      if (!l.order_date) return false;
+      const d = new Date(l.order_date);
+      return relDir === 'within' ? d >= cutoff : d < cutoff;
+    });
+  }, [filterMode, returnableLines, relN, relUnit, relDir, specificDate]);
+
+  // If currently selected line is filtered out, clear selection (or pick first)
+  useEffect(() => {
+    if (!selectedLineId) return;
+    if (!displayedLines.some(l => l.order_id === selectedLineId)) {
+      setSelectedLineId(displayedLines[0]?.order_id || '');
+    }
+  }, [displayedLines, selectedLineId]);
 
   useEffect(() => {
     fetchProducts().catch(err => {
@@ -556,36 +611,110 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                       No returnable invoice line found for this product at this retailer.
                     </div>
                   ) : (
-                    <RadioGroup value={selectedLineId} onValueChange={setSelectedLineId} className="space-y-1.5">
-                      {returnableLines.map(l => (
-                        <label
-                          key={l.order_id}
-                          className={cn(
-                            'flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer transition-colors',
-                            selectedLineId === l.order_id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50',
+                    <>
+                      {/* Flexible date filter */}
+                      <div className="rounded-md border border-border bg-muted/30 p-2 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Select value={filterMode} onValueChange={(v) => setFilterMode(v as FilterMode)}>
+                            <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All invoices</SelectItem>
+                              <SelectItem value="relative">Relative period</SelectItem>
+                              <SelectItem value="specific">Specific date</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {filterMode === 'relative' && (
+                            <>
+                              <Select value={relDir} onValueChange={(v) => setRelDir(v as RelDir)}>
+                                <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="within">within last</SelectItem>
+                                  <SelectItem value="older">older than</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={relN}
+                                onChange={(e) => setRelN(Math.max(0, parseInt(e.target.value) || 0))}
+                                className="h-8 w-16 text-xs"
+                              />
+                              <Select value={relUnit} onValueChange={(v) => setRelUnit(v as RelUnit)}>
+                                <SelectTrigger className="h-8 w-[110px] text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="day">Day(s)</SelectItem>
+                                  <SelectItem value="week">Week(s)</SelectItem>
+                                  <SelectItem value="month">Month(s)</SelectItem>
+                                  <SelectItem value="year">Year(s)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </>
                           )}
-                        >
-                          <RadioGroupItem value={l.order_id} className="mt-0.5 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">INV {l.invoice_number || 'N/A'}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {l.order_date ? new Date(l.order_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
-                              <span>
-                                sold <span className="font-medium text-foreground">{l.sold_qty}</span>
-                              </span>
-                              <span>
-                                ₹<span className="font-medium text-foreground">{l.rate.toFixed(2)}</span>/unit
-                              </span>
-                              <span>
-                                returnable <span className="font-medium text-primary">{l.returnable}</span>
-                              </span>
-                            </div>
-                          </div>
-                        </label>
-                      ))}
-                    </RadioGroup>
+
+                          {filterMode === 'specific' && (
+                            <Input
+                              type="date"
+                              value={specificDate}
+                              onChange={(e) => setSpecificDate(e.target.value)}
+                              className="h-8 w-[160px] text-xs"
+                            />
+                          )}
+
+                          {filterMode !== 'all' && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs"
+                              onClick={() => { setFilterMode('all'); setSpecificDate(''); }}
+                            >
+                              Clear filter
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          showing {displayedLines.length} of {returnableLines.length} invoices
+                        </p>
+                      </div>
+
+                      {displayedLines.length === 0 ? (
+                        <div className="text-xs text-muted-foreground bg-muted/40 rounded-md p-2.5">
+                          No invoices match this filter.
+                        </div>
+                      ) : (
+                        <RadioGroup value={selectedLineId} onValueChange={setSelectedLineId} className="space-y-1.5">
+                          {displayedLines.map(l => (
+                            <label
+                              key={l.order_id}
+                              className={cn(
+                                'flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer transition-colors',
+                                selectedLineId === l.order_id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50',
+                              )}
+                            >
+                              <RadioGroupItem value={l.order_id} className="mt-0.5 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium">INV {l.invoice_number || 'N/A'}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {l.order_date ? new Date(l.order_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs text-muted-foreground">
+                                  <span>
+                                    sold <span className="font-medium text-foreground">{l.sold_qty}</span>
+                                  </span>
+                                  <span>
+                                    ₹<span className="font-medium text-foreground">{l.rate.toFixed(2)}</span>/unit
+                                  </span>
+                                  <span>
+                                    returnable <span className="font-medium text-primary">{l.returnable}</span>
+                                  </span>
+                                </div>
+                              </div>
+                            </label>
+                          ))}
+                        </RadioGroup>
+                      )}
+                    </>
                   )}
                 </div>
               )}
