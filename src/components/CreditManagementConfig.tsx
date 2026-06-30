@@ -44,6 +44,46 @@ interface Territory {
 
 export const CreditManagementConfig = () => {
   const queryClient = useQueryClient();
+
+  // ---- Credit Note approval toggle (credit_note_config) ----
+  const { data: cnConfig, isLoading: cnConfigLoading } = useQuery({
+    queryKey: ['credit-note-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('credit_note_config')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const updateCnConfig = useMutation({
+    mutationFn: async (requires_approval: boolean) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id ?? null;
+      if (cnConfig?.id) {
+        const { error } = await supabase
+          .from('credit_note_config')
+          .update({ requires_approval, updated_at: new Date().toISOString(), updated_by: uid })
+          .eq('id', cnConfig.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('credit_note_config')
+          .insert({ requires_approval, updated_by: uid });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['credit-note-config'] });
+      toast.success('Setting saved');
+    },
+    onError: (e: any) => toast.error(e.message || 'Failed to save setting'),
+  });
+
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<Partial<CreditConfig> | null>(null);
   const [territoryPopoverOpen, setTerritoryPopoverOpen] = useState(false);
@@ -269,6 +309,29 @@ export const CreditManagementConfig = () => {
       </div>
 
       <Card>
+        <CardHeader>
+          <CardTitle>Credit Note Approval</CardTitle>
+          <CardDescription>
+            When ON, a credit note is held as Pending Approval and does not reduce the retailer's balance until an admin approves it. When OFF, credit notes post immediately.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="cn-requires-approval" className="font-medium">
+              Require admin approval for credit notes
+            </Label>
+            <Switch
+              id="cn-requires-approval"
+              checked={!!cnConfig?.requires_approval}
+              disabled={cnConfigLoading || updateCnConfig.isPending}
+              onCheckedChange={(v) => updateCnConfig.mutate(v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+
         <CardHeader>
           <CardTitle>Active Configurations</CardTitle>
           <CardDescription>
