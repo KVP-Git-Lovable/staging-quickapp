@@ -310,6 +310,29 @@ export const CreditManagementConfig = () => {
 
       <Card>
         <CardHeader>
+          <CardTitle>Credit Note Approval</CardTitle>
+          <CardDescription>
+            When ON, a credit note is held as Pending Approval and does not reduce the retailer's balance until an admin approves it. When OFF, credit notes post immediately.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="cn-requires-approval" className="font-medium">
+              Require admin approval for credit notes
+            </Label>
+            <Switch
+              id="cn-requires-approval"
+              checked={!!cnConfig?.requires_approval}
+              disabled={cnConfigLoading || updateCnConfig.isPending}
+              onCheckedChange={(v) => updateCnConfig.mutate(v)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+
+        <CardHeader>
           <CardTitle>Active Configurations</CardTitle>
           <CardDescription>
             Configure credit management settings for different territories
