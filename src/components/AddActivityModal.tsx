@@ -197,7 +197,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
   // Distributor search
   useEffect(() => {
-    if (selectedType !== 'distributor_visit') return;
+    if (!isDistributor) return;
     if (!distributorSearch || distributorSearch.length < 2) { setDistributorResults([]); return; }
     const t = setTimeout(async () => {
       const { data } = await supabase
@@ -293,10 +293,10 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
     if (!isOnline) { toast.error('Activity logging requires internet'); return; }
     if (isSubmitted) { toast.info('Already saved — log check-out if ready'); return; }
 
-    if (selectedType === 'joint_beat_visit' && !subordinateId) { toast.error('Select a subordinate'); return; }
-    if (selectedType === 'new_beat_survey' && (!surveyBeatName || !surveyObservations)) { toast.error('Beat name and observations required'); return; }
-    if (selectedType === 'distributor_visit' && !distributorId) { toast.error('Select a distributor'); return; }
-    if (selectedType === 'meeting_training' && !topic) { toast.error('Enter a topic'); return; }
+    if (isJoint && !subordinateId) { toast.error('Select a subordinate'); return; }
+    if (isSurvey && (!surveyBeatName || !surveyObservations)) { toast.error('Beat name and observations required'); return; }
+    if (isDistributor && !distributorId) { toast.error('Select a distributor'); return; }
+    if (isMeeting && !topic) { toast.error('Enter a topic'); return; }
 
     setIsSubmitting(true);
     try {
@@ -319,7 +319,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
       let params: any = { ...common, activity_type: selectedType, visit_category: selectedType };
 
-      if (selectedType === 'joint_beat_visit') {
+      if (isJoint) {
         params = { ...params,
           subordinate_user_id: subordinateId,
           beat_id: subordinateBeat?.beat_id, beat_name: subordinateBeat?.beat_name,
@@ -335,7 +335,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           rep_action_items:    repActionItems    || undefined,
           rep_followup_date:   repFollowupDate   || undefined,
         };
-      } else if (selectedType === 'new_beat_survey') {
+      } else if (isSurvey) {
         const shopsPb = surveyTargetShops && surveySuggestedBeatCount ? Math.round(surveyTargetShops / surveySuggestedBeatCount) : undefined;
         params = { ...params, activity_name: surveyBeatName, activity_place: surveyArea,
           survey_total_shops: surveyTotalShops ?? undefined, survey_our_stock_shops: surveyOurStockShops ?? undefined,
@@ -348,10 +348,10 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           survey_competition_brands: surveyCompetitionBrands || undefined,
           survey_observations: surveyObservations, survey_recommendation: surveyRecommendation || undefined,
         };
-      } else if (selectedType === 'distributor_visit') {
+      } else if (isDistributor) {
         params = { ...params, distributor_id: distributorId, distributor_name: distributorName,
           visit_purpose: visitPurpose || undefined, contact_person: contactPerson || undefined, outcome: outcome || undefined };
-      } else if (selectedType === 'meeting_training') {
+      } else if (isMeeting) {
         params = { ...params, activity_sub_type: meetingSubType, topic, attendee_count: attendeeCount ?? undefined,
           activity_place: meetingPlace || undefined, duration_type: durationType,
           ...(durationType === 'hour_based' ? { start_time: localTimeToISO(activityDate, startTime), end_time: localTimeToISO(activityDate, endTime) } : {}),
@@ -367,7 +367,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
       setIsSubmitted(true);
 
       // Joint visit — write to joint_sales_sessions (+ optional joint_sales_feedback)
-      if (selectedType === 'joint_beat_visit') {
+      if (isJoint) {
         const { data: sessionData } = await supabase.from('joint_sales_sessions').insert({
           manager_id: user.id, fse_user_id: subordinateId,
           session_date: dateStr,
@@ -392,8 +392,8 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
       }
 
       toast.success(
-        selectedType === 'new_beat_survey' ? 'Route survey submitted!' :
-        selectedType === 'joint_beat_visit' ? 'Joint visit saved!' : 'Activity logged!'
+        isSurvey ? 'Route survey submitted!' :
+        isJoint ? 'Joint visit saved!' : 'Activity logged!'
       );
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
       // Keep modal open so user can log check-out
@@ -476,7 +476,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           )}
 
           {/* ── Check-in / Check-out (manual time pickers) ─── */}
-          {selectedType !== 'meeting_training' && (
+          {!isMeeting && (
             <div className="rounded-lg border bg-muted/20 px-3 py-2.5 space-y-2">
               <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" /> Check-in / Check-out
@@ -517,7 +517,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           {/* CUSTOMER / BEAT VISIT tabs removed */}
 
           {/* ── JOINT ─────────────────────────────────────── */}
-          {selectedType === 'joint_beat_visit' && (
+          {isJoint && (
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Subordinate <span className="text-destructive">*</span></Label>
@@ -590,7 +590,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           )}
 
           {/* ── ROUTE SURVEY ──────────────────────────────── */}
-          {selectedType === 'new_beat_survey' && (
+          {isSurvey && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -667,7 +667,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           )}
 
           {/* ── DISTRIBUTOR ────────────────────────────────── */}
-          {selectedType === 'distributor_visit' && (
+          {isDistributor && (
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Distributor <span className="text-destructive">*</span></Label>
@@ -722,7 +722,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           {/* EVENT tab removed */}
 
           {/* ── MEETING ───────────────────────────────────── */}
-          {selectedType === 'meeting_training' && (
+          {isMeeting && (
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Sub-type</Label>
