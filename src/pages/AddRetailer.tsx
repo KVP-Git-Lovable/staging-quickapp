@@ -2053,7 +2053,7 @@ export const AddRetailer = () => {
 
           {/* Actions */}
           <div className="flex gap-2">
-            <Button type="submit" className="flex-1" size="lg" disabled={isSaving}>
+            <Button type="submit" data-testid="save-retailer-button" className="flex-1" size="lg" disabled={isSaving}>
               <Plus size={16} className="mr-2" />
               {isSaving ? 'Saving...' : 'Save'}
             </Button>
