@@ -398,7 +398,7 @@ export const CreditManagementConfig = () => {
         </Button>
       </div>
 
-      {(can('credit_note_settings', 'read') || canEditCnSettings || !permsLoading) && (
+      {!permsLoading && (can('credit_note_settings', 'read') || canEditCnSettings) && (
         <Card>
           <CardHeader>
             <CardTitle>Credit Note Settings</CardTitle>
