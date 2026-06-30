@@ -629,39 +629,44 @@ export async function executeImport(
     updated: 0,
     skipped: 0,
     failed: 0,
+    variantsInserted: 0,
+    variantsUpdated: 0,
+    variantsSkipped: 0,
+    variantsFailed: 0,
     errorRows: [],
   };
 
-  // 1. Pre-pass: separate invalid (skip + log) from importable rows.
+  // 0. Split by kind.
+  const baseRows = validated.filter((v) => v.kind === 'product');
+  const variantRows = validated.filter((v) => v.kind === 'variant');
+
+  // 1. Pre-pass on BASE rows: separate invalid from importable.
   const importable: ValidatedRow[] = [];
-  for (const v of validated) {
+  for (const v of baseRows) {
     if (!v.ok || !v.resolved) {
       result.skipped++;
-      for (const e of v.errors) result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e });
+      for (const e of v.errors) result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e, kind: 'product' });
       continue;
     }
     importable.push(v);
   }
 
   const total = validated.length;
-  let done = validated.length - importable.length;
+  let done = baseRows.length - importable.length;
   onProgress?.(done, total);
 
-  // 2. Process in chunks.
+  // 2. Process BASE rows in chunks (existing logic — unchanged).
   for (let i = 0; i < importable.length; i += CHUNK_SIZE) {
     const chunk = importable.slice(i, i + CHUNK_SIZE);
 
-    // Build payloads + remember mappings per SKU.
     const payloads: Record<string, any>[] = [];
     const mappingsBySku = new Map<string, NonNullable<ValidatedRow['resolved']>['mappings']>();
-    const buildFailures: ValidatedRow[] = [];
 
     for (const v of chunk) {
       const built = buildProductPayload(v, ctx);
       if ('error' in built) {
         result.failed++;
-        result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: built.error });
-        buildFailures.push(v);
+        result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: built.error, kind: 'product' });
         continue;
       }
       payloads.push(built.payload);
@@ -677,7 +682,6 @@ export async function executeImport(
     const usableChunk = chunk.filter((v) => mappingsBySku.has(v.sku));
 
     try {
-      // (a) Bulk upsert products.
       const { data: upserted, error: upErr } = await supabase
         .from('products')
         .upsert(payloads, { onConflict: 'sku' })
@@ -689,21 +693,19 @@ export async function executeImport(
         idBySku.set(String(row.sku), String(row.id));
       }
 
-      // Any SKU we couldn't resolve back — treat as failed.
       const resolvedSkus = new Set<string>();
       const productIds: string[] = [];
       for (const v of usableChunk) {
         const id = idBySku.get(v.sku);
         if (!id) {
           result.failed++;
-          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: 'upsert returned no id for sku' });
+          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: 'upsert returned no id for sku', kind: 'product' });
           continue;
         }
         resolvedSkus.add(v.sku);
         productIds.push(id);
       }
 
-      // (b) Bulk delete existing mappings for the chunk.
       if (productIds.length > 0) {
         const { error: delErr } = await supabase
           .from('product_uom_mapping')
@@ -712,7 +714,6 @@ export async function executeImport(
         if (delErr) throw delErr;
       }
 
-      // (c) Bulk insert new mappings.
       const mappingRows: Record<string, any>[] = [];
       for (const v of usableChunk) {
         if (!resolvedSkus.has(v.sku)) continue;
@@ -736,7 +737,6 @@ export async function executeImport(
         if (insErr) throw insErr;
       }
 
-      // Count outcomes for SKUs that made it through.
       for (const v of usableChunk) {
         if (!resolvedSkus.has(v.sku)) continue;
         if (ctx.existingSkus.has(v.sku)) result.updated++;
@@ -746,16 +746,122 @@ export async function executeImport(
         }
       }
     } catch (e: any) {
-      // Chunk-level failure — fall back to per-row so we can attribute it.
       console.warn(
         `[importRunner] chunk ${i / CHUNK_SIZE + 1} bulk path failed (${e?.message ?? e}); retrying row-by-row`,
       );
-      // Roll back the "already counted" assumption: per-row path will recount.
       await executeChunkPerRow(usableChunk, ctx, result);
     }
 
     done += chunk.length;
     onProgress?.(done, total);
+  }
+
+  // 3. Phase B — VARIANT rows.
+  if (variantRows.length > 0) {
+    // Invalid variants first.
+    const importableVariants: ValidatedRow[] = [];
+    for (const v of variantRows) {
+      if (!v.ok || !v.variantResolved) {
+        result.variantsSkipped++;
+        for (const e of v.errors) result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e, kind: 'variant' });
+        done++;
+        onProgress?.(done, total);
+        continue;
+      }
+      importableVariants.push(v);
+    }
+
+    if (importableVariants.length > 0) {
+      // Build fresh sku → product_id map for every parent_sku referenced.
+      const parentSkus = Array.from(new Set(importableVariants.map((v) => v.variantResolved!.parent_sku)));
+      const parentIdBySku = new Map<string, string>();
+      for (let i = 0; i < parentSkus.length; i += 500) {
+        const batch = parentSkus.slice(i, i + 500);
+        const { data, error } = await supabase
+          .from('products')
+          .select('id, sku')
+          .in('sku', batch);
+        if (error) {
+          // Hard fail: can't resolve any parent.
+          for (const v of importableVariants) {
+            result.variantsFailed++;
+            result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: `parent lookup failed: ${error.message}`, kind: 'variant' });
+            done++;
+          }
+          onProgress?.(done, total);
+          return result;
+        }
+        for (const r of (data ?? []) as any[]) parentIdBySku.set(String(r.sku), String(r.id));
+      }
+
+      // Existing variant SKUs (for inserted vs updated count).
+      const variantSkus = importableVariants.map((v) => v.sku);
+      const existingVariantSkus = new Set<string>();
+      for (let i = 0; i < variantSkus.length; i += 500) {
+        const batch = variantSkus.slice(i, i + 500);
+        const { data } = await supabase
+          .from('product_variants')
+          .select('sku')
+          .in('sku', batch);
+        for (const r of (data ?? []) as any[]) if (r.sku) existingVariantSkus.add(String(r.sku));
+      }
+
+      // Per-row upsert (variant counts are typically smaller; per-row keeps
+      // attribution exact while still skipping a failed parent only).
+      for (const v of importableVariants) {
+        const r = v.variantResolved!;
+        const productId = parentIdBySku.get(r.parent_sku);
+        if (!productId) {
+          result.variantsFailed++;
+          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: `parent_sku not found: ${r.parent_sku}`, kind: 'variant' });
+          done++;
+          onProgress?.(done, total);
+          continue;
+        }
+        const payload: Record<string, any> = {
+          product_id: productId,
+          sku: v.sku,
+          variant_name: r.variant_name,
+          price: r.price,
+          stock_quantity: r.stock_quantity ?? 0,
+          is_active: r.is_active,
+          // Override columns — null = inherit at read time via resolveProduct.
+          tax_master_id: r.tax_master_id,
+          gst_percentage: r.gst_percentage,
+          category_id: r.category_id,
+          brand: r.brand,
+          hsn_code: r.hsn_code,
+          product_type: r.product_type,
+          description: r.description,
+          default_sales_uom_id: r.default_sales_uom_id,
+          price_basis_uom_id: r.price_basis_uom_id,
+          base_unit: r.base_unit,
+          net_weight_g: r.net_weight_g,
+          net_volume_ml: r.net_volume_ml,
+          standard_cost: r.standard_cost,
+          sku_image_url: r.sku_image_url,
+          reorder_level: r.reorder_level,
+          reorder_quantity: r.reorder_quantity,
+          manufacturer: r.manufacturer,
+          country_of_origin: r.country_of_origin,
+          // Retired legacy field — tax flows via tax_master_id.
+          variant_tax_rate: null,
+        };
+        try {
+          const { error } = await supabase
+            .from('product_variants')
+            .upsert(payload, { onConflict: 'sku' });
+          if (error) throw error;
+          if (existingVariantSkus.has(v.sku)) result.variantsUpdated++;
+          else result.variantsInserted++;
+        } catch (e: any) {
+          result.variantsFailed++;
+          result.errorRows.push({ row: v.rowNumber, sku: v.sku, reason: e?.message ?? String(e), kind: 'variant' });
+        }
+        done++;
+        onProgress?.(done, total);
+      }
+    }
   }
 
   return result;
