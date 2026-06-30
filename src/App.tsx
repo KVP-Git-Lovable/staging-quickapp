@@ -18,7 +18,7 @@ import { useMasterDataCache } from "@/hooks/useMasterDataCache";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
 import { visitStatusCache } from "@/lib/visitStatusCache";
-import { NetworkProvider } from "@/contexts/NetworkContext";
+import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
 import { QAModeProvider } from "@/contexts/QAModeContext";
 import { SlowConnectionBanner } from "@/components/SlowConnectionBanner";
 // PWA install prompt removed per user request
@@ -348,6 +348,18 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
   useEffect(() => {
     if (isQAMode()) registerQANavigator(navigate);
   }, [navigate]);
+
+  // QA-only: expose the manual-offline toggle on `window.__qaSetOffline`
+  // so the Offline Sync test actions can flip network state without
+  // requiring a UI control. Production builds skip this entirely.
+  const { setManualOfflineMode } = useNetwork();
+  useEffect(() => {
+    if (!isQAMode()) return;
+    (window as any).__qaSetOffline = (offline: boolean) => setManualOfflineMode(offline);
+    return () => {
+      try { delete (window as any).__qaSetOffline; } catch { /* no-op */ }
+    };
+  }, [setManualOfflineMode]);
 
   if (hasError) {
     return (

@@ -3,6 +3,9 @@ import { visitActions } from './visitActions';
 import { orderActions } from './orderActions';
 import { attendanceActions } from './attendanceActions';
 import { smokeActions } from './smokeActions';
+import { offlineSyncActions } from './offlineSyncActions';
+import { productVariantActions } from './productVariantActions';
+import { pricingCoverageActions } from './pricingCoverageActions';
 import type { QATestAction } from '@/qa/types';
 
 export const allQAActions: QATestAction[] = [
@@ -11,6 +14,9 @@ export const allQAActions: QATestAction[] = [
   ...visitActions,
   ...orderActions,
   ...attendanceActions,
+  ...offlineSyncActions,
+  ...productVariantActions,
+  ...pricingCoverageActions,
 ];
 
 
