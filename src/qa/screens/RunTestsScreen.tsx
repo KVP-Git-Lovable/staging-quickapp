@@ -17,6 +17,7 @@ interface ResultRow {
   pass: boolean;
   durationMs: number;
   errorMessage?: string;
+  manual?: boolean;
 }
 
 export const RunTestsScreen = () => {
@@ -25,6 +26,7 @@ export const RunTestsScreen = () => {
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
   const [selectedFlows, setSelectedFlows] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [currentLabel, setCurrentLabel] = useState<string | null>(null);
   const [results, setResults] = useState<ResultRow[]>([]);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
