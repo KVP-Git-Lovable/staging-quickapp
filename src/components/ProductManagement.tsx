@@ -1646,11 +1646,12 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                               setVariantForm({
                                 ...variant,
                                 product_number: (variant as any).product_number || '',
-                                description: (variant as any).description || '',
-                                base_unit: (variant as any).base_unit || 'kg',
+                                // Keep DB nulls as nulls so the override editor reads "Inherited" correctly.
+                                description: (variant as any).description ?? null,
+                                base_unit: (variant as any).base_unit ?? null,
                                 unit: (variant as any).unit || 'piece',
                                 conversion_factor: (variant as any).conversion_factor || 1,
-                                hsn_code: (variant as any).hsn_code || '',
+                                hsn_code: (variant as any).hsn_code ?? null,
                                 is_focused_product: variant.is_focused_product || false,
                                 focused_type: (variant as any).focused_type || undefined,
                                 focused_due_date: variant.focused_due_date || '',
@@ -1666,7 +1667,23 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                                 variant_cost: (variant as any).variant_cost ?? null,
                                 variant_tax_rate: (variant as any).variant_tax_rate ?? null,
                                 is_discontinued: !!(variant as any).is_discontinued,
-                                discontinued_date: (variant as any).discontinued_date || null
+                                discontinued_date: (variant as any).discontinued_date || null,
+                                // Phase-4 override columns: preserve NULL = inherit.
+                                tax_master_id: (variant as any).tax_master_id ?? null,
+                                gst_percentage: (variant as any).gst_percentage ?? null,
+                                category_id: (variant as any).category_id ?? null,
+                                brand: (variant as any).brand ?? null,
+                                product_type: (variant as any).product_type ?? null,
+                                default_sales_uom_id: (variant as any).default_sales_uom_id ?? null,
+                                price_basis_uom_id: (variant as any).price_basis_uom_id ?? null,
+                                net_weight_g: (variant as any).net_weight_g ?? null,
+                                net_volume_ml: (variant as any).net_volume_ml ?? null,
+                                standard_cost: (variant as any).standard_cost ?? null,
+                                sku_image_url: (variant as any).sku_image_url ?? null,
+                                reorder_level: (variant as any).reorder_level ?? null,
+                                reorder_quantity: (variant as any).reorder_quantity ?? null,
+                                manufacturer: (variant as any).manufacturer ?? null,
+                                country_of_origin: (variant as any).country_of_origin ?? null,
                               });
                               setIsVariantDialogOpen(true);
                             }}
