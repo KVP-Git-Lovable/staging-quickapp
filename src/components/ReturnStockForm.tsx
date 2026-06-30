@@ -123,6 +123,61 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
   const [returnReason, setReturnReason] = useState<string>('');
   const [otherReason, setOtherReason] = useState<string>('');
 
+  // Date filter for invoice-line picker (client-side, over already-loaded returnableLines)
+  type FilterMode = 'all' | 'relative' | 'specific';
+  type RelUnit = 'day' | 'week' | 'month' | 'year';
+  type RelDir = 'within' | 'older';
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [relN, setRelN] = useState<number>(6);
+  const [relUnit, setRelUnit] = useState<RelUnit>('month');
+  const [relDir, setRelDir] = useState<RelDir>('within');
+  const [specificDate, setSpecificDate] = useState<string>(''); // yyyy-mm-dd
+
+  // Reset filter whenever product changes
+  useEffect(() => {
+    setFilterMode('all');
+    setRelN(6);
+    setRelUnit('month');
+    setRelDir('within');
+    setSpecificDate('');
+  }, [selectedProduct]);
+
+  const displayedLines = useMemo(() => {
+    if (filterMode === 'all') return returnableLines;
+    if (filterMode === 'specific') {
+      if (!specificDate) return returnableLines;
+      return returnableLines.filter(l => {
+        if (!l.order_date) return false;
+        const d = new Date(l.order_date);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}` === specificDate;
+      });
+    }
+    // relative
+    const n = Math.max(0, Math.floor(relN || 0));
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    if (relUnit === 'day') cutoff.setDate(cutoff.getDate() - n);
+    else if (relUnit === 'week') cutoff.setDate(cutoff.getDate() - n * 7);
+    else if (relUnit === 'month') cutoff.setMonth(cutoff.getMonth() - n);
+    else if (relUnit === 'year') cutoff.setFullYear(cutoff.getFullYear() - n);
+    return returnableLines.filter(l => {
+      if (!l.order_date) return false;
+      const d = new Date(l.order_date);
+      return relDir === 'within' ? d >= cutoff : d < cutoff;
+    });
+  }, [filterMode, returnableLines, relN, relUnit, relDir, specificDate]);
+
+  // If currently selected line is filtered out, clear selection (or pick first)
+  useEffect(() => {
+    if (!selectedLineId) return;
+    if (!displayedLines.some(l => l.order_id === selectedLineId)) {
+      setSelectedLineId(displayedLines[0]?.order_id || '');
+    }
+  }, [displayedLines, selectedLineId]);
+
   useEffect(() => {
     fetchProducts().catch(err => {
       console.error('[ReturnStockForm] fetchProducts failed', err);
