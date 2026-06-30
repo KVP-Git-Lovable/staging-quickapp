@@ -119,3 +119,64 @@ export function isProductAvailable(
   if (includes.length === 0) return true;
   return includes.some(matched);
 }
+
+/**
+ * Filter a list of products/variants by availability. The caller supplies
+ * `getBaseProductId` so this works for both base products and variants
+ * (variants must always resolve against their BASE product_id).
+ */
+export function filterAvailableProducts<T>(
+  products: T[],
+  getBaseProductId: (p: T) => string | null | undefined,
+  availabilityByProductId: Map<string, AvailabilityRow[]> | null | undefined,
+  ctx: RetailerContext
+): T[] {
+  if (!products || products.length === 0) return products ?? [];
+  if (!availabilityByProductId || availabilityByProductId.size === 0) return products;
+  return products.filter((p) => {
+    const id = getBaseProductId(p);
+    if (!id) return true;
+    const rows = availabilityByProductId.get(id);
+    return isProductAvailable(rows ?? null, ctx);
+  });
+}
+
+type DistributorLike = {
+  id?: string | null;
+  state?: string | null;
+  region?: string | null;
+  zone?: string | null;
+  territory_id?: string | null;
+};
+
+/**
+ * Build a RetailerContext for distributor-driven order flows (e.g. primary
+ * order from the distributor portal where there is no retailer yet).
+ * The context represents the distributor's own region/zone/state/territory.
+ */
+export function buildDistributorContext(
+  distributor: DistributorLike | null | undefined,
+  territoriesById: Map<string, TerritoryLookupEntry> | Record<string, TerritoryLookupEntry> | null | undefined,
+  userId: string | null | undefined
+): RetailerContext {
+  const d = distributor ?? {};
+  const territoryId = d.territory_id ?? null;
+
+  let territory: TerritoryLookupEntry | undefined;
+  if (territoryId && territoriesById) {
+    if (territoriesById instanceof Map) {
+      territory = territoriesById.get(territoryId);
+    } else {
+      territory = (territoriesById as Record<string, TerritoryLookupEntry>)[territoryId];
+    }
+  }
+
+  return {
+    state: d.state ?? null,
+    region: d.region ?? territory?.region ?? null,
+    zone: d.zone ?? territory?.zone ?? null,
+    territory_id: territoryId,
+    distributor_id: d.id ?? null,
+    user_id: userId ?? null,
+  };
+}
