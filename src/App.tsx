@@ -340,6 +340,14 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
   useActivityTracker();
   useModuleUsageTracker();
   const { user, mustChangePassword, onPasswordChanged, dismissPasswordChange } = useAuth();
+  const navigate = useNavigate();
+
+  // QA-only: expose the app's real router to the QA automation engine so
+  // automated actions can drive in-app navigation. Production builds never
+  // register the navigator (isQAMode() returns false).
+  useEffect(() => {
+    if (isQAMode()) registerQANavigator(navigate);
+  }, [navigate]);
 
   if (hasError) {
     return (
