@@ -607,6 +607,13 @@ export function useMasterDataCache() {
       onItemCount?.('orders', summary.orders);
       onProgress('orders', 'done');
 
+      // Phase 7-1: product availability + territories lookup (best-effort).
+      try {
+        await cacheProductAvailability(onProgress);
+      } catch (e) {
+        console.warn('[Cache] availability sync (full) failed:', e);
+      }
+
       // Calculate total
       summary.total = summary.products + summary.schemes + summary.beats + summary.retailers + 
                       summary.beatPlans + summary.competition + summary.visits + summary.orders;
@@ -623,7 +630,7 @@ export function useMasterDataCache() {
       console.error('[Cache] Full sync failed:', error);
       return summary;
     }
-  }, [user]);
+  }, [user, cacheProductAvailability]);
 
   // Cache essential master data with priority loading
   // Critical data loads first (beat plans, retailers) for My Visit to work
