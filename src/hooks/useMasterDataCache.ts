@@ -642,7 +642,8 @@ export function useMasterDataCache() {
         cacheBeats(),
         cacheRetailers(),
         cacheBeatPlans(),
-        cacheCompetitionData()
+        cacheCompetitionData(),
+        cacheProductAvailability()
       ]);
       
       localStorage.setItem('master_data_cached_at', Date.now().toString());
@@ -656,7 +657,7 @@ export function useMasterDataCache() {
       console.error('[Cache] Force refresh failed:', error);
       return false;
     }
-  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
+  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability]);
 
   // Load cached data (used when offline)
   const loadCachedData = useCallback(async (storeName: string) => {
