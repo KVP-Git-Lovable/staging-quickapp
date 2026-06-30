@@ -3421,6 +3421,27 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_note_config: {
+        Row: {
+          id: string
+          requires_approval: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          requires_approval?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          requires_approval?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       credit_note_items: {
         Row: {
           barcode: string | null
@@ -3439,6 +3460,7 @@ export type Database = {
           taxable_amount: number | null
           total: number | null
           unit: string | null
+          variant_id: string | null
         }
         Insert: {
           barcode?: string | null
@@ -3457,6 +3479,7 @@ export type Database = {
           taxable_amount?: number | null
           total?: number | null
           unit?: string | null
+          variant_id?: string | null
         }
         Update: {
           barcode?: string | null
@@ -3475,6 +3498,7 @@ export type Database = {
           taxable_amount?: number | null
           total?: number | null
           unit?: string | null
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -3484,17 +3508,29 @@ export type Database = {
             referencedRelation: "credit_notes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "credit_note_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       credit_notes: {
         Row: {
           amount_in_words: string | null
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           cgst_total: number | null
           created_at: string | null
           created_by: string | null
           credit_note_date: string
           credit_note_number: string
           id: string
+          original_order_id: string | null
+          posted_to_ledger: boolean
           reason: string
           reason_notes: string | null
           retailer_id: string | null
@@ -3507,12 +3543,17 @@ export type Database = {
         }
         Insert: {
           amount_in_words?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           cgst_total?: number | null
           created_at?: string | null
           created_by?: string | null
           credit_note_date?: string
           credit_note_number: string
           id?: string
+          original_order_id?: string | null
+          posted_to_ledger?: boolean
           reason?: string
           reason_notes?: string | null
           retailer_id?: string | null
@@ -3525,12 +3566,17 @@ export type Database = {
         }
         Update: {
           amount_in_words?: string | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           cgst_total?: number | null
           created_at?: string | null
           created_by?: string | null
           credit_note_date?: string
           credit_note_number?: string
           id?: string
+          original_order_id?: string | null
+          posted_to_ledger?: boolean
           reason?: string
           reason_notes?: string | null
           retailer_id?: string | null
@@ -3542,6 +3588,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_notes_original_order_id_fkey"
+            columns: ["original_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "credit_notes_retailer_id_fkey"
             columns: ["retailer_id"]
@@ -24465,6 +24518,10 @@ export type Database = {
           p_unit_text: string
           p_uom_id?: string
         }
+        Returns: number
+      }
+      returnable_qty: {
+        Args: { p_order_id: string; p_product_id: string; p_variant_id: string }
         Returns: number
       }
       reverse_retailer_points: {
