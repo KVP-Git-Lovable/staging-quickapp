@@ -22,10 +22,7 @@ export const QA_MIRRORED_TABLES: ReadonlySet<string> = new Set([
   'retailer_visit_logs',
   'products',
   'inst_leads',
-  // QA-only logging tables (already physically prefixed in the schema)
-  'test_runs',
-  'test_logs',
-  'sync_audit_log',
+
 ]);
 
 /**
