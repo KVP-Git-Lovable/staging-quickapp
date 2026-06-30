@@ -9,6 +9,8 @@ import { periodicMemoryCleanup, initMemoryPressureHandler } from "@/utils/memory
 import { useBatteryMonitor } from "@/hooks/useBatteryMonitor";
 import { useNotifications } from "@/hooks/useNotifications";
 import { LeaderboardBanner } from "@/components/notifications/LeaderboardBanner";
+import { QAModeBanner } from "@/components/qa/QAModeBanner";
+import { useQAMode } from "@/contexts/QAModeContext";
 
 interface LayoutProps {
   children: ReactNode;
@@ -82,8 +84,11 @@ export const Layout = memo(({ children }: LayoutProps) => {
     }
   }, [isOnline, processSyncQueue]);
 
+  const { isQAMode } = useQAMode();
+
   return (
-    <div className="min-h-screen bg-gradient-subtle w-full flex flex-col">
+    <div className={`min-h-screen bg-gradient-subtle w-full flex flex-col${isQAMode ? ' pt-6' : ''}`}>
+      <QAModeBanner />
       {/* Safe area top spacer - covers status bar with primary color, always fixed at top */}
       <div 
         className="fixed top-0 left-0 right-0 z-[9999]"
