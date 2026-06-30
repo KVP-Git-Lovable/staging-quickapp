@@ -21,7 +21,6 @@ interface ResultRow {
 
 export const RunTestsScreen = () => {
   const { isQAMode } = useQAMode();
-  if (!isQAMode) return <Navigate to="/" replace />;
 
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
   const [selectedFlows, setSelectedFlows] = useState<string[]>([]);
@@ -30,6 +29,8 @@ export const RunTestsScreen = () => {
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
   const grouped = useMemo(() => actionsByEntity(), []);
+
+  if (!isQAMode) return <Navigate to="/" replace />;
 
   const toggleAction = (id: string) =>
     setSelectedActions((prev) =>
@@ -46,39 +47,59 @@ export const RunTestsScreen = () => {
   const runSelected = async () => {
     setRunning(true);
     setResults([]);
-    const runId = await startRun();
-    setCurrentRunId(runId);
+    let runId: string | null = null;
     const all: ResultRow[] = [];
+    try {
+      runId = await startRun();
+      setCurrentRunId(runId);
 
-    for (const flowId of selectedFlows) {
-      const flowResults = await runFlow(flowId, runId);
-      for (const r of flowResults) {
-        const row: ResultRow = {
-          label: r.actionLabel,
-          pass: r.pass,
-          durationMs: r.durationMs,
-          errorMessage: r.errorMessage,
-        };
-        all.push(row);
-        setResults((prev) => [...prev, row]);
+      for (const flowId of selectedFlows) {
+        try {
+          const flowResults = await runFlow(flowId, runId);
+          for (const r of flowResults) {
+            const row: ResultRow = {
+              label: r.actionLabel,
+              pass: r.pass,
+              durationMs: r.durationMs,
+              errorMessage: r.errorMessage,
+            };
+            all.push(row);
+            setResults((prev) => [...prev, row]);
+          }
+        } catch (e: any) {
+          const row: ResultRow = { label: flowId, pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
+          all.push(row);
+          setResults((prev) => [...prev, row]);
+        }
       }
-    }
 
-    for (const actionId of selectedActions) {
-      const r = await runSingleAction(actionId, runId);
-      const row: ResultRow = {
-        label: r.actionLabel,
-        pass: r.pass,
-        durationMs: r.durationMs,
-        errorMessage: r.errorMessage,
-      };
-      all.push(row);
+      for (const actionId of selectedActions) {
+        try {
+          const r = await runSingleAction(actionId, runId);
+          const row: ResultRow = {
+            label: r.actionLabel,
+            pass: r.pass,
+            durationMs: r.durationMs,
+            errorMessage: r.errorMessage,
+          };
+          all.push(row);
+          setResults((prev) => [...prev, row]);
+        } catch (e: any) {
+          const row: ResultRow = { label: actionId, pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
+          all.push(row);
+          setResults((prev) => [...prev, row]);
+        }
+      }
+
+      if (runId) await finishRun(runId, all);
+    } catch (e: any) {
+      const row: ResultRow = { label: 'Run setup', pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
       setResults((prev) => [...prev, row]);
+    } finally {
+      setRunning(false);
     }
-
-    await finishRun(runId, all);
-    setRunning(false);
   };
+
 
   return (
     <div className="container mx-auto max-w-4xl p-4 space-y-4">
