@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityEvents } from '@/hooks/useActivityEvents';
+import { useActivityTypes } from '@/hooks/useActivityTypes';
 import { useSubordinates } from '@/hooks/useSubordinates';
 import { useConnectivity } from '@/hooks/useConnectivity';
 import { getMyBeats } from '@/services/beatService';
