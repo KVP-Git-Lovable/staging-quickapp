@@ -1301,6 +1301,7 @@ export const AddRetailer = () => {
                 <Label htmlFor="phone">{t('retailer.phone')} *</Label>
                 <Input
                   id="phone"
+                  data-testid="retailer-phone-input"
                   type="tel"
                   placeholder={t('retailer.enterPhone')}
                   value={retailerData.phone}
@@ -1314,6 +1315,7 @@ export const AddRetailer = () => {
                 <div className="flex gap-2">
                   <Textarea
                     id="address"
+                    data-testid="retailer-address-input"
                     placeholder="Enter complete address"
                     value={retailerData.address}
                     onChange={(e) => handleInputChange("address", e.target.value)}
@@ -1323,7 +1325,6 @@ export const AddRetailer = () => {
                     type="button" 
                     variant="outline" 
                     size="icon"
-                    onClick={async () => {
                       if (!navigator.geolocation) {
                         toast({ 
                           title: "GPS Not Available", 
