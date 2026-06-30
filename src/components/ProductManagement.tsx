@@ -228,6 +228,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     variant_tax_rate: null as number | null,
     is_discontinued: false,
     discontinued_date: null as string | null,
+    ...emptyVariantOverrides(),
   } as any);
 
   const executeDeleteAllProducts = async () => {
