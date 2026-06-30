@@ -64,9 +64,39 @@ export async function parseImportFile(file: File): Promise<ParseResult> {
   return { rows, unknownHeaders: Array.from(unknown) };
 }
 
+export type RowKind = 'product' | 'variant';
+
+export interface VariantResolved {
+  parent_sku: string;
+  variant_name: string;
+  price: number | null;
+  stock_quantity: number | null;
+  is_active: boolean;
+  // Override columns — null means inherit from parent.
+  tax_master_id: string | null;
+  gst_percentage: number | null;
+  category_id: string | null;
+  brand: string | null;
+  hsn_code: string | null;
+  product_type: string | null;
+  description: string | null;
+  default_sales_uom_id: string | null;
+  price_basis_uom_id: string | null;
+  base_unit: string | null;
+  net_weight_g: number | null;
+  net_volume_ml: number | null;
+  standard_cost: number | null;
+  sku_image_url: string | null;
+  reorder_level: number | null;
+  reorder_quantity: number | null;
+  manufacturer: string | null;
+  country_of_origin: string | null;
+}
+
 export interface ValidatedRow {
   rowNumber: number;        // 1-based, matches sheet row (header = 1).
   sku: string;
+  kind: RowKind;
   ok: boolean;
   errors: string[];
   warnings: string[];
@@ -101,6 +131,7 @@ export interface ValidatedRow {
       is_default_sales: boolean;
     }>;
   };
+  variantResolved?: VariantResolved;
 }
 
 
