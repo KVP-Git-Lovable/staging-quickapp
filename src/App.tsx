@@ -7,7 +7,9 @@ import { PricingPage } from "@/pages/website/PricingPage";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { isQAMode } from "@/lib/tableRouter";
+import { registerNavigator as registerQANavigator } from "@/qa/automation/navigate";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { FeatureProvider } from "@/context/FeatureContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
