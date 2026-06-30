@@ -26,6 +26,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ChevronsUpDown } from 'lucide-react';
 import { resolveProduct } from '@/utils/resolveProduct';
+import { usePortalAvailability } from '@/hooks/usePortalAvailability';
+import { buildDistributorContext, filterAvailableProducts } from '@/utils/productAvailability';
 
 interface Category { id: string; name: string; }
 interface PriceBookEntry { product_id: string; variant_id: string | null; final_price: number; list_price: number; }
