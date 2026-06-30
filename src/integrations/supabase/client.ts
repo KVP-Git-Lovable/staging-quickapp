@@ -94,6 +94,6 @@ function buildQAClient(client: any): any {
   });
 }
 
-export const supabase: any = isQAMode()
-  ? buildQAClient(rawClient)
+export const supabase = isQAMode()
+  ? (buildQAClient(rawClient) as typeof rawClient)
   : rawClient;
