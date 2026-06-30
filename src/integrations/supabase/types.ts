@@ -341,6 +341,60 @@ export type Database = {
           },
         ]
       }
+      activity_types: {
+        Row: {
+          code: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          default_duration_minutes: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_sales_activity: boolean
+          name: string
+          productivity_weight: number
+          requires_check_in: boolean
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_duration_minutes?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_sales_activity?: boolean
+          name: string
+          productivity_weight?: number
+          requires_check_in?: boolean
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_duration_minutes?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_sales_activity?: boolean
+          name?: string
+          productivity_weight?: number
+          requires_check_in?: boolean
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       additional_expenses: {
         Row: {
           amount: number
