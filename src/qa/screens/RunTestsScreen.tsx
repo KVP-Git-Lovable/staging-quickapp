@@ -193,16 +193,12 @@ export const RunTestsScreen = () => {
                 {actions.map((action) => (
                   <label
                     key={action.id}
-                    className={`flex items-start gap-3 p-2.5 rounded-md border ${
-                      action.skipped
-                        ? 'opacity-60 cursor-not-allowed bg-muted/20'
-                        : 'hover:bg-muted/30 cursor-pointer'
-                    }`}
+                    className="flex items-start gap-3 p-2.5 rounded-md border hover:bg-muted/30 cursor-pointer"
                   >
                     <Checkbox
                       checked={selectedActions.includes(action.id)}
                       onCheckedChange={() => toggleAction(action.id)}
-                      disabled={running || action.skipped}
+                      disabled={running}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -213,15 +209,20 @@ export const RunTestsScreen = () => {
                         {action.skipped && (
                           <Badge
                             variant="outline"
-                            className="text-[10px] bg-muted text-muted-foreground"
+                            className="text-[10px] bg-amber-100 text-amber-900 border-amber-300"
                           >
-                            skipped
+                            Manual step
                           </Badge>
                         )}
                       </div>
                       {action.skipped && action.skippedReason && (
                         <div className="text-xs text-muted-foreground mt-1">
                           {action.skippedReason}
+                        </div>
+                      )}
+                      {action.description && !action.skipped && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {action.description}
                         </div>
                       )}
                     </div>
