@@ -872,10 +872,10 @@ export async function executeImport(
  * "download error report" link.
  */
 export function buildErrorReportBlob(
-  errors: Array<{ row: number; sku: string; reason: string }>,
+  errors: Array<{ row: number; sku: string; reason: string; kind?: RowKind }>,
 ): Blob {
   const ws = XLSX.utils.json_to_sheet(errors, {
-    header: ['row', 'sku', 'reason'],
+    header: ['row', 'kind', 'sku', 'reason'],
   });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Errors');
