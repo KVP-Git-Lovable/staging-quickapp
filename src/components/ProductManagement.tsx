@@ -493,31 +493,86 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     setDeleteConfirm({ open: true, type: 'variant', id, name: 'this variant' });
   };
 
+  const logCatalogLifecycleChange = async (
+    tableName: 'products' | 'product_variants',
+    recordId: string,
+    recordData: Record<string, any>,
+    action: 'discontinued' | 'reactivated'
+  ) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('deleted_records_audit' as any)
+        .insert({
+          table_name: tableName,
+          record_id: recordId,
+          record_data: {
+            ...recordData,
+            lifecycle_action: action,
+            preserve_history: true,
+          },
+          deleted_by: user.id,
+          delete_reason: action === 'discontinued'
+            ? 'Product catalog item discontinued; historical rows preserved'
+            : 'Product catalog item reactivated',
+          app_context: 'Product Management',
+        });
+
+      if (error) console.warn('Catalog lifecycle audit failed:', error);
+    } catch (auditError) {
+      console.warn('Catalog lifecycle audit failed:', auditError);
+    }
+  };
+
   const executeDeleteVariant = async (id: string) => {
     try {
       const variantData = variants.find(v => v.id === id);
-      if (variantData) {
-        await moveToRecycleBin({
-          tableName: 'product_variants',
-          recordId: id,
-          recordData: variantData,
-          moduleName: 'Product Variants',
-          recordName: variantData.variant_name || 'Variant'
-        });
-      }
-      
+
       const { error } = await supabase
         .from('product_variants')
-        .delete()
+        .update({
+          is_active: false,
+          is_discontinued: true,
+          discontinued_date: new Date().toISOString().slice(0, 10),
+        } as any)
         .eq('id', id);
       
       if (error) throw error;
-      toast.success('Variant moved to recycle bin');
+      if (variantData) {
+        await logCatalogLifecycleChange('product_variants', id, variantData as any, 'discontinued');
+      }
+      toast.success('Variant discontinued. History has been preserved.');
       fetchVariants();
       setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
-      console.error('Error deleting variant:', error);
-      toast.error('Failed to delete variant');
+      console.error('Error discontinuing variant:', error);
+      toast.error('Failed to discontinue variant');
+    }
+  };
+
+  const handleReactivateVariant = async (id: string) => {
+    try {
+      const variantData = variants.find(v => v.id === id);
+      const { error } = await supabase
+        .from('product_variants')
+        .update({
+          is_active: true,
+          is_discontinued: false,
+          discontinued_date: null,
+        } as any)
+        .eq('id', id);
+
+      if (error) throw error;
+      if (variantData) {
+        await logCatalogLifecycleChange('product_variants', id, variantData as any, 'reactivated');
+      }
+      toast.success('Variant reactivated');
+      fetchVariants();
+    } catch (error) {
+      console.error('Error reactivating variant:', error);
+      toast.error('Failed to reactivate variant');
     }
   };
 
@@ -782,28 +837,52 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   const executeDeleteProduct = async (id: string) => {
     try {
       const productData = products.find(p => p.id === id);
-      if (productData) {
-        await moveToRecycleBin({
-          tableName: 'products',
-          recordId: id,
-          recordData: productData,
-          moduleName: 'Products',
-          recordName: productData.name
-        });
-      }
-      
+
       const { error } = await supabase
         .from('products')
-        .delete()
+        .update({
+          is_active: false,
+          is_discontinued: true,
+          discontinued_date: new Date().toISOString().slice(0, 10),
+          discontinuation_reason: 'Discontinued from Product Management',
+        } as any)
         .eq('id', id);
       
       if (error) throw error;
-      toast.success('Product moved to recycle bin');
+      if (productData) {
+        await logCatalogLifecycleChange('products', id, productData as any, 'discontinued');
+      }
+      toast.success('Product discontinued. History has been preserved.');
       fetchProducts();
       setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     } catch (error) {
-      console.error('Error deleting product:', error);
-      toast.error('Failed to delete product');
+      console.error('Error discontinuing product:', error);
+      toast.error('Failed to discontinue product');
+    }
+  };
+
+  const handleReactivateProduct = async (id: string) => {
+    try {
+      const productData = products.find(p => p.id === id);
+      const { error } = await supabase
+        .from('products')
+        .update({
+          is_active: true,
+          is_discontinued: false,
+          discontinued_date: null,
+          discontinuation_reason: null,
+        } as any)
+        .eq('id', id);
+
+      if (error) throw error;
+      if (productData) {
+        await logCatalogLifecycleChange('products', id, productData as any, 'reactivated');
+      }
+      toast.success('Product reactivated');
+      fetchProducts();
+    } catch (error) {
+      console.error('Error reactivating product:', error);
+      toast.error('Failed to reactivate product');
     }
   };
 
