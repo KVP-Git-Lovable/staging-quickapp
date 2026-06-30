@@ -21,6 +21,8 @@ import { ProductFormFields } from './ProductFormFields';
 import { ProductExtendedFields } from './ProductExtendedFields';
 import { VariantFocusedFields } from './VariantFocusedFields';
 import { VariantExtendedFields } from './VariantExtendedFields';
+import { VariantOverrideFields, emptyVariantOverrides, type VariantOverrideValues } from './VariantOverrideFields';
+import { resolveProduct } from '@/utils/resolveProduct';
 import { migrateProducts } from '@/utils/productMigration';
 import { usePagination } from '@/hooks/usePagination';
 import { PaginationControls } from '@/components/ui/PaginationControls';
