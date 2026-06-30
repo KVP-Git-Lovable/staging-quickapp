@@ -2196,7 +2196,7 @@ export const OrderEntry = () => {
               {/* Row 2: Voice Order + Smart Basket */}
               <div className="flex gap-1.5">
                 <VoiceOrderAssistant
-                  products={cachedProducts.map(p => ({
+                  products={availableCachedProducts.map(p => ({
                     id: p.id,
                     name: p.name,
                     rate: p.rate,
