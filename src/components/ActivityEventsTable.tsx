@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { Geolocation } from '@capacitor/geolocation';
 import { useNavigate } from 'react-router-dom';
+import { useActivityTypes } from '@/hooks/useActivityTypes';
 
 interface ActivityEventsTableProps {
   userId: string;
