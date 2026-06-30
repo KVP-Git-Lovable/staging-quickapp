@@ -1610,12 +1610,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {variants.filter(v => v.product_id === selectedProductForVariants && productStatusMatches(v.is_active)).map((variant) => (
+                  {variants.filter(v => v.product_id === selectedProductForVariants && productStatusMatches(v.is_active)).map((variant) => {
+                    const baseForVariant: any = products.find((p) => p.id === variant.product_id) || {};
+                    const r = resolveProduct(baseForVariant, variant);
+                    return (
                     <TableRow key={variant.id}>
-                      <TableCell className="font-mono">{variant.sku}</TableCell>
+                      <TableCell className="font-mono">{variant.sku || r.sku}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <span>{variant.variant_name}</span>
+                          <span>{r.display_name}</span>
                           {variant.is_focused_product && (
                             <Badge variant="default" className="text-xs bg-orange-500 hover:bg-orange-600">
                               Focused
@@ -1623,7 +1626,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>₹{variant.price.toFixed(2)}</TableCell>
+                      <TableCell>₹{Number(r.rate).toFixed(2)}</TableCell>
                       <TableCell>{variant.stock_quantity}</TableCell>
                       <TableCell>
                         {variant.discount_percentage > 0 && (
