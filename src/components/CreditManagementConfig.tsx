@@ -47,6 +47,8 @@ interface Territory {
 
 export const CreditManagementConfig = () => {
   const queryClient = useQueryClient();
+  const { can, loading: permsLoading } = usePermissions();
+  const canEditCnSettings = can('credit_note_settings', 'edit');
 
   // ---- Credit Note approval toggle (credit_note_config) ----
   const { data: cnConfig, isLoading: cnConfigLoading } = useQuery({
@@ -61,6 +63,56 @@ export const CreditManagementConfig = () => {
       return data;
     },
   });
+
+  // ---- Credit Note approver config (approval_config WHERE entity_type='credit_note') ----
+  const { data: cnApprovalConfig, isLoading: cnApprovalLoading } = useQuery({
+    queryKey: ['approval-config', 'credit_note'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('approval_config')
+        .select('*')
+        .eq('entity_type', 'credit_note')
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // ---- Active users for "specific approver" picker (paginated, capped) ----
+  const { data: activeUsers } = useQuery({
+    queryKey: ['profiles-active-for-cn-approver'],
+    queryFn: async () => {
+      const all: Array<{ id: string; full_name: string | null }> = [];
+      const pageSize = 500;
+      for (let from = 0; from < 5000; from += pageSize) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .eq('is_active', true)
+          .order('full_name', { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < pageSize) break;
+      }
+      return all;
+    },
+  });
+
+  // Local UI state for approver mode + picker
+  const [approverMode, setApproverMode] = useState<'manager' | 'specific'>('manager');
+  const [specificApproverId, setSpecificApproverId] = useState<string | null>(null);
+  const [approverPickerOpen, setApproverPickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (cnApprovalConfig) {
+      const mode = (cnApprovalConfig.approval_mode === 'specific' ? 'specific' : 'manager') as 'manager' | 'specific';
+      setApproverMode(mode);
+      setSpecificApproverId(cnApprovalConfig.specific_approver_id ?? null);
+    }
+  }, [cnApprovalConfig?.id, cnApprovalConfig?.approval_mode, cnApprovalConfig?.specific_approver_id]);
 
   const updateCnConfig = useMutation({
     mutationFn: async (requires_approval: boolean) => {
@@ -85,6 +137,41 @@ export const CreditManagementConfig = () => {
     },
     onError: (e: any) => toast.error(e.message || 'Failed to save setting'),
   });
+
+  const saveApproverConfig = useMutation({
+    mutationFn: async () => {
+      const payload =
+        approverMode === 'specific'
+          ? { approval_mode: 'specific', use_full_hierarchy: false, specific_approver_id: specificApproverId, max_levels: 1 }
+          : { approval_mode: 'manager', use_full_hierarchy: true, specific_approver_id: null, max_levels: 1 };
+      if (cnApprovalConfig?.id) {
+        const { error } = await supabase
+          .from('approval_config')
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq('id', cnApprovalConfig.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('approval_config')
+          .insert({ entity_type: 'credit_note', ...payload });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['approval-config', 'credit_note'] });
+      toast.success('Approver settings saved');
+    },
+    onError: (e: any) => toast.error(e.message || 'Failed to save approver settings'),
+  });
+
+  const requiresApproval = !!cnConfig?.requires_approval;
+  const specificMissing = requiresApproval && approverMode === 'specific' && !specificApproverId;
+  const selectedApproverName = useMemo(
+    () => activeUsers?.find((u) => u.id === specificApproverId)?.full_name ?? null,
+    [activeUsers, specificApproverId]
+  );
+
+
 
 
   const [dialogOpen, setDialogOpen] = useState(false);
