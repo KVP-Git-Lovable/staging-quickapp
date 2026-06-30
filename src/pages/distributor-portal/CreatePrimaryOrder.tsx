@@ -735,7 +735,7 @@ const CreatePrimaryOrder = () => {
             categories={categories}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
-            products={products}
+            products={availableProducts}
             productsLoading={productsLoading}
             productUoms={productUoms}
             productStock={productStock}
