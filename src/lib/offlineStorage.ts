@@ -31,7 +31,10 @@ export const STORES = {
   SYNC_LOGS: 'syncLogs',
   // Attendance-specific config caching
   WEEK_OFF_CONFIG: 'weekOffConfig',
-  HOLIDAYS: 'holidays'
+  HOLIDAYS: 'holidays',
+  // Phase 7-1: product availability rules + territory lookup (region/zone)
+  PRODUCT_AVAILABILITY: 'productAvailability',
+  TERRITORIES_LOOKUP: 'territoriesLookup'
 } as const;
 
 // Sync metadata interface

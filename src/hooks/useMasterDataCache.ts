@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { useConnectivity } from './useConnectivity';
@@ -6,6 +6,7 @@ import { useAuth } from './useAuth';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { useManagedInterval } from '@/utils/intervalManager';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+import type { AvailabilityRow, TerritoryLookupEntry } from '@/utils/productAvailability';
 
 // Trimmed columns for picker / order-entry use case (avoids select('*')
 // pulling rarely-used heavy fields). Kept in sync with TableOrderForm needs.
@@ -23,6 +24,45 @@ export function useMasterDataCache() {
   const connectivityStatus = useConnectivity();
   const isOnline = connectivityStatus === 'online';
   const { user } = useAuth();
+
+  // Phase 7-1: reactive maps for the availability resolver. Loaded from the
+  // offline cache (filled by cacheProductAvailability) so consumers can call
+  // isProductAvailable / buildRetailerContext without an extra round-trip.
+  const [availabilityByProductId, setAvailabilityByProductId] = useState<Map<string, AvailabilityRow[]>>(new Map());
+  const [territoriesById, setTerritoriesById] = useState<Map<string, TerritoryLookupEntry>>(new Map());
+
+  const reloadAvailabilityMaps = useCallback(async () => {
+    try {
+      const [rows, terrs] = await Promise.all([
+        offlineStorage.getAll(STORES.PRODUCT_AVAILABILITY) as Promise<AvailabilityRow[]>,
+        offlineStorage.getAll(STORES.TERRITORIES_LOOKUP) as Promise<Array<{ id: string; region: string | null; zone: string | null }>>,
+      ]);
+
+      const byProduct = new Map<string, AvailabilityRow[]>();
+      for (const r of rows ?? []) {
+        const list = byProduct.get(r.product_id) ?? [];
+        list.push(r);
+        byProduct.set(r.product_id, list);
+      }
+      setAvailabilityByProductId(byProduct);
+
+      const terrMap = new Map<string, TerritoryLookupEntry>();
+      for (const t of terrs ?? []) {
+        terrMap.set(t.id, { region: t.region, zone: t.zone });
+      }
+      setTerritoriesById(terrMap);
+    } catch (err) {
+      console.warn('[Cache] Failed to load availability maps from offline cache:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    reloadAvailabilityMaps();
+    const onRefresh = () => reloadAvailabilityMaps();
+    window.addEventListener('masterDataRefreshed', onRefresh);
+    return () => window.removeEventListener('masterDataRefreshed', onRefresh);
+  }, [reloadAvailabilityMaps]);
+
 
   // Cache ONLY active products and related data needed for order entry
   const cacheProducts = useCallback(async (onProgress?: CacheProgressCallback) => {
@@ -181,6 +221,43 @@ export function useMasterDataCache() {
     } catch (error) {
       console.error('Error caching competition data:', error);
       onProgress?.('competition', 'error');
+    }
+  }, []);
+
+  // Phase 7-1: cache product availability rules + a small territories lookup
+  // (id -> {region, zone}) so the resolver can build a retailer context offline.
+  const cacheProductAvailability = useCallback(async (onProgress?: CacheProgressCallback) => {
+    try {
+      onProgress?.('productAvailability', 'loading');
+      console.log('[Cache] Syncing product availability + territories lookup...');
+
+      // PAGINATED — never a 1k-cap raw query.
+      const availability = await fetchAllPaginated<AvailabilityRow>((from, to) =>
+        supabase
+          .from('product_availability')
+          .select('product_id, scope_type, scope_value, mode')
+          .range(from, to)
+      );
+
+      const territories = await fetchAllPaginated<{ id: string; region: string | null; zone: string | null }>((from, to) =>
+        supabase
+          .from('territories')
+          .select('id, region, zone')
+          .range(from, to)
+      );
+
+      if (availability) {
+        await offlineStorage.replaceAll(STORES.PRODUCT_AVAILABILITY, availability);
+        console.log(`[Cache] ✅ ${availability.length} product availability rows cached`);
+      }
+      if (territories) {
+        await offlineStorage.replaceAll(STORES.TERRITORIES_LOOKUP, territories);
+        console.log(`[Cache] ✅ ${territories.length} territories cached`);
+      }
+      onProgress?.('productAvailability', 'done');
+    } catch (error) {
+      console.error('[Cache] Error caching product availability, keeping existing cache:', error);
+      onProgress?.('productAvailability', 'error');
     }
   }, []);
 
@@ -362,6 +439,7 @@ export function useMasterDataCache() {
       await cacheRetailers(onProgress);
       await cacheBeatPlans(onProgress);
       await cacheCompetitionData(onProgress);
+      await cacheProductAvailability(onProgress);
       await cacheVisits(onProgress);
       await cacheOrders(onProgress);
       
@@ -377,7 +455,7 @@ export function useMasterDataCache() {
       console.error('[Cache] Cache warming failed:', error);
       return false;
     }
-  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheVisits, cacheOrders]);
+  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability, cacheVisits, cacheOrders]);
 
   // Full sync with item counts - returns summary for UI
   type SyncSummaryLocal = {
@@ -529,6 +607,13 @@ export function useMasterDataCache() {
       onItemCount?.('orders', summary.orders);
       onProgress('orders', 'done');
 
+      // Phase 7-1: product availability + territories lookup (best-effort).
+      try {
+        await cacheProductAvailability(onProgress);
+      } catch (e) {
+        console.warn('[Cache] availability sync (full) failed:', e);
+      }
+
       // Calculate total
       summary.total = summary.products + summary.schemes + summary.beats + summary.retailers + 
                       summary.beatPlans + summary.competition + summary.visits + summary.orders;
@@ -545,7 +630,7 @@ export function useMasterDataCache() {
       console.error('[Cache] Full sync failed:', error);
       return summary;
     }
-  }, [user]);
+  }, [user, cacheProductAvailability]);
 
   // Cache essential master data with priority loading
   // Critical data loads first (beat plans, retailers) for My Visit to work
@@ -567,11 +652,12 @@ export function useMasterDataCache() {
         cacheBeats()
       ]);
       
-      // Phase 2: IMPORTANT - Load products and schemes (needed for order entry)
-      console.log('[Cache] Phase 2: Loading important data (products + schemes)...');
+      // Phase 2: IMPORTANT - Load products, schemes, availability rules (order entry)
+      console.log('[Cache] Phase 2: Loading important data (products + schemes + availability)...');
       await Promise.all([
         cacheProducts(),
-        cacheSchemes()
+        cacheSchemes(),
+        cacheProductAvailability()
       ]);
       
       // Phase 3: DEFERRED - Load competition data in background (not urgent)
@@ -585,7 +671,7 @@ export function useMasterDataCache() {
     } catch (error) {
       console.error('[Cache] Error syncing offline data:', error);
     }
-  }, [isOnline, user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
+  }, [isOnline, user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability]);
 
   // Force refresh master data AND notify UI to reload from storage
   const forceRefreshMasterData = useCallback(async () => {
@@ -602,7 +688,8 @@ export function useMasterDataCache() {
         cacheBeats(),
         cacheRetailers(),
         cacheBeatPlans(),
-        cacheCompetitionData()
+        cacheCompetitionData(),
+        cacheProductAvailability()
       ]);
       
       localStorage.setItem('master_data_cached_at', Date.now().toString());
@@ -616,7 +703,7 @@ export function useMasterDataCache() {
       console.error('[Cache] Force refresh failed:', error);
       return false;
     }
-  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData]);
+  }, [user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability]);
 
   // Load cached data (used when offline)
   const loadCachedData = useCallback(async (storeName: string) => {
@@ -669,6 +756,7 @@ export function useMasterDataCache() {
     cacheRetailers,
     cacheBeatPlans,
     cacheCompetitionData,
+    cacheProductAvailability,
     cacheVisits,
     cacheOrders,
     cacheAllMasterData,
@@ -676,6 +764,10 @@ export function useMasterDataCache() {
     warmCacheWithProgress,
     fullOfflineSync,
     loadCachedData,
+    // Phase 7-1 — exposed for the resolver (consumed in Phase 7-3).
+    availabilityByProductId,
+    territoriesById,
+    reloadAvailabilityMaps,
     isOnline
   };
 }
