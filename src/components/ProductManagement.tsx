@@ -1046,6 +1046,9 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           onChange={setUnitsValue}
                           productRate={productForm.rate}
                         />
+                        {productForm.id && (
+                          <ProductAvailabilityEditor productId={productForm.id} />
+                        )}
                       </div>
                      </ScrollArea>
                     <DialogFooter>
