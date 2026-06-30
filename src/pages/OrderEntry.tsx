@@ -3056,7 +3056,7 @@ export const OrderEntry = () => {
         </> : (/* Table Order Form */
       <TableOrderForm 
         ref={tableFormRef}
-        products={cachedProducts}
+        products={availableCachedProducts}
         loading={offlineLoading}
         onReloadProducts={reloadProductsFromMaster}
         onCartUpdate={handleBulkCartUpdate}
