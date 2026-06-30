@@ -358,6 +358,14 @@ const CreatePrimaryOrder = () => {
     } finally { setProductsLoading(false); }
   };
 
+  // Phase 7-3: filter visible products based on distributor's availability rules.
+  // Default (no rules) = visible everywhere.
+  const availableProducts = useMemo(() => {
+    if (!distributor) return products;
+    const ctx = buildDistributorContext(distributor, territoriesById, distributor?.user_id);
+    return filterAvailableProducts(products, (p: any) => p.id, availabilityByProductId, ctx);
+  }, [products, distributor, territoriesById, availabilityByProductId]);
+
   const getProductPrice = (product: Product): number =>
     product.priceBookPrice ?? product.price ?? 0;
 
