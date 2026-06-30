@@ -24217,6 +24217,24 @@ export type Database = {
           state: string
         }[]
       }
+      get_returnable_lines: {
+        Args: {
+          p_product_id: string
+          p_retailer_id: string
+          p_variant_id: string
+        }
+        Returns: {
+          cgst_amount: number
+          invoice_number: string
+          line_taxable: number
+          order_date: string
+          order_id: string
+          rate: number
+          returnable: number
+          sgst_amount: number
+          sold_qty: number
+        }[]
+      }
       get_sales_quantity_report: {
         Args: {
           p_date_from?: string
