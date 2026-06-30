@@ -757,6 +757,7 @@ export type Database = {
           id: string
           max_levels: number
           skip_levels: boolean
+          specific_approver_id: string | null
           updated_at: string
           use_full_hierarchy: boolean
         }
@@ -768,6 +769,7 @@ export type Database = {
           id?: string
           max_levels?: number
           skip_levels?: boolean
+          specific_approver_id?: string | null
           updated_at?: string
           use_full_hierarchy?: boolean
         }
@@ -779,6 +781,7 @@ export type Database = {
           id?: string
           max_levels?: number
           skip_levels?: boolean
+          specific_approver_id?: string | null
           updated_at?: string
           use_full_hierarchy?: boolean
         }
@@ -3520,6 +3523,7 @@ export type Database = {
       credit_notes: {
         Row: {
           amount_in_words: string | null
+          approval_request_id: string | null
           approval_status: string
           approved_at: string | null
           approved_by: string | null
@@ -3543,6 +3547,7 @@ export type Database = {
         }
         Insert: {
           amount_in_words?: string | null
+          approval_request_id?: string | null
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
@@ -3566,6 +3571,7 @@ export type Database = {
         }
         Update: {
           amount_in_words?: string | null
+          approval_request_id?: string | null
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
