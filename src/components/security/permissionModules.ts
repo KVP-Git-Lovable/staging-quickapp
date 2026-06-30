@@ -229,6 +229,13 @@ export const PERMISSION_MODULES: PermissionModule[] = [
         ]
       },
       {
+        name: 'admin_activity_master',
+        label: 'Activity Type Master',
+        subFeatures: [
+          { name: 'activity_type_settings', label: 'Activity Type Master (config)' },
+        ]
+      },
+      {
         name: 'admin_recycle_bin',
         label: 'Recycle Bin',
         subFeatures: [
