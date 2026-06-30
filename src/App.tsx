@@ -17,6 +17,7 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
 import { visitStatusCache } from "@/lib/visitStatusCache";
 import { NetworkProvider } from "@/contexts/NetworkContext";
+import { QAModeProvider } from "@/contexts/QAModeContext";
 import { SlowConnectionBanner } from "@/components/SlowConnectionBanner";
 // PWA install prompt removed per user request
 import ForcedPasswordChangeDialog from "@/components/auth/ForcedPasswordChangeDialog";
@@ -314,12 +315,14 @@ const App = () => {
         <NetworkProvider>
           <AuthProvider>
             <FeatureProvider>
-              <TooltipProvider>
-                <BrowserRouter>
-                  <SlowConnectionBanner />
-                  <AppContent hasError={hasError} />
-                </BrowserRouter>
-              </TooltipProvider>
+              <QAModeProvider>
+                <TooltipProvider>
+                  <BrowserRouter>
+                    <SlowConnectionBanner />
+                    <AppContent hasError={hasError} />
+                  </BrowserRouter>
+                </TooltipProvider>
+              </QAModeProvider>
             </FeatureProvider>
           </AuthProvider>
         </NetworkProvider>

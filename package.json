@@ -7,6 +7,10 @@
     "dev": "node scripts/fix-swc.cjs && vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "build:qa": "vite build --mode qa",
+    "build:prod": "vite build --mode production",
+    "sync:qa": "npm run build:qa && npx cap sync android",
+    "sync:prod": "npm run build:prod && npx cap sync android",
     "lint": "eslint .",
     "preview": "vite preview"
   },

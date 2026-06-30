@@ -24,6 +24,22 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    flavorDimensions "environment"
+    productFlavors {
+        qa {
+            dimension "environment"
+            applicationIdSuffix ".qa"
+            versionNameSuffix "-QA"
+            resValue "string", "app_name", "SalesNavigator QA"
+            buildConfigField "String", "APP_MODE", '"qa"'
+            ext.enableCrashlytics = false
+        }
+        prod {
+            dimension "environment"
+            resValue "string", "app_name", "SalesNavigator"
+            buildConfigField "String", "APP_MODE", '"production"'
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
