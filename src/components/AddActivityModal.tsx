@@ -425,23 +425,23 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
         <div className="space-y-4 mt-2">
 
-          {/* ── Type selector ─────────────────────────────── */}
-          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-            {VISIT_TYPES.map((t) => {
-              const Icon = t.icon;
-              const isActive = selectedType === t.id;
-              return (
-                <button key={t.id} type="button" disabled={isSubmitted}
-                  onClick={() => setSelectedType(t.id)}
-                  className={cn(
-                    'flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-[10px] font-medium transition-colors disabled:opacity-40',
-                    isActive ? TYPE_COLOR[t.color] : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted'
-                  )}>
-                  <Icon className="h-4 w-4" />
-                  <span className="leading-tight text-center">{t.label}</span>
-                </button>
-              );
-            })}
+          {/* ── Type selector (sourced from activity_types master) ── */}
+          <div>
+            <Label className="text-xs">Activity type</Label>
+            <Select
+              value={selectedType}
+              onValueChange={setSelectedType}
+              disabled={isSubmitted || activityTypes.length === 0}
+            >
+              <SelectTrigger className="mt-1 h-9 text-sm">
+                <SelectValue placeholder={activityTypes.length ? 'Select activity type' : 'Loading…'} />
+              </SelectTrigger>
+              <SelectContent>
+                {activityTypes.map((t) => (
+                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* ── Shared: date + GPS ─────────────────────────── */}
