@@ -22,8 +22,12 @@ export const QA_MIRRORED_TABLES: ReadonlySet<string> = new Set([
   'retailer_visit_logs',
   'products',
   'inst_leads',
-
+  'beats',
+  'beat_plans',
+  'daily_beat_plans',
+  'retailer_beat_assignments',
 ]);
+
 
 /**
  * RPCs that are safe to call from a QA build because they are either
