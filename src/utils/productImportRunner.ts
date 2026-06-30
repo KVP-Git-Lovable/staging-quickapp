@@ -502,7 +502,11 @@ export interface ImportResult {
   updated: number;
   skipped: number;
   failed: number;
-  errorRows: Array<{ row: number; sku: string; reason: string }>;
+  variantsInserted: number;
+  variantsUpdated: number;
+  variantsSkipped: number;
+  variantsFailed: number;
+  errorRows: Array<{ row: number; sku: string; reason: string; kind?: RowKind }>;
 }
 
 const CHUNK_SIZE = 300;
