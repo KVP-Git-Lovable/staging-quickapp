@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.finalize_credit_note(uuid, text, text, uuid, uuid, jsonb);
