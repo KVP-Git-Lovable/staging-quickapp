@@ -141,7 +141,7 @@ export const OrderEntry = () => {
 
   // Force-refresh the full master data cache (re-syncs products end-to-end).
   // Used by the "Refresh products" button + the 10-min staleness check on open.
-  const { forceRefreshMasterData } = useMasterDataCache();
+  const { forceRefreshMasterData, availabilityByProductId, territoriesById } = useMasterDataCache();
 
   // Manual refresh: re-sync product master AND reload the picker list.
   const reloadProductsFromMaster = useCallback(async () => {
