@@ -19,6 +19,7 @@ import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, Re
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
 import { ProductExtendedFields } from './ProductExtendedFields';
+import { ProductAvailabilityEditor } from './ProductAvailabilityEditor';
 import { VariantFocusedFields } from './VariantFocusedFields';
 import { VariantExtendedFields } from './VariantExtendedFields';
 import { VariantOverrideFields, emptyVariantOverrides, type VariantOverrideValues } from './VariantOverrideFields';
@@ -1046,6 +1047,9 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           onChange={setUnitsValue}
                           productRate={productForm.rate}
                         />
+                        {productForm.id && (
+                          <ProductAvailabilityEditor productId={productForm.id} />
+                        )}
                       </div>
                      </ScrollArea>
                     <DialogFooter>
