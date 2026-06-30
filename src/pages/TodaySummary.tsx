@@ -1653,21 +1653,19 @@ export const TodaySummary = () => {
 
           const rows = (activityRows as any[]) || [];
           if (rows.length > 0) {
-            const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
-              customer_visit:    { label: 'Customer visits',    color: 'green'  },
-              beat_visit:        { label: 'Beat visits',        color: 'blue'   },
-              joint_beat_visit:  { label: 'Joint visits',       color: 'purple' },
-              new_beat_survey:   { label: 'Route surveys',      color: 'teal'   },
-              distributor_visit: { label: 'Distributor visits', color: 'amber'  },
-              event_promotion:   { label: 'Events',             color: 'orange' },
-              meeting_training:  { label: 'Meetings',           color: 'gray'   },
-              Event:       { label: 'Events',       color: 'blue'   },
-              Meeting:     { label: 'Meetings',     color: 'indigo' },
-              Celebration: { label: 'Celebrations', color: 'amber'  },
-              Promotion:   { label: 'Promotions',   color: 'green'  },
-              Demo:        { label: 'Demos',        color: 'purple' },
-              Other:       { label: 'Others',       color: 'gray'   },
-            };
+            // Build label/color lookup from activity_types master (match by name or code).
+            // Legacy values fall back to humanized text + neutral color.
+            const masterTypes = activityTypesRef.current || [];
+            const typeLookup = new Map<string, { label: string; color: string }>();
+            masterTypes.forEach((t) => {
+              const entry = { label: t.name, color: t.color || 'gray' };
+              typeLookup.set(t.name, entry);
+              if (t.code) typeLookup.set(t.code, entry);
+            });
+            const humanize = (k: string) =>
+              k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+            const resolveType = (key: string) =>
+              typeLookup.get(key) || { label: humanize(key), color: 'gray' };
             const grouped = new Map<string, any[]>();
             rows.forEach((r) => {
               const key = r.visit_category || r.activity_type || 'Other';
