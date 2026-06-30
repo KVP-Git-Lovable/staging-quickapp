@@ -996,7 +996,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                     onClick={() => setDeleteConfirm({ open: true, type: 'all-products', id: 'all', name: 'ALL active products and variants' })}
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
-                    Delete All
+                    Deactivate All
                   </Button>
                   <Dialog open={isProductDialogOpen} onOpenChange={setIsProductDialogOpen}>
                     <DialogTrigger asChild>
@@ -1198,13 +1198,25 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteProduct(product.id, product.name)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {product.is_active === false ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleReactivateProduct(product.id)}
+                                title="Reactivate product"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteProduct(product.id, product.name)}
+                                title="Discontinue product"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1772,13 +1784,25 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           >
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteVariant(variant.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {variant.is_active === false ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleReactivateVariant(variant.id)}
+                              title="Reactivate variant"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteVariant(variant.id)}
+                              title="Discontinue variant"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1812,6 +1836,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             <AlertDialogDescription>
               {deleteConfirm.type === 'all-products' ? (
                 <>This will <strong>deactivate {deleteConfirm.name}</strong> (set <em>is_active = false</em>). Order history, distributor inventory, and schemes are preserved. Products can be reactivated individually later.</>
+              ) : deleteConfirm.type === 'product' || deleteConfirm.type === 'variant' ? (
+                <>This will <strong>discontinue {deleteConfirm.name}</strong> instead of deleting it. History, returns, schemes, price books, tax links, and inventory references are preserved. It can be reactivated later from the Inactive tab.</>
               ) : (
                 <>This action cannot be undone. This will permanently delete <strong>{deleteConfirm.name}</strong>.</>
               )}
@@ -1822,7 +1848,11 @@ const [productForm, setProductForm] = useState(emptyProductForm());
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmAction} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {deleteConfirm.type === 'all-products' ? 'Yes, Deactivate All' : 'Yes, Delete'}
+              {deleteConfirm.type === 'all-products'
+                ? 'Yes, Deactivate All'
+                : deleteConfirm.type === 'product' || deleteConfirm.type === 'variant'
+                  ? 'Yes, Discontinue'
+                  : 'Yes, Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
