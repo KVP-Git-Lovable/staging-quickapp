@@ -23883,17 +23883,30 @@ export type Database = {
         Returns: Json
       }
       expire_user_delegations: { Args: never; Returns: undefined }
-      finalize_credit_note: {
-        Args: {
-          p_created_by: string
-          p_lines: Json
-          p_reason: string
-          p_reason_notes: string
-          p_retailer_id: string
-          p_visit_id: string
-        }
-        Returns: Json
-      }
+      finalize_credit_note:
+        | {
+            Args: {
+              p_created_by: string
+              p_lines: Json
+              p_reason: string
+              p_reason_notes: string
+              p_retailer_id: string
+              p_visit_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_created_by: string
+              p_lines: Json
+              p_reason: string
+              p_reason_notes: string
+              p_retailer_id: string
+              p_van_id?: string
+              p_visit_id: string
+            }
+            Returns: Json
+          }
       finalize_order_edit: {
         Args: {
           p_edited_by: string
