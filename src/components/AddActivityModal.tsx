@@ -31,24 +31,15 @@ interface AddActivityModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const VISIT_TYPES = [
-  { id: 'joint_beat_visit',  label: 'Joint visit',  icon: Users,         color: 'purple' },
-  { id: 'new_beat_survey',   label: 'Route survey', icon: MapSearch,     color: 'teal'   },
-  { id: 'distributor_visit', label: 'Distributor',  icon: Warehouse,     color: 'amber'  },
-  { id: 'meeting_training',  label: 'Meeting',      icon: CalendarEvent, color: 'gray'   },
-] as const;
-
-type VisitTypeId = typeof VISIT_TYPES[number]['id'];
-
-const TYPE_COLOR: Record<string, string> = {
-  green:  'bg-green-50  border-green-400  text-green-800  dark:bg-green-950/30  dark:text-green-300',
-  blue:   'bg-blue-50   border-blue-400   text-blue-800   dark:bg-blue-950/30   dark:text-blue-300',
-  purple: 'bg-purple-50 border-purple-400 text-purple-800 dark:bg-purple-950/30 dark:text-purple-300',
-  teal:   'bg-teal-50   border-teal-400   text-teal-800   dark:bg-teal-950/30   dark:text-teal-300',
-  amber:  'bg-amber-50  border-amber-400  text-amber-800  dark:bg-amber-950/30  dark:text-amber-300',
-  orange: 'bg-orange-50 border-orange-400 text-orange-800 dark:bg-orange-950/30 dark:text-orange-300',
-  gray:   'bg-gray-50   border-gray-400   text-gray-800   dark:bg-gray-950/30   dark:text-gray-300',
-};
+// Master-driven type list (see useActivityTypes / activity_types table).
+// `selectedType` holds the master type's **name** (e.g. "Joint Visit") so the
+// value matches what we store on activity_events.activity_type. Form sections
+// for the four legacy IDs (joint, route survey, distributor, meeting) match
+// against the master names below.
+const JOINT       = 'Joint Visit';
+const SURVEY      = 'Route Survey';
+const DISTRIBUTOR = 'Distributor Visit';
+const MEETING     = 'Meeting / Training';
 
 /** Convert "HH:MM" local time string to ISO string on activityDate */
 const localTimeToISO = (dateObj: Date, timeStr: string): string => {
