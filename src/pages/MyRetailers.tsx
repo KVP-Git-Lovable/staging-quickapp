@@ -870,6 +870,7 @@ export const MyRetailers = () => {
               <VoiceSearchButton onSearchResult={(text) => setSearch(text)} />
               <Button 
                 variant="secondary" 
+                data-testid="add-retailer-button"
                 onClick={() => {
                   const originalReturnTo = location.state?.returnTo || '/my-retailers';
                   navigate('/add-retailer', { state: { returnTo: originalReturnTo } });

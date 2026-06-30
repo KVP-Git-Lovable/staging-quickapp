@@ -17,6 +17,7 @@ interface ResultRow {
   pass: boolean;
   durationMs: number;
   errorMessage?: string;
+  manual?: boolean;
 }
 
 export const RunTestsScreen = () => {
@@ -25,6 +26,7 @@ export const RunTestsScreen = () => {
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
   const [selectedFlows, setSelectedFlows] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [currentLabel, setCurrentLabel] = useState<string | null>(null);
   const [results, setResults] = useState<ResultRow[]>([]);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
 
@@ -75,12 +77,14 @@ export const RunTestsScreen = () => {
 
       for (const actionId of selectedActions) {
         try {
-          const r = await runSingleAction(actionId, runId);
+          setCurrentLabel(actionId);
+          const r: any = await runSingleAction(actionId, runId);
           const row: ResultRow = {
             label: r.actionLabel,
             pass: r.pass,
             durationMs: r.durationMs,
             errorMessage: r.errorMessage,
+            manual: r.manual,
           };
           all.push(row);
           setResults((prev) => [...prev, row]);
@@ -90,6 +94,7 @@ export const RunTestsScreen = () => {
           setResults((prev) => [...prev, row]);
         }
       }
+      setCurrentLabel(null);
 
       if (runId) await finishRun(runId, all);
     } catch (e: any) {
@@ -121,14 +126,23 @@ export const RunTestsScreen = () => {
         <CardContent className="flex gap-3 p-4 text-sm">
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
           <p className="text-amber-900">
-            All entity actions are currently <strong>skipped</strong> — their
-            business logic still lives inline inside pages and hooks. Use the
-            real screens in the QA APK to exercise <code>qa_*</code> writes via
-            table-prefix routing. Service extraction will unlock these actions
-            in a follow-up pass.
+            Tests drive the real app UI — you will see the app navigate between
+            screens automatically while a test runs. This is expected. Each test
+            passes only when the UI confirms success <em>and</em> a matching{' '}
+            <code>qa_*</code> row is found. Flows requiring native capabilities
+            (camera, GPS) are marked <strong>Manual step required</strong>.
           </p>
         </CardContent>
       </Card>
+
+      {running && currentLabel && (
+        <Card className="border-blue-300 bg-blue-50/60">
+          <CardContent className="flex items-center gap-3 p-3 text-sm text-blue-900">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Running: <strong>{currentLabel}</strong>…</span>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -179,16 +193,12 @@ export const RunTestsScreen = () => {
                 {actions.map((action) => (
                   <label
                     key={action.id}
-                    className={`flex items-start gap-3 p-2.5 rounded-md border ${
-                      action.skipped
-                        ? 'opacity-60 cursor-not-allowed bg-muted/20'
-                        : 'hover:bg-muted/30 cursor-pointer'
-                    }`}
+                    className="flex items-start gap-3 p-2.5 rounded-md border hover:bg-muted/30 cursor-pointer"
                   >
                     <Checkbox
                       checked={selectedActions.includes(action.id)}
                       onCheckedChange={() => toggleAction(action.id)}
-                      disabled={running || action.skipped}
+                      disabled={running}
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -199,15 +209,20 @@ export const RunTestsScreen = () => {
                         {action.skipped && (
                           <Badge
                             variant="outline"
-                            className="text-[10px] bg-muted text-muted-foreground"
+                            className="text-[10px] bg-amber-100 text-amber-900 border-amber-300"
                           >
-                            skipped
+                            Manual step
                           </Badge>
                         )}
                       </div>
                       {action.skipped && action.skippedReason && (
                         <div className="text-xs text-muted-foreground mt-1">
                           {action.skippedReason}
+                        </div>
+                      )}
+                      {action.description && !action.skipped && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {action.description}
                         </div>
                       )}
                     </div>
@@ -255,7 +270,9 @@ export const RunTestsScreen = () => {
                 {results.map((r, i) => (
                   <div key={i}>
                     <div className="flex items-start gap-3 py-1.5">
-                      {r.pass ? (
+                      {r.manual ? (
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                      ) : r.pass ? (
                         <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                       ) : (
                         <XCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
@@ -266,6 +283,11 @@ export const RunTestsScreen = () => {
                           <span className="text-xs text-muted-foreground">
                             {r.durationMs.toFixed(0)}ms
                           </span>
+                          {r.manual && (
+                            <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-900 border-amber-300">
+                              Manual step required
+                            </Badge>
+                          )}
                         </div>
                         {r.errorMessage && (
                           <div className="text-xs text-red-700 mt-0.5 break-words">

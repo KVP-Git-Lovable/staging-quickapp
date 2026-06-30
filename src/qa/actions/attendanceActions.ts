@@ -1,9 +1,27 @@
 import type { QATestAction } from '@/qa/types';
-import { skippedAction } from './_skipped';
+import { manualStepAction } from './_skipped';
 
-// Skipped — punch-in/out logic lives inline in src/components/JourneyMap.tsx
-// and related hooks. Extract AttendanceService.punchIn/punchOut first.
+/**
+ * Attendance punch-in / punch-out in this app requires a live camera
+ * photo (face-match) and a GPS fix with permission grant. Both are
+ * native device capabilities that cannot be reliably triggered from
+ * inside the WebView by dispatching DOM events alone — a faked path
+ * would not exercise the same code real users hit. Per QA policy we
+ * surface these as manual steps rather than fake them.
+ */
 export const attendanceActions: QATestAction[] = [
-  skippedAction('attendance.punch-in', 'Punch In', 'Attendance'),
-  skippedAction('attendance.punch-out', 'Punch Out', 'Attendance'),
+  manualStepAction(
+    'attendance.punch_in',
+    'Attendance — Punch In',
+    'Attendance',
+    'camera + GPS',
+    'Start My Day on Attendance requires a live face-match photo and a GPS fix; neither can be supplied from inside the WebView.',
+  ),
+  manualStepAction(
+    'attendance.punch_out',
+    'Attendance — Punch Out',
+    'Attendance',
+    'camera + GPS',
+    'End My Day on Attendance requires a live face-match photo and a GPS fix; neither can be supplied from inside the WebView.',
+  ),
 ];

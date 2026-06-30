@@ -1248,6 +1248,7 @@ export const AddRetailer = () => {
                 <Label htmlFor="name">{t('retailer.retailerName')} *</Label>
                 <Input
                   id="name"
+                  data-testid="retailer-name-input"
                   placeholder={t('retailer.enterRetailerName')}
                   value={retailerData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
@@ -1300,6 +1301,7 @@ export const AddRetailer = () => {
                 <Label htmlFor="phone">{t('retailer.phone')} *</Label>
                 <Input
                   id="phone"
+                  data-testid="retailer-phone-input"
                   type="tel"
                   placeholder={t('retailer.enterPhone')}
                   value={retailerData.phone}
@@ -1313,6 +1315,7 @@ export const AddRetailer = () => {
                 <div className="flex gap-2">
                   <Textarea
                     id="address"
+                    data-testid="retailer-address-input"
                     placeholder="Enter complete address"
                     value={retailerData.address}
                     onChange={(e) => handleInputChange("address", e.target.value)}
@@ -2050,7 +2053,7 @@ export const AddRetailer = () => {
 
           {/* Actions */}
           <div className="flex gap-2">
-            <Button type="submit" className="flex-1" size="lg" disabled={isSaving}>
+            <Button type="submit" data-testid="save-retailer-button" className="flex-1" size="lg" disabled={isSaving}>
               <Plus size={16} className="mr-2" />
               {isSaving ? 'Saving...' : 'Save'}
             </Button>

@@ -1,26 +1,37 @@
 import type { QATestAction } from '@/qa/types';
 
 /**
- * Helper to declare a placeholder action whose business logic has
- * not yet been extracted into a service layer. The action shows in
- * the picker (grouped by entity) but is disabled — the runner
- * refuses to execute it and the UI explains why.
+ * Marks an action that genuinely cannot be automated from inside the
+ * WebView because it requires a native device capability (camera,
+ * GPS permission prompt, native picker, etc.). The action still
+ * appears in the picker so it can be triggered, but the runner
+ * reports it as "Manual step required" instead of trying to fake it.
  */
-export const skippedAction = (
+export const manualStepAction = (
   id: string,
   label: string,
   entity: string,
-  reason = 'Logic not yet extracted — uses inline page/hook code today. A dedicated service module is needed before this can be exercised here.',
-): QATestAction => ({
-  id,
-  label,
-  entity,
-  description: reason,
-  inputs: [],
-  skipped: true,
-  skippedReason: reason,
-  run: async () => ({
-    pass: false,
-    errorMessage: `Action "${id}" is not runnable: ${reason}`,
-  }),
-});
+  capability: string,
+  extra?: string,
+): QATestAction => {
+  const reason = `Manual step required: ${capability}${extra ? ` — ${extra}` : ''}`;
+  return {
+    id,
+    label,
+    entity,
+    description: reason,
+    inputs: [],
+    skipped: true,
+    skippedReason: reason,
+    run: async () => ({
+      pass: false,
+      errorMessage: reason,
+    }),
+  };
+};
+
+/**
+ * @deprecated Retained only for back-compat with any older registrations.
+ * New actions should either be real UI automation or use `manualStepAction`.
+ */
+export const skippedAction = manualStepAction;

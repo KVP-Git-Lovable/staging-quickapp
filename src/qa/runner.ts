@@ -96,16 +96,30 @@ export async function runSingleAction(
   if (action.skipped) {
     const skipResult = {
       pass: false,
-      errorMessage: `Skipped: ${action.skippedReason ?? 'not runnable'}`,
+      errorMessage: action.skippedReason ?? 'Manual step required',
     };
     await logStep(runId, action.label, action.entity, skipResult, 0);
-    return { actionLabel: action.label, ...skipResult, durationMs: 0 };
+    return { actionLabel: action.label, ...skipResult, durationMs: 0, manual: true };
   }
 
   const ctx = createContext(runId);
   const input = resolveInput(overrides, action.inputs, ctx);
   const start = performance.now();
-  const result = await action.run(input, ctx);
+  let result: { pass: boolean; output?: any; errorMessage?: string };
+  try {
+    result = await action.run(input, ctx);
+  } catch (e: any) {
+    result = { pass: false, errorMessage: e?.message ?? String(e) };
+  } finally {
+    // Always return to the Run Tests screen between actions so the next
+    // action starts from a known location, even after a thrown failure.
+    try {
+      const { goTo } = await import('@/qa/automation/navigate');
+      await goTo('/qa/run-tests');
+    } catch {
+      /* navigator not registered (non-QA build) — ignore */
+    }
+  }
   const durationMs = performance.now() - start;
 
   await logStep(runId, action.label, action.entity, result, durationMs);
@@ -137,7 +151,7 @@ export async function runFlow(flowId: string, runId: string) {
     if (action.skipped) {
       const row = {
         pass: false,
-        errorMessage: `Skipped: ${action.skippedReason ?? 'not runnable'}`,
+        errorMessage: action.skippedReason ?? 'Manual step required',
         durationMs: 0,
         actionLabel: action.label,
       };
@@ -149,7 +163,19 @@ export async function runFlow(flowId: string, runId: string) {
 
     const input = resolveInput(step.input, action.inputs, ctx);
     const start = performance.now();
-    const result = await action.run(input, ctx);
+    let result: { pass: boolean; output?: any; errorMessage?: string };
+    try {
+      result = await action.run(input, ctx);
+    } catch (e: any) {
+      result = { pass: false, errorMessage: e?.message ?? String(e) };
+    } finally {
+      try {
+        const { goTo } = await import('@/qa/automation/navigate');
+        await goTo('/qa/run-tests');
+      } catch {
+        /* navigator not registered — ignore */
+      }
+    }
     const durationMs = performance.now() - start;
 
     await logStep(runId, `${flow.label} → ${action.label}`, action.entity, result, durationMs);

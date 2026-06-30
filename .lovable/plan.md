@@ -1,49 +1,80 @@
-## Plan — Fix QA APK: visit creation, beats mirror, Run Tests screen
 
-### 1) "Failed to create visit" in QA APK
+# QA Run Tests — Real UI Automation
 
-**Root cause.** `CreateNewVisitModal` inserts into `beat_plans` (it plans a beat for a date, i.e. "creates a visit"). `beat_plans` is NOT in `QA_MIRRORED_TABLES`, so the QA Supabase proxy blocks the insert with `QA_BLOCKED`, and the modal surfaces it as "Failed to create visit." A few related tables (`beats`, `daily_beat_plans`, `retailer_beat_assignments`) have the same problem the moment QA users touch beat/visit flows.
+Replace the placeholder "Skipped: logic not yet extracted" behavior in the QA Run Tests module with an automation engine that drives the live app's own screens (clicks real buttons, fills real inputs, waits for real toasts) and cross-verifies every result against the corresponding `qa_*` table. No business logic, hook, or data-fetching code in any screen will change — only `data-testid` attributes will be added.
 
-**Fix.**
-- New migration creates `qa_` mirrors that don't exist yet:
-  - `qa_beats` (full mirror of `public.beats` — `CREATE TABLE … (LIKE public.beats INCLUDING ALL)` minus FKs to non-mirrored prod tables).
-  - `qa_beat_plans`.
-  - `qa_daily_beat_plans`.
-  - `qa_retailer_beat_assignments`.
-  - Each gets the standard 4-step block: `CREATE TABLE` → `GRANT SELECT/INSERT/UPDATE/DELETE` to `authenticated` + `ALL` to `service_role` → `ENABLE RLS` → permissive policy (`USING (true) WITH CHECK (true)`) matching the existing `qa_*` table style. No anon grants — QA is auth-only.
-- Extend `QA_MIRRORED_TABLES` in `src/lib/tableRouter.ts` with: `beats`, `beat_plans`, `daily_beat_plans`, `retailer_beat_assignments`.
-- Harden the QA wrapper in `src/integrations/supabase/client.ts`: if the caller passes a name that already starts with `qa_`, treat it as mirrored (pass through, no block). This stops the wrapper from blocking legitimate writes to `qa_test_runs` / `qa_test_logs` and any future `qa_*` table that code references directly.
+This work stays QA-build-only. Nothing here is importable or reachable from production builds.
 
-After this, `CreateNewVisitModal` writes to `qa_beat_plans` and the toast becomes "Visit Created".
+## Scope clarification — what this catches and what it can't
 
-### 2) Beats mirror
+The engine runs inside the same WebView as the rest of the app, so it tests the React/DOM layer (missing buttons, broken handlers, forms that fail to submit, broken navigation, bad DB writes). It cannot detect native-only defects (camera capture, GPS permission dialogs, native pickers, WebView-specific rendering bugs below the DOM). This limitation will be stated in the module's own comments. Any flow needing a true native capability is reported as `Manual step required: <capability>` rather than faked.
 
-Covered by the same migration above (`qa_beats` + the dependent `qa_beat_plans` / `qa_daily_beat_plans` / `qa_retailer_beat_assignments`) and the `QA_MIRRORED_TABLES` update. Any read/write in QA that goes through `supabase.from('beats')` will land on `qa_beats` automatically — no page changes required.
+## New files
 
-### 3) "Run Tests (QA)" — "Something went wrong" + add runnable samples
+```text
+src/qa/automation/
+  uiActions.ts   -- waitForElement, tap, typeText, selectOption, waitForText, sleep
+  navigate.ts    -- registerNavigator, goTo (wraps the app's existing react-router navigate)
+```
 
-**Why it crashes.** Two compounding problems:
-- The runner writes to `qa_test_runs` / `qa_test_logs` via `supabase.from(...)`. The QA wrapper sees those names are not in `QA_MIRRORED_TABLES` and returns a `QA_BLOCKED` shape. Every step then logs a noisy error and never actually persists, but the click path still works. The crash itself is most likely a render-time exception that the global ErrorBoundary catches as "Something went wrong" — the screen calls hooks after an early `return <Navigate />`, violating the rules of hooks when `isQAMode` flips. We'll fix that by moving the `useState` / `useMemo` calls above the early return.
-- All flows/actions are `skipped`, so even when the page does render, "Run Selected" is permanently disabled and looks broken.
+`uiActions.ts` uses DOM polling on `[data-testid="..."]`, dispatches real pointer/mouse/click events, and uses the native `value` setter + `input`/`change` events so React's controlled inputs register the change. `selectOption` handles both native `<select>` and shadcn-style custom dropdowns (open then click option by text).
 
-**Fix.**
-- `src/qa/screens/RunTestsScreen.tsx`: move `useState` / `useMemo` hooks above the `if (!isQAMode) return <Navigate/>` early return; wrap `runSelected` in try/catch so a thrown step error becomes a failed result row instead of bubbling to the ErrorBoundary.
-- The wrapper change in (1) also lets `qa_test_runs` / `qa_test_logs` inserts actually land.
-- Add real, runnable sample actions (`skipped: false`) that exercise the QA routing end-to-end against `qa_*` tables only:
-  - `smoke.count-retailers` — `select count` head:true on `qa_retailers`, passes if no error.
-  - `smoke.list-products` — fetches 5 rows from `qa_products`.
-  - `retailer.create-temp` — inserts a throwaway retailer into `qa_retailers` with a `QA-TEST-<uuid>` name, then deletes it; passes if both succeed.
-  - `visit.create-temp` — inserts then deletes a `qa_beat_plans` row for the current user + today (depends on the migration above).
-- Add a runnable sample flow `flow.smoke` chaining `smoke.count-retailers` → `smoke.list-products` → `retailer.create-temp` so users see a green/red trail when they click Run.
-- Leave the existing `skipped` placeholder actions in place — they document what still needs service extraction.
+`navigate.ts` exposes `registerNavigator(navigate)` and `goTo(path)`. Registration happens once near the router root, gated by `isQAMode()`.
 
-### Acceptance
+## Files modified — engine wiring
 
-- QA APK can create a visit; row appears in `qa_beat_plans`, never in `public.beat_plans`.
-- Creating/reading a beat in QA hits `qa_beats`.
-- Opening `/qa/run-tests` in the QA APK no longer shows "Something went wrong"; selecting "Smoke" and clicking Run shows pass rows, and a row appears in `qa_test_runs` with linked `qa_test_logs`.
-- Production build is unaffected (wrapper is a no-op when `VITE_APP_MODE !== 'qa'`).
+- `src/App.tsx` (or the component that already calls `useNavigate` at the root) — add a QA-gated `useEffect` that calls `registerNavigator(navigate)`. No other change.
+- `src/qa/runner.ts` — after each `action.run()` in both `runSingleAction` and `runFlow`, always navigate back to `/qa/run-tests` (wrapped in try/finally so failed/thrown actions still reset). Remove the early-exit `skipped` branch since no action will be skipped anymore (kept only as a fallback for "manual step required" actions, see below).
+- `src/qa/actions/_skipped.ts` — repurpose into a `manualStepAction(id, label, entity, capability)` helper that surfaces as `Manual step required: <capability>` in results.
+- `src/qa/screens/RunTestsScreen.tsx` — remove "Skipped" UI; add a "Running: <action label>…" indicator while an action is in flight; render `Manual step required` rows distinctly from pass/fail.
 
-### Out of scope
+## Files modified — `data-testid` only (no logic change)
 
-- Extracting `CreateNewVisitModal` / order-entry logic into service modules so the remaining `skipped` actions can run. That's the separate Phase-2 service-extraction pass already noted in the screen's amber banner.
+For each interactive element listed below, the only edit is adding a `data-testid` attribute. The exact element names will be confirmed by reading each file during build; the list below is the target set.
+
+Retailer create:
+- `src/pages/MyRetailers.tsx` or the nav component — `nav-retailers` on the menu entry to retailers.
+- `src/pages/AddRetailer.tsx` and/or the entry button on `MyRetailers.tsx` — `add-retailer-button`, `retailer-name-input`, `retailer-beat-select`, `retailer-phone-input`, `retailer-address-input`, `save-retailer-button`, `retailer-save-success` (on the toast/redirect anchor).
+
+Retailer delete (only if a delete control exists in UI): row menu trigger, confirm-delete button, success anchor. If no UI delete path exists, the action is registered as `manualStepAction` instead of forced.
+
+Visit create:
+- `src/pages/MyVisits.tsx` / `MyBeats.tsx` — `nav-visits`, `start-visit-button-<retailer>` pattern (or a generic `start-visit-button` if the list provides one), `visit-create-success`.
+
+Order create:
+- The order entry screen reached from a visit (`src/pages/Cart.tsx` and the order entry form already used today) — `add-product-button`, `product-search-input`, product row selector, `qty-input`, `submit-order-button`, `order-submit-success`.
+
+Attendance punch-in/out:
+- `src/pages/Attendance.tsx` — `nav-attendance`, `punch-in-button`, `punch-out-button`, `attendance-success`. Attendance currently requires camera + GPS; see "Native capability gaps" below.
+
+A complete list of touched file paths will be included in the final implementation summary, with explicit confirmation that each diff contains only attribute additions.
+
+## Action rewrites
+
+Each of these files is replaced so every action's `run()` performs the real UI flow, then cross-verifies via the `qa_*` table using the existing `table()` router. Result rule: `pass = (UI success indicator seen) AND (matching DB row found)`. A UI-vs-DB mismatch is itself a failure — that's exactly what this system exists to catch.
+
+- `src/qa/actions/retailerActions.ts` — `retailer.create`, `retailer.delete` (or manual-step if no UI delete).
+- `src/qa/actions/visitActions.ts` — `visit.create`.
+- `src/qa/actions/orderActions.ts` — `order.create` (verifies both `qa_orders` and `qa_order_items`).
+- `src/qa/actions/attendanceActions.ts` — `attendance.punch_in`, `attendance.punch_out`, subject to the native-capability gap below.
+
+Each action follows: `goTo(...) → tap(nav) → tap(open form) → typeText/selectOption(fields) → tap(save) → waitForText(success) → supabase.from(table('qa_xxx')).select(...).maybeSingle()`.
+
+## Native capability gaps
+
+Attendance punch-in/out in this codebase requires camera face-match + GPS. Neither can be reliably triggered from inside the WebView purely via DOM events. Plan:
+
+1. Inspect `src/pages/Attendance.tsx` during build to confirm whether a QA-mode bypass already exists or whether these are hard requirements.
+2. If hard-required, register `attendance.punch_in` / `attendance.punch_out` as `manualStepAction(..., 'camera + GPS')` — they appear in the picker and surface as `Manual step required: camera + GPS` rather than running an unreliable fake. This will be explicitly called out in the final summary.
+
+## Hard constraints (will not be violated)
+
+- No screen's business logic, state, hooks, or data fetching is modified — only `data-testid` attributes added.
+- All automation entry points (`registerNavigator`, action files, screen) remain gated by `isQAMode()` and are never imported from production code paths.
+- `src/lib/tableRouter.ts` and `src/integrations/supabase/client.ts` are not touched.
+- No Supabase URL/ID/credential is hardcoded anywhere.
+- DB cross-verification is kept on every action; UI-only "success" is never sufficient to pass.
+
+## Verification at the end
+
+The implementation summary will tick every box in the prompt's Part 8 checklist, list the exact files where `data-testid` attributes were added (with a one-line confirmation that no other change was made in each), and call out any flow that ended up as `Manual step required` along with the reason.
