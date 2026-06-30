@@ -185,6 +185,43 @@ export function useMasterDataCache() {
     }
   }, []);
 
+  // Phase 7-1: cache product availability rules + a small territories lookup
+  // (id -> {region, zone}) so the resolver can build a retailer context offline.
+  const cacheProductAvailability = useCallback(async (onProgress?: CacheProgressCallback) => {
+    try {
+      onProgress?.('productAvailability', 'loading');
+      console.log('[Cache] Syncing product availability + territories lookup...');
+
+      // PAGINATED — never a 1k-cap raw query.
+      const availability = await fetchAllPaginated<AvailabilityRow>((from, to) =>
+        supabase
+          .from('product_availability')
+          .select('product_id, scope_type, scope_value, mode')
+          .range(from, to)
+      );
+
+      const territories = await fetchAllPaginated<{ id: string; region: string | null; zone: string | null }>((from, to) =>
+        supabase
+          .from('territories')
+          .select('id, region, zone')
+          .range(from, to)
+      );
+
+      if (availability) {
+        await offlineStorage.replaceAll(STORES.PRODUCT_AVAILABILITY, availability);
+        console.log(`[Cache] ✅ ${availability.length} product availability rows cached`);
+      }
+      if (territories) {
+        await offlineStorage.replaceAll(STORES.TERRITORIES_LOOKUP, territories);
+        console.log(`[Cache] ✅ ${territories.length} territories cached`);
+      }
+      onProgress?.('productAvailability', 'done');
+    } catch (error) {
+      console.error('[Cache] Error caching product availability, keeping existing cache:', error);
+      onProgress?.('productAvailability', 'error');
+    }
+  }, []);
+
   // Cache ONLY retailers for current user
   const cacheRetailers = useCallback(async (onProgress?: CacheProgressCallback) => {
     if (!user) return;
