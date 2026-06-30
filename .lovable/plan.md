@@ -1,60 +1,65 @@
-# QA Build System for QuickApp
+## Root cause
 
-Add an isolated QA build path (separate APK, separate `qa_*` tables) that shares the production codebase, Supabase project, and business logic. All work is additive except one targeted edit to `capacitor.config.ts`.
+The `table()` helper in `src/lib/tableRouter.ts` works correctly, but **almost no code in the app uses it**. A grep shows only two files import `tableRouter`: `src/qa/runner.ts` and `src/App.tsx`. Every other screen, hook, and service calls `supabase.from('retailers')`, `supabase.from('orders')`, etc. with the **hard-coded production table name**.
 
-## Part 0 — Fix `capacitor.config.ts`
-Remove the entire `server: { ... }` block (currently points the APK at `https://field-sales-navigator.lovable.app`). Keep `appId`, `appName`, `webDir`, `webView`, `android`, and `plugins` exactly as-is. Result: APKs load their own bundled `dist/`; hot-reload on device stops working (browser preview unaffected).
+So in the QA APK:
+- `VITE_TABLE_PREFIX=qa_` is set correctly.
+- The QA banner reads `isQAMode()` and shows "writes to qa_* tables only".
+- But every actual `supabase.from(...)` call ignores the prefix and hits the real `public.retailers`, `public.orders`, etc.
 
-## Part 1 — Env files (no credentials inside)
-- `.env.qa` → `VITE_APP_MODE=qa`, `VITE_TABLE_PREFIX=qa_`, `VITE_APP_NAME=QuickApp QA`
-- `.env.production` → `VITE_APP_MODE=production`, `VITE_TABLE_PREFIX=`, `VITE_APP_NAME=QuickApp`
+That's why "June stored" landed in `retailers` and why the app shows prod data — the QA build is talking to the same prod tables as the prod build.
 
-Supabase URL/anon key continue to come from the existing `.env`. Match the repo's current git treatment of `.env`.
+Refactoring hundreds of `supabase.from('x')` call sites to use `table('x')` is impractical and error-prone. The fix is to route at the client level.
 
-## Part 2 — `src/lib/tableRouter.ts`
-Export `table(name)` returning `${prefix}${name}` and `isQAMode()`. Typed against `Database['public']['Tables']`. No existing `supabase.from()` call is modified — call-site migration is a separate future task.
+## Fix (single source of truth: wrap the Supabase client)
 
-## Part 3 — `src/contexts/QAModeContext.tsx`
-`QAModeProvider` exposing `{ isQAMode, tablePrefix }` from `import.meta.env`. Mount inside existing providers in `src/main.tsx` / `src/App.tsx`, outside routing.
+1. **Define the QA mirror set** in `src/lib/tableRouter.ts`:
+   ```ts
+   export const QA_MIRRORED_TABLES = new Set([
+     'retailers', 'visits', 'orders', 'order_items',
+     'attendance', 'gps_tracking', 'retailer_visit_logs',
+     'products', 'inst_leads',
+     // plus the QA-only logging tables already prefixed: test_runs, test_logs, sync_audit_log
+   ]);
+   ```
+   These match the `qa_*` tables that already exist in the database.
 
-## Part 4 — `src/components/qa/QAModeBanner.tsx`
-Returns `null` outside QA. In QA, renders a fixed top banner at `z-[10000]` with the warning text. Mount once at the top of `src/components/Layout.tsx`. Add conditional `pt-6` on Layout's outer container ONLY when `isQAMode` is true — production layout untouched.
+2. **Wrap the Supabase client** in `src/integrations/supabase/client.ts` with a `Proxy` so that, **only when `VITE_APP_MODE === 'qa'`**, calls to `supabase.from(name)` are transparently rewritten:
+   - If `name ∈ QA_MIRRORED_TABLES` → forward to `qa_<name>`.
+   - Otherwise → forward unchanged (reference data like `profiles`, `beats`, `products` lookups, etc., have no QA mirror and must keep reading from prod, which matches what the QA system was designed for).
+   - In **production builds the Proxy is a no-op** (returns the real client untouched), so prod behavior is byte-identical.
+   - The auto-generated `client.ts` header comment will be preserved by exporting the wrapped client from the same file; no edits to `types.ts`.
 
-## Part 5 — `package.json` scripts (additive)
-Add `build:qa`, `build:prod`, `sync:qa`, `sync:prod` exactly as specified. No existing script changed.
+3. **Block writes to non-mirrored tables in QA** to stop accidental prod-data pollution:
+   - In QA mode only, intercept `insert / update / upsert / delete` on tables not in `QA_MIRRORED_TABLES` and:
+     - log a `console.error` with the table name and stack,
+     - return a rejected PostgrestResponse-shaped error `"QA build: writes to public.<table> are blocked"`.
+   - Reads on non-mirrored tables stay allowed (so the app can still render reference data).
 
-## Part 6 — Android flavors
-- Read current `app_name` from `android/app/src/main/res/values/strings.xml` (currently `SalesNavigator`) and delete that single line.
-- In module-level `android/app/build.gradle`, after `buildTypes`, add `flavorDimensions "environment"` and `productFlavors { qa { ... } prod { ... } }`:
-  - `qa`: `applicationIdSuffix ".qa"`, `versionNameSuffix "-QA"`, `resValue "string", "app_name", "SalesNavigator QA"`, `buildConfigField "String", "APP_MODE", '"qa"'`, `ext.enableCrashlytics = false`.
-  - `prod`: `resValue "string", "app_name", "SalesNavigator"`, `buildConfigField "String", "APP_MODE", '"production"'`.
-- Top-level `android/build.gradle` not touched. No signing config added. Optional distinct QA icon skipped.
+4. **RPC handling in QA**:
+   - Many RPCs (`sync_order_with_items_v2`, `finalize_order_edit`, `apply_retailer_payment_fifo`, etc.) write to `public.orders`/`public.order_items` directly and have no QA equivalents.
+   - Add an allow-list `QA_SAFE_RPCS` of RPCs known to be read-only or already QA-aware. In QA mode, calls to RPCs not on the list are blocked the same way as writes, with a clear error.
+   - This is intentionally conservative: it surfaces every place that needs a `qa_` RPC variant, instead of silently corrupting prod.
 
-## Part 7 — Supabase migrations
-Before writing SQL, query `information_schema.columns`, `information_schema.triggers`, `information_schema.role_table_grants`, `pg_enum`, and `information_schema.routines` for the live schema. Use real columns/types/defaults/grants/role enum values from this project. Do not assume.
+5. **Drop the now-redundant `table()` indirection at call sites** that already adopted it (only `src/qa/runner.ts`); after the Proxy wrapper exists, `runner.ts` can call `supabase.from('retailers')` directly and still hit `qa_retailers`. Keep `table()` exported for any code that needs the raw string (e.g., building a `realtime` channel filter), but it's no longer required for `.from(...)`.
 
-### Migration 1 — `create_qa_tables`
-Tier 1 mirrors (each + `qa_run_id uuid`):
-`qa_retailers`, `qa_orders`, `qa_order_items`, `qa_visits`, `qa_retailer_visit_logs`, `qa_attendance`, `qa_inst_leads`, `qa_products`, `qa_gps_tracking`. For wide/evolving tables (>~25 cols) use `CREATE TABLE qa_x (LIKE x INCLUDING DEFAULTS INCLUDING CONSTRAINTS)` then `ADD COLUMN qa_run_id uuid`. Skip any source table missing in this project and note it.
+6. **Banner copy update** in `QAModeBanner` to reflect the new contract:
+   > "QA MODE — mirrored tables route to `qa_*`; writes to non-mirrored prod tables and unsafe RPCs are blocked."
 
-Tier 2 (no mirror, read-through): profiles, beats, territories, distributors, product_variants, product_categories, product_schemes, feature_flags, companies, user_roles, etc.
+7. **Verification steps after build**:
+   - Rebuild `npm run build:qa && npx cap sync android` and install the QA flavor.
+   - Create a retailer → confirm row appears in `qa_retailers`, not `retailers`.
+   - Open Retailers list → confirm it reads from `qa_retailers` (empty except for the new one).
+   - Try an action that uses a non-mirrored write (e.g., create a leave application) → confirm the QA build surfaces the "writes blocked" error instead of writing to prod.
+   - Run `npm run build:prod` and smoke-test a normal flow to confirm the Proxy is a no-op.
 
-QA control tables (fresh): `qa_test_runs`, `qa_test_logs`, `qa_sync_audit_log` with the columns specified.
+## What this does NOT change
 
-For every `qa_*` table: enable RLS with one permissive `FOR ALL TO authenticated USING (true) WITH CHECK (true)` policy named `qa_<table>_auth`, plus GRANTs matching the role set actually used on existing production tables in this project (verified via `role_table_grants`).
+- No production database schema changes.
+- No production code paths (Proxy is gated on `VITE_APP_MODE === 'qa'`).
+- No edits to `src/integrations/supabase/types.ts`.
+- Existing `qa_*` migrations and the Run Tests module continue to work; they just stop being the only path that respects the prefix.
 
-### Migration 2 — `create_qa_cleanup_rpc`
-- `cleanup_qa_run(p_run_id uuid)`: SECURITY DEFINER, `SET search_path = public`, deletes from every Tier 1 `qa_*` table + `qa_sync_audit_log` where `qa_run_id = p_run_id` in FK-safe order (children before parents, e.g. `qa_order_items` before `qa_orders`), updates `qa_test_runs` row to `overall_status='cleaned'`, returns a jsonb summary of deleted counts per table.
-- `reset_all_qa_data()`: SECURITY DEFINER, `SET search_path = public`, role-gated using the actual function/enum found in this project (project already has `public.has_role(uuid, app_role)` and an `admin` enum value — to be re-confirmed at migration time). TRUNCATE every `qa_*` table `RESTART IDENTITY CASCADE`.
-- `GRANT EXECUTE` to the same role set used in Migration 1.
+## Follow-up (not in this fix)
 
-Documented limitation: triggers and edge functions bound to production table names will NOT fire on `qa_*` tables. The migration summary will list every trigger found on Tier 1 tables and every edge function referencing those table names.
-
-## Part 8 — `QA_BUILD_WORKFLOW.md`
-Repo-root doc covering: (1) two-step rule with Vite static-baking explanation, (2) exact QA + Prod build commands, (3) why `server.url` was removed, (4) known limitations — full trigger + edge-function list from Part 7, (5) per-applicationId storage isolation note, (6) all bundled portals route through QA-mode prefix in QA builds, (7) QA data lifecycle — auto-generated by use, `cleanup_qa_run(run_id)` per run, `reset_all_qa_data()` admin-only, safe to accumulate.
-
-## Hard constraints honored
-No production table touched, no existing `supabase.from()` query changed, no QA UI in production, no `qa_run_id` on production tables, no hardcoded URL/key/project id anywhere, no existing script renamed, top-level `build.gradle` untouched, only the `server` block removed from `capacitor.config.ts`, no assumed role enum values, no assumed columns — all verified against this project's live schema first.
-
-## Verification
-On completion, the summary will tick every item in Part 10 explicitly, including the actual list of qa_* tables created, any skipped source tables, the role-check mechanism used in `reset_all_qa_data()`, and the trigger/edge-function inventory carried into the workflow doc.
+Some screens will hit "RPC blocked in QA" once #4 lands — that's the correct signal that we still need `qa_*` variants for those RPCs (orders, payments, edits). Those can be added incrementally without touching the client wrapper again.
