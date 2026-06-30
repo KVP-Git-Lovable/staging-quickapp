@@ -1325,6 +1325,7 @@ export const AddRetailer = () => {
                     type="button" 
                     variant="outline" 
                     size="icon"
+                    onClick={async () => {
                       if (!navigator.geolocation) {
                         toast({ 
                           title: "GPS Not Available", 
