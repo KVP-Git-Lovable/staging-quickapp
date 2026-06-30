@@ -99,6 +99,8 @@ import FeedbackManagement from "./pages/FeedbackManagement";
 import CompetitionMaster from "./pages/CompetitionMaster";
 import CompetitorDetail from "./pages/CompetitorDetail";
 import NotFound from "./pages/NotFound";
+import RunTestsScreen from "./qa/screens/RunTestsScreen";
+import { isQAMode as isQAModeEnv } from "./lib/tableRouter";
 
 // Customer Portal Pages
 import CustomerLogin from "./pages/customer-portal/CustomerLogin";
@@ -593,6 +595,12 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         </Route>
         <Route path="/customer-portal/*" element={<Navigate to="/customer-portal/login" replace />} />
 
+        {isQAModeEnv() && (
+          <Route
+            path="/qa/run-tests"
+            element={<ProtectedRoute><RunTestsScreen /></ProtectedRoute>}
+          />
+        )}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

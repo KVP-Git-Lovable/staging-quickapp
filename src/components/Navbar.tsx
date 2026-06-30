@@ -160,6 +160,11 @@ export const Navbar = memo(() => {
   // Admin-only navigation items
   const adminNavigationItems = [
     { icon: Shield, label: t('nav.adminControls'), href: "/admin-controls", color: "from-emerald-500 to-emerald-600" },
+    // QA-only: tree-shaken out of production bundles because
+    // import.meta.env.VITE_APP_MODE is statically replaced by Vite.
+    ...(import.meta.env.VITE_APP_MODE === 'qa'
+      ? [{ icon: Shield, label: 'Run Tests (QA)', href: '/qa/run-tests', color: 'from-yellow-500 to-amber-600' }]
+      : []),
   ];
 
   // Get user display name and initials
