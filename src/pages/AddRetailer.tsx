@@ -1248,6 +1248,7 @@ export const AddRetailer = () => {
                 <Label htmlFor="name">{t('retailer.retailerName')} *</Label>
                 <Input
                   id="name"
+                  data-testid="retailer-name-input"
                   placeholder={t('retailer.enterRetailerName')}
                   value={retailerData.name}
                   onChange={(e) => handleInputChange("name", e.target.value)}
