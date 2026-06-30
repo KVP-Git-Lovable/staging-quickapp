@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { Geolocation } from '@capacitor/geolocation';
 import { useNavigate } from 'react-router-dom';
+import { useActivityTypes } from '@/hooks/useActivityTypes';
 
 interface ActivityEventsTableProps {
   userId: string;
@@ -22,33 +23,20 @@ interface VisitStatus {
   status: string | null;
 }
 
-const ACTIVITY_TYPE_COLORS: Record<string, string> = {
-  'Doctor Visit': 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-  Celebration: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  Event: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  Promotion: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  Demo: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  Meeting: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-  Other: 'bg-muted text-muted-foreground',
-  // New 7-type visit categories
-  customer_visit:    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  beat_visit:        'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  joint_beat_visit:  'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  new_beat_survey:   'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
-  distributor_visit: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  event_promotion:   'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  meeting_training:  'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
+// Tailwind class map by named color. Master activity_types may store either
+// a color name (e.g. "purple") or a hex string — we only use the name buckets.
+const COLOR_CLASS: Record<string, string> = {
+  rose:   'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
+  amber:  'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  blue:   'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  green:  'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  indigo: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+  teal:   'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
+  orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  gray:   'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
 };
-
-const TYPE_LABELS: Record<string, string> = {
-  customer_visit: 'Customer',
-  beat_visit: 'Beat',
-  joint_beat_visit: 'Joint',
-  new_beat_survey: 'Route survey',
-  distributor_visit: 'Distributor',
-  event_promotion: 'Event',
-  meeting_training: 'Meeting',
-};
+const NEUTRAL = COLOR_CLASS.gray;
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Play }> = {
   planned: {
@@ -70,7 +58,19 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
 
 export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }: ActivityEventsTableProps) => {
   const { fetchActivitiesForDate, updateActivityLocation } = useActivityEvents();
+  const { types: activityTypeMaster } = useActivityTypes();
   const navigate = useNavigate();
+
+  // Match incoming activity_type by name or code → master row.
+  const humanize = (k: string) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const resolveTypeMeta = (key: string | null | undefined): { label: string; colorClass: string } => {
+    if (!key) return { label: 'Other', colorClass: NEUTRAL };
+    const hit = activityTypeMaster.find((t) => t.name === key || t.code === key);
+    return {
+      label: hit?.name ?? humanize(key),
+      colorClass: (hit?.color && COLOR_CLASS[hit.color]) || NEUTRAL,
+    };
+  };
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [visitStatuses, setVisitStatuses] = useState<Record<string, VisitStatus>>({});
   const [eventTotals, setEventTotals] = useState<Record<string, { revenue: number; orders: number }>>({});
@@ -451,18 +451,23 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }
               className="rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2"
             >
               {/* Top row: Name + Type Badge + Status */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm leading-tight">
-                    {activity.activity_name || activity.retailer_name || activity.distributor_name || activity.beat_name || TYPE_LABELS[activity.activity_type] || activity.activity_type}
-                  </h4>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Badge className={`text-[10px] px-2 py-0.5 ${ACTIVITY_TYPE_COLORS[activity.activity_type] || ACTIVITY_TYPE_COLORS.Other}`}>
-                    {TYPE_LABELS[activity.activity_type] || activity.activity_type}
-                  </Badge>
-                </div>
-              </div>
+              {(() => {
+                const meta = resolveTypeMeta(activity.activity_type);
+                return (
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm leading-tight">
+                        {activity.activity_name || activity.retailer_name || activity.distributor_name || activity.beat_name || meta.label}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge className={`text-[10px] px-2 py-0.5 ${meta.colorClass}`}>
+                        {meta.label}
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Per-type summary lines */}
               {activity.activity_type === 'customer_visit' && (activity.outcome || activity.follow_up_date) && (

@@ -29,6 +29,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { FeedbackSummarySection } from "@/components/FeedbackSummarySection";
 import { UserSelector } from "@/components/UserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
+import { useActivityTypes } from "@/hooks/useActivityTypes";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
@@ -40,6 +41,9 @@ export const TodaySummary = () => {
   const [loading, setLoading] = useState(true);
   const initialLoadDone = useRef(false);
   const { user } = useAuth();
+  const { types: activityTypesMaster } = useActivityTypes();
+  const activityTypesRef = useRef(activityTypesMaster);
+  activityTypesRef.current = activityTypesMaster;
   const isAdmin = false; // No longer used for gating; kept for backward compat in data loading
   
   // Hierarchical user filter (for managers)
@@ -1649,21 +1653,19 @@ export const TodaySummary = () => {
 
           const rows = (activityRows as any[]) || [];
           if (rows.length > 0) {
-            const TYPE_CONFIG: Record<string, { label: string; color: string }> = {
-              customer_visit:    { label: 'Customer visits',    color: 'green'  },
-              beat_visit:        { label: 'Beat visits',        color: 'blue'   },
-              joint_beat_visit:  { label: 'Joint visits',       color: 'purple' },
-              new_beat_survey:   { label: 'Route surveys',      color: 'teal'   },
-              distributor_visit: { label: 'Distributor visits', color: 'amber'  },
-              event_promotion:   { label: 'Events',             color: 'orange' },
-              meeting_training:  { label: 'Meetings',           color: 'gray'   },
-              Event:       { label: 'Events',       color: 'blue'   },
-              Meeting:     { label: 'Meetings',     color: 'indigo' },
-              Celebration: { label: 'Celebrations', color: 'amber'  },
-              Promotion:   { label: 'Promotions',   color: 'green'  },
-              Demo:        { label: 'Demos',        color: 'purple' },
-              Other:       { label: 'Others',       color: 'gray'   },
-            };
+            // Build label/color lookup from activity_types master (match by name or code).
+            // Legacy values fall back to humanized text + neutral color.
+            const masterTypes = activityTypesRef.current || [];
+            const typeLookup = new Map<string, { label: string; color: string }>();
+            masterTypes.forEach((t) => {
+              const entry = { label: t.name, color: t.color || 'gray' };
+              typeLookup.set(t.name, entry);
+              if (t.code) typeLookup.set(t.code, entry);
+            });
+            const humanize = (k: string) =>
+              k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+            const resolveType = (key: string) =>
+              typeLookup.get(key) || { label: humanize(key), color: 'gray' };
             const grouped = new Map<string, any[]>();
             rows.forEach((r) => {
               const key = r.visit_category || r.activity_type || 'Other';
@@ -1673,7 +1675,7 @@ export const TodaySummary = () => {
             const totalFieldMinutes = rows.reduce((s, r) => s + (r.duration_minutes || 0), 0);
             const fmt = (m: number) => (!m ? '' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
             const byType = Array.from(grouped.entries()).map(([type, rs]) => {
-              const cfg = TYPE_CONFIG[type] || { label: type, color: 'gray' };
+              const cfg = resolveType(type);
               const typeMins = rs.reduce((s, r) => s + (r.duration_minutes || 0), 0);
               return {
                 type,

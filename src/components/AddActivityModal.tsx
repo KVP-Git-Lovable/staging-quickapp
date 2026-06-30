@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityEvents } from '@/hooks/useActivityEvents';
+import { useActivityTypes } from '@/hooks/useActivityTypes';
 import { useSubordinates } from '@/hooks/useSubordinates';
 import { useConnectivity } from '@/hooks/useConnectivity';
 import { getMyBeats } from '@/services/beatService';
@@ -30,24 +31,15 @@ interface AddActivityModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const VISIT_TYPES = [
-  { id: 'joint_beat_visit',  label: 'Joint visit',  icon: Users,         color: 'purple' },
-  { id: 'new_beat_survey',   label: 'Route survey', icon: MapSearch,     color: 'teal'   },
-  { id: 'distributor_visit', label: 'Distributor',  icon: Warehouse,     color: 'amber'  },
-  { id: 'meeting_training',  label: 'Meeting',      icon: CalendarEvent, color: 'gray'   },
-] as const;
-
-type VisitTypeId = typeof VISIT_TYPES[number]['id'];
-
-const TYPE_COLOR: Record<string, string> = {
-  green:  'bg-green-50  border-green-400  text-green-800  dark:bg-green-950/30  dark:text-green-300',
-  blue:   'bg-blue-50   border-blue-400   text-blue-800   dark:bg-blue-950/30   dark:text-blue-300',
-  purple: 'bg-purple-50 border-purple-400 text-purple-800 dark:bg-purple-950/30 dark:text-purple-300',
-  teal:   'bg-teal-50   border-teal-400   text-teal-800   dark:bg-teal-950/30   dark:text-teal-300',
-  amber:  'bg-amber-50  border-amber-400  text-amber-800  dark:bg-amber-950/30  dark:text-amber-300',
-  orange: 'bg-orange-50 border-orange-400 text-orange-800 dark:bg-orange-950/30 dark:text-orange-300',
-  gray:   'bg-gray-50   border-gray-400   text-gray-800   dark:bg-gray-950/30   dark:text-gray-300',
-};
+// Master-driven type list (see useActivityTypes / activity_types table).
+// `selectedType` holds the master type's **name** (e.g. "Joint Visit") so the
+// value matches what we store on activity_events.activity_type. Form sections
+// for the four legacy IDs (joint, route survey, distributor, meeting) match
+// against the master names below.
+const JOINT       = 'Joint Visit';
+const SURVEY      = 'Route Survey';
+const DISTRIBUTOR = 'Distributor Visit';
+const MEETING     = 'Meeting / Training';
 
 /** Convert "HH:MM" local time string to ISO string on activityDate */
 const localTimeToISO = (dateObj: Date, timeStr: string): string => {
@@ -84,13 +76,19 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   const { user } = useAuth();
   const { createActivity, updateVisitCheckOut } = useActivityEvents();
   const { subordinates } = useSubordinates();
+  const { types: activityTypes } = useActivityTypes();
   const connectivity = useConnectivity();
   const isOnline = connectivity === 'online';
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Type
-  const [selectedType, setSelectedType] = useState<VisitTypeId>('joint_beat_visit');
-  const activeType = VISIT_TYPES.find((t) => t.id === selectedType)!;
+  // Type — value is the master type's `name` (matches what's stored on activity_events.activity_type)
+  const [selectedType, setSelectedType] = useState<string>(JOINT);
+  const isJoint       = selectedType === JOINT;
+  const isSurvey      = selectedType === SURVEY;
+  const isDistributor = selectedType === DISTRIBUTOR;
+  const isMeeting     = selectedType === MEETING;
+  // Look up the matching master row (for code / requires_check_in / default_duration_minutes).
+  const activeTypeRow = activityTypes.find((t) => t.name === selectedType);
 
   // Shared
   const [activityDate, setActivityDate] = useState<Date>(new Date());
@@ -199,7 +197,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
   // Distributor search
   useEffect(() => {
-    if (selectedType !== 'distributor_visit') return;
+    if (!isDistributor) return;
     if (!distributorSearch || distributorSearch.length < 2) { setDistributorResults([]); return; }
     const t = setTimeout(async () => {
       const { data } = await supabase
@@ -215,7 +213,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
   // Auto-load subordinate beat plan for joint visit
   useEffect(() => {
-    if (selectedType !== 'joint_beat_visit' || !subordinateId || !activityDate) { setSubordinateBeat(null); setBeatLoadError(false); return; }
+    if (!isJoint || !subordinateId || !activityDate) { setSubordinateBeat(null); setBeatLoadError(false); return; }
     supabase.from('beat_plans').select('id, beat_id, beat_name, beat_data')
       .eq('user_id', subordinateId).eq('plan_date', format(activityDate, 'yyyy-MM-dd')).maybeSingle()
       .then(({ data }: any) => {
@@ -264,7 +262,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   };
 
   const resetForm = () => {
-    setSelectedType('joint_beat_visit');
+    setSelectedType(JOINT);
     setActivityDate(new Date());
     setCheckInHHMM(nowHHMM()); setCheckOutHHMM(''); setDurationMinutes(null);
     setGpsLat(null); setGpsLng(null); setRemarks('');
@@ -295,10 +293,10 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
     if (!isOnline) { toast.error('Activity logging requires internet'); return; }
     if (isSubmitted) { toast.info('Already saved — log check-out if ready'); return; }
 
-    if (selectedType === 'joint_beat_visit' && !subordinateId) { toast.error('Select a subordinate'); return; }
-    if (selectedType === 'new_beat_survey' && (!surveyBeatName || !surveyObservations)) { toast.error('Beat name and observations required'); return; }
-    if (selectedType === 'distributor_visit' && !distributorId) { toast.error('Select a distributor'); return; }
-    if (selectedType === 'meeting_training' && !topic) { toast.error('Enter a topic'); return; }
+    if (isJoint && !subordinateId) { toast.error('Select a subordinate'); return; }
+    if (isSurvey && (!surveyBeatName || !surveyObservations)) { toast.error('Beat name and observations required'); return; }
+    if (isDistributor && !distributorId) { toast.error('Select a distributor'); return; }
+    if (isMeeting && !topic) { toast.error('Enter a topic'); return; }
 
     setIsSubmitting(true);
     try {
@@ -321,7 +319,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
       let params: any = { ...common, activity_type: selectedType, visit_category: selectedType };
 
-      if (selectedType === 'joint_beat_visit') {
+      if (isJoint) {
         params = { ...params,
           subordinate_user_id: subordinateId,
           beat_id: subordinateBeat?.beat_id, beat_name: subordinateBeat?.beat_name,
@@ -337,7 +335,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           rep_action_items:    repActionItems    || undefined,
           rep_followup_date:   repFollowupDate   || undefined,
         };
-      } else if (selectedType === 'new_beat_survey') {
+      } else if (isSurvey) {
         const shopsPb = surveyTargetShops && surveySuggestedBeatCount ? Math.round(surveyTargetShops / surveySuggestedBeatCount) : undefined;
         params = { ...params, activity_name: surveyBeatName, activity_place: surveyArea,
           survey_total_shops: surveyTotalShops ?? undefined, survey_our_stock_shops: surveyOurStockShops ?? undefined,
@@ -350,10 +348,10 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           survey_competition_brands: surveyCompetitionBrands || undefined,
           survey_observations: surveyObservations, survey_recommendation: surveyRecommendation || undefined,
         };
-      } else if (selectedType === 'distributor_visit') {
+      } else if (isDistributor) {
         params = { ...params, distributor_id: distributorId, distributor_name: distributorName,
           visit_purpose: visitPurpose || undefined, contact_person: contactPerson || undefined, outcome: outcome || undefined };
-      } else if (selectedType === 'meeting_training') {
+      } else if (isMeeting) {
         params = { ...params, activity_sub_type: meetingSubType, topic, attendee_count: attendeeCount ?? undefined,
           activity_place: meetingPlace || undefined, duration_type: durationType,
           ...(durationType === 'hour_based' ? { start_time: localTimeToISO(activityDate, startTime), end_time: localTimeToISO(activityDate, endTime) } : {}),
@@ -369,7 +367,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
       setIsSubmitted(true);
 
       // Joint visit — write to joint_sales_sessions (+ optional joint_sales_feedback)
-      if (selectedType === 'joint_beat_visit') {
+      if (isJoint) {
         const { data: sessionData } = await supabase.from('joint_sales_sessions').insert({
           manager_id: user.id, fse_user_id: subordinateId,
           session_date: dateStr,
@@ -394,8 +392,8 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
       }
 
       toast.success(
-        selectedType === 'new_beat_survey' ? 'Route survey submitted!' :
-        selectedType === 'joint_beat_visit' ? 'Joint visit saved!' : 'Activity logged!'
+        isSurvey ? 'Route survey submitted!' :
+        isJoint ? 'Joint visit saved!' : 'Activity logged!'
       );
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
       // Keep modal open so user can log check-out
@@ -427,23 +425,23 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
         <div className="space-y-4 mt-2">
 
-          {/* ── Type selector ─────────────────────────────── */}
-          <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-7">
-            {VISIT_TYPES.map((t) => {
-              const Icon = t.icon;
-              const isActive = selectedType === t.id;
-              return (
-                <button key={t.id} type="button" disabled={isSubmitted}
-                  onClick={() => setSelectedType(t.id)}
-                  className={cn(
-                    'flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-[10px] font-medium transition-colors disabled:opacity-40',
-                    isActive ? TYPE_COLOR[t.color] : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted'
-                  )}>
-                  <Icon className="h-4 w-4" />
-                  <span className="leading-tight text-center">{t.label}</span>
-                </button>
-              );
-            })}
+          {/* ── Type selector (sourced from activity_types master) ── */}
+          <div>
+            <Label className="text-xs">Activity type</Label>
+            <Select
+              value={selectedType}
+              onValueChange={setSelectedType}
+              disabled={isSubmitted || activityTypes.length === 0}
+            >
+              <SelectTrigger className="mt-1 h-9 text-sm">
+                <SelectValue placeholder={activityTypes.length ? 'Select activity type' : 'Loading…'} />
+              </SelectTrigger>
+              <SelectContent>
+                {activityTypes.map((t) => (
+                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* ── Shared: date + GPS ─────────────────────────── */}
@@ -478,7 +476,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           )}
 
           {/* ── Check-in / Check-out (manual time pickers) ─── */}
-          {selectedType !== 'meeting_training' && (
+          {!isMeeting && (
             <div className="rounded-lg border bg-muted/20 px-3 py-2.5 space-y-2">
               <p className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" /> Check-in / Check-out
@@ -519,7 +517,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           {/* CUSTOMER / BEAT VISIT tabs removed */}
 
           {/* ── JOINT ─────────────────────────────────────── */}
-          {selectedType === 'joint_beat_visit' && (
+          {isJoint && (
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Subordinate <span className="text-destructive">*</span></Label>
@@ -592,7 +590,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           )}
 
           {/* ── ROUTE SURVEY ──────────────────────────────── */}
-          {selectedType === 'new_beat_survey' && (
+          {isSurvey && (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -669,7 +667,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           )}
 
           {/* ── DISTRIBUTOR ────────────────────────────────── */}
-          {selectedType === 'distributor_visit' && (
+          {isDistributor && (
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Distributor <span className="text-destructive">*</span></Label>
@@ -724,7 +722,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           {/* EVENT tab removed */}
 
           {/* ── MEETING ───────────────────────────────────── */}
-          {selectedType === 'meeting_training' && (
+          {isMeeting && (
             <div className="space-y-3">
               <div>
                 <Label className="text-xs">Sub-type</Label>
@@ -802,7 +800,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
               {isSubmitted ? 'Close' : 'Cancel'}
             </Button>
             <Button
-              className={cn('flex-1 h-9 text-sm', activeType && TYPE_COLOR[activeType.color])}
+              className="flex-1 h-9 text-sm"
               onClick={handleSubmit}
               disabled={isSubmitting || isSubmitted || !isOnline}
             >
