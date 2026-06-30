@@ -151,7 +151,7 @@ export async function runFlow(flowId: string, runId: string) {
     if (action.skipped) {
       const row = {
         pass: false,
-        errorMessage: `Skipped: ${action.skippedReason ?? 'not runnable'}`,
+        errorMessage: action.skippedReason ?? 'Manual step required',
         durationMs: 0,
         actionLabel: action.label,
       };
@@ -163,7 +163,19 @@ export async function runFlow(flowId: string, runId: string) {
 
     const input = resolveInput(step.input, action.inputs, ctx);
     const start = performance.now();
-    const result = await action.run(input, ctx);
+    let result: { pass: boolean; output?: any; errorMessage?: string };
+    try {
+      result = await action.run(input, ctx);
+    } catch (e: any) {
+      result = { pass: false, errorMessage: e?.message ?? String(e) };
+    } finally {
+      try {
+        const { goTo } = await import('@/qa/automation/navigate');
+        await goTo('/qa/run-tests');
+      } catch {
+        /* navigator not registered — ignore */
+      }
+    }
     const durationMs = performance.now() - start;
 
     await logStep(runId, `${flow.label} → ${action.label}`, action.entity, result, durationMs);
