@@ -225,6 +225,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
         subFeatures: [
           { name: 'admin_credit_scoring_config', label: 'Credit Scoring Configuration' },
           { name: 'admin_credit_limits', label: 'Credit Limits Management' },
+          { name: 'credit_note_settings', label: 'Credit Note Settings (approval config)' },
         ]
       },
       {
