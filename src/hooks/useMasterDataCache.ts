@@ -25,6 +25,45 @@ export function useMasterDataCache() {
   const isOnline = connectivityStatus === 'online';
   const { user } = useAuth();
 
+  // Phase 7-1: reactive maps for the availability resolver. Loaded from the
+  // offline cache (filled by cacheProductAvailability) so consumers can call
+  // isProductAvailable / buildRetailerContext without an extra round-trip.
+  const [availabilityByProductId, setAvailabilityByProductId] = useState<Map<string, AvailabilityRow[]>>(new Map());
+  const [territoriesById, setTerritoriesById] = useState<Map<string, TerritoryLookupEntry>>(new Map());
+
+  const reloadAvailabilityMaps = useCallback(async () => {
+    try {
+      const [rows, terrs] = await Promise.all([
+        offlineStorage.getAll(STORES.PRODUCT_AVAILABILITY) as Promise<AvailabilityRow[]>,
+        offlineStorage.getAll(STORES.TERRITORIES_LOOKUP) as Promise<Array<{ id: string; region: string | null; zone: string | null }>>,
+      ]);
+
+      const byProduct = new Map<string, AvailabilityRow[]>();
+      for (const r of rows ?? []) {
+        const list = byProduct.get(r.product_id) ?? [];
+        list.push(r);
+        byProduct.set(r.product_id, list);
+      }
+      setAvailabilityByProductId(byProduct);
+
+      const terrMap = new Map<string, TerritoryLookupEntry>();
+      for (const t of terrs ?? []) {
+        terrMap.set(t.id, { region: t.region, zone: t.zone });
+      }
+      setTerritoriesById(terrMap);
+    } catch (err) {
+      console.warn('[Cache] Failed to load availability maps from offline cache:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    reloadAvailabilityMaps();
+    const onRefresh = () => reloadAvailabilityMaps();
+    window.addEventListener('masterDataRefreshed', onRefresh);
+    return () => window.removeEventListener('masterDataRefreshed', onRefresh);
+  }, [reloadAvailabilityMaps]);
+
+
   // Cache ONLY active products and related data needed for order entry
   const cacheProducts = useCallback(async (onProgress?: CacheProgressCallback) => {
     try {
