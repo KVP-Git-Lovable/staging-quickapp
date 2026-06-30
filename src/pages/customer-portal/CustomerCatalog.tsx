@@ -220,6 +220,9 @@ const CustomerCatalog = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
+  // Phase 7-3: availability maps + state for ctx.
+  const { availabilityByProductId, territoriesById } = usePortalAvailability();
+  const retailerState = useRetailerStateLookup(retailer.id);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPhotoOrder, setShowPhotoOrder] = useState(false);
   const [orderRows, setOrderRows] = useState<OrderRow[]>([
