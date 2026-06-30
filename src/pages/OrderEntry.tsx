@@ -546,6 +546,9 @@ export const OrderEntry = () => {
         const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
         const cachedRetailer = cachedRetailers.find((r: any) => r.id === validRetailerId);
 
+        if (cachedRetailer) {
+          setSelectedRetailerForAvail(cachedRetailer);
+        }
         if (cachedRetailer?.latitude && cachedRetailer?.longitude) {
           setRetailerLat(cachedRetailer.latitude);
           setRetailerLng(cachedRetailer.longitude);
