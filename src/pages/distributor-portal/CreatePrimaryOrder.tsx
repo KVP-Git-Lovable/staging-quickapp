@@ -26,6 +26,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { ChevronsUpDown } from 'lucide-react';
 import { resolveProduct } from '@/utils/resolveProduct';
+import { usePortalAvailability } from '@/hooks/usePortalAvailability';
+import { buildDistributorContext, filterAvailableProducts } from '@/utils/productAvailability';
 
 interface Category { id: string; name: string; }
 interface PriceBookEntry { product_id: string; variant_id: string | null; final_price: number; list_price: number; }
@@ -95,6 +97,8 @@ const CreatePrimaryOrder = () => {
   const [maxReachedStep, setMaxReachedStep] = useState<1 | 2 | 3>(1);
 
   const distributorId = localStorage.getItem('distributor_id');
+  // Phase 7-3: distributor portal needs availability maps for its own ctx.
+  const { availabilityByProductId, territoriesById } = usePortalAvailability();
 
   const { warehouses: allWarehouses } = useWarehouses(distributorId);
   const { addresses: savedAddresses, create: createSavedAddress } = useSavedAddresses(distributorId);
@@ -353,6 +357,14 @@ const CreatePrimaryOrder = () => {
       toast.error('Failed to load products');
     } finally { setProductsLoading(false); }
   };
+
+  // Phase 7-3: filter visible products based on distributor's availability rules.
+  // Default (no rules) = visible everywhere.
+  const availableProducts = useMemo(() => {
+    if (!distributor) return products;
+    const ctx = buildDistributorContext(distributor, territoriesById, distributor?.user_id);
+    return filterAvailableProducts(products, (p: any) => p.id, availabilityByProductId, ctx);
+  }, [products, distributor, territoriesById, availabilityByProductId]);
 
   const getProductPrice = (product: Product): number =>
     product.priceBookPrice ?? product.price ?? 0;
@@ -731,7 +743,7 @@ const CreatePrimaryOrder = () => {
             categories={categories}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
-            products={products}
+            products={availableProducts}
             productsLoading={productsLoading}
             productUoms={productUoms}
             productStock={productStock}

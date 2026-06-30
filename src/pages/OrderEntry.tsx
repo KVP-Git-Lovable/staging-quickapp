@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,7 @@ import { useCheckInMandatory } from "@/hooks/useCheckInMandatory";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
+import { buildRetailerContext, filterAvailableProducts } from "@/utils/productAvailability";
 import { WifiOff, Wifi, MapPin, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "@/components/RetailerVisitDetailsModal";
@@ -140,7 +141,7 @@ export const OrderEntry = () => {
 
   // Force-refresh the full master data cache (re-syncs products end-to-end).
   // Used by the "Refresh products" button + the 10-min staleness check on open.
-  const { forceRefreshMasterData } = useMasterDataCache();
+  const { forceRefreshMasterData, availabilityByProductId, territoriesById } = useMasterDataCache();
 
   // Manual refresh: re-sync product master AND reload the picker list.
   const reloadProductsFromMaster = useCallback(async () => {
@@ -386,6 +387,8 @@ export const OrderEntry = () => {
   const [retailerLat, setRetailerLat] = useState<number | undefined>(undefined);
   const [retailerLng, setRetailerLng] = useState<number | undefined>(undefined);
   const [retailerBeatId, setRetailerBeatId] = useState<string | undefined>(undefined);
+  // Phase 7-3: full retailer record (state/region/zone/territory_id/distributor_id) for availability ctx.
+  const [selectedRetailerForAvail, setSelectedRetailerForAvail] = useState<any>(null);
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   const [hasTrackedVisit, setHasTrackedVisit] = useState(false);
   const [isSettingLocation, setIsSettingLocation] = useState(false);
@@ -543,6 +546,9 @@ export const OrderEntry = () => {
         const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
         const cachedRetailer = cachedRetailers.find((r: any) => r.id === validRetailerId);
 
+        if (cachedRetailer) {
+          setSelectedRetailerForAvail(cachedRetailer);
+        }
         if (cachedRetailer?.latitude && cachedRetailer?.longitude) {
           setRetailerLat(cachedRetailer.latitude);
           setRetailerLng(cachedRetailer.longitude);
@@ -1106,8 +1112,35 @@ export const OrderEntry = () => {
   }, [isOnline, fetchOfflineProducts]);
   */
 
+  // Phase 7-3: build availability ctx for the selected retailer (if any).
+  // No retailer selected => show all products.
+  const availabilityCtx = useMemo(
+    () => buildRetailerContext(selectedRetailerForAvail, territoriesById, userId),
+    [selectedRetailerForAvail, territoriesById, userId]
+  );
+
+  // Filter master cache by availability for downstream consumers (TableOrderForm, Voice).
+  const availableCachedProducts = useMemo(() => {
+    if (!validRetailerId || !selectedRetailerForAvail) return cachedProducts;
+    return filterAvailableProducts(
+      cachedProducts as any[],
+      (p) => p.id,
+      availabilityByProductId,
+      availabilityCtx
+    );
+  }, [cachedProducts, validRetailerId, selectedRetailerForAvail, availabilityByProductId, availabilityCtx]);
+
   // Filter products by category and search term
   const filteredProducts = products.filter(product => {
+    // Phase 7-3: availability gate (default visible if no retailer or no rules).
+    if (validRetailerId && selectedRetailerForAvail) {
+      const rows = availabilityByProductId.get(product.id);
+      if (rows && rows.length > 0) {
+        // re-use isProductAvailable via filterAvailableProducts shape
+        const ok = filterAvailableProducts([product as any], (p: any) => p.id, availabilityByProductId, availabilityCtx).length === 1;
+        if (!ok) return false;
+      }
+    }
     // Category filter
     const matchesCategory = selectedCategory === "All" || product.category === selectedCategory;
 
@@ -2163,7 +2196,7 @@ export const OrderEntry = () => {
               {/* Row 2: Voice Order + Smart Basket */}
               <div className="flex gap-1.5">
                 <VoiceOrderAssistant
-                  products={cachedProducts.map(p => ({
+                  products={availableCachedProducts.map(p => ({
                     id: p.id,
                     name: p.name,
                     rate: p.rate,
@@ -3023,7 +3056,7 @@ export const OrderEntry = () => {
         </> : (/* Table Order Form */
       <TableOrderForm 
         ref={tableFormRef}
-        products={cachedProducts}
+        products={availableCachedProducts}
         loading={offlineLoading}
         onReloadProducts={reloadProductsFromMaster}
         onCartUpdate={handleBulkCartUpdate}

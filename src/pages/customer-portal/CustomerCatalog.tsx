@@ -24,6 +24,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { resolveProduct } from '@/utils/resolveProduct';
+import { usePortalAvailability, useRetailerStateLookup } from '@/hooks/usePortalAvailability';
+import { buildRetailerContext, filterAvailableProducts } from '@/utils/productAvailability';
 
 interface ContextType {
   retailer: CustomerPortalUser;
@@ -218,6 +220,9 @@ const CustomerCatalog = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
+  // Phase 7-3: availability maps + state for ctx.
+  const { availabilityByProductId, territoriesById } = usePortalAvailability();
+  const retailerState = useRetailerStateLookup(retailer.id);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPhotoOrder, setShowPhotoOrder] = useState(false);
   const [orderRows, setOrderRows] = useState<OrderRow[]>([
@@ -279,7 +284,7 @@ const CustomerCatalog = () => {
   }, [enabledUnits]);
 
   // Fetch products for selected category
-  const { data: products = [], isLoading: productsLoading } = useQuery({
+  const { data: rawProducts = [], isLoading: productsLoading } = useQuery({
     queryKey: ['catalog-products', selectedCategory, activeUnitCode],
     queryFn: async () => {
       const pageSize = 1000;
@@ -322,6 +327,16 @@ const CustomerCatalog = () => {
     staleTime: 2 * 60 * 1000,
   });
 
+
+  // Phase 7-3: filter by availability for this retailer (default visible if no rules).
+  const products = useMemo(() => {
+    const ctx = buildRetailerContext(
+      { ...(retailer as any), state: retailerState ?? undefined },
+      territoriesById,
+      retailer.id
+    );
+    return filterAvailableProducts(rawProducts as any[], (p: any) => p.id, availabilityByProductId, ctx);
+  }, [rawProducts, retailer, retailerState, territoriesById, availabilityByProductId]);
 
   // Price book entries for all loaded products
   const productIds = useMemo(() => products.map(p => p.id), [products]);
