@@ -328,6 +328,16 @@ const CustomerCatalog = () => {
   });
 
 
+  // Phase 7-3: filter by availability for this retailer (default visible if no rules).
+  const products = useMemo(() => {
+    const ctx = buildRetailerContext(
+      { ...(retailer as any), state: retailerState ?? undefined },
+      territoriesById,
+      retailer.id
+    );
+    return filterAvailableProducts(rawProducts as any[], (p: any) => p.id, availabilityByProductId, ctx);
+  }, [rawProducts, retailer, retailerState, territoriesById, availabilityByProductId]);
+
   // Price book entries for all loaded products
   const productIds = useMemo(() => products.map(p => p.id), [products]);
   const { data: priceMap = {} } = usePriceBookEntries(priceBookId, productIds, supabase);
