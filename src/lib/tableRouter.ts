@@ -5,27 +5,47 @@ type ProdTableName = keyof Database['public']['Tables'];
 const tablePrefix = import.meta.env.VITE_TABLE_PREFIX ?? '';
 
 /**
+ * Tables that have a `qa_<name>` mirror in the database.
+ * In QA builds, `supabase.from(<name>)` is transparently rewritten
+ * to `qa_<name>` for these. All other tables pass through unchanged
+ * (used as read-only reference data in QA).
+ *
+ * Keep this in sync with the qa_* tables that actually exist in Postgres.
+ */
+export const QA_MIRRORED_TABLES: ReadonlySet<string> = new Set([
+  'retailers',
+  'visits',
+  'orders',
+  'order_items',
+  'attendance',
+  'gps_tracking',
+  'retailer_visit_logs',
+  'products',
+  'inst_leads',
+
+]);
+
+/**
+ * RPCs that are safe to call from a QA build because they are either
+ * read-only or already QA-aware. Anything not on this list is blocked
+ * in QA mode to prevent accidental writes against production tables.
+ */
+export const QA_SAFE_RPCS: ReadonlySet<string> = new Set([
+  // add read-only / QA-aware RPCs here as they get audited
+]);
+
+/**
  * Returns the correct Supabase table name for the current build.
- *
- * QA build (npm run sync:qa):
- *   table('orders')    → 'qa_orders'
- *   table('retailers') → 'qa_retailers'
- *
- * Production build (npm run sync:prod):
- *   table('orders')    → 'orders'
- *   table('retailers') → 'retailers'
- *
- * Value is resolved at compile time, not at APK runtime.
- *
- * USAGE: supabase.from(table('orders') as any).select(...)
- *
- * Use `as any` at call sites until QA tables are added to the
- * generated types file after the migration runs and types are
- * regenerated.
+ * Most code does NOT need to call this — the wrapped supabase client
+ * in `@/integrations/supabase/client` rewrites mirrored table names
+ * automatically in QA mode.
  */
 export function table(name: ProdTableName): string {
-  return tablePrefix ? `${tablePrefix}${name}` : name;
+  if (!tablePrefix) return name;
+  return QA_MIRRORED_TABLES.has(name) ? `${tablePrefix}${name}` : name;
 }
 
 export const isQAMode = (): boolean =>
   import.meta.env.VITE_APP_MODE === 'qa';
+
+export const qaTablePrefix = (): string => tablePrefix;

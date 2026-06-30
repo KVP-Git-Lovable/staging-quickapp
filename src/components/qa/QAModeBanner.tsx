@@ -13,7 +13,7 @@ export const QAModeBanner = () => {
       className="fixed top-0 left-0 right-0 z-[10000] bg-yellow-400 text-black text-center text-xs font-semibold py-1 px-2 shadow"
       style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 4px)' }}
     >
-      ⚠ QA MODE — writes to qa_* tables only
+      ⚠ QA MODE — mirrored tables route to qa_*; writes to other prod tables & unsafe RPCs are blocked
     </div>
   );
 };
