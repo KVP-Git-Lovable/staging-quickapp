@@ -451,18 +451,23 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }
               className="rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2"
             >
               {/* Top row: Name + Type Badge + Status */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-sm leading-tight">
-                    {activity.activity_name || activity.retailer_name || activity.distributor_name || activity.beat_name || TYPE_LABELS[activity.activity_type] || activity.activity_type}
-                  </h4>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Badge className={`text-[10px] px-2 py-0.5 ${ACTIVITY_TYPE_COLORS[activity.activity_type] || ACTIVITY_TYPE_COLORS.Other}`}>
-                    {TYPE_LABELS[activity.activity_type] || activity.activity_type}
-                  </Badge>
-                </div>
-              </div>
+              {(() => {
+                const meta = resolveTypeMeta(activity.activity_type);
+                return (
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm leading-tight">
+                        {activity.activity_name || activity.retailer_name || activity.distributor_name || activity.beat_name || meta.label}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Badge className={`text-[10px] px-2 py-0.5 ${meta.colorClass}`}>
+                        {meta.label}
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Per-type summary lines */}
               {activity.activity_type === 'customer_visit' && (activity.outcome || activity.follow_up_date) && (
