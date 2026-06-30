@@ -15893,6 +15893,156 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_beat_plans: {
+        Row: {
+          beat_data: Json
+          beat_id: string
+          beat_name: string
+          created_at: string
+          id: string
+          joint_sales_manager_id: string | null
+          plan_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          beat_data?: Json
+          beat_id: string
+          beat_name: string
+          created_at?: string
+          id?: string
+          joint_sales_manager_id?: string | null
+          plan_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          beat_data?: Json
+          beat_id?: string
+          beat_name?: string
+          created_at?: string
+          id?: string
+          joint_sales_manager_id?: string | null
+          plan_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_beats: {
+        Row: {
+          average_km: number | null
+          average_time_minutes: number | null
+          beat_id: string
+          beat_name: string
+          category: string | null
+          created_at: string
+          created_by: string | null
+          deactivated_at: string | null
+          deactivated_by: string | null
+          distributor_id: string | null
+          id: string
+          is_active: boolean | null
+          owner_id: string | null
+          owner_name: string | null
+          reactivated_at: string | null
+          reactivated_by: string | null
+          territory_id: string | null
+          transferred_at: string | null
+          transferred_by: string | null
+          travel_allowance: number | null
+          updated_at: string
+          updated_by: string | null
+          user_id: string | null
+        }
+        Insert: {
+          average_km?: number | null
+          average_time_minutes?: number | null
+          beat_id?: string
+          beat_name: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          distributor_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          owner_id?: string | null
+          owner_name?: string | null
+          reactivated_at?: string | null
+          reactivated_by?: string | null
+          territory_id?: string | null
+          transferred_at?: string | null
+          transferred_by?: string | null
+          travel_allowance?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          average_km?: number | null
+          average_time_minutes?: number | null
+          beat_id?: string
+          beat_name?: string
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          distributor_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          owner_id?: string | null
+          owner_name?: string | null
+          reactivated_at?: string | null
+          reactivated_by?: string | null
+          territory_id?: string | null
+          transferred_at?: string | null
+          transferred_by?: string | null
+          travel_allowance?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_daily_beat_plans: {
+        Row: {
+          assigned_by: string
+          assigned_user_id: string
+          assignment_type: string
+          beat_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          plan_date: string
+          status: string
+        }
+        Insert: {
+          assigned_by: string
+          assigned_user_id: string
+          assignment_type: string
+          beat_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          plan_date: string
+          status?: string
+        }
+        Update: {
+          assigned_by?: string
+          assigned_user_id?: string
+          assignment_type?: string
+          beat_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          plan_date?: string
+          status?: string
+        }
+        Relationships: []
+      }
       qa_gps_tracking: {
         Row: {
           accuracy: number | null
@@ -16439,6 +16589,54 @@ export type Database = {
           tax_master_id?: string | null
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      qa_retailer_beat_assignments: {
+        Row: {
+          assigned_by: string | null
+          assigned_from: string
+          assigned_to: string | null
+          beat_id: string
+          beat_name: string | null
+          created_at: string
+          id: string
+          is_current: boolean
+          removed_by: string | null
+          retailer_id: string
+          transfer_reason: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assigned_by?: string | null
+          assigned_from?: string
+          assigned_to?: string | null
+          beat_id: string
+          beat_name?: string | null
+          created_at?: string
+          id?: string
+          is_current?: boolean
+          removed_by?: string | null
+          retailer_id: string
+          transfer_reason?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assigned_by?: string | null
+          assigned_from?: string
+          assigned_to?: string | null
+          beat_id?: string
+          beat_name?: string | null
+          created_at?: string
+          id?: string
+          is_current?: boolean
+          removed_by?: string | null
+          retailer_id?: string
+          transfer_reason?: string | null
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }

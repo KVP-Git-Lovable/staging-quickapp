@@ -71,12 +71,14 @@ function buildQAClient(client: any): any {
     get(target, prop, receiver) {
       if (prop === 'from') {
         return (name: string) => {
-          const isMirrored = QA_MIRRORED_TABLES.has(name);
-          const routedName = isMirrored ? `${prefix}${name}` : name;
+          const alreadyPrefixed = typeof name === 'string' && name.startsWith(prefix) && prefix.length > 0;
+          const isMirrored = QA_MIRRORED_TABLES.has(name) || alreadyPrefixed;
+          const routedName = QA_MIRRORED_TABLES.has(name) ? `${prefix}${name}` : name;
           const builder = (target as any).from(routedName);
           return wrapBuilder(builder, name, isMirrored);
         };
       }
+
       if (prop === 'rpc') {
         return (name: string, args?: any, options?: any) => {
           if (!QA_SAFE_RPCS.has(name)) {

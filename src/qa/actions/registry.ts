@@ -2,14 +2,17 @@ import { retailerActions } from './retailerActions';
 import { visitActions } from './visitActions';
 import { orderActions } from './orderActions';
 import { attendanceActions } from './attendanceActions';
+import { smokeActions } from './smokeActions';
 import type { QATestAction } from '@/qa/types';
 
 export const allQAActions: QATestAction[] = [
+  ...smokeActions,
   ...retailerActions,
   ...visitActions,
   ...orderActions,
   ...attendanceActions,
 ];
+
 
 export const actionsByEntity = (): Record<string, QATestAction[]> => {
   const grouped: Record<string, QATestAction[]> = {};

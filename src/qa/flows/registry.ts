@@ -2,6 +2,20 @@ import type { QATestFlow } from '@/qa/types';
 
 export const allQAFlows: QATestFlow[] = [
   {
+    id: 'flow.smoke',
+    label: 'Smoke: read + write qa_* tables',
+    description:
+      'Verifies QA table routing end-to-end: counts retailers, lists products, ' +
+      'then creates and deletes a temp retailer and a temp beat plan.',
+    stopOnFailure: false,
+    steps: [
+      { actionId: 'smoke.count-retailers' },
+      { actionId: 'smoke.list-products' },
+      { actionId: 'smoke.create-temp-retailer' },
+      { actionId: 'smoke.create-temp-beat-plan' },
+    ],
+  },
+  {
     id: 'flow.retailer-to-order',
     label: 'Retailer → Beat → Visit → Order',
     description:
@@ -15,3 +29,4 @@ export const allQAFlows: QATestFlow[] = [
     ],
   },
 ];
+
