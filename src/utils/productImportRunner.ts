@@ -218,22 +218,6 @@ function resolveUom(ctx: ValidationContext, code: string | null) {
   return ctx.uomByCode.get(code.trim().toUpperCase()) ?? null;
 }
 
-export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): ValidatedRow[] {
-  const out: ValidatedRow[] = [];
-  const seenSkus = new Set<string>();
-
-  rows.forEach((raw, i) => {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    const sku = textOrNull(raw['sku']) ?? '';
-    const name = textOrNull(raw['name']) ?? '';
-    const categoryName = textOrNull(raw['category']) ?? '';
-    const gst = numOrNull(raw['gst_percentage']);
-    const rate = numOrNull(raw['rate']);
-    const baseCode = textOrNull(raw['base_unit']);
-    const priceBasisCode = textOrNull(raw['price_basis_unit']);
-    const defSalesCode = textOrNull(raw['default_sales_unit']);
 
 export function validateImportRows(rows: ParsedRow[], ctx: ValidationContext): ValidatedRow[] {
   const out: ValidatedRow[] = [];
