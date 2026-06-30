@@ -1675,7 +1675,7 @@ export const TodaySummary = () => {
             const totalFieldMinutes = rows.reduce((s, r) => s + (r.duration_minutes || 0), 0);
             const fmt = (m: number) => (!m ? '' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
             const byType = Array.from(grouped.entries()).map(([type, rs]) => {
-              const cfg = TYPE_CONFIG[type] || { label: type, color: 'gray' };
+              const cfg = resolveType(type);
               const typeMins = rs.reduce((s, r) => s + (r.duration_minutes || 0), 0);
               return {
                 type,
