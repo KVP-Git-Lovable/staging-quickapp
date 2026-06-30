@@ -190,6 +190,7 @@ const emptyVariantForm = (): any => ({
   variant_type: 'Other', uom_id: null as string | null, variant_weight_g: null as number | null,
   variant_cost: null as number | null, variant_tax_rate: null as number | null,
   is_discontinued: false, discontinued_date: null as string | null,
+  ...emptyVariantOverrides(),
 });
 
 const [productForm, setProductForm] = useState(emptyProductForm());
