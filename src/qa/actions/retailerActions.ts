@@ -37,12 +37,31 @@ export const retailerActions: QATestAction[] = [
       { key: 'address', label: 'Address', type: 'string', default: 'QA Test Address, Bengaluru' },
     ],
     run: async (input, ctx) => {
+      // Pre-flight: fail fast (with a clear message) instead of stalling
+      // mid-form when the QA tenant has no seed beats.
+      try {
+        const { count: beatCount } = await supabase
+          .from(table('beats') as any)
+          .select('id', { count: 'exact', head: true })
+          .eq('is_active', true);
+        if (!beatCount || beatCount === 0) {
+          return {
+            pass: false,
+            errorMessage:
+              'No active beats in qa_beats — seed at least one beat before running this flow (retailer.create needs a mandatory beat pick).',
+          };
+        }
+      } catch (e: any) {
+        return { pass: false, errorMessage: `Beat pre-flight failed: ${e?.message ?? e}` };
+      }
+
       // Bengaluru — well inside India, passes downstream validation.
       const restoreGeo = stubGeolocation(12.9716, 77.5946, 10);
       try {
         await goTo('/my-retailers');
         await tap('add-retailer-button', { timeoutMs: 6000 });
         await sleep(400); // let AddRetailer render + load beats
+
 
         await typeText('retailer-name-input', String(input.name));
         await typeText('retailer-phone-input', String(input.phone));
