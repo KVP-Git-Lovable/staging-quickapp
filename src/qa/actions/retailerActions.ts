@@ -202,6 +202,16 @@ export const retailerActions: QATestAction[] = [
             .maybeSingle();
           beatName = (b as any)?.beat_name ?? null;
         }
+        // Attribute the row to this QA run so cleanup_qa_run() can
+        // remove it. The AddRetailer UI insert doesn't set qa_run_id,
+        // so we backfill it here post-verify.
+        try {
+          await supabase
+            .from(table('retailers') as any)
+            .update({ qa_run_id: ctx.runId } as any)
+            .eq('id', (data as any).id);
+        } catch { /* non-fatal — attribution best-effort */ }
+
         const remembered = { ...data, beat_name: beatName };
         ctx.remember('retailer', remembered);
         return { pass: true, output: { ...remembered, parentedAsCompany } };
