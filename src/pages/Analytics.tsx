@@ -41,6 +41,7 @@ import {
 } from "@/components/analytics";
 import { RetailerMonthlyProductivitySection } from "@/components/analytics/RetailerMonthlyProductivitySection";
 import { SupervisorReport } from "@/components/analytics/SupervisorReport";
+import { FieldActivitySection } from "@/components/analytics/FieldActivitySection";
 import { CoverageMapSection } from "@/components/analytics/CoverageMapSection";
 import { useSubordinates } from "@/hooks/useSubordinates";
 import { useAuth } from "@/hooks/useAuth";
