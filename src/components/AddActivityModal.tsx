@@ -293,7 +293,9 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   };
 
   const resetForm = () => {
-    setSelectedType(JOINT);
+    setSelectedCategoryId('');
+    setSelectedType('');
+    setCheckInPhoto(null);
     setActivityDate(new Date());
     setCheckInHHMM(nowHHMM()); setCheckOutHHMM(''); setDurationMinutes(null);
     setGpsLat(null); setGpsLng(null); setRemarks('');
