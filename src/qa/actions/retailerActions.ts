@@ -193,8 +193,15 @@ export const retailerActions: QATestAction[] = [
           };
         }
 
-        const beatName =
-          (data as any).beats?.beat_name ?? pickedBeatLabel ?? null;
+        let beatName: string | null = pickedBeatLabel;
+        if (!beatName && (data as any).beat_id) {
+          const { data: b } = await supabase
+            .from(table('beats') as any)
+            .select('beat_name')
+            .eq('id', (data as any).beat_id)
+            .maybeSingle();
+          beatName = (b as any)?.beat_name ?? null;
+        }
         const remembered = { ...data, beat_name: beatName };
         ctx.remember('retailer', remembered);
         return { pass: true, output: { ...remembered, parentedAsCompany } };
