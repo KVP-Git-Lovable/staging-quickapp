@@ -13,6 +13,7 @@ import {
   CalendarIcon, Loader2, Navigation, Store, Route, Users,
   Map as MapSearch, Warehouse, Megaphone, CalendarDays as CalendarEvent,
   Star, X as XIcon, Wifi, WifiOff, MapPin, Clock, CheckCircle2,
+  Activity as ActivityIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,19 @@ const JOINT       = 'Joint Visit';
 const SURVEY      = 'Route Survey';
 const DISTRIBUTOR = 'Distributor Visit';
 const MEETING     = 'Meeting / Training';
+
+const COLOR_CLASS: Record<string, string> = {
+  rose:   'bg-rose-100 text-rose-800 border-rose-500',
+  amber:  'bg-amber-100 text-amber-800 border-amber-500',
+  blue:   'bg-blue-100 text-blue-800 border-blue-500',
+  green:  'bg-green-100 text-green-800 border-green-500',
+  purple: 'bg-purple-100 text-purple-800 border-purple-500',
+  indigo: 'bg-indigo-100 text-indigo-800 border-indigo-500',
+  teal:   'bg-teal-100 text-teal-800 border-teal-500',
+  orange: 'bg-orange-100 text-orange-800 border-orange-500',
+  gray:   'bg-gray-100 text-gray-800 border-gray-500',
+};
+const ACTIVE_COLOR = (color?: string | null) => COLOR_CLASS[color || ''] || COLOR_CLASS.gray;
 
 /** Convert "HH:MM" local time string to ISO string on activityDate */
 const localTimeToISO = (dateObj: Date, timeStr: string): string => {
@@ -428,20 +442,31 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           {/* ── Type selector (sourced from activity_types master) ── */}
           <div>
             <Label className="text-xs">Activity type</Label>
-            <Select
-              value={selectedType}
-              onValueChange={setSelectedType}
-              disabled={isSubmitted || activityTypes.length === 0}
-            >
-              <SelectTrigger className="mt-1 h-9 text-sm">
-                <SelectValue placeholder={activityTypes.length ? 'Select activity type' : 'Loading…'} />
-              </SelectTrigger>
-              <SelectContent>
-                {activityTypes.map((t) => (
-                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+              {activityTypes.length === 0 ? (
+                <div className="col-span-full text-center text-xs text-muted-foreground py-2">
+                  Loading…
+                </div>
+              ) : (
+                activityTypes.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    disabled={isSubmitted}
+                    onClick={() => setSelectedType(t.name)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-[10px] font-medium transition-colors disabled:opacity-40',
+                      selectedType === t.name
+                        ? ACTIVE_COLOR(t.color)
+                        : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    <ActivityIcon className="h-4 w-4" />
+                    <span className="text-center leading-tight">{t.name}</span>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
 
           {/* ── Shared: date + GPS ─────────────────────────── */}
