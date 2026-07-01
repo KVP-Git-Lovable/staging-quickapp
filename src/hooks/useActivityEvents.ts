@@ -183,7 +183,7 @@ export const useActivityEvents = () => {
         user_id: user.id,
         planned_date: plannedDate,
         status: 'planned',
-        visit_type: params.visit_category || 'activity',
+        visit_type: 'activity',
       };
       if (params.check_in_time) visitInsert.check_in_time = params.check_in_time;
       if (params.retailer_id)   visitInsert.retailer_id   = params.retailer_id;
