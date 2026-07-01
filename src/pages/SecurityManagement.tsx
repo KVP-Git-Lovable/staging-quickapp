@@ -113,7 +113,6 @@ export default function SecurityManagement() {
             Grant all modules to System Administrator
           </Button>
         </div>
-        </div>
 
         {/* Info Card */}
         <Card className="border-primary/20 bg-primary/5">
