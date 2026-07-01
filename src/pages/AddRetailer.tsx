@@ -1761,7 +1761,7 @@ export const AddRetailer = () => {
                       }
                     }}
                   >
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-background" data-testid="retailer-retail-type-select">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
