@@ -435,6 +435,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { name: 'analytics_date_range_picker', label: 'Date Range Picker' },
       { name: 'analytics_performance_calendar', label: 'Performance Calendar' },
       { name: 'analytics_leaderboard', label: 'Leaderboard' },
+      { name: 'analytics_field_activity', label: 'Analytics — Field Activity' },
     ]
   },
   {

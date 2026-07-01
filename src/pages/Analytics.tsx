@@ -41,6 +41,7 @@ import {
 } from "@/components/analytics";
 import { RetailerMonthlyProductivitySection } from "@/components/analytics/RetailerMonthlyProductivitySection";
 import { SupervisorReport } from "@/components/analytics/SupervisorReport";
+import { FieldActivitySection } from "@/components/analytics/FieldActivitySection";
 import { CoverageMapSection } from "@/components/analytics/CoverageMapSection";
 import { useSubordinates } from "@/hooks/useSubordinates";
 import { useAuth } from "@/hooks/useAuth";
@@ -62,6 +63,7 @@ const Analytics = () => {
   const showProductivityTab = canShowTab('analytics_business_summary');
   const showTargetTab = canShowTab('analytics_order_details');
   const showProductsTab = canShowTab('analytics_product_breakdown');
+  const showFieldActivityTab = hasSecurityProfile && hasFeaturePermission('analytics_field_activity', 'can_read');
   
   const { subordinateIds, isLoading: subordinatesLoading } = useSubordinates();
   const [hasLiked, setHasLiked] = useState(false);
@@ -1615,6 +1617,7 @@ const Analytics = () => {
                   {showTargetTab && <TabsTrigger value="kpi" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Target</TabsTrigger>}
                   {/* Calendar tab hidden per user request */}
                   {showProductsTab && <TabsTrigger value="products" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Products</TabsTrigger>}
+                  {showFieldActivityTab && <TabsTrigger value="field-activity" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Field Activity</TabsTrigger>}
                   {/* Coverage tab hidden per user request */}
                 </TabsList>
               </div>
@@ -1833,7 +1836,19 @@ const Analytics = () => {
                 isScopeReady={isScopeReady}
               />
             </TabsContent>
+
+            {/* Field Activity Tab */}
+            {showFieldActivityTab && (
+              <TabsContent value="field-activity" className="space-y-4">
+                <FieldActivitySection
+                  userIds={effectiveUserIds}
+                  dateRange={stableDashboardDateRange}
+                  isScopeReady={isScopeReady}
+                />
+              </TabsContent>
+            )}
           </Tabs>
+
 
           {/* Detail Dialogs */}
           <BeatDetailsDialog
