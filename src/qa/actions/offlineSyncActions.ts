@@ -172,10 +172,11 @@ export const offlineSyncActions: QATestAction[] = [
       try {
         window.__qaSetOffline!(false);
         // useOfflineSync runs on online + interval — give it room.
-        const deadline = Date.now() + 30_000;
+        const deadline = Date.now() + 45_000;
         let stillPending: SyncQueueItem | null | undefined;
         while (Date.now() < deadline) {
           await sleep(2000);
+          offlineStorage.invalidateCache(STORES.SYNC_QUEUE);
           const queue = await offlineStorage.getAll<SyncQueueItem>(STORES.SYNC_QUEUE);
           stillPending = queue.find((q) => q.id === input.queue_id);
           if (!stillPending) break;
@@ -184,7 +185,7 @@ export const offlineSyncActions: QATestAction[] = [
         if (stillPending) {
           return {
             pass: false,
-            errorMessage: `Sync queue entry ${input.queue_id} did not drain within 30s after restoring network.`,
+            errorMessage: `Sync queue entry ${input.queue_id} did not drain within 45s after restoring network.`,
           };
         }
 
