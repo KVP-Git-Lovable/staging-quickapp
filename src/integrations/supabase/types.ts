@@ -23834,6 +23834,17 @@ export type Database = {
         Returns: undefined
       }
       _safe_uuid: { Args: { p: string }; Returns: string }
+      activity_visit_action: {
+        Args: {
+          p_action: string
+          p_activity_event_id: string
+          p_actor: string
+          p_lat?: number
+          p_lng?: number
+          p_visit_id: string
+        }
+        Returns: Json
+      }
       admin_deactivate_all_products: { Args: never; Returns: Json }
       allocate_inventory_batches: {
         Args: {
