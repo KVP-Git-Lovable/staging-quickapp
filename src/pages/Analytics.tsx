@@ -62,6 +62,7 @@ const Analytics = () => {
   const showProductivityTab = canShowTab('analytics_business_summary');
   const showTargetTab = canShowTab('analytics_order_details');
   const showProductsTab = canShowTab('analytics_product_breakdown');
+  const showFieldActivityTab = hasSecurityProfile && hasFeaturePermission('analytics_field_activity', 'can_read');
   
   const { subordinateIds, isLoading: subordinatesLoading } = useSubordinates();
   const [hasLiked, setHasLiked] = useState(false);
