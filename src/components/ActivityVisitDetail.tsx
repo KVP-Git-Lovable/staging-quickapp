@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   CalendarDays, Clock, Timer, LogIn, LogOut, Loader2, Save, CheckCircle2, Play, XCircle, Activity as ActivityIcon,
-  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink,
+  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink, MapPin,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
