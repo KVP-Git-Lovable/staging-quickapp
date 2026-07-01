@@ -1,71 +1,83 @@
-## Goal
-Add 3 new QA test categories (Offline Sync, Product Variants, Pricing) + an optional offline lifecycle flow to the existing Run Tests (QA) module — using the actual storage and offline primitives in this codebase, not the placeholders in the prompt.
+## Problem
 
-## Pre-flight findings (must be reflected in the implementation)
+The "Retailer → Beat → Visit → Order" flow only fills name/phone/address on Add Retailer, then taps Save. The save fails because three more fields are mandatory but never auto-filled by the QA action:
 
-1. **Storage is Capacitor Preferences, not IndexedDB.**
-   `src/lib/offlineStorage.ts` is a `Preferences`-backed wrapper. `STORES.SYNC_QUEUE = 'syncQueue'` is the pending-actions queue; `STORES.ORDERS = 'orders'` holds queued orders. The `readFromIndexedDB(...)` helper in the prompt's template won't work here — the offline action will instead call `offlineStorage.getAll(STORES.SYNC_QUEUE)` / `getAll(STORES.ORDERS)`.
+1. **Assign to Beat** (`Select a beat`)
+2. **Select Distributor** (when Parent Type = "Distributor", which is the default)
+3. **GPS Location** (validation `errors.location = "GPS location is required"`)
 
-2. **An in-app offline toggle DOES exist.**
-   `NetworkContext` exposes `setManualOfflineMode(boolean)` and `manualOfflineMode`. We do NOT need a UI `data-testid` — instead, in QA mode only, expose the setter on `window.__qaSetOffline` (set inside the existing `QAModeProvider`) so `offlineSyncActions` can flip offline/online programmatically without touching production UI.
+Other flow steps (`visit.create`, `order.create`, `attendance.punch_in/out`) are wired as `manualStepAction`, so a flow run marks them as `failed — Manual step required`. Offline-sync steps poll for up to 60s for a tester to place an order through the UI — also a form of "waiting for user input".
 
-3. **Sync-linkage field is `tempId`, not `local_ref_id`.**
-   `useOfflineSync.ts` uses `tempId` on sync-queue items. The server `orders` table does NOT currently have a `local_ref_id`/`tempId` column. We will NOT add a column. Instead the "synced exactly once" check will:
-   - Verify the syncQueue item with that `tempId` is gone from the queue, AND
-   - Match the server row via `retailer_id` + an `order_date` window around the queued timestamp, asserting exactly one match.
-   This is the most honest check available without a schema change (which Part 9 forbids).
+## Fix — Scope
 
-4. **`qa_products` mirror EXISTS** (visible in the schema list), so pricing actions must use `table('products')`. There is **no `qa_product_variants` mirror** — variant action will read `product_variants` directly (Tier 2 read-through), and the file will document this with a comment.
+Make every action in every registered flow (`flow.smoke`, `flow.retailer-to-order`, `flow.offline-order-lifecycle`) run end-to-end without any human interaction. Where a prerequisite genuinely cannot be automated from inside the WebView (native camera face-match), stub it in QA mode rather than surface as manual.
 
-5. **No "trigger sync" button testid exists.** Sync is triggered automatically by `useOfflineSync` when network restores. The action will restore network via `__qaSetOffline(false)` and wait, rather than tapping a non-existent button.
+## Changes
 
-## Part 2B — data-testid additions (minimal)
-Add `data-testid` to existing elements only — no behavior changes:
-- Order entry screen (`src/pages/OrderEntry.tsx` or `TableOrderForm.tsx`): variant picker trigger → `product-variant-select`; quantity input → `order-quantity-input`; submit button → `submit-order-button`; per-line rate display → `order-item-rate-display`.
-- Product catalog (`src/pages/CustomerCatalog.tsx` or product list): price element → `product-price-{productId}`.
-- No offline-toggle testid (handled via `window.__qaSetOffline`).
+### 1. New UI automation primitive — `randomSelectOption`
 
-## Part 4B — `src/qa/actions/offlineSyncActions.ts` (new)
-Two actions, written against the **real** primitives:
-- `offline.order-queued-locally` — calls `window.__qaSetOffline(true)`, drives the order screen, then asserts `offlineStorage.getAll(STORES.SYNC_QUEUE)` contains an item with matching `retailerId` and a `tempId`. Remembers `{ tempId, queuedAt }` in ctx.
-- `offline.sync-completes-and-clears-queue` — calls `window.__qaSetOffline(false)`, waits ~3s for `useOfflineSync` to drain, then asserts:
-  - no queue item with that `tempId` remains, AND
-  - exactly one row in `table('orders')` matches `retailer_id` within a ±2-minute window of `queuedAt` (fails on 0 or >1 → duplicate-sync detection).
+`src/qa/automation/uiActions.ts`
 
-## Part 4C — `src/qa/actions/productVariantActions.ts` (new)
-- `product.variant-selection-resolves-correct-price` — opens order screen, selects variant via `selectOption('product-variant-select', label)`, reads `order-item-rate-display`, compares to `product_variants.rate` queried directly (no `table()` wrapper — documented as Tier 2 read-through).
-- `product.variant-quantity-totals-correctly` — fully implemented (not a stub): types qty into `order-quantity-input`, reads line total, asserts `rate * qty` within 0.01.
+Add `randomSelectOption(testId, opts?)` that:
+- Taps the trigger (`data-testid`).
+- Waits for the shadcn popover (`[role="listbox"]` / `[role="option"]`) to render.
+- Filters out `aria-disabled="true"` and `data-disabled` options and picks a random one.
+- Clicks it via the same synthetic-event path as `selectOption`.
 
-## Part 4D — `src/qa/actions/pricingCoverageActions.ts` (new)
-- `pricing.all-active-products-have-a-rate` — queries `table('products')` filtering by the actual active column in this schema (will be verified against `products` columns before write; likely `is_active`), flags rows with null/0 rate.
-- `pricing.spot-check-catalog-screen-matches-db` — navigates catalog, reads `product-price-{id}` for first N products, compares to DB rate.
+Also add `stubGeolocation(lat, lng)` that patches `navigator.geolocation.getCurrentPosition` to synchronously invoke the success callback with the given coords, and returns a restore function. QA-build-only.
 
-## Part 4E — `src/qa/actions/registry.ts`
-Add imports + spread the three new arrays into `allQAActions`. No existing entries touched.
+### 2. `AddRetailer.tsx` — add testids only (no logic change)
 
-## Part 4F — `src/qa/flows/registry.ts`
-Append `flow.offline-order-lifecycle` chaining the two offline actions (`stopOnFailure: true`).
+Add `data-testid` to the existing controls so QA can drive them:
+- Beat `SelectTrigger` → `retailer-beat-select`
+- Parent Type `SelectTrigger` → `retailer-parent-type-select`
+- Distributor `SelectTrigger` → `retailer-distributor-select`
+- "Get Location" icon button → `retailer-get-location-button`
 
-## QA provider tweak
-In `src/qa/QAModeProvider` (or wherever the QA banner mounts), add a small effect when `isQAMode()` is true that pulls `setManualOfflineMode` from `useNetwork()` and assigns it to `window.__qaSetOffline`. Production builds never run this code (already gated). No new context, no UI.
+### 3. `retailer.create` — auto-fill beat, parent, distributor, GPS
 
-## Files created
-- `src/qa/actions/offlineSyncActions.ts`
-- `src/qa/actions/productVariantActions.ts`
-- `src/qa/actions/pricingCoverageActions.ts`
+`src/qa/actions/retailerActions.ts`
 
-## Files modified (minimal)
-- `src/qa/actions/registry.ts` — 3 imports + 3 spreads.
-- `src/qa/flows/registry.ts` — 1 flow appended.
-- `src/qa/QAModeProvider.tsx` — expose `__qaSetOffline` in QA only.
-- Order entry + catalog screens — `data-testid` attributes only (no logic change).
+After typing name/phone/address:
+1. Call `stubGeolocation(12.9716, 77.5946)` (Bengaluru) and tap `retailer-get-location-button`; wait for the "Location Captured" toast.
+2. `randomSelectOption('retailer-beat-select')` — pick any real beat from the master.
+3. `selectOption('retailer-parent-type-select', 'Company')` — Company parent doesn't require a distributor, so the flow doesn't depend on beat↔distributor mappings being seeded.
+   - Fallback: if `Company` isn't offered for this tenant, `randomSelectOption('retailer-distributor-select')` after the beat's mapped-distributor list finishes loading.
+4. Small settle sleep, then tap `save-retailer-button` and keep the existing UI+DB cross-verify.
 
-## Explicitly NOT doing
-- Not adding `local_ref_id` (or any column) to `orders`.
-- Not creating `qa_product_variants`.
-- Not building an in-app offline toggle UI (already exists via NetworkContext).
-- Not using IndexedDB APIs — this project uses Capacitor Preferences.
-- Not modifying any existing test action, hook, or screen logic beyond `data-testid`.
+Remove the geolocation stub in a `finally` block.
 
-## Open question before I build
-The prompt's example code is heavily IndexedDB- and `local_ref_id`-shaped, but this codebase uses Capacitor Preferences + `tempId` with no server-side linkage column. My plan adapts to the real primitives (queue lookup via `offlineStorage`, duplicate detection via retailer+timestamp window). Confirm this adaptation is acceptable — the alternative would be a schema migration to add `local_ref_id` to `orders` + `qa_orders` and have `useOfflineSync` populate it, which is out of scope per Part 9.
+### 4. Flow `flow.retailer-to-order` — replace skipped visit/order steps
+
+`src/qa/actions/visitActions.ts` and `orderActions.ts` currently return `manualStepAction`. Convert them to real UI drivers gated by a QA-only prerequisite stubber:
+
+- **`attendance.punch_in`** (new real impl): stub geolocation, mock the face-match hook via a QA-only `window.__qaBypassFaceMatch = true` flag consumed inside `useFaceMatching` (single `if (import.meta.env.VITE_APP_MODE === 'qa' && window.__qaBypassFaceMatch) return { verified: true }` early-return), tap "Start My Day", wait for `attendance-checked-in` state, verify `qa_attendance` row.
+- **`visit.create`**: with attendance active, navigate to `/my-visits`, pick the retailer created by `retailer.create` (from `ctx.recall('retailer')`), tap Start Visit, verify a `qa_visits` row in status `in_progress`.
+- **`order.create`**: from inside the visit, tap "Add Order", pick 1 product (`randomSelectOption` on the product picker), set qty=1, submit, verify a `qa_orders` + `qa_order_items` row.
+
+If any of the three underlying screens don't yet have testids the action needs, the fix adds them (mechanical, no behavioural change) in the same commit.
+
+### 5. Flow `flow.offline-order-lifecycle` — remove the 60s tester-wait
+
+`src/qa/actions/offlineSyncActions.ts` currently polls for a tester to place an order manually. Replace the polling with a programmatic enqueue that goes through the same helper the app uses (`offlineStorage.add(STORES.SYNC_QUEUE, { action: 'CREATE_ORDER', data: {...} })`) with a fresh `tempId` and the retailer from `ctx.recall('retailer')`. The rest of the action (assert queue entry exists → toggle online → wait for drain → assert exactly-one server row) stays as-is.
+
+### 6. Flow `flow.smoke` — already end-to-end, no change
+
+Verified: all four smoke steps write/read `qa_*` directly and never touch the UI.
+
+### 7. Standalone actions used outside flows
+
+`productVariantActions` and `pricingCoverageActions` take `retailer_id` / `product_id` / `variant_label` as required inputs with no defaults. When run from a Flow that doesn't supply them, they'd throw. Add a default-resolver: if the input is missing, pick a random active row from `qa_retailers` / `qa_products` / `product_variants` at run-time. Keep the manual override path for targeted runs.
+
+## Acceptance
+
+- Running the "Retailer → Beat → Visit → Order" flow with no input creates a retailer (with a real beat, Company parent, stubbed GPS), starts attendance, opens a visit, places a 1-line order, and every step reports `passed` — no UI screen ever waits for a human.
+- Running the "Offline order" flow toggles offline, enqueues an order programmatically, toggles online, drains, and asserts one matching server row — no 60s tester wait.
+- Running the "Smoke" flow is unchanged (already automated).
+- Individual actions from the Actions tab still accept manual input overrides.
+
+## Technical notes
+
+- Face-match bypass and geolocation stub are strictly gated by `import.meta.env.VITE_APP_MODE === 'qa'`; production bundles must not carry the bypass code path — enforce with the same `if (qa)` pattern already used by `window.__qaSetOffline` in `AppContent`.
+- All new writes still go through `table()` so `qa_*` mirrors receive the data — no prod-table pollution.
+- No RPCs, migrations, or backend changes are needed.
