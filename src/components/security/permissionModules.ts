@@ -72,6 +72,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
           { name: 'admin_product_delete', label: 'Delete Product' },
           { name: 'admin_product_categories', label: 'Product Categories' },
           { name: 'admin_product_bulk_import', label: 'Product Bulk Import' },
+          { name: 'product_availability_settings', label: 'Product Availability Rules (manage)' },
         ]
       },
       {
