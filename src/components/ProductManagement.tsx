@@ -721,7 +721,11 @@ const [productForm, setProductForm] = useState(emptyProductForm());
         !!unitsValue.priceBasisCode ||
         !!unitsValue.defaultSalesCode;
 
-      if (editorTouched && savedProductId) {
+      // QA builds don't mirror product_uom_mapping — skip UoM persistence there
+      // so the QA client's non-mirrored-write guard doesn't surface a scary
+      // error after a successful product save.
+      const isQABuild = import.meta.env.VITE_APP_MODE === 'qa';
+      if (editorTouched && savedProductId && !isQABuild) {
         try {
           await reconcileProductUomMapping(savedProductId, unitsValue);
         } catch (uomErr: any) {
