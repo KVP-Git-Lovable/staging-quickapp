@@ -112,7 +112,6 @@ export const orderActions: QATestAction[] = [
             unit: (product as any).base_unit ?? 'PCS',
             quantity: qty,
             total,
-            idempotency_key: `qa-item-${crypto.randomUUID()}`,
             qa_run_id: ctx.runId,
           } as any)
           .select('id')
