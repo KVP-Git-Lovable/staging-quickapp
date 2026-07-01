@@ -31,6 +31,31 @@ async function getVariantPriceFromDb(productId: string, variantLabel: string): P
   return typeof p === 'number' ? p : null;
 }
 
+async function resolveDefaults(input: Record<string, any>): Promise<Record<string, any>> {
+  const out = { ...input };
+  if (!out.product_id || !out.variant_label) {
+    const { data } = await supabase
+      .from('product_variants')
+      .select('product_id, variant_name, price')
+      .not('price', 'is', null)
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      out.product_id = out.product_id ?? (data as any).product_id;
+      out.variant_label = out.variant_label ?? (data as any).variant_name;
+    }
+  }
+  if (!out.retailer_id) {
+    const { data } = await supabase
+      .from('retailers')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+    if (data) out.retailer_id = (data as any).id;
+  }
+  return out;
+}
+
 export const productVariantActions: QATestAction[] = [
   {
     id: 'product.variant-selection-resolves-correct-price',
@@ -42,11 +67,18 @@ export const productVariantActions: QATestAction[] = [
       'in the database — catching the bug where the parent product ' +
       'rate is shown regardless of which variant is selected.',
     inputs: [
-      { key: 'retailer_id', label: 'Retailer ID', type: 'string', required: true },
-      { key: 'product_id', label: 'Product ID', type: 'string', required: true },
-      { key: 'variant_label', label: 'Variant label (as in UI)', type: 'string', required: true },
+      { key: 'retailer_id', label: 'Retailer ID', type: 'string' },
+      { key: 'product_id', label: 'Product ID', type: 'string' },
+      { key: 'variant_label', label: 'Variant label (as in UI)', type: 'string' },
     ],
-    run: async (input) => {
+    run: async (rawInput) => {
+      const input = await resolveDefaults(rawInput);
+      if (!input.retailer_id || !input.product_id || !input.variant_label) {
+        return {
+          pass: false,
+          errorMessage: 'No retailer / product / variant available in DB to auto-resolve defaults.',
+        };
+      }
       try {
         await goTo(`/order-entry?retailerId=${input.retailer_id}&productId=${input.product_id}`);
         try {
@@ -92,12 +124,16 @@ export const productVariantActions: QATestAction[] = [
       'where the wrong variant\'s rate is silently used in the ' +
       'calculation even though the right rate is displayed.',
     inputs: [
-      { key: 'retailer_id', label: 'Retailer ID', type: 'string', required: true },
-      { key: 'product_id', label: 'Product ID', type: 'string', required: true },
-      { key: 'variant_label', label: 'Variant label', type: 'string', required: true },
-      { key: 'quantity', label: 'Quantity', type: 'number', default: 3, required: true },
+      { key: 'retailer_id', label: 'Retailer ID', type: 'string' },
+      { key: 'product_id', label: 'Product ID', type: 'string' },
+      { key: 'variant_label', label: 'Variant label', type: 'string' },
+      { key: 'quantity', label: 'Quantity', type: 'number', default: 3 },
     ],
-    run: async (input) => {
+    run: async (rawInput) => {
+      const input = await resolveDefaults(rawInput);
+      if (!input.retailer_id || !input.product_id || !input.variant_label) {
+        return { pass: false, errorMessage: 'No retailer / product / variant available in DB to auto-resolve defaults.' };
+      }
       try {
         await goTo(`/order-entry?retailerId=${input.retailer_id}&productId=${input.product_id}`);
         try {

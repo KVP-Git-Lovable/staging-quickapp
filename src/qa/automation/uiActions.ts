@@ -155,3 +155,96 @@ export async function waitForText(
   }
   return false;
 }
+
+/**
+ * Opens a shadcn/ui Select (or native <select>) and picks a random
+ * enabled option. Used when the QA action doesn't care which value
+ * is chosen, only that the field is populated.
+ */
+export async function randomSelectOption(
+  testId: string,
+  opts?: UIStepOptions,
+): Promise<string> {
+  const el = await waitForElement(testId, opts);
+  if (el.tagName === 'SELECT') {
+    const select = el as HTMLSelectElement;
+    const usable = Array.from(select.options).filter(
+      (o) => !o.disabled && o.value && !o.value.startsWith('header-'),
+    );
+    if (!usable.length) throw new Error(`No enabled options in select ${testId}`);
+    const pick = usable[Math.floor(Math.random() * usable.length)];
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLSelectElement.prototype,
+      'value',
+    )?.set;
+    nativeSetter?.call(select, pick.value);
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return pick.textContent?.trim() ?? pick.value;
+  }
+  await clickElement(el);
+  const start = Date.now();
+  const timeout = opts?.timeoutMs ?? DEFAULT_TIMEOUT;
+  let options: HTMLElement[] = [];
+  while (Date.now() - start < timeout) {
+    options = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="option"]'),
+    ).filter((o) => {
+      if (!isVisible(o)) return false;
+      if (o.getAttribute('aria-disabled') === 'true') return false;
+      if (o.getAttribute('data-disabled') != null) return false;
+      const t = (o.textContent ?? '').trim().toLowerCase();
+      if (!t) return false;
+      if (t.includes('no beats available')) return false;
+      if (t.startsWith('distributors for this beat')) return false;
+      if (t.startsWith('all distributors')) return false;
+      return true;
+    });
+    if (options.length) break;
+    await sleep(DEFAULT_POLL);
+  }
+  if (!options.length) throw new Error(`No selectable options in dropdown ${testId}`);
+  const pick = options[Math.floor(Math.random() * options.length)];
+  const label = pick.textContent?.trim() ?? '';
+  await clickElement(pick);
+  return label;
+}
+
+/**
+ * QA-only: patches navigator.geolocation.getCurrentPosition so any
+ * caller receives the given coordinates synchronously via the success
+ * callback. Returns a restore function. No-op outside QA builds.
+ */
+export function stubGeolocation(
+  lat: number,
+  lng: number,
+  accuracy = 10,
+): () => void {
+  if (import.meta.env.VITE_APP_MODE !== 'qa') return () => {};
+  const geo = navigator.geolocation as any;
+  if (!geo) return () => {};
+  const originalGet = geo.getCurrentPosition?.bind(geo);
+  const originalWatch = geo.watchPosition?.bind(geo);
+  const fakePos = {
+    coords: {
+      latitude: lat,
+      longitude: lng,
+      accuracy,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null,
+    },
+    timestamp: Date.now(),
+  };
+  geo.getCurrentPosition = (success: any) => {
+    try { success(fakePos); } catch { /* ignore */ }
+  };
+  geo.watchPosition = (success: any) => {
+    try { success(fakePos); } catch { /* ignore */ }
+    return 0;
+  };
+  return () => {
+    if (originalGet) geo.getCurrentPosition = originalGet;
+    if (originalWatch) geo.watchPosition = originalWatch;
+  };
+}
