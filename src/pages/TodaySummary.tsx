@@ -1652,7 +1652,7 @@ export const TodaySummary = () => {
 
           const { data: activityRows } = await supabase
             .from('activity_events')
-            .select('id, activity_type, visit_category, activity_sub_type, check_in_time, check_out_time, duration_minutes, beat_name, outcome, contact_person, follow_up_date, retailer_name, distributor_name, activity_name, activity_place, shops_visited, survey_priority, survey_estimated_monthly_value, rep_overall_outcome, survey_suggested_beat_count')
+            .select('id, activity_type, visit_category, activity_sub_type, check_in_time, check_out_time, duration_minutes, beat_name, outcome, contact_person, follow_up_date, retailer_name, distributor_name, activity_name, activity_place, shops_visited, survey_priority, survey_estimated_monthly_value, rep_overall_outcome, survey_suggested_beat_count, status, completed_at')
             .in('user_id', activityUserIds)
             .gte('activity_date', fromStr)
             .lte('activity_date', toStr);
@@ -1667,19 +1667,23 @@ export const TodaySummary = () => {
 
           const rows = (activityRows as any[]) || [];
           if (rows.length > 0) {
-            // Build label/color lookup from activity_types master (match by name or code).
-            // Legacy values fall back to humanized text + neutral color.
+            // Build label/color/weight lookup from activity_types master (match by name or code).
+            // Missing type → weight 1.0, neutral color.
             const masterTypes = activityTypesRef.current || [];
-            const typeLookup = new Map<string, { label: string; color: string }>();
+            const typeLookup = new Map<string, { label: string; color: string; weight: number }>();
             masterTypes.forEach((t) => {
-              const entry = { label: t.name, color: t.color || 'gray' };
+              const entry = { label: t.name, color: t.color || 'gray', weight: Number(t.productivity_weight ?? 1) };
               typeLookup.set(t.name, entry);
               if (t.code) typeLookup.set(t.code, entry);
             });
             const humanize = (k: string) =>
               k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
             const resolveType = (key: string) =>
-              typeLookup.get(key) || { label: humanize(key), color: 'gray' };
+              typeLookup.get(key) || { label: humanize(key), color: 'gray', weight: 1 };
+            const isCompleted = (r: any) =>
+              !!r.check_out_time || !!r.completed_at || r.status === 'closed';
+            const fmtTime = (iso?: string | null) =>
+              iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined;
             const grouped = new Map<string, any[]>();
             rows.forEach((r) => {
               const key = r.visit_category || r.activity_type || 'Other';
@@ -1687,29 +1691,50 @@ export const TodaySummary = () => {
               grouped.get(key)!.push(r);
             });
             const totalFieldMinutes = rows.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+            const completedRows = rows.filter(isCompleted);
+            const completedFieldMinutes = completedRows.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+            const activityProductivityPoints = completedRows.reduce((s, r) => {
+              const key = r.visit_category || r.activity_type || 'Other';
+              return s + resolveType(key).weight;
+            }, 0);
             const fmt = (m: number) => (!m ? '' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
             const byType = Array.from(grouped.entries()).map(([type, rs]) => {
               const cfg = resolveType(type);
               const typeMins = rs.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+              const completed = rs.filter(isCompleted).length;
               return {
                 type,
                 label: cfg.label,
                 color: cfg.color,
                 count: rs.length,
+                completedCount: completed,
                 totalMinutes: typeMins,
+                weight: cfg.weight,
                 details: rs.map((r) => ({
                   name: r.retailer_name || r.distributor_name || r.activity_name || r.activity_place || r.beat_name || cfg.label,
                   duration: fmt(r.duration_minutes || 0),
                   outcome: r.outcome || r.rep_overall_outcome || undefined,
                   beat: r.beat_name || undefined,
+                  checkInTime: fmtTime(r.check_in_time),
+                  checkOutTime: fmtTime(r.check_out_time),
+                  completed: isCompleted(r),
+                  weight: cfg.weight,
                 })),
               };
             }).sort((a, b) => b.count - a.count);
 
-            setActivitySummary({ totalCount: rows.length, totalFieldMinutes, byType, overdueFollowUps: followUpCount || 0 });
-            setCompletedActivitiesCount(rows.length);
+            setActivitySummary({
+              totalCount: rows.length,
+              completedCount: completedRows.length,
+              totalFieldMinutes,
+              completedFieldMinutes,
+              activityProductivityPoints,
+              byType,
+              overdueFollowUps: followUpCount || 0,
+            });
+            setCompletedActivitiesCount(completedRows.length);
           } else {
-            setActivitySummary({ totalCount: 0, totalFieldMinutes: 0, byType: [], overdueFollowUps: followUpCount || 0 });
+            setActivitySummary({ totalCount: 0, completedCount: 0, totalFieldMinutes: 0, completedFieldMinutes: 0, activityProductivityPoints: 0, byType: [], overdueFollowUps: followUpCount || 0 });
             setCompletedActivitiesCount(0);
           }
         }
