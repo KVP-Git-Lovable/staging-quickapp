@@ -1616,6 +1616,7 @@ const Analytics = () => {
                   {showTargetTab && <TabsTrigger value="kpi" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Target</TabsTrigger>}
                   {/* Calendar tab hidden per user request */}
                   {showProductsTab && <TabsTrigger value="products" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Products</TabsTrigger>}
+                  {showFieldActivityTab && <TabsTrigger value="field-activity" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Field Activity</TabsTrigger>}
                   {/* Coverage tab hidden per user request */}
                 </TabsList>
               </div>
