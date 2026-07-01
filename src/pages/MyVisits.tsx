@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown, RefreshCw, Download, Sparkles, Loader2, BarChart3 } from "lucide-react";
@@ -46,6 +46,8 @@ import { StartBeatButton } from "@/components/StartBeatButton";
 import { AddActivityModal } from "@/components/AddActivityModal";
 
 import { ActivityEventsTable } from "@/components/ActivityEventsTable";
+import { ActivityVisitCard } from "@/components/ActivityVisitCard";
+import { useActivityVisits } from "@/hooks/useActivityVisits";
 
 interface Visit {
   id: string;
@@ -249,6 +251,17 @@ export const MyVisits = () => {
   const isViewingSelf = selectedUserIds.length === 0 || (selectedUserIds.length === 1 && selectedUserIds[0] === user?.id);
   // Derive viewUserId for the hook: use the first selected non-self user, or 'self'
   const selectedViewUserId = isViewingSelf ? 'self' : selectedUserIds[0];
+  const activityViewUserId = isViewingSelf ? user?.id : selectedUserIds[0];
+  const { items: activityVisitCards } = useActivityVisits(activityViewUserId, selectedDate);
+
+  const handleOpenActivityCard = useCallback((a: { activityEventId: string }) => {
+    const el = document.getElementById(`activity-event-${a.activityEventId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-primary');
+      setTimeout(() => el.classList.remove('ring-2', 'ring-primary'), 1600);
+    }
+  }, []);
 
   // One-time fix: Restore cancelled visits to planned if day hasn't ended
   useEffect(() => {
@@ -1597,6 +1610,19 @@ export const MyVisits = () => {
             </Card>
           )}
           
+          {/* Activity visit cards — surface activities alongside retailer visit cards */}
+          {activityVisitCards.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Activities</h3>
+                <span className="text-[10px] text-muted-foreground">({activityVisitCards.length})</span>
+              </div>
+              {activityVisitCards.map((a) => (
+                <ActivityVisitCard key={a.visitId} activity={a} onOpen={handleOpenActivityCard} />
+              ))}
+            </div>
+          )}
+
           {/* Activity Events Table - shown above visit list, ONLY after parent data loads to prevent flicker */}
           {hasLoadedOnce && (isViewingSelf ? user?.id : selectedUserIds[0]) && (
             <ActivityEventsTable userId={isViewingSelf ? user!.id : selectedUserIds[0]} selectedDate={selectedDate} onActivitiesLoaded={(count) => setHasActivities(count > 0)} />
