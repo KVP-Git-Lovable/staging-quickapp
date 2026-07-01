@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useQAMode } from '@/contexts/QAModeContext';
 import { actionsByEntity } from '@/qa/actions/registry';
@@ -12,7 +12,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle2, XCircle, Loader2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  AlertTriangle,
+  ChevronRight,
+} from 'lucide-react';
 
 interface ResultRow {
   label: string;
@@ -22,11 +33,68 @@ interface ResultRow {
   manual?: boolean;
 }
 
-function statusBadgeClass(status: string): string {
-  if (status === 'passed') return 'bg-green-100 text-green-900 border-green-300';
-  if (status === 'failed') return 'bg-red-100 text-red-900 border-red-300';
-  return 'bg-gray-100 text-gray-900 border-gray-300';
+interface QARunRow {
+  id: string;
+  run_id: string;
+  build_type: string | null;
+  overall_status: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  total_tests: number | null;
+  passed_tests: number | null;
+  failed_tests: number | null;
+  notes: string | null;
 }
+
+interface QALogRow {
+  id: string;
+  test_run_id: string;
+  test_name: string | null;
+  module_name: string | null;
+  status: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  metadata_json: any;
+}
+
+// Runs older than 5 min still 'running' are almost certainly crashed —
+// present them as failed so the UI never gets stuck.
+const STUCK_MS = 5 * 60 * 1000;
+const displayStatus = (run: QARunRow): string => {
+  if (
+    run.overall_status === 'running' &&
+    run.started_at &&
+    Date.now() - new Date(run.started_at).getTime() > STUCK_MS
+  ) {
+    return 'failed';
+  }
+  return run.overall_status ?? 'unknown';
+};
+
+const fmtDuration = (start?: string | null, end?: string | null): string => {
+  if (!start || !end) return '—';
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '—';
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+};
+
+const logsToRows = (logs: QALogRow[]): ResultRow[] =>
+  logs.map((l) => {
+    const started = l.started_at ? new Date(l.started_at).getTime() : 0;
+    const completed = l.completed_at ? new Date(l.completed_at).getTime() : 0;
+    const metaMs = Number(l?.metadata_json?.durationMs);
+    const dur = Number.isFinite(metaMs)
+      ? metaMs
+      : Math.max(0, completed - started);
+    return {
+      label: l.test_name ?? '(unnamed)',
+      pass: l.status === 'passed',
+      durationMs: dur,
+      errorMessage: l.error_message ?? undefined,
+    };
+  });
 
 export const RunTestsScreen = () => {
   const { isQAMode } = useQAMode();
@@ -37,45 +105,27 @@ export const RunTestsScreen = () => {
   const [currentLabel, setCurrentLabel] = useState<string | null>(null);
   const [results, setResults] = useState<ResultRow[]>([]);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
-  const [completedRun, setCompletedRun] = useState<any>(null);
-  const [pastRuns, setPastRuns] = useState<any[]>([]);
+  const [completedRun, setCompletedRun] = useState<QARunRow | null>(null);
+
+  const [pastRuns, setPastRuns] = useState<QARunRow[]>([]);
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
-  const [expandedLogs, setExpandedLogs] = useState<any[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [runLogs, setRunLogs] = useState<Record<string, QALogRow[]>>({});
 
   const grouped = useMemo(() => actionsByEntity(), []);
 
-  const fetchPastRuns = async () => {
-    const { data: pastRunsData } = await supabase
+  const loadPastRuns = useCallback(async () => {
+    const { data } = await supabase
       .from(table('qa_test_runs') as any)
       .select('*')
       .eq('build_type', 'qa')
-      .neq('overall_status', 'running')
       .order('started_at', { ascending: false })
       .limit(20);
-    setPastRuns(pastRunsData ?? []);
-  };
-
-  useEffect(() => {
-    fetchPastRuns();
+    setPastRuns((data as any) ?? []);
   }, []);
 
-  const toggleExpandRun = async (runId: string) => {
-    if (expandedRunId === runId) {
-      setExpandedRunId(null);
-      setExpandedLogs([]);
-      return;
-    }
-    setExpandedRunId(runId);
-    setLoadingLogs(true);
-    const { data: logs } = await supabase
-      .from(table('qa_test_logs') as any)
-      .select('*')
-      .eq('test_run_id', runId)  // run_id, NOT .id
-      .order('started_at', { ascending: true });
-    setExpandedLogs(logs ?? []);
-    setLoadingLogs(false);
-  };
+  useEffect(() => {
+    if (isQAMode) void loadPastRuns();
+  }, [isQAMode, loadPastRuns]);
 
   if (!isQAMode) return <Navigate to="/" replace />;
 
@@ -91,9 +141,26 @@ export const RunTestsScreen = () => {
 
   const totalSelected = selectedActions.length + selectedFlows.length;
 
+  const expandRun = async (run: QARunRow) => {
+    if (expandedRunId === run.run_id) {
+      setExpandedRunId(null);
+      return;
+    }
+    setExpandedRunId(run.run_id);
+    if (!runLogs[run.run_id]) {
+      const { data } = await supabase
+        .from(table('qa_test_logs') as any)
+        .select('*')
+        .eq('test_run_id', run.run_id) // run_id, NOT id
+        .order('started_at', { ascending: true });
+      setRunLogs((prev) => ({ ...prev, [run.run_id]: (data as any) ?? [] }));
+    }
+  };
+
   const runSelected = async () => {
     setRunning(true);
     setResults([]);
+    setCompletedRun(null);
     let runId: string | null = null;
     const all: ResultRow[] = [];
     try {
@@ -141,42 +208,39 @@ export const RunTestsScreen = () => {
       }
       setCurrentLabel(null);
 
-      if (runId) {
-        await finishRun(runId, all);
-
-        // Re-fetch authoritative results from DB
-        const { data: runData } = await supabase
-          .from(table('qa_test_runs') as any)
-          .select('*')
-          .eq('run_id', runId)      // run_id, NOT .id
-          .maybeSingle();
-
-        const { data: logData } = await supabase
-          .from(table('qa_test_logs') as any)
-          .select('*')
-          .eq('test_run_id', runId)  // runId IS the run_id value
-          .order('started_at', { ascending: true });
-
-        setCompletedRun(runData ?? null);
-        setResults(
-          (logData ?? []).map((row: any) => ({
-            label:        row.test_name,
-            pass:         row.status === 'passed',
-            durationMs:   row.metadata_json?.durationMs ?? 0,
-            errorMessage: row.error_message ?? undefined,
-          }))
-        );
-
-        await fetchPastRuns();
-      }
+      if (runId) await finishRun(runId, all);
     } catch (e: any) {
       const row: ResultRow = { label: 'Run setup', pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
       setResults((prev) => [...prev, row]);
     } finally {
       setRunning(false);
     }
-  };
 
+    // Authoritative DB re-fetch — mirror exactly what got persisted so
+    // any streaming-state gap (thrown steps, races) can't leave the UI
+    // showing stale/incomplete results.
+    if (runId) {
+      try {
+        const { data: runData } = await supabase
+          .from(table('qa_test_runs') as any)
+          .select('*')
+          .eq('run_id', runId) // run_id, NOT id
+          .maybeSingle();
+
+        const { data: logData } = await supabase
+          .from(table('qa_test_logs') as any)
+          .select('*')
+          .eq('test_run_id', runId) // run_id, NOT id
+          .order('started_at', { ascending: true });
+
+        if (runData) setCompletedRun(runData as any);
+        if (logData) setResults(logsToRows(logData as any));
+      } catch {
+        /* keep streaming results as fallback */
+      }
+      void loadPastRuns();
+    }
+  };
 
   return (
     <div className="container mx-auto max-w-4xl p-4 space-y-4">
@@ -329,32 +393,24 @@ export const RunTestsScreen = () => {
         )}
       </div>
 
-      {completedRun && (
-        <Card className="border-muted-foreground/20">
-          <CardContent className="flex flex-wrap items-center gap-4 p-4 text-sm">
-            <Badge variant="outline" className={statusBadgeClass(completedRun.overall_status)}>
-              {completedRun.overall_status}
-            </Badge>
-            <span>
-              {completedRun.passed_tests ?? 0} / {completedRun.total_tests ?? 0} passed
-            </span>
-            <span className="text-muted-foreground">
-              Duration:{' '}
-              {completedRun.started_at && completedRun.completed_at
-                ? `${(
-                    (new Date(completedRun.completed_at).getTime() -
-                      new Date(completedRun.started_at).getTime()) /
-                    1000
-                  ).toFixed(1)}s`
-                : '—'}
-            </span>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Results</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            Results
+            {completedRun && (
+              <Badge
+                variant="outline"
+                className={
+                  displayStatus(completedRun) === 'passed'
+                    ? 'bg-green-100 text-green-900 border-green-300'
+                    : 'bg-red-100 text-red-900 border-red-300'
+                }
+              >
+                {displayStatus(completedRun)} · {completedRun.passed_tests ?? 0}/
+                {completedRun.total_tests ?? 0} passed
+              </Badge>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {results.length === 0 ? (
@@ -402,87 +458,98 @@ export const RunTestsScreen = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Past Runs</CardTitle>
+          <CardTitle className="text-lg">Past runs</CardTitle>
         </CardHeader>
         <CardContent>
           {pastRuns.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No past runs yet.</p>
+            <p className="text-sm text-muted-foreground">No past runs found.</p>
           ) : (
             <div className="space-y-2">
               {pastRuns.map((run) => {
-                const isStale =
-                  run.overall_status === 'running' &&
-                  Date.now() - new Date(run.started_at).getTime() > 5 * 60 * 1000;
-                const displayStatus = isStale ? 'failed' : run.overall_status;
-                const isExpanded = expandedRunId === run.run_id;
-                const durationSec =
-                  run.started_at && run.completed_at
-                    ? (
-                        (new Date(run.completed_at).getTime() -
-                          new Date(run.started_at).getTime()) /
-                        1000
-                      ).toFixed(1)
-                    : '—';
+                const status = displayStatus(run);
+                const isOpen = expandedRunId === run.run_id;
+                const logs = runLogs[run.run_id] ?? [];
                 return (
-                  <div key={run.run_id} className="rounded-md border">
-                    <button
-                      type="button"
-                      onClick={() => toggleExpandRun(run.run_id)}
-                      className="flex w-full flex-wrap items-center gap-3 p-2.5 text-left hover:bg-muted/30"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 shrink-0" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 shrink-0" />
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(run.started_at).toLocaleString()}
-                      </span>
-                      <Badge variant="outline" className={`text-[10px] ${statusBadgeClass(displayStatus)}`}>
-                        {displayStatus}
+                  <Collapsible
+                    key={run.run_id}
+                    open={isOpen}
+                    onOpenChange={() => void expandRun(run)}
+                    className="border rounded-md"
+                  >
+                    <CollapsibleTrigger className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30">
+                      <ChevronRight
+                        className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                      />
+                      <Badge
+                        variant="outline"
+                        className={
+                          status === 'passed'
+                            ? 'bg-green-100 text-green-900 border-green-300'
+                            : status === 'failed'
+                            ? 'bg-red-100 text-red-900 border-red-300'
+                            : 'bg-slate-100 text-slate-800 border-slate-300'
+                        }
+                      >
+                        {status}
                       </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {run.passed_tests ?? 0} passed / {run.failed_tests ?? 0} failed
-                      </span>
-                      <span className="text-xs text-muted-foreground">{durationSec}s</span>
-                    </button>
-                    {isExpanded && (
-                      <div className="border-t p-2.5">
-                        {loadingLogs ? (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin" /> Loading logs…
-                          </div>
-                        ) : expandedLogs.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">No step logs found.</p>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm">
+                          {run.passed_tests ?? 0}/{run.total_tests ?? 0} passed
+                          {(run.failed_tests ?? 0) > 0 && (
+                            <span className="text-red-700">
+                              {' '}· {run.failed_tests} failed
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {run.started_at
+                            ? new Date(run.started_at).toLocaleString()
+                            : '—'}{' '}
+                          · {fmtDuration(run.started_at, run.completed_at)}
+                        </div>
+                      </div>
+                      <code className="text-[10px] text-muted-foreground hidden md:inline">
+                        {run.run_id.slice(0, 8)}
+                      </code>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="px-3 pb-3 pt-1 space-y-1.5 border-t bg-muted/20">
+                        {logs.length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-2">
+                            Loading logs…
+                          </p>
                         ) : (
-                          <div className="space-y-1.5">
-                            {expandedLogs.map((log) => (
-                              <div key={log.id} className="flex items-start gap-2 text-xs">
-                                {log.status === 'passed' ? (
-                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
-                                ) : (
-                                  <XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" />
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-medium">{log.test_name}</span>
-                                    <span className="text-muted-foreground">
-                                      {(log.metadata_json?.durationMs ?? 0).toFixed(0)}ms
+                          logs.map((l) => (
+                            <div
+                              key={l.id}
+                              className="flex items-start gap-2 py-1"
+                            >
+                              {l.status === 'passed' ? (
+                                <CheckCircle2 className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
+                              ) : (
+                                <XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium">
+                                  {l.test_name}
+                                  {l.module_name && (
+                                    <span className="text-muted-foreground font-normal">
+                                      {' '}· {l.module_name}
                                     </span>
-                                  </div>
-                                  {log.error_message && (
-                                    <div className="text-red-700 mt-0.5 break-words">
-                                      {log.error_message}
-                                    </div>
                                   )}
                                 </div>
+                                {l.error_message && (
+                                  <div className="text-[11px] text-red-700 break-words">
+                                    {l.error_message}
+                                  </div>
+                                )}
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          ))
                         )}
                       </div>
-                    )}
-                  </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 );
               })}
             </div>
