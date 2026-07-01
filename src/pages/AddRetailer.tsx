@@ -1325,6 +1325,7 @@ export const AddRetailer = () => {
                     type="button" 
                     variant="outline" 
                     size="icon"
+                    data-testid="retailer-get-location-button"
                     onClick={async () => {
                       if (!navigator.geolocation) {
                         toast({ 
@@ -1844,7 +1845,7 @@ export const AddRetailer = () => {
                       }
                     }}
                   >
-                    <SelectTrigger className={cn("bg-background border-primary/30", validationErrors.beat && "border-destructive")}>
+                    <SelectTrigger data-testid="retailer-beat-select" className={cn("bg-background border-primary/30", validationErrors.beat && "border-destructive")}>
                       <SelectValue placeholder="Select a beat" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
@@ -1959,7 +1960,7 @@ export const AddRetailer = () => {
                       }
                     }}
                   >
-                    <SelectTrigger className={cn("bg-background", validationErrors.parentType && "border-destructive")}>
+                    <SelectTrigger data-testid="retailer-parent-type-select" className={cn("bg-background", validationErrors.parentType && "border-destructive")}>
                       <SelectValue placeholder="Select parent" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
@@ -1988,7 +1989,7 @@ export const AddRetailer = () => {
                         }
                       }}
                     >
-                      <SelectTrigger className={cn("bg-background", validationErrors.distributor && "border-destructive")}>
+                      <SelectTrigger data-testid="retailer-distributor-select" className={cn("bg-background", validationErrors.distributor && "border-destructive")}>
                         <SelectValue placeholder="Select distributor" className="truncate" />
                       </SelectTrigger>
                       <SelectContent className="bg-background border z-50">
