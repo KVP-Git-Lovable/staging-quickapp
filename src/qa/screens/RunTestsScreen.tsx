@@ -4,6 +4,8 @@ import { useQAMode } from '@/contexts/QAModeContext';
 import { actionsByEntity } from '@/qa/actions/registry';
 import { allQAFlows } from '@/qa/flows/registry';
 import { runSingleAction, runFlow, startRun, finishRun } from '@/qa/runner';
+import { supabase } from '@/integrations/supabase/client';
+import { table } from '@/lib/tableRouter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,12 @@ interface ResultRow {
   manual?: boolean;
 }
 
+function statusBadgeClass(status: string): string {
+  if (status === 'passed') return 'bg-green-100 text-green-900 border-green-300';
+  if (status === 'failed') return 'bg-red-100 text-red-900 border-red-300';
+  return 'bg-gray-100 text-gray-900 border-gray-300';
+}
+
 export const RunTestsScreen = () => {
   const { isQAMode } = useQAMode();
 
@@ -29,6 +37,7 @@ export const RunTestsScreen = () => {
   const [currentLabel, setCurrentLabel] = useState<string | null>(null);
   const [results, setResults] = useState<ResultRow[]>([]);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
+  const [completedRun, setCompletedRun] = useState<any>(null);
 
   const grouped = useMemo(() => actionsByEntity(), []);
 
@@ -96,7 +105,32 @@ export const RunTestsScreen = () => {
       }
       setCurrentLabel(null);
 
-      if (runId) await finishRun(runId, all);
+      if (runId) {
+        await finishRun(runId, all);
+
+        // Re-fetch authoritative results from DB
+        const { data: runData } = await supabase
+          .from(table('qa_test_runs') as any)
+          .select('*')
+          .eq('run_id', runId)      // run_id, NOT .id
+          .maybeSingle();
+
+        const { data: logData } = await supabase
+          .from(table('qa_test_logs') as any)
+          .select('*')
+          .eq('test_run_id', runId)  // runId IS the run_id value
+          .order('started_at', { ascending: true });
+
+        setCompletedRun(runData ?? null);
+        setResults(
+          (logData ?? []).map((row: any) => ({
+            label:        row.test_name,
+            pass:         row.status === 'passed',
+            durationMs:   row.metadata_json?.durationMs ?? 0,
+            errorMessage: row.error_message ?? undefined,
+          }))
+        );
+      }
     } catch (e: any) {
       const row: ResultRow = { label: 'Run setup', pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
       setResults((prev) => [...prev, row]);
@@ -256,6 +290,29 @@ export const RunTestsScreen = () => {
           </span>
         )}
       </div>
+
+      {completedRun && (
+        <Card className="border-muted-foreground/20">
+          <CardContent className="flex flex-wrap items-center gap-4 p-4 text-sm">
+            <Badge variant="outline" className={statusBadgeClass(completedRun.overall_status)}>
+              {completedRun.overall_status}
+            </Badge>
+            <span>
+              {completedRun.passed_tests ?? 0} / {completedRun.total_tests ?? 0} passed
+            </span>
+            <span className="text-muted-foreground">
+              Duration:{' '}
+              {completedRun.started_at && completedRun.completed_at
+                ? `${(
+                    (new Date(completedRun.completed_at).getTime() -
+                      new Date(completedRun.started_at).getTime()) /
+                    1000
+                  ).toFixed(1)}s`
+                : '—'}
+            </span>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
