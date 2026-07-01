@@ -6,6 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -13,9 +22,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Plus, Pencil, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  Plus, Pencil, ChevronDown, Search, Camera, MapPin, Clock,
+  MoreVertical, Sparkles, EyeOff, Layers, ListTree, Activity as ActivityIcon,
+} from 'lucide-react';
 import { Layout } from '@/components/Layout';
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 
 interface ActivityType {
   id: string;
@@ -52,6 +63,14 @@ const EMPTY_SUBTYPE: Draft = {
   parent_id: null,
 };
 
+// Tint helpers for the category icon chip. Accepts either a hex color or a
+// named token; falls back to the muted surface when nothing is set.
+const chipStyle = (color?: string | null) => {
+  if (!color) return { background: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))' };
+  const hex = color.startsWith('#') ? color : `#${color}`;
+  return { background: `${hex}1f`, color: hex };
+};
+
 export default function ActivityTypeManagement() {
   const { user } = useAuth();
   const { can, loading: permLoading } = usePermissions();
@@ -65,6 +84,7 @@ export default function ActivityTypeManagement() {
   const [draft, setDraft] = useState<Draft>(EMPTY_CATEGORY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -88,6 +108,10 @@ export default function ActivityTypeManagement() {
 
   useEffect(() => { load(); }, []);
 
+  const q = search.trim().toLowerCase();
+  const matches = (r: ActivityType) =>
+    !q || r.name.toLowerCase().includes(q) || r.code.toLowerCase().includes(q);
+
   const categories = useMemo(
     () => rows.filter(r => r.is_category).sort((a, b) => a.sort_order - b.sort_order),
     [rows]
@@ -102,6 +126,22 @@ export default function ActivityTypeManagement() {
     return m;
   }, [rows]);
   const orphans = subtypesByParent['_orphan'] || [];
+
+  // Summary counts (from full loaded set, not filtered)
+  const counts = useMemo(() => {
+    const subs = rows.filter(r => !r.is_category);
+    return {
+      categories: rows.filter(r => r.is_category).length,
+      subtypes: subs.length,
+      photo: subs.filter(r => r.photo_required).length,
+      gps: subs.filter(r => r.location_required).length,
+    };
+  }, [rows]);
+
+  const hiddenSubs = useMemo(
+    () => rows.filter(r => !r.is_category && !r.show_in_picker),
+    [rows]
+  );
 
   const openCreateCategory = () => {
     setEditingId(null); setDraft(EMPTY_CATEGORY); setDialogOpen(true);
@@ -166,141 +206,268 @@ export default function ActivityTypeManagement() {
   if (!canRead) {
     return (
       <Layout>
-        <div className="p-6 space-y-4">
-          <AdminPageHeader title="Activity Type Master" subtitle="Manage the activity categories used across the app." />
+        <div className="p-6 space-y-2">
+          <h1 className="text-2xl font-semibold tracking-tight">Activity type master</h1>
           <p className="text-muted-foreground">You don't have permission to view this page.</p>
         </div>
       </Layout>
     );
   }
 
+  // Compact toggle used inline on sub-type rows.
+  const ToggleChip = ({
+    checked, onChange, icon: Icon, label, tint,
+  }: {
+    checked: boolean;
+    onChange: (v: boolean) => void;
+    icon: typeof Camera;
+    label: string;
+    tint: string; // tailwind color name, e.g. 'sky'
+  }) => (
+    <div
+      className={[
+        'flex items-center gap-1.5 rounded-full border px-2 py-1 transition-colors',
+        checked
+          ? `border-${tint}-300 bg-${tint}-50 text-${tint}-700 dark:border-${tint}-900/60 dark:bg-${tint}-950/40 dark:text-${tint}-300`
+          : 'border-border bg-muted/40 text-muted-foreground',
+      ].join(' ')}
+    >
+      <Icon className="h-3 w-3" />
+      <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
+      <Switch
+        checked={checked}
+        disabled={!canEdit}
+        onCheckedChange={onChange}
+        className="scale-75 -my-1"
+      />
+    </div>
+  );
+
+  const SummaryCard = ({
+    label, value, icon: Icon,
+  }: { label: string; value: number; icon: typeof Layers }) => (
+    <Card className="border-border/60 bg-secondary/40">
+      <CardContent className="p-4 flex items-center gap-3">
+        <div className="h-9 w-9 rounded-lg bg-background/70 flex items-center justify-center text-muted-foreground">
+          <Icon className="h-4 w-4" />
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+          <div className="text-2xl font-semibold leading-none mt-0.5 tabular-nums">{value}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   const SubtypeRow = ({ r }: { r: ActivityType }) => (
-    <div className="grid grid-cols-12 gap-2 items-center py-2 px-3 border-t text-sm">
-      <div className="col-span-3 font-medium truncate" title={r.name}>{r.name}
-        <div className="text-[10px] font-mono text-muted-foreground">{r.code}</div>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 px-4 border-t">
+      <div className="min-w-[10rem] flex-1">
+        <div className="text-sm font-medium truncate" title={r.name}>{r.name}</div>
+        <div className="text-[10px] font-mono text-muted-foreground truncate">{r.code}</div>
       </div>
-      <div className="col-span-2">
-        <Select
-          value={r.parent_id ?? ''}
-          onValueChange={(v) => persistField(r, { parent_id: v })}
-          disabled={!canEdit}
-        >
-          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Category" /></SelectTrigger>
-          <SelectContent>
-            {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <ToggleChip
+          checked={r.photo_required}
+          onChange={(v) => persistField(r, { photo_required: v })}
+          icon={Camera} label="Photo" tint="sky"
+        />
+        <ToggleChip
+          checked={r.location_required}
+          onChange={(v) => persistField(r, { location_required: v })}
+          icon={MapPin} label="GPS" tint="emerald"
+        />
+        <ToggleChip
+          checked={r.requires_check_in}
+          onChange={(v) => persistField(r, { requires_check_in: v })}
+          icon={Clock} label="Check-in" tint="amber"
+        />
       </div>
-      <div className="col-span-1 flex items-center gap-1 text-xs">
-        <Switch checked={r.photo_required} disabled={!canEdit}
-          onCheckedChange={(v) => persistField(r, { photo_required: v })} />
-        <span>Photo</span>
-      </div>
-      <div className="col-span-1 flex items-center gap-1 text-xs">
-        <Switch checked={r.location_required} disabled={!canEdit}
-          onCheckedChange={(v) => persistField(r, { location_required: v })} />
-        <span>GPS</span>
-      </div>
-      <div className="col-span-1 flex items-center gap-1 text-xs">
-        <Switch checked={r.requires_check_in} disabled={!canEdit}
-          onCheckedChange={(v) => persistField(r, { requires_check_in: v })} />
-        <span>Check-in</span>
-      </div>
-      <div className="col-span-1 flex items-center gap-1 text-xs">
-        <Switch checked={r.show_in_picker} disabled={!canEdit}
-          onCheckedChange={(v) => persistField(r, { show_in_picker: v })} />
-        <span>Picker</span>
-      </div>
-      <div className="col-span-1 flex items-center gap-1 text-xs">
-        <Switch checked={r.is_sales_activity} disabled={!canEdit}
-          onCheckedChange={(v) => persistField(r, { is_sales_activity: v })} />
-        <span>Sales</span>
-      </div>
-      <div className="col-span-1">
-        <Input type="number" step="0.1" className="h-8 text-xs"
-          value={r.productivity_weight}
-          onChange={(e) => setRows(prev => prev.map(x => x.id === r.id ? { ...x, productivity_weight: Number(e.target.value) } : x))}
-          onBlur={(e) => persistField(r, { productivity_weight: Number(e.target.value) })}
-          disabled={!canEdit} />
-      </div>
-      <div className="col-span-1 flex items-center gap-2 justify-end">
-        <Switch checked={r.is_active} disabled={!canEdit}
-          onCheckedChange={(v) => persistField(r, { is_active: v })} />
-        <Button size="sm" variant="ghost" onClick={() => openEdit(r)} disabled={!canEdit}>
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
+
+      <Badge variant="secondary" className="text-[10px] font-mono">
+        ×{r.productivity_weight}
+      </Badge>
+
+      {!r.show_in_picker && (
+        <Badge variant="outline" className="text-[10px] gap-1">
+          <EyeOff className="h-3 w-3" /> Hidden
+        </Badge>
+      )}
+
+      <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-1.5">
+          <Switch
+            checked={r.is_active}
+            disabled={!canEdit}
+            onCheckedChange={(v) => persistField(r, { is_active: v })}
+          />
+          <span className="text-[11px] text-muted-foreground">Active</span>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!canEdit}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => openEdit(r)}>
+              <Pencil className="h-3.5 w-3.5 mr-2" /> Edit sub-type
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => persistField(r, { show_in_picker: !r.show_in_picker })}
+            >
+              <EyeOff className="h-3.5 w-3.5 mr-2" />
+              {r.show_in_picker ? 'Hide from picker' : 'Show in picker'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
 
   return (
     <Layout>
-      <div className="p-6 space-y-4">
-        <AdminPageHeader
-          title="Activity Type Master"
-          subtitle={`Manage the activity categories and sub-types.${!canEdit ? ' (Read-only)' : ''}`}
-          rightContent={
+      <div className="p-6 space-y-6 max-w-6xl mx-auto">
+        {/* Header (no back button, no AdminPageHeader) */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Activity type master</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Configure categories, sub-types, and per-type check-in rules.
+              {!canEdit && <span className="ml-2 text-xs">(Read-only)</span>}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search name or code…"
+                className="pl-8 h-9 w-56"
+              />
+            </div>
             <Button onClick={openCreateCategory} disabled={!canEdit}>
-              <Plus className="h-4 w-4 mr-1" /> Add Category
+              <Plus className="h-4 w-4 mr-1" /> Add category
             </Button>
-          }
-        />
+          </div>
+        </div>
+
+        {/* Summary strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <SummaryCard label="Categories" value={counts.categories} icon={Layers} />
+          <SummaryCard label="Sub-types" value={counts.subtypes} icon={ListTree} />
+          <SummaryCard label="Photo required" value={counts.photo} icon={Camera} />
+          <SummaryCard label="GPS required" value={counts.gps} icon={MapPin} />
+        </div>
 
         {loading ? (
           <div className="p-6 text-muted-foreground">Loading…</div>
         ) : (
           <div className="space-y-3">
             {categories.map((cat) => {
-              const kids = subtypesByParent[cat.id] || [];
+              const kidsAll = subtypesByParent[cat.id] || [];
+              const kids = q ? kidsAll.filter(matches) : kidsAll;
+              // When searching, hide categories with no matches (unless the
+              // category itself matches).
+              if (q && !matches(cat) && kids.length === 0) return null;
               const open = expanded[cat.id] ?? true;
+
               return (
-                <div key={cat.id} className="border rounded-md overflow-hidden bg-card">
-                  <div className="flex items-center justify-between px-3 py-2 bg-muted/40">
-                    <button
-                      className="flex items-center gap-2 flex-1 text-left"
-                      onClick={() => setExpanded(p => ({ ...p, [cat.id]: !open }))}
-                    >
-                      {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      <span
-                        className="inline-block h-3 w-3 rounded-sm border"
-                        style={{ background: cat.color || 'transparent' }}
-                      />
-                      <span className="font-semibold">{cat.name}</span>
-                      <span className="text-xs text-muted-foreground">({kids.length})</span>
-                      {!cat.is_active && <span className="text-xs text-destructive">inactive</span>}
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={cat.is_active}
-                        onCheckedChange={(v) => persistField(cat, { is_active: v })}
-                        disabled={!canEdit}
-                      />
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(cat)} disabled={!canEdit}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => openCreateSubtype(cat.id)} disabled={!canEdit}>
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Sub-type
-                      </Button>
+                <Card key={cat.id} className="overflow-hidden border-border/60">
+                  <Collapsible open={open} onOpenChange={(v) => setExpanded(p => ({ ...p, [cat.id]: v }))}>
+                    <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-muted/30">
+                      <div
+                        className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0"
+                        style={chipStyle(cat.color)}
+                      >
+                        <ActivityIcon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold truncate">{cat.name}</span>
+                          <Badge variant="secondary" className="text-[10px]">
+                            {kidsAll.length} sub-type{kidsAll.length === 1 ? '' : 's'}
+                          </Badge>
+                          {!cat.is_active && (
+                            <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">
+                              inactive
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate">
+                          {cat.code}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 ml-auto">
+                        <div className="hidden sm:flex items-center gap-1.5">
+                          <Switch
+                            checked={cat.is_active}
+                            onCheckedChange={(v) => persistField(cat, { is_active: v })}
+                            disabled={!canEdit}
+                          />
+                          <span className="text-[11px] text-muted-foreground">Active</span>
+                        </div>
+                        <Button
+                          size="sm" variant="outline"
+                          onClick={() => openCreateSubtype(cat.id)}
+                          disabled={!canEdit}
+                        >
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Add sub-type
+                        </Button>
+                        <Button
+                          size="icon" variant="ghost" className="h-8 w-8"
+                          onClick={() => openEdit(cat)}
+                          disabled={!canEdit}
+                          title="Edit category"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <CollapsibleTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-8 w-8">
+                            <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : '-rotate-90'}`} />
+                          </Button>
+                        </CollapsibleTrigger>
+                      </div>
                     </div>
-                  </div>
-                  {open && (
-                    <div>
+
+                    <CollapsibleContent>
                       {kids.length === 0 ? (
-                        <div className="px-3 py-3 text-xs text-muted-foreground border-t">No sub-types yet.</div>
-                      ) : kids.map(r => <SubtypeRow key={r.id} r={r} />)}
-                    </div>
-                  )}
-                </div>
+                        <div className="px-4 py-4 text-xs text-muted-foreground border-t">
+                          {q ? 'No sub-types match your search.' : 'No sub-types yet.'}
+                        </div>
+                      ) : (
+                        kids.map(r => <SubtypeRow key={r.id} r={r} />)
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </Card>
               );
             })}
 
-            {orphans.length > 0 && (
-              <div className="border rounded-md overflow-hidden">
-                <div className="px-3 py-2 bg-muted/40 font-semibold text-sm">
-                  Uncategorised ({orphans.length})
-                </div>
-                {orphans.map(r => <SubtypeRow key={r.id} r={r} />)}
-              </div>
+            {orphans.length > 0 && (() => {
+              const list = q ? orphans.filter(matches) : orphans;
+              if (q && list.length === 0) return null;
+              return (
+                <Card className="overflow-hidden border-dashed">
+                  <div className="px-4 py-3 bg-muted/30 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-semibold text-sm">Uncategorised</span>
+                    <Badge variant="secondary" className="text-[10px]">{orphans.length}</Badge>
+                  </div>
+                  {list.map(r => <SubtypeRow key={r.id} r={r} />)}
+                </Card>
+              );
+            })()}
+
+            {hiddenSubs.length > 0 && (
+              <p className="text-[11px] text-muted-foreground pl-1 flex items-center gap-1">
+                <EyeOff className="h-3 w-3" />
+                {hiddenSubs.length} sub-type{hiddenSubs.length === 1 ? '' : 's'} hidden from the Add Activity picker
+                (e.g. Counter Sale, Event). Toggle "Show in picker" in the edit dialog to expose them.
+              </p>
             )}
           </div>
         )}
