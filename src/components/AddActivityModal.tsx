@@ -326,6 +326,14 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
     if (!isOnline) { toast.error('Activity logging requires internet'); return; }
     if (isSubmitted) { toast.info('Already saved — log check-out if ready'); return; }
 
+    if (!selectedType) { toast.error('Pick a category and activity type'); return; }
+    if (locationRequired && (gpsLat == null || gpsLng == null)) {
+      toast.error('GPS location is required for this activity — tap Capture GPS'); return;
+    }
+    if (photoRequired && !checkInPhoto) {
+      toast.error('A check-in photo is required for this activity'); return;
+    }
+
     if (isJoint && !subordinateId) { toast.error('Select a subordinate'); return; }
     if (isSurvey && (!surveyBeatName || !surveyObservations)) { toast.error('Beat name and observations required'); return; }
     if (isDistributor && !distributorId) { toast.error('Select a distributor'); return; }
