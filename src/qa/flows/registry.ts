@@ -24,6 +24,7 @@ export const allQAFlows: QATestFlow[] = [
     stopOnFailure: true,
     steps: [
       { actionId: 'retailer.create' },
+      { actionId: 'retailer.assign-to-beat' },
       { actionId: 'visit.create' },
       { actionId: 'order.create' },
     ],

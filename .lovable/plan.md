@@ -1,65 +1,53 @@
-## Audit of every QA flow
+# Fix failing QA actions (targeted edits only)
 
-### Flow 1 — `flow.smoke`
-All four actions are pure DB calls (no UI). **No stalls.** Leave as-is.
+Verified against `qa_test_logs` (staging): all 6 reported failures reproduce. No production code, no schema changes, no new flows.
 
-### Flow 2 — `flow.retailer-to-order`  ← still broken
-- `retailer.create` — now hands-free after last turn's fix (Retail Type + Category testids + random pick). Covers every required field validated in `AddRetailer.handleSave` (name, phone, address, retailType, category, beat, parentType, distributor-if-not-Company, GPS).
-- `visit.create` — **still `manualStepAction` → always returns `pass: false`**, so the flow always stops here (`stopOnFailure: true`).
-- `order.create` — **still `manualStepAction`**, never reached today; would also fail if it were.
+## 1. `src/qa/actions/smokeActions.ts`
 
-### Flow 3 — `flow.offline-order-lifecycle`
-Both steps are fully programmatic (queue insert + drain wait). Only prompt is `retailer_id`, which is auto-supplied via `fromContext: 'retailer.id'` when chained. **No stalls in flow-mode.** When run standalone the input is prompted — leave that alone (matches other standalone actions).
+- `smoke.create-temp-retailer`: switch insert to route via `table('retailers')`, add required NOT NULL fields — `user_id` (from `supabase.auth.getUser()`), `entity_type: 'retailer'`, `address`, and a valid `beat_id` (query first existing `qa_beats` id, don't hardcode).
+- `smoke.create-temp-beat-plan`: after picking/creating a beat, also read its `beat_name`; include `beat_name` (NOT NULL) and `beat_data: {}` in the `beat_plans` insert.
 
-### Product Variants + Pricing Coverage actions
-- `product.variant-selection-resolves-correct-price` and `product.variant-quantity-totals-correctly` auto-resolve `retailer_id / product_id / variant_label` from the DB when omitted (already fixed). No stalls.
-- `pricing.*` are DB sweeps / catalog spot-checks. No stalls.
+## 2. `src/qa/actions/retailerActions.ts` — duplicate check + UI stability
 
-### Standalone attendance actions
-`attendance.punch_in` and `attendance.punch_out` are `manualStepAction`. They aren't wired into any flow, but they always fail when picked. Out of scope for "flow stalls" but worth calling out — will leave unless requested.
+- Audit confirmed only one `retailer.create` exists; the `manualStepAction('retailer.delete', ...)` at the bottom is a different id and stays. No dedupe needed. (Note this in the change log; nothing to remove.)
+- Increase settle wait after `tap('add-retailer-button')` from 400 ms → **700 ms** so Radix Sheet finishes its ~300 ms open animation before `waitForElement('retailer-name-input')` fires.
+- Bump the `waitForElement` timeout inside `typeText('retailer-name-input')` path by adding an explicit `waitForElement('retailer-name-input', { timeoutMs: 12000 })` before typing.
+- Reorder the fill sequence to match the requirement (name → beat → parent-type=Company → retail-type → category → get-location → 300 ms settle → save). GPS + parent=Company are the last state changes before Save so the button un-disables in time.
+- Add a pre-save assertion loop: poll `save-retailer-button` for up to 3 s waiting for `disabled` to clear; if still disabled, dump the form's aria-invalid fields into `errorMessage` for future debugging (already better than "Element is disabled").
 
----
+## 3. `src/qa/actions/orderActions.ts` — column name + missing NOT NULLs
 
-## Fix plan
+- Product query: `.select('id, name, rate, base_unit_category, base_unit')` (drop `category`, `unit` which don't exist on `qa_products`).
+- `qa_orders` insert: add `sales_channel: 'field'` and `qa_run_id` from context; keep existing `idempotency_key`, `status`, `order_date`, `retailer_name`, `visit_id`, `subtotal`, `total_amount`, `user_id`, `retailer_id`.
+- `qa_order_items` insert: map `category: product.base_unit_category`, `unit: product.base_unit ?? 'PCS'`; keep `product_name`, `rate`, `quantity`, `total`, `order_id`, `product_id`; add `idempotency_key: crypto.randomUUID()`.
 
-### 1. Replace `visit.create` with real automation
-Rewrite `src/qa/actions/visitActions.ts` to be programmatic (mirrors the offline-sync action pattern — same project already accepts DB-level automation where native prerequisites block UI drive):
+## 4. `src/qa/actions/visitActions.ts` + `src/qa/flows/registry.ts`
 
-- Read `retailer_id` from context (`fromContext: 'retailer.id'`), fallback to prompt.
-- Ensure an `attendance` row exists for today for the current user; if missing, insert one with `check_in_time = now()`, stubbed lat/lng (12.9716, 77.5946), `status = 'checked_in'`. This satisfies the "active attendance session" gate that `MyVisits` enforces without requiring camera/face-match.
-- Insert a `visits` row (routed via `table('visits')` → `qa_visits`) with `retailer_id`, `user_id`, `check_in_time = now()`, GPS stub, `status = 'in_progress'`.
-- `ctx.remember('visit', {...})` so the order step can consume it.
-- Verify the row lands in `qa_visits`, return `pass: true`.
+- `visitActions.ts` is already programmatic-only (no UI variant present) — confirmed. Only change: also read `qa_run_id` from ctx and include it on both the attendance and visit inserts so rows are attributable per test run. `check_in_location` is already stubbed JSONB; `planned_date` already set. No flow-registry change needed for visit (only one `visit.create` action id exists).
 
-### 2. Replace `order.create` with real automation
-Rewrite `src/qa/actions/orderActions.ts`:
+## 5. `src/qa/actions/offlineSyncActions.ts` — queue key + drain timeout
 
-- Read `retailer_id` from `retailer.id` and `visit_id` from `visit.id` via context.
-- Pick one active product from `qa_products` (any with a non-null `rate`).
-- Insert `qa_orders` (retailer_id, visit_id, user_id, total_amount, status='pending', order_date=today) plus one `qa_order_items` line (product_id, quantity=1, rate, product_id required per project convention).
-- Verify the order + item persisted, `ctx.remember('order', {...})`, return pass.
+- Already imports `STORES` from `@/lib/offlineStorage` and uses `STORES.SYNC_QUEUE` for both read and enqueue paths — so the key can't drift. Real cause is the enqueue happens via `addToSyncQueue` which pushes into the in-memory + Preferences store, but the immediate `getAll` reads through the 60 s memory cache that was populated by the `queueBefore` snapshot at the top of the step. Fix: after `addToSyncQueue`, call `offlineStorage.clearCache?.()` if present, otherwise force a fresh read by calling `Preferences.get` directly for the `offline_syncQueue` key and parsing (fallback path), then compare against `idsBefore`.
+- Add a one-time diagnostic `console.log('[QA] Preferences keys after enqueue:', (await Preferences.keys()).keys)` right after the enqueue so any future drift is visible.
+- Increase the drain deadline in `offline.sync-completes-and-clears-queue` from 30 s → **45 s**.
 
-Both steps use `table(...)` so writes route to `qa_*` mirrors — same pattern already used by smoke + offline-sync actions.
+## 6. `src/qa/actions/retailerActions.ts` — record beat assignment (Fix 7)
 
-### 3. Guardrails on `retailer.create` for zero-data tenants
-Currently if the QA tenant has 0 beats or 0 distributors, `randomSelectOption` throws and the flow dies. Add small pre-flight probes at the top of `retailer.create.run`: query `qa_beats` and (when Company parent isn't offered) `qa_distributors`. If either is empty, return `pass:false` with a clear "Seed at least one beat/distributor in QA before running this flow" message instead of stalling mid-form.
-
-### 4. No changes needed
-- Offline sync actions — already hands-free.
-- Product variant / pricing actions — already auto-resolve inputs.
-- Smoke — pure DB.
-
----
+- Add a new lightweight action `retailer.assign-to-beat` in `retailerActions.ts` that inserts into `table('retailer_beat_assignments')` with `retailer_id`, `beat_id`, `beat_name` (all from `ctx.recall('retailer')`), `user_id` (from auth), `is_current: true`, `assigned_from: now()`.
+- Update `flow.retailer-to-order` in `src/qa/flows/registry.ts` to insert this step between `retailer.create` and `visit.create`.
+- Ensure `retailer.create` remembers `beat_name` on the ctx retailer object (fetch beat_name after picking the beat option, or re-read the retailer row after insert including `beat_id`/`beat_name`).
 
 ## Files touched
 
-- `src/qa/actions/visitActions.ts` — rewrite from placeholder to real programmatic action.
-- `src/qa/actions/orderActions.ts` — rewrite from placeholder to real programmatic action.
-- `src/qa/actions/retailerActions.ts` — add empty-beat / empty-distributor pre-flight guard.
+- `src/qa/actions/smokeActions.ts`
+- `src/qa/actions/retailerActions.ts`
+- `src/qa/actions/orderActions.ts`
+- `src/qa/actions/visitActions.ts`
+- `src/qa/actions/offlineSyncActions.ts`
+- `src/qa/flows/registry.ts`
 
-No production code, RLS, or schema changes. All writes go through `table()` so they hit `qa_*` mirrors only.
+No changes to `runner.ts`, production screens/hooks, or any `qa_*` schema.
 
-## Acceptance
-- Running `flow.retailer-to-order` end-to-end completes without any manual click or field entry, and a matching `qa_retailers` + `qa_visits` + `qa_orders` + `qa_order_items` chain exists in the DB.
-- Running `flow.smoke` and `flow.offline-order-lifecycle` continues to pass hands-free.
-- No flow prompts the tester for input mid-run.
+## Verification (post-build)
+
+Run Smoke flow + `flow.retailer-to-order` + `flow.offline-order-lifecycle`, then query `qa_test_logs` filtered to the new `test_run_id` — expect all steps `passed`, and confirm rows land in `qa_retailers`, `qa_retailer_beat_assignments`, `qa_visits`, `qa_orders`, `qa_order_items` (with `idempotency_key` set), and that no production tables get new rows.

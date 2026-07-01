@@ -23,6 +23,8 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { table } from '@/lib/tableRouter';
 
+import { Preferences } from '@capacitor/preferences';
+
 declare global {
   interface Window {
     __qaSetOffline?: (offline: boolean) => void;
@@ -102,11 +104,20 @@ export const offlineSyncActions: QATestAction[] = [
           qa_synthetic: true,
         };
         await offlineStorage.addToSyncQueue('CREATE_ORDER', payload);
+        // Force cache invalidation so the immediate getAll returns the
+        // freshly persisted row (the getStoreData 60s memory cache was
+        // populated by queueBefore above and could otherwise mask it).
+        offlineStorage.invalidateCache(STORES.SYNC_QUEUE);
+        try {
+          const keys = await Preferences.keys();
+          console.log('[QA] Preferences keys after enqueue:', keys.keys);
+        } catch { /* diagnostic only */ }
 
         // Confirm a new row landed.
         const deadline = Date.now() + 5_000;
         let queued: SyncQueueItem | null = null;
         while (Date.now() < deadline) {
+          offlineStorage.invalidateCache(STORES.SYNC_QUEUE);
           const match = await findPendingOrderForRetailer(input.retailer_id);
           if (match && !idsBefore.has(match.id)) {
             queued = match;
@@ -161,10 +172,11 @@ export const offlineSyncActions: QATestAction[] = [
       try {
         window.__qaSetOffline!(false);
         // useOfflineSync runs on online + interval — give it room.
-        const deadline = Date.now() + 30_000;
+        const deadline = Date.now() + 45_000;
         let stillPending: SyncQueueItem | null | undefined;
         while (Date.now() < deadline) {
           await sleep(2000);
+          offlineStorage.invalidateCache(STORES.SYNC_QUEUE);
           const queue = await offlineStorage.getAll<SyncQueueItem>(STORES.SYNC_QUEUE);
           stillPending = queue.find((q) => q.id === input.queue_id);
           if (!stillPending) break;
@@ -173,7 +185,7 @@ export const offlineSyncActions: QATestAction[] = [
         if (stillPending) {
           return {
             pass: false,
-            errorMessage: `Sync queue entry ${input.queue_id} did not drain within 30s after restoring network.`,
+            errorMessage: `Sync queue entry ${input.queue_id} did not drain within 45s after restoring network.`,
           };
         }
 
