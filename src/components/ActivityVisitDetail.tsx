@@ -59,10 +59,19 @@ interface Props {
 
 export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }: Props) => {
   const { types } = useActivityTypes();
+  const { can } = usePermissions();
+  const canReadAttach = can('activity_attachments', 'read');
+  const canCreateAttach = can('activity_attachments', 'create');
+  const canDeleteAttach = can('activity_attachments', 'delete');
   const [remarks, setRemarks] = useState('');
   const [savingRemarks, setSavingRemarks] = useState(false);
   const [busy, setBusy] = useState<'check_in' | 'complete' | null>(null);
   const [, setTick] = useState(0);
+  const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
+  const [attachLoading, setAttachLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setRemarks(activity?.remarks ?? '');
@@ -74,7 +83,33 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
     return () => clearInterval(id);
   }, [open]);
 
+  const loadAttachments = useCallback(async () => {
+    if (!activity?.activityEventId || !canReadAttach) {
+      setAttachments([]);
+      return;
+    }
+    setAttachLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('activity_attachments')
+        .select('id,file_path,file_name,file_type,file_size,uploaded_by,created_at')
+        .eq('activity_event_id', activity.activityEventId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setAttachments((data as AttachmentRow[]) ?? []);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to load attachments');
+    } finally {
+      setAttachLoading(false);
+    }
+  }, [activity?.activityEventId, canReadAttach]);
+
+  useEffect(() => {
+    if (open) loadAttachments();
+  }, [open, loadAttachments]);
+
   if (!activity) return null;
+
 
   const meta = (() => {
     const key = activity.activityType;
