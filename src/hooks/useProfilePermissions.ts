@@ -48,6 +48,7 @@ export const ADMIN_MODULE_PERMISSION_MAP: Record<string, string> = {
   'admin_tax_master': '/admin/tax-master',
   'admin_retailer_ext_db': '/admin/retailer-external-db',
   'admin_notification_rules': '/admin/notification-rules',
+  'admin_activity_master': '/admin/activity-types',
 };
 
 // Sub-feature prefixes for modules where parent name doesn't match sub-feature naming
@@ -77,6 +78,7 @@ export const ADMIN_MODULE_SUB_PREFIXES: Record<string, string[]> = {
   'admin_tax_master': ['tax_master_'],
   'admin_retailer_ext_db': ['admin_retailer_ext_'],
   'admin_system_settings': ['admin_system_', 'admin_settings_'],
+  'admin_activity_master': ['activity_type_'],
 };
 
 // Reverse map: path -> feature name(s)
