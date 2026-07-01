@@ -407,6 +407,32 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
       setSavedActivityId(result.activityId);
       setIsSubmitted(true);
 
+      // Upload check-in photo (if required or provided) to activity-attachments
+      if (checkInPhoto && result.activityId) {
+        setUploadingPhoto(true);
+        try {
+          const safeName = checkInPhoto.name.replace(/[^\w.\-]+/g, '_');
+          const path = `${result.activityId}/checkin_${Date.now()}_${safeName}`;
+          const { error: upErr } = await supabase.storage
+            .from('activity-attachments')
+            .upload(path, checkInPhoto, { contentType: checkInPhoto.type || undefined, upsert: false });
+          if (upErr) throw upErr;
+          await supabase.from('activity_attachments').insert({
+            activity_event_id: result.activityId,
+            file_path: path,
+            file_name: `checkin_${checkInPhoto.name}`,
+            file_type: checkInPhoto.type || null,
+            file_size: checkInPhoto.size,
+            uploaded_by: user.id,
+          } as any);
+        } catch (e: any) {
+          console.warn('[AddActivityModal] check-in photo upload failed', e);
+          toast.warning('Activity saved, but check-in photo upload failed');
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+
       // Joint visit — write to joint_sales_sessions (+ optional joint_sales_feedback)
       if (isJoint) {
         const { data: sessionData } = await supabase.from('joint_sales_sessions').insert({
