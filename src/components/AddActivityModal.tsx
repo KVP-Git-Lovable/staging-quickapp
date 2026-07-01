@@ -42,6 +42,19 @@ const SURVEY      = 'Route Survey';
 const DISTRIBUTOR = 'Distributor Visit';
 const MEETING     = 'Meeting / Training';
 
+const COLOR_CLASS: Record<string, string> = {
+  rose:   'bg-rose-100 text-rose-800 border-rose-500',
+  amber:  'bg-amber-100 text-amber-800 border-amber-500',
+  blue:   'bg-blue-100 text-blue-800 border-blue-500',
+  green:  'bg-green-100 text-green-800 border-green-500',
+  purple: 'bg-purple-100 text-purple-800 border-purple-500',
+  indigo: 'bg-indigo-100 text-indigo-800 border-indigo-500',
+  teal:   'bg-teal-100 text-teal-800 border-teal-500',
+  orange: 'bg-orange-100 text-orange-800 border-orange-500',
+  gray:   'bg-gray-100 text-gray-800 border-gray-500',
+};
+const ACTIVE_COLOR = (color?: string | null) => COLOR_CLASS[color || ''] || COLOR_CLASS.gray;
+
 /** Convert "HH:MM" local time string to ISO string on activityDate */
 const localTimeToISO = (dateObj: Date, timeStr: string): string => {
   const [h, m] = timeStr.split(':').map(Number);
