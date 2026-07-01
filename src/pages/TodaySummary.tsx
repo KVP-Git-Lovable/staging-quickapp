@@ -157,17 +157,31 @@ export const TodaySummary = () => {
   const [completedActivitiesCount, setCompletedActivitiesCount] = useState(0);
   const [activitySummary, setActivitySummary] = useState<{
     totalCount: number;
+    completedCount: number;
     totalFieldMinutes: number;
+    completedFieldMinutes: number;
+    activityProductivityPoints: number;
     byType: Array<{
       type: string;
       label: string;
       count: number;
+      completedCount: number;
       totalMinutes: number;
       color: string;
-      details: Array<{ name: string; duration: string; outcome?: string; beat?: string }>;
+      weight: number;
+      details: Array<{
+        name: string;
+        duration: string;
+        outcome?: string;
+        beat?: string;
+        checkInTime?: string;
+        checkOutTime?: string;
+        completed: boolean;
+        weight: number;
+      }>;
     }>;
     overdueFollowUps: number;
-  }>({ totalCount: 0, totalFieldMinutes: 0, byType: [], overdueFollowUps: 0 });
+  }>({ totalCount: 0, completedCount: 0, totalFieldMinutes: 0, completedFieldMinutes: 0, activityProductivityPoints: 0, byType: [], overdueFollowUps: 0 });
   
   // Payment method breakdown data for pie chart
   const [paymentMethodBreakdown, setPaymentMethodBreakdown] = useState<Array<{
@@ -1638,7 +1652,7 @@ export const TodaySummary = () => {
 
           const { data: activityRows } = await supabase
             .from('activity_events')
-            .select('id, activity_type, visit_category, activity_sub_type, check_in_time, check_out_time, duration_minutes, beat_name, outcome, contact_person, follow_up_date, retailer_name, distributor_name, activity_name, activity_place, shops_visited, survey_priority, survey_estimated_monthly_value, rep_overall_outcome, survey_suggested_beat_count')
+            .select('id, activity_type, visit_category, activity_sub_type, check_in_time, check_out_time, duration_minutes, beat_name, outcome, contact_person, follow_up_date, retailer_name, distributor_name, activity_name, activity_place, shops_visited, survey_priority, survey_estimated_monthly_value, rep_overall_outcome, survey_suggested_beat_count, status, completed_at')
             .in('user_id', activityUserIds)
             .gte('activity_date', fromStr)
             .lte('activity_date', toStr);
@@ -1653,19 +1667,23 @@ export const TodaySummary = () => {
 
           const rows = (activityRows as any[]) || [];
           if (rows.length > 0) {
-            // Build label/color lookup from activity_types master (match by name or code).
-            // Legacy values fall back to humanized text + neutral color.
+            // Build label/color/weight lookup from activity_types master (match by name or code).
+            // Missing type → weight 1.0, neutral color.
             const masterTypes = activityTypesRef.current || [];
-            const typeLookup = new Map<string, { label: string; color: string }>();
+            const typeLookup = new Map<string, { label: string; color: string; weight: number }>();
             masterTypes.forEach((t) => {
-              const entry = { label: t.name, color: t.color || 'gray' };
+              const entry = { label: t.name, color: t.color || 'gray', weight: Number(t.productivity_weight ?? 1) };
               typeLookup.set(t.name, entry);
               if (t.code) typeLookup.set(t.code, entry);
             });
             const humanize = (k: string) =>
               k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
             const resolveType = (key: string) =>
-              typeLookup.get(key) || { label: humanize(key), color: 'gray' };
+              typeLookup.get(key) || { label: humanize(key), color: 'gray', weight: 1 };
+            const isCompleted = (r: any) =>
+              !!r.check_out_time || !!r.completed_at || r.status === 'closed';
+            const fmtTime = (iso?: string | null) =>
+              iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined;
             const grouped = new Map<string, any[]>();
             rows.forEach((r) => {
               const key = r.visit_category || r.activity_type || 'Other';
@@ -1673,29 +1691,50 @@ export const TodaySummary = () => {
               grouped.get(key)!.push(r);
             });
             const totalFieldMinutes = rows.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+            const completedRows = rows.filter(isCompleted);
+            const completedFieldMinutes = completedRows.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+            const activityProductivityPoints = completedRows.reduce((s, r) => {
+              const key = r.visit_category || r.activity_type || 'Other';
+              return s + resolveType(key).weight;
+            }, 0);
             const fmt = (m: number) => (!m ? '' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`);
             const byType = Array.from(grouped.entries()).map(([type, rs]) => {
               const cfg = resolveType(type);
               const typeMins = rs.reduce((s, r) => s + (r.duration_minutes || 0), 0);
+              const completed = rs.filter(isCompleted).length;
               return {
                 type,
                 label: cfg.label,
                 color: cfg.color,
                 count: rs.length,
+                completedCount: completed,
                 totalMinutes: typeMins,
+                weight: cfg.weight,
                 details: rs.map((r) => ({
                   name: r.retailer_name || r.distributor_name || r.activity_name || r.activity_place || r.beat_name || cfg.label,
                   duration: fmt(r.duration_minutes || 0),
                   outcome: r.outcome || r.rep_overall_outcome || undefined,
                   beat: r.beat_name || undefined,
+                  checkInTime: fmtTime(r.check_in_time),
+                  checkOutTime: fmtTime(r.check_out_time),
+                  completed: isCompleted(r),
+                  weight: cfg.weight,
                 })),
               };
             }).sort((a, b) => b.count - a.count);
 
-            setActivitySummary({ totalCount: rows.length, totalFieldMinutes, byType, overdueFollowUps: followUpCount || 0 });
-            setCompletedActivitiesCount(rows.length);
+            setActivitySummary({
+              totalCount: rows.length,
+              completedCount: completedRows.length,
+              totalFieldMinutes,
+              completedFieldMinutes,
+              activityProductivityPoints,
+              byType,
+              overdueFollowUps: followUpCount || 0,
+            });
+            setCompletedActivitiesCount(completedRows.length);
           } else {
-            setActivitySummary({ totalCount: 0, totalFieldMinutes: 0, byType: [], overdueFollowUps: followUpCount || 0 });
+            setActivitySummary({ totalCount: 0, completedCount: 0, totalFieldMinutes: 0, completedFieldMinutes: 0, activityProductivityPoints: 0, byType: [], overdueFollowUps: followUpCount || 0 });
             setCompletedActivitiesCount(0);
           }
         }
@@ -2320,6 +2359,32 @@ export const TodaySummary = () => {
               )}
             </CardHeader>
             <CardContent className="space-y-2 pt-0">
+              {/* Today's Activities totals strip */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                <div className="rounded-md border bg-muted/30 p-2 text-center">
+                  <div className="text-lg font-bold text-purple-700">{activitySummary.completedCount}</div>
+                  <div className="text-[10px] text-muted-foreground">Activities Completed</div>
+                </div>
+                <div className="rounded-md border bg-muted/30 p-2 text-center">
+                  <div className="text-lg font-bold text-purple-700">
+                    {Math.floor(activitySummary.completedFieldMinutes / 60)}h {activitySummary.completedFieldMinutes % 60}m
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Time on Activities</div>
+                </div>
+                <div className="rounded-md border bg-muted/30 p-2 text-center" title="Sum of productivity_weight over completed activities">
+                  <div className="text-lg font-bold text-indigo-700">
+                    {activitySummary.activityProductivityPoints.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Activity Productivity (Σ weight)</div>
+                </div>
+                <div className="rounded-md border bg-gradient-to-r from-emerald-50 to-indigo-50 p-2 text-center">
+                  <div className="text-lg font-bold text-emerald-700">
+                    {(summaryData.productiveVisits + activitySummary.activityProductivityPoints).toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Overall Field Productivity</div>
+                </div>
+              </div>
+
               {activitySummary.byType.map((typeGroup) => {
                 const colorMap: Record<string, string> = {
                   green: 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20',
@@ -2330,12 +2395,18 @@ export const TodaySummary = () => {
                   orange: 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950/20',
                   gray: 'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-950/20',
                   indigo: 'bg-indigo-50 border-indigo-200 text-indigo-800 dark:bg-indigo-950/20',
+                  rose: 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20',
                 };
                 const cardClass = colorMap[typeGroup.color] || colorMap.gray;
                 return (
                   <div key={typeGroup.type} className={`rounded-lg border p-3 ${cardClass}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold">{typeGroup.label}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold">{typeGroup.label}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/60 border">
+                          weight {typeGroup.weight}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2 text-xs opacity-70">
                         {typeGroup.totalMinutes > 0 && (
                           <span className="flex items-center gap-1">
@@ -2345,26 +2416,32 @@ export const TodaySummary = () => {
                               : `${typeGroup.totalMinutes}m`}
                           </span>
                         )}
-                        <span className="font-semibold">{typeGroup.count} {typeGroup.count === 1 ? 'entry' : 'entries'}</span>
+                        <span className="font-semibold">
+                          {typeGroup.completedCount}/{typeGroup.count} done
+                        </span>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      {typeGroup.details.slice(0, 3).map((detail, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs opacity-80">
-                          <span className="truncate max-w-[60%]">{detail.name}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {detail.beat && <span className="opacity-60 truncate max-w-[80px]">{detail.beat}</span>}
+                      {typeGroup.details.slice(0, 5).map((detail, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs opacity-90 gap-2">
+                          <span className="truncate max-w-[50%] flex items-center gap-1">
+                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${detail.completed ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                            {detail.name}
+                          </span>
+                          <div className="flex items-center gap-2 shrink-0 text-[10px]">
+                            {detail.checkInTime && <span className="opacity-70">In {detail.checkInTime}</span>}
+                            {detail.checkOutTime && <span className="opacity-70">Out {detail.checkOutTime}</span>}
+                            {detail.duration && <span className="opacity-70">· {detail.duration}</span>}
                             {detail.outcome && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
                                 {detail.outcome.replace(/_/g, ' ')}
                               </span>
                             )}
-                            {detail.duration && <span className="opacity-60">{detail.duration}</span>}
                           </div>
                         </div>
                       ))}
-                      {typeGroup.details.length > 3 && (
-                        <p className="text-[10px] opacity-50 mt-1">+{typeGroup.details.length - 3} more</p>
+                      {typeGroup.details.length > 5 && (
+                        <p className="text-[10px] opacity-50 mt-1">+{typeGroup.details.length - 5} more</p>
                       )}
                     </div>
                   </div>
