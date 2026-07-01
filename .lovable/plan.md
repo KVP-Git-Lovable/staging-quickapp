@@ -1,53 +1,95 @@
-# Fix failing QA actions (targeted edits only)
+## QA Runner: qa_run_id attribution + Run Tests screen result display
 
-Verified against `qa_test_logs` (staging): all 6 reported failures reproduce. No production code, no schema changes, no new flows.
+Two connected fixes so cleanup works and the Run Tests screen shows authoritative results.
 
-## 1. `src/qa/actions/smokeActions.ts`
+### 1. Add `qa_run_id: ctx.runId` to every qa_* entity insert
 
-- `smoke.create-temp-retailer`: switch insert to route via `table('retailers')`, add required NOT NULL fields — `user_id` (from `supabase.auth.getUser()`), `entity_type: 'retailer'`, `address`, and a valid `beat_id` (query first existing `qa_beats` id, don't hardcode).
-- `smoke.create-temp-beat-plan`: after picking/creating a beat, also read its `beat_name`; include `beat_name` (NOT NULL) and `beat_data: {}` in the `beat_plans` insert.
+Audit every action file and add `qa_run_id: ctx.runId` to any insert into a `qa_*` entity table missing it.
 
-## 2. `src/qa/actions/retailerActions.ts` — duplicate check + UI stability
+- `src/qa/automation/retailerActions.ts`
+  - `retailer.create` insert into `qa_retailers` → add `qa_run_id`
+  - `retailer.assign-to-beat` insert into `qa_retailer_beat_assignments` → add `qa_run_id`
+- `src/qa/automation/visitActions.ts` — confirm `qa_visits`, `qa_attendance` inserts include it (Fix 4 landed; re-verify)
+- `src/qa/automation/orderActions.ts` — `qa_orders`, `qa_order_items` inserts
+- `src/qa/automation/smokeActions.ts` — any `qa_*` inserts (beats, beat_plans, etc.)
+- `src/qa/automation/offlineSyncActions.ts` — any `qa_*` inserts
 
-- Audit confirmed only one `retailer.create` exists; the `manualStepAction('retailer.delete', ...)` at the bottom is a different id and stays. No dedupe needed. (Note this in the change log; nothing to remove.)
-- Increase settle wait after `tap('add-retailer-button')` from 400 ms → **700 ms** so Radix Sheet finishes its ~300 ms open animation before `waitForElement('retailer-name-input')` fires.
-- Bump the `waitForElement` timeout inside `typeText('retailer-name-input')` path by adding an explicit `waitForElement('retailer-name-input', { timeoutMs: 12000 })` before typing.
-- Reorder the fill sequence to match the requirement (name → beat → parent-type=Company → retail-type → category → get-location → 300 ms settle → save). GPS + parent=Company are the last state changes before Save so the button un-disables in time.
-- Add a pre-save assertion loop: poll `save-retailer-button` for up to 3 s waiting for `disabled` to clear; if still disabled, dump the form's aria-invalid fields into `errorMessage` for future debugging (already better than "Element is disabled").
+Rule: every `.from(table('qa_<entity>'))` `.insert(...)` in the QA action layer must carry `qa_run_id: ctx.runId`. `qa_test_runs` and `qa_test_logs` are managed by `runner.ts` and are out of scope.
 
-## 3. `src/qa/actions/orderActions.ts` — column name + missing NOT NULLs
+### 2. FIX A — Use `run_id` (not `id`) as the join key everywhere
 
-- Product query: `.select('id, name, rate, base_unit_category, base_unit')` (drop `category`, `unit` which don't exist on `qa_products`).
-- `qa_orders` insert: add `sales_channel: 'field'` and `qa_run_id` from context; keep existing `idempotency_key`, `status`, `order_date`, `retailer_name`, `visit_id`, `subtotal`, `total_amount`, `user_id`, `retailer_id`.
-- `qa_order_items` insert: map `category: product.base_unit_category`, `unit: product.base_unit ?? 'PCS'`; keep `product_name`, `rate`, `quantity`, `total`, `order_id`, `product_id`; add `idempotency_key: crypto.randomUUID()`.
+`qa_test_runs.id` is the table PK; `qa_test_runs.run_id` is the uuid that `qa_test_logs.test_run_id` references. They are always different.
 
-## 4. `src/qa/actions/visitActions.ts` + `src/qa/flows/registry.ts`
+- Grep `src/` for `qa_test_logs` and `qa_test_runs` usages.
+- In `src/pages/RunTestsScreen.tsx` (and any hook it calls), every `.eq('test_run_id', …)` must receive `run.run_id`, never `run.id`.
+- Every `.eq('…', runId)` against `qa_test_runs` must use `.eq('run_id', runId)` — never `.eq('id', runId)`.
+- Leave `src/qa/runner.ts` `startRun` / `logStep` / `finishRun` unchanged (they already use `run_id`).
 
-- `visitActions.ts` is already programmatic-only (no UI variant present) — confirmed. Only change: also read `qa_run_id` from ctx and include it on both the attendance and visit inserts so rows are attributable per test run. `check_in_location` is already stubbed JSONB; `planned_date` already set. No flow-registry change needed for visit (only one `visit.create` action id exists).
+### 3. FIX B — Kill stuck "running" rows
 
-## 5. `src/qa/actions/offlineSyncActions.ts` — queue key + drain timeout
+- Apply migration:
+  ```sql
+  UPDATE qa_test_runs
+     SET overall_status = 'failed',
+         completed_at   = started_at,
+         notes          = 'Cleaned up: runner crashed before finishing'
+   WHERE completed_at IS NULL
+     AND overall_status = 'running'
+     AND started_at < now() - interval '1 hour';
+  ```
+- In `RunTestsScreen` "Past Runs" query, add `.neq('overall_status', 'running')` OR treat any run with `started_at < now() - 5min` and `overall_status = 'running'` as `failed` in the display.
 
-- Already imports `STORES` from `@/lib/offlineStorage` and uses `STORES.SYNC_QUEUE` for both read and enqueue paths — so the key can't drift. Real cause is the enqueue happens via `addToSyncQueue` which pushes into the in-memory + Preferences store, but the immediate `getAll` reads through the 60 s memory cache that was populated by the `queueBefore` snapshot at the top of the step. Fix: after `addToSyncQueue`, call `offlineStorage.clearCache?.()` if present, otherwise force a fresh read by calling `Preferences.get` directly for the `offline_syncQueue` key and parsing (fallback path), then compare against `idsBefore`.
-- Add a one-time diagnostic `console.log('[QA] Preferences keys after enqueue:', (await Preferences.keys()).keys)` right after the enqueue so any future drift is visible.
-- Increase the drain deadline in `offline.sync-completes-and-clears-queue` from 30 s → **45 s**.
+### 4. FIX C — Re-fetch from DB after `finishRun()`
 
-## 6. `src/qa/actions/retailerActions.ts` — record beat assignment (Fix 7)
+In `RunTestsScreen.tsx`, after the run loop:
 
-- Add a new lightweight action `retailer.assign-to-beat` in `retailerActions.ts` that inserts into `table('retailer_beat_assignments')` with `retailer_id`, `beat_id`, `beat_name` (all from `ctx.recall('retailer')`), `user_id` (from auth), `is_current: true`, `assigned_from: now()`.
-- Update `flow.retailer-to-order` in `src/qa/flows/registry.ts` to insert this step between `retailer.create` and `visit.create`.
-- Ensure `retailer.create` remembers `beat_name` on the ctx retailer object (fetch beat_name after picking the beat option, or re-read the retailer row after insert including `beat_id`/`beat_name`).
+```ts
+await finishRun(runId, allResults);
 
-## Files touched
+const { data: runData } = await supabase
+  .from(table('qa_test_runs') as any)
+  .select('*')
+  .eq('run_id', runId)
+  .single();
 
-- `src/qa/actions/smokeActions.ts`
-- `src/qa/actions/retailerActions.ts`
-- `src/qa/actions/orderActions.ts`
-- `src/qa/actions/visitActions.ts`
-- `src/qa/actions/offlineSyncActions.ts`
-- `src/qa/flows/registry.ts`
+const { data: logData } = await supabase
+  .from(table('qa_test_logs') as any)
+  .select('*')
+  .eq('test_run_id', runId)
+  .order('started_at', { ascending: true });
 
-No changes to `runner.ts`, production screens/hooks, or any `qa_*` schema.
+setCompletedRun(runData);
+setResults(logData ?? []);
+```
 
-## Verification (post-build)
+Authoritative DB state — not in-memory streaming state — drives the final display.
 
-Run Smoke flow + `flow.retailer-to-order` + `flow.offline-order-lifecycle`, then query `qa_test_logs` filtered to the new `test_run_id` — expect all steps `passed`, and confirm rows land in `qa_retailers`, `qa_retailer_beat_assignments`, `qa_visits`, `qa_orders`, `qa_order_items` (with `idempotency_key` set), and that no production tables get new rows.
+### 5. FIX D — Past Runs section
+
+In `RunTestsScreen.tsx`, ensure a Past Runs list exists (last 20):
+
+```ts
+const { data: runs } = await supabase
+  .from(table('qa_test_runs') as any)
+  .select('*')
+  .eq('build_type', 'qa')
+  .neq('overall_status', 'running')
+  .order('started_at', { ascending: false })
+  .limit(20);
+```
+
+Expanding a run fetches its logs with `.eq('test_run_id', selectedRun.run_id)`. Show status badge, pass/fail counts, start time, duration; expandable per-step logs.
+
+### Out of scope / do not change
+
+- `qa_test_runs` / `qa_test_logs` schemas.
+- `runner.ts` `startRun` / `logStep` / `finishRun` behavior.
+- Any production (non-`qa_*`) tables or code.
+
+### Verification
+
+- Run a flow → results render immediately from DB on completion.
+- Grep confirms zero `.eq('test_run_id', run.id)` and zero `.eq('id', runId)` against `qa_test_runs`.
+- Past Runs shows today's runs with counts + expandable logs.
+- Stuck yesterday run no longer displays as in-progress.
+- New rows in `qa_retailers` / `qa_visits` / `qa_attendance` / `qa_orders` / `qa_order_items` all carry `qa_run_id`, so `cleanup_qa_run()` removes them.
