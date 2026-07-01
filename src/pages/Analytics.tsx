@@ -1835,7 +1835,19 @@ const Analytics = () => {
                 isScopeReady={isScopeReady}
               />
             </TabsContent>
+
+            {/* Field Activity Tab */}
+            {showFieldActivityTab && (
+              <TabsContent value="field-activity" className="space-y-4">
+                <FieldActivitySection
+                  userIds={effectiveUserIds}
+                  dateRange={stableDashboardDateRange}
+                  isScopeReady={isScopeReady}
+                />
+              </TabsContent>
+            )}
           </Tabs>
+
 
           {/* Detail Dialogs */}
           <BeatDetailsDialog
