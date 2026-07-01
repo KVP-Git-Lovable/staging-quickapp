@@ -57,7 +57,7 @@ export const visitActions: QATestAction[] = [
               date: todayIso,
               check_in_time: nowIso,
               check_in_location: gps,
-              check_in_address: 'QA stub — Bengaluru',
+              check_in_address: 'QA stub - Bengaluru',
               status: 'present',
               qa_run_id: ctx.runId,
             } as any);
@@ -76,7 +76,7 @@ export const visitActions: QATestAction[] = [
             status: 'in_progress',
             check_in_time: nowIso,
             check_in_location: gps,
-            check_in_address: 'QA stub — Bengaluru',
+            check_in_address: 'QA stub - Bengaluru',
             visit_type: 'planned',
             qa_run_id: ctx.runId,
           } as any)
