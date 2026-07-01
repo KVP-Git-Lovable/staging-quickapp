@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useQAMode } from '@/contexts/QAModeContext';
 import { actionsByEntity } from '@/qa/actions/registry';
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle2, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface ResultRow {
   label: string;
@@ -38,8 +38,44 @@ export const RunTestsScreen = () => {
   const [results, setResults] = useState<ResultRow[]>([]);
   const [currentRunId, setCurrentRunId] = useState<string | null>(null);
   const [completedRun, setCompletedRun] = useState<any>(null);
+  const [pastRuns, setPastRuns] = useState<any[]>([]);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const [expandedLogs, setExpandedLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
 
   const grouped = useMemo(() => actionsByEntity(), []);
+
+  const fetchPastRuns = async () => {
+    const { data: pastRunsData } = await supabase
+      .from(table('qa_test_runs') as any)
+      .select('*')
+      .eq('build_type', 'qa')
+      .neq('overall_status', 'running')
+      .order('started_at', { ascending: false })
+      .limit(20);
+    setPastRuns(pastRunsData ?? []);
+  };
+
+  useEffect(() => {
+    fetchPastRuns();
+  }, []);
+
+  const toggleExpandRun = async (runId: string) => {
+    if (expandedRunId === runId) {
+      setExpandedRunId(null);
+      setExpandedLogs([]);
+      return;
+    }
+    setExpandedRunId(runId);
+    setLoadingLogs(true);
+    const { data: logs } = await supabase
+      .from(table('qa_test_logs') as any)
+      .select('*')
+      .eq('test_run_id', runId)  // run_id, NOT .id
+      .order('started_at', { ascending: true });
+    setExpandedLogs(logs ?? []);
+    setLoadingLogs(false);
+  };
 
   if (!isQAMode) return <Navigate to="/" replace />;
 
@@ -130,6 +166,8 @@ export const RunTestsScreen = () => {
             errorMessage: row.error_message ?? undefined,
           }))
         );
+
+        await fetchPastRuns();
       }
     } catch (e: any) {
       const row: ResultRow = { label: 'Run setup', pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
@@ -358,6 +396,96 @@ export const RunTestsScreen = () => {
                 ))}
               </div>
             </ScrollArea>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Past Runs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {pastRuns.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No past runs yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {pastRuns.map((run) => {
+                const isStale =
+                  run.overall_status === 'running' &&
+                  Date.now() - new Date(run.started_at).getTime() > 5 * 60 * 1000;
+                const displayStatus = isStale ? 'failed' : run.overall_status;
+                const isExpanded = expandedRunId === run.run_id;
+                const durationSec =
+                  run.started_at && run.completed_at
+                    ? (
+                        (new Date(run.completed_at).getTime() -
+                          new Date(run.started_at).getTime()) /
+                        1000
+                      ).toFixed(1)
+                    : '—';
+                return (
+                  <div key={run.run_id} className="rounded-md border">
+                    <button
+                      type="button"
+                      onClick={() => toggleExpandRun(run.run_id)}
+                      className="flex w-full flex-wrap items-center gap-3 p-2.5 text-left hover:bg-muted/30"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 shrink-0" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 shrink-0" />
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(run.started_at).toLocaleString()}
+                      </span>
+                      <Badge variant="outline" className={`text-[10px] ${statusBadgeClass(displayStatus)}`}>
+                        {displayStatus}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {run.passed_tests ?? 0} passed / {run.failed_tests ?? 0} failed
+                      </span>
+                      <span className="text-xs text-muted-foreground">{durationSec}s</span>
+                    </button>
+                    {isExpanded && (
+                      <div className="border-t p-2.5">
+                        {loadingLogs ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Loading logs…
+                          </div>
+                        ) : expandedLogs.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No step logs found.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {expandedLogs.map((log) => (
+                              <div key={log.id} className="flex items-start gap-2 text-xs">
+                                {log.status === 'passed' ? (
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
+                                ) : (
+                                  <XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium">{log.test_name}</span>
+                                    <span className="text-muted-foreground">
+                                      {(log.metadata_json?.durationMs ?? 0).toFixed(0)}ms
+                                    </span>
+                                  </div>
+                                  {log.error_message && (
+                                    <div className="text-red-700 mt-0.5 break-words">
+                                      {log.error_message}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
