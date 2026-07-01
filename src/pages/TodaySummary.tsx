@@ -2359,6 +2359,32 @@ export const TodaySummary = () => {
               )}
             </CardHeader>
             <CardContent className="space-y-2 pt-0">
+              {/* Today's Activities totals strip */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                <div className="rounded-md border bg-muted/30 p-2 text-center">
+                  <div className="text-lg font-bold text-purple-700">{activitySummary.completedCount}</div>
+                  <div className="text-[10px] text-muted-foreground">Activities Completed</div>
+                </div>
+                <div className="rounded-md border bg-muted/30 p-2 text-center">
+                  <div className="text-lg font-bold text-purple-700">
+                    {Math.floor(activitySummary.completedFieldMinutes / 60)}h {activitySummary.completedFieldMinutes % 60}m
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Time on Activities</div>
+                </div>
+                <div className="rounded-md border bg-muted/30 p-2 text-center" title="Sum of productivity_weight over completed activities">
+                  <div className="text-lg font-bold text-indigo-700">
+                    {activitySummary.activityProductivityPoints.toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Activity Productivity (Σ weight)</div>
+                </div>
+                <div className="rounded-md border bg-gradient-to-r from-emerald-50 to-indigo-50 p-2 text-center">
+                  <div className="text-lg font-bold text-emerald-700">
+                    {(summaryData.productiveVisits + activitySummary.activityProductivityPoints).toFixed(2)}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">Overall Field Productivity</div>
+                </div>
+              </div>
+
               {activitySummary.byType.map((typeGroup) => {
                 const colorMap: Record<string, string> = {
                   green: 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20',
@@ -2369,12 +2395,18 @@ export const TodaySummary = () => {
                   orange: 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950/20',
                   gray: 'bg-gray-50 border-gray-200 text-gray-700 dark:bg-gray-950/20',
                   indigo: 'bg-indigo-50 border-indigo-200 text-indigo-800 dark:bg-indigo-950/20',
+                  rose: 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/20',
                 };
                 const cardClass = colorMap[typeGroup.color] || colorMap.gray;
                 return (
                   <div key={typeGroup.type} className={`rounded-lg border p-3 ${cardClass}`}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold">{typeGroup.label}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold">{typeGroup.label}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/60 border">
+                          weight {typeGroup.weight}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2 text-xs opacity-70">
                         {typeGroup.totalMinutes > 0 && (
                           <span className="flex items-center gap-1">
@@ -2384,26 +2416,32 @@ export const TodaySummary = () => {
                               : `${typeGroup.totalMinutes}m`}
                           </span>
                         )}
-                        <span className="font-semibold">{typeGroup.count} {typeGroup.count === 1 ? 'entry' : 'entries'}</span>
+                        <span className="font-semibold">
+                          {typeGroup.completedCount}/{typeGroup.count} done
+                        </span>
                       </div>
                     </div>
                     <div className="space-y-1">
-                      {typeGroup.details.slice(0, 3).map((detail, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs opacity-80">
-                          <span className="truncate max-w-[60%]">{detail.name}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {detail.beat && <span className="opacity-60 truncate max-w-[80px]">{detail.beat}</span>}
+                      {typeGroup.details.slice(0, 5).map((detail, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs opacity-90 gap-2">
+                          <span className="truncate max-w-[50%] flex items-center gap-1">
+                            <span className={`inline-block h-1.5 w-1.5 rounded-full ${detail.completed ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                            {detail.name}
+                          </span>
+                          <div className="flex items-center gap-2 shrink-0 text-[10px]">
+                            {detail.checkInTime && <span className="opacity-70">In {detail.checkInTime}</span>}
+                            {detail.checkOutTime && <span className="opacity-70">Out {detail.checkOutTime}</span>}
+                            {detail.duration && <span className="opacity-70">· {detail.duration}</span>}
                             {detail.outcome && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
                                 {detail.outcome.replace(/_/g, ' ')}
                               </span>
                             )}
-                            {detail.duration && <span className="opacity-60">{detail.duration}</span>}
                           </div>
                         </div>
                       ))}
-                      {typeGroup.details.length > 3 && (
-                        <p className="text-[10px] opacity-50 mt-1">+{typeGroup.details.length - 3} more</p>
+                      {typeGroup.details.length > 5 && (
+                        <p className="text-[10px] opacity-50 mt-1">+{typeGroup.details.length - 5} more</p>
                       )}
                     </div>
                   </div>
