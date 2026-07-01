@@ -36,6 +36,8 @@ export function ProductAvailabilityEditor({ productId }: Props) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { can } = usePermissions();
+  const canManage = can('product_availability_settings', 'edit');
 
   // option sources
   const [regions, setRegions] = useState<string[]>([]);
