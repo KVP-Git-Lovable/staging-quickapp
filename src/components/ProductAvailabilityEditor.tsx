@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type ScopeType = 'region' | 'zone' | 'state' | 'territory' | 'distributor' | 'user';
 type Mode = 'include' | 'exclude';
