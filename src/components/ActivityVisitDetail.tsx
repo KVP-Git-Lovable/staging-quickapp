@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,11 +6,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   CalendarDays, Clock, Timer, LogIn, LogOut, Loader2, Save, CheckCircle2, Play, XCircle, Activity as ActivityIcon,
+  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { ActivityVisitCardModel } from '@/hooks/useActivityVisits';
+
+const BUCKET = 'activity-attachments';
+const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,application/pdf';
+const ACCEPTED_EXT = /\.(jpe?g|png|webp|pdf)$/i;
+
+interface AttachmentRow {
+  id: string;
+  file_path: string;
+  file_name: string | null;
+  file_type: string | null;
+  file_size: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
 
 const COLOR_CLASS: Record<string, string> = {
   rose: 'bg-rose-100 text-rose-800', amber: 'bg-amber-100 text-amber-800',
@@ -42,10 +59,19 @@ interface Props {
 
 export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }: Props) => {
   const { types } = useActivityTypes();
+  const { can } = usePermissions();
+  const canReadAttach = can('activity_attachments', 'read');
+  const canCreateAttach = can('activity_attachments', 'create');
+  const canDeleteAttach = can('activity_attachments', 'delete');
   const [remarks, setRemarks] = useState('');
   const [savingRemarks, setSavingRemarks] = useState(false);
   const [busy, setBusy] = useState<'check_in' | 'complete' | null>(null);
   const [, setTick] = useState(0);
+  const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
+  const [attachLoading, setAttachLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setRemarks(activity?.remarks ?? '');
@@ -57,7 +83,33 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
     return () => clearInterval(id);
   }, [open]);
 
+  const loadAttachments = useCallback(async () => {
+    if (!activity?.activityEventId || !canReadAttach) {
+      setAttachments([]);
+      return;
+    }
+    setAttachLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('activity_attachments')
+        .select('id,file_path,file_name,file_type,file_size,uploaded_by,created_at')
+        .eq('activity_event_id', activity.activityEventId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setAttachments((data as AttachmentRow[]) ?? []);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to load attachments');
+    } finally {
+      setAttachLoading(false);
+    }
+  }, [activity?.activityEventId, canReadAttach]);
+
+  useEffect(() => {
+    if (open) loadAttachments();
+  }, [open, loadAttachments]);
+
   if (!activity) return null;
+
 
   const meta = (() => {
     const key = activity.activityType;
@@ -145,6 +197,93 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
     }
   };
 
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!ACCEPTED_EXT.test(file.name)) {
+      toast.error('Only JPG, PNG, WEBP or PDF files are allowed');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('File is larger than 20 MB');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes?.user?.id ?? null;
+      const safeName = file.name.replace(/[^\w.\-]+/g, '_');
+      const path = `${activity.activityEventId}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { contentType: file.type || undefined, upsert: false });
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from('activity_attachments').insert({
+        activity_event_id: activity.activityEventId,
+        file_path: path,
+        file_name: file.name,
+        file_type: file.type || null,
+        file_size: file.size,
+        uploaded_by: uid,
+      });
+      if (insErr) {
+        // Roll back storage object if the row insert failed (e.g. RLS).
+        await supabase.storage.from(BUCKET).remove([path]).catch(() => {});
+        throw insErr;
+      }
+      toast.success('Attachment uploaded');
+      await loadAttachments();
+    } catch (err: any) {
+      toast.error(err?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const openAttachment = async (row: AttachmentRow) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(row.file_path, 300);
+      if (error) throw error;
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to open file');
+    }
+  };
+
+  const deleteAttachment = async (row: AttachmentRow) => {
+    if (!confirm(`Delete ${row.file_name ?? 'this file'}?`)) return;
+    setDeletingId(row.id);
+    try {
+      const { error: sErr } = await supabase.storage.from(BUCKET).remove([row.file_path]);
+      if (sErr) throw sErr;
+      const { error: dErr } = await supabase
+        .from('activity_attachments')
+        .delete()
+        .eq('id', row.id);
+      if (dErr) throw dErr;
+      toast.success('Attachment deleted');
+      setAttachments(prev => prev.filter(a => a.id !== row.id));
+    } catch (err: any) {
+      toast.error(err?.message || 'Delete failed');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const fmtSize = (n: number | null) => {
+    if (!n && n !== 0) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isImage = (row: AttachmentRow) =>
+    (row.file_type || '').startsWith('image/') ||
+    /\.(jpe?g|png|webp)$/i.test(row.file_name || row.file_path);
+
   const StateIcon = state.Icon;
 
   return (
@@ -227,8 +366,97 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
             </div>
           </div>
 
+          {canReadAttach && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5">
+                  <Paperclip className="h-3.5 w-3.5" /> Attachments
+                </Label>
+                {canCreateAttach && (
+                  <>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ACCEPTED_TYPES}
+                      className="hidden"
+                      onChange={handleFileSelected}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={uploading}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {uploading ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5 mr-2" />
+                      )}
+                      Upload
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {attachLoading ? (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+                </div>
+              ) : attachments.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No attachments yet</p>
+              ) : (
+                <ul className="space-y-2">
+                  {attachments.map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex items-center gap-3 rounded-md border p-2 text-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openAttachment(row)}
+                        className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                      >
+                        <div className="h-10 w-10 shrink-0 rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                          {isImage(row) ? (
+                            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <FileText className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-medium flex items-center gap-1">
+                            <span className="truncate">{row.file_name ?? row.file_path.split('/').pop()}</span>
+                            <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {fmtSize(row.file_size)} · {new Date(row.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                          </div>
+                        </div>
+                      </button>
+                      {canDeleteAttach && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={deletingId === row.id}
+                          onClick={() => deleteAttachment(row)}
+                          aria-label="Delete attachment"
+                        >
+                          {deletingId === row.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          )}
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
           <p className="text-[11px] text-muted-foreground">
-            Type-specific fields (subordinate, beat, meeting details, etc.) can be edited from the Add Activity form. Attachments coming in a later update.
+            Type-specific fields (subordinate, beat, meeting details, etc.) can be edited from the Add Activity form.
           </p>
         </div>
       </SheetContent>
