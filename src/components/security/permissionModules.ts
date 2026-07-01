@@ -233,6 +233,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
         label: 'Activity Type Master',
         subFeatures: [
           { name: 'activity_type_settings', label: 'Activity Type Master (config)' },
+          { name: 'activity_attachments', label: 'Activity Attachments' },
         ]
       },
       {
