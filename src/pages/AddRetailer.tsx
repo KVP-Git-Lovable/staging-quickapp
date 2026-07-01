@@ -1761,7 +1761,7 @@ export const AddRetailer = () => {
                       }
                     }}
                   >
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-background" data-testid="retailer-retail-type-select">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">
@@ -1793,7 +1793,7 @@ export const AddRetailer = () => {
                 <div className="space-y-2">
                   <Label>{t('retailer.category')} *</Label>
                   <Select value={retailerData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                    <SelectTrigger className="bg-background">
+                    <SelectTrigger className="bg-background" data-testid="retailer-category-select">
                       <SelectValue placeholder={t('retailer.selectCategory')} />
                     </SelectTrigger>
                     <SelectContent className="bg-background border z-50">

@@ -48,6 +48,20 @@ export const retailerActions: QATestAction[] = [
         await typeText('retailer-phone-input', String(input.phone));
         await typeText('retailer-address-input', String(input.address));
 
+        // Retail Type + Category are mandatory — pick random values.
+        try {
+          await randomSelectOption('retailer-retail-type-select', { timeoutMs: 4000 });
+          await sleep(150);
+        } catch (e: any) {
+          return { pass: false, errorMessage: `Retail Type picker failed: ${e?.message ?? e}` };
+        }
+        try {
+          await randomSelectOption('retailer-category-select', { timeoutMs: 4000 });
+          await sleep(150);
+        } catch (e: any) {
+          return { pass: false, errorMessage: `Category picker failed: ${e?.message ?? e}` };
+        }
+
         // GPS — stubbed above, this tap resolves synchronously.
         try {
           await tap('retailer-get-location-button', { timeoutMs: 4000 });

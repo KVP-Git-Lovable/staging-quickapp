@@ -24186,6 +24186,10 @@ export type Database = {
         Args: { p_dispatch?: Json; p_packing_list_id: string }
         Returns: Json
       }
+      dispatch_secondary_packing_list: {
+        Args: { p_packing_list_id: string }
+        Returns: Json
+      }
       emit_notification_event: {
         Args: {
           p_actor_user_id: string
@@ -24757,6 +24761,10 @@ export type Database = {
       initialize_leave_policy_balances: {
         Args: { p_policy_id: string }
         Returns: undefined
+      }
+      invoice_secondary_packing_list_at_dispatch: {
+        Args: { p_packing_list_id: string }
+        Returns: Json
       }
       is_account_locked: { Args: { user_email: string }; Returns: boolean }
       is_admin_or_manager: { Args: never; Returns: boolean }
