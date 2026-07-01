@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,11 +6,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   CalendarDays, Clock, Timer, LogIn, LogOut, Loader2, Save, CheckCircle2, Play, XCircle, Activity as ActivityIcon,
+  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { ActivityVisitCardModel } from '@/hooks/useActivityVisits';
+
+const BUCKET = 'activity-attachments';
+const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,application/pdf';
+const ACCEPTED_EXT = /\.(jpe?g|png|webp|pdf)$/i;
+
+interface AttachmentRow {
+  id: string;
+  file_path: string;
+  file_name: string | null;
+  file_type: string | null;
+  file_size: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
 
 const COLOR_CLASS: Record<string, string> = {
   rose: 'bg-rose-100 text-rose-800', amber: 'bg-amber-100 text-amber-800',
