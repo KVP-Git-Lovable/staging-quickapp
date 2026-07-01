@@ -57,10 +57,11 @@ export const orderActions: QATestAction[] = [
           };
         }
 
-        // Pick a priced product.
+        // Pick a priced product. qa_products uses `base_unit_category`
+        // and `base_unit` — there is no `category`/`unit` column.
         const { data: product, error: pErr } = await supabase
           .from(table('products') as any)
-          .select('id, name, rate, category')
+          .select('id, name, rate, base_unit_category, base_unit')
           .eq('is_active', true)
           .gt('rate', 0)
           .limit(1)
@@ -91,24 +92,26 @@ export const orderActions: QATestAction[] = [
             order_date: new Date().toISOString().slice(0, 10),
             idempotency_key: idem,
             order_source: 'qa_automation',
+            sales_channel: 'field',
           } as any)
           .select('id')
           .single();
 
         if (oErr) return { pass: false, errorMessage: `Order insert failed: ${oErr.message}` };
 
-        // Insert line item.
+        // Insert line item — column names match qa_order_items NOT NULLs.
         const { data: item, error: iErr } = await supabase
           .from(table('order_items') as any)
           .insert({
             order_id: order.id,
             product_id: (product as any).id,
             product_name: (product as any).name,
-            category: (product as any).category ?? 'General',
+            category: (product as any).base_unit_category ?? 'General',
             rate,
-            unit: 'PCS',
+            unit: (product as any).base_unit ?? 'PCS',
             quantity: qty,
             total,
+            idempotency_key: `qa-item-${crypto.randomUUID()}`,
           } as any)
           .select('id')
           .single();
