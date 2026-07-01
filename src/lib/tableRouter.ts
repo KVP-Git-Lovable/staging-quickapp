@@ -58,6 +58,19 @@ export const QA_MIRRORED_TABLES: ReadonlySet<string> = new Set([
   'user_page_views',
   'user_data_usage',
   'support_requests',
+  // Tier 4 — DMS (Distributor Management System) admin module.
+  'distributors',
+  'distributor_contacts',
+  'distributor_attachments',
+  'distributor_evaluation_tasks',
+  'distributor_business_plans',
+  'distributor_business_plan_products',
+  'distributor_business_plan_retailers',
+  'distributor_business_plan_months',
+  'distributor_business_plan_month_products',
+  'distributor_users',
+  'distributor_price_books',
+  'distributor_payment_config',
 ]);
 
 
