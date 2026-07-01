@@ -197,6 +197,93 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
     }
   };
 
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!ACCEPTED_EXT.test(file.name)) {
+      toast.error('Only JPG, PNG, WEBP or PDF files are allowed');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('File is larger than 20 MB');
+      return;
+    }
+    setUploading(true);
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const uid = userRes?.user?.id ?? null;
+      const safeName = file.name.replace(/[^\w.\-]+/g, '_');
+      const path = `${activity.activityEventId}/${Date.now()}_${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, file, { contentType: file.type || undefined, upsert: false });
+      if (upErr) throw upErr;
+      const { error: insErr } = await supabase.from('activity_attachments').insert({
+        activity_event_id: activity.activityEventId,
+        file_path: path,
+        file_name: file.name,
+        file_type: file.type || null,
+        file_size: file.size,
+        uploaded_by: uid,
+      });
+      if (insErr) {
+        // Roll back storage object if the row insert failed (e.g. RLS).
+        await supabase.storage.from(BUCKET).remove([path]).catch(() => {});
+        throw insErr;
+      }
+      toast.success('Attachment uploaded');
+      await loadAttachments();
+    } catch (err: any) {
+      toast.error(err?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const openAttachment = async (row: AttachmentRow) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(row.file_path, 300);
+      if (error) throw error;
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to open file');
+    }
+  };
+
+  const deleteAttachment = async (row: AttachmentRow) => {
+    if (!confirm(`Delete ${row.file_name ?? 'this file'}?`)) return;
+    setDeletingId(row.id);
+    try {
+      const { error: sErr } = await supabase.storage.from(BUCKET).remove([row.file_path]);
+      if (sErr) throw sErr;
+      const { error: dErr } = await supabase
+        .from('activity_attachments')
+        .delete()
+        .eq('id', row.id);
+      if (dErr) throw dErr;
+      toast.success('Attachment deleted');
+      setAttachments(prev => prev.filter(a => a.id !== row.id));
+    } catch (err: any) {
+      toast.error(err?.message || 'Delete failed');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const fmtSize = (n: number | null) => {
+    if (!n && n !== 0) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isImage = (row: AttachmentRow) =>
+    (row.file_type || '').startsWith('image/') ||
+    /\.(jpe?g|png|webp)$/i.test(row.file_name || row.file_path);
+
   const StateIcon = state.Icon;
 
   return (
