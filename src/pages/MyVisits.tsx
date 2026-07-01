@@ -1615,10 +1615,22 @@ export const MyVisits = () => {
                 <span className="text-[10px] text-muted-foreground">({activityVisitCards.length})</span>
               </div>
               {activityVisitCards.map((a) => (
-                <ActivityVisitCard key={a.visitId} activity={a} onOpen={handleOpenActivityCard} />
+                <ActivityVisitCard
+                  key={a.visitId}
+                  activity={a}
+                  onOpen={handleOpenActivityCard}
+                  onChanged={refreshActivityVisits}
+                />
               ))}
             </div>
           )}
+
+          <ActivityVisitDetail
+            open={!!detailActivity}
+            onOpenChange={(o) => { if (!o) setDetailActivity(null); }}
+            activity={detailActivity}
+            onChanged={refreshActivityVisits}
+          />
 
           {/* Activity Events Table - shown above visit list, ONLY after parent data loads to prevent flicker */}
           {hasLoadedOnce && (isViewingSelf ? user?.id : selectedUserIds[0]) && (
