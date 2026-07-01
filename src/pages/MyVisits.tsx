@@ -46,6 +46,8 @@ import { StartBeatButton } from "@/components/StartBeatButton";
 import { AddActivityModal } from "@/components/AddActivityModal";
 
 import { ActivityEventsTable } from "@/components/ActivityEventsTable";
+import { ActivityVisitCard } from "@/components/ActivityVisitCard";
+import { useActivityVisits } from "@/hooks/useActivityVisits";
 
 interface Visit {
   id: string;

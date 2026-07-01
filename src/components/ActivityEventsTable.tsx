@@ -322,8 +322,10 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }
             return (
               <div
                 key={activity.id}
-                className="rounded-2xl border bg-card p-4 hover:shadow-md transition-shadow"
+                id={`activity-event-${activity.id}`}
+                className="rounded-2xl border bg-card p-4 hover:shadow-md transition-shadow scroll-mt-24"
               >
+
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                   {/* Left: identity */}
                   <div className="flex items-center gap-3 lg:min-w-[220px]">
@@ -448,8 +450,10 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }
           return (
             <div
               key={activity.id}
-              className="rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2"
+              id={`activity-event-${activity.id}`}
+              className="rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2 scroll-mt-24"
             >
+
               {/* Top row: Name + Type Badge + Status */}
               {(() => {
                 const meta = resolveTypeMeta(activity.activity_type);
