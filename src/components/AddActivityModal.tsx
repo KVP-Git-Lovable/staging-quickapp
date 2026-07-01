@@ -95,14 +95,31 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   const isOnline = connectivity === 'online';
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Type — value is the master type's `name` (matches what's stored on activity_events.activity_type)
-  const [selectedType, setSelectedType] = useState<string>(JOINT);
+  // Two-level picker: category → sub-type
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  // Value = sub-type name (backward-compatible with activity_events.activity_type)
+  const [selectedType, setSelectedType] = useState<string>('');
+
+  const pickerTypes = activityTypes.filter((t) => t.is_active && t.show_in_picker);
+  const categoryOptions = pickerTypes.filter((t) => t.is_category).slice(0, 5);
+  const activeCategory = categoryOptions.find((c) => c.id === selectedCategoryId) || null;
+  const subtypeOptions = selectedCategoryId
+    ? pickerTypes.filter((t) => !t.is_category && t.parent_id === selectedCategoryId)
+    : [];
+  const activeTypeRow = activityTypes.find((t) => t.name === selectedType) || null;
+
   const isJoint       = selectedType === JOINT;
   const isSurvey      = selectedType === SURVEY;
   const isDistributor = selectedType === DISTRIBUTOR;
   const isMeeting     = selectedType === MEETING;
-  // Look up the matching master row (for code / requires_check_in / default_duration_minutes).
-  const activeTypeRow = activityTypes.find((t) => t.name === selectedType);
+
+  // Per-sub-type requirements
+  const photoRequired    = !!activeTypeRow?.photo_required;
+  const locationRequired = !!activeTypeRow?.location_required;
+
+  // Check-in photo (uploaded to activity-attachments bucket after save)
+  const [checkInPhoto, setCheckInPhoto] = useState<File | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Shared
   const [activityDate, setActivityDate] = useState<Date>(new Date());
