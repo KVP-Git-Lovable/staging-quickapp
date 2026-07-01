@@ -60,42 +60,29 @@ export const retailerActions: QATestAction[] = [
       try {
         await goTo('/my-retailers');
         await tap('add-retailer-button', { timeoutMs: 6000 });
-        await sleep(400); // let AddRetailer render + load beats
+        // Radix Sheet animates in over ~300ms — give it 700ms then
+        // explicitly wait for the first form input before typing so
+        // slow first paints don't flake with an 8s default timeout.
+        await sleep(700);
+        try {
+          await (await import('@/qa/automation/uiActions')).waitForElement(
+            'retailer-name-input',
+            { timeoutMs: 12000 },
+          );
+        } catch (e: any) {
+          return { pass: false, errorMessage: `Add Retailer form did not mount: ${e?.message ?? e}` };
+        }
 
-
+        // Fill order matters — required fields first so Save enables
+        // by the time we reach it.
         await typeText('retailer-name-input', String(input.name));
         await typeText('retailer-phone-input', String(input.phone));
         await typeText('retailer-address-input', String(input.address));
 
-        // Retail Type + Category are mandatory — pick random values.
-        try {
-          await randomSelectOption('retailer-retail-type-select', { timeoutMs: 4000 });
-          await sleep(150);
-        } catch (e: any) {
-          return { pass: false, errorMessage: `Retail Type picker failed: ${e?.message ?? e}` };
-        }
-        try {
-          await randomSelectOption('retailer-category-select', { timeoutMs: 4000 });
-          await sleep(150);
-        } catch (e: any) {
-          return { pass: false, errorMessage: `Category picker failed: ${e?.message ?? e}` };
-        }
-
-        // GPS — stubbed above, this tap resolves synchronously.
-        try {
-          await tap('retailer-get-location-button', { timeoutMs: 4000 });
-          // Give the geocode + toast a moment; success text varies so we
-          // don't hard-fail here — the Save-time validation is the real
-          // gate on latitude/longitude.
-          await sleep(600);
-        } catch {
-          // If the button testid isn't present in an older build, fall
-          // through — Save will surface the real validation error.
-        }
-
         // Beat is mandatory — pick a random real beat from the list.
+        let pickedBeatLabel: string | null = null;
         try {
-          await randomSelectOption('retailer-beat-select', { timeoutMs: 6000 });
+          pickedBeatLabel = await randomSelectOption('retailer-beat-select', { timeoutMs: 6000 });
           await sleep(300); // let dependent distributor list load
         } catch (e: any) {
           return {
@@ -104,8 +91,7 @@ export const retailerActions: QATestAction[] = [
           };
         }
 
-        // Parent type: "Company" needs no distributor. Fall back to
-        // "Distributor" + random distributor if Company isn't listed.
+        // Parent type: "Company" needs no distributor.
         let parentedAsCompany = false;
         try {
           await selectOption('retailer-parent-type-select', 'Company', { timeoutMs: 3000 });
@@ -123,7 +109,57 @@ export const retailerActions: QATestAction[] = [
           }
         }
 
-        await sleep(200);
+        // Retail Type + Category.
+        try {
+          await randomSelectOption('retailer-retail-type-select', { timeoutMs: 4000 });
+          await sleep(150);
+        } catch (e: any) {
+          return { pass: false, errorMessage: `Retail Type picker failed: ${e?.message ?? e}` };
+        }
+        try {
+          await randomSelectOption('retailer-category-select', { timeoutMs: 4000 });
+          await sleep(150);
+        } catch (e: any) {
+          return { pass: false, errorMessage: `Category picker failed: ${e?.message ?? e}` };
+        }
+
+        // GPS — stubbed above, the tap resolves synchronously but the
+        // reverse-geocode + controlled state update need a moment.
+        try {
+          await tap('retailer-get-location-button', { timeoutMs: 4000 });
+          await sleep(800);
+        } catch { /* Save validation is the real gate */ }
+
+        // Give controlled form state a beat to re-run validation, then
+        // poll the Save button until it un-disables (≤3s).
+        await sleep(300);
+        const saveDeadline = Date.now() + 3000;
+        let saveEl: HTMLElement | null = null;
+        while (Date.now() < saveDeadline) {
+          saveEl = document.querySelector<HTMLElement>('[data-testid="save-retailer-button"]');
+          if (
+            saveEl &&
+            !saveEl.hasAttribute('disabled') &&
+            saveEl.getAttribute('aria-disabled') !== 'true'
+          ) break;
+          await sleep(150);
+        }
+        if (
+          !saveEl ||
+          saveEl.hasAttribute('disabled') ||
+          saveEl.getAttribute('aria-disabled') === 'true'
+        ) {
+          const invalid = Array.from(
+            document.querySelectorAll('[aria-invalid="true"]'),
+          )
+            .map((n) => (n as HTMLElement).getAttribute('data-testid') || (n as HTMLElement).getAttribute('name') || n.tagName)
+            .join(', ');
+          return {
+            pass: false,
+            errorMessage: `save-retailer-button stayed disabled after 3s. aria-invalid fields: ${invalid || '(none reported)'}`,
+          };
+        }
+
         await tap('save-retailer-button');
 
         const uiOk =
@@ -132,9 +168,11 @@ export const retailerActions: QATestAction[] = [
           (await waitForText('saved successfully', { timeoutMs: 1500 })) ||
           (await waitForText('added successfully', { timeoutMs: 1500 }));
 
+        // Re-read with beat context so downstream actions (visit,
+        // assign-to-beat) can rely on both beat_id + beat_name.
         const { data, error } = await supabase
-          .from(table('qa_retailers') as any)
-          .select('id, name, phone, created_at')
+          .from(table('retailers') as any)
+          .select('id, name, phone, beat_id, created_at, beats(beat_name)')
           .eq('name', input.name)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -155,12 +193,54 @@ export const retailerActions: QATestAction[] = [
           };
         }
 
-        ctx.remember('retailer', data);
-        return { pass: true, output: { ...data, parentedAsCompany } };
+        const beatName =
+          (data as any).beats?.beat_name ?? pickedBeatLabel ?? null;
+        const remembered = { ...data, beat_name: beatName };
+        ctx.remember('retailer', remembered);
+        return { pass: true, output: { ...remembered, parentedAsCompany } };
       } catch (e: any) {
         return { pass: false, errorMessage: e?.message ?? String(e) };
       } finally {
         restoreGeo();
+      }
+    },
+  },
+
+  {
+    id: 'retailer.assign-to-beat',
+    label: 'Record beat assignment (qa_retailer_beat_assignments)',
+    entity: 'Retailers',
+    description:
+      'Inserts a current beat assignment row for the retailer created by ' +
+      'retailer.create. qa_retailer_beat_assignments needs retailer_id, ' +
+      'beat_id, beat_name, user_id.',
+    inputs: [
+      { key: 'retailer_id', label: 'Retailer ID', type: 'string', fromContext: 'retailer.id', required: true },
+      { key: 'beat_id', label: 'Beat ID', type: 'string', fromContext: 'retailer.beat_id', required: true },
+      { key: 'beat_name', label: 'Beat name', type: 'string', fromContext: 'retailer.beat_name', required: true },
+    ],
+    run: async (input) => {
+      try {
+        const { data: userRes, error: uErr } = await supabase.auth.getUser();
+        if (uErr || !userRes.user) {
+          return { pass: false, errorMessage: 'No authenticated user for QA session.' };
+        }
+        const { data, error } = await supabase
+          .from(table('retailer_beat_assignments') as any)
+          .insert({
+            retailer_id: input.retailer_id,
+            beat_id: input.beat_id,
+            beat_name: input.beat_name,
+            user_id: userRes.user.id,
+            is_current: true,
+            assigned_from: new Date().toISOString(),
+          } as any)
+          .select('id')
+          .single();
+        if (error) return { pass: false, errorMessage: `Assignment insert failed: ${error.message}` };
+        return { pass: true, output: { id: data.id } };
+      } catch (e: any) {
+        return { pass: false, errorMessage: e?.message ?? String(e) };
       }
     },
   },
