@@ -317,40 +317,48 @@ export function ProductAvailabilityEditor({ productId }: Props) {
                   </Badge>
                   <span className="text-muted-foreground">{SCOPE_LABEL[r.scope_type]} =</span>
                   <span className="font-medium flex-1 truncate">{labelForRule(r)}</span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleRemove(r)}
-                    disabled={saving}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleRemove(r)}
+                      disabled={saving}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-[120px_140px_1fr_auto] gap-2 items-center pt-2 border-t">
-            <Select value={draftMode} onValueChange={(v) => setDraftMode(v as Mode)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="include">Include</SelectItem>
-                <SelectItem value="exclude">Exclude</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={draftScopeType} onValueChange={(v) => setDraftScopeType(v as ScopeType)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {(Object.keys(SCOPE_LABEL) as ScopeType[]).map((k) => (
-                  <SelectItem key={k} value={k}>{SCOPE_LABEL[k]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {renderScopeValuePicker()}
-            <Button onClick={handleAdd} disabled={saving || !draftScopeValue}>
-              <Plus className="h-4 w-4 mr-1" /> Add
-            </Button>
-          </div>
+          {canManage ? (
+            <div className="grid grid-cols-1 sm:grid-cols-[120px_140px_1fr_auto] gap-2 items-center pt-2 border-t">
+              <Select value={draftMode} onValueChange={(v) => setDraftMode(v as Mode)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="include">Include</SelectItem>
+                  <SelectItem value="exclude">Exclude</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={draftScopeType} onValueChange={(v) => setDraftScopeType(v as ScopeType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(SCOPE_LABEL) as ScopeType[]).map((k) => (
+                    <SelectItem key={k} value={k}>{SCOPE_LABEL[k]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {renderScopeValuePicker()}
+              <Button onClick={handleAdd} disabled={saving || !draftScopeValue}>
+                <Plus className="h-4 w-4 mr-1" /> Add
+              </Button>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground pt-2 border-t">
+              You don't have permission to manage availability rules.
+            </div>
+          )}
         </>
       )}
     </div>
