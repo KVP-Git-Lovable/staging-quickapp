@@ -172,7 +172,7 @@ export const retailerActions: QATestAction[] = [
         // assign-to-beat) can rely on both beat_id + beat_name.
         const { data, error } = await supabase
           .from(table('retailers') as any)
-          .select('id, name, phone, beat_id, created_at, beats(beat_name)')
+          .select('id, name, phone, beat_id, created_at')
           .eq('name', input.name)
           .order('created_at', { ascending: false })
           .limit(1)
