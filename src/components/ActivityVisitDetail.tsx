@@ -157,12 +157,32 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
   const runAction = async (action: 'check_in' | 'complete') => {
     if (busy) return;
+
+    // Enforce per-sub-type photo requirement:
+    //  - check_in requires ≥1 attachment
+    //  - complete requires ≥2 (check-in + check-out photo)
+    if (photoRequired) {
+      const need = action === 'check_in' ? 1 : 2;
+      if (attachments.length < need) {
+        toast.error(
+          action === 'check_in'
+            ? 'Upload a check-in photo before checking in'
+            : 'Upload a check-out photo before completing'
+        );
+        return;
+      }
+    }
+
     setBusy(action);
     try {
       const { data: userRes } = await supabase.auth.getUser();
       const actor = userRes?.user?.id;
       if (!actor) { toast.error('Not signed in'); return; }
       const pos = await tryGetPosition();
+      if (locationRequired && !pos) {
+        toast.error('GPS location is required for this activity. Enable location and try again.');
+        return;
+      }
       const { data, error } = await supabase.rpc('activity_visit_action', {
         p_visit_id: activity.visitId,
         p_activity_event_id: activity.activityEventId,
