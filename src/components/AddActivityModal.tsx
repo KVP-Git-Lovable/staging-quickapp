@@ -13,7 +13,7 @@ import {
   CalendarIcon, Loader2, Navigation, Store, Route, Users,
   Map as MapSearch, Warehouse, Megaphone, CalendarDays as CalendarEvent,
   Star, X as XIcon, Wifi, WifiOff, MapPin, Clock, CheckCircle2,
-  Activity as ActivityIcon,
+  Activity as ActivityIcon, Camera,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
