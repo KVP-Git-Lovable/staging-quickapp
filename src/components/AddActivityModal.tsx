@@ -442,20 +442,31 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           {/* ── Type selector (sourced from activity_types master) ── */}
           <div>
             <Label className="text-xs">Activity type</Label>
-            <Select
-              value={selectedType}
-              onValueChange={setSelectedType}
-              disabled={isSubmitted || activityTypes.length === 0}
-            >
-              <SelectTrigger className="mt-1 h-9 text-sm">
-                <SelectValue placeholder={activityTypes.length ? 'Select activity type' : 'Loading…'} />
-              </SelectTrigger>
-              <SelectContent>
-                {activityTypes.map((t) => (
-                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
+              {activityTypes.length === 0 ? (
+                <div className="col-span-full text-center text-xs text-muted-foreground py-2">
+                  Loading…
+                </div>
+              ) : (
+                activityTypes.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    disabled={isSubmitted}
+                    onClick={() => setSelectedType(t.name)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-[10px] font-medium transition-colors disabled:opacity-40',
+                      selectedType === t.name
+                        ? ACTIVE_COLOR(t.color)
+                        : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    <ActivityIcon className="h-4 w-4" />
+                    <span className="text-center leading-tight">{t.name}</span>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
 
           {/* ── Shared: date + GPS ─────────────────────────── */}
