@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Plus, Pencil } from 'lucide-react';
+import { Layout } from '@/components/Layout';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 
 interface ActivityType {
   id: string;
