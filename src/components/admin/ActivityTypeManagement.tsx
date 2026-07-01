@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { Plus, Pencil } from 'lucide-react';
+import { Layout } from '@/components/Layout';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 
 interface ActivityType {
   id: string;
@@ -133,34 +135,32 @@ export default function ActivityTypeManagement() {
     else load();
   };
 
-  if (permLoading) return <div className="p-6">Loading…</div>;
+  if (permLoading) return <Layout><div className="p-6">Loading…</div></Layout>;
   if (!canRead) {
     return (
-      <div className="p-6">
-        <h1 className="text-xl font-semibold">Activity Type Master</h1>
-        <p className="text-muted-foreground mt-2">
-          You don't have permission to view this page.
-        </p>
-      </div>
+      <Layout>
+        <div className="p-6 space-y-4">
+          <AdminPageHeader title="Activity Type Master" subtitle="Manage the activity categories used across the app." />
+          <p className="text-muted-foreground">You don't have permission to view this page.</p>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Activity Type Master</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage the activity categories used across the app.
-            {!canEdit && ' (Read-only)'}
-          </p>
-        </div>
-        <Button onClick={openCreate} disabled={!canEdit}>
-          <Plus className="h-4 w-4" /> Add Activity Type
-        </Button>
-      </div>
+    <Layout>
+      <div className="p-6 space-y-4">
+        <AdminPageHeader
+          title="Activity Type Master"
+          subtitle={`Manage the activity categories used across the app.${!canEdit ? ' (Read-only)' : ''}`}
+          rightContent={
+            <Button onClick={openCreate} disabled={!canEdit}>
+              <Plus className="h-4 w-4 mr-1" /> Add Activity Type
+            </Button>
+          }
+        />
 
-      <div className="border rounded-md">
+        <div className="border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>
@@ -313,6 +313,7 @@ export default function ActivityTypeManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </Layout>
   );
 }
