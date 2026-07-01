@@ -99,6 +99,20 @@ export default function SecurityManagement() {
               Manage user profiles, permissions, and data access
             </p>
           </div>
+          <Button
+            onClick={() => runGrant(false)}
+            disabled={granting}
+            variant="outline"
+            className="gap-2"
+          >
+            {granting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
+            Grant all modules to System Administrator
+          </Button>
+        </div>
         </div>
 
         {/* Info Card */}
