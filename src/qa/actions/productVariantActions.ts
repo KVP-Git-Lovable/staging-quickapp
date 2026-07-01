@@ -124,12 +124,16 @@ export const productVariantActions: QATestAction[] = [
       'where the wrong variant\'s rate is silently used in the ' +
       'calculation even though the right rate is displayed.',
     inputs: [
-      { key: 'retailer_id', label: 'Retailer ID', type: 'string', required: true },
-      { key: 'product_id', label: 'Product ID', type: 'string', required: true },
-      { key: 'variant_label', label: 'Variant label', type: 'string', required: true },
-      { key: 'quantity', label: 'Quantity', type: 'number', default: 3, required: true },
+      { key: 'retailer_id', label: 'Retailer ID', type: 'string' },
+      { key: 'product_id', label: 'Product ID', type: 'string' },
+      { key: 'variant_label', label: 'Variant label', type: 'string' },
+      { key: 'quantity', label: 'Quantity', type: 'number', default: 3 },
     ],
-    run: async (input) => {
+    run: async (rawInput) => {
+      const input = await resolveDefaults(rawInput);
+      if (!input.retailer_id || !input.product_id || !input.variant_label) {
+        return { pass: false, errorMessage: 'No retailer / product / variant available in DB to auto-resolve defaults.' };
+      }
       try {
         await goTo(`/order-entry?retailerId=${input.retailer_id}&productId=${input.product_id}`);
         try {
