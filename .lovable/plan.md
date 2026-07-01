@@ -1,83 +1,65 @@
-## Problem
+## Audit of every QA flow
 
-The "Retailer → Beat → Visit → Order" flow only fills name/phone/address on Add Retailer, then taps Save. The save fails because three more fields are mandatory but never auto-filled by the QA action:
+### Flow 1 — `flow.smoke`
+All four actions are pure DB calls (no UI). **No stalls.** Leave as-is.
 
-1. **Assign to Beat** (`Select a beat`)
-2. **Select Distributor** (when Parent Type = "Distributor", which is the default)
-3. **GPS Location** (validation `errors.location = "GPS location is required"`)
+### Flow 2 — `flow.retailer-to-order`  ← still broken
+- `retailer.create` — now hands-free after last turn's fix (Retail Type + Category testids + random pick). Covers every required field validated in `AddRetailer.handleSave` (name, phone, address, retailType, category, beat, parentType, distributor-if-not-Company, GPS).
+- `visit.create` — **still `manualStepAction` → always returns `pass: false`**, so the flow always stops here (`stopOnFailure: true`).
+- `order.create` — **still `manualStepAction`**, never reached today; would also fail if it were.
 
-Other flow steps (`visit.create`, `order.create`, `attendance.punch_in/out`) are wired as `manualStepAction`, so a flow run marks them as `failed — Manual step required`. Offline-sync steps poll for up to 60s for a tester to place an order through the UI — also a form of "waiting for user input".
+### Flow 3 — `flow.offline-order-lifecycle`
+Both steps are fully programmatic (queue insert + drain wait). Only prompt is `retailer_id`, which is auto-supplied via `fromContext: 'retailer.id'` when chained. **No stalls in flow-mode.** When run standalone the input is prompted — leave that alone (matches other standalone actions).
 
-## Fix — Scope
+### Product Variants + Pricing Coverage actions
+- `product.variant-selection-resolves-correct-price` and `product.variant-quantity-totals-correctly` auto-resolve `retailer_id / product_id / variant_label` from the DB when omitted (already fixed). No stalls.
+- `pricing.*` are DB sweeps / catalog spot-checks. No stalls.
 
-Make every action in every registered flow (`flow.smoke`, `flow.retailer-to-order`, `flow.offline-order-lifecycle`) run end-to-end without any human interaction. Where a prerequisite genuinely cannot be automated from inside the WebView (native camera face-match), stub it in QA mode rather than surface as manual.
+### Standalone attendance actions
+`attendance.punch_in` and `attendance.punch_out` are `manualStepAction`. They aren't wired into any flow, but they always fail when picked. Out of scope for "flow stalls" but worth calling out — will leave unless requested.
 
-## Changes
+---
 
-### 1. New UI automation primitive — `randomSelectOption`
+## Fix plan
 
-`src/qa/automation/uiActions.ts`
+### 1. Replace `visit.create` with real automation
+Rewrite `src/qa/actions/visitActions.ts` to be programmatic (mirrors the offline-sync action pattern — same project already accepts DB-level automation where native prerequisites block UI drive):
 
-Add `randomSelectOption(testId, opts?)` that:
-- Taps the trigger (`data-testid`).
-- Waits for the shadcn popover (`[role="listbox"]` / `[role="option"]`) to render.
-- Filters out `aria-disabled="true"` and `data-disabled` options and picks a random one.
-- Clicks it via the same synthetic-event path as `selectOption`.
+- Read `retailer_id` from context (`fromContext: 'retailer.id'`), fallback to prompt.
+- Ensure an `attendance` row exists for today for the current user; if missing, insert one with `check_in_time = now()`, stubbed lat/lng (12.9716, 77.5946), `status = 'checked_in'`. This satisfies the "active attendance session" gate that `MyVisits` enforces without requiring camera/face-match.
+- Insert a `visits` row (routed via `table('visits')` → `qa_visits`) with `retailer_id`, `user_id`, `check_in_time = now()`, GPS stub, `status = 'in_progress'`.
+- `ctx.remember('visit', {...})` so the order step can consume it.
+- Verify the row lands in `qa_visits`, return `pass: true`.
 
-Also add `stubGeolocation(lat, lng)` that patches `navigator.geolocation.getCurrentPosition` to synchronously invoke the success callback with the given coords, and returns a restore function. QA-build-only.
+### 2. Replace `order.create` with real automation
+Rewrite `src/qa/actions/orderActions.ts`:
 
-### 2. `AddRetailer.tsx` — add testids only (no logic change)
+- Read `retailer_id` from `retailer.id` and `visit_id` from `visit.id` via context.
+- Pick one active product from `qa_products` (any with a non-null `rate`).
+- Insert `qa_orders` (retailer_id, visit_id, user_id, total_amount, status='pending', order_date=today) plus one `qa_order_items` line (product_id, quantity=1, rate, product_id required per project convention).
+- Verify the order + item persisted, `ctx.remember('order', {...})`, return pass.
 
-Add `data-testid` to the existing controls so QA can drive them:
-- Beat `SelectTrigger` → `retailer-beat-select`
-- Parent Type `SelectTrigger` → `retailer-parent-type-select`
-- Distributor `SelectTrigger` → `retailer-distributor-select`
-- "Get Location" icon button → `retailer-get-location-button`
+Both steps use `table(...)` so writes route to `qa_*` mirrors — same pattern already used by smoke + offline-sync actions.
 
-### 3. `retailer.create` — auto-fill beat, parent, distributor, GPS
+### 3. Guardrails on `retailer.create` for zero-data tenants
+Currently if the QA tenant has 0 beats or 0 distributors, `randomSelectOption` throws and the flow dies. Add small pre-flight probes at the top of `retailer.create.run`: query `qa_beats` and (when Company parent isn't offered) `qa_distributors`. If either is empty, return `pass:false` with a clear "Seed at least one beat/distributor in QA before running this flow" message instead of stalling mid-form.
 
-`src/qa/actions/retailerActions.ts`
+### 4. No changes needed
+- Offline sync actions — already hands-free.
+- Product variant / pricing actions — already auto-resolve inputs.
+- Smoke — pure DB.
 
-After typing name/phone/address:
-1. Call `stubGeolocation(12.9716, 77.5946)` (Bengaluru) and tap `retailer-get-location-button`; wait for the "Location Captured" toast.
-2. `randomSelectOption('retailer-beat-select')` — pick any real beat from the master.
-3. `selectOption('retailer-parent-type-select', 'Company')` — Company parent doesn't require a distributor, so the flow doesn't depend on beat↔distributor mappings being seeded.
-   - Fallback: if `Company` isn't offered for this tenant, `randomSelectOption('retailer-distributor-select')` after the beat's mapped-distributor list finishes loading.
-4. Small settle sleep, then tap `save-retailer-button` and keep the existing UI+DB cross-verify.
+---
 
-Remove the geolocation stub in a `finally` block.
+## Files touched
 
-### 4. Flow `flow.retailer-to-order` — replace skipped visit/order steps
+- `src/qa/actions/visitActions.ts` — rewrite from placeholder to real programmatic action.
+- `src/qa/actions/orderActions.ts` — rewrite from placeholder to real programmatic action.
+- `src/qa/actions/retailerActions.ts` — add empty-beat / empty-distributor pre-flight guard.
 
-`src/qa/actions/visitActions.ts` and `orderActions.ts` currently return `manualStepAction`. Convert them to real UI drivers gated by a QA-only prerequisite stubber:
-
-- **`attendance.punch_in`** (new real impl): stub geolocation, mock the face-match hook via a QA-only `window.__qaBypassFaceMatch = true` flag consumed inside `useFaceMatching` (single `if (import.meta.env.VITE_APP_MODE === 'qa' && window.__qaBypassFaceMatch) return { verified: true }` early-return), tap "Start My Day", wait for `attendance-checked-in` state, verify `qa_attendance` row.
-- **`visit.create`**: with attendance active, navigate to `/my-visits`, pick the retailer created by `retailer.create` (from `ctx.recall('retailer')`), tap Start Visit, verify a `qa_visits` row in status `in_progress`.
-- **`order.create`**: from inside the visit, tap "Add Order", pick 1 product (`randomSelectOption` on the product picker), set qty=1, submit, verify a `qa_orders` + `qa_order_items` row.
-
-If any of the three underlying screens don't yet have testids the action needs, the fix adds them (mechanical, no behavioural change) in the same commit.
-
-### 5. Flow `flow.offline-order-lifecycle` — remove the 60s tester-wait
-
-`src/qa/actions/offlineSyncActions.ts` currently polls for a tester to place an order manually. Replace the polling with a programmatic enqueue that goes through the same helper the app uses (`offlineStorage.add(STORES.SYNC_QUEUE, { action: 'CREATE_ORDER', data: {...} })`) with a fresh `tempId` and the retailer from `ctx.recall('retailer')`. The rest of the action (assert queue entry exists → toggle online → wait for drain → assert exactly-one server row) stays as-is.
-
-### 6. Flow `flow.smoke` — already end-to-end, no change
-
-Verified: all four smoke steps write/read `qa_*` directly and never touch the UI.
-
-### 7. Standalone actions used outside flows
-
-`productVariantActions` and `pricingCoverageActions` take `retailer_id` / `product_id` / `variant_label` as required inputs with no defaults. When run from a Flow that doesn't supply them, they'd throw. Add a default-resolver: if the input is missing, pick a random active row from `qa_retailers` / `qa_products` / `product_variants` at run-time. Keep the manual override path for targeted runs.
+No production code, RLS, or schema changes. All writes go through `table()` so they hit `qa_*` mirrors only.
 
 ## Acceptance
-
-- Running the "Retailer → Beat → Visit → Order" flow with no input creates a retailer (with a real beat, Company parent, stubbed GPS), starts attendance, opens a visit, places a 1-line order, and every step reports `passed` — no UI screen ever waits for a human.
-- Running the "Offline order" flow toggles offline, enqueues an order programmatically, toggles online, drains, and asserts one matching server row — no 60s tester wait.
-- Running the "Smoke" flow is unchanged (already automated).
-- Individual actions from the Actions tab still accept manual input overrides.
-
-## Technical notes
-
-- Face-match bypass and geolocation stub are strictly gated by `import.meta.env.VITE_APP_MODE === 'qa'`; production bundles must not carry the bypass code path — enforce with the same `if (qa)` pattern already used by `window.__qaSetOffline` in `AppContent`.
-- All new writes still go through `table()` so `qa_*` mirrors receive the data — no prod-table pollution.
-- No RPCs, migrations, or backend changes are needed.
+- Running `flow.retailer-to-order` end-to-end completes without any manual click or field entry, and a matching `qa_retailers` + `qa_visits` + `qa_orders` + `qa_order_items` chain exists in the DB.
+- Running `flow.smoke` and `flow.offline-order-lifecycle` continues to pass hands-free.
+- No flow prompts the tester for input mid-run.
