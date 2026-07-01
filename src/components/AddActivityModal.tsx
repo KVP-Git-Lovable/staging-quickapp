@@ -226,16 +226,28 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   }, [open]);
 
 
-  // Distributor search
+  // Distributor search — query the distributors master by business name,
+  // and also match on distributor_users.full_name (contact person) so
+  // both lookups surface results.
   useEffect(() => {
     if (!isDistributor) return;
     if (!distributorSearch || distributorSearch.length < 2) { setDistributorResults([]); return; }
     const t = setTimeout(async () => {
-      const { data } = await supabase
-        .from('distributor_users').select('distributor_id, full_name')
-        .ilike('full_name', `%${distributorSearch}%`).not('distributor_id', 'is', null).limit(8);
+      const [distRes, userRes] = await Promise.all([
+        supabase
+          .from('distributors').select('id, name')
+          .ilike('name', `%${distributorSearch}%`).limit(8),
+        supabase
+          .from('distributor_users').select('distributor_id, full_name, distributors(id, name)')
+          .ilike('full_name', `%${distributorSearch}%`).not('distributor_id', 'is', null).limit(8),
+      ]);
       const m = new Map<string, string>();
-      ((data as any) || []).forEach((d: any) => { if (d.distributor_id && !m.has(d.distributor_id)) m.set(d.distributor_id, d.full_name); });
+      ((distRes.data as any) || []).forEach((d: any) => { if (d.id && !m.has(d.id)) m.set(d.id, d.name); });
+      ((userRes.data as any) || []).forEach((d: any) => {
+        const id = d.distributors?.id || d.distributor_id;
+        const name = d.distributors?.name || d.full_name;
+        if (id && !m.has(id)) m.set(id, name);
+      });
       setDistributorResults(Array.from(m, ([id, name]) => ({ id, name })));
     }, 250);
     return () => clearTimeout(t);
