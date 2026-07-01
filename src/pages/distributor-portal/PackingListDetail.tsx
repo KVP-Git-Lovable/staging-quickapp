@@ -92,17 +92,26 @@ export default function PackingListDetail() {
       </div>
 
       <div className="p-4 space-y-4">
-        {(pl.status === 'draft' || pl.status === 'picking') && (
+        {(pl.status === 'draft' || pl.status === 'picking') && pl.order_type !== 'secondary' && (
           <PicklistPackingStage
             packingList={pl}
             onStatusChange={refreshStatus}
             onCancel={() => navigate(-1)}
           />
         )}
-        {(pl.status === 'packed' || pl.status === 'ready') && (
-          pl.order_type === 'primary'
-            ? <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
-            : <SecondaryDispatchStage packingList={pl} onStatusChange={refreshStatus} />
+        {pl.order_type === 'secondary' && (
+          pl.status === 'draft' || pl.status === 'picking' ? (
+            <PicklistPackingStage
+              packingList={pl}
+              onStatusChange={refreshStatus}
+              onCancel={() => navigate(-1)}
+            />
+          ) : (
+            <SecondaryDispatchStage packingList={pl} onStatusChange={refreshStatus} />
+          )
+        )}
+        {pl.order_type === 'primary' && (pl.status === 'packed' || pl.status === 'ready') && (
+          <PrimaryInvoiceStage packingList={pl} onStatusChange={refreshStatus} />
         )}
         {pl.order_type === 'primary' && (pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
           <div className="rounded-md border bg-card p-4 flex items-center justify-between">
@@ -110,7 +119,7 @@ export default function PackingListDetail() {
             <Button onClick={() => navigate('dispatch')}>Open Dispatch</Button>
           </div>
         )}
-        {pl.order_type !== 'primary' && (pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
+        {pl.order_type !== 'primary' && pl.order_type !== 'secondary' && (pl.status === 'ready' || pl.status === 'dispatched' || pl.status === 'delivered' || pl.status === 'completed') && (
           <DeliveryRunStage packingList={pl} onStatusChange={refreshStatus} />
         )}
         {pl.status === 'cancelled' && (
