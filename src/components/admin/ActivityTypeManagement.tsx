@@ -313,6 +313,7 @@ export default function ActivityTypeManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </Layout>
   );
 }
