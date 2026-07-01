@@ -392,10 +392,15 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean
+          is_category: boolean
           is_sales_activity: boolean
+          location_required: boolean
           name: string
+          parent_id: string | null
+          photo_required: boolean
           productivity_weight: number
           requires_check_in: boolean
+          show_in_picker: boolean
           sort_order: number
           updated_at: string
           updated_by: string | null
@@ -409,10 +414,15 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_category?: boolean
           is_sales_activity?: boolean
+          location_required?: boolean
           name: string
+          parent_id?: string | null
+          photo_required?: boolean
           productivity_weight?: number
           requires_check_in?: boolean
+          show_in_picker?: boolean
           sort_order?: number
           updated_at?: string
           updated_by?: string | null
@@ -426,15 +436,28 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean
+          is_category?: boolean
           is_sales_activity?: boolean
+          location_required?: boolean
           name?: string
+          parent_id?: string | null
+          photo_required?: boolean
           productivity_weight?: number
           requires_check_in?: boolean
+          show_in_picker?: boolean
           sort_order?: number
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "activity_types_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "activity_types"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       additional_expenses: {
         Row: {
