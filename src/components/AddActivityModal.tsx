@@ -13,7 +13,7 @@ import {
   CalendarIcon, Loader2, Navigation, Store, Route, Users,
   Map as MapSearch, Warehouse, Megaphone, CalendarDays as CalendarEvent,
   Star, X as XIcon, Wifi, WifiOff, MapPin, Clock, CheckCircle2,
-  Activity as ActivityIcon,
+  Activity as ActivityIcon, Camera,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -95,14 +95,31 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   const isOnline = connectivity === 'online';
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Type — value is the master type's `name` (matches what's stored on activity_events.activity_type)
-  const [selectedType, setSelectedType] = useState<string>(JOINT);
+  // Two-level picker: category → sub-type
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  // Value = sub-type name (backward-compatible with activity_events.activity_type)
+  const [selectedType, setSelectedType] = useState<string>('');
+
+  const pickerTypes = activityTypes.filter((t) => t.is_active && t.show_in_picker);
+  const categoryOptions = pickerTypes.filter((t) => t.is_category).slice(0, 5);
+  const activeCategory = categoryOptions.find((c) => c.id === selectedCategoryId) || null;
+  const subtypeOptions = selectedCategoryId
+    ? pickerTypes.filter((t) => !t.is_category && t.parent_id === selectedCategoryId)
+    : [];
+  const activeTypeRow = activityTypes.find((t) => t.name === selectedType) || null;
+
   const isJoint       = selectedType === JOINT;
   const isSurvey      = selectedType === SURVEY;
   const isDistributor = selectedType === DISTRIBUTOR;
   const isMeeting     = selectedType === MEETING;
-  // Look up the matching master row (for code / requires_check_in / default_duration_minutes).
-  const activeTypeRow = activityTypes.find((t) => t.name === selectedType);
+
+  // Per-sub-type requirements
+  const photoRequired    = !!activeTypeRow?.photo_required;
+  const locationRequired = !!activeTypeRow?.location_required;
+
+  // Check-in photo (uploaded to activity-attachments bucket after save)
+  const [checkInPhoto, setCheckInPhoto] = useState<File | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Shared
   const [activityDate, setActivityDate] = useState<Date>(new Date());
@@ -276,7 +293,9 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
   };
 
   const resetForm = () => {
-    setSelectedType(JOINT);
+    setSelectedCategoryId('');
+    setSelectedType('');
+    setCheckInPhoto(null);
     setActivityDate(new Date());
     setCheckInHHMM(nowHHMM()); setCheckOutHHMM(''); setDurationMinutes(null);
     setGpsLat(null); setGpsLng(null); setRemarks('');
@@ -306,6 +325,14 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
     if (!user?.id) { toast.error('Please log in first'); return; }
     if (!isOnline) { toast.error('Activity logging requires internet'); return; }
     if (isSubmitted) { toast.info('Already saved — log check-out if ready'); return; }
+
+    if (!selectedType) { toast.error('Pick a category and activity type'); return; }
+    if (locationRequired && (gpsLat == null || gpsLng == null)) {
+      toast.error('GPS location is required for this activity — tap Capture GPS'); return;
+    }
+    if (photoRequired && !checkInPhoto) {
+      toast.error('A check-in photo is required for this activity'); return;
+    }
 
     if (isJoint && !subordinateId) { toast.error('Select a subordinate'); return; }
     if (isSurvey && (!surveyBeatName || !surveyObservations)) { toast.error('Beat name and observations required'); return; }
@@ -380,6 +407,32 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
       setSavedActivityId(result.activityId);
       setIsSubmitted(true);
 
+      // Upload check-in photo (if required or provided) to activity-attachments
+      if (checkInPhoto && result.activityId) {
+        setUploadingPhoto(true);
+        try {
+          const safeName = checkInPhoto.name.replace(/[^\w.\-]+/g, '_');
+          const path = `${result.activityId}/checkin_${Date.now()}_${safeName}`;
+          const { error: upErr } = await supabase.storage
+            .from('activity-attachments')
+            .upload(path, checkInPhoto, { contentType: checkInPhoto.type || undefined, upsert: false });
+          if (upErr) throw upErr;
+          await supabase.from('activity_attachments').insert({
+            activity_event_id: result.activityId,
+            file_path: path,
+            file_name: `checkin_${checkInPhoto.name}`,
+            file_type: checkInPhoto.type || null,
+            file_size: checkInPhoto.size,
+            uploaded_by: user.id,
+          } as any);
+        } catch (e: any) {
+          console.warn('[AddActivityModal] check-in photo upload failed', e);
+          toast.warning('Activity saved, but check-in photo upload failed');
+        } finally {
+          setUploadingPhoto(false);
+        }
+      }
+
       // Joint visit — write to joint_sales_sessions (+ optional joint_sales_feedback)
       if (isJoint) {
         const { data: sessionData } = await supabase.from('joint_sales_sessions').insert({
@@ -439,35 +492,111 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
         <div className="space-y-4 mt-2">
 
-          {/* ── Type selector (sourced from activity_types master) ── */}
-          <div>
-            <Label className="text-xs">Activity type</Label>
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-              {activityTypes.length === 0 ? (
-                <div className="col-span-full text-center text-xs text-muted-foreground py-2">
-                  Loading…
-                </div>
-              ) : (
-                activityTypes.map((t) => (
+          {/* ── Two-level picker: Category boxes → Sub-type chips ── */}
+          <div className="space-y-2">
+            <Label className="text-xs">Category</Label>
+            {activityTypes.length === 0 ? (
+              <div className="text-center text-xs text-muted-foreground py-2">Loading…</div>
+            ) : categoryOptions.length === 0 ? (
+              <div className="text-center text-xs text-muted-foreground py-2">
+                No activity categories configured. Ask an admin to set them up.
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                {categoryOptions.map((c) => (
                   <button
-                    key={t.id}
+                    key={c.id}
                     type="button"
                     disabled={isSubmitted}
-                    onClick={() => setSelectedType(t.name)}
+                    onClick={() => {
+                      setSelectedCategoryId(c.id);
+                      // Auto-select the only sub-type if there is exactly one
+                      const kids = pickerTypes.filter((t) => !t.is_category && t.parent_id === c.id);
+                      setSelectedType(kids.length === 1 ? kids[0].name : '');
+                    }}
                     className={cn(
                       'flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-[10px] font-medium transition-colors disabled:opacity-40',
-                      selectedType === t.name
-                        ? ACTIVE_COLOR(t.color)
+                      selectedCategoryId === c.id
+                        ? ACTIVE_COLOR(c.color)
                         : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted'
                     )}
                   >
                     <ActivityIcon className="h-4 w-4" />
-                    <span className="text-center leading-tight">{t.name}</span>
+                    <span className="text-center leading-tight">{c.name}</span>
                   </button>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {activeCategory && (
+              <div>
+                <Label className="text-xs">Activity type</Label>
+                {subtypeOptions.length === 0 ? (
+                  <div className="text-xs text-muted-foreground py-2">
+                    No sub-types under this category yet.
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {subtypeOptions.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={isSubmitted}
+                        onClick={() => setSelectedType(s.name)}
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-[11px] transition-colors disabled:opacity-40',
+                          selectedType === s.name
+                            ? ACTIVE_COLOR(s.color || activeCategory.color)
+                            : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {activeTypeRow && (photoRequired || locationRequired) && (
+                  <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    Required for this type:
+                    {locationRequired && ' GPS'}
+                    {locationRequired && photoRequired && ' + '}
+                    {photoRequired && ' Check-in photo'}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Check-in photo capture (shown when required or when a sub-type is chosen) */}
+          {selectedType && photoRequired && (
+            <div>
+              <Label className="text-xs">Check-in photo <span className="text-destructive">*</span></Label>
+              <div className="flex items-center gap-2 mt-1">
+                <label className={cn(
+                  'flex items-center gap-1 border rounded-md px-3 py-2 text-xs cursor-pointer',
+                  checkInPhoto ? 'bg-green-50 border-green-400 text-green-700' : 'bg-muted/40'
+                )}>
+                  <Camera className="h-3.5 w-3.5" />
+                  {checkInPhoto ? checkInPhoto.name.slice(0, 24) : 'Take / choose photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    disabled={isSubmitted}
+                    onChange={(e) => setCheckInPhoto(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {checkInPhoto && !isSubmitted && (
+                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setCheckInPhoto(null)}>
+                    <XIcon className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
 
           {/* ── Shared: date + GPS ─────────────────────────── */}
           <div className="grid grid-cols-2 gap-2">

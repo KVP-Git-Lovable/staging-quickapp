@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   CalendarDays, Clock, Timer, LogIn, LogOut, Loader2, Save, CheckCircle2, Play, XCircle, Activity as ActivityIcon,
-  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink,
+  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink, MapPin,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -111,15 +111,17 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
   if (!activity) return null;
 
 
-  const meta = (() => {
+  const typeRow = (() => {
     const key = activity.activityType;
-    if (!key) return { label: 'Other', colorClass: COLOR_CLASS.gray };
-    const hit = types.find(t => t.name === key || t.code === key);
-    return {
-      label: hit?.name ?? humanize(key),
-      colorClass: (hit?.color && COLOR_CLASS[hit.color]) || COLOR_CLASS.gray,
-    };
+    if (!key) return null;
+    return types.find(t => t.name === key || t.code === key) || null;
   })();
+  const meta = {
+    label: typeRow?.name ?? (activity.activityType ? humanize(activity.activityType) : 'Other'),
+    colorClass: (typeRow?.color && COLOR_CLASS[typeRow.color]) || COLOR_CLASS.gray,
+  };
+  const photoRequired = !!typeRow?.photo_required;
+  const locationRequired = !!typeRow?.location_required;
 
   const isCancelled = activity.status === 'cancelled';
   const isCompleted = !isCancelled && (!!activity.checkOutTime || activity.status === 'productive' || activity.status === 'completed');
@@ -155,12 +157,32 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
   const runAction = async (action: 'check_in' | 'complete') => {
     if (busy) return;
+
+    // Enforce per-sub-type photo requirement:
+    //  - check_in requires ≥1 attachment
+    //  - complete requires ≥2 (check-in + check-out photo)
+    if (photoRequired) {
+      const need = action === 'check_in' ? 1 : 2;
+      if (attachments.length < need) {
+        toast.error(
+          action === 'check_in'
+            ? 'Upload a check-in photo before checking in'
+            : 'Upload a check-out photo before completing'
+        );
+        return;
+      }
+    }
+
     setBusy(action);
     try {
       const { data: userRes } = await supabase.auth.getUser();
       const actor = userRes?.user?.id;
       if (!actor) { toast.error('Not signed in'); return; }
       const pos = await tryGetPosition();
+      if (locationRequired && !pos) {
+        toast.error('GPS location is required for this activity. Enable location and try again.');
+        return;
+      }
       const { data, error } = await supabase.rpc('activity_visit_action', {
         p_visit_id: activity.visitId,
         p_activity_event_id: activity.activityEventId,
@@ -326,6 +348,16 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
               </span>
             </div>
           </div>
+
+          {(photoRequired || locationRequired) && !isCancelled && !isCompleted && (
+            <p className="text-[11px] text-amber-600 flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              Required for this type:
+              {locationRequired && ' GPS'}
+              {locationRequired && photoRequired && ' + '}
+              {photoRequired && ' Photo (check-in & check-out)'}
+            </p>
+          )}
 
           {!isCancelled && !isCompleted && (
             <div className="flex items-center gap-2">

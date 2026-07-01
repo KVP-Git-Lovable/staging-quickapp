@@ -13,6 +13,11 @@ export interface ActivityType {
   color: string | null;
   sort_order: number;
   is_active: boolean;
+  is_category: boolean;
+  parent_id: string | null;
+  photo_required: boolean;
+  location_required: boolean;
+  show_in_picker: boolean;
 }
 
 export function useActivityTypes() {
