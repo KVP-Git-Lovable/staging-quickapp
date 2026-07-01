@@ -492,35 +492,111 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
         <div className="space-y-4 mt-2">
 
-          {/* ── Type selector (sourced from activity_types master) ── */}
-          <div>
-            <Label className="text-xs">Activity type</Label>
-            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-              {activityTypes.length === 0 ? (
-                <div className="col-span-full text-center text-xs text-muted-foreground py-2">
-                  Loading…
-                </div>
-              ) : (
-                activityTypes.map((t) => (
+          {/* ── Two-level picker: Category boxes → Sub-type chips ── */}
+          <div className="space-y-2">
+            <Label className="text-xs">Category</Label>
+            {activityTypes.length === 0 ? (
+              <div className="text-center text-xs text-muted-foreground py-2">Loading…</div>
+            ) : categoryOptions.length === 0 ? (
+              <div className="text-center text-xs text-muted-foreground py-2">
+                No activity categories configured. Ask an admin to set them up.
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                {categoryOptions.map((c) => (
                   <button
-                    key={t.id}
+                    key={c.id}
                     type="button"
                     disabled={isSubmitted}
-                    onClick={() => setSelectedType(t.name)}
+                    onClick={() => {
+                      setSelectedCategoryId(c.id);
+                      // Auto-select the only sub-type if there is exactly one
+                      const kids = pickerTypes.filter((t) => !t.is_category && t.parent_id === c.id);
+                      setSelectedType(kids.length === 1 ? kids[0].name : '');
+                    }}
                     className={cn(
                       'flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-[10px] font-medium transition-colors disabled:opacity-40',
-                      selectedType === t.name
-                        ? ACTIVE_COLOR(t.color)
+                      selectedCategoryId === c.id
+                        ? ACTIVE_COLOR(c.color)
                         : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted'
                     )}
                   >
                     <ActivityIcon className="h-4 w-4" />
-                    <span className="text-center leading-tight">{t.name}</span>
+                    <span className="text-center leading-tight">{c.name}</span>
                   </button>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {activeCategory && (
+              <div>
+                <Label className="text-xs">Activity type</Label>
+                {subtypeOptions.length === 0 ? (
+                  <div className="text-xs text-muted-foreground py-2">
+                    No sub-types under this category yet.
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {subtypeOptions.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={isSubmitted}
+                        onClick={() => setSelectedType(s.name)}
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-[11px] transition-colors disabled:opacity-40',
+                          selectedType === s.name
+                            ? ACTIVE_COLOR(s.color || activeCategory.color)
+                            : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted'
+                        )}
+                      >
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {activeTypeRow && (photoRequired || locationRequired) && (
+                  <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    Required for this type:
+                    {locationRequired && ' GPS'}
+                    {locationRequired && photoRequired && ' + '}
+                    {photoRequired && ' Check-in photo'}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Check-in photo capture (shown when required or when a sub-type is chosen) */}
+          {selectedType && photoRequired && (
+            <div>
+              <Label className="text-xs">Check-in photo <span className="text-destructive">*</span></Label>
+              <div className="flex items-center gap-2 mt-1">
+                <label className={cn(
+                  'flex items-center gap-1 border rounded-md px-3 py-2 text-xs cursor-pointer',
+                  checkInPhoto ? 'bg-green-50 border-green-400 text-green-700' : 'bg-muted/40'
+                )}>
+                  <Camera className="h-3.5 w-3.5" />
+                  {checkInPhoto ? checkInPhoto.name.slice(0, 24) : 'Take / choose photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    disabled={isSubmitted}
+                    onChange={(e) => setCheckInPhoto(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {checkInPhoto && !isSubmitted && (
+                  <Button size="sm" variant="ghost" className="h-8 px-2" onClick={() => setCheckInPhoto(null)}>
+                    <XIcon className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
 
           {/* ── Shared: date + GPS ─────────────────────────── */}
           <div className="grid grid-cols-2 gap-2">
