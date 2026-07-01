@@ -104,11 +104,20 @@ export const offlineSyncActions: QATestAction[] = [
           qa_synthetic: true,
         };
         await offlineStorage.addToSyncQueue('CREATE_ORDER', payload);
+        // Force cache invalidation so the immediate getAll returns the
+        // freshly persisted row (the getStoreData 60s memory cache was
+        // populated by queueBefore above and could otherwise mask it).
+        offlineStorage.invalidateCache(STORES.SYNC_QUEUE);
+        try {
+          const keys = await Preferences.keys();
+          console.log('[QA] Preferences keys after enqueue:', keys.keys);
+        } catch { /* diagnostic only */ }
 
         // Confirm a new row landed.
         const deadline = Date.now() + 5_000;
         let queued: SyncQueueItem | null = null;
         while (Date.now() < deadline) {
+          offlineStorage.invalidateCache(STORES.SYNC_QUEUE);
           const match = await findPendingOrderForRetailer(input.retailer_id);
           if (match && !idsBefore.has(match.id)) {
             queued = match;
