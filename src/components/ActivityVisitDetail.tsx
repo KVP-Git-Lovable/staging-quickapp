@@ -111,15 +111,17 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
   if (!activity) return null;
 
 
-  const meta = (() => {
+  const typeRow = (() => {
     const key = activity.activityType;
-    if (!key) return { label: 'Other', colorClass: COLOR_CLASS.gray };
-    const hit = types.find(t => t.name === key || t.code === key);
-    return {
-      label: hit?.name ?? humanize(key),
-      colorClass: (hit?.color && COLOR_CLASS[hit.color]) || COLOR_CLASS.gray,
-    };
+    if (!key) return null;
+    return types.find(t => t.name === key || t.code === key) || null;
   })();
+  const meta = {
+    label: typeRow?.name ?? (activity.activityType ? humanize(activity.activityType) : 'Other'),
+    colorClass: (typeRow?.color && COLOR_CLASS[typeRow.color]) || COLOR_CLASS.gray,
+  };
+  const photoRequired = !!typeRow?.photo_required;
+  const locationRequired = !!typeRow?.location_required;
 
   const isCancelled = activity.status === 'cancelled';
   const isCompleted = !isCancelled && (!!activity.checkOutTime || activity.status === 'productive' || activity.status === 'completed');
