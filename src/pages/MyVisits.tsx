@@ -1610,6 +1610,19 @@ export const MyVisits = () => {
             </Card>
           )}
           
+          {/* Activity visit cards — surface activities alongside retailer visit cards */}
+          {activityVisitCards.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Activities</h3>
+                <span className="text-[10px] text-muted-foreground">({activityVisitCards.length})</span>
+              </div>
+              {activityVisitCards.map((a) => (
+                <ActivityVisitCard key={a.visitId} activity={a} onOpen={handleOpenActivityCard} />
+              ))}
+            </div>
+          )}
+
           {/* Activity Events Table - shown above visit list, ONLY after parent data loads to prevent flicker */}
           {hasLoadedOnce && (isViewingSelf ? user?.id : selectedUserIds[0]) && (
             <ActivityEventsTable userId={isViewingSelf ? user!.id : selectedUserIds[0]} selectedDate={selectedDate} onActivitiesLoaded={(count) => setHasActivities(count > 0)} />
