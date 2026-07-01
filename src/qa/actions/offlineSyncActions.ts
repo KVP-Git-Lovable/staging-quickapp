@@ -23,6 +23,8 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
 import { supabase } from '@/integrations/supabase/client';
 import { table } from '@/lib/tableRouter';
 
+import { Preferences } from '@capacitor/preferences';
+
 declare global {
   interface Window {
     __qaSetOffline?: (offline: boolean) => void;
