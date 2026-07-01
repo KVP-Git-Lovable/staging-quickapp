@@ -93,6 +93,7 @@ export const orderActions: QATestAction[] = [
             idempotency_key: idem,
             order_source: 'qa_automation',
             sales_channel: 'field',
+            qa_run_id: ctx.runId,
           } as any)
           .select('id')
           .single();
@@ -112,6 +113,7 @@ export const orderActions: QATestAction[] = [
             quantity: qty,
             total,
             idempotency_key: `qa-item-${crypto.randomUUID()}`,
+            qa_run_id: ctx.runId,
           } as any)
           .select('id')
           .single();

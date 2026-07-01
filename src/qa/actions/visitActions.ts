@@ -59,6 +59,7 @@ export const visitActions: QATestAction[] = [
               check_in_location: gps,
               check_in_address: 'QA stub — Bengaluru',
               status: 'present',
+              qa_run_id: ctx.runId,
             } as any);
           if (attErr) {
             return { pass: false, errorMessage: `Attendance seed failed: ${attErr.message}` };
@@ -77,6 +78,7 @@ export const visitActions: QATestAction[] = [
             check_in_location: gps,
             check_in_address: 'QA stub — Bengaluru',
             visit_type: 'planned',
+            qa_run_id: ctx.runId,
           } as any)
           .select('id, user_id, retailer_id, planned_date')
           .single();

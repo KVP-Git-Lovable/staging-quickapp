@@ -72,6 +72,7 @@ export const smokeActions: QATestAction[] = [
           beat_id: beatId,
           address: 'QA Test Address',
           status: 'active',
+          qa_run_id: ctx.runId,
         } as any)
         .select('id')
         .single();
