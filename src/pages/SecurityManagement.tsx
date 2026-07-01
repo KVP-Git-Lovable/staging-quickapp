@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfilePermissions } from '@/hooks/useProfilePermissions';
@@ -7,16 +7,55 @@ import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Shield, Lock, Loader2, Users, UserCog } from 'lucide-react';
+import { ArrowLeft, Shield, Lock, Loader2, Users, UserCog, ShieldCheck } from 'lucide-react';
 import { RolePermissionsTab } from '@/components/security/RolePermissionsTab';
 import { PermissionSetGroupsTab } from '@/components/security/PermissionSetGroupsTab';
 import { ProfileManagement } from '@/components/security/ProfileManagement';
+import { grantAllToSystemAdmin } from '@/utils/grantAllToSystemAdmin';
+import { toast } from 'sonner';
 
 export default function SecurityManagement() {
   const navigate = useNavigate();
   const { loading, user } = useAuth();
   const { hasModuleAccess, isLoading: permLoading } = useProfilePermissions();
   const [activeTab, setActiveTab] = useState('profiles');
+  const [granting, setGranting] = useState(false);
+  const autoSyncedRef = useRef(false);
+
+  const canManageSecurity =
+    !loading && !permLoading && !!user && hasModuleAccess('admin_security_');
+
+  const runGrant = async (silent = false) => {
+    try {
+      setGranting(true);
+      const res = await grantAllToSystemAdmin();
+      if (!res.profileId) {
+        if (!silent) toast.error('System Administrator profile not found');
+        return;
+      }
+      if (!silent) {
+        toast.success(
+          res.granted > 0
+            ? `Granted ${res.granted} object(s) to System Administrator`
+            : 'System Administrator already has all permissions',
+        );
+      }
+    } catch (e: any) {
+      if (!silent) toast.error(e?.message || 'Failed to grant permissions');
+      // eslint-disable-next-line no-console
+      console.warn('[grantAllToSystemAdmin]', e);
+    } finally {
+      setGranting(false);
+    }
+  };
+
+  // Idempotent auto-sync on load for users who can manage security.
+  useEffect(() => {
+    if (!canManageSecurity || autoSyncedRef.current) return;
+    autoSyncedRef.current = true;
+    void runGrant(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageSecurity]);
 
   // Show loading while auth/permissions are being determined
   if (loading || permLoading) {
@@ -60,6 +99,19 @@ export default function SecurityManagement() {
               Manage user profiles, permissions, and data access
             </p>
           </div>
+          <Button
+            onClick={() => runGrant(false)}
+            disabled={granting}
+            variant="outline"
+            className="gap-2"
+          >
+            {granting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="h-4 w-4" />
+            )}
+            Grant all modules to System Administrator
+          </Button>
         </div>
 
         {/* Info Card */}
