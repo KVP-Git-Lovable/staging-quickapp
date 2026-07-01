@@ -349,6 +349,16 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
             </div>
           </div>
 
+          {(photoRequired || locationRequired) && !isCancelled && !isCompleted && (
+            <p className="text-[11px] text-amber-600 flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              Required for this type:
+              {locationRequired && ' GPS'}
+              {locationRequired && photoRequired && ' + '}
+              {photoRequired && ' Photo (check-in & check-out)'}
+            </p>
+          )}
+
           {!isCancelled && !isCompleted && (
             <div className="flex items-center gap-2">
               {!isInProgress ? (
