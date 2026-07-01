@@ -214,6 +214,15 @@ export default function ActivityTypeManagement() {
     );
   }
 
+  // Static class map — Tailwind's JIT can't detect classes assembled from
+  // template literals, so each tint is spelled out in full.
+  const TINT_ON: Record<string, string> = {
+    sky:     'border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-950/40 dark:text-sky-300',
+    emerald: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300',
+    amber:   'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300',
+  };
+  const TINT_OFF = 'border-border bg-muted/40 text-muted-foreground';
+
   // Compact toggle used inline on sub-type rows.
   const ToggleChip = ({
     checked, onChange, icon: Icon, label, tint,
@@ -222,14 +231,12 @@ export default function ActivityTypeManagement() {
     onChange: (v: boolean) => void;
     icon: typeof Camera;
     label: string;
-    tint: string; // tailwind color name, e.g. 'sky'
+    tint: 'sky' | 'emerald' | 'amber';
   }) => (
     <div
       className={[
         'flex items-center gap-1.5 rounded-full border px-2 py-1 transition-colors',
-        checked
-          ? `border-${tint}-300 bg-${tint}-50 text-${tint}-700 dark:border-${tint}-900/60 dark:bg-${tint}-950/40 dark:text-${tint}-300`
-          : 'border-border bg-muted/40 text-muted-foreground',
+        checked ? TINT_ON[tint] : TINT_OFF,
       ].join(' ')}
     >
       <Icon className="h-3 w-3" />
@@ -242,6 +249,7 @@ export default function ActivityTypeManagement() {
       />
     </div>
   );
+
 
   const SummaryCard = ({
     label, value, icon: Icon,
