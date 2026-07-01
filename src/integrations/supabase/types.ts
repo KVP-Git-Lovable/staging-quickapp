@@ -23805,6 +23805,46 @@ export type Database = {
       }
     }
     Views: {
+      activity_daily_summary: {
+        Row: {
+          activity_points: number | null
+          completed_activities: number | null
+          completed_activity_minutes: number | null
+          date: string | null
+          total_activities: number | null
+          total_activity_minutes: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      activity_type_productivity: {
+        Row: {
+          activities: number | null
+          activity_type: string | null
+          completed: number | null
+          date: string | null
+          is_sales_activity: boolean | null
+          minutes: number | null
+          points: number | null
+          user_id: string | null
+          weight: number | null
+        }
+        Relationships: []
+      }
+      field_productivity_daily: {
+        Row: {
+          activity_minutes: number | null
+          activity_points: number | null
+          completed_activities: number | null
+          date: string | null
+          overall_field_productivity: number | null
+          productive_sales_visits: number | null
+          total_activity_visits: number | null
+          total_sales_visits: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       orders_total_amount: {
         Row: {
           total_amount: number | null
