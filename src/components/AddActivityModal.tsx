@@ -63,17 +63,18 @@ const SectionCard = ({
 }: {
   step: number; title: string; icon: any; children: React.ReactNode; tone?: string;
 }) => (
-  <div className={cn('rounded-xl border p-3 bg-gradient-to-br shadow-sm', tone)}>
-    <div className="flex items-center gap-2 mb-2">
-      <div className="h-6 w-6 rounded-full bg-white border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">
+  <div className={cn('rounded-xl border p-2.5 bg-gradient-to-br shadow-sm', tone)}>
+    <div className="flex items-center gap-1.5 mb-1.5">
+      <div className="h-5 w-5 rounded-full bg-white border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">
         {step}
       </div>
-      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      <Icon className="h-3 w-3 text-muted-foreground" />
       <span className="text-xs font-semibold">{title}</span>
     </div>
     {children}
   </div>
 );
+
 
 
 export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) => {
@@ -198,10 +199,10 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           </DialogHeader>
         </div>
 
-        <div className="p-3 space-y-3">
+        <div className="p-2.5 space-y-2.5">
           {/* 1. Category */}
           <SectionCard step={1} title="Category" icon={Sparkles} tone="from-primary/5 to-white">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {categoryOptions.map(cat => {
                 const active = selectedCategoryId === cat.id;
                 return (
@@ -215,18 +216,18 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                     className={cn(
                       'relative p-2 rounded-lg border-2 text-left transition-all hover:scale-[1.02] hover:shadow-sm',
                       active
-                        ? cn(solid(cat.color), 'ring-4 ring-offset-1 shadow-md', ring(cat.color))
+                        ? cn(solid(cat.color), 'ring-2 ring-offset-1 shadow-md', ring(cat.color))
                         : cn(soft(cat.color), 'hover:brightness-95'),
                     )}
                   >
                     {active && (
-                      <div className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-white/90 text-primary flex items-center justify-center shadow">
-                        <Check className="h-3 w-3" />
+                      <div className="absolute top-1 right-1 h-4 w-4 rounded-full bg-white/90 text-primary flex items-center justify-center shadow">
+                        <Check className="h-2.5 w-2.5" />
                       </div>
                     )}
-                    <div className="text-sm font-semibold leading-tight">{cat.name}</div>
+                    <div className="text-xs font-semibold leading-tight pr-4">{cat.name}</div>
                     {cat.description && (
-                      <p className={cn('text-[10px] mt-1 line-clamp-2', active ? 'text-white/80' : 'opacity-70')}>
+                      <p className={cn('text-[9px] mt-0.5 line-clamp-1', active ? 'text-white/80' : 'opacity-70')}>
                         {cat.description}
                       </p>
                     )}
@@ -239,11 +240,11 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           {/* 2. Sub-type */}
           <SectionCard step={2} title="Activity type" icon={ActivityIcon} tone="from-fuchsia-50 to-white">
             {!selectedCategoryId ? (
-              <p className="text-xs text-muted-foreground italic">Pick a category above to see activity types.</p>
+              <p className="text-[10px] text-muted-foreground italic">Pick a category above to see activity types.</p>
             ) : subtypeOptions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No sub-types configured for {activeCategory?.name}.</p>
+              <p className="text-[10px] text-muted-foreground">No sub-types configured for {activeCategory?.name}.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {subtypeOptions.map(t => {
                   const active = selectedType === t.name;
                   const c = activeCategory?.color;
@@ -253,13 +254,13 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                       type="button"
                       onClick={() => setSelectedType(t.name)}
                       className={cn(
-                        'px-2.5 py-1.5 rounded-full text-xs border-2 transition-all',
+                        'px-2 py-1 rounded-full text-[11px] border-2 transition-all leading-none',
                         active
-                          ? cn(solid(c), 'shadow-md scale-105')
+                          ? cn(solid(c), 'shadow-sm scale-105')
                           : cn(soft(c), 'hover:brightness-95'),
                       )}
                     >
-                      {active && <Check className="inline h-3 w-3 mr-1" />}
+                      {active && <Check className="inline h-2.5 w-2.5 mr-0.5" />}
                       {t.name}
                     </button>
                   );
@@ -268,16 +269,17 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
             )}
           </SectionCard>
 
+
           {/* 3. When */}
           <SectionCard step={3} title="When" icon={CalendarDays} tone="from-blue-50 to-white">
-            <div className="flex gap-2 mb-2">
+            <div className="flex gap-1.5 mb-1.5">
               {(['single_day', 'multiple_days'] as DurationType[]).map(dt => (
                 <button
                   key={dt}
                   type="button"
                   onClick={() => setDurationType(dt)}
                   className={cn(
-                    'px-2.5 py-1 rounded-full text-[11px] font-medium border-2 transition',
+                    'px-2 py-0.5 rounded-full text-[10px] font-medium border-2 transition',
                     durationType === dt
                       ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-blue-600 shadow'
                       : 'bg-white border-border hover:bg-blue-50',
@@ -291,8 +293,8 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
             {durationType === 'single_day' ? (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-8 text-xs">
-                    <CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
+                  <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-7 text-[11px]">
+                    <CalendarIcon className="mr-1.5 h-3 w-3 text-blue-500" />
                     {format(activityDate, 'PP')}
                   </Button>
                 </PopoverTrigger>
@@ -303,11 +305,11 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                 </PopoverContent>
               </Popover>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-1.5">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-8 text-xs">
-                      <CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
+                    <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-7 text-[11px]">
+                      <CalendarIcon className="mr-1.5 h-3 w-3 text-blue-500" />
                       From: {format(fromDate, 'PP')}
                     </Button>
                   </PopoverTrigger>
@@ -322,8 +324,8 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                 </Popover>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-8 text-xs">
-                      <CalendarIcon className="mr-2 h-3.5 w-3.5 text-indigo-500" />
+                    <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-7 text-[11px]">
+                      <CalendarIcon className="mr-1.5 h-3 w-3 text-indigo-500" />
                       To: {format(toDate, 'PP')}
                     </Button>
                   </PopoverTrigger>
@@ -343,7 +345,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
           {/* 4. Duration */}
           <SectionCard step={4} title="Expected duration" icon={Clock} tone="from-emerald-50 to-white">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {durationPresets.map(([val, label, Icon]) => {
                 const active = durationPreset === val;
                 return (
@@ -352,31 +354,31 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                     type="button"
                     onClick={() => setDurationPreset(val)}
                     className={cn(
-                      'px-2.5 py-1 rounded-full text-[11px] font-medium border-2 transition flex items-center gap-1',
+                      'px-2 py-0.5 rounded-full text-[10px] font-medium border-2 transition flex items-center gap-1',
                       active
                         ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white border-green-600 shadow'
                         : 'bg-white border-border hover:bg-emerald-50 text-slate-700',
                     )}
                   >
-                    <Icon className="h-3 w-3" />
+                    <Icon className="h-2.5 w-2.5" />
                     {label}
                   </button>
                 );
               })}
             </div>
             {durationPreset === 'custom' && (
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-1.5 flex items-center gap-2">
                 <Input type="number" min={1} value={customMinutes}
                   onChange={(e) => setCustomMinutes(Number(e.target.value))}
-                  className="w-28 h-8 bg-white text-xs" />
-                <span className="text-xs text-muted-foreground">min</span>
+                  className="w-24 h-7 bg-white text-[11px]" />
+                <span className="text-[10px] text-muted-foreground">min</span>
               </div>
             )}
           </SectionCard>
 
           {/* 5. Time of day */}
           <SectionCard step={5} title="Time of day" icon={Sun} tone="from-amber-50 to-white">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {halves.map(([val, label, Icon]) => {
                 const active = halfDay === val;
                 return (
@@ -385,13 +387,13 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                     type="button"
                     onClick={() => setHalfDay(val)}
                     className={cn(
-                      'px-2.5 py-1 rounded-full text-xs font-medium border-2 transition flex items-center gap-1.5',
+                      'px-2 py-0.5 rounded-full text-[10px] font-medium border-2 transition flex items-center gap-1',
                       active
                         ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white border-orange-500 shadow'
                         : 'bg-white border-border hover:bg-amber-50 text-slate-700',
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-2.5 w-2.5" />
                     {label}
                   </button>
                 );
@@ -400,45 +402,47 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           </SectionCard>
 
           {/* Summary strip */}
-          <div className="rounded-lg border bg-gradient-to-r from-slate-50 via-white to-slate-50 p-2 flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] text-muted-foreground font-medium">Summary:</span>
+          <div className="rounded-lg border bg-gradient-to-r from-slate-50 via-white to-slate-50 p-1.5 flex flex-wrap items-center gap-1">
+            <span className="text-[9px] text-muted-foreground font-medium">Summary:</span>
             {activeCategory && (
-              <Badge className={cn('text-[10px] py-0.5 px-1.5 border', soft(activeCategory.color))}>{activeCategory.name}</Badge>
+              <Badge className={cn('text-[9px] py-0 px-1 border', soft(activeCategory.color))}>{activeCategory.name}</Badge>
             )}
             {selectedType && (
-              <Badge className={cn('text-[10px] py-0.5 px-1.5 border', soft(activeCategory?.color))}>{selectedType}</Badge>
+              <Badge className={cn('text-[9px] py-0 px-1 border', soft(activeCategory?.color))}>{selectedType}</Badge>
             )}
-            <Badge variant="outline" className="text-[10px] py-0.5 px-1.5 gap-1">
-              <CalendarDays className="h-2.5 w-2.5" />
+            <Badge variant="outline" className="text-[9px] py-0 px-1 gap-0.5">
+              <CalendarDays className="h-2 w-2" />
               {durationType === 'single_day'
                 ? format(activityDate, 'MMM d')
                 : `${format(fromDate, 'MMM d')} → ${format(toDate, 'MMM d')}`}
             </Badge>
-            <Badge variant="outline" className="text-[10px] py-0.5 px-1.5 gap-1"><Clock className="h-2.5 w-2.5" />{durationLabel()}</Badge>
-            <Badge variant="outline" className="text-[10px] py-0.5 px-1.5 gap-1">
-              {halfDay === 'first_half' ? <Sunrise className="h-2.5 w-2.5" /> :
-                halfDay === 'second_half' ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
+            <Badge variant="outline" className="text-[9px] py-0 px-1 gap-0.5"><Clock className="h-2 w-2" />{durationLabel()}</Badge>
+            <Badge variant="outline" className="text-[9px] py-0 px-1 gap-0.5">
+              {halfDay === 'first_half' ? <Sunrise className="h-2 w-2" /> :
+                halfDay === 'second_half' ? <Moon className="h-2 w-2" /> : <Sun className="h-2 w-2" />}
               {halfDay === 'full' ? 'Full day' : halfDay === 'first_half' ? '1st half' : '2nd half'}
             </Badge>
           </div>
 
+
           {/* Footer */}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+          <div className="flex justify-end gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="h-7 text-xs px-2.5">
               Cancel
             </Button>
             <Button
               size="sm"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="bg-gradient-to-br from-primary to-fuchsia-600 hover:brightness-110 text-white shadow-sm"
+              className="h-7 px-3 bg-gradient-to-br from-primary to-fuchsia-600 hover:brightness-110 text-white shadow-sm text-xs"
             >
               {isSubmitting
-                ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
+                ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                : <Rocket className="h-3 w-3 mr-1" />}
               Schedule
             </Button>
           </div>
+
         </div>
       </DialogContent>
     </Dialog>
