@@ -575,8 +575,12 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
           {/* ─── Per-sub-type detail form ────────────────── */}
           {(isJoint || isSurvey || isDistributor || isMeeting) && !isCancelled && (
-            <div className="space-y-3 border-t pt-4">
-              <Label className="text-sm font-semibold">Activity details</Label>
+            <div className="rounded-xl border bg-primary/5 p-4 shadow-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-1 rounded-full bg-primary" />
+                <Label className="text-sm font-semibold">Activity details</Label>
+              </div>
+
 
               {isJoint && (
                 <div className="space-y-3">
