@@ -16,6 +16,7 @@ interface ActivityEventsTableProps {
   userId: string;
   selectedDate: string;
   onActivitiesLoaded?: (count: number) => void;
+  onActivityChanged?: () => void;
   onOpenDetail?: (
     activity: ActivityEvent,
     visitStatus?: { status: string | null; check_in_time: string | null; check_out_time: string | null } | null,
