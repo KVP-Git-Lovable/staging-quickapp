@@ -574,7 +574,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                     <Button
                       size="sm"
                       className="h-7 text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={() => handleStartActivity(activity)}
+                      onClick={(e) => { e.stopPropagation(); handleStartActivity(activity); }}
                       disabled={actionLoading === activity.id + '-start'}
                     >
                       {actionLoading === activity.id + '-start' ? (
