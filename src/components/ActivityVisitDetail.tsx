@@ -76,6 +76,51 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // ─── Detail form state (per-sub-type) ───────────────────────────
+  const { subordinates } = useSubordinates();
+  const [form, setForm] = useState<Record<string, any>>({});
+  const [savingForm, setSavingForm] = useState(false);
+  const [distributorSearch, setDistributorSearch] = useState('');
+  const [distributorResults, setDistributorResults] = useState<{ id: string; name: string }[]>([]);
+  const setF = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
+
+  // Load full activity_events row
+  const loadDetail = useCallback(async () => {
+    if (!activity?.activityEventId) return;
+    const { data } = await supabase
+      .from('activity_events')
+      .select('*')
+      .eq('id', activity.activityEventId)
+      .maybeSingle();
+    if (data) setForm(data as Record<string, any>);
+  }, [activity?.activityEventId]);
+
+  useEffect(() => {
+    if (open) loadDetail();
+  }, [open, loadDetail]);
+
+  // Distributor search
+  useEffect(() => {
+    if (!distributorSearch || distributorSearch.length < 2) { setDistributorResults([]); return; }
+    const t = setTimeout(async () => {
+      const [distRes, userRes] = await Promise.all([
+        supabase.from('distributors').select('id, name').ilike('name', `%${distributorSearch}%`).limit(8),
+        supabase.from('distributor_users').select('distributor_id, full_name, distributors(id, name)')
+          .ilike('full_name', `%${distributorSearch}%`).not('distributor_id', 'is', null).limit(8),
+      ]);
+      const m = new Map<string, string>();
+      ((distRes.data as any) || []).forEach((d: any) => { if (d.id && !m.has(d.id)) m.set(d.id, d.name); });
+      ((userRes.data as any) || []).forEach((d: any) => {
+        const id = d.distributors?.id || d.distributor_id;
+        const name = d.distributors?.name || d.full_name;
+        if (id && !m.has(id)) m.set(id, name);
+      });
+      setDistributorResults(Array.from(m, ([id, name]) => ({ id, name })));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [distributorSearch]);
+
+
   useEffect(() => {
     setRemarks(activity?.remarks ?? '');
   }, [activity?.activityEventId, activity?.remarks]);
