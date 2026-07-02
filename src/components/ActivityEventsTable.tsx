@@ -10,6 +10,7 @@ import { getLocalTodayDate } from '@/utils/dateUtils';
 import { Geolocation } from '@capacitor/geolocation';
 import { useNavigate } from 'react-router-dom';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
+import { ActivityCompletionDialog } from '@/components/ActivityCompletionDialog';
 
 interface ActivityEventsTableProps {
   userId: string;
@@ -81,6 +82,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
   const [isLoading, setIsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [completionTarget, setCompletionTarget] = useState<{ id: string; visitId: string } | null>(null);
 
   const isToday = selectedDate === getLocalTodayDate();
   
@@ -210,40 +212,11 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
     }
   };
 
-  const handleCompleteActivity = async (activity: ActivityEvent) => {
+  const handleCompleteActivity = (activity: ActivityEvent) => {
     if (!activity.visit_id) return;
-    setActionLoading(activity.id + '-complete');
-    try {
-      const now = new Date().toISOString();
-      const gps = await captureGPS();
-
-      // Update visit to productive/completed with check_out_time
-      const { error: visitError } = await supabase
-        .from('visits')
-        .update({ 
-          check_out_time: now, 
-          status: 'productive',
-        } as any)
-        .eq('id', activity.visit_id);
-
-      if (visitError) throw visitError;
-
-      // Update activity_events with end location and time
-      await updateActivityLocation(activity.id, {
-        end_time: now,
-        ...(gps ? { end_latitude: gps.lat, end_longitude: gps.lng } : {}),
-      });
-
-      toast.success('Activity completed!');
-      window.dispatchEvent(new CustomEvent('visitDataChanged'));
-      await loadActivities();
-    } catch (err) {
-      console.error('[ActivityEventsTable] Complete failed:', err);
-      toast.error('Failed to complete activity');
-    } finally {
-      setActionLoading(null);
-    }
+    setCompletionTarget({ id: activity.id, visitId: activity.visit_id });
   };
+
 
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -611,6 +584,16 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
           );
         })}
       </CardContent>
+      {completionTarget && (
+        <ActivityCompletionDialog
+          open={!!completionTarget}
+          onOpenChange={(o) => { if (!o) setCompletionTarget(null); }}
+          activityId={completionTarget.id}
+          visitId={completionTarget.visitId}
+          onCompleted={() => { setCompletionTarget(null); loadActivities(); }}
+        />
+      )}
     </Card>
   );
 };
+
