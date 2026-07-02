@@ -135,6 +135,8 @@ export const Cart = () => {
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
+  // Fulfillment choice — default to next-day when D-1 is available
+  const [fulfillmentChoice, setFulfillmentChoice] = React.useState<'deliver_now' | 'next_day'>('next_day');
 
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
