@@ -485,9 +485,9 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
           </div>
 
           {canReadAttach && (
-            <div className="space-y-2">
+            <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-1.5">
+                <Label className="flex items-center gap-1.5 text-sm font-semibold">
                   <Paperclip className="h-3.5 w-3.5" /> Attachments
                 </Label>
                 {canCreateAttach && (
