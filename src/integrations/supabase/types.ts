@@ -26687,6 +26687,13 @@ export type Database = {
           subordinate_user_id: string
         }[]
       }
+      get_assignable_users: {
+        Args: never
+        Returns: {
+          user_id: string
+          user_name: string
+        }[]
+      }
       get_auth_user_id_by_email: {
         Args: { lookup_email: string }
         Returns: string

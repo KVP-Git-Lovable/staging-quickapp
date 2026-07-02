@@ -11,6 +11,7 @@ import { ArrowLeft, Plus, Activity as ActivityIcon, CheckCircle2, TrendingUp, Cl
 import { usePermissions } from '@/hooks/usePermissions';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
+import AssignActivityDialog from '@/components/activity/AssignActivityDialog';
 
 interface TeamActivityRow {
   visit_id: string;
@@ -65,26 +66,23 @@ const ActivityCoordinator: React.FC = () => {
 
   const [rows, setRows] = useState<TeamActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+
+  const fetchRows = React.useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('get_team_activities' as any, {
+      p_from: fromDate,
+      p_to: toDate,
+    });
+    if (!error && Array.isArray(data)) setRows(data as TeamActivityRow[]);
+    else setRows([]);
+    setLoading(false);
+  }, [fromDate, toDate]);
 
   useEffect(() => {
     if (!canView) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase.rpc('get_team_activities' as any, {
-        p_from: fromDate,
-        p_to: toDate,
-      });
-      if (!cancelled) {
-        if (!error && Array.isArray(data)) setRows(data as TeamActivityRow[]);
-        else setRows([]);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fromDate, toDate, canView]);
+    fetchRows();
+  }, [fetchRows, canView]);
 
   const typeMap = useMemo(() => {
     const m = new Map<string, { name: string; color: string | null }>();
@@ -157,7 +155,7 @@ const ActivityCoordinator: React.FC = () => {
             <Button
               className="gap-2"
               disabled={!can('action_activity_assign', 'create')}
-              onClick={() => {/* M-3 assign dialog */}}
+              onClick={() => setAssignOpen(true)}
             >
               <Plus size={16} /> Assign activity
             </Button>
@@ -266,6 +264,7 @@ const ActivityCoordinator: React.FC = () => {
           </Card>
         </div>
       </div>
+      <AssignActivityDialog open={assignOpen} onOpenChange={setAssignOpen} onAssigned={fetchRows} />
     </Layout>
   );
 };
