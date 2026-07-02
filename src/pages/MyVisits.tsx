@@ -1620,14 +1620,14 @@ export const MyVisits = () => {
               userId={isViewingSelf ? user!.id : selectedUserIds[0]}
               selectedDate={selectedDate}
               onActivitiesLoaded={(count) => setHasActivities(count > 0)}
-              onOpenDetail={(row) => setDetailActivity({
+              onOpenDetail={(row, visitStatus) => setDetailActivity({
                 visitId: row.visit_id!,
                 activityEventId: row.id,
                 activityName: row.activity_name || 'Activity',
                 activityType: row.activity_type ?? null,
-                status: (row as any).status ?? null,
-                checkInTime: (row as any).check_in_time ?? null,
-                checkOutTime: (row as any).check_out_time ?? null,
+                status: visitStatus?.status ?? (row as any).status ?? null,
+                checkInTime: visitStatus?.check_in_time ?? (row as any).check_in_time ?? null,
+                checkOutTime: visitStatus?.check_out_time ?? (row as any).check_out_time ?? null,
                 durationMinutes: row.duration_minutes ?? null,
                 remarks: row.remarks ?? null,
                 plannedDate: row.activity_date,
