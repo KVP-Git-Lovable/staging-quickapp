@@ -62,7 +62,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   },
 };
 
-export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, onOpenDetail }: ActivityEventsTableProps) => {
+export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, onActivityChanged, onOpenDetail }: ActivityEventsTableProps) => {
   const { fetchActivitiesForDate, updateActivityLocation } = useActivityEvents();
   const { types: activityTypeMaster } = useActivityTypes();
   const navigate = useNavigate();
@@ -204,6 +204,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
 
       toast.success('Activity started — tracking in progress');
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
+      onActivityChanged?.();
       await loadActivities();
     } catch (err) {
       console.error('[ActivityEventsTable] Start failed:', err);
@@ -591,7 +592,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
           onOpenChange={(o) => { if (!o) setCompletionTarget(null); }}
           activityId={completionTarget.id}
           visitId={completionTarget.visitId}
-          onCompleted={() => { setCompletionTarget(null); loadActivities(); }}
+          onCompleted={() => { setCompletionTarget(null); onActivityChanged?.(); loadActivities(); }}
         />
       )}
     </Card>
