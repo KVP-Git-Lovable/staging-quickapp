@@ -814,12 +814,12 @@ export const TodaySummary = () => {
       const actPending = acts.filter(v => !['productive', 'unproductive', 'cancelled'].includes(v.status)).length;
       const actTotal = acts.length;
 
-      const plannedVisits = totalPlanned + actPending;
-      const productiveVisits = productiveCount + actProductive;
-      const unproductiveVisits = unproductiveCount + actUnproductive;
-      const completedVisits = completedVisits.length + actProductive + actUnproductive;
+      const plannedVisitsCount = totalPlanned + actPending;
+      const productiveVisitsCount = productiveCount + actProductive;
+      const unproductiveVisitsCount = unproductiveCount + actUnproductive;
+      const completedVisitsCount = productiveVisits.length + unproductiveVisits.length + closedVisits.length + actProductive + actUnproductive;
       const totalPlannedWithActivities = totalPlanned + actTotal;
-      const totalPendingWithActivities = Math.max(0, totalPlannedWithActivities - productiveVisits - unproductiveVisits);
+      const totalPendingWithActivities = Math.max(0, totalPlannedWithActivities - productiveVisitsCount - unproductiveVisitsCount);
 
       console.log('🎯 [USER FILTER DEBUG]', {
         targetUserIds,
