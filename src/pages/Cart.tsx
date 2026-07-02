@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import InvoiceTemplateRenderer from "@/components/invoice/InvoiceTemplateRenderer";
-import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText, Tag, Sparkles, Truck, Check } from "lucide-react";
+import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText, Tag, Sparkles, Truck, Check, Calendar, Info } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CartItemDetail } from "@/components/CartItemDetail";
@@ -135,6 +135,8 @@ export const Cart = () => {
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
+  // Fulfillment choice — default to next-day when D-1 is available
+  const [fulfillmentChoice, setFulfillmentChoice] = React.useState<'deliver_now' | 'next_day'>('next_day');
 
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
@@ -2767,34 +2769,84 @@ export const Cart = () => {
                     )}
                   </div>
                 ) : (
-                  /* Legacy Van Sales / Standard Flow: Full/Partial/Credit options */
-                  <div className="space-y-2 pt-1">
-                    <p className="text-xs font-medium">Select Payment Type:</p>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      <Button onClick={() => {
-                        setPaymentType("full");
-                        setPaymentMethod("");
-                        setDeliveryPaymentType("");
-                      }} variant={paymentType === "full" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
-                        Full Payment
-                      </Button>
-                      <Button onClick={() => {
-                        setPaymentType("partial");
-                        setPaymentMethod("");
-                        setDeliveryPaymentType("");
-                      }} variant={paymentType === "partial" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
-                        Partial Payment
-                      </Button>
-                      <Button onClick={() => {
-                        setPaymentType("credit");
-                        setPaymentMethod("");
-                        setDeliveryPaymentType("");
-                      }} variant={paymentType === "credit" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
-                        Full Credit
-                      </Button>
-                    </div>
+                  /* Legacy Van Sales / Standard Flow: fulfillment choice + Full/Partial/Credit */
+                  <div className="space-y-3 pt-1">
+                    {/* Fulfillment choice — only when D-1 is available */}
+                    {isD1DeliveryEnabled && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium">Fulfillment</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setFulfillmentChoice('deliver_now')}
+                            className={`rounded-[12px] p-3 text-left transition-colors ${
+                              fulfillmentChoice === 'deliver_now'
+                                ? 'border-2 border-primary bg-primary/5 text-primary'
+                                : 'border border-border bg-background text-foreground'
+                            }`}
+                          >
+                            <Truck className="h-4 w-4 mb-1.5" />
+                            <p className="text-xs font-semibold leading-tight">Deliver now</p>
+                            <p className="text-[10px] opacity-70 mt-0.5">From van stock</p>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFulfillmentChoice('next_day');
+                              setPaymentType("");
+                              setPaymentMethod("");
+                            }}
+                            className={`rounded-[12px] p-3 text-left transition-colors ${
+                              fulfillmentChoice === 'next_day'
+                                ? 'border-2 border-primary bg-primary/5 text-primary'
+                                : 'border border-border bg-background text-foreground'
+                            }`}
+                          >
+                            <Calendar className="h-4 w-4 mb-1.5" />
+                            <p className="text-xs font-semibold leading-tight">Next-day delivery</p>
+                            <p className="text-[10px] opacity-70 mt-0.5">Packed at distributor</p>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Payment section — only when Deliver now (or D-1 disabled, i.e. legacy behaviour) */}
+                    {(!isD1DeliveryEnabled || fulfillmentChoice === 'deliver_now') ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium">Select Payment Type:</p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <Button onClick={() => {
+                            setPaymentType("full");
+                            setPaymentMethod("");
+                            setDeliveryPaymentType("");
+                          }} variant={paymentType === "full" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
+                            Full Payment
+                          </Button>
+                          <Button onClick={() => {
+                            setPaymentType("partial");
+                            setPaymentMethod("");
+                            setDeliveryPaymentType("");
+                          }} variant={paymentType === "partial" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
+                            Partial Payment
+                          </Button>
+                          <Button onClick={() => {
+                            setPaymentType("credit");
+                            setPaymentMethod("");
+                            setDeliveryPaymentType("");
+                          }} variant={paymentType === "credit" ? "default" : "outline"} className="h-9 text-xs px-1.5 whitespace-normal leading-tight">
+                            Full Credit
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 p-2.5 rounded-[12px] border border-border bg-muted/40">
+                        <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <p className="text-[11px] text-muted-foreground">Payment collected at delivery</p>
+                      </div>
+                    )}
                   </div>
                 )}
+
 
                 {/* Partial Payment Amount Input */}
                 {paymentType === "partial" && <div className="space-y-1.5">
@@ -2941,13 +2993,13 @@ export const Cart = () => {
                       </>
                     )}
                   </Button>
-                ) : (
-                  /* Legacy Flow: Standard submit + optional D-1 button */
-                  <>
-                    <Button 
-                      onClick={handleSubmitOrder} 
-                      className="w-full h-9 text-sm" 
-                      variant="default" 
+                ) : isD1DeliveryEnabled ? (
+                  /* Legacy Flow with D-1: single contextual button driven by fulfillment choice */
+                  fulfillmentChoice === 'deliver_now' ? (
+                    <Button
+                      onClick={handleSubmitOrder}
+                      className="w-full h-10 text-sm"
+                      variant="default"
                       disabled={!canSubmitOrder() || !paymentType || isSubmitting}
                     >
                       {isSubmitting ? (
@@ -2959,36 +3011,51 @@ export const Cart = () => {
                           Submitting...
                         </>
                       ) : (
-                        getSubmitButtonText()
+                        <>Complete sale · collect ₹{formatRounded(getFinalTotal())}</>
                       )}
                     </Button>
-
-                    {/* D-1 Next Day Delivery Button - Works with or without payment selection */}
-                    {isD1DeliveryEnabled && (
-                      <Button 
-                        onClick={handleConfirmD1Order} 
-                        className="w-full h-9 text-sm border-2 border-primary" 
-                        variant="outline" 
-                        disabled={!canSubmitOrder() || isSubmittingD1}
-                      >
-                        {isSubmittingD1 ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Confirming...
-                          </>
-                        ) : (
-                          <>
-                            <Truck className="mr-2 h-4 w-4" />
-                            {paymentType ? 'Confirm Order (Next Day Delivery)' : 'Confirm Order (Collect on Delivery)'}
-                          </>
-                        )}
-                      </Button>
+                  ) : (
+                    <Button
+                      onClick={handleConfirmD1Order}
+                      className="w-full h-10 text-sm"
+                      variant="default"
+                      disabled={!canSubmitOrder() || isSubmittingD1}
+                    >
+                      {isSubmittingD1 ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Confirming...
+                        </>
+                      ) : (
+                        <>Confirm order · next-day delivery</>
+                      )}
+                    </Button>
+                  )
+                ) : (
+                  /* Legacy Flow without D-1: keep original single submit button */
+                  <Button
+                    onClick={handleSubmitOrder}
+                    className="w-full h-9 text-sm"
+                    variant="default"
+                    disabled={!canSubmitOrder() || !paymentType || isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Submitting...
+                      </>
+                    ) : (
+                      getSubmitButtonText()
                     )}
-                  </>
+                  </Button>
                 )}
+
               </CardContent>
             </Card>
           </>}
