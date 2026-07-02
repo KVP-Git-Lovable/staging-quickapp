@@ -460,7 +460,7 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
 
 
-          <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+          <div className="rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50/70 to-white p-4 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <Label htmlFor="activity-remarks" className="text-sm font-semibold">Remarks</Label>
               <Button
