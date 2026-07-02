@@ -426,22 +426,23 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
 
           {/* Footer */}
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+          <div className="flex justify-end gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="h-7 text-xs px-2.5">
               Cancel
             </Button>
             <Button
               size="sm"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="bg-gradient-to-br from-primary to-fuchsia-600 hover:brightness-110 text-white shadow-sm"
+              className="h-7 px-3 bg-gradient-to-br from-primary to-fuchsia-600 hover:brightness-110 text-white shadow-sm text-xs"
             >
               {isSubmitting
-                ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                : <Rocket className="h-3.5 w-3.5 mr-1.5" />}
+                ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                : <Rocket className="h-3 w-3 mr-1" />}
               Schedule
             </Button>
           </div>
+
         </div>
       </DialogContent>
     </Dialog>
