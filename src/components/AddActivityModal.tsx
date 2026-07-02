@@ -270,14 +270,14 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
           {/* 3. When */}
           <SectionCard step={3} title="When" icon={CalendarDays} tone="from-blue-50 to-white">
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-2">
               {(['single_day', 'multiple_days'] as DurationType[]).map(dt => (
                 <button
                   key={dt}
                   type="button"
                   onClick={() => setDurationType(dt)}
                   className={cn(
-                    'px-3 py-1.5 rounded-full text-xs font-medium border-2 transition',
+                    'px-2.5 py-1 rounded-full text-[11px] font-medium border-2 transition',
                     durationType === dt
                       ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white border-blue-600 shadow'
                       : 'bg-white border-border hover:bg-blue-50',
