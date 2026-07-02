@@ -213,7 +213,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                       setSelectedType('');
                     }}
                     className={cn(
-                      'relative p-3 rounded-xl border-2 text-left transition-all hover:scale-[1.02] hover:shadow-md',
+                      'relative p-2 rounded-lg border-2 text-left transition-all hover:scale-[1.02] hover:shadow-sm',
                       active
                         ? cn(solid(cat.color), 'ring-4 ring-offset-1 shadow-md', ring(cat.color))
                         : cn(soft(cat.color), 'hover:brightness-95'),
