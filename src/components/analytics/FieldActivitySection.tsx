@@ -2,49 +2,36 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend, CartesianGrid,
 } from 'recharts';
-import { Loader2, Activity, TrendingUp, Timer, Layers } from 'lucide-react';
+import { Loader2, Activity, TrendingUp, Timer, Layers, Users } from 'lucide-react';
+import { useActivityTypes } from '@/hooks/useActivityTypes';
 
 interface Props {
-  userIds: string[];
+  userIds?: string[];
   dateRange: { from: Date; to: Date };
   isScopeReady?: boolean;
 }
 
-interface DailyRow {
+interface TeamActivityRow {
+  visit_id: string;
+  activity_event_id: string;
   user_id: string;
-  date: string;
-  total_activities: number;
-  completed_activities: number;
-  total_activity_minutes: number;
-  completed_activity_minutes: number;
-  activity_points: number;
-}
-interface TypeRow {
-  user_id: string;
-  date: string;
+  user_name: string;
   activity_type: string | null;
-  weight: number;
-  is_sales_activity: boolean | null;
-  activities: number;
-  completed: number;
-  minutes: number;
-  points: number;
-}
-interface FieldRow {
-  user_id: string;
-  date: string;
-  productive_sales_visits: number;
-  total_sales_visits: number;
-  total_activity_visits: number;
-  completed_activities: number;
-  activity_minutes: number;
-  activity_points: number;
-  overall_field_productivity: number;
+  ae_status: string | null;
+  visit_status: string | null;
+  activity_date: string;
+  duration_minutes: number | null;
+  expected_duration_minutes: number | null;
+  half_day_type: string | null;
+  completion_summary: string | null;
+  outcome: string | null;
+  assigned_by: string | null;
 }
 
 const fmtMinutes = (m: number) => {
@@ -54,100 +41,138 @@ const fmtMinutes = (m: number) => {
   return h > 0 ? `${h}h ${r}m` : `${r}m`;
 };
 
-export const FieldActivitySection = ({ userIds, dateRange, isScopeReady = true }: Props) => {
+const isCompleted = (r: TeamActivityRow) =>
+  r.visit_status === 'productive' || r.visit_status === 'unproductive' || r.ae_status === 'closed';
+const isProductive = (r: TeamActivityRow) => r.visit_status === 'productive';
+const isUnproductive = (r: TeamActivityRow) => r.visit_status === 'unproductive';
+
+export const FieldActivitySection = ({ dateRange, isScopeReady = true }: Props) => {
   const [loading, setLoading] = useState(false);
-  const [daily, setDaily] = useState<DailyRow[]>([]);
-  const [byType, setByType] = useState<TypeRow[]>([]);
-  const [field, setField] = useState<FieldRow[]>([]);
+  const [rows, setRows] = useState<TeamActivityRow[]>([]);
+  const { types: activityTypes } = useActivityTypes();
+
+  const [memberFilter, setMemberFilter] = useState<string>('all');
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [outcomeFilter, setOutcomeFilter] = useState<string>('all');
 
   const fromStr = format(dateRange.from, 'yyyy-MM-dd');
   const toStr = format(dateRange.to, 'yyyy-MM-dd');
-  const scopeKey = userIds.join(',');
 
   useEffect(() => {
-    if (!isScopeReady || userIds.length === 0) {
-      setDaily([]); setByType([]); setField([]);
-      return;
-    }
+    if (!isScopeReady) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       try {
-        const client = supabase as any;
-        const [d, t, f] = await Promise.all([
-          client.from('activity_daily_summary')
-            .select('user_id,date,total_activities,completed_activities,total_activity_minutes,completed_activity_minutes,activity_points')
-            .in('user_id', userIds).gte('date', fromStr).lte('date', toStr),
-          client.from('activity_type_productivity')
-            .select('user_id,date,activity_type,weight,is_sales_activity,activities,completed,minutes,points')
-            .in('user_id', userIds).gte('date', fromStr).lte('date', toStr),
-          client.from('field_productivity_daily')
-            .select('user_id,date,productive_sales_visits,total_sales_visits,total_activity_visits,completed_activities,activity_minutes,activity_points,overall_field_productivity')
-            .in('user_id', userIds).gte('date', fromStr).lte('date', toStr),
-        ]);
+        const { data, error } = await (supabase as any).rpc('get_team_activities', {
+          p_from: fromStr,
+          p_to: toStr,
+        });
         if (cancelled) return;
-        setDaily((d.data as DailyRow[]) || []);
-        setByType((t.data as TypeRow[]) || []);
-        setField((f.data as FieldRow[]) || []);
+        if (error) {
+          console.error('get_team_activities error', error);
+          setRows([]);
+        } else {
+          setRows((data as TeamActivityRow[]) || []);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [scopeKey, fromStr, toStr, isScopeReady]);
+  }, [fromStr, toStr, isScopeReady]);
+
+  // Type color/label lookup from master
+  const typeMeta = useMemo(() => {
+    const m = new Map<string, { color: string; label: string; weight: number }>();
+    activityTypes.forEach(t => {
+      m.set(t.name, { color: t.color || '#6366f1', label: t.name, weight: t.productivity_weight ?? 1 });
+    });
+    return m;
+  }, [activityTypes]);
+
+  const members = useMemo(() => {
+    const s = new Map<string, string>();
+    rows.forEach(r => { if (r.user_id) s.set(r.user_id, r.user_name || 'Unknown'); });
+    return Array.from(s.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [rows]);
+
+  const pickerTypes = useMemo(
+    () => activityTypes.filter(t => t.is_active && t.show_in_picker && !t.is_category),
+    [activityTypes],
+  );
+
+  const filtered = useMemo(() => {
+    return rows.filter(r => {
+      if (memberFilter !== 'all' && r.user_id !== memberFilter) return false;
+      if (typeFilter !== 'all' && r.activity_type !== typeFilter) return false;
+      if (outcomeFilter === 'productive' && !isProductive(r)) return false;
+      if (outcomeFilter === 'unproductive' && !isUnproductive(r)) return false;
+      return true;
+    });
+  }, [rows, memberFilter, typeFilter, outcomeFilter]);
 
   const totals = useMemo(() => {
-    const t = {
-      productiveSales: 0, totalSales: 0,
-      totalActivities: 0, completedActivities: 0,
-      activityMinutes: 0, activityPoints: 0,
-      overall: 0,
-    };
-    field.forEach(r => {
-      t.productiveSales += Number(r.productive_sales_visits) || 0;
-      t.totalSales += Number(r.total_sales_visits) || 0;
-      t.totalActivities += Number(r.total_activity_visits) || 0;
-      t.completedActivities += Number(r.completed_activities) || 0;
-      t.activityMinutes += Number(r.activity_minutes) || 0;
-      t.activityPoints += Number(r.activity_points) || 0;
-      t.overall += Number(r.overall_field_productivity) || 0;
+    let total = 0, completed = 0, productive = 0, unproductive = 0, minutes = 0;
+    filtered.forEach(r => {
+      total += 1;
+      if (isCompleted(r)) completed += 1;
+      if (isProductive(r)) productive += 1;
+      if (isUnproductive(r)) unproductive += 1;
+      minutes += Number(r.duration_minutes) || 0;
     });
-    return t;
-  }, [field]);
+    const overall = total > 0 ? (productive / total) * 100 : 0;
+    return { total, completed, productive, unproductive, minutes, overall };
+  }, [filtered]);
 
   const typeAggregate = useMemo(() => {
-    const m = new Map<string, { activity_type: string; weight: number; activities: number; completed: number; minutes: number; points: number; }>();
-    byType.forEach(r => {
+    const m = new Map<string, { activity_type: string; color: string; count: number; completed: number; productive: number; minutes: number; }>();
+    filtered.forEach(r => {
       const key = r.activity_type || 'Other';
-      const cur = m.get(key) || { activity_type: key, weight: r.weight ?? 1, activities: 0, completed: 0, minutes: 0, points: 0 };
-      cur.weight = r.weight ?? cur.weight;
-      cur.activities += Number(r.activities) || 0;
-      cur.completed += Number(r.completed) || 0;
-      cur.minutes += Number(r.minutes) || 0;
-      cur.points += Number(r.points) || 0;
+      const meta = typeMeta.get(key);
+      const cur = m.get(key) || {
+        activity_type: key,
+        color: meta?.color || '#6366f1',
+        count: 0, completed: 0, productive: 0, minutes: 0,
+      };
+      cur.count += 1;
+      if (isCompleted(r)) cur.completed += 1;
+      if (isProductive(r)) cur.productive += 1;
+      cur.minutes += Number(r.duration_minutes) || 0;
       m.set(key, cur);
     });
-    return Array.from(m.values()).sort((a, b) => b.points - a.points);
-  }, [byType]);
+    return Array.from(m.values()).sort((a, b) => b.count - a.count);
+  }, [filtered, typeMeta]);
 
   const monthlyAggregate = useMemo(() => {
-    const m = new Map<string, { month: string; activities: number; completed: number; minutes: number; points: number; }>();
-    daily.forEach(r => {
-      const mo = r.date.slice(0, 7); // YYYY-MM
-      const cur = m.get(mo) || { month: mo, activities: 0, completed: 0, minutes: 0, points: 0 };
-      cur.activities += Number(r.total_activities) || 0;
-      cur.completed += Number(r.completed_activities) || 0;
-      cur.minutes += Number(r.completed_activity_minutes) || 0;
-      cur.points += Number(r.activity_points) || 0;
+    const m = new Map<string, { month: string; count: number; productive: number; minutes: number; }>();
+    filtered.forEach(r => {
+      const mo = (r.activity_date || '').slice(0, 7);
+      if (!mo) return;
+      const cur = m.get(mo) || { month: mo, count: 0, productive: 0, minutes: 0 };
+      cur.count += 1;
+      if (isProductive(r)) cur.productive += 1;
+      cur.minutes += Number(r.duration_minutes) || 0;
       m.set(mo, cur);
     });
     return Array.from(m.values()).sort((a, b) => a.month.localeCompare(b.month));
-  }, [daily]);
+  }, [filtered]);
 
-  const comparison = [
-    { name: 'Visits', Sales: totals.productiveSales, Activities: totals.completedActivities },
-    { name: 'Productivity', Sales: totals.productiveSales, Activities: totals.activityPoints },
-  ];
+  const byRep = useMemo(() => {
+    const m = new Map<string, { user_id: string; user_name: string; activities: number; productive: number; unproductive: number; minutes: number; }>();
+    filtered.forEach(r => {
+      const cur = m.get(r.user_id) || {
+        user_id: r.user_id, user_name: r.user_name || 'Unknown',
+        activities: 0, productive: 0, unproductive: 0, minutes: 0,
+      };
+      cur.activities += 1;
+      if (isProductive(r)) cur.productive += 1;
+      if (isUnproductive(r)) cur.unproductive += 1;
+      cur.minutes += Number(r.duration_minutes) || 0;
+      m.set(r.user_id, cur);
+    });
+    return Array.from(m.values()).sort((a, b) => b.activities - a.activities);
+  }, [filtered]);
 
   if (loading) {
     return (
@@ -159,76 +184,95 @@ export const FieldActivitySection = ({ userIds, dateRange, isScopeReady = true }
 
   return (
     <div className="space-y-4">
-      {/* Headline */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-emerald-200/50">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <TrendingUp className="h-3.5 w-3.5" /> Overall Field Productivity
-            </div>
-            <div className="text-2xl font-bold text-emerald-700 mt-1">{totals.overall.toFixed(2)}</div>
-            <div className="text-[10px] text-muted-foreground">productive sales + Σ activity points</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Activity className="h-3.5 w-3.5" /> Sales Visits
-            </div>
-            <div className="text-2xl font-bold mt-1">{totals.totalSales}</div>
-            <div className="text-[10px] text-muted-foreground">
-              {totals.productiveSales} productive
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Layers className="h-3.5 w-3.5" /> Activity Visits
-            </div>
-            <div className="text-2xl font-bold mt-1">{totals.totalActivities}</div>
-            <div className="text-[10px] text-muted-foreground">
-              {totals.completedActivities} completed · {totals.activityPoints.toFixed(2)} pts
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Timer className="h-3.5 w-3.5" /> Time on Activities
-            </div>
-            <div className="text-2xl font-bold mt-1">{fmtMinutes(totals.activityMinutes)}</div>
-            <div className="text-[10px] text-muted-foreground">Sales time: n/a</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Sales vs Activity comparison */}
+      {/* Filters */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Sales vs Activity comparison</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={comparison}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="Sales" fill="#10b981" />
-                <Bar dataKey="Activities" fill="#6366f1" />
-              </BarChart>
-            </ResponsiveContainer>
+        <CardContent className="p-3">
+          <div className="flex flex-wrap gap-2 items-center">
+            <div className="min-w-[160px]">
+              <Select value={memberFilter} onValueChange={setMemberFilter}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Member" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All members</SelectItem>
+                  {members.map(m => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[160px]">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Activity type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {pickerTypes.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[140px]">
+              <Select value={outcomeFilter} onValueChange={setOutcomeFilter}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Outcome" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All outcomes</SelectItem>
+                  <SelectItem value="productive">Productive</SelectItem>
+                  <SelectItem value="unproductive">Unproductive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-xs text-muted-foreground ml-auto">
+              {format(dateRange.from, 'dd MMM')} – {format(dateRange.to, 'dd MMM yyyy')}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Activity-wise productivity */}
+      {/* Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <Card className="border-emerald-200/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <TrendingUp className="h-3.5 w-3.5" /> Field Productivity
+            </div>
+            <div className="text-2xl font-bold text-emerald-700 mt-1">{totals.overall.toFixed(1)}%</div>
+            <div className="text-[10px] text-muted-foreground">productive / total</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Activity className="h-3.5 w-3.5" /> Total activities
+            </div>
+            <div className="text-2xl font-bold mt-1">{totals.total}</div>
+            <div className="text-[10px] text-muted-foreground">{totals.completed} completed</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Layers className="h-3.5 w-3.5" /> Productive
+            </div>
+            <div className="text-2xl font-bold text-green-700 mt-1">{totals.productive}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Layers className="h-3.5 w-3.5" /> Unproductive
+            </div>
+            <div className="text-2xl font-bold text-red-700 mt-1">{totals.unproductive}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Timer className="h-3.5 w-3.5" /> Total time
+            </div>
+            <div className="text-2xl font-bold mt-1">{fmtMinutes(totals.minutes)}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Activity-wise */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Activity-wise productivity</CardTitle>
+          <CardTitle className="text-base">Activity-wise breakdown</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {typeAggregate.length === 0 ? (
@@ -243,8 +287,8 @@ export const FieldActivitySection = ({ userIds, dateRange, isScopeReady = true }
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="completed" name="Completed" fill="#8b5cf6" />
-                    <Bar dataKey="points" name="Points (Σ weight)" fill="#ec4899" />
+                    <Bar dataKey="count" name="Activities" fill="#6366f1" />
+                    <Bar dataKey="productive" name="Productive" fill="#10b981" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -253,24 +297,28 @@ export const FieldActivitySection = ({ userIds, dateRange, isScopeReady = true }
                   <TableHeader>
                     <TableRow>
                       <TableHead>Activity type</TableHead>
-                      <TableHead className="text-right">Weight</TableHead>
-                      <TableHead className="text-right">Activities</TableHead>
+                      <TableHead className="text-right">Count</TableHead>
                       <TableHead className="text-right">Completed</TableHead>
+                      <TableHead className="text-right">Productive</TableHead>
                       <TableHead className="text-right">Time</TableHead>
-                      <TableHead className="text-right">Points</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {typeAggregate.map(r => (
                       <TableRow key={r.activity_type}>
-                        <TableCell className="font-medium">{r.activity_type}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline" className="text-[10px]">{Number(r.weight).toFixed(2)}</Badge>
+                        <TableCell className="font-medium">
+                          <Badge
+                            variant="outline"
+                            className="text-[11px]"
+                            style={{ borderColor: r.color, color: r.color }}
+                          >
+                            {r.activity_type}
+                          </Badge>
                         </TableCell>
-                        <TableCell className="text-right">{r.activities}</TableCell>
+                        <TableCell className="text-right">{r.count}</TableCell>
                         <TableCell className="text-right">{r.completed}</TableCell>
+                        <TableCell className="text-right text-green-700 font-semibold">{r.productive}</TableCell>
                         <TableCell className="text-right">{fmtMinutes(r.minutes)}</TableCell>
-                        <TableCell className="text-right font-semibold text-indigo-700">{Number(r.points).toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -281,10 +329,10 @@ export const FieldActivitySection = ({ userIds, dateRange, isScopeReady = true }
         </CardContent>
       </Card>
 
-      {/* Monthly summary */}
+      {/* Monthly */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Monthly activity summary</CardTitle>
+          <CardTitle className="text-base">Monthly summary</CardTitle>
         </CardHeader>
         <CardContent>
           {monthlyAggregate.length === 0 ? (
@@ -298,10 +346,54 @@ export const FieldActivitySection = ({ userIds, dateRange, isScopeReady = true }
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="completed" name="Completed activities" fill="#0ea5e9" />
-                  <Bar dataKey="points" name="Activity points" fill="#f59e0b" />
+                  <Bar dataKey="count" name="Activities" fill="#0ea5e9" />
+                  <Bar dataKey="productive" name="Productive" fill="#10b981" />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* By-rep */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Users className="h-4 w-4" /> By rep
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {byRep.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No reps in this period.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Rep</TableHead>
+                    <TableHead className="text-right">Activities</TableHead>
+                    <TableHead className="text-right">Productive</TableHead>
+                    <TableHead className="text-right">Unproductive</TableHead>
+                    <TableHead className="text-right">Time</TableHead>
+                    <TableHead className="text-right">Productivity</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {byRep.map(r => {
+                    const pct = r.activities > 0 ? (r.productive / r.activities) * 100 : 0;
+                    return (
+                      <TableRow key={r.user_id}>
+                        <TableCell className="font-medium">{r.user_name}</TableCell>
+                        <TableCell className="text-right">{r.activities}</TableCell>
+                        <TableCell className="text-right text-green-700">{r.productive}</TableCell>
+                        <TableCell className="text-right text-red-700">{r.unproductive}</TableCell>
+                        <TableCell className="text-right">{fmtMinutes(r.minutes)}</TableCell>
+                        <TableCell className="text-right font-semibold text-emerald-700">{pct.toFixed(0)}%</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>
