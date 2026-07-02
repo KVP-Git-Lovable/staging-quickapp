@@ -1,0 +1,1 @@
+alter table public.activity_events add column if not exists expected_duration_minutes integer;
