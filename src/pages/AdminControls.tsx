@@ -57,6 +57,7 @@ const AdminControls = () => {
     { title: "Pincode Master", description: "Import and manage India PIN code reference data", icon: Map, color: "teal", path: "/admin/pincode-master" },
     { title: "Tax Master", description: "Configure GST/IGST tax rates and map to product SKUs", icon: Percent, color: "violet", path: "/admin/tax-master" },
     { title: "Activity Type Master", description: "Configure activity types, weights, and productivity settings", icon: Activity, color: "teal", path: "/admin/activity-types" },
+    { title: "Activity Coordinator", description: "View team activities and assign new ones", icon: Activity, color: "teal", path: "/admin/activity-coordinator" },
     { title: "Retailer External Database", description: "Browse external grocery retailer data by state and city", icon: Database, color: "orange", path: "/admin/retailer-external-db" },
   ];
 
