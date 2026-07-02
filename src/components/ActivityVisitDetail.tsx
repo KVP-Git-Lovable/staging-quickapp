@@ -575,10 +575,10 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
           {/* ─── Per-sub-type detail form ────────────────── */}
           {(isJoint || isSurvey || isDistributor || isMeeting) && !isCancelled && (
-            <div className="rounded-xl border bg-primary/5 p-4 shadow-sm space-y-4">
+            <div className="rounded-xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-sky-50/50 to-white p-4 shadow-sm space-y-4">
               <div className="flex items-center gap-2">
-                <div className="h-4 w-1 rounded-full bg-primary" />
-                <Label className="text-sm font-semibold">Activity details</Label>
+                <div className="h-4 w-1 rounded-full bg-indigo-500" />
+                <Label className="text-sm font-semibold text-slate-800">Activity details</Label>
               </div>
 
 
