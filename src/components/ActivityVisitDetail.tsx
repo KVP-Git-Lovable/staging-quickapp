@@ -447,6 +447,14 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
               <span className="font-medium">{fmtTime(activity.checkOutTime)}</span>
             </div>
             <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5"><Timer className="h-3.5 w-3.5" /> Expected duration</span>
+              <span className="font-medium">{expectedMins ? fmtDuration(expectedMins) : '—'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Time of day</span>
+              <span className="font-medium">{halfDayLabel}</span>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground flex items-center gap-1.5"><Timer className="h-3.5 w-3.5" /> Total time spent</span>
               <span className="font-medium">
                 {fmtDuration(liveDuration)}{isInProgress ? ' (live)' : ''}
