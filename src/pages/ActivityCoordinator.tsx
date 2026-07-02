@@ -264,6 +264,7 @@ const ActivityCoordinator: React.FC = () => {
           </Card>
         </div>
       </div>
+      <AssignActivityDialog open={assignOpen} onOpenChange={setAssignOpen} onAssigned={fetchRows} />
     </Layout>
   );
 };
