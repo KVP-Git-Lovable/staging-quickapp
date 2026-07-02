@@ -1,561 +1,84 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useQAMode } from '@/contexts/QAModeContext';
-import { actionsByEntity } from '@/qa/actions/registry';
-import { allQAFlows } from '@/qa/flows/registry';
-import { runSingleAction, runFlow, startRun, finishRun } from '@/qa/runner';
-import { supabase } from '@/integrations/supabase/client';
-import { table } from '@/lib/tableRouter';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import {
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  AlertTriangle,
-  ChevronRight,
-} from 'lucide-react';
+import { Bot, PencilLine, BarChart3, ChevronRight } from 'lucide-react';
+import { isQaRunInProgress } from '@/qa/automation/qaRunState';
 
-interface ResultRow {
-  label: string;
-  pass: boolean;
-  durationMs: number;
-  errorMessage?: string;
-  manual?: boolean;
-}
-
-interface QARunRow {
-  id: string;
-  run_id: string;
-  build_type: string | null;
-  overall_status: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  total_tests: number | null;
-  passed_tests: number | null;
-  failed_tests: number | null;
-  notes: string | null;
-}
-
-interface QALogRow {
-  id: string;
-  test_run_id: string;
-  test_name: string | null;
-  module_name: string | null;
-  status: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  error_message: string | null;
-  metadata_json: any;
-}
-
-// Runs older than 5 min still 'running' are almost certainly crashed —
-// present them as failed so the UI never gets stuck.
-const STUCK_MS = 5 * 60 * 1000;
-const displayStatus = (run: QARunRow): string => {
-  if (
-    run.overall_status === 'running' &&
-    run.started_at &&
-    Date.now() - new Date(run.started_at).getTime() > STUCK_MS
-  ) {
-    return 'failed';
-  }
-  return run.overall_status ?? 'unknown';
-};
-
-const fmtDuration = (start?: string | null, end?: string | null): string => {
-  if (!start || !end) return '—';
-  const ms = new Date(end).getTime() - new Date(start).getTime();
-  if (!Number.isFinite(ms) || ms < 0) return '—';
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-};
-
-const logsToRows = (logs: QALogRow[]): ResultRow[] =>
-  logs.map((l) => {
-    const started = l.started_at ? new Date(l.started_at).getTime() : 0;
-    const completed = l.completed_at ? new Date(l.completed_at).getTime() : 0;
-    const metaMs = Number(l?.metadata_json?.durationMs);
-    const dur = Number.isFinite(metaMs)
-      ? metaMs
-      : Math.max(0, completed - started);
-    return {
-      label: l.test_name ?? '(unnamed)',
-      pass: l.status === 'passed',
-      durationMs: dur,
-      errorMessage: l.error_message ?? undefined,
-    };
-  });
+const HUB_CARDS = [
+  {
+    to: '/qa/run-tests/automated',
+    icon: Bot,
+    label: 'Open Automated Tests',
+    description: 'Run pre-built flows and individual actions',
+  },
+  {
+    to: '/qa/run-tests/custom',
+    icon: PencilLine,
+    label: 'Add Your Own Test',
+    description: 'Describe a test in plain English and run it',
+  },
+  {
+    to: '/qa/run-tests/results',
+    icon: BarChart3,
+    label: 'View Test Results',
+    description: 'See current run results and past runs',
+  },
+];
 
 export const RunTestsScreen = () => {
   const { isQAMode } = useQAMode();
-
-  const [selectedActions, setSelectedActions] = useState<string[]>([]);
-  const [selectedFlows, setSelectedFlows] = useState<string[]>([]);
-  const [running, setRunning] = useState(false);
-  const [currentLabel, setCurrentLabel] = useState<string | null>(null);
-  const [results, setResults] = useState<ResultRow[]>([]);
-  const [currentRunId, setCurrentRunId] = useState<string | null>(null);
-  const [completedRun, setCompletedRun] = useState<QARunRow | null>(null);
-
-  const [pastRuns, setPastRuns] = useState<QARunRow[]>([]);
-  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
-  const [runLogs, setRunLogs] = useState<Record<string, QALogRow[]>>({});
-
-  const grouped = useMemo(() => actionsByEntity(), []);
-
-  const loadPastRuns = useCallback(async () => {
-    const { data } = await supabase
-      .from(table('qa_test_runs') as any)
-      .select('*')
-      .eq('build_type', 'qa')
-      .order('started_at', { ascending: false })
-      .limit(20);
-    setPastRuns((data as any) ?? []);
-  }, []);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (isQAMode) void loadPastRuns();
-  }, [isQAMode, loadPastRuns]);
+    // An automated run passes through this route between every action —
+    // don't let the hub interrupt it (see qaRunState.ts).
+    if (isQAMode && isQaRunInProgress()) {
+      navigate('/qa/run-tests/automated', { replace: true });
+    }
+  }, [isQAMode, navigate]);
 
   if (!isQAMode) return <Navigate to="/" replace />;
-
-  const toggleAction = (id: string) =>
-    setSelectedActions((prev) =>
-      prev.includes(id) ? prev.filter((a) => a !== id) : [...prev, id],
-    );
-
-  const toggleFlow = (id: string) =>
-    setSelectedFlows((prev) =>
-      prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id],
-    );
-
-  const totalSelected = selectedActions.length + selectedFlows.length;
-
-  const expandRun = async (run: QARunRow) => {
-    if (expandedRunId === run.run_id) {
-      setExpandedRunId(null);
-      return;
-    }
-    setExpandedRunId(run.run_id);
-    if (!runLogs[run.run_id]) {
-      const { data } = await supabase
-        .from(table('qa_test_logs') as any)
-        .select('*')
-        .eq('test_run_id', run.run_id) // run_id, NOT id
-        .order('started_at', { ascending: true });
-      setRunLogs((prev) => ({ ...prev, [run.run_id]: (data as any) ?? [] }));
-    }
-  };
-
-  const runSelected = async () => {
-    setRunning(true);
-    setResults([]);
-    setCompletedRun(null);
-    let runId: string | null = null;
-    const all: ResultRow[] = [];
-    try {
-      runId = await startRun();
-      setCurrentRunId(runId);
-
-      for (const flowId of selectedFlows) {
-        try {
-          const flowResults = await runFlow(flowId, runId);
-          for (const r of flowResults) {
-            const row: ResultRow = {
-              label: r.actionLabel,
-              pass: r.pass,
-              durationMs: r.durationMs,
-              errorMessage: r.errorMessage,
-            };
-            all.push(row);
-            setResults((prev) => [...prev, row]);
-          }
-        } catch (e: any) {
-          const row: ResultRow = { label: flowId, pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
-          all.push(row);
-          setResults((prev) => [...prev, row]);
-        }
-      }
-
-      for (const actionId of selectedActions) {
-        try {
-          setCurrentLabel(actionId);
-          const r: any = await runSingleAction(actionId, runId);
-          const row: ResultRow = {
-            label: r.actionLabel,
-            pass: r.pass,
-            durationMs: r.durationMs,
-            errorMessage: r.errorMessage,
-            manual: r.manual,
-          };
-          all.push(row);
-          setResults((prev) => [...prev, row]);
-        } catch (e: any) {
-          const row: ResultRow = { label: actionId, pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
-          all.push(row);
-          setResults((prev) => [...prev, row]);
-        }
-      }
-      setCurrentLabel(null);
-
-      if (runId) await finishRun(runId, all);
-    } catch (e: any) {
-      const row: ResultRow = { label: 'Run setup', pass: false, durationMs: 0, errorMessage: e?.message ?? String(e) };
-      setResults((prev) => [...prev, row]);
-    } finally {
-      setRunning(false);
-    }
-
-    // Authoritative DB re-fetch — mirror exactly what got persisted so
-    // any streaming-state gap (thrown steps, races) can't leave the UI
-    // showing stale/incomplete results.
-    if (runId) {
-      try {
-        const { data: runData } = await supabase
-          .from(table('qa_test_runs') as any)
-          .select('*')
-          .eq('run_id', runId) // run_id, NOT id
-          .maybeSingle();
-
-        const { data: logData } = await supabase
-          .from(table('qa_test_logs') as any)
-          .select('*')
-          .eq('test_run_id', runId) // run_id, NOT id
-          .order('started_at', { ascending: true });
-
-        if (runData) setCompletedRun(runData as any);
-        if (logData) setResults(logsToRows(logData as any));
-      } catch {
-        /* keep streaming results as fallback */
-      }
-      void loadPastRuns();
-    }
-  };
+  if (isQaRunInProgress()) return null;
 
   return (
-    <div className="container mx-auto max-w-4xl p-4 space-y-4">
+    <div className="container mx-auto max-w-2xl p-4 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Run Tests</h1>
-          <p className="text-sm text-muted-foreground">
-            QA-only test harness. Results are logged to{' '}
-            <code className="text-xs">qa_test_runs</code> /{' '}
-            <code className="text-xs">qa_test_logs</code>.
-          </p>
+          <p className="text-sm text-muted-foreground">QA-only test harness.</p>
         </div>
         <Badge variant="outline" className="bg-yellow-100 text-yellow-900 border-yellow-300">
           QA build
         </Badge>
       </div>
 
-      <Card className="border-amber-300 bg-amber-50/60">
-        <CardContent className="flex gap-3 p-4 text-sm">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
-          <p className="text-amber-900">
-            Tests drive the real app UI — you will see the app navigate between
-            screens automatically while a test runs. This is expected. Each test
-            passes only when the UI confirms success <em>and</em> a matching{' '}
-            <code>qa_*</code> row is found. Flows requiring native capabilities
-            (camera, GPS) are marked <strong>Manual step required</strong>.
-          </p>
-        </CardContent>
-      </Card>
-
-      {running && currentLabel && (
-        <Card className="border-blue-300 bg-blue-50/60">
-          <CardContent className="flex items-center gap-3 p-3 text-sm text-blue-900">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Running: <strong>{currentLabel}</strong>…</span>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Flows</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {allQAFlows.map((flow) => (
-            <label
-              key={flow.id}
-              className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 cursor-pointer"
-            >
-              <Checkbox
-                checked={selectedFlows.includes(flow.id)}
-                onCheckedChange={() => toggleFlow(flow.id)}
-                disabled={running}
-              />
-              <div className="flex-1">
-                <div className="font-medium">{flow.label}</div>
-                {flow.description && (
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {flow.description}
-                  </div>
-                )}
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {flow.steps.map((s, i) => (
-                    <Badge key={i} variant="secondary" className="text-[10px]">
-                      {s.actionId}
-                    </Badge>
-                  ))}
-                </div>
+      <div className="space-y-3">
+        {HUB_CARDS.map(({ to, icon: Icon, label, description }) => (
+          <Card
+            key={to}
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(to)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') navigate(to);
+            }}
+            className="cursor-pointer border-amber-200 hover:bg-amber-50/60 transition-colors"
+          >
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className="shrink-0 rounded-full bg-amber-100 p-3">
+                <Icon className="h-6 w-6 text-amber-700" />
               </div>
-            </label>
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Individual actions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {Object.entries(grouped).map(([entity, actions]) => (
-            <div key={entity}>
-              <div className="text-sm font-semibold text-muted-foreground mb-2">
-                {entity}
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-base">{label}</div>
+                <div className="text-sm text-muted-foreground">{description}</div>
               </div>
-              <div className="space-y-2">
-                {actions.map((action) => (
-                  <label
-                    key={action.id}
-                    className="flex items-start gap-3 p-2.5 rounded-md border hover:bg-muted/30 cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={selectedActions.includes(action.id)}
-                      onCheckedChange={() => toggleAction(action.id)}
-                      disabled={running}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{action.label}</span>
-                        <code className="text-[10px] text-muted-foreground">
-                          {action.id}
-                        </code>
-                        {action.skipped && (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] bg-amber-100 text-amber-900 border-amber-300"
-                          >
-                            Manual step
-                          </Badge>
-                        )}
-                      </div>
-                      {action.skipped && action.skippedReason && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {action.skippedReason}
-                        </div>
-                      )}
-                      {action.description && !action.skipped && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {action.description}
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center gap-3 sticky bottom-4">
-        <Button
-          onClick={runSelected}
-          disabled={running || totalSelected === 0}
-          size="lg"
-          className="shadow-lg"
-        >
-          {running ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Running…
-            </>
-          ) : (
-            <>Run Selected ({totalSelected})</>
-          )}
-        </Button>
-        {currentRunId && (
-          <span className="text-xs text-muted-foreground">
-            run_id: <code>{currentRunId}</code>
-          </span>
-        )}
+              <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+            </CardContent>
+          </Card>
+        ))}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            Results
-            {completedRun && (
-              <Badge
-                variant="outline"
-                className={
-                  displayStatus(completedRun) === 'passed'
-                    ? 'bg-green-100 text-green-900 border-green-300'
-                    : 'bg-red-100 text-red-900 border-red-300'
-                }
-              >
-                {displayStatus(completedRun)} · {completedRun.passed_tests ?? 0}/
-                {completedRun.total_tests ?? 0} passed
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {results.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No runs yet.</p>
-          ) : (
-            <ScrollArea className="max-h-96">
-              <div className="space-y-2">
-                {results.map((r, i) => (
-                  <div key={i}>
-                    <div className="flex items-start gap-3 py-1.5">
-                      {r.manual ? (
-                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                      ) : r.pass ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">{r.label}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {r.durationMs.toFixed(0)}ms
-                          </span>
-                          {r.manual && (
-                            <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-900 border-amber-300">
-                              Manual step required
-                            </Badge>
-                          )}
-                        </div>
-                        {r.errorMessage && (
-                          <div className="text-xs text-red-700 mt-0.5 break-words">
-                            {r.errorMessage}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    {i < results.length - 1 && <Separator />}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Past runs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {pastRuns.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No past runs found.</p>
-          ) : (
-            <div className="space-y-2">
-              {pastRuns.map((run) => {
-                const status = displayStatus(run);
-                const isOpen = expandedRunId === run.run_id;
-                const logs = runLogs[run.run_id] ?? [];
-                return (
-                  <Collapsible
-                    key={run.run_id}
-                    open={isOpen}
-                    onOpenChange={() => void expandRun(run)}
-                    className="border rounded-md"
-                  >
-                    <CollapsibleTrigger className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/30">
-                      <ChevronRight
-                        className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-90' : ''}`}
-                      />
-                      <Badge
-                        variant="outline"
-                        className={
-                          status === 'passed'
-                            ? 'bg-green-100 text-green-900 border-green-300'
-                            : status === 'failed'
-                            ? 'bg-red-100 text-red-900 border-red-300'
-                            : 'bg-slate-100 text-slate-800 border-slate-300'
-                        }
-                      >
-                        {status}
-                      </Badge>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm">
-                          {run.passed_tests ?? 0}/{run.total_tests ?? 0} passed
-                          {(run.failed_tests ?? 0) > 0 && (
-                            <span className="text-red-700">
-                              {' '}· {run.failed_tests} failed
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {run.started_at
-                            ? new Date(run.started_at).toLocaleString()
-                            : '—'}{' '}
-                          · {fmtDuration(run.started_at, run.completed_at)}
-                        </div>
-                      </div>
-                      <code className="text-[10px] text-muted-foreground hidden md:inline">
-                        {run.run_id.slice(0, 8)}
-                      </code>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <div className="px-3 pb-3 pt-1 space-y-1.5 border-t bg-muted/20">
-                        {logs.length === 0 ? (
-                          <p className="text-xs text-muted-foreground py-2">
-                            Loading logs…
-                          </p>
-                        ) : (
-                          logs.map((l) => (
-                            <div
-                              key={l.id}
-                              className="flex items-start gap-2 py-1"
-                            >
-                              {l.status === 'passed' ? (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
-                              ) : (
-                                <XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <div className="text-xs font-medium">
-                                  {l.test_name}
-                                  {l.module_name && (
-                                    <span className="text-muted-foreground font-normal">
-                                      {' '}· {l.module_name}
-                                    </span>
-                                  )}
-                                </div>
-                                {l.error_message && (
-                                  <div className="text-[11px] text-red-700 break-words">
-                                    {l.error_message}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 };

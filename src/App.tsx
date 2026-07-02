@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/i18n/config';
 import { Toaster } from "@/components/ui/toaster";
@@ -101,8 +101,13 @@ import FeedbackManagement from "./pages/FeedbackManagement";
 import CompetitionMaster from "./pages/CompetitionMaster";
 import CompetitorDetail from "./pages/CompetitorDetail";
 import NotFound from "./pages/NotFound";
-import RunTestsScreen from "./qa/screens/RunTestsScreen";
 import { isQAMode as isQAModeEnv } from "./lib/tableRouter";
+
+// QA-only screens: lazy-loaded so they never land in the production bundle.
+const RunTestsScreen = lazy(() => import("./qa/screens/RunTestsScreen"));
+const AutomatedTestsScreen = lazy(() => import("./qa/screens/AutomatedTestsScreen"));
+const CustomTestScreen = lazy(() => import("./qa/screens/CustomTestScreen"));
+const TestResultsScreen = lazy(() => import("./qa/screens/TestResultsScreen"));
 
 // Customer Portal Pages
 import CustomerLogin from "./pages/customer-portal/CustomerLogin";
@@ -620,10 +625,48 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/customer-portal/*" element={<Navigate to="/customer-portal/login" replace />} />
 
         {isQAModeEnv() && (
-          <Route
-            path="/qa/run-tests"
-            element={<ProtectedRoute><RunTestsScreen /></ProtectedRoute>}
-          />
+          <>
+            <Route
+              path="/qa/run-tests"
+              element={
+                <ProtectedRoute>
+                  <Suspense fallback={<LoadingScreen />}>
+                    <RunTestsScreen />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qa/run-tests/automated"
+              element={
+                <ProtectedRoute>
+                  <Suspense fallback={<LoadingScreen />}>
+                    <AutomatedTestsScreen />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qa/run-tests/custom"
+              element={
+                <ProtectedRoute>
+                  <Suspense fallback={<LoadingScreen />}>
+                    <CustomTestScreen />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/qa/run-tests/results"
+              element={
+                <ProtectedRoute>
+                  <Suspense fallback={<LoadingScreen />}>
+                    <TestResultsScreen />
+                  </Suspense>
+                </ProtectedRoute>
+              }
+            />
+          </>
         )}
         <Route path="*" element={<NotFound />} />
       </Routes>
