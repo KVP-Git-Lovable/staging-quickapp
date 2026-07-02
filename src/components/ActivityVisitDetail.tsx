@@ -203,6 +203,63 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
     return h > 0 ? `${h}h ${rem}m` : `${rem}m`;
   };
 
+  // ─── Sub-type detection (keyword based, master-driven names) ─────
+  const typeKey = (activity.activityType || '').toLowerCase();
+  const isJoint       = /joint/.test(typeKey);
+  const isSurvey      = /survey|new beat/.test(typeKey);
+  const isDistributor = /distributor/.test(typeKey);
+  const isMeeting     = /meeting|training/.test(typeKey);
+
+  const expectedMins: number | null = (form as any)?.expected_duration_minutes ?? null;
+  const halfDayType: string | null = (form as any)?.half_day_type ?? null;
+  const halfDayLabel = halfDayType === 'first_half' ? 'First half'
+    : halfDayType === 'second_half' ? 'Second half'
+    : 'Full day';
+
+  const saveDetail = async () => {
+    setSavingForm(true);
+    try {
+      // Whitelist per-sub-type fields to update
+      const patch: Record<string, any> = {};
+      const pick = (keys: string[]) => keys.forEach(k => { if (k in form) patch[k] = form[k] === '' ? null : form[k]; });
+
+      if (isJoint) pick([
+        'subordinate_user_id',
+        'rep_rating_product_knowledge', 'rep_rating_retailer_relationship',
+        'rep_rating_scheme_communication', 'rep_rating_branding', 'rep_rating_market_intel',
+        'rep_overall_outcome', 'rep_strengths', 'rep_improvement_areas',
+        'rep_action_items', 'rep_followup_date',
+      ]);
+      if (isSurvey) pick([
+        'beat_name', 'survey_total_shops', 'survey_our_stock_shops', 'survey_target_shops',
+        'survey_competitor_count', 'survey_estimated_monthly_value', 'survey_market_type',
+        'survey_priority', 'survey_suggested_beat_count', 'survey_shops_per_beat',
+        'survey_proposed_beat_names', 'survey_competition_brands', 'survey_observations',
+        'survey_recommendation',
+      ]);
+      if (isDistributor) pick([
+        'distributor_id', 'distributor_name', 'visit_purpose', 'contact_person', 'outcome',
+      ]);
+      if (isMeeting) pick(['topic', 'attendee_count']);
+
+      if (Object.keys(patch).length === 0) {
+        toast.info('Nothing to save');
+        return;
+      }
+      const { error } = await supabase
+        .from('activity_events')
+        .update(patch)
+        .eq('id', activity.activityEventId);
+      if (error) throw error;
+      toast.success('Details saved');
+      onChanged?.();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save details');
+    } finally {
+      setSavingForm(false);
+    }
+  };
+
   const runAction = async (action: 'check_in' | 'complete') => {
     if (busy) return;
 
