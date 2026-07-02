@@ -66,26 +66,23 @@ const ActivityCoordinator: React.FC = () => {
 
   const [rows, setRows] = useState<TeamActivityRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+
+  const fetchRows = React.useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('get_team_activities' as any, {
+      p_from: fromDate,
+      p_to: toDate,
+    });
+    if (!error && Array.isArray(data)) setRows(data as TeamActivityRow[]);
+    else setRows([]);
+    setLoading(false);
+  }, [fromDate, toDate]);
 
   useEffect(() => {
     if (!canView) return;
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const { data, error } = await supabase.rpc('get_team_activities' as any, {
-        p_from: fromDate,
-        p_to: toDate,
-      });
-      if (!cancelled) {
-        if (!error && Array.isArray(data)) setRows(data as TeamActivityRow[]);
-        else setRows([]);
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fromDate, toDate, canView]);
+    fetchRows();
+  }, [fetchRows, canView]);
 
   const typeMap = useMemo(() => {
     const m = new Map<string, { name: string; color: string | null }>();
