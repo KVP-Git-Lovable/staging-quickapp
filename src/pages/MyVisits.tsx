@@ -1626,6 +1626,10 @@ export const MyVisits = () => {
               userId={isViewingSelf ? user!.id : selectedUserIds[0]}
               selectedDate={selectedDate}
               onActivitiesLoaded={(count) => setHasActivities(count > 0)}
+              onActivityChanged={() => {
+                refreshActivityVisits();
+                window.dispatchEvent(new CustomEvent('visitDataChanged'));
+              }}
               onOpenDetail={(row, visitStatus) => setDetailActivity({
                 visitId: row.visit_id!,
                 activityEventId: row.id,
