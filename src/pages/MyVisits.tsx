@@ -253,7 +253,7 @@ export const MyVisits = () => {
   // Derive viewUserId for the hook: use the first selected non-self user, or 'self'
   const selectedViewUserId = isViewingSelf ? 'self' : selectedUserIds[0];
    const activityViewUserId = isViewingSelf ? user?.id : selectedUserIds[0];
-   const { refresh: refreshActivityVisits } = useActivityVisits(activityViewUserId, selectedDate);
+   const { items: activityVisitCards, refresh: refreshActivityVisits } = useActivityVisits(activityViewUserId, selectedDate);
    const [detailActivity, setDetailActivity] = useState<import('@/hooks/useActivityVisits').ActivityVisitCardModel | null>(null);
 
 
@@ -1204,10 +1204,16 @@ export const MyVisits = () => {
 
   // Use progressStats from the optimized hook for accurate counts
   // These are calculated directly from the database/cache with proper status logic
-  const plannedVisitsCount = progressStats.planned; // Pending visits (renamed from planned)
-  const productiveVisits = progressStats.productive;
-  const unproductiveVisits = progressStats.unproductive;
-  const totalPlannedVisits = progressStats.totalPlanned; // Total planned (doesn't change)
+  // Activity visits (visit_type='activity') are not included in progressStats, so merge them here.
+  const actProductive   = activityVisitCards.filter(a => a.status === 'productive').length;
+  const actUnproductive = activityVisitCards.filter(a => a.status === 'unproductive').length;
+  const actPending      = activityVisitCards.filter(a => !['productive','unproductive','cancelled'].includes(a.status ?? '')).length;
+  const actTotal        = activityVisitCards.filter(a => a.status !== 'cancelled').length;
+
+  const plannedVisitsCount = progressStats.planned + actPending; // Pending visits (renamed from planned)
+  const productiveVisits   = progressStats.productive + actProductive;
+  const unproductiveVisits = progressStats.unproductive + actUnproductive;
+  const totalPlannedVisits = progressStats.totalPlanned + actTotal; // Total planned (doesn't change)
   const totalOrderValue = progressStats.totalOrderValue;
   // Teammate breakdown (shared beats). Only renders sub-labels when > 0.
   const teamProductive = (progressStats as any).teamProductive || 0;
@@ -1620,6 +1626,10 @@ export const MyVisits = () => {
               userId={isViewingSelf ? user!.id : selectedUserIds[0]}
               selectedDate={selectedDate}
               onActivitiesLoaded={(count) => setHasActivities(count > 0)}
+              onActivityChanged={() => {
+                refreshActivityVisits();
+                window.dispatchEvent(new CustomEvent('visitDataChanged'));
+              }}
               onOpenDetail={(row, visitStatus) => setDetailActivity({
                 visitId: row.visit_id!,
                 activityEventId: row.id,
