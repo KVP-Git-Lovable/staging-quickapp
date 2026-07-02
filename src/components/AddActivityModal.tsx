@@ -303,11 +303,11 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                 </PopoverContent>
               </Popover>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-white">
-                      <CalendarIcon className="mr-2 h-4 w-4 text-blue-500" />
+                    <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-8 text-xs">
+                      <CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
                       From: {format(fromDate, 'PP')}
                     </Button>
                   </PopoverTrigger>
@@ -322,8 +322,8 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                 </Popover>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal bg-white">
-                      <CalendarIcon className="mr-2 h-4 w-4 text-indigo-500" />
+                    <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-8 text-xs">
+                      <CalendarIcon className="mr-2 h-3.5 w-3.5 text-indigo-500" />
                       To: {format(toDate, 'PP')}
                     </Button>
                   </PopoverTrigger>
@@ -334,8 +334,8 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                       initialFocus className={cn('p-3 pointer-events-auto')} />
                   </PopoverContent>
                 </Popover>
-                <p className="col-span-2 text-xs text-blue-600 font-medium">
-                  {differenceInCalendarDays(toDate, fromDate) + 1} day(s) scheduled
+                <p className="col-span-2 text-[10px] text-blue-600 font-medium">
+                  {differenceInCalendarDays(toDate, fromDate) + 1} day(s)
                 </p>
               </div>
             )}
