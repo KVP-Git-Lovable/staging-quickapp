@@ -460,17 +460,9 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
 
 
-          <div className="space-y-2">
-            <Label htmlFor="activity-remarks">Remarks</Label>
-            <Textarea
-              id="activity-remarks"
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Add notes about this activity…"
-              rows={4}
-              disabled={isCancelled}
-            />
-            <div className="flex justify-end">
+          <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="activity-remarks" className="text-sm font-semibold">Remarks</Label>
               <Button
                 size="sm"
                 variant="outline"
@@ -481,6 +473,15 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
                 Save
               </Button>
             </div>
+            <Textarea
+              id="activity-remarks"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="Add notes about this activity…"
+              rows={4}
+              disabled={isCancelled}
+              className="bg-muted/30"
+            />
           </div>
 
           {canReadAttach && (
