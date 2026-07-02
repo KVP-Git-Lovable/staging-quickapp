@@ -16545,6 +16545,54 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_custom_tests: {
+        Row: {
+          ai_plan: string | null
+          ai_result: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          page_context: string | null
+          pass: boolean | null
+          prompt: string
+          run_at: string | null
+          status: string
+          steps_taken: Json | null
+          test_run_id: string | null
+        }
+        Insert: {
+          ai_plan?: string | null
+          ai_result?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          page_context?: string | null
+          pass?: boolean | null
+          prompt: string
+          run_at?: string | null
+          status?: string
+          steps_taken?: Json | null
+          test_run_id?: string | null
+        }
+        Update: {
+          ai_plan?: string | null
+          ai_result?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          page_context?: string | null
+          pass?: boolean | null
+          prompt?: string
+          run_at?: string | null
+          status?: string
+          steps_taken?: Json | null
+          test_run_id?: string | null
+        }
+        Relationships: []
+      }
       qa_daily_beat_plans: {
         Row: {
           assigned_by: string
