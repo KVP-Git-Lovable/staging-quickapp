@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import InvoiceTemplateRenderer from "@/components/invoice/InvoiceTemplateRenderer";
-import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText, Tag, Sparkles, Truck, Check } from "lucide-react";
+import { Trash2, Gift, ShoppingCart, Eye, Camera, FileText, Tag, Sparkles, Truck, Check, Calendar, Info } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { CartItemDetail } from "@/components/CartItemDetail";
