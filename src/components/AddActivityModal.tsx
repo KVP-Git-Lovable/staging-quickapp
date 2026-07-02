@@ -253,7 +253,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                       type="button"
                       onClick={() => setSelectedType(t.name)}
                       className={cn(
-                        'px-3 py-2 rounded-full text-sm border-2 transition-all',
+                        'px-2.5 py-1.5 rounded-full text-xs border-2 transition-all',
                         active
                           ? cn(solid(c), 'shadow-md scale-105')
                           : cn(soft(c), 'hover:brightness-95'),
