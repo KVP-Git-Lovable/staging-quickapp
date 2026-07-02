@@ -63,17 +63,18 @@ const SectionCard = ({
 }: {
   step: number; title: string; icon: any; children: React.ReactNode; tone?: string;
 }) => (
-  <div className={cn('rounded-2xl border p-4 bg-gradient-to-br shadow-sm', tone)}>
-    <div className="flex items-center gap-2 mb-3">
-      <div className="h-7 w-7 rounded-full bg-white border shadow-sm flex items-center justify-center text-xs font-bold text-primary">
+  <div className={cn('rounded-xl border p-3 bg-gradient-to-br shadow-sm', tone)}>
+    <div className="flex items-center gap-2 mb-2">
+      <div className="h-6 w-6 rounded-full bg-white border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">
         {step}
       </div>
-      <Icon className="h-4 w-4 text-muted-foreground" />
-      <span className="text-sm font-semibold">{title}</span>
+      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      <span className="text-xs font-semibold">{title}</span>
     </div>
     {children}
   </div>
 );
+
 
 export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) => {
   const { user } = useAuth();
