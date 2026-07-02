@@ -1076,7 +1076,7 @@ export const TodaySummary = () => {
       
       console.log('📊 Today\'s Summary Data:', {
         totalVisits: visits?.length || 0,
-        completedVisits: completedVisits.length,
+        completedVisits: completedVisitsCount,
         totalOrders: totalOrdersCount,
         totalOrderValue,
         distanceFromVan: totalDistance,
@@ -1105,18 +1105,18 @@ export const TodaySummary = () => {
         beatNames: beatNamesDisplay,
         startTime: formatTime(firstCheckIn),
         endTime: lastCheckOut ? formatTime(lastCheckOut) : (firstCheckIn ? "In Progress" : "Not started"),
-        plannedVisits: totalPlanned,
-        completedVisits: completedVisits.length,
-        productiveVisits: productiveCount,
-        unproductiveVisits: unproductiveCount,
+        plannedVisits: plannedVisitsCount,
+        completedVisits: completedVisitsCount,
+        productiveVisits: productiveVisitsCount,
+        unproductiveVisits: unproductiveVisitsCount,
         totalRetailers: totalPlannedFromBeatPlans,
         totalOrders: totalOrdersCount,
         totalOrderValue,
         avgOrderValue,
         totalKgSold: totalItemsCount,
         totalKgSoldFormatted,
-        visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
-        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveCount / completedVisits.length) * 100) : 0,
+        visitEfficiency: totalPlannedWithActivities > 0 ? Math.round((completedVisitsCount / totalPlannedWithActivities) * 100) : 0,
+        orderConversionRate: completedVisitsCount > 0 ? Math.round((productiveVisitsCount / completedVisitsCount) * 100) : 0,
         distanceCovered: totalDistance > 0 ? Math.round(totalDistance * 10) / 10 : 0,
         travelTime: timeAtRetailersStr
       });
