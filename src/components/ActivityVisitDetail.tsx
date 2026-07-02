@@ -781,8 +781,8 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
                 </div>
               )}
 
-              <div className="flex justify-end">
-                <Button size="sm" onClick={saveDetail} disabled={savingForm}>
+              <div className="flex justify-end pt-2">
+                <Button size="sm" onClick={saveDetail} disabled={savingForm} className="bg-primary text-primary-foreground hover:bg-primary/90">
                   {savingForm ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-2" />}
                   Save details
                 </Button>
