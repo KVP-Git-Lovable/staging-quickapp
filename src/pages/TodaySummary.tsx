@@ -1124,17 +1124,17 @@ export const TodaySummary = () => {
       console.log('📈 Calculated Metrics:', {
         distanceCovered: Math.round(totalDistance * 10) / 10,
         timeAtRetailers: timeAtRetailersStr,
-        visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
-        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0
+        visitEfficiency: totalPlannedWithActivities > 0 ? Math.round((completedVisitsCount / totalPlannedWithActivities) * 100) : 0,
+        orderConversionRate: completedVisitsCount > 0 ? Math.round((productiveVisitsCount / completedVisitsCount) * 100) : 0
       });
 
       // Update visit breakdown - Planned (total), Productive, Unproductive, Pending
-      // CRITICAL: Use productiveCount (retailers with orders OR productive visits) not productiveVisits.length
+      // Include activity visits so the breakdown matches My Visit and Home dashboard.
       setVisitBreakdown([
-        { status: "Planned", count: totalPlannedFromBeatPlans, color: "primary" },
-        { status: "Productive", count: productiveCount, color: "success" },
-        { status: "Unproductive", count: unproductiveVisits.length + closedVisits.length, color: "destructive" },
-        { status: "Pending", count: totalPendingCount, color: "warning" }
+        { status: "Planned", count: totalPlannedWithActivities, color: "primary" },
+        { status: "Productive", count: productiveVisitsCount, color: "success" },
+        { status: "Unproductive", count: unproductiveVisitsCount, color: "destructive" },
+        { status: "Pending", count: totalPendingWithActivities, color: "warning" }
       ]);
 
       // Process top retailers (based on order value)
