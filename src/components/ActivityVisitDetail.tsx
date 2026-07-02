@@ -415,30 +415,30 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md p-0 overflow-hidden flex flex-col">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-md p-0 overflow-hidden flex flex-col !top-14 !h-[calc(100dvh-3.5rem)] rounded-tl-2xl border-l shadow-2xl"
+      >
         {/* Prominent header band */}
-        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-b px-5 pt-6 pb-5 shrink-0">
-          <div className="flex items-start justify-between gap-3">
+        <div className="bg-gradient-to-br from-sky-100 via-indigo-50 to-white border-b border-sky-100 px-5 pt-5 pb-4 shrink-0">
+          <div className="flex items-start justify-between gap-3 pr-8">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-10 w-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-xl bg-white text-indigo-600 flex items-center justify-center shrink-0 shadow-sm ring-1 ring-indigo-100">
                 <ActivityIcon className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <SheetTitle className="text-lg font-bold leading-tight truncate">
+                <SheetTitle className="text-lg font-bold leading-tight truncate text-slate-800">
                   {title}
                 </SheetTitle>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-0.5">
                   {activity.plannedDate}
                 </p>
               </div>
             </div>
-            <div className="shrink-0">
-              {/* Sheet close is supplied by shadcn; keep the layout consistent */}
-            </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap mt-4">
-            <Badge variant="outline" className="text-[10px] bg-background/70">Activity</Badge>
+          <div className="flex items-center gap-2 flex-wrap mt-3">
+            <Badge variant="outline" className="text-[10px] bg-white/80 border-slate-200 text-slate-700">Activity</Badge>
             <Badge className={`text-[10px] ${meta.colorClass}`}>{meta.label}</Badge>
             <Badge className={`text-[10px] border flex items-center gap-1 ${state.cls}`}>
               <StateIcon className="h-3 w-3" />
@@ -447,7 +447,7 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-50/50 to-white">
           {(photoRequired || locationRequired) && !isCancelled && !isCompleted && (
             <p className="text-[11px] text-amber-600 flex items-center gap-1">
               <MapPin className="h-3 w-3" />
