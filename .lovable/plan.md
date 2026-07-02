@@ -1,95 +1,47 @@
-## QA Runner: qa_run_id attribution + Run Tests screen result display
 
-Two connected fixes so cleanup works and the Run Tests screen shows authoritative results.
+## Goal
+Turn `src/components/AddActivityModal.tsx` from a 3-step flow (Category → Sub-type → Schedule) into a **single-screen scheduler** with a more vibrant, modern look. No backend or logic changes — only layout/UX and styling.
 
-### 1. Add `qa_run_id: ctx.runId` to every qa_* entity insert
+## Single-page layout
+Everything visible at once inside a wider (`max-w-3xl`) dialog:
 
-Audit every action file and add `qa_run_id: ctx.runId` to any insert into a `qa_*` entity table missing it.
-
-- `src/qa/automation/retailerActions.ts`
-  - `retailer.create` insert into `qa_retailers` → add `qa_run_id`
-  - `retailer.assign-to-beat` insert into `qa_retailer_beat_assignments` → add `qa_run_id`
-- `src/qa/automation/visitActions.ts` — confirm `qa_visits`, `qa_attendance` inserts include it (Fix 4 landed; re-verify)
-- `src/qa/automation/orderActions.ts` — `qa_orders`, `qa_order_items` inserts
-- `src/qa/automation/smokeActions.ts` — any `qa_*` inserts (beats, beat_plans, etc.)
-- `src/qa/automation/offlineSyncActions.ts` — any `qa_*` inserts
-
-Rule: every `.from(table('qa_<entity>'))` `.insert(...)` in the QA action layer must carry `qa_run_id: ctx.runId`. `qa_test_runs` and `qa_test_logs` are managed by `runner.ts` and are out of scope.
-
-### 2. FIX A — Use `run_id` (not `id`) as the join key everywhere
-
-`qa_test_runs.id` is the table PK; `qa_test_runs.run_id` is the uuid that `qa_test_logs.test_run_id` references. They are always different.
-
-- Grep `src/` for `qa_test_logs` and `qa_test_runs` usages.
-- In `src/pages/RunTestsScreen.tsx` (and any hook it calls), every `.eq('test_run_id', …)` must receive `run.run_id`, never `run.id`.
-- Every `.eq('…', runId)` against `qa_test_runs` must use `.eq('run_id', runId)` — never `.eq('id', runId)`.
-- Leave `src/qa/runner.ts` `startRun` / `logStep` / `finishRun` unchanged (they already use `run_id`).
-
-### 3. FIX B — Kill stuck "running" rows
-
-- Apply migration:
-  ```sql
-  UPDATE qa_test_runs
-     SET overall_status = 'failed',
-         completed_at   = started_at,
-         notes          = 'Cleaned up: runner crashed before finishing'
-   WHERE completed_at IS NULL
-     AND overall_status = 'running'
-     AND started_at < now() - interval '1 hour';
-  ```
-- In `RunTestsScreen` "Past Runs" query, add `.neq('overall_status', 'running')` OR treat any run with `started_at < now() - 5min` and `overall_status = 'running'` as `failed` in the display.
-
-### 4. FIX C — Re-fetch from DB after `finishRun()`
-
-In `RunTestsScreen.tsx`, after the run loop:
-
-```ts
-await finishRun(runId, allResults);
-
-const { data: runData } = await supabase
-  .from(table('qa_test_runs') as any)
-  .select('*')
-  .eq('run_id', runId)
-  .single();
-
-const { data: logData } = await supabase
-  .from(table('qa_test_logs') as any)
-  .select('*')
-  .eq('test_run_id', runId)
-  .order('started_at', { ascending: true });
-
-setCompletedRun(runData);
-setResults(logData ?? []);
+```
+┌─────────────────────────────────────────────────┐
+│  🎨 Gradient header — "Schedule Activity"       │
+│      subtitle + selected chip preview           │
+├─────────────────────────────────────────────────┤
+│  1. Category (5 colored pill boxes, row)        │
+│  2. Sub-type (color-tinted chips, filtered)     │
+│  3. When  ── Single / Multi toggle + date(s)    │
+│  4. Duration (30m · 1h · 2h · 4h · Full · Cust) │
+│  5. Time of day (Full · 1st half · 2nd half)    │
+├─────────────────────────────────────────────────┤
+│  Summary strip (chips of current selections)    │
+│  [Cancel]                    [Schedule 🚀]      │
+└─────────────────────────────────────────────────┘
 ```
 
-Authoritative DB state — not in-memory streaming state — drives the final display.
+- Categories always visible as horizontally-scrollable colored cards; selected one gets a ring + saturated background using its `color` token.
+- Sub-types render inline directly under categories (no view-swap, no back button) and use the parent category's color as a soft tint.
+- Scheduling section is always mounted (no gating on `selectedType`) but the Schedule button stays disabled until category + sub-type are picked.
+- Duration presets + Time-of-day become larger pill chips with icons (Clock, Sun, Moon) and colored active states.
 
-### 5. FIX D — Past Runs section
+## Visual polish
+- Gradient dialog header (`from-primary/10 via-accent/10 to-primary/5`) with rounded top and activity icon in a circular badge.
+- Each section wrapped in a subtle `bg-muted/30 rounded-xl p-4` card with a small numbered label chip (①②③④⑤).
+- Reuse existing `COLOR_CLASS` map; add a matching `COLOR_RING`/`COLOR_SOFT` map for selected states and sub-type tints — all Tailwind palette classes (no new tokens needed since they're referring to category colors coming from DB, same pattern already used).
+- Icons via lucide-react: `Sparkles`, `CalendarDays`, `Clock`, `Sun`, `Moon`, `Sunrise`, `Rocket`.
+- Live summary bar above footer shows current picks as colored badges: category → sub-type → date(s) → duration → time-of-day.
 
-In `RunTestsScreen.tsx`, ensure a Past Runs list exists (last 20):
+## Files touched
+- `src/components/AddActivityModal.tsx` — rewrite JSX only. Keep all state, handlers, `createActivity` payload, validation, and `useActivityTypes` usage exactly as-is.
 
-```ts
-const { data: runs } = await supabase
-  .from(table('qa_test_runs') as any)
-  .select('*')
-  .eq('build_type', 'qa')
-  .neq('overall_status', 'running')
-  .order('started_at', { ascending: false })
-  .limit(20);
-```
+## Out of scope
+- No changes to `useActivityEvents`, `useActivityTypes`, DB schema, RLS, or the detail sheet.
+- No new dependencies.
 
-Expanding a run fetches its logs with `.eq('test_run_id', selectedRun.run_id)`. Show status badge, pass/fail counts, start time, duration; expandable per-step logs.
-
-### Out of scope / do not change
-
-- `qa_test_runs` / `qa_test_logs` schemas.
-- `runner.ts` `startRun` / `logStep` / `finishRun` behavior.
-- Any production (non-`qa_*`) tables or code.
-
-### Verification
-
-- Run a flow → results render immediately from DB on completion.
-- Grep confirms zero `.eq('test_run_id', run.id)` and zero `.eq('id', runId)` against `qa_test_runs`.
-- Past Runs shows today's runs with counts + expandable logs.
-- Stuck yesterday run no longer displays as in-progress.
-- New rows in `qa_retailers` / `qa_visits` / `qa_attendance` / `qa_orders` / `qa_order_items` all carry `qa_run_id`, so `cleanup_qa_run()` removes them.
+## Acceptance
+- Opening "Add Activity" shows one scrollable screen with category boxes, sub-type chips, date/duration/time-of-day all visible.
+- No "Change" / back button; changing category simply re-filters sub-types below.
+- Save payload to `createActivity` is byte-identical to today.
+- Schedule button disabled until both category and sub-type are chosen.
