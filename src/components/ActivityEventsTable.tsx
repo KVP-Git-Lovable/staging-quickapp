@@ -457,9 +457,9 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
               id={`activity-event-${activity.id}`}
               role={onOpenDetail ? 'button' : undefined}
               tabIndex={onOpenDetail ? 0 : undefined}
-              onClick={onOpenDetail ? () => onOpenDetail(activity) : undefined}
+              onClick={onOpenDetail ? () => onOpenDetail(activity, visitStatus) : undefined}
               onKeyDown={onOpenDetail ? (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail(activity); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail(activity, visitStatus); }
               } : undefined}
               className={`rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2 scroll-mt-24 ${onOpenDetail ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
             >
