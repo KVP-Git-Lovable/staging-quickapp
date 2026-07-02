@@ -415,24 +415,39 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <ActivityIcon className="h-4 w-4" />
-            <span className="truncate">{title}</span>
-          </SheetTitle>
-        </SheetHeader>
+      <SheetContent side="right" className="w-full sm:max-w-md p-0 overflow-hidden flex flex-col">
+        {/* Prominent header band */}
+        <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-b px-5 pt-6 pb-5 shrink-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="h-10 w-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0">
+                <ActivityIcon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <SheetTitle className="text-lg font-bold leading-tight truncate">
+                  {title}
+                </SheetTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {activity.plannedDate}
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0">
+              {/* Sheet close is supplied by shadcn; keep the layout consistent */}
+            </div>
+          </div>
 
-        <div className="mt-4 space-y-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className="text-[10px]">Activity</Badge>
+          <div className="flex items-center gap-2 flex-wrap mt-4">
+            <Badge variant="outline" className="text-[10px] bg-background/70">Activity</Badge>
             <Badge className={`text-[10px] ${meta.colorClass}`}>{meta.label}</Badge>
             <Badge className={`text-[10px] border flex items-center gap-1 ${state.cls}`}>
               <StateIcon className="h-3 w-3" />
               {state.label}
             </Badge>
           </div>
+        </div>
 
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {(photoRequired || locationRequired) && !isCancelled && !isCompleted && (
             <p className="text-[11px] text-amber-600 flex items-center gap-1">
               <MapPin className="h-3 w-3" />
@@ -444,17 +459,10 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
           )}
 
 
-          <div className="space-y-2">
-            <Label htmlFor="activity-remarks">Remarks</Label>
-            <Textarea
-              id="activity-remarks"
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-              placeholder="Add notes about this activity…"
-              rows={4}
-              disabled={isCancelled}
-            />
-            <div className="flex justify-end">
+
+          <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="activity-remarks" className="text-sm font-semibold">Remarks</Label>
               <Button
                 size="sm"
                 variant="outline"
@@ -465,12 +473,21 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
                 Save
               </Button>
             </div>
+            <Textarea
+              id="activity-remarks"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="Add notes about this activity…"
+              rows={4}
+              disabled={isCancelled}
+              className="bg-muted/30"
+            />
           </div>
 
           {canReadAttach && (
-            <div className="space-y-2">
+            <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-1.5">
+                <Label className="flex items-center gap-1.5 text-sm font-semibold">
                   <Paperclip className="h-3.5 w-3.5" /> Attachments
                 </Label>
                 {canCreateAttach && (
@@ -558,8 +575,12 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
 
           {/* ─── Per-sub-type detail form ────────────────── */}
           {(isJoint || isSurvey || isDistributor || isMeeting) && !isCancelled && (
-            <div className="space-y-3 border-t pt-4">
-              <Label className="text-sm font-semibold">Activity details</Label>
+            <div className="rounded-xl border bg-primary/5 p-4 shadow-sm space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-1 rounded-full bg-primary" />
+                <Label className="text-sm font-semibold">Activity details</Label>
+              </div>
+
 
               {isJoint && (
                 <div className="space-y-3">
@@ -760,8 +781,8 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
                 </div>
               )}
 
-              <div className="flex justify-end">
-                <Button size="sm" onClick={saveDetail} disabled={savingForm}>
+              <div className="flex justify-end pt-2">
+                <Button size="sm" onClick={saveDetail} disabled={savingForm} className="bg-primary text-primary-foreground hover:bg-primary/90">
                   {savingForm ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-2" />}
                   Save details
                 </Button>
