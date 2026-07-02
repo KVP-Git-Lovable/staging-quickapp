@@ -70,6 +70,7 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
       { name: 'action_visit_gps_track', label: 'GPS Track' },
       { name: 'action_visit_van_stock', label: 'Van Stock' },
       { name: 'action_visit_activity', label: 'Activity' },
+      { name: 'action_activity_create', label: 'Log / configure activity' },
     ],
     widgets: [
       { name: 'widget_visit_todays_progress', label: "Today's Progress" },
