@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon, Loader2, Activity as ActivityIcon, ChevronLeft } from 'lucide-react';
-import { format, differenceInCalendarDays, addDays } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useActivityEvents } from '@/hooks/useActivityEvents';
