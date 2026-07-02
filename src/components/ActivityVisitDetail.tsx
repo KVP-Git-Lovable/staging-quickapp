@@ -1,17 +1,20 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CalendarDays, Clock, Timer, LogIn, LogOut, Loader2, Save, CheckCircle2, Play, XCircle, Activity as ActivityIcon,
-  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink, MapPin,
+  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink, MapPin, Star,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useSubordinates } from '@/hooks/useSubordinates';
 import type { ActivityVisitCardModel } from '@/hooks/useActivityVisits';
 
 const BUCKET = 'activity-attachments';
