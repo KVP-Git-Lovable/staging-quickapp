@@ -199,10 +199,10 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           </DialogHeader>
         </div>
 
-        <div className="p-3 space-y-3">
+        <div className="p-2.5 space-y-2.5">
           {/* 1. Category */}
           <SectionCard step={1} title="Category" icon={Sparkles} tone="from-primary/5 to-white">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {categoryOptions.map(cat => {
                 const active = selectedCategoryId === cat.id;
                 return (
@@ -216,18 +216,18 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                     className={cn(
                       'relative p-2 rounded-lg border-2 text-left transition-all hover:scale-[1.02] hover:shadow-sm',
                       active
-                        ? cn(solid(cat.color), 'ring-4 ring-offset-1 shadow-md', ring(cat.color))
+                        ? cn(solid(cat.color), 'ring-2 ring-offset-1 shadow-md', ring(cat.color))
                         : cn(soft(cat.color), 'hover:brightness-95'),
                     )}
                   >
                     {active && (
-                      <div className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-white/90 text-primary flex items-center justify-center shadow">
-                        <Check className="h-3 w-3" />
+                      <div className="absolute top-1 right-1 h-4 w-4 rounded-full bg-white/90 text-primary flex items-center justify-center shadow">
+                        <Check className="h-2.5 w-2.5" />
                       </div>
                     )}
-                    <div className="text-sm font-semibold leading-tight">{cat.name}</div>
+                    <div className="text-xs font-semibold leading-tight pr-4">{cat.name}</div>
                     {cat.description && (
-                      <p className={cn('text-[10px] mt-1 line-clamp-2', active ? 'text-white/80' : 'opacity-70')}>
+                      <p className={cn('text-[9px] mt-0.5 line-clamp-1', active ? 'text-white/80' : 'opacity-70')}>
                         {cat.description}
                       </p>
                     )}
@@ -240,11 +240,11 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           {/* 2. Sub-type */}
           <SectionCard step={2} title="Activity type" icon={ActivityIcon} tone="from-fuchsia-50 to-white">
             {!selectedCategoryId ? (
-              <p className="text-xs text-muted-foreground italic">Pick a category above to see activity types.</p>
+              <p className="text-[10px] text-muted-foreground italic">Pick a category above to see activity types.</p>
             ) : subtypeOptions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No sub-types configured for {activeCategory?.name}.</p>
+              <p className="text-[10px] text-muted-foreground">No sub-types configured for {activeCategory?.name}.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {subtypeOptions.map(t => {
                   const active = selectedType === t.name;
                   const c = activeCategory?.color;
@@ -254,13 +254,13 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                       type="button"
                       onClick={() => setSelectedType(t.name)}
                       className={cn(
-                        'px-2.5 py-1.5 rounded-full text-xs border-2 transition-all',
+                        'px-2 py-1 rounded-full text-[11px] border-2 transition-all leading-none',
                         active
-                          ? cn(solid(c), 'shadow-md scale-105')
+                          ? cn(solid(c), 'shadow-sm scale-105')
                           : cn(soft(c), 'hover:brightness-95'),
                       )}
                     >
-                      {active && <Check className="inline h-3 w-3 mr-1" />}
+                      {active && <Check className="inline h-2.5 w-2.5 mr-0.5" />}
                       {t.name}
                     </button>
                   );
@@ -268,6 +268,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
               </div>
             )}
           </SectionCard>
+
 
           {/* 3. When */}
           <SectionCard step={3} title="When" icon={CalendarDays} tone="from-blue-50 to-white">
