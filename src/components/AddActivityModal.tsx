@@ -198,7 +198,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           </DialogHeader>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-3 space-y-3">
           {/* 1. Category */}
           <SectionCard step={1} title="Category" icon={Sparkles} tone="from-primary/5 to-white">
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
