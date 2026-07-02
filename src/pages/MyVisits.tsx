@@ -252,13 +252,10 @@ export const MyVisits = () => {
   const isViewingSelf = selectedUserIds.length === 0 || (selectedUserIds.length === 1 && selectedUserIds[0] === user?.id);
   // Derive viewUserId for the hook: use the first selected non-self user, or 'self'
   const selectedViewUserId = isViewingSelf ? 'self' : selectedUserIds[0];
-  const activityViewUserId = isViewingSelf ? user?.id : selectedUserIds[0];
-  const { items: activityVisitCards, refresh: refreshActivityVisits } = useActivityVisits(activityViewUserId, selectedDate);
-  const [detailActivity, setDetailActivity] = useState<import('@/hooks/useActivityVisits').ActivityVisitCardModel | null>(null);
+   const activityViewUserId = isViewingSelf ? user?.id : selectedUserIds[0];
+   const { refresh: refreshActivityVisits } = useActivityVisits(activityViewUserId, selectedDate);
+   const [detailActivity, setDetailActivity] = useState<import('@/hooks/useActivityVisits').ActivityVisitCardModel | null>(null);
 
-  const handleOpenActivityCard = useCallback((a: import('@/hooks/useActivityVisits').ActivityVisitCardModel) => {
-    setDetailActivity(a);
-  }, []);
 
   // One-time fix: Restore cancelled visits to planned if day hasn't ended
   useEffect(() => {
