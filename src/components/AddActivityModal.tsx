@@ -376,7 +376,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
           {/* 5. Time of day */}
           <SectionCard step={5} title="Time of day" icon={Sun} tone="from-amber-50 to-white">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {halves.map(([val, label, Icon]) => {
                 const active = halfDay === val;
                 return (
@@ -385,13 +385,13 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                     type="button"
                     onClick={() => setHalfDay(val)}
                     className={cn(
-                      'px-4 py-2 rounded-full text-sm font-medium border-2 transition flex items-center gap-2',
+                      'px-2.5 py-1 rounded-full text-xs font-medium border-2 transition flex items-center gap-1.5',
                       active
                         ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white border-orange-500 shadow'
                         : 'bg-white border-border hover:bg-amber-50 text-slate-700',
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-3.5 w-3.5" />
                     {label}
                   </button>
                 );
