@@ -583,6 +583,16 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
           );
         })}
       </CardContent>
+      {completionTarget && (
+        <ActivityCompletionDialog
+          open={!!completionTarget}
+          onOpenChange={(o) => { if (!o) setCompletionTarget(null); }}
+          activityId={completionTarget.id}
+          visitId={completionTarget.visitId}
+          onCompleted={() => { setCompletionTarget(null); loadActivities(); }}
+        />
+      )}
     </Card>
   );
 };
+
