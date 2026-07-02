@@ -343,7 +343,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
           {/* 4. Duration */}
           <SectionCard step={4} title="Expected duration" icon={Clock} tone="from-emerald-50 to-white">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {durationPresets.map(([val, label, Icon]) => {
                 const active = durationPreset === val;
                 return (
@@ -352,24 +352,24 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                     type="button"
                     onClick={() => setDurationPreset(val)}
                     className={cn(
-                      'px-3 py-1.5 rounded-full text-xs font-medium border-2 transition flex items-center gap-1.5',
+                      'px-2.5 py-1 rounded-full text-[11px] font-medium border-2 transition flex items-center gap-1',
                       active
                         ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white border-green-600 shadow'
                         : 'bg-white border-border hover:bg-emerald-50 text-slate-700',
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5" />
+                    <Icon className="h-3 w-3" />
                     {label}
                   </button>
                 );
               })}
             </div>
             {durationPreset === 'custom' && (
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-2">
                 <Input type="number" min={1} value={customMinutes}
                   onChange={(e) => setCustomMinutes(Number(e.target.value))}
-                  className="w-32 bg-white" />
-                <span className="text-sm text-muted-foreground">minutes</span>
+                  className="w-28 h-8 bg-white text-xs" />
+                <span className="text-xs text-muted-foreground">min</span>
               </div>
             )}
           </SectionCard>
