@@ -798,15 +798,29 @@ export const TodaySummary = () => {
       
       // CRITICAL: Productive count = unique retailers with productive visit OR confirmed order
       const productiveCount = productiveRetailerIds.size;
-      
+
       // Unproductive = unique unproductive + store_closed retailers
       const unproductiveCount = unproductiveRetailerIds.size + closedRetailerIds.size;
-      
+
       // Pending = Planned - Productive - Unproductive
       // This ensures: Planned = Productive + Unproductive + Pending
       const totalPendingCount = Math.max(0, totalPlannedFromBeatPlans - productiveCount - unproductiveCount);
       const totalPlanned = totalPlannedFromBeatPlans;
-      
+
+      // Include activity visits (retailer_id is null) in counts, matching My Visit logic.
+      const acts = (visits || []).filter(v => v.visit_type === 'activity' && v.status !== 'cancelled');
+      const actProductive = acts.filter(v => v.status === 'productive').length;
+      const actUnproductive = acts.filter(v => v.status === 'unproductive').length;
+      const actPending = acts.filter(v => !['productive', 'unproductive', 'cancelled'].includes(v.status)).length;
+      const actTotal = acts.length;
+
+      const plannedVisits = totalPlanned + actPending;
+      const productiveVisits = productiveCount + actProductive;
+      const unproductiveVisits = unproductiveCount + actUnproductive;
+      const completedVisits = completedVisits.length + actProductive + actUnproductive;
+      const totalPlannedWithActivities = totalPlanned + actTotal;
+      const totalPendingWithActivities = Math.max(0, totalPlannedWithActivities - productiveVisits - unproductiveVisits);
+
       console.log('🎯 [USER FILTER DEBUG]', {
         targetUserIds,
         filterType,
@@ -818,7 +832,11 @@ export const TodaySummary = () => {
         ordersCount: todayOrders?.length || 0,
         productiveCount,
         unproductiveCount,
-        totalPlanned
+        totalPlanned,
+        actProductive,
+        actUnproductive,
+        actPending,
+        actTotal
       });
 
       // Get attendance start/end times from attendance table
