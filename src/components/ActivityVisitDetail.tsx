@@ -433,35 +433,6 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
             </Badge>
           </div>
 
-          <div className="rounded-lg border p-3 space-y-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5" /> Date</span>
-              <span className="font-medium">{activity.plannedDate}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Check-in</span>
-              <span className="font-medium">{fmtTime(activity.checkInTime)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Check-out</span>
-              <span className="font-medium">{fmtTime(activity.checkOutTime)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-1.5"><Timer className="h-3.5 w-3.5" /> Expected duration</span>
-              <span className="font-medium">{expectedMins ? fmtDuration(expectedMins) : '—'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Time of day</span>
-              <span className="font-medium">{halfDayLabel}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-1.5"><Timer className="h-3.5 w-3.5" /> Total time spent</span>
-              <span className="font-medium">
-                {fmtDuration(liveDuration)}{isInProgress ? ' (live)' : ''}
-              </span>
-            </div>
-          </div>
-
           {(photoRequired || locationRequired) && !isCancelled && !isCompleted && (
             <p className="text-[11px] text-amber-600 flex items-center gap-1">
               <MapPin className="h-3 w-3" />
@@ -472,21 +443,6 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
             </p>
           )}
 
-          {!isCancelled && !isCompleted && (
-            <div className="flex items-center gap-2">
-              {!isInProgress ? (
-                <Button className="flex-1" onClick={() => runAction('check_in')} disabled={busy !== null}>
-                  {busy === 'check_in' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LogIn className="h-4 w-4 mr-2" />}
-                  Check-In
-                </Button>
-              ) : (
-                <Button className="flex-1" onClick={() => runAction('complete')} disabled={busy !== null}>
-                  {busy === 'complete' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LogOut className="h-4 w-4 mr-2" />}
-                  Mark Complete
-                </Button>
-              )}
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="activity-remarks">Remarks</Label>
