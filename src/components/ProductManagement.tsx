@@ -922,14 +922,15 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     const matchesSearch =
       product.name.toLowerCase().includes(q) ||
       product.sku.toLowerCase().includes(q);
-    return matchesSearch && productStatusMatches(product.is_active);
+    const matchesCategory = categoryFilter === 'all' || product.category_id === categoryFilter;
+    return matchesSearch && matchesCategory && productStatusMatches(product.is_active);
   });
 
-  const productsPagination = usePagination(filteredProducts, { pageSize: 15 });
+  const productsPagination = usePagination(filteredProducts, { pageSize: 50 });
 
   useEffect(() => {
     productsPagination.goToPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, categoryFilter]);
 
   if (loading) {
     return (
