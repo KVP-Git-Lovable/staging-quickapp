@@ -81,6 +81,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
   const [isLoading, setIsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [completionTarget, setCompletionTarget] = useState<{ id: string; visitId: string } | null>(null);
 
   const isToday = selectedDate === getLocalTodayDate();
   
