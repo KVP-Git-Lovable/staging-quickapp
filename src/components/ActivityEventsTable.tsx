@@ -10,6 +10,7 @@ import { getLocalTodayDate } from '@/utils/dateUtils';
 import { Geolocation } from '@capacitor/geolocation';
 import { useNavigate } from 'react-router-dom';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
+import { ActivityCompletionDialog } from '@/components/ActivityCompletionDialog';
 
 interface ActivityEventsTableProps {
   userId: string;
