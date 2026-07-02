@@ -510,6 +510,19 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
         });
 
         const totalVisits = visitsAny.length;
+
+        // Include activity visits (retailer_id is null) in progress counts, matching My Visit logic.
+        const acts = (visits || []).filter(v => v.visit_type === 'activity' && v.status !== 'cancelled');
+        const actProductive = acts.filter(v => v.status === 'productive').length;
+        const actUnproductive = acts.filter(v => v.status === 'unproductive').length;
+        const actPending = acts.filter(v => !['productive', 'unproductive', 'cancelled'].includes(v.status)).length;
+        const actTotal = acts.length;
+
+        productive += actProductive;
+        unproductive += actUnproductive;
+        notYetVisited += actPending;
+        const totalPlannedWithActivities = totalPlannedRetailers + actTotal;
+
         const remaining = notYetVisited;
         const completed = productive + unproductive;
         const revenueTarget = 10000;
@@ -526,7 +539,7 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
 
         const salesAmount = revenueAchieved;
         const pointsEarned = points.reduce((sum: number, p: any) => sum + p.points, 0);
-        const dailyProgress = totalVisits > 0 ? Math.round((completed / totalVisits) * 100) : 0;
+        const dailyProgress = totalPlannedWithActivities > 0 ? Math.round((completed / totalPlannedWithActivities) * 100) : 0;
 
         // Fetch urgent items (only for today)
         let pendingPayments: any[] = [];
@@ -593,10 +606,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
             nextVisit: visits.find((v: any) => !v.check_in_time) || null,
             attendance: enhancedAttendance,
             beatProgress: {
-              total: totalPlannedRetailers,
+              total: totalPlannedWithActivities,
               completed,
               remaining: notYetVisited,
-              planned: totalPlannedRetailers,
+              planned: totalPlannedWithActivities,
               productive,
               unproductive,
             },

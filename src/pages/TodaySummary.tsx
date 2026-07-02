@@ -798,15 +798,29 @@ export const TodaySummary = () => {
       
       // CRITICAL: Productive count = unique retailers with productive visit OR confirmed order
       const productiveCount = productiveRetailerIds.size;
-      
+
       // Unproductive = unique unproductive + store_closed retailers
       const unproductiveCount = unproductiveRetailerIds.size + closedRetailerIds.size;
-      
+
       // Pending = Planned - Productive - Unproductive
       // This ensures: Planned = Productive + Unproductive + Pending
       const totalPendingCount = Math.max(0, totalPlannedFromBeatPlans - productiveCount - unproductiveCount);
       const totalPlanned = totalPlannedFromBeatPlans;
-      
+
+      // Include activity visits (retailer_id is null) in counts, matching My Visit logic.
+      const acts = (visits || []).filter(v => v.visit_type === 'activity' && v.status !== 'cancelled');
+      const actProductive = acts.filter(v => v.status === 'productive').length;
+      const actUnproductive = acts.filter(v => v.status === 'unproductive').length;
+      const actPending = acts.filter(v => !['productive', 'unproductive', 'cancelled'].includes(v.status)).length;
+      const actTotal = acts.length;
+
+      const plannedVisitsCount = totalPlanned + actPending;
+      const productiveVisitsCount = productiveCount + actProductive;
+      const unproductiveVisitsCount = unproductiveCount + actUnproductive;
+      const completedVisitsCount = productiveVisits.length + unproductiveVisits.length + closedVisits.length + actProductive + actUnproductive;
+      const totalPlannedWithActivities = totalPlanned + actTotal;
+      const totalPendingWithActivities = Math.max(0, totalPlannedWithActivities - productiveVisitsCount - unproductiveVisitsCount);
+
       console.log('🎯 [USER FILTER DEBUG]', {
         targetUserIds,
         filterType,
@@ -818,7 +832,11 @@ export const TodaySummary = () => {
         ordersCount: todayOrders?.length || 0,
         productiveCount,
         unproductiveCount,
-        totalPlanned
+        totalPlanned,
+        actProductive,
+        actUnproductive,
+        actPending,
+        actTotal
       });
 
       // Get attendance start/end times from attendance table
@@ -1058,7 +1076,7 @@ export const TodaySummary = () => {
       
       console.log('📊 Today\'s Summary Data:', {
         totalVisits: visits?.length || 0,
-        completedVisits: completedVisits.length,
+        completedVisits: completedVisitsCount,
         totalOrders: totalOrdersCount,
         totalOrderValue,
         distanceFromVan: totalDistance,
@@ -1087,18 +1105,18 @@ export const TodaySummary = () => {
         beatNames: beatNamesDisplay,
         startTime: formatTime(firstCheckIn),
         endTime: lastCheckOut ? formatTime(lastCheckOut) : (firstCheckIn ? "In Progress" : "Not started"),
-        plannedVisits: totalPlanned,
-        completedVisits: completedVisits.length,
-        productiveVisits: productiveCount,
-        unproductiveVisits: unproductiveCount,
+        plannedVisits: plannedVisitsCount,
+        completedVisits: completedVisitsCount,
+        productiveVisits: productiveVisitsCount,
+        unproductiveVisits: unproductiveVisitsCount,
         totalRetailers: totalPlannedFromBeatPlans,
         totalOrders: totalOrdersCount,
         totalOrderValue,
         avgOrderValue,
         totalKgSold: totalItemsCount,
         totalKgSoldFormatted,
-        visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
-        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveCount / completedVisits.length) * 100) : 0,
+        visitEfficiency: totalPlannedWithActivities > 0 ? Math.round((completedVisitsCount / totalPlannedWithActivities) * 100) : 0,
+        orderConversionRate: completedVisitsCount > 0 ? Math.round((productiveVisitsCount / completedVisitsCount) * 100) : 0,
         distanceCovered: totalDistance > 0 ? Math.round(totalDistance * 10) / 10 : 0,
         travelTime: timeAtRetailersStr
       });
@@ -1106,17 +1124,17 @@ export const TodaySummary = () => {
       console.log('📈 Calculated Metrics:', {
         distanceCovered: Math.round(totalDistance * 10) / 10,
         timeAtRetailers: timeAtRetailersStr,
-        visitEfficiency: totalPlanned > 0 ? Math.round((completedVisits.length / totalPlanned) * 100) : 0,
-        orderConversionRate: completedVisits.length > 0 ? Math.round((productiveVisits.length / completedVisits.length) * 100) : 0
+        visitEfficiency: totalPlannedWithActivities > 0 ? Math.round((completedVisitsCount / totalPlannedWithActivities) * 100) : 0,
+        orderConversionRate: completedVisitsCount > 0 ? Math.round((productiveVisitsCount / completedVisitsCount) * 100) : 0
       });
 
       // Update visit breakdown - Planned (total), Productive, Unproductive, Pending
-      // CRITICAL: Use productiveCount (retailers with orders OR productive visits) not productiveVisits.length
+      // Include activity visits so the breakdown matches My Visit and Home dashboard.
       setVisitBreakdown([
-        { status: "Planned", count: totalPlannedFromBeatPlans, color: "primary" },
-        { status: "Productive", count: productiveCount, color: "success" },
-        { status: "Unproductive", count: unproductiveVisits.length + closedVisits.length, color: "destructive" },
-        { status: "Pending", count: totalPendingCount, color: "warning" }
+        { status: "Planned", count: totalPlannedWithActivities, color: "primary" },
+        { status: "Productive", count: productiveVisitsCount, color: "success" },
+        { status: "Unproductive", count: unproductiveVisitsCount, color: "destructive" },
+        { status: "Pending", count: totalPendingWithActivities, color: "warning" }
       ]);
 
       // Process top retailers (based on order value)
