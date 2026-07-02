@@ -591,7 +591,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                     <Button
                       size="sm"
                       className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => handleCompleteActivity(activity)}
+                      onClick={(e) => { e.stopPropagation(); handleCompleteActivity(activity); }}
                       disabled={actionLoading === activity.id + '-complete'}
                     >
                       {actionLoading === activity.id + '-complete' ? (
