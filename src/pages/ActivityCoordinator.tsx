@@ -155,7 +155,7 @@ const ActivityCoordinator: React.FC = () => {
             <Button
               className="gap-2"
               disabled={!can('action_activity_assign', 'create')}
-              onClick={() => {/* M-3 assign dialog */}}
+              onClick={() => setAssignOpen(true)}
             >
               <Plus size={16} /> Assign activity
             </Button>
