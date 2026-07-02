@@ -118,6 +118,7 @@ export type Database = {
           collective_target: number | null
           comments: string | null
           completed_at: string | null
+          completion_summary: string | null
           contact_person: string | null
           created_at: string
           description: string | null
@@ -186,6 +187,7 @@ export type Database = {
           visit_category: string | null
           visit_id: string | null
           visit_purpose: string | null
+          voice_note_url: string | null
         }
         Insert: {
           activity_date?: string
@@ -205,6 +207,7 @@ export type Database = {
           collective_target?: number | null
           comments?: string | null
           completed_at?: string | null
+          completion_summary?: string | null
           contact_person?: string | null
           created_at?: string
           description?: string | null
@@ -273,6 +276,7 @@ export type Database = {
           visit_category?: string | null
           visit_id?: string | null
           visit_purpose?: string | null
+          voice_note_url?: string | null
         }
         Update: {
           activity_date?: string
@@ -292,6 +296,7 @@ export type Database = {
           collective_target?: number | null
           comments?: string | null
           completed_at?: string | null
+          completion_summary?: string | null
           contact_person?: string | null
           created_at?: string
           description?: string | null
@@ -360,6 +365,7 @@ export type Database = {
           visit_category?: string | null
           visit_id?: string | null
           visit_purpose?: string | null
+          voice_note_url?: string | null
         }
         Relationships: [
           {
@@ -26285,7 +26291,10 @@ export type Database = {
           p_actor: string
           p_lat?: number
           p_lng?: number
+          p_outcome?: string
+          p_summary?: string
           p_visit_id: string
+          p_voice_url?: string
         }
         Returns: Json
       }
