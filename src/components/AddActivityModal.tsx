@@ -291,9 +291,9 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
             {durationType === 'single_day' ? (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal bg-white">
-                    <CalendarIcon className="mr-2 h-4 w-4 text-blue-500" />
-                    {format(activityDate, 'PPP')}
+                  <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal bg-white h-8 text-xs">
+                    <CalendarIcon className="mr-2 h-3.5 w-3.5 text-blue-500" />
+                    {format(activityDate, 'PP')}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
