@@ -178,19 +178,19 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 gap-0">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Gradient header */}
-        <div className="relative overflow-hidden rounded-t-lg bg-gradient-to-br from-primary/15 via-fuchsia-500/10 to-amber-400/10 border-b px-6 py-5">
-          <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-primary/10 blur-2xl" />
-          <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-fuchsia-400/10 blur-2xl" />
+        <div className="relative overflow-hidden rounded-t-lg bg-gradient-to-br from-primary/15 via-fuchsia-500/10 to-amber-400/10 border-b px-4 py-3">
+          <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+          <div className="absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-fuchsia-400/10 blur-2xl" />
           <DialogHeader className="relative">
-            <DialogTitle className="flex items-center gap-3 text-lg">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-fuchsia-500 text-white flex items-center justify-center shadow-md">
-                <ActivityIcon className="h-5 w-5" />
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-fuchsia-500 text-white flex items-center justify-center shadow-sm">
+                <ActivityIcon className="h-4 w-4" />
               </div>
               <div>
                 <div className="font-bold">Schedule Activity</div>
-                <div className="text-xs font-normal text-muted-foreground">
+                <div className="text-[10px] font-normal text-muted-foreground">
                   Pick a category, choose when, and you're set.
                 </div>
               </div>
