@@ -107,6 +107,8 @@ export type Database = {
           activity_sub_type: string | null
           activity_type: string
           actual_footfall: number | null
+          assigned_by: string | null
+          assignment_note: string | null
           attendee_count: number | null
           beat_id: string | null
           beat_name: string | null
@@ -196,6 +198,8 @@ export type Database = {
           activity_sub_type?: string | null
           activity_type?: string
           actual_footfall?: number | null
+          assigned_by?: string | null
+          assignment_note?: string | null
           attendee_count?: number | null
           beat_id?: string | null
           beat_name?: string | null
@@ -285,6 +289,8 @@ export type Database = {
           activity_sub_type?: string | null
           activity_type?: string
           actual_footfall?: number | null
+          assigned_by?: string | null
+          assignment_note?: string | null
           attendee_count?: number | null
           beat_id?: string | null
           beat_name?: string | null
@@ -26334,6 +26340,17 @@ export type Database = {
         }
         Returns: Json
       }
+      assign_activity: {
+        Args: {
+          p_activity_date: string
+          p_activity_type: string
+          p_expected_duration_minutes?: number
+          p_half_day_type?: string
+          p_note?: string
+          p_subordinate_ids: string[]
+        }
+        Returns: Json
+      }
       assign_retailer_to_beat: {
         Args: { p_beat_id: string; p_reason?: string; p_retailer_id: string }
         Returns: Json
@@ -27030,6 +27047,25 @@ export type Database = {
           last_attempt: string
           table_name: string
           user_id: string
+        }[]
+      }
+      get_team_activities: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          activity_date: string
+          activity_event_id: string
+          activity_type: string
+          ae_status: string
+          assigned_by: string
+          completion_summary: string
+          duration_minutes: number
+          expected_duration_minutes: number
+          half_day_type: string
+          outcome: string
+          user_id: string
+          user_name: string
+          visit_id: string
+          visit_status: string
         }[]
       }
       get_territory_sales_summary: {
