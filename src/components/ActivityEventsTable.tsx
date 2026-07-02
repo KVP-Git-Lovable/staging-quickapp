@@ -15,6 +15,7 @@ interface ActivityEventsTableProps {
   userId: string;
   selectedDate: string;
   onActivitiesLoaded?: (count: number) => void;
+  onOpenDetail?: (activity: ActivityEvent) => void;
 }
 
 interface VisitStatus {
@@ -56,7 +57,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   },
 };
 
-export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }: ActivityEventsTableProps) => {
+export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, onOpenDetail }: ActivityEventsTableProps) => {
   const { fetchActivitiesForDate, updateActivityLocation } = useActivityEvents();
   const { types: activityTypeMaster } = useActivityTypes();
   const navigate = useNavigate();
@@ -451,7 +452,13 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }
             <div
               key={activity.id}
               id={`activity-event-${activity.id}`}
-              className="rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2 scroll-mt-24"
+              role={onOpenDetail ? 'button' : undefined}
+              tabIndex={onOpenDetail ? 0 : undefined}
+              onClick={onOpenDetail ? () => onOpenDetail(activity) : undefined}
+              onKeyDown={onOpenDetail ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenDetail(activity); }
+              } : undefined}
+              className={`rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 p-3 space-y-2 scroll-mt-24 ${onOpenDetail ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
             >
 
               {/* Top row: Name + Type Badge + Status */}
@@ -567,7 +574,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }
                     <Button
                       size="sm"
                       className="h-7 text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={() => handleStartActivity(activity)}
+                      onClick={(e) => { e.stopPropagation(); handleStartActivity(activity); }}
                       disabled={actionLoading === activity.id + '-start'}
                     >
                       {actionLoading === activity.id + '-start' ? (
@@ -584,7 +591,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded }
                     <Button
                       size="sm"
                       className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => handleCompleteActivity(activity)}
+                      onClick={(e) => { e.stopPropagation(); handleCompleteActivity(activity); }}
                       disabled={actionLoading === activity.id + '-complete'}
                     >
                       {actionLoading === activity.id + '-complete' ? (

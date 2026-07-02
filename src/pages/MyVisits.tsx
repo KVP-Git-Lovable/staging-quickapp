@@ -46,7 +46,7 @@ import { StartBeatButton } from "@/components/StartBeatButton";
 import { AddActivityModal } from "@/components/AddActivityModal";
 
 import { ActivityEventsTable } from "@/components/ActivityEventsTable";
-import { ActivityVisitCard } from "@/components/ActivityVisitCard";
+
 import { ActivityVisitDetail } from "@/components/ActivityVisitDetail";
 import { useActivityVisits } from "@/hooks/useActivityVisits";
 
@@ -252,13 +252,10 @@ export const MyVisits = () => {
   const isViewingSelf = selectedUserIds.length === 0 || (selectedUserIds.length === 1 && selectedUserIds[0] === user?.id);
   // Derive viewUserId for the hook: use the first selected non-self user, or 'self'
   const selectedViewUserId = isViewingSelf ? 'self' : selectedUserIds[0];
-  const activityViewUserId = isViewingSelf ? user?.id : selectedUserIds[0];
-  const { items: activityVisitCards, refresh: refreshActivityVisits } = useActivityVisits(activityViewUserId, selectedDate);
-  const [detailActivity, setDetailActivity] = useState<import('@/hooks/useActivityVisits').ActivityVisitCardModel | null>(null);
+   const activityViewUserId = isViewingSelf ? user?.id : selectedUserIds[0];
+   const { refresh: refreshActivityVisits } = useActivityVisits(activityViewUserId, selectedDate);
+   const [detailActivity, setDetailActivity] = useState<import('@/hooks/useActivityVisits').ActivityVisitCardModel | null>(null);
 
-  const handleOpenActivityCard = useCallback((a: import('@/hooks/useActivityVisits').ActivityVisitCardModel) => {
-    setDetailActivity(a);
-  }, []);
 
   // One-time fix: Restore cancelled visits to planned if day hasn't ended
   useEffect(() => {
@@ -1607,34 +1604,35 @@ export const MyVisits = () => {
             </Card>
           )}
           
-          {/* Activity visit cards — surface activities alongside retailer visit cards */}
-          {activityVisitCards.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 px-1">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Activities</h3>
-                <span className="text-[10px] text-muted-foreground">({activityVisitCards.length})</span>
-              </div>
-              {activityVisitCards.map((a) => (
-                <ActivityVisitCard
-                  key={a.visitId}
-                  activity={a}
-                  onOpen={handleOpenActivityCard}
-                  onChanged={refreshActivityVisits}
-                />
-              ))}
-            </div>
-          )}
-
           <ActivityVisitDetail
             open={!!detailActivity}
             onOpenChange={(o) => { if (!o) setDetailActivity(null); }}
             activity={detailActivity}
-            onChanged={refreshActivityVisits}
+            onChanged={() => {
+              refreshActivityVisits();
+              window.dispatchEvent(new CustomEvent('visitDataChanged'));
+            }}
           />
 
           {/* Activity Events Table - shown above visit list, ONLY after parent data loads to prevent flicker */}
           {hasLoadedOnce && (isViewingSelf ? user?.id : selectedUserIds[0]) && (
-            <ActivityEventsTable userId={isViewingSelf ? user!.id : selectedUserIds[0]} selectedDate={selectedDate} onActivitiesLoaded={(count) => setHasActivities(count > 0)} />
+            <ActivityEventsTable
+              userId={isViewingSelf ? user!.id : selectedUserIds[0]}
+              selectedDate={selectedDate}
+              onActivitiesLoaded={(count) => setHasActivities(count > 0)}
+              onOpenDetail={(row) => setDetailActivity({
+                visitId: row.visit_id!,
+                activityEventId: row.id,
+                activityName: row.activity_name || 'Activity',
+                activityType: row.activity_type ?? null,
+                status: (row as any).status ?? null,
+                checkInTime: (row as any).check_in_time ?? null,
+                checkOutTime: (row as any).check_out_time ?? null,
+                durationMinutes: row.duration_minutes ?? null,
+                remarks: row.remarks ?? null,
+                plannedDate: row.activity_date,
+              })}
+            />
           )}
 
           {/* No visits message - ONLY after loading completes AND a brief settling period */}
