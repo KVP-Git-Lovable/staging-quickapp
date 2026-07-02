@@ -63,17 +63,18 @@ const SectionCard = ({
 }: {
   step: number; title: string; icon: any; children: React.ReactNode; tone?: string;
 }) => (
-  <div className={cn('rounded-xl border p-3 bg-gradient-to-br shadow-sm', tone)}>
-    <div className="flex items-center gap-2 mb-2">
-      <div className="h-6 w-6 rounded-full bg-white border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">
+  <div className={cn('rounded-xl border p-2.5 bg-gradient-to-br shadow-sm', tone)}>
+    <div className="flex items-center gap-1.5 mb-1.5">
+      <div className="h-5 w-5 rounded-full bg-white border shadow-sm flex items-center justify-center text-[10px] font-bold text-primary">
         {step}
       </div>
-      <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+      <Icon className="h-3 w-3 text-muted-foreground" />
       <span className="text-xs font-semibold">{title}</span>
     </div>
     {children}
   </div>
 );
+
 
 
 export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) => {
