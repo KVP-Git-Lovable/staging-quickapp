@@ -80,6 +80,7 @@ export const ADMIN_MODULE_SUB_PREFIXES: Record<string, string[]> = {
   'admin_retailer_ext_db': ['admin_retailer_ext_'],
   'admin_system_settings': ['admin_system_', 'admin_settings_'],
   'admin_activity_master': ['activity_type_'],
+  'admin_activity_coordinator': ['activity_team_'],
 };
 
 // Reverse map: path -> feature name(s)
