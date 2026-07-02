@@ -113,6 +113,7 @@ interface CreateActivityParams {
   check_in_latitude?: number;
   check_in_longitude?: number;
   duration_minutes?: number;
+  expected_duration_minutes?: number;
   shops_planned?: number;
   shops_visited?: number;
   km_travelled?: number;
@@ -233,6 +234,7 @@ export const useActivityEvents = () => {
         ['check_in_latitude',              params.check_in_latitude   ?? undefined],
         ['check_in_longitude',             params.check_in_longitude  ?? undefined],
         ['duration_minutes',               params.duration_minutes    ?? undefined],
+        ['expected_duration_minutes',      params.expected_duration_minutes ?? undefined],
         ['shops_planned',                  params.shops_planned       ?? undefined],
         ['shops_visited',                  params.shops_visited       ?? undefined],
         ['km_travelled',                   params.km_travelled        ?? undefined],
