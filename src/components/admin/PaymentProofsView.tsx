@@ -77,14 +77,16 @@ export const PaymentProofsView = () => {
     }
   };
 
-  const getPaymentMethodBadge = (method: string) => {
+  const getPaymentMethodBadge = (method: string | null | undefined) => {
     const variants: { [key: string]: "default" | "secondary" | "destructive" | "outline" } = {
       cash: "default",
       cheque: "secondary",
       upi: "outline",
       neft: "destructive"
     };
-    return <Badge variant={variants[method] || "default"}>{method.toUpperCase()}</Badge>;
+    const key = (method || "").toLowerCase();
+    const label = method ? method.toUpperCase() : "N/A";
+    return <Badge variant={variants[key] || "default"}>{label}</Badge>;
   };
 
   const getPaymentTypeBadge = (isCreditOrder: boolean, creditPaid: number) => {
