@@ -400,25 +400,25 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
           </SectionCard>
 
           {/* Summary strip */}
-          <div className="rounded-xl border bg-gradient-to-r from-slate-50 via-white to-slate-50 p-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-muted-foreground font-medium">Summary:</span>
+          <div className="rounded-lg border bg-gradient-to-r from-slate-50 via-white to-slate-50 p-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground font-medium">Summary:</span>
             {activeCategory && (
-              <Badge className={cn('border', soft(activeCategory.color))}>{activeCategory.name}</Badge>
+              <Badge className={cn('text-[10px] py-0.5 px-1.5 border', soft(activeCategory.color))}>{activeCategory.name}</Badge>
             )}
             {selectedType && (
-              <Badge className={cn('border', soft(activeCategory?.color))}>{selectedType}</Badge>
+              <Badge className={cn('text-[10px] py-0.5 px-1.5 border', soft(activeCategory?.color))}>{selectedType}</Badge>
             )}
-            <Badge variant="outline" className="gap-1">
-              <CalendarDays className="h-3 w-3" />
+            <Badge variant="outline" className="text-[10px] py-0.5 px-1.5 gap-1">
+              <CalendarDays className="h-2.5 w-2.5" />
               {durationType === 'single_day'
                 ? format(activityDate, 'MMM d')
                 : `${format(fromDate, 'MMM d')} → ${format(toDate, 'MMM d')}`}
             </Badge>
-            <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" />{durationLabel()}</Badge>
-            <Badge variant="outline" className="gap-1">
-              {halfDay === 'first_half' ? <Sunrise className="h-3 w-3" /> :
-                halfDay === 'second_half' ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-              {halfDay === 'full' ? 'Full day' : halfDay === 'first_half' ? 'First half' : 'Second half'}
+            <Badge variant="outline" className="text-[10px] py-0.5 px-1.5 gap-1"><Clock className="h-2.5 w-2.5" />{durationLabel()}</Badge>
+            <Badge variant="outline" className="text-[10px] py-0.5 px-1.5 gap-1">
+              {halfDay === 'first_half' ? <Sunrise className="h-2.5 w-2.5" /> :
+                halfDay === 'second_half' ? <Moon className="h-2.5 w-2.5" /> : <Sun className="h-2.5 w-2.5" />}
+              {halfDay === 'full' ? 'Full day' : halfDay === 'first_half' ? '1st half' : '2nd half'}
             </Badge>
           </div>
 
