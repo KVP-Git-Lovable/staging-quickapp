@@ -616,7 +616,7 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
                       <SelectTrigger><SelectValue placeholder="Select subordinate" /></SelectTrigger>
                       <SelectContent>
                         {(subordinates || []).map((s: any) => (
-                          <SelectItem key={s.id} value={s.id}>{s.full_name || s.email || s.id}</SelectItem>
+                          <SelectItem key={s.subordinate_user_id} value={s.subordinate_user_id}>{s.full_name || s.subordinate_user_id}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
