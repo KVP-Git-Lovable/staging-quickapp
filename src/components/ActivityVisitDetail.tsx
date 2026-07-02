@@ -4,14 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CalendarDays, Clock, Timer, LogIn, LogOut, Loader2, Save, CheckCircle2, Play, XCircle, Activity as ActivityIcon,
-  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink, MapPin,
+  Paperclip, Upload, Trash2, FileText, Image as ImageIcon, ExternalLink, MapPin, Star,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useSubordinates } from '@/hooks/useSubordinates';
 import type { ActivityVisitCardModel } from '@/hooks/useActivityVisits';
 
 const BUCKET = 'activity-attachments';
@@ -72,6 +75,51 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
   const [uploading, setUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ─── Detail form state (per-sub-type) ───────────────────────────
+  const { subordinates } = useSubordinates();
+  const [form, setForm] = useState<Record<string, any>>({});
+  const [savingForm, setSavingForm] = useState(false);
+  const [distributorSearch, setDistributorSearch] = useState('');
+  const [distributorResults, setDistributorResults] = useState<{ id: string; name: string }[]>([]);
+  const setF = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }));
+
+  // Load full activity_events row
+  const loadDetail = useCallback(async () => {
+    if (!activity?.activityEventId) return;
+    const { data } = await supabase
+      .from('activity_events')
+      .select('*')
+      .eq('id', activity.activityEventId)
+      .maybeSingle();
+    if (data) setForm(data as Record<string, any>);
+  }, [activity?.activityEventId]);
+
+  useEffect(() => {
+    if (open) loadDetail();
+  }, [open, loadDetail]);
+
+  // Distributor search
+  useEffect(() => {
+    if (!distributorSearch || distributorSearch.length < 2) { setDistributorResults([]); return; }
+    const t = setTimeout(async () => {
+      const [distRes, userRes] = await Promise.all([
+        supabase.from('distributors').select('id, name').ilike('name', `%${distributorSearch}%`).limit(8),
+        supabase.from('distributor_users').select('distributor_id, full_name, distributors(id, name)')
+          .ilike('full_name', `%${distributorSearch}%`).not('distributor_id', 'is', null).limit(8),
+      ]);
+      const m = new Map<string, string>();
+      ((distRes.data as any) || []).forEach((d: any) => { if (d.id && !m.has(d.id)) m.set(d.id, d.name); });
+      ((userRes.data as any) || []).forEach((d: any) => {
+        const id = d.distributors?.id || d.distributor_id;
+        const name = d.distributors?.name || d.full_name;
+        if (id && !m.has(id)) m.set(id, name);
+      });
+      setDistributorResults(Array.from(m, ([id, name]) => ({ id, name })));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [distributorSearch]);
+
 
   useEffect(() => {
     setRemarks(activity?.remarks ?? '');
@@ -153,6 +201,63 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
     const h = Math.floor(m / 60);
     const rem = m % 60;
     return h > 0 ? `${h}h ${rem}m` : `${rem}m`;
+  };
+
+  // ─── Sub-type detection (keyword based, master-driven names) ─────
+  const typeKey = (activity.activityType || '').toLowerCase();
+  const isJoint       = /joint/.test(typeKey);
+  const isSurvey      = /survey|new beat/.test(typeKey);
+  const isDistributor = /distributor/.test(typeKey);
+  const isMeeting     = /meeting|training/.test(typeKey);
+
+  const expectedMins: number | null = (form as any)?.expected_duration_minutes ?? null;
+  const halfDayType: string | null = (form as any)?.half_day_type ?? null;
+  const halfDayLabel = halfDayType === 'first_half' ? 'First half'
+    : halfDayType === 'second_half' ? 'Second half'
+    : 'Full day';
+
+  const saveDetail = async () => {
+    setSavingForm(true);
+    try {
+      // Whitelist per-sub-type fields to update
+      const patch: Record<string, any> = {};
+      const pick = (keys: string[]) => keys.forEach(k => { if (k in form) patch[k] = form[k] === '' ? null : form[k]; });
+
+      if (isJoint) pick([
+        'subordinate_user_id',
+        'rep_rating_product_knowledge', 'rep_rating_retailer_relationship',
+        'rep_rating_scheme_communication', 'rep_rating_branding', 'rep_rating_market_intel',
+        'rep_overall_outcome', 'rep_strengths', 'rep_improvement_areas',
+        'rep_action_items', 'rep_followup_date',
+      ]);
+      if (isSurvey) pick([
+        'beat_name', 'survey_total_shops', 'survey_our_stock_shops', 'survey_target_shops',
+        'survey_competitor_count', 'survey_estimated_monthly_value', 'survey_market_type',
+        'survey_priority', 'survey_suggested_beat_count', 'survey_shops_per_beat',
+        'survey_proposed_beat_names', 'survey_competition_brands', 'survey_observations',
+        'survey_recommendation',
+      ]);
+      if (isDistributor) pick([
+        'distributor_id', 'distributor_name', 'visit_purpose', 'contact_person', 'outcome',
+      ]);
+      if (isMeeting) pick(['topic', 'attendee_count']);
+
+      if (Object.keys(patch).length === 0) {
+        toast.info('Nothing to save');
+        return;
+      }
+      const { error } = await supabase
+        .from('activity_events')
+        .update(patch)
+        .eq('id', activity.activityEventId);
+      if (error) throw error;
+      toast.success('Details saved');
+      onChanged?.();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save details');
+    } finally {
+      setSavingForm(false);
+    }
   };
 
   const runAction = async (action: 'check_in' | 'complete') => {
@@ -342,6 +447,14 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
               <span className="font-medium">{fmtTime(activity.checkOutTime)}</span>
             </div>
             <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5"><Timer className="h-3.5 w-3.5" /> Expected duration</span>
+              <span className="font-medium">{expectedMins ? fmtDuration(expectedMins) : '—'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Time of day</span>
+              <span className="font-medium">{halfDayLabel}</span>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground flex items-center gap-1.5"><Timer className="h-3.5 w-3.5" /> Total time spent</span>
               <span className="font-medium">
                 {fmtDuration(liveDuration)}{isInProgress ? ' (live)' : ''}
@@ -487,9 +600,218 @@ export const ActivityVisitDetail = ({ open, onOpenChange, activity, onChanged }:
             </div>
           )}
 
-          <p className="text-[11px] text-muted-foreground">
-            Type-specific fields (subordinate, beat, meeting details, etc.) can be edited from the Add Activity form.
-          </p>
+          {/* ─── Per-sub-type detail form ────────────────── */}
+          {(isJoint || isSurvey || isDistributor || isMeeting) && !isCancelled && (
+            <div className="space-y-3 border-t pt-4">
+              <Label className="text-sm font-semibold">Activity details</Label>
+
+              {isJoint && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Subordinate</Label>
+                    <Select
+                      value={form.subordinate_user_id ?? ''}
+                      onValueChange={(v) => setF('subordinate_user_id', v)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select subordinate" /></SelectTrigger>
+                      <SelectContent>
+                        {(subordinates || []).map((s: any) => (
+                          <SelectItem key={s.subordinate_user_id} value={s.subordinate_user_id}>{s.full_name || s.subordinate_user_id}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {[
+                    ['rep_rating_product_knowledge', 'Product knowledge'],
+                    ['rep_rating_retailer_relationship', 'Retailer relationship'],
+                    ['rep_rating_scheme_communication', 'Scheme communication'],
+                    ['rep_rating_branding', 'Branding'],
+                    ['rep_rating_market_intel', 'Market intel'],
+                  ].map(([key, label]) => (
+                    <div key={key} className="flex items-center justify-between">
+                      <Label className="text-xs">{label}</Label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map(n => {
+                          const val = Number(form[key] || 0);
+                          return (
+                            <button
+                              key={n}
+                              type="button"
+                              onClick={() => setF(key, val === n ? 0 : n)}
+                              className="p-0.5"
+                              aria-label={`${label} ${n} star`}
+                            >
+                              <Star className={`h-4 w-4 ${n <= val ? 'fill-amber-500 text-amber-500' : 'text-muted-foreground'}`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  <div>
+                    <Label className="text-xs">Overall outcome</Label>
+                    <Textarea rows={2} value={form.rep_overall_outcome ?? ''} onChange={(e) => setF('rep_overall_outcome', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Strengths</Label>
+                    <Textarea rows={2} value={form.rep_strengths ?? ''} onChange={(e) => setF('rep_strengths', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Improvement areas</Label>
+                    <Textarea rows={2} value={form.rep_improvement_areas ?? ''} onChange={(e) => setF('rep_improvement_areas', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Action items</Label>
+                    <Textarea rows={2} value={form.rep_action_items ?? ''} onChange={(e) => setF('rep_action_items', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Follow-up date</Label>
+                    <Input type="date" value={form.rep_followup_date ?? ''} onChange={(e) => setF('rep_followup_date', e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {isSurvey && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Beat name</Label>
+                    <Input value={form.beat_name ?? ''} onChange={(e) => setF('beat_name', e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Total shops</Label>
+                      <Input type="number" value={form.survey_total_shops ?? ''} onChange={(e) => setF('survey_total_shops', e.target.value ? Number(e.target.value) : null)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Our stock shops</Label>
+                      <Input type="number" value={form.survey_our_stock_shops ?? ''} onChange={(e) => setF('survey_our_stock_shops', e.target.value ? Number(e.target.value) : null)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Target shops</Label>
+                      <Input type="number" value={form.survey_target_shops ?? ''} onChange={(e) => setF('survey_target_shops', e.target.value ? Number(e.target.value) : null)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Competitor count</Label>
+                      <Input type="number" value={form.survey_competitor_count ?? ''} onChange={(e) => setF('survey_competitor_count', e.target.value ? Number(e.target.value) : null)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Est. monthly value</Label>
+                      <Input type="number" value={form.survey_estimated_monthly_value ?? ''} onChange={(e) => setF('survey_estimated_monthly_value', e.target.value ? Number(e.target.value) : null)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Market type</Label>
+                      <Input value={form.survey_market_type ?? ''} onChange={(e) => setF('survey_market_type', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Priority</Label>
+                      <Input value={form.survey_priority ?? ''} onChange={(e) => setF('survey_priority', e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Suggested beats</Label>
+                      <Input type="number" value={form.survey_suggested_beat_count ?? ''} onChange={(e) => setF('survey_suggested_beat_count', e.target.value ? Number(e.target.value) : null)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Shops per beat</Label>
+                      <Input type="number" value={form.survey_shops_per_beat ?? ''} onChange={(e) => setF('survey_shops_per_beat', e.target.value ? Number(e.target.value) : null)} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Proposed beat names (comma-separated)</Label>
+                    <Input
+                      value={Array.isArray(form.survey_proposed_beat_names) ? form.survey_proposed_beat_names.join(', ') : (form.survey_proposed_beat_names ?? '')}
+                      onChange={(e) => setF('survey_proposed_beat_names', e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Competition brands</Label>
+                    <Textarea rows={2} value={form.survey_competition_brands ?? ''} onChange={(e) => setF('survey_competition_brands', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Observations</Label>
+                    <Textarea rows={2} value={form.survey_observations ?? ''} onChange={(e) => setF('survey_observations', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Recommendation</Label>
+                    <Textarea rows={2} value={form.survey_recommendation ?? ''} onChange={(e) => setF('survey_recommendation', e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {isDistributor && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Distributor</Label>
+                    {form.distributor_id ? (
+                      <div className="flex items-center gap-2">
+                        <Input value={form.distributor_name ?? ''} readOnly className="flex-1" />
+                        <Button size="sm" variant="ghost" onClick={() => { setF('distributor_id', null); setF('distributor_name', null); }}>Change</Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Input
+                          placeholder="Search distributor (name or contact)…"
+                          value={distributorSearch}
+                          onChange={(e) => setDistributorSearch(e.target.value)}
+                        />
+                        {distributorResults.length > 0 && (
+                          <ul className="border rounded-md divide-y max-h-40 overflow-auto">
+                            {distributorResults.map(d => (
+                              <li key={d.id}>
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted"
+                                  onClick={() => {
+                                    setF('distributor_id', d.id);
+                                    setF('distributor_name', d.name);
+                                    setDistributorSearch('');
+                                    setDistributorResults([]);
+                                  }}
+                                >
+                                  {d.name}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <Label className="text-xs">Visit purpose</Label>
+                    <Input value={form.visit_purpose ?? ''} onChange={(e) => setF('visit_purpose', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Contact person</Label>
+                    <Input value={form.contact_person ?? ''} onChange={(e) => setF('contact_person', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Outcome</Label>
+                    <Textarea rows={2} value={form.outcome ?? ''} onChange={(e) => setF('outcome', e.target.value)} />
+                  </div>
+                </div>
+              )}
+
+              {isMeeting && (
+                <div className="space-y-3">
+                  <div>
+                    <Label className="text-xs">Topic</Label>
+                    <Input value={form.topic ?? ''} onChange={(e) => setF('topic', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Attendee count</Label>
+                    <Input type="number" value={form.attendee_count ?? ''} onChange={(e) => setF('attendee_count', e.target.value ? Number(e.target.value) : null)} />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <Button size="sm" onClick={saveDetail} disabled={savingForm}>
+                  {savingForm ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-2" />}
+                  Save details
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

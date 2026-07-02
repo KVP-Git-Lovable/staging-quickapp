@@ -47,7 +47,7 @@ export function useActivityVisits(userId: string | undefined, date: string | und
       const visitIds = visits.map(v => v.id);
       const { data: events } = await supabase
         .from('activity_events')
-        .select('id, visit_id, activity_name, activity_type, remarks, duration_minutes')
+        .select('*')
         .in('visit_id', visitIds)
         .limit(500);
 
