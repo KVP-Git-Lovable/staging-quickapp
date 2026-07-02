@@ -606,10 +606,10 @@ export const useHomeDashboard = (userId: string | undefined, selectedDate: Date 
             nextVisit: visits.find((v: any) => !v.check_in_time) || null,
             attendance: enhancedAttendance,
             beatProgress: {
-              total: totalPlannedRetailers,
+              total: totalPlannedWithActivities,
               completed,
               remaining: notYetVisited,
-              planned: totalPlannedRetailers,
+              planned: totalPlannedWithActivities,
               productive,
               unproductive,
             },
