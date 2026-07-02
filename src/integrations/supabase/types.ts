@@ -129,6 +129,7 @@ export type Database = {
           end_longitude: number | null
           end_time: string | null
           event_name: string | null
+          expected_duration_minutes: number | null
           expected_footfall: string | null
           follow_up_date: string | null
           from_date: string | null
@@ -215,6 +216,7 @@ export type Database = {
           end_longitude?: number | null
           end_time?: string | null
           event_name?: string | null
+          expected_duration_minutes?: number | null
           expected_footfall?: string | null
           follow_up_date?: string | null
           from_date?: string | null
@@ -301,6 +303,7 @@ export type Database = {
           end_longitude?: number | null
           end_time?: string | null
           event_name?: string | null
+          expected_duration_minutes?: number | null
           expected_footfall?: string | null
           follow_up_date?: string | null
           from_date?: string | null
