@@ -540,6 +540,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         <Route path="/admin/retailer-unsorted" element={<ProtectedRoute><RetailerUnsortedPage /></ProtectedRoute>} />
         <Route path="/admin/notification-rules" element={<ProtectedRoute><NotificationRulesAdmin /></ProtectedRoute>} />
         <Route path="/admin/activity-types" element={<ProtectedRoute><ActivityTypeManagement /></ProtectedRoute>} />
+        <Route path="/admin/activity-coordinator" element={<ProtectedRoute><ActivityCoordinator /></ProtectedRoute>} />
         <Route path="/distributor-master" element={<ProtectedRoute><DistributorMaster /></ProtectedRoute>} />
         <Route path="/add-distributor" element={<ProtectedRoute><AddDistributor /></ProtectedRoute>} />
         <Route path="/distributor/:id" element={<ProtectedRoute><DistributorDetail /></ProtectedRoute>} />
