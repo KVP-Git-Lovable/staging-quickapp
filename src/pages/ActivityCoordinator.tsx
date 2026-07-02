@@ -11,6 +11,7 @@ import { ArrowLeft, Plus, Activity as ActivityIcon, CheckCircle2, TrendingUp, Cl
 import { usePermissions } from '@/hooks/usePermissions';
 import { useActivityTypes } from '@/hooks/useActivityTypes';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
+import AssignActivityDialog from '@/components/activity/AssignActivityDialog';
 
 interface TeamActivityRow {
   visit_id: string;
