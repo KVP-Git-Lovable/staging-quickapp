@@ -2641,6 +2641,10 @@ const Operations = () => {
                   </Table>
                 </div>
               </TabsContent>
+
+              <TabsContent value="edited" className="space-y-4">
+                <EditedOrdersSection />
+              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
