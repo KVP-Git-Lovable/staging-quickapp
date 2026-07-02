@@ -236,6 +236,8 @@ export const PERMISSION_MODULES: PermissionModule[] = [
           { name: 'activity_type_settings', label: 'Activity Type Master (config)' },
           { name: 'activity_attachments', label: 'Activity Attachments' },
           { name: 'action_activity_create', label: 'Log / configure activity' },
+          { name: 'activity_team_view', label: 'View team activities (read = my team, view-all = everyone)' },
+          { name: 'action_activity_assign', label: 'Assign activities to team' },
         ]
       },
       {
