@@ -21,6 +21,7 @@ import { getCurrentWeekRange, getCurrentMonthRange, getLastMonthRange, toLocalIS
 import { downloadCSV } from '@/utils/fileDownloader';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
+import EditedOrdersSection from '@/components/operations/EditedOrdersSection';
 
 import { CancelOrderDialog, CancelableOrder } from '@/components/CancelOrderDialog';
 import { SignedImage } from '@/components/ui/signed-image';
@@ -1245,9 +1246,6 @@ const Operations = () => {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" onClick={() => navigate('/operations/edited-orders')}>
-              <Pencil className="h-4 w-4 mr-2" /> Edited Orders
-            </Button>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Auto-refresh</span>
               <Switch 
@@ -1288,7 +1286,7 @@ const Operations = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-7">
+              <TabsList className="grid w-full grid-cols-8">
                 <TabsTrigger value="checkins">Check-in/Out</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="stock">Stock</TabsTrigger>
@@ -1296,6 +1294,7 @@ const Operations = () => {
                 <TabsTrigger value="competitor">Competitor</TabsTrigger>
                 <TabsTrigger value="returnstock">Return Stock</TabsTrigger>
                 <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+                <TabsTrigger value="edited">Edited</TabsTrigger>
               </TabsList>
 
               {/* Filters */}
