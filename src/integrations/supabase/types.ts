@@ -15930,6 +15930,339 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_activity_attachments: {
+        Row: {
+          activity_event_id: string
+          created_at: string
+          file_name: string | null
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          qa_run_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          activity_event_id: string
+          created_at?: string
+          file_name?: string | null
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          qa_run_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          activity_event_id?: string
+          created_at?: string
+          file_name?: string | null
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          qa_run_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      qa_activity_events: {
+        Row: {
+          activity_date: string
+          activity_name: string | null
+          activity_place: string | null
+          activity_sub_type: string | null
+          activity_type: string
+          actual_footfall: number | null
+          attendee_count: number | null
+          beat_id: string | null
+          beat_name: string | null
+          budget: number | null
+          check_in_latitude: number | null
+          check_in_longitude: number | null
+          check_in_time: string | null
+          check_out_time: string | null
+          collective_target: number | null
+          comments: string | null
+          completed_at: string | null
+          contact_person: string | null
+          created_at: string
+          description: string | null
+          distributor_id: string | null
+          distributor_name: string | null
+          duration_minutes: number | null
+          duration_type: string
+          end_latitude: number | null
+          end_longitude: number | null
+          end_time: string | null
+          event_name: string | null
+          expected_footfall: string | null
+          follow_up_date: string | null
+          from_date: string | null
+          half_day_type: string | null
+          id: string
+          individual_target: number | null
+          joint_session_id: string | null
+          km_travelled: number | null
+          landmark: string | null
+          location: string | null
+          outcome: string | null
+          price_book_id: string | null
+          qa_run_id: string | null
+          remarks: string | null
+          rep_action_items: string | null
+          rep_followup_date: string | null
+          rep_improvement_areas: string | null
+          rep_overall_outcome: string | null
+          rep_rating_branding: number | null
+          rep_rating_market_intel: number | null
+          rep_rating_product_knowledge: number | null
+          rep_rating_retailer_relationship: number | null
+          rep_rating_scheme_communication: number | null
+          rep_strengths: string | null
+          retailer_id: string | null
+          retailer_name: string | null
+          sales_achieved: number | null
+          sales_reps: string[] | null
+          sales_target: number | null
+          shops_planned: number | null
+          shops_visited: number | null
+          start_latitude: number | null
+          start_longitude: number | null
+          start_time: string | null
+          status: string
+          subordinate_user_id: string | null
+          survey_competition_brands: string | null
+          survey_competitor_count: number | null
+          survey_estimated_monthly_value: number | null
+          survey_market_type: string | null
+          survey_observations: string | null
+          survey_our_stock_shops: number | null
+          survey_priority: string | null
+          survey_proposed_beat_names: string[] | null
+          survey_recommendation: string | null
+          survey_shops_per_beat: number | null
+          survey_suggested_beat_count: number | null
+          survey_target_shops: number | null
+          survey_total_shops: number | null
+          target_mode: string | null
+          to_date: string | null
+          topic: string | null
+          total_days: number | null
+          user_id: string
+          visit_category: string | null
+          visit_id: string | null
+          visit_purpose: string | null
+        }
+        Insert: {
+          activity_date?: string
+          activity_name?: string | null
+          activity_place?: string | null
+          activity_sub_type?: string | null
+          activity_type?: string
+          actual_footfall?: number | null
+          attendee_count?: number | null
+          beat_id?: string | null
+          beat_name?: string | null
+          budget?: number | null
+          check_in_latitude?: number | null
+          check_in_longitude?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
+          collective_target?: number | null
+          comments?: string | null
+          completed_at?: string | null
+          contact_person?: string | null
+          created_at?: string
+          description?: string | null
+          distributor_id?: string | null
+          distributor_name?: string | null
+          duration_minutes?: number | null
+          duration_type?: string
+          end_latitude?: number | null
+          end_longitude?: number | null
+          end_time?: string | null
+          event_name?: string | null
+          expected_footfall?: string | null
+          follow_up_date?: string | null
+          from_date?: string | null
+          half_day_type?: string | null
+          id?: string
+          individual_target?: number | null
+          joint_session_id?: string | null
+          km_travelled?: number | null
+          landmark?: string | null
+          location?: string | null
+          outcome?: string | null
+          price_book_id?: string | null
+          qa_run_id?: string | null
+          remarks?: string | null
+          rep_action_items?: string | null
+          rep_followup_date?: string | null
+          rep_improvement_areas?: string | null
+          rep_overall_outcome?: string | null
+          rep_rating_branding?: number | null
+          rep_rating_market_intel?: number | null
+          rep_rating_product_knowledge?: number | null
+          rep_rating_retailer_relationship?: number | null
+          rep_rating_scheme_communication?: number | null
+          rep_strengths?: string | null
+          retailer_id?: string | null
+          retailer_name?: string | null
+          sales_achieved?: number | null
+          sales_reps?: string[] | null
+          sales_target?: number | null
+          shops_planned?: number | null
+          shops_visited?: number | null
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time?: string | null
+          status?: string
+          subordinate_user_id?: string | null
+          survey_competition_brands?: string | null
+          survey_competitor_count?: number | null
+          survey_estimated_monthly_value?: number | null
+          survey_market_type?: string | null
+          survey_observations?: string | null
+          survey_our_stock_shops?: number | null
+          survey_priority?: string | null
+          survey_proposed_beat_names?: string[] | null
+          survey_recommendation?: string | null
+          survey_shops_per_beat?: number | null
+          survey_suggested_beat_count?: number | null
+          survey_target_shops?: number | null
+          survey_total_shops?: number | null
+          target_mode?: string | null
+          to_date?: string | null
+          topic?: string | null
+          total_days?: number | null
+          user_id: string
+          visit_category?: string | null
+          visit_id?: string | null
+          visit_purpose?: string | null
+        }
+        Update: {
+          activity_date?: string
+          activity_name?: string | null
+          activity_place?: string | null
+          activity_sub_type?: string | null
+          activity_type?: string
+          actual_footfall?: number | null
+          attendee_count?: number | null
+          beat_id?: string | null
+          beat_name?: string | null
+          budget?: number | null
+          check_in_latitude?: number | null
+          check_in_longitude?: number | null
+          check_in_time?: string | null
+          check_out_time?: string | null
+          collective_target?: number | null
+          comments?: string | null
+          completed_at?: string | null
+          contact_person?: string | null
+          created_at?: string
+          description?: string | null
+          distributor_id?: string | null
+          distributor_name?: string | null
+          duration_minutes?: number | null
+          duration_type?: string
+          end_latitude?: number | null
+          end_longitude?: number | null
+          end_time?: string | null
+          event_name?: string | null
+          expected_footfall?: string | null
+          follow_up_date?: string | null
+          from_date?: string | null
+          half_day_type?: string | null
+          id?: string
+          individual_target?: number | null
+          joint_session_id?: string | null
+          km_travelled?: number | null
+          landmark?: string | null
+          location?: string | null
+          outcome?: string | null
+          price_book_id?: string | null
+          qa_run_id?: string | null
+          remarks?: string | null
+          rep_action_items?: string | null
+          rep_followup_date?: string | null
+          rep_improvement_areas?: string | null
+          rep_overall_outcome?: string | null
+          rep_rating_branding?: number | null
+          rep_rating_market_intel?: number | null
+          rep_rating_product_knowledge?: number | null
+          rep_rating_retailer_relationship?: number | null
+          rep_rating_scheme_communication?: number | null
+          rep_strengths?: string | null
+          retailer_id?: string | null
+          retailer_name?: string | null
+          sales_achieved?: number | null
+          sales_reps?: string[] | null
+          sales_target?: number | null
+          shops_planned?: number | null
+          shops_visited?: number | null
+          start_latitude?: number | null
+          start_longitude?: number | null
+          start_time?: string | null
+          status?: string
+          subordinate_user_id?: string | null
+          survey_competition_brands?: string | null
+          survey_competitor_count?: number | null
+          survey_estimated_monthly_value?: number | null
+          survey_market_type?: string | null
+          survey_observations?: string | null
+          survey_our_stock_shops?: number | null
+          survey_priority?: string | null
+          survey_proposed_beat_names?: string[] | null
+          survey_recommendation?: string | null
+          survey_shops_per_beat?: number | null
+          survey_suggested_beat_count?: number | null
+          survey_target_shops?: number | null
+          survey_total_shops?: number | null
+          target_mode?: string | null
+          to_date?: string | null
+          topic?: string | null
+          total_days?: number | null
+          user_id?: string
+          visit_category?: string | null
+          visit_id?: string | null
+          visit_purpose?: string | null
+        }
+        Relationships: []
+      }
+      qa_ai_feature_feedback: {
+        Row: {
+          created_at: string | null
+          feature: string
+          feedback_type: string
+          id: string
+          qa_run_id: string | null
+          retailer_id: string | null
+          user_id: string | null
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          feature: string
+          feedback_type: string
+          id?: string
+          qa_run_id?: string | null
+          retailer_id?: string | null
+          user_id?: string | null
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          feature?: string
+          feedback_type?: string
+          id?: string
+          qa_run_id?: string | null
+          retailer_id?: string | null
+          user_id?: string | null
+          visit_id?: string | null
+        }
+        Relationships: []
+      }
       qa_attendance: {
         Row: {
           check_in_address: string | null
@@ -16014,6 +16347,84 @@ export type Database = {
           total_hours?: number | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      qa_beat_allowances: {
+        Row: {
+          average_km: number | null
+          average_time_minutes: number | null
+          beat_id: string
+          beat_name: string
+          created_at: string
+          daily_allowance: number
+          id: string
+          qa_run_id: string | null
+          travel_allowance: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          average_km?: number | null
+          average_time_minutes?: number | null
+          beat_id: string
+          beat_name: string
+          created_at?: string
+          daily_allowance?: number
+          id?: string
+          qa_run_id?: string | null
+          travel_allowance?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          average_km?: number | null
+          average_time_minutes?: number | null
+          beat_id?: string
+          beat_name?: string
+          created_at?: string
+          daily_allowance?: number
+          id?: string
+          qa_run_id?: string | null
+          travel_allowance?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_beat_audit_log: {
+        Row: {
+          action: string
+          beat_id: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          new_user_id: string | null
+          old_user_id: string | null
+          performed_by: string
+          qa_run_id: string | null
+        }
+        Insert: {
+          action: string
+          beat_id: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          new_user_id?: string | null
+          old_user_id?: string | null
+          performed_by: string
+          qa_run_id?: string | null
+        }
+        Update: {
+          action?: string
+          beat_id?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          new_user_id?: string | null
+          old_user_id?: string | null
+          performed_by?: string
+          qa_run_id?: string | null
         }
         Relationships: []
       }
@@ -16167,6 +16578,939 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_distributor_attachments: {
+        Row: {
+          created_at: string | null
+          distributor_id: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          qa_run_id: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          distributor_id?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          qa_run_id?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          distributor_id?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          qa_run_id?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      qa_distributor_business_plan_month_products: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          id: string
+          month_name: string
+          month_number: number
+          percentage: number
+          product_id: string
+          product_name: string
+          qa_run_id: string | null
+          quantity_target: number | null
+          revenue_target: number | null
+          updated_at: string
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          id?: string
+          month_name: string
+          month_number: number
+          percentage?: number
+          product_id: string
+          product_name: string
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          revenue_target?: number | null
+          updated_at?: string
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          id?: string
+          month_name?: string
+          month_number?: number
+          percentage?: number
+          product_id?: string
+          product_name?: string
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          revenue_target?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_distributor_business_plan_months: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          id: string
+          month_name: string
+          month_number: number
+          qa_run_id: string | null
+          quantity_target: number | null
+          target_revenue: number | null
+          updated_at: string
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          id?: string
+          month_name: string
+          month_number: number
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          target_revenue?: number | null
+          updated_at?: string
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          id?: string
+          month_name?: string
+          month_number?: number
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          target_revenue?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_distributor_business_plan_products: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          id: string
+          product_id: string
+          product_name: string
+          qa_run_id: string | null
+          quantity_target: number | null
+          revenue_target: number | null
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          product_name: string
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          revenue_target?: number | null
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          product_name?: string
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          revenue_target?: number | null
+        }
+        Relationships: []
+      }
+      qa_distributor_business_plan_retailers: {
+        Row: {
+          business_plan_id: string
+          created_at: string
+          growth_percent: number | null
+          id: string
+          last_year_revenue: number | null
+          qa_run_id: string | null
+          quantity_target: number | null
+          retailer_id: string
+          retailer_name: string
+          target_revenue: number | null
+        }
+        Insert: {
+          business_plan_id: string
+          created_at?: string
+          growth_percent?: number | null
+          id?: string
+          last_year_revenue?: number | null
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          retailer_id: string
+          retailer_name: string
+          target_revenue?: number | null
+        }
+        Update: {
+          business_plan_id?: string
+          created_at?: string
+          growth_percent?: number | null
+          id?: string
+          last_year_revenue?: number | null
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          retailer_id?: string
+          retailer_name?: string
+          target_revenue?: number | null
+        }
+        Relationships: []
+      }
+      qa_distributor_business_plans: {
+        Row: {
+          coverage_target: string | null
+          created_at: string
+          distributor_id: string
+          id: string
+          notes: string | null
+          qa_run_id: string | null
+          quantity_target: number | null
+          quantity_unit: string | null
+          revenue_target: number | null
+          territory_target: string | null
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          coverage_target?: string | null
+          created_at?: string
+          distributor_id: string
+          id?: string
+          notes?: string | null
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          quantity_unit?: string | null
+          revenue_target?: number | null
+          territory_target?: string | null
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          coverage_target?: string | null
+          created_at?: string
+          distributor_id?: string
+          id?: string
+          notes?: string | null
+          qa_run_id?: string | null
+          quantity_target?: number | null
+          quantity_unit?: string | null
+          revenue_target?: number | null
+          territory_target?: string | null
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      qa_distributor_contacts: {
+        Row: {
+          address: string | null
+          birth_date: string | null
+          contact_name: string
+          created_at: string | null
+          designation: string | null
+          distributor_id: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          is_primary: boolean | null
+          phone: string | null
+          qa_run_id: string | null
+          reports_to: string | null
+          role: string | null
+          seniority: string | null
+          updated_at: string | null
+          years_of_experience: number | null
+          years_with_distributor: number | null
+        }
+        Insert: {
+          address?: string | null
+          birth_date?: string | null
+          contact_name: string
+          created_at?: string | null
+          designation?: string | null
+          distributor_id?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          phone?: string | null
+          qa_run_id?: string | null
+          reports_to?: string | null
+          role?: string | null
+          seniority?: string | null
+          updated_at?: string | null
+          years_of_experience?: number | null
+          years_with_distributor?: number | null
+        }
+        Update: {
+          address?: string | null
+          birth_date?: string | null
+          contact_name?: string
+          created_at?: string | null
+          designation?: string | null
+          distributor_id?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          phone?: string | null
+          qa_run_id?: string | null
+          reports_to?: string | null
+          role?: string | null
+          seniority?: string | null
+          updated_at?: string | null
+          years_of_experience?: number | null
+          years_with_distributor?: number | null
+        }
+        Relationships: []
+      }
+      qa_distributor_evaluation_tasks: {
+        Row: {
+          attachment_urls: string[] | null
+          completed_date: string | null
+          created_at: string
+          created_by: string | null
+          distributor_id: string
+          due_date: string | null
+          id: string
+          notes: string | null
+          owner_user_id: string | null
+          qa_run_id: string | null
+          status: string
+          task_key: string
+          task_label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          attachment_urls?: string[] | null
+          completed_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          distributor_id: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          owner_user_id?: string | null
+          qa_run_id?: string | null
+          status?: string
+          task_key: string
+          task_label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          attachment_urls?: string[] | null
+          completed_date?: string | null
+          created_at?: string
+          created_by?: string | null
+          distributor_id?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          owner_user_id?: string | null
+          qa_run_id?: string | null
+          status?: string
+          task_key?: string
+          task_label?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      qa_distributor_payment_config: {
+        Row: {
+          advance_payment_pct: number
+          allow_orders_beyond_limit: boolean
+          allowed_payment_modes: string[]
+          allowed_payment_terms: string[]
+          approval_required_beyond_limit: boolean
+          approval_required_high_risk: boolean
+          created_at: string
+          credit_allowed: boolean
+          credit_limit: number
+          credit_warning_threshold_pct: number
+          default_payment_mode: string
+          default_payment_term: string
+          distributor_id: string
+          id: string
+          max_outstanding_allowed: number | null
+          max_overdue_days: number | null
+          overdue_blocking_enabled: boolean
+          qa_run_id: string | null
+          require_advance_payment: boolean
+          require_payment_proof: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          advance_payment_pct?: number
+          allow_orders_beyond_limit?: boolean
+          allowed_payment_modes?: string[]
+          allowed_payment_terms?: string[]
+          approval_required_beyond_limit?: boolean
+          approval_required_high_risk?: boolean
+          created_at?: string
+          credit_allowed?: boolean
+          credit_limit?: number
+          credit_warning_threshold_pct?: number
+          default_payment_mode?: string
+          default_payment_term?: string
+          distributor_id: string
+          id?: string
+          max_outstanding_allowed?: number | null
+          max_overdue_days?: number | null
+          overdue_blocking_enabled?: boolean
+          qa_run_id?: string | null
+          require_advance_payment?: boolean
+          require_payment_proof?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          advance_payment_pct?: number
+          allow_orders_beyond_limit?: boolean
+          allowed_payment_modes?: string[]
+          allowed_payment_terms?: string[]
+          approval_required_beyond_limit?: boolean
+          approval_required_high_risk?: boolean
+          created_at?: string
+          credit_allowed?: boolean
+          credit_limit?: number
+          credit_warning_threshold_pct?: number
+          default_payment_mode?: string
+          default_payment_term?: string
+          distributor_id?: string
+          id?: string
+          max_outstanding_allowed?: number | null
+          max_overdue_days?: number | null
+          overdue_blocking_enabled?: boolean
+          qa_run_id?: string | null
+          require_advance_payment?: boolean
+          require_payment_proof?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      qa_distributor_payments: {
+        Row: {
+          amount: number
+          bank_name: string | null
+          cheque_date: string | null
+          cheque_number: string | null
+          collected_by_user_id: string | null
+          created_at: string
+          created_by: string | null
+          distributor_id: string
+          id: string
+          notes: string | null
+          operational_snapshot_user_id: string | null
+          owner_snapshot_user_id: string | null
+          payment_date: string
+          payment_mode: string
+          qa_run_id: string | null
+          receipt_number: string | null
+          reference_number: string | null
+          retailer_id: string
+          sales_credit_user_id: string | null
+          status: string
+          unallocated_amount: number
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          bank_name?: string | null
+          cheque_date?: string | null
+          cheque_number?: string | null
+          collected_by_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          distributor_id: string
+          id?: string
+          notes?: string | null
+          operational_snapshot_user_id?: string | null
+          owner_snapshot_user_id?: string | null
+          payment_date?: string
+          payment_mode?: string
+          qa_run_id?: string | null
+          receipt_number?: string | null
+          reference_number?: string | null
+          retailer_id: string
+          sales_credit_user_id?: string | null
+          status?: string
+          unallocated_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          bank_name?: string | null
+          cheque_date?: string | null
+          cheque_number?: string | null
+          collected_by_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          distributor_id?: string
+          id?: string
+          notes?: string | null
+          operational_snapshot_user_id?: string | null
+          owner_snapshot_user_id?: string | null
+          payment_date?: string
+          payment_mode?: string
+          qa_run_id?: string | null
+          receipt_number?: string | null
+          reference_number?: string | null
+          retailer_id?: string
+          sales_credit_user_id?: string | null
+          status?: string
+          unallocated_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_distributor_price_books: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          deactivated_at: string | null
+          distributor_id: string
+          id: string
+          is_active: boolean | null
+          price_book_id: string
+          qa_run_id: string | null
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          deactivated_at?: string | null
+          distributor_id: string
+          id?: string
+          is_active?: boolean | null
+          price_book_id: string
+          qa_run_id?: string | null
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          deactivated_at?: string | null
+          distributor_id?: string
+          id?: string
+          is_active?: boolean | null
+          price_book_id?: string
+          qa_run_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_distributor_users: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          auth_user_id: string | null
+          can_deliver: boolean
+          created_at: string
+          designation: string | null
+          distributor_id: string
+          email: string
+          email_sent_at: string | null
+          full_name: string
+          id: string
+          is_active: boolean
+          last_login_at: string | null
+          password_set_at: string | null
+          phone: string | null
+          qa_run_id: string | null
+          requested_at: string | null
+          role: string
+          updated_at: string
+          user_level: string | null
+          user_status: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          auth_user_id?: string | null
+          can_deliver?: boolean
+          created_at?: string
+          designation?: string | null
+          distributor_id: string
+          email: string
+          email_sent_at?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          password_set_at?: string | null
+          phone?: string | null
+          qa_run_id?: string | null
+          requested_at?: string | null
+          role?: string
+          updated_at?: string
+          user_level?: string | null
+          user_status?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          auth_user_id?: string | null
+          can_deliver?: boolean
+          created_at?: string
+          designation?: string | null
+          distributor_id?: string
+          email?: string
+          email_sent_at?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          last_login_at?: string | null
+          password_set_at?: string | null
+          phone?: string | null
+          qa_run_id?: string | null
+          requested_at?: string | null
+          role?: string
+          updated_at?: string
+          user_level?: string | null
+          user_status?: string
+        }
+        Relationships: []
+      }
+      qa_distributors: {
+        Row: {
+          about_business: string | null
+          account_holder_name: string | null
+          address: string | null
+          annual_revenue: number | null
+          assets_trucks: number | null
+          assets_vans: number | null
+          bank_account: string | null
+          bank_name: string | null
+          business_hunger: string | null
+          competition_products: string[] | null
+          contact_person: string
+          coverage_area: string | null
+          created_at: string
+          credit_limit: number | null
+          currency: string
+          date_format: string
+          distribution_experience_years: number | null
+          distribution_level: string | null
+          distributor_status: string | null
+          drop_reason: string | null
+          email: string | null
+          established_year: number | null
+          evaluation_checklist: Json | null
+          gst_number: string | null
+          id: string
+          ifsc: string | null
+          logo_url: string | null
+          name: string
+          network_retailers_count: number | null
+          onboarding_date: string | null
+          opportunities: string | null
+          other_products: string[] | null
+          outstanding_amount: number | null
+          owner_id: string | null
+          owner_name: string | null
+          parent_id: string | null
+          parent_type: string | null
+          partnership_status: string | null
+          phone: string
+          products_distributed: string[] | null
+          profitability: string | null
+          qa_run_id: string | null
+          qr_code_url: string | null
+          qr_upi: string | null
+          region_coverage: string | null
+          sales_team_size: number | null
+          state: string | null
+          status: string
+          strength: string | null
+          terms_conditions: string | null
+          territory_id: string | null
+          threats: string | null
+          timezone: string
+          type_id: string | null
+          updated_at: string
+          weakness: string | null
+          years_of_relationship: number | null
+        }
+        Insert: {
+          about_business?: string | null
+          account_holder_name?: string | null
+          address?: string | null
+          annual_revenue?: number | null
+          assets_trucks?: number | null
+          assets_vans?: number | null
+          bank_account?: string | null
+          bank_name?: string | null
+          business_hunger?: string | null
+          competition_products?: string[] | null
+          contact_person: string
+          coverage_area?: string | null
+          created_at?: string
+          credit_limit?: number | null
+          currency?: string
+          date_format?: string
+          distribution_experience_years?: number | null
+          distribution_level?: string | null
+          distributor_status?: string | null
+          drop_reason?: string | null
+          email?: string | null
+          established_year?: number | null
+          evaluation_checklist?: Json | null
+          gst_number?: string | null
+          id?: string
+          ifsc?: string | null
+          logo_url?: string | null
+          name: string
+          network_retailers_count?: number | null
+          onboarding_date?: string | null
+          opportunities?: string | null
+          other_products?: string[] | null
+          outstanding_amount?: number | null
+          owner_id?: string | null
+          owner_name?: string | null
+          parent_id?: string | null
+          parent_type?: string | null
+          partnership_status?: string | null
+          phone: string
+          products_distributed?: string[] | null
+          profitability?: string | null
+          qa_run_id?: string | null
+          qr_code_url?: string | null
+          qr_upi?: string | null
+          region_coverage?: string | null
+          sales_team_size?: number | null
+          state?: string | null
+          status?: string
+          strength?: string | null
+          terms_conditions?: string | null
+          territory_id?: string | null
+          threats?: string | null
+          timezone?: string
+          type_id?: string | null
+          updated_at?: string
+          weakness?: string | null
+          years_of_relationship?: number | null
+        }
+        Update: {
+          about_business?: string | null
+          account_holder_name?: string | null
+          address?: string | null
+          annual_revenue?: number | null
+          assets_trucks?: number | null
+          assets_vans?: number | null
+          bank_account?: string | null
+          bank_name?: string | null
+          business_hunger?: string | null
+          competition_products?: string[] | null
+          contact_person?: string
+          coverage_area?: string | null
+          created_at?: string
+          credit_limit?: number | null
+          currency?: string
+          date_format?: string
+          distribution_experience_years?: number | null
+          distribution_level?: string | null
+          distributor_status?: string | null
+          drop_reason?: string | null
+          email?: string | null
+          established_year?: number | null
+          evaluation_checklist?: Json | null
+          gst_number?: string | null
+          id?: string
+          ifsc?: string | null
+          logo_url?: string | null
+          name?: string
+          network_retailers_count?: number | null
+          onboarding_date?: string | null
+          opportunities?: string | null
+          other_products?: string[] | null
+          outstanding_amount?: number | null
+          owner_id?: string | null
+          owner_name?: string | null
+          parent_id?: string | null
+          parent_type?: string | null
+          partnership_status?: string | null
+          phone?: string
+          products_distributed?: string[] | null
+          profitability?: string | null
+          qa_run_id?: string | null
+          qr_code_url?: string | null
+          qr_upi?: string | null
+          region_coverage?: string | null
+          sales_team_size?: number | null
+          state?: string | null
+          status?: string
+          strength?: string | null
+          terms_conditions?: string | null
+          territory_id?: string | null
+          threats?: string | null
+          timezone?: string
+          type_id?: string | null
+          updated_at?: string
+          weakness?: string | null
+          years_of_relationship?: number | null
+        }
+        Relationships: []
+      }
+      qa_education_history: {
+        Row: {
+          activities: string | null
+          created_at: string | null
+          degree: string | null
+          field_of_study: string | null
+          from_date: string | null
+          grade: string | null
+          id: string
+          institution_name: string
+          qa_run_id: string | null
+          to_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          activities?: string | null
+          created_at?: string | null
+          degree?: string | null
+          field_of_study?: string | null
+          from_date?: string | null
+          grade?: string | null
+          id?: string
+          institution_name: string
+          qa_run_id?: string | null
+          to_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          activities?: string | null
+          created_at?: string | null
+          degree?: string | null
+          field_of_study?: string | null
+          from_date?: string | null
+          grade?: string | null
+          id?: string
+          institution_name?: string
+          qa_run_id?: string | null
+          to_date?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_emergency_contacts: {
+        Row: {
+          address: string | null
+          alternate_phone: string | null
+          contact_name: string
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          phone: string | null
+          qa_run_id: string | null
+          relationship: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          alternate_phone?: string | null
+          contact_name: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          phone?: string | null
+          qa_run_id?: string | null
+          relationship?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          alternate_phone?: string | null
+          contact_name?: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          phone?: string | null
+          qa_run_id?: string | null
+          relationship?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_employee_connections: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+          qa_run_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+          qa_run_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+          qa_run_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_employee_recommendations: {
+        Row: {
+          created_at: string
+          id: string
+          qa_run_id: string | null
+          recommendation_text: string
+          recommender_id: string
+          relationship: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          qa_run_id?: string | null
+          recommendation_text: string
+          recommender_id: string
+          relationship?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          qa_run_id?: string | null
+          recommendation_text?: string
+          recommender_id?: string
+          relationship?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       qa_gps_tracking: {
         Row: {
           accuracy: number | null
@@ -16205,6 +17549,36 @@ export type Database = {
           qa_run_id?: string | null
           speed?: number | null
           timestamp?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_gps_tracking_stops: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          qa_run_id: string | null
+          reason: string
+          stopped_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          qa_run_id?: string | null
+          reason: string
+          stopped_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          qa_run_id?: string | null
+          reason?: string
+          stopped_at?: string
           user_id?: string
         }
         Relationships: []
@@ -16275,6 +17649,342 @@ export type Database = {
           qa_run_id?: string | null
           state?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      qa_joint_sales_feedback: {
+        Row: {
+          action_items: string | null
+          additional_notes: string | null
+          beat_plan_id: string | null
+          branding_rating: number | null
+          branding_status: string | null
+          competition_knowledge: string | null
+          competition_presence: string | null
+          competition_rating: number | null
+          consumer_feedback: string | null
+          conversation_highlights: string | null
+          created_at: string | null
+          distributor_feedback_rating: number | null
+          distributor_service: string | null
+          feedback_date: string
+          fse_user_id: string
+          future_growth_rating: number | null
+          growth_potential: string | null
+          id: string
+          joint_sales_impact: string | null
+          manager_id: string
+          monthly_potential_6months: number | null
+          new_products_introduced: string | null
+          order_increase_amount: number | null
+          placement_feedback: string | null
+          pricing_compliance: string | null
+          pricing_feedback: string | null
+          pricing_feedback_rating: number | null
+          product_feedback_rating: number | null
+          product_packaging_feedback: string | null
+          product_quality_feedback: string | null
+          product_sku_range_feedback: string | null
+          product_usp_feedback: string | null
+          promotion_vs_competition: string | null
+          qa_run_id: string | null
+          retailer_id: string
+          retailer_notes: string | null
+          retailing_feedback: string | null
+          retailing_rating: number | null
+          sales_increase_feedback: string | null
+          sales_trend: string | null
+          sales_trends_rating: number | null
+          sampling_rating: number | null
+          sampling_status: string | null
+          scheme_awareness: string | null
+          schemes_feedback: string | null
+          schemes_rating: number | null
+          service_feedback: string | null
+          shelf_visibility: string | null
+          trends_feedback: string | null
+          updated_at: string | null
+          visit_id: string | null
+          willingness_to_grow_range: string | null
+        }
+        Insert: {
+          action_items?: string | null
+          additional_notes?: string | null
+          beat_plan_id?: string | null
+          branding_rating?: number | null
+          branding_status?: string | null
+          competition_knowledge?: string | null
+          competition_presence?: string | null
+          competition_rating?: number | null
+          consumer_feedback?: string | null
+          conversation_highlights?: string | null
+          created_at?: string | null
+          distributor_feedback_rating?: number | null
+          distributor_service?: string | null
+          feedback_date?: string
+          fse_user_id: string
+          future_growth_rating?: number | null
+          growth_potential?: string | null
+          id?: string
+          joint_sales_impact?: string | null
+          manager_id: string
+          monthly_potential_6months?: number | null
+          new_products_introduced?: string | null
+          order_increase_amount?: number | null
+          placement_feedback?: string | null
+          pricing_compliance?: string | null
+          pricing_feedback?: string | null
+          pricing_feedback_rating?: number | null
+          product_feedback_rating?: number | null
+          product_packaging_feedback?: string | null
+          product_quality_feedback?: string | null
+          product_sku_range_feedback?: string | null
+          product_usp_feedback?: string | null
+          promotion_vs_competition?: string | null
+          qa_run_id?: string | null
+          retailer_id: string
+          retailer_notes?: string | null
+          retailing_feedback?: string | null
+          retailing_rating?: number | null
+          sales_increase_feedback?: string | null
+          sales_trend?: string | null
+          sales_trends_rating?: number | null
+          sampling_rating?: number | null
+          sampling_status?: string | null
+          scheme_awareness?: string | null
+          schemes_feedback?: string | null
+          schemes_rating?: number | null
+          service_feedback?: string | null
+          shelf_visibility?: string | null
+          trends_feedback?: string | null
+          updated_at?: string | null
+          visit_id?: string | null
+          willingness_to_grow_range?: string | null
+        }
+        Update: {
+          action_items?: string | null
+          additional_notes?: string | null
+          beat_plan_id?: string | null
+          branding_rating?: number | null
+          branding_status?: string | null
+          competition_knowledge?: string | null
+          competition_presence?: string | null
+          competition_rating?: number | null
+          consumer_feedback?: string | null
+          conversation_highlights?: string | null
+          created_at?: string | null
+          distributor_feedback_rating?: number | null
+          distributor_service?: string | null
+          feedback_date?: string
+          fse_user_id?: string
+          future_growth_rating?: number | null
+          growth_potential?: string | null
+          id?: string
+          joint_sales_impact?: string | null
+          manager_id?: string
+          monthly_potential_6months?: number | null
+          new_products_introduced?: string | null
+          order_increase_amount?: number | null
+          placement_feedback?: string | null
+          pricing_compliance?: string | null
+          pricing_feedback?: string | null
+          pricing_feedback_rating?: number | null
+          product_feedback_rating?: number | null
+          product_packaging_feedback?: string | null
+          product_quality_feedback?: string | null
+          product_sku_range_feedback?: string | null
+          product_usp_feedback?: string | null
+          promotion_vs_competition?: string | null
+          qa_run_id?: string | null
+          retailer_id?: string
+          retailer_notes?: string | null
+          retailing_feedback?: string | null
+          retailing_rating?: number | null
+          sales_increase_feedback?: string | null
+          sales_trend?: string | null
+          sales_trends_rating?: number | null
+          sampling_rating?: number | null
+          sampling_status?: string | null
+          scheme_awareness?: string | null
+          schemes_feedback?: string | null
+          schemes_rating?: number | null
+          service_feedback?: string | null
+          shelf_visibility?: string | null
+          trends_feedback?: string | null
+          updated_at?: string | null
+          visit_id?: string | null
+          willingness_to_grow_range?: string | null
+        }
+        Relationships: []
+      }
+      qa_joint_sales_sessions: {
+        Row: {
+          beat_id: string | null
+          beat_name: string | null
+          beat_plan_id: string | null
+          created_at: string | null
+          fse_user_id: string
+          id: string
+          manager_id: string
+          qa_run_id: string | null
+          session_date: string
+          session_end_time: string | null
+          session_start_time: string | null
+          total_feedback_captured: number | null
+          total_retailers_visited: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          beat_id?: string | null
+          beat_name?: string | null
+          beat_plan_id?: string | null
+          created_at?: string | null
+          fse_user_id: string
+          id?: string
+          manager_id: string
+          qa_run_id?: string | null
+          session_date: string
+          session_end_time?: string | null
+          session_start_time?: string | null
+          total_feedback_captured?: number | null
+          total_retailers_visited?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          beat_id?: string | null
+          beat_name?: string | null
+          beat_plan_id?: string | null
+          created_at?: string | null
+          fse_user_id?: string
+          id?: string
+          manager_id?: string
+          qa_run_id?: string | null
+          session_date?: string
+          session_end_time?: string | null
+          session_start_time?: string | null
+          total_feedback_captured?: number | null
+          total_retailers_visited?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      qa_leave_applications: {
+        Row: {
+          applied_date: string
+          approved_by: string | null
+          approved_date: string | null
+          attendance_marked: boolean | null
+          created_at: string
+          current_approval_level: number | null
+          days_requested: number | null
+          end_date: string
+          final_approved_by: string | null
+          half_day_period: string | null
+          id: string
+          is_half_day: boolean | null
+          is_lop: boolean | null
+          leave_type_id: string
+          lop_days: number | null
+          proof_document_url: string | null
+          qa_run_id: string | null
+          reason: string
+          rejection_reason: string | null
+          sandwich_days_added: number | null
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          applied_date?: string
+          approved_by?: string | null
+          approved_date?: string | null
+          attendance_marked?: boolean | null
+          created_at?: string
+          current_approval_level?: number | null
+          days_requested?: number | null
+          end_date: string
+          final_approved_by?: string | null
+          half_day_period?: string | null
+          id?: string
+          is_half_day?: boolean | null
+          is_lop?: boolean | null
+          leave_type_id: string
+          lop_days?: number | null
+          proof_document_url?: string | null
+          qa_run_id?: string | null
+          reason: string
+          rejection_reason?: string | null
+          sandwich_days_added?: number | null
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          applied_date?: string
+          approved_by?: string | null
+          approved_date?: string | null
+          attendance_marked?: boolean | null
+          created_at?: string
+          current_approval_level?: number | null
+          days_requested?: number | null
+          end_date?: string
+          final_approved_by?: string | null
+          half_day_period?: string | null
+          id?: string
+          is_half_day?: boolean | null
+          is_lop?: boolean | null
+          leave_type_id?: string
+          lop_days?: number | null
+          proof_document_url?: string | null
+          qa_run_id?: string | null
+          reason?: string
+          rejection_reason?: string | null
+          sandwich_days_added?: number | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_leave_balance: {
+        Row: {
+          created_at: string
+          id: string
+          leave_type_id: string
+          opening_balance: number
+          qa_run_id: string | null
+          remaining_balance: number | null
+          updated_at: string
+          used_balance: number
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          leave_type_id: string
+          opening_balance?: number
+          qa_run_id?: string | null
+          remaining_balance?: number | null
+          updated_at?: string
+          used_balance?: number
+          user_id: string
+          year?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          leave_type_id?: string
+          opening_balance?: number
+          qa_run_id?: string | null
+          remaining_balance?: number | null
+          updated_at?: string
+          used_balance?: number
+          user_id?: string
+          year?: number
         }
         Relationships: []
       }
@@ -16554,6 +18264,57 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_petty_cash_transactions: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          bill_url: string | null
+          category: string
+          created_at: string
+          description: string | null
+          fund_id: string
+          id: string
+          qa_run_id: string | null
+          rejection_reason: string | null
+          status: string
+          transaction_date: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bill_url?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          fund_id: string
+          id?: string
+          qa_run_id?: string | null
+          rejection_reason?: string | null
+          status?: string
+          transaction_date?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          bill_url?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          fund_id?: string
+          id?: string
+          qa_run_id?: string | null
+          rejection_reason?: string | null
+          status?: string
+          transaction_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       qa_products: {
         Row: {
           barcode: string | null
@@ -16716,6 +18477,60 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_regularization_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          attendance_date: string
+          created_at: string
+          current_check_in_time: string | null
+          current_check_out_time: string | null
+          id: string
+          qa_run_id: string | null
+          reason: string
+          rejection_reason: string | null
+          requested_check_in_time: string | null
+          requested_check_out_time: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attendance_date: string
+          created_at?: string
+          current_check_in_time?: string | null
+          current_check_out_time?: string | null
+          id?: string
+          qa_run_id?: string | null
+          reason: string
+          rejection_reason?: string | null
+          requested_check_in_time?: string | null
+          requested_check_out_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          attendance_date?: string
+          created_at?: string
+          current_check_in_time?: string | null
+          current_check_out_time?: string | null
+          id?: string
+          qa_run_id?: string | null
+          reason?: string
+          rejection_reason?: string | null
+          requested_check_in_time?: string | null
+          requested_check_out_time?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       qa_retailer_beat_assignments: {
         Row: {
           assigned_by: string | null
@@ -16761,6 +18576,45 @@ export type Database = {
           transfer_reason?: string | null
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_retailer_verification_audit: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          method: string
+          notes: string | null
+          performed_by: string | null
+          performed_by_name: string | null
+          qa_run_id: string | null
+          retailer_id: string
+          verified_items: Json
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          method: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          qa_run_id?: string | null
+          retailer_id: string
+          verified_items?: Json
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          performed_by?: string | null
+          performed_by_name?: string | null
+          qa_run_id?: string | null
+          retailer_id?: string
+          verified_items?: Json
         }
         Relationships: []
       }
@@ -17055,6 +18909,294 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_social_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          post_id: string
+          qa_run_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          post_id: string
+          qa_run_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          qa_run_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_social_likes: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          qa_run_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          qa_run_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          qa_run_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_social_post_attachments: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_type: string | null
+          file_url: string
+          id: string
+          post_id: string
+          qa_run_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          post_id: string
+          qa_run_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          post_id?: string
+          qa_run_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_social_posts: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          image_url: string | null
+          is_automated: boolean | null
+          post_metadata: Json | null
+          qa_run_id: string | null
+          scheduled_time: string | null
+          template_id: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_automated?: boolean | null
+          post_metadata?: Json | null
+          qa_run_id?: string | null
+          scheduled_time?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          is_automated?: boolean | null
+          post_metadata?: Json | null
+          qa_run_id?: string | null
+          scheduled_time?: string | null
+          template_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_social_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          post_id: string
+          qa_run_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          post_id: string
+          qa_run_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          post_id?: string
+          qa_run_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_stock: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          product_name: string
+          qa_run_id: string | null
+          retailer_id: string
+          stock_quantity: number
+          updated_at: string
+          user_id: string
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          product_name: string
+          qa_run_id?: string | null
+          retailer_id: string
+          stock_quantity?: number
+          updated_at?: string
+          user_id: string
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          product_name?: string
+          qa_run_id?: string | null
+          retailer_id?: string
+          stock_quantity?: number
+          updated_at?: string
+          user_id?: string
+          visit_id?: string
+        }
+        Relationships: []
+      }
+      qa_stock_cycle_data: {
+        Row: {
+          created_at: string
+          id: string
+          ordered_quantity: number | null
+          product_id: string
+          product_name: string
+          qa_run_id: string | null
+          retailer_id: string
+          stock_quantity: number | null
+          updated_at: string
+          user_id: string
+          visit_date: string
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ordered_quantity?: number | null
+          product_id: string
+          product_name: string
+          qa_run_id?: string | null
+          retailer_id: string
+          stock_quantity?: number | null
+          updated_at?: string
+          user_id: string
+          visit_date: string
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ordered_quantity?: number | null
+          product_id?: string
+          product_name?: string
+          qa_run_id?: string | null
+          retailer_id?: string
+          stock_quantity?: number | null
+          updated_at?: string
+          user_id?: string
+          visit_date?: string
+          visit_id?: string | null
+        }
+        Relationships: []
+      }
+      qa_support_requests: {
+        Row: {
+          created_at: string
+          created_date: string
+          description: string | null
+          id: string
+          qa_run_id: string | null
+          resolution_notes: string | null
+          resolved_by: string | null
+          resolved_date: string | null
+          status: string
+          subject: string
+          support_category: string
+          target_date: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_date?: string
+          description?: string | null
+          id?: string
+          qa_run_id?: string | null
+          resolution_notes?: string | null
+          resolved_by?: string | null
+          resolved_date?: string | null
+          status?: string
+          subject: string
+          support_category: string
+          target_date?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_date?: string
+          description?: string | null
+          id?: string
+          qa_run_id?: string | null
+          resolution_notes?: string | null
+          resolved_by?: string | null
+          resolved_date?: string | null
+          status?: string
+          subject?: string
+          support_category?: string
+          target_date?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       qa_sync_audit_log: {
         Row: {
           action: string
@@ -17199,6 +19341,108 @@ export type Database = {
         }
         Relationships: []
       }
+      qa_user_data_usage: {
+        Row: {
+          bytes_downloaded: number | null
+          bytes_uploaded: number | null
+          id: string
+          qa_run_id: string | null
+          recorded_at: string | null
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          bytes_downloaded?: number | null
+          bytes_uploaded?: number | null
+          id?: string
+          qa_run_id?: string | null
+          recorded_at?: string | null
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          bytes_downloaded?: number | null
+          bytes_uploaded?: number | null
+          id?: string
+          qa_run_id?: string | null
+          recorded_at?: string | null
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_user_onboarding_progress: {
+        Row: {
+          attachment_url: string | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          notes: string | null
+          qa_run_id: string | null
+          task_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attachment_url?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          qa_run_id?: string | null
+          task_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attachment_url?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          notes?: string | null
+          qa_run_id?: string | null
+          task_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      qa_user_page_views: {
+        Row: {
+          duration_seconds: number | null
+          id: string
+          module_name: string
+          page_path: string
+          qa_run_id: string | null
+          session_id: string | null
+          user_id: string
+          visited_at: string | null
+        }
+        Insert: {
+          duration_seconds?: number | null
+          id?: string
+          module_name: string
+          page_path: string
+          qa_run_id?: string | null
+          session_id?: string | null
+          user_id: string
+          visited_at?: string | null
+        }
+        Update: {
+          duration_seconds?: number | null
+          id?: string
+          module_name?: string
+          page_path?: string
+          qa_run_id?: string | null
+          session_id?: string | null
+          user_id?: string
+          visited_at?: string | null
+        }
+        Relationships: []
+      }
       qa_visits: {
         Row: {
           check_in_address: string | null
@@ -17277,6 +19521,51 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visit_type?: string | null
+        }
+        Relationships: []
+      }
+      qa_work_experiences: {
+        Row: {
+          company_name: string
+          created_at: string | null
+          description: string | null
+          designation: string | null
+          from_date: string | null
+          id: string
+          is_current: boolean | null
+          location: string | null
+          qa_run_id: string | null
+          to_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          company_name: string
+          created_at?: string | null
+          description?: string | null
+          designation?: string | null
+          from_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          location?: string | null
+          qa_run_id?: string | null
+          to_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string | null
+          description?: string | null
+          designation?: string | null
+          from_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          location?: string | null
+          qa_run_id?: string | null
+          to_date?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -24119,6 +26408,10 @@ export type Database = {
           p_pod_signature_url: string
           p_received_by: string
         }
+        Returns: Json
+      }
+      confirm_secondary_delivery: {
+        Args: { p_order_id: string; p_payment?: Json; p_pod_url?: string }
         Returns: Json
       }
       create_approval_request: {
