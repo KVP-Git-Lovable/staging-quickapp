@@ -958,6 +958,32 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             </TabsList>
 
             <TabsContent value="products" className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card className="border-l-4 border-l-primary">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Products</p>
+                    <p className="text-2xl font-bold mt-1">{products.length}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-green-500">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Active</p>
+                    <p className="text-2xl font-bold mt-1 text-green-600">{activeProductsCount}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-red-500">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Inactive</p>
+                    <p className="text-2xl font-bold mt-1 text-red-600">{inactiveProductsCount}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-blue-500">
+                  <CardContent className="p-4">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Categories</p>
+                    <p className="text-2xl font-bold mt-1 text-blue-600">{categories.length}</p>
+                  </CardContent>
+                </Card>
+              </div>
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="relative">
@@ -969,6 +995,17 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       className="pl-10 w-80"
                     />
                   </div>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-56">
+                      <SelectValue placeholder="All Categories" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'active' | 'inactive' | 'all')}>
                     <TabsList>
                       <TabsTrigger value="active">Active ({activeProductsCount})</TabsTrigger>
