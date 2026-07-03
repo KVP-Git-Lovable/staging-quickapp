@@ -199,8 +199,8 @@ export function CompactMultiUserSelector({
     return `${selectedUserIds.length} users`;
   };
 
-  // Don't show selector if not a manager (only has self)
-  if (!isManager && !isLoading) {
+  // Don't show selector if not a manager AND we're not in on-behalf view_all mode
+  if (!isManager && !isLoading && !canViewAll) {
     return null;
   }
 
@@ -225,8 +225,20 @@ export function CompactMultiUserSelector({
           )}
         >
           <div className="flex items-center gap-1.5">
-            <Users className="h-3 w-3 shrink-0" />
+            {onBehalfActive ? (
+              <UserCog className="h-3 w-3 shrink-0 text-amber-600" />
+            ) : (
+              <Users className="h-3 w-3 shrink-0" />
+            )}
             <span className="truncate text-xs">{getDisplayText()}</span>
+            {onBehalfActive && (
+              <Badge
+                variant="secondary"
+                className="h-4 px-1 text-[9px] bg-amber-100 text-amber-900 border-amber-300"
+              >
+                on-behalf
+              </Badge>
+            )}
           </div>
           <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
         </Button>
