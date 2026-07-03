@@ -1092,7 +1092,8 @@ export const Cart = () => {
       const idempotencyKey = `${currentUserId}_${validRetailerId}_${getLocalTodayDate()}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       
       const orderData = {
-        user_id: currentUserId,
+        user_id: isOnBehalf ? onBehalfCtx!.userId : currentUserId,
+        placed_by_user_id: isOnBehalf ? currentUserId : undefined,
         visit_id: actualVisitId, // ALWAYS include - ensures database trigger can update visit status
         retailer_id: validRetailerId,
         retailer_name: retailerName,
