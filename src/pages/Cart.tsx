@@ -1082,7 +1082,9 @@ export const Cart = () => {
         // CRITICAL: Store distributor at order time - this preserves the mapping even if retailer's distributor changes later
         distributor_id: distributorInfo.id || null,
         distributor_name: distributorInfo.name || null,
-        order_date: getLocalTodayDate(),
+        order_date: getEffectiveOrderDate(),
+        is_backdated: isBackdated,
+        backdate_reason: isBackdated ? (backdateReason.trim() || null) : null,
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
