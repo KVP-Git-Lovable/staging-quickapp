@@ -1538,6 +1538,7 @@ export const Cart = () => {
       // Navigate to My Visits page - snapshot is already updated
       console.log('✅ Navigating to My Visits');
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      clearOnBehalfContext();
       navigate('/visits/retailers');
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
