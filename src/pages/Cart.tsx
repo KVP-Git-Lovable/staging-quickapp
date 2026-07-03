@@ -2361,7 +2361,7 @@ export const Cart = () => {
       // Update visit status cache
       if (actualVisitId && validRetailerId && currentUserId) {
         retailerStatusRegistry.markForRefresh(validRetailerId);
-        const orderDate = getLocalTodayDate();
+        const orderDate = getEffectiveOrderDate();
         await visitStatusCache.set(
           actualVisitId,
           validRetailerId,
