@@ -997,7 +997,7 @@ export const Cart = () => {
       // ALWAYS ensure we have a visit for this order (phone orders AND regular orders)
       // This ensures visit_id is never NULL in orders, fixing Today's Progress update issues
       let actualVisitId = validVisitId;
-      const today = getLocalTodayDate();
+      const today = getEffectiveOrderDate();
       const isOnline = connectivityStatus === 'online' && navigator.onLine;
       
       // If no visit exists, find or create one
