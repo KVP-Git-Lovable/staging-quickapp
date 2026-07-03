@@ -132,6 +132,26 @@ export const Cart = () => {
   const { isVanSalesEnabled } = useVanSales();
   const [companyQrCode, setCompanyQrCode] = React.useState<string | null>(null);
   const [editReason, setEditReason] = React.useState<string>('');
+
+  // Backdated-order context set by My Visits when the user picked a past date.
+  const [backdateCtx, setBackdateCtx] = React.useState<{ date: string; requireReason: boolean } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem('backdated_order_context');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const today = new Date().toISOString().split('T')[0];
+      if (parsed?.date && parsed.date < today) {
+        return { date: parsed.date, requireReason: parsed.requireReason !== false };
+      }
+    } catch {}
+    return null;
+  });
+  const [backdateReason, setBackdateReason] = React.useState<string>('');
+  const getEffectiveOrderDate = React.useCallback(
+    () => backdateCtx?.date ?? getLocalTodayDate(),
+    [backdateCtx]
+  );
+  const isBackdated = !!backdateCtx;
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
