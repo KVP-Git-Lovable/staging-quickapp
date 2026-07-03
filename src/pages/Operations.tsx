@@ -23,6 +23,7 @@ import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
 import EditedOrdersSection from '@/components/operations/EditedOrdersSection';
 import OperationsConfig from '@/components/operations/OperationsConfig';
+import BackdateApprovalsList from '@/components/operations/BackdateApprovalsList';
 import { usePermissions } from '@/hooks/usePermissions';
 
 import { CancelOrderDialog, CancelableOrder } from '@/components/CancelOrderDialog';
@@ -1266,8 +1267,13 @@ const Operations = () => {
         <Tabs value={topTab} onValueChange={setTopTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="approvals">Approvals</TabsTrigger>
             <TabsTrigger value="configuration">Configuration</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="approvals">
+            <BackdateApprovalsList />
+          </TabsContent>
 
           <TabsContent value="configuration">
             {can('operations_config', 'edit') ? (
