@@ -132,6 +132,26 @@ export const Cart = () => {
   const { isVanSalesEnabled } = useVanSales();
   const [companyQrCode, setCompanyQrCode] = React.useState<string | null>(null);
   const [editReason, setEditReason] = React.useState<string>('');
+
+  // Backdated-order context set by My Visits when the user picked a past date.
+  const [backdateCtx, setBackdateCtx] = React.useState<{ date: string; requireReason: boolean } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem('backdated_order_context');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      const today = new Date().toISOString().split('T')[0];
+      if (parsed?.date && parsed.date < today) {
+        return { date: parsed.date, requireReason: parsed.requireReason !== false };
+      }
+    } catch {}
+    return null;
+  });
+  const [backdateReason, setBackdateReason] = React.useState<string>('');
+  const getEffectiveOrderDate = React.useCallback(
+    () => backdateCtx?.date ?? getLocalTodayDate(),
+    [backdateCtx]
+  );
+  const isBackdated = !!backdateCtx;
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
@@ -778,6 +798,15 @@ export const Cart = () => {
       cartItemsCount: cartItems.length
     });
     if (isSubmitting) return;
+
+    if (isBackdated && backdateCtx?.requireReason && !backdateReason.trim()) {
+      toast({
+        title: 'Reason required',
+        description: 'Please enter a reason for this backdated order.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     if (cartItems.length === 0) {
       toast({
@@ -977,7 +1006,7 @@ export const Cart = () => {
       // ALWAYS ensure we have a visit for this order (phone orders AND regular orders)
       // This ensures visit_id is never NULL in orders, fixing Today's Progress update issues
       let actualVisitId = validVisitId;
-      const today = getLocalTodayDate();
+      const today = getEffectiveOrderDate();
       const isOnline = connectivityStatus === 'online' && navigator.onLine;
       
       // If no visit exists, find or create one
@@ -1062,7 +1091,9 @@ export const Cart = () => {
         // CRITICAL: Store distributor at order time - this preserves the mapping even if retailer's distributor changes later
         distributor_id: distributorInfo.id || null,
         distributor_name: distributorInfo.name || null,
-        order_date: getLocalTodayDate(),
+        order_date: getEffectiveOrderDate(),
+        is_backdated: isBackdated,
+        backdate_reason: isBackdated ? (backdateReason.trim() || null) : null,
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
@@ -1431,7 +1462,7 @@ export const Cart = () => {
         retailerStatusRegistry.markForRefresh(validRetailerId);
         
         // CRITICAL: Cache the productive status for immediate display
-        const orderDate = getLocalTodayDate();
+        const orderDate = getEffectiveOrderDate();
         await visitStatusCache.set(
           actualVisitId,
           validRetailerId,
@@ -1497,6 +1528,7 @@ export const Cart = () => {
 
       // Navigate to My Visits page - snapshot is already updated
       console.log('✅ Navigating to My Visits');
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       navigate('/visits/retailers');
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
@@ -1844,6 +1876,15 @@ export const Cart = () => {
       return;
     }
 
+    if (isBackdated && backdateCtx?.requireReason && !backdateReason.trim()) {
+      toast({
+        title: 'Reason required',
+        description: 'Please enter a reason for this backdated order.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmittingD1(true);
 
     try {
@@ -1962,7 +2003,7 @@ export const Cart = () => {
 
       // Ensure visit exists (same logic as handleSubmitOrder)
       let actualVisitId = validVisitId;
-      const today = getLocalTodayDate();
+      const today = getEffectiveOrderDate();
       const isOnline = connectivityStatus === 'online' && navigator.onLine;
       
       if (!actualVisitId && validRetailerId && currentUserId) {
@@ -2036,7 +2077,9 @@ export const Cart = () => {
         retailer_name: retailerName,
         distributor_id: distributorInfo.id || null,
         distributor_name: distributorInfo.name || null,
-        order_date: getLocalTodayDate(),
+        order_date: getEffectiveOrderDate(),
+        is_backdated: isBackdated,
+        backdate_reason: isBackdated ? (backdateReason.trim() || null) : null,
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
@@ -2337,7 +2380,7 @@ export const Cart = () => {
       // Update visit status cache
       if (actualVisitId && validRetailerId && currentUserId) {
         retailerStatusRegistry.markForRefresh(validRetailerId);
-        const orderDate = getLocalTodayDate();
+        const orderDate = getEffectiveOrderDate();
         await visitStatusCache.set(
           actualVisitId,
           validRetailerId,
@@ -2396,6 +2439,7 @@ export const Cart = () => {
       }
 
       // Navigate back to My Visits
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       navigate('/visits/retailers');
 
     } catch (error: any) {
@@ -2493,6 +2537,35 @@ export const Cart = () => {
             </div>
           </div>
         )}
+
+        {isBackdated && backdateCtx && (
+          <div className="w-full px-2 sm:px-4 pb-2 space-y-2">
+            <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs sm:text-sm flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="bg-amber-200 text-amber-900 border-amber-300">Backdated</Badge>
+              <span>
+                Order date: <strong>{backdateCtx.date}</strong>. GPS check-in is skipped for this order.
+              </span>
+            </div>
+            <div className="rounded-md border bg-card px-3 py-2">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
+                Reason for backdating{' '}
+                {backdateCtx.requireReason
+                  ? <span className="text-destructive">*</span>
+                  : <span className="text-muted-foreground/70">(optional)</span>}
+              </label>
+              <input
+                type="text"
+                value={backdateReason}
+                onChange={(e) => setBackdateReason(e.target.value)}
+                placeholder="e.g. Order taken yesterday, syncing now"
+                className="w-full text-sm rounded-md border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
+                maxLength={200}
+              />
+            </div>
+          </div>
+        )}
+
+
 
 
         {/* Scrollable Content */}

@@ -40,6 +40,7 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { useProfilePermissions } from "@/hooks/useProfilePermissions";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 import { SyncDataModal } from "@/components/SyncDataModal";
 import { InsightsPanel } from "@/components/visits/InsightsPanel";
 import { StartBeatButton } from "@/components/StartBeatButton";
@@ -1001,24 +1002,77 @@ export const MyVisits = () => {
       console.error('Error loading visits for date:', error);
     }
   };
-  const handleDayChange = (day: string) => {
-    setSelectedDay(day);
-    const dayInfo = weekDays.find(d => d.day === day);
-    if (dayInfo) {
-      setSelectedDate(dayInfo.isoDate);
-    }
-  };
-  const handleCalendarSelect = (date: Date | undefined) => {
-    if (!date) return;
-    setCalendarDate(date);
-    const weekStart = startOfWeek(date, {
-      weekStartsOn: 0
-    });
-    setSelectedWeek(weekStart);
+  // Backdated-order gating for calendar selection
+  const { can } = usePermissions();
+  const [backdateCfg, setBackdateCfg] = useState<{ enabled: boolean; requireReason: boolean }>({ enabled: false, requireReason: true });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('operations_config')
+        .select('backdate_enabled, backdate_require_reason')
+        .eq('id', 1)
+        .maybeSingle();
+      if (!cancelled && data) {
+        setBackdateCfg({
+          enabled: !!data.backdate_enabled,
+          requireReason: data.backdate_require_reason !== false,
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
-    // Set the selected day to the picked date
+  const applyBackdateContext = useCallback(async (isoDate: string): Promise<boolean> => {
+    const today = getLocalTodayDate();
+    if (isoDate >= today) {
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      return true;
+    }
+    // Past date selected. Only intercept if the feature+permission are on;
+    // otherwise fall through so users can still view historical data as before.
+    if (!backdateCfg.enabled || !can('order_backdate', 'create')) {
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      return true;
+    }
+    try {
+      const { data, error } = await supabase.rpc('can_backdate_order' as any, { p_date: isoDate });
+      if (error) throw error;
+      if (data === true) {
+        try {
+          sessionStorage.setItem('backdated_order_context', JSON.stringify({
+            date: isoDate,
+            requireReason: backdateCfg.requireReason,
+          }));
+        } catch {}
+        return true;
+      }
+      toast.error("Backdating is beyond the allowed limit or you don't have permission");
+      return false;
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not verify backdate permission');
+      return false;
+    }
+  }, [backdateCfg, can]);
+
+  const handleDayChange = async (day: string) => {
+    const dayInfo = weekDays.find(d => d.day === day);
+    if (!dayInfo) { setSelectedDay(day); return; }
+    const ok = await applyBackdateContext(dayInfo.isoDate);
+    if (!ok) return;
+    setSelectedDay(day);
+    setSelectedDate(dayInfo.isoDate);
+  };
+  const handleCalendarSelect = async (date: Date | undefined) => {
+    if (!date) return;
+    const weekStart = startOfWeek(date, { weekStartsOn: 0 });
     const newWeekDays = getWeekDays(weekStart);
     const selectedDayInfo = newWeekDays.find(d => isSameDay(d.fullDate, date));
+    const iso = selectedDayInfo?.isoDate ?? toLocalISODate(date);
+    const ok = await applyBackdateContext(iso);
+    if (!ok) return;
+    setCalendarDate(date);
+    setSelectedWeek(weekStart);
     if (selectedDayInfo) {
       setSelectedDay(selectedDayInfo.day);
       setSelectedDate(selectedDayInfo.isoDate);
@@ -1327,14 +1381,7 @@ export const MyVisits = () => {
                       </Button>
                    </PopoverTrigger>
                    <PopoverContent className="w-auto p-0" align="start">
-                     <Calendar mode="single" selected={selectedWeek} onSelect={date => {
-                    if (date) {
-                      const weekStart = startOfWeek(date, {
-                        weekStartsOn: 0
-                      });
-                      setSelectedWeek(weekStart);
-                    }
-                  }} initialFocus className="pointer-events-auto" />
+                     <Calendar mode="single" selected={selectedWeek} onSelect={handleCalendarSelect} initialFocus className="pointer-events-auto" />
                    </PopoverContent>
                  </Popover>
                </div>
