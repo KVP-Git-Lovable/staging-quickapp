@@ -1453,7 +1453,7 @@ export const Cart = () => {
         retailerStatusRegistry.markForRefresh(validRetailerId);
         
         // CRITICAL: Cache the productive status for immediate display
-        const orderDate = getLocalTodayDate();
+        const orderDate = getEffectiveOrderDate();
         await visitStatusCache.set(
           actualVisitId,
           validRetailerId,
