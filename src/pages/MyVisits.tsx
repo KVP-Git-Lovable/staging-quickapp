@@ -40,6 +40,7 @@ import { useConnectivity } from "@/hooks/useConnectivity";
 import { useProfilePermissions } from "@/hooks/useProfilePermissions";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
+import { usePermissions } from "@/hooks/usePermissions";
 import { SyncDataModal } from "@/components/SyncDataModal";
 import { InsightsPanel } from "@/components/visits/InsightsPanel";
 import { StartBeatButton } from "@/components/StartBeatButton";
