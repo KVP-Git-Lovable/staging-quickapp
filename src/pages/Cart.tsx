@@ -153,6 +153,13 @@ export const Cart = () => {
     [backdateCtx]
   );
   const isBackdated = !!backdateCtx;
+
+  // On-behalf context: when a manager/admin selected a target user in the View-As selector
+  // before opening this cart, the order will be credited to that user (user_id) while the
+  // logged-in user is recorded as placed_by_user_id. Server enforces the permission + team check.
+  const [onBehalfCtx] = React.useState<{ userId: string; name: string } | null>(() => getOnBehalfContext());
+  const isOnBehalf = !!onBehalfCtx;
+
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
