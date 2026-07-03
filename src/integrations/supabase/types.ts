@@ -26547,6 +26547,7 @@ export type Database = {
         Args: { _packing_list_id: string }
         Returns: boolean
       }
+      can_backdate_order: { Args: { p_date: string }; Returns: boolean }
       can_delete_beat: { Args: { p_beat_id: string }; Returns: Json }
       can_place_order_for_retailer: {
         Args: { p_retailer_id: string }
