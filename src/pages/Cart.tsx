@@ -2550,6 +2550,17 @@ export const Cart = () => {
           </div>
         )}
 
+        {isOnBehalf && onBehalfCtx && (
+          <div className="w-full px-2 sm:px-4 pb-2">
+            <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs sm:text-sm flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="bg-amber-200 text-amber-900 border-amber-300">On behalf</Badge>
+              <span>
+                Placing this order for <strong>{onBehalfCtx.name}</strong>. They will be credited as the owner.
+              </span>
+            </div>
+          </div>
+        )}
+
         {isBackdated && backdateCtx && (
           <div className="w-full px-2 sm:px-4 pb-2 space-y-2">
             <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs sm:text-sm flex items-center gap-2 flex-wrap">
