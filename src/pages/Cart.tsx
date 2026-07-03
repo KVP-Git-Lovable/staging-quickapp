@@ -1875,6 +1875,15 @@ export const Cart = () => {
       return;
     }
 
+    if (isBackdated && backdateCtx?.requireReason && !backdateReason.trim()) {
+      toast({
+        title: 'Reason required',
+        description: 'Please enter a reason for this backdated order.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmittingD1(true);
 
     try {
