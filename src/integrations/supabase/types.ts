@@ -11450,6 +11450,36 @@ export type Database = {
         }
         Relationships: []
       }
+      order_backdate_requests: {
+        Row: {
+          approval_request_id: string | null
+          created_at: string
+          id: string
+          order_date: string
+          reason: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          approval_request_id?: string | null
+          created_at?: string
+          id?: string
+          order_date: string
+          reason?: string | null
+          status?: string
+          user_id?: string
+        }
+        Update: {
+          approval_request_id?: string | null
+          created_at?: string
+          id?: string
+          order_date?: string
+          reason?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       order_cancellation_log: {
         Row: {
           cancelled_at: string
@@ -27455,6 +27485,10 @@ export type Database = {
       release_shortfall_on_packed: {
         Args: { p_packing_list_id: string }
         Returns: Json
+      }
+      request_backdate: {
+        Args: { p_date: string; p_reason: string }
+        Returns: string
       }
       reset_all_qa_data: { Args: never; Returns: undefined }
       resolve_effective_leave_policy: {
