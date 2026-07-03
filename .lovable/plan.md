@@ -1,83 +1,70 @@
-## Operations Configuration Tab
+# On-Behalf Ordering — piggyback on View-As selector
 
-Add a two-tab layout to the Operations page (Overview + Configuration) and build the settings UI backed by the existing `operations_config` row.
+## 1. Session context (mirrors backdate)
 
-### 1. `src/pages/Operations.tsx` — two-tab wrapper
+Add helper `src/lib/onBehalfContext.ts`:
 
-- Import `Tabs, TabsList, TabsTrigger, TabsContent` (already imported) and `usePermissions`.
-- Introduce a top-level tab state `operationsTopTab` ('overview' | 'configuration'), persisted to `localStorage` under `operations_top_tab`.
-- Inside the `Layout` render:
-  - `<Tabs value={operationsTopTab} onValueChange={...}>` with two triggers: **Overview** and **Configuration**.
-  - `<TabsContent value="overview">` wraps the entire existing page body unchanged (all current filters, summary boxes, sub-tabs, tables).
-  - `<TabsContent value="configuration">` renders:
-    - If `can('operations_config','edit')` → `<OperationsConfig />`.
-    - Else → a centered muted `<Card>` with "You don't have access to Operations configuration."
-- No admin/role checks are added or removed elsewhere.
+- `getOnBehalfContext()` → `{ userId, name } | null` read from `sessionStorage.on_behalf_context`.
+- `setOnBehalfContext(ctx)` / `clearOnBehalfContext()`.
+- Never activates when `userId === currentUser.id`.
 
-### 2. `src/components/operations/OperationsConfig.tsx` — new component
+## 2. `CompactMultiUserSelector` extensions
 
-Loads the single row `operations_config` where `id = 1` on mount into local `config` state. Each control writes back only its own field:
+New optional props:
+- `enableOnBehalf?: boolean` — turn behaviour on for pages that support it (MyRetailers, MyVisits).
 
-```
-await supabase.from('operations_config')
-  .update({ [field]: value, updated_at: new Date().toISOString(), updated_by: user.id })
-  .eq('id', 1);
-toast.success('Saved');
-```
+Behaviour when `enableOnBehalf` is true:
+- Read `operations_config.on_behalf_enabled` (one-shot query, cached) and `usePermissions().can('order_on_behalf', ...)`.
+- If `on_behalf_enabled` is false → component behaves exactly as today.
+- If `can('order_on_behalf','view_all')` is true → replace subordinate list with all active profiles from `profiles` (id, full_name, is_active=true), searchable via existing search input. Otherwise keep `useSubordinates()` list.
+- When selection resolves to a single non-self user AND user has `can('order_on_behalf','create')`, call `setOnBehalfContext({ userId, name })`. Otherwise (self / multi / no perm) call `clearOnBehalfContext()`.
+- Visible cue: small "On behalf" badge on the trigger button when context is active.
 
-Follows the pattern used in `CreditManagementConfig.tsx` (read-one, per-field update, sonner toast). Shows a skeleton/spinner while loading.
+## 3. MyRetailers "Place order" gating
 
-#### Layout
+In `src/pages/MyRetailers.tsx`, the ShoppingCart button already navigates to `/order-entry?...` for phone orders.
 
-Vertical stack of four `<Card>`s inside a `max-w-4xl` container:
+- Pass `enableOnBehalf` to the selector.
+- Compute `isViewingOther = selectedUserIds.length === 1 && selectedUserIds[0] !== user.id`.
+- When `isViewingOther`:
+  - If `on_behalf_enabled` AND `can('order_on_behalf','create')` → button visible and enabled; on click it also ensures `on_behalf_context` is set (defensive re-set from selection).
+  - Otherwise → button hidden (or disabled with tooltip "You cannot place orders for other users").
+- Self view unchanged.
 
-**Card 1 — Backdated orders**
-- Header row: title + `Switch` bound to `backdate_enabled`.
-- When enabled: `Select` `backdate_mode` (Direct / Approval), numeric `Input` `backdate_max_days`, `Switch` `backdate_require_reason`.
-- Helper text: "Backdated orders skip GPS."
-- Footer: profile-count badge + "Manage who can use this →" for object `order_backdate`.
+MyVisits: same gating rule applied around the existing "start visit / create order" affordance for the selected other user. (No layout changes — only enable/disable the action.)
 
-**Card 2 — Order on behalf**
-- `Switch` `on_behalf_enabled`.
-- Helper text: "Credited to the selected user; recorded against whoever places it."
-- Footer: badge + link for `order_on_behalf`.
+## 4. Cart consumes the context
 
-**Card 3 — Out-of-beat orders**
-- `Switch` `oob_enabled`.
-- When enabled:
-  - `RadioGroup` `oob_visibility` with 4 options: Today's beat / Assigned retailers / Assigned territory / All retailers *(managers only)*.
-  - Switches: `oob_require_reason`, `oob_require_gps`, `oob_notify_manager`, `oob_allow_offline`.
-  - `Select` `oob_credit_rule` (Collector / Owner).
-  - Helper under Allow-offline: "All-retailers search is online only."
-- Footer: badge + link for `order_out_of_beat`.
+In `src/pages/Cart.tsx`:
 
-**Card 4 — Order edit policy**
-- `Switch` `edit_enabled`.
-- When enabled:
-  - `Select` `edit_lock_point` (Until invoiced / Until dispatched / Same day / Within X hours). When `hours`, show numeric `Input` `edit_lock_hours`.
-  - `Select` `edit_who` (Own / Own + team / Anyone with permission).
-  - `Switch` `edit_require_reason`.
-  - `Switch` `edit_require_approval`; when on, numeric `Input` `edit_approval_threshold`.
-  - `Switch` `edit_lock_price`.
-  - Numeric `Input` `edit_max_edits` with helper "0 = unlimited".
-- Footer: badge + link for `order_edit`.
+- Read `on_behalf_context` at mount (same pattern as `backdateCtx`).
+- If present:
+  - `orderData.user_id = ctx.userId` (target user — credited)
+  - `orderData.placed_by_user_id = currentUserId` (logged-in user — enterer)
+  - Show a `Badge` "On behalf of {ctx.name}" next to the existing Backdated badge in the summary card.
+- If absent: unchanged (`user_id = currentUserId`, no `placed_by_user_id`).
+- Apply to both order payload builders (regular + D-1) at lines ~1087 and ~2074.
+- Clear `on_behalf_context` on successful submit and on manual cancel/back, alongside the existing backdate cleanup.
 
-#### Card-footer "Manage access" helper
+Server already enforces the permission + team check via `sync_order_with_items_v2`, so this UI layer is only about surfacing the context — invalid attempts fail server-side.
 
-On mount, run one query:
+## 5. What stays unchanged
 
-```
-supabase.from('profile_object_permissions')
-  .select('object_name, profile_id')
-  .in('object_name', ['order_backdate','order_on_behalf','order_out_of_beat','order_edit'])
-```
+- Users without `order_on_behalf` still see the team View-As dropdown for read-only data browsing.
+- Selecting "My Data" or multiple users clears the on-behalf context immediately — normal ordering resumes.
+- Backdate flow is orthogonal; contexts can coexist (order both backdated AND on behalf).
 
-Compute distinct `profile_id` count per `object_name` client-side and render `<Badge variant="secondary">{N} profiles have access</Badge>` next to a `Button variant="link"` that calls `navigate('/security-management')`. If the query errors, render only the "Manage access" link (no count).
+## Technical notes
 
-### Technical notes
+- Data sources: `operations_config` row `id = 1` field `on_behalf_enabled`; RPC `get_all_subordinates`; direct `profiles` select for `view_all` case (id, full_name, is_active).
+- Permission hook: existing `usePermissions()` with `object_name = 'order_on_behalf'`.
+- Storage key: `on_behalf_context` (JSON: `{ userId, name }`), session-scoped.
+- No DB changes. No new routes. No new pages.
 
-- All controls use existing shadcn primitives (`Card`, `Switch`, `Input`, `Select`, `RadioGroup`, `Button`, `Badge`, `Label`) — no new UI dependencies.
-- Numeric inputs coerce via `Number(e.target.value)` and clamp with `Math.max(0, ...)` before saving.
-- Per-field save avoids a global "Save" button and matches how other settings screens in the app persist changes.
-- No DB migrations, RLS changes, or edits to `permissionModules.ts` / `grantAllToSystemAdmin` — those are already in place from prior steps.
-- No changes to `useAdminAccess`, role checks, or any other module.
+## Files touched
+
+- new `src/lib/onBehalfContext.ts`
+- edit `src/components/CompactMultiUserSelector.tsx`
+- edit `src/pages/MyRetailers.tsx`
+- edit `src/pages/MyVisits.tsx`
+- edit `src/pages/Cart.tsx`
