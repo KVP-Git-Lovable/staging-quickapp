@@ -628,6 +628,23 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { name: 'user_mgmt_hierarchy', label: 'Hierarchy Management' },
     ]
   },
+  {
+    name: 'operations',
+    label: 'Operations',
+    features: [
+      {
+        name: 'operations',
+        label: 'Operations',
+        subFeatures: [
+          { name: 'operations_config', label: 'Operations configuration' },
+          { name: 'order_backdate', label: 'Place backdated orders' },
+          { name: 'order_on_behalf', label: 'Place order on behalf' },
+          { name: 'order_out_of_beat', label: 'Place out-of-beat orders' },
+          { name: 'order_edit', label: 'Edit placed orders' },
+        ]
+      },
+    ]
+  },
 ];
 
 export const PERMISSION_FIELDS = [
