@@ -2451,6 +2451,7 @@ export const Cart = () => {
 
       // Navigate back to My Visits
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      clearOnBehalfContext();
       navigate('/visits/retailers');
 
     } catch (error: any) {
