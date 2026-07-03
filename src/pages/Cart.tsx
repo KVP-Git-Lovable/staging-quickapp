@@ -2080,7 +2080,8 @@ export const Cart = () => {
       // - Paid: is_credit_order=false, payment_method=cash/upi/cheque/neft
       // - Collect on Delivery: is_credit_order=true, payment_method='collect_on_delivery'
       const orderData = {
-        user_id: currentUserId,
+        user_id: isOnBehalf ? onBehalfCtx!.userId : currentUserId,
+        placed_by_user_id: isOnBehalf ? currentUserId : undefined,
         visit_id: actualVisitId,
         retailer_id: validRetailerId,
         retailer_name: retailerName,
