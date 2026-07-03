@@ -84,30 +84,62 @@ export function CompactMultiUserSelector({
     },
   });
 
-  // Create the list of selectable users (self + subordinates)
+  // Create the list of selectable users.
+  // When view_all on-behalf is on, list ALL active profiles; otherwise subordinates.
   const selectableUsers = useMemo(() => {
     const users: { id: string; name: string; level: number }[] = [];
-    
-    // Add self first if includesSelf is true
+
     if (includesSelf && user) {
-      users.push({
-        id: user.id,
-        name: 'My Data',
-        level: 0,
+      users.push({ id: user.id, name: 'My Data', level: 0 });
+    }
+
+    if (canViewAll) {
+      allProfiles.forEach((p) => {
+        if (includesSelf && user && p.id === user.id) return;
+        users.push({ id: p.id, name: p.full_name || 'Unknown', level: 1 });
+      });
+    } else {
+      subordinates.forEach((sub) => {
+        users.push({
+          id: sub.subordinate_user_id,
+          name: sub.full_name,
+          level: sub.level,
+        });
       });
     }
-    
-    // Add subordinates
-    subordinates.forEach(sub => {
-      users.push({
-        id: sub.subordinate_user_id,
-        name: sub.full_name,
-        level: sub.level,
-      });
-    });
-    
+
     return users;
-  }, [user, subordinates, includesSelf]);
+  }, [user, subordinates, allProfiles, canViewAll, includesSelf]);
+
+  // Sync on-behalf sessionStorage from current selection.
+  useEffect(() => {
+    if (!enableOnBehalf || !canPlaceOnBehalf) {
+      // Feature off — never manage context. But if this component was granted permission
+      // earlier and then lost it, ensure any stale context is cleared for self view.
+      if (enableOnBehalf) clearOnBehalfContext();
+      return;
+    }
+    if (
+      selectedUserIds.length === 1 &&
+      user &&
+      selectedUserIds[0] !== user.id
+    ) {
+      const target = selectableUsers.find((u) => u.id === selectedUserIds[0]);
+      if (target) {
+        setOnBehalfContext({ userId: target.id, name: target.name });
+        return;
+      }
+    }
+    clearOnBehalfContext();
+  }, [enableOnBehalf, canPlaceOnBehalf, selectedUserIds, user, selectableUsers]);
+
+  const onBehalfActive =
+    enableOnBehalf &&
+    canPlaceOnBehalf &&
+    selectedUserIds.length === 1 &&
+    !!user &&
+    selectedUserIds[0] !== user.id;
+
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return selectableUsers;
