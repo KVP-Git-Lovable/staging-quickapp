@@ -28,7 +28,7 @@ export interface ApprovalRequest {
 export interface PendingStep {
   // approval_request fields
   approvalRequestId: string;
-  entityType: 'leave' | 'regularization' | 'expense' | 'credit_note';
+  entityType: 'leave' | 'regularization' | 'expense' | 'credit_note' | 'order_backdate';
   entityId: string;
   currentLevel: number;
   totalLevels: number;
