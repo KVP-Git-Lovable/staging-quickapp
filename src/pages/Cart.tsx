@@ -1984,7 +1984,7 @@ export const Cart = () => {
 
       // Ensure visit exists (same logic as handleSubmitOrder)
       let actualVisitId = validVisitId;
-      const today = getLocalTodayDate();
+      const today = getEffectiveOrderDate();
       const isOnline = connectivityStatus === 'online' && navigator.onLine;
       
       if (!actualVisitId && validRetailerId && currentUserId) {
