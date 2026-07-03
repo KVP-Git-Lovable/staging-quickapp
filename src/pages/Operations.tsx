@@ -99,7 +99,12 @@ interface StockData {
 
 const Operations = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
+  const { can } = usePermissions();
   const navigate = useNavigate();
+  const [topTab, setTopTab] = useState<string>(() => {
+    try { return localStorage.getItem('operations_top_tab') || 'overview'; } catch { return 'overview'; }
+  });
+  useEffect(() => { try { localStorage.setItem('operations_top_tab', topTab); } catch {} }, [topTab]);
   
   const [activeTab, setActiveTab] = useState<string>(() => {
     try { return localStorage.getItem('operations_active_tab') || 'orders'; } catch { return 'orders'; }
