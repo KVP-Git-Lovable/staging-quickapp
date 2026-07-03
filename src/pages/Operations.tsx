@@ -1263,6 +1263,25 @@ const Operations = () => {
           </div>
         </div>
 
+        <Tabs value={topTab} onValueChange={setTopTab} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="configuration">
+            {can('operations_config', 'edit') ? (
+              <OperationsConfig />
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center text-muted-foreground">
+                  You don't have access to Operations configuration.
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="overview" className="space-y-6">
         {/* Operations Summary Boxes */}
         <OperationsSummaryBoxes 
           dateFilter={summaryDateFilter}
