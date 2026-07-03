@@ -1747,6 +1747,41 @@ export const MyVisits = () => {
         window.dispatchEvent(new Event('visitDataChanged'));
       }} />
 
+        {/* Request backdate approval */}
+        <AlertDialog open={!!backdateApprovalPrompt} onOpenChange={(o) => { if (!o) setBackdateApprovalPrompt(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Request approval to backdate to {backdateApprovalPrompt?.isoDate}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This date is beyond the auto-allowed limit. Send a request to your manager.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {backdateCfg.requireReason && (
+              <div className="py-2">
+                <label className="text-sm font-medium">Reason</label>
+                <textarea
+                  className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={backdateApprovalReason}
+                  onChange={(e) => setBackdateApprovalReason(e.target.value)}
+                  placeholder="Why do you need to backdate this order?"
+                />
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={backdateApprovalSubmitting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => { e.preventDefault(); submitBackdateApprovalRequest(); }}
+                disabled={backdateApprovalSubmitting}
+              >
+                {backdateApprovalSubmitting ? 'Sending…' : 'Send request'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+
         {/* Orders Dialog */}
         <Dialog open={isOrdersDialogOpen} onOpenChange={setIsOrdersDialogOpen}>
           <DialogContent className="max-w-[95vw] sm:max-w-4xl max-h-[85vh] sm:max-h-[80vh] overflow-y-auto">
