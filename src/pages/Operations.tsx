@@ -2674,7 +2674,10 @@ const Operations = () => {
             </Tabs>
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
+
 
 
       {/* Cancel Order Dialog */}
