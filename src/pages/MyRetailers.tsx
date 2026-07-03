@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { CompactMultiUserSelector } from "@/components/CompactMultiUserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
+import { usePermissions } from "@/hooks/usePermissions";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { buildRetailerIndex, filterRetailersIndexed, getUniqueValues, clearRetailerIndex } from "@/lib/retailerIndex";
 import { shouldSuppressError } from "@/utils/offlineErrorHandler";
