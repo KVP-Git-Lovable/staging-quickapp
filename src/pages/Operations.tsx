@@ -23,6 +23,7 @@ import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
 import EditedOrdersSection from '@/components/operations/EditedOrdersSection';
 import OperationsConfig from '@/components/operations/OperationsConfig';
+import BackdateApprovalsList from '@/components/operations/BackdateApprovalsList';
 import { usePermissions } from '@/hooks/usePermissions';
 
 import { CancelOrderDialog, CancelableOrder } from '@/components/CancelOrderDialog';
