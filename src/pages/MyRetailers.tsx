@@ -70,10 +70,18 @@ interface Retailer {
 export const MyRetailers = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+  const { can } = usePermissions();
+
   // Hierarchical user filter - multi-select
   const { isManager, subordinates, subordinateIds } = useSubordinates();
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+  // On-behalf ordering gate — shows/hides the "place order" affordance when viewing another user
+  const isViewingOther =
+    !!user && selectedUserIds.length === 1 && selectedUserIds[0] !== user.id;
+  const canPlaceForOther = can('order_on_behalf', 'create');
+  const canPlaceOrderForRow = (row: Retailer) =>
+    !isViewingOther || (canPlaceForOther && row.user_id !== user?.id);
   
   // Track if initial data load is complete (prevents flickering)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
