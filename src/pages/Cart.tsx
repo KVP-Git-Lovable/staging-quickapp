@@ -28,6 +28,7 @@ import { addOrderToSnapshot } from "@/lib/myVisitsSnapshot";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 import { calculateLocalVanStockUpdate } from "@/utils/localVanStockSync";
 import { getLocalTodayDate } from "@/utils/dateUtils";
+import { getOnBehalfContext, clearOnBehalfContext } from "@/lib/onBehalfContext";
 import { isSlowConnection } from "@/utils/internetSpeedCheck";
 import { useOfflineSchemes } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
@@ -152,6 +153,13 @@ export const Cart = () => {
     [backdateCtx]
   );
   const isBackdated = !!backdateCtx;
+
+  // On-behalf context: when a manager/admin selected a target user in the View-As selector
+  // before opening this cart, the order will be credited to that user (user_id) while the
+  // logged-in user is recorded as placed_by_user_id. Server enforces the permission + team check.
+  const [onBehalfCtx] = React.useState<{ userId: string; name: string } | null>(() => getOnBehalfContext());
+  const isOnBehalf = !!onBehalfCtx;
+
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
@@ -1084,7 +1092,8 @@ export const Cart = () => {
       const idempotencyKey = `${currentUserId}_${validRetailerId}_${getLocalTodayDate()}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       
       const orderData = {
-        user_id: currentUserId,
+        user_id: isOnBehalf ? onBehalfCtx!.userId : currentUserId,
+        placed_by_user_id: isOnBehalf ? currentUserId : undefined,
         visit_id: actualVisitId, // ALWAYS include - ensures database trigger can update visit status
         retailer_id: validRetailerId,
         retailer_name: retailerName,
@@ -1529,6 +1538,7 @@ export const Cart = () => {
       // Navigate to My Visits page - snapshot is already updated
       console.log('✅ Navigating to My Visits');
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      clearOnBehalfContext();
       navigate('/visits/retailers');
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
@@ -2071,7 +2081,8 @@ export const Cart = () => {
       // - Paid: is_credit_order=false, payment_method=cash/upi/cheque/neft
       // - Collect on Delivery: is_credit_order=true, payment_method='collect_on_delivery'
       const orderData = {
-        user_id: currentUserId,
+        user_id: isOnBehalf ? onBehalfCtx!.userId : currentUserId,
+        placed_by_user_id: isOnBehalf ? currentUserId : undefined,
         visit_id: actualVisitId,
         retailer_id: validRetailerId,
         retailer_name: retailerName,
@@ -2440,6 +2451,7 @@ export const Cart = () => {
 
       // Navigate back to My Visits
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      clearOnBehalfContext();
       navigate('/visits/retailers');
 
     } catch (error: any) {
@@ -2534,6 +2546,17 @@ export const Cart = () => {
                 className="w-full text-sm rounded-md border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring"
                 maxLength={200}
               />
+            </div>
+          </div>
+        )}
+
+        {isOnBehalf && onBehalfCtx && (
+          <div className="w-full px-2 sm:px-4 pb-2">
+            <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs sm:text-sm flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="bg-amber-200 text-amber-900 border-amber-300">On behalf</Badge>
+              <span>
+                Placing this order for <strong>{onBehalfCtx.name}</strong>. They will be credited as the owner.
+              </span>
             </div>
           </div>
         )}

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { CompactMultiUserSelector } from "@/components/CompactMultiUserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
+import { usePermissions } from "@/hooks/usePermissions";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { buildRetailerIndex, filterRetailersIndexed, getUniqueValues, clearRetailerIndex } from "@/lib/retailerIndex";
 import { shouldSuppressError } from "@/utils/offlineErrorHandler";
@@ -70,10 +71,18 @@ interface Retailer {
 export const MyRetailers = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+  const { can } = usePermissions();
+
   // Hierarchical user filter - multi-select
   const { isManager, subordinates, subordinateIds } = useSubordinates();
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+  // On-behalf ordering gate — shows/hides the "place order" affordance when viewing another user
+  const isViewingOther =
+    !!user && selectedUserIds.length === 1 && selectedUserIds[0] !== user.id;
+  const canPlaceForOther = can('order_on_behalf', 'create');
+  const canPlaceOrderForRow = (row: Retailer) =>
+    !isViewingOther || (canPlaceForOther && row.user_id !== user?.id);
   
   // Track if initial data load is complete (prevents flickering)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -770,6 +779,7 @@ export const MyRetailers = () => {
               <CompactMultiUserSelector
                 selectedUserIds={selectedUserIds}
                 onSelectionChange={setSelectedUserIds}
+                enableOnBehalf
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 flex-shrink-0"
               />
             </div>
@@ -992,15 +1002,17 @@ export const MyRetailers = () => {
                           </h3>
                         </div>
                       <div className="flex items-center gap-1">
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
-                          className="h-8 w-8 p-0"
-                          title="Phone Order"
-                        >
-                          <ShoppingCart className="h-4 w-4" />
-                        </Button>
+                        {canPlaceOrderForRow(r) && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
+                            className="h-8 w-8 p-0"
+                            title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : 'Phone Order'}
+                          >
+                            <ShoppingCart className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button 
                           size="sm" 
                           variant="ghost" 
@@ -1189,15 +1201,17 @@ export const MyRetailers = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
-                              className="h-8 w-8 p-0"
-                              title="Phone Order"
-                            >
-                              <ShoppingCart className="h-4 w-4" />
-                            </Button>
+                            {canPlaceOrderForRow(r) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
+                                className="h-8 w-8 p-0"
+                                title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : 'Phone Order'}
+                              >
+                                <ShoppingCart className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button 
                               size="sm" 
                               variant="ghost" 

@@ -1397,6 +1397,7 @@ export const MyVisits = () => {
                 }}
                 variant="onDark"
                 showAllTeam={false}
+                enableOnBehalf
               />
             </div>
           </CardHeader>

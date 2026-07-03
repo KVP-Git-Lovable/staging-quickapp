@@ -1,6 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSubordinates } from '@/hooks/useSubordinates';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
+import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +11,13 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, Users, UserCheck, ChevronDown, X } from 'lucide-react';
+import { Search, Users, UserCheck, ChevronDown, X, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  setOnBehalfContext,
+  clearOnBehalfContext,
+  getOnBehalfContext,
+} from '@/lib/onBehalfContext';
 
 interface CompactMultiUserSelectorProps {
   selectedUserIds: string[];
@@ -18,6 +26,14 @@ interface CompactMultiUserSelectorProps {
   includesSelf?: boolean;
   variant?: 'default' | 'onDark';
   showAllTeam?: boolean;
+  /**
+   * When true, gate for on-behalf ordering:
+   * - If operations_config.on_behalf_enabled is true AND user has can('order_on_behalf','view_all'),
+   *   the picker lists ALL active users (not just subordinates).
+   * - When a single non-self user is selected AND user has can('order_on_behalf','create'),
+   *   an on-behalf context is written to sessionStorage for the Cart to consume.
+   */
+  enableOnBehalf?: boolean;
 }
 
 export function CompactMultiUserSelector({
@@ -27,36 +43,103 @@ export function CompactMultiUserSelector({
   includesSelf = true,
   variant = 'default',
   showAllTeam = true,
+  enableOnBehalf = false,
 }: CompactMultiUserSelectorProps) {
   const { user } = useAuth();
   const { subordinates, isLoading, isManager } = useSubordinates();
+  const { can } = usePermissions();
   const [searchQuery, setSearchQuery] = useState('');
   const [open, setOpen] = useState(false);
 
-  // Create the list of selectable users (self + subordinates)
+  // Read operations_config.on_behalf_enabled only when the feature is gated on.
+  const { data: onBehalfEnabled = false } = useQuery({
+    queryKey: ['operations_config', 'on_behalf_enabled'],
+    enabled: enableOnBehalf,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('operations_config')
+        .select('on_behalf_enabled')
+        .eq('id', 1)
+        .maybeSingle();
+      return !!(data as any)?.on_behalf_enabled;
+    },
+  });
+
+  const canViewAll = enableOnBehalf && onBehalfEnabled && can('order_on_behalf', 'view_all');
+  const canPlaceOnBehalf = enableOnBehalf && onBehalfEnabled && can('order_on_behalf', 'create');
+
+  // When view_all is on, fetch all active profiles instead of subordinate list.
+  const { data: allProfiles = [] } = useQuery({
+    queryKey: ['on_behalf_all_profiles'],
+    enabled: canViewAll,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('is_active', true)
+        .order('full_name', { ascending: true });
+      return (data || []) as { id: string; full_name: string }[];
+    },
+  });
+
+  // Create the list of selectable users.
+  // When view_all on-behalf is on, list ALL active profiles; otherwise subordinates.
   const selectableUsers = useMemo(() => {
     const users: { id: string; name: string; level: number }[] = [];
-    
-    // Add self first if includesSelf is true
+
     if (includesSelf && user) {
-      users.push({
-        id: user.id,
-        name: 'My Data',
-        level: 0,
+      users.push({ id: user.id, name: 'My Data', level: 0 });
+    }
+
+    if (canViewAll) {
+      allProfiles.forEach((p) => {
+        if (includesSelf && user && p.id === user.id) return;
+        users.push({ id: p.id, name: p.full_name || 'Unknown', level: 1 });
+      });
+    } else {
+      subordinates.forEach((sub) => {
+        users.push({
+          id: sub.subordinate_user_id,
+          name: sub.full_name,
+          level: sub.level,
+        });
       });
     }
-    
-    // Add subordinates
-    subordinates.forEach(sub => {
-      users.push({
-        id: sub.subordinate_user_id,
-        name: sub.full_name,
-        level: sub.level,
-      });
-    });
-    
+
     return users;
-  }, [user, subordinates, includesSelf]);
+  }, [user, subordinates, allProfiles, canViewAll, includesSelf]);
+
+  // Sync on-behalf sessionStorage from current selection.
+  useEffect(() => {
+    if (!enableOnBehalf || !canPlaceOnBehalf) {
+      // Feature off — never manage context. But if this component was granted permission
+      // earlier and then lost it, ensure any stale context is cleared for self view.
+      if (enableOnBehalf) clearOnBehalfContext();
+      return;
+    }
+    if (
+      selectedUserIds.length === 1 &&
+      user &&
+      selectedUserIds[0] !== user.id
+    ) {
+      const target = selectableUsers.find((u) => u.id === selectedUserIds[0]);
+      if (target) {
+        setOnBehalfContext({ userId: target.id, name: target.name });
+        return;
+      }
+    }
+    clearOnBehalfContext();
+  }, [enableOnBehalf, canPlaceOnBehalf, selectedUserIds, user, selectableUsers]);
+
+  const onBehalfActive =
+    enableOnBehalf &&
+    canPlaceOnBehalf &&
+    selectedUserIds.length === 1 &&
+    !!user &&
+    selectedUserIds[0] !== user.id;
+
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return selectableUsers;
@@ -116,8 +199,8 @@ export function CompactMultiUserSelector({
     return `${selectedUserIds.length} users`;
   };
 
-  // Don't show selector if not a manager (only has self)
-  if (!isManager && !isLoading) {
+  // Don't show selector if not a manager AND we're not in on-behalf view_all mode
+  if (!isManager && !isLoading && !canViewAll) {
     return null;
   }
 
@@ -142,8 +225,20 @@ export function CompactMultiUserSelector({
           )}
         >
           <div className="flex items-center gap-1.5">
-            <Users className="h-3 w-3 shrink-0" />
+            {onBehalfActive ? (
+              <UserCog className="h-3 w-3 shrink-0 text-amber-600" />
+            ) : (
+              <Users className="h-3 w-3 shrink-0" />
+            )}
             <span className="truncate text-xs">{getDisplayText()}</span>
+            {onBehalfActive && (
+              <Badge
+                variant="secondary"
+                className="h-4 px-1 text-[9px] bg-amber-100 text-amber-900 border-amber-300"
+              >
+                on-behalf
+              </Badge>
+            )}
           </div>
           <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
         </Button>
