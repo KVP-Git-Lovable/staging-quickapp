@@ -1381,14 +1381,7 @@ export const MyVisits = () => {
                       </Button>
                    </PopoverTrigger>
                    <PopoverContent className="w-auto p-0" align="start">
-                     <Calendar mode="single" selected={selectedWeek} onSelect={date => {
-                    if (date) {
-                      const weekStart = startOfWeek(date, {
-                        weekStartsOn: 0
-                      });
-                      setSelectedWeek(weekStart);
-                    }
-                  }} initialFocus className="pointer-events-auto" />
+                     <Calendar mode="single" selected={selectedWeek} onSelect={handleCalendarSelect} initialFocus className="pointer-events-auto" />
                    </PopoverContent>
                  </Popover>
                </div>
