@@ -1201,15 +1201,17 @@ export const MyRetailers = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
-                              className="h-8 w-8 p-0"
-                              title="Phone Order"
-                            >
-                              <ShoppingCart className="h-4 w-4" />
-                            </Button>
+                            {canPlaceOrderForRow(r) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
+                                className="h-8 w-8 p-0"
+                                title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : 'Phone Order'}
+                              >
+                                <ShoppingCart className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button 
                               size="sm" 
                               variant="ghost" 
