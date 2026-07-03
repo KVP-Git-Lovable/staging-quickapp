@@ -1004,19 +1004,23 @@ export const MyVisits = () => {
   };
   // Backdated-order gating for calendar selection
   const { can } = usePermissions();
-  const [backdateCfg, setBackdateCfg] = useState<{ enabled: boolean; requireReason: boolean }>({ enabled: false, requireReason: true });
+  const [backdateCfg, setBackdateCfg] = useState<{ enabled: boolean; requireReason: boolean; mode: 'direct' | 'approval' }>({ enabled: false, requireReason: true, mode: 'direct' });
+  const [backdateApprovalPrompt, setBackdateApprovalPrompt] = useState<{ isoDate: string } | null>(null);
+  const [backdateApprovalReason, setBackdateApprovalReason] = useState('');
+  const [backdateApprovalSubmitting, setBackdateApprovalSubmitting] = useState(false);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const { data } = await supabase
         .from('operations_config')
-        .select('backdate_enabled, backdate_require_reason')
+        .select('backdate_enabled, backdate_require_reason, backdate_mode')
         .eq('id', 1)
         .maybeSingle();
       if (!cancelled && data) {
         setBackdateCfg({
           enabled: !!data.backdate_enabled,
           requireReason: data.backdate_require_reason !== false,
+          mode: (data.backdate_mode === 'approval' ? 'approval' : 'direct'),
         });
       }
     })();
@@ -1047,6 +1051,12 @@ export const MyVisits = () => {
         } catch {}
         return true;
       }
+      // Not directly allowed. In approval mode, offer to request approval.
+      if (backdateCfg.mode === 'approval') {
+        setBackdateApprovalReason('');
+        setBackdateApprovalPrompt({ isoDate });
+        return false;
+      }
       toast.error("Backdating is beyond the allowed limit or you don't have permission");
       return false;
     } catch (e: any) {
@@ -1054,6 +1064,29 @@ export const MyVisits = () => {
       return false;
     }
   }, [backdateCfg, can]);
+
+  const submitBackdateApprovalRequest = useCallback(async () => {
+    if (!backdateApprovalPrompt) return;
+    const iso = backdateApprovalPrompt.isoDate;
+    const reason = backdateApprovalReason.trim();
+    if (backdateCfg.requireReason && !reason) {
+      toast.error('Please provide a reason');
+      return;
+    }
+    setBackdateApprovalSubmitting(true);
+    try {
+      const { error } = await supabase.rpc('request_backdate' as any, { p_date: iso, p_reason: reason || null });
+      if (error) throw error;
+      toast.success('Request sent to your manager');
+      setBackdateApprovalPrompt(null);
+      setBackdateApprovalReason('');
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not send request');
+    } finally {
+      setBackdateApprovalSubmitting(false);
+    }
+  }, [backdateApprovalPrompt, backdateApprovalReason, backdateCfg.requireReason]);
+
 
   const handleDayChange = async (day: string) => {
     const dayInfo = weekDays.find(d => d.day === day);
