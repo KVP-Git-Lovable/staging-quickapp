@@ -22,6 +22,8 @@ import { downloadCSV } from '@/utils/fileDownloader';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
 import EditedOrdersSection from '@/components/operations/EditedOrdersSection';
+import OperationsConfig from '@/components/operations/OperationsConfig';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import { CancelOrderDialog, CancelableOrder } from '@/components/CancelOrderDialog';
 import { SignedImage } from '@/components/ui/signed-image';
