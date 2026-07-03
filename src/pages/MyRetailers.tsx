@@ -770,6 +770,7 @@ export const MyRetailers = () => {
               <CompactMultiUserSelector
                 selectedUserIds={selectedUserIds}
                 onSelectionChange={setSelectedUserIds}
+                enableOnBehalf
                 className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 flex-shrink-0"
               />
             </div>
