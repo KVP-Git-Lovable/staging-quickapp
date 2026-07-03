@@ -22,6 +22,8 @@ import { downloadCSV } from '@/utils/fileDownloader';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
 import EditedOrdersSection from '@/components/operations/EditedOrdersSection';
+import OperationsConfig from '@/components/operations/OperationsConfig';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import { CancelOrderDialog, CancelableOrder } from '@/components/CancelOrderDialog';
 import { SignedImage } from '@/components/ui/signed-image';
@@ -97,7 +99,12 @@ interface StockData {
 
 const Operations = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
+  const { can } = usePermissions();
   const navigate = useNavigate();
+  const [topTab, setTopTab] = useState<string>(() => {
+    try { return localStorage.getItem('operations_top_tab') || 'overview'; } catch { return 'overview'; }
+  });
+  useEffect(() => { try { localStorage.setItem('operations_top_tab', topTab); } catch {} }, [topTab]);
   
   const [activeTab, setActiveTab] = useState<string>(() => {
     try { return localStorage.getItem('operations_active_tab') || 'orders'; } catch { return 'orders'; }
@@ -1256,6 +1263,25 @@ const Operations = () => {
           </div>
         </div>
 
+        <Tabs value={topTab} onValueChange={setTopTab} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="configuration">Configuration</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="configuration">
+            {can('operations_config', 'edit') ? (
+              <OperationsConfig />
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center text-muted-foreground">
+                  You don't have access to Operations configuration.
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="overview" className="space-y-6">
         {/* Operations Summary Boxes */}
         <OperationsSummaryBoxes 
           dateFilter={summaryDateFilter}
@@ -2648,7 +2674,10 @@ const Operations = () => {
             </Tabs>
           </CardContent>
         </Card>
+          </TabsContent>
+        </Tabs>
       </div>
+
 
 
       {/* Cancel Order Dialog */}
