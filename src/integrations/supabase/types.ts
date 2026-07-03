@@ -11342,6 +11342,114 @@ export type Database = {
         }
         Relationships: []
       }
+      operations_config: {
+        Row: {
+          backdate_enabled: boolean
+          backdate_max_days: number
+          backdate_mode: string
+          backdate_require_reason: boolean
+          edit_approval_threshold: number
+          edit_enabled: boolean
+          edit_lock_hours: number
+          edit_lock_point: string
+          edit_lock_price: boolean
+          edit_max_edits: number
+          edit_require_approval: boolean
+          edit_require_reason: boolean
+          edit_who: string
+          id: number
+          on_behalf_enabled: boolean
+          oob_allow_offline: boolean
+          oob_credit_rule: string
+          oob_enabled: boolean
+          oob_notify_manager: boolean
+          oob_require_gps: boolean
+          oob_require_reason: boolean
+          oob_visibility: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          backdate_enabled?: boolean
+          backdate_max_days?: number
+          backdate_mode?: string
+          backdate_require_reason?: boolean
+          edit_approval_threshold?: number
+          edit_enabled?: boolean
+          edit_lock_hours?: number
+          edit_lock_point?: string
+          edit_lock_price?: boolean
+          edit_max_edits?: number
+          edit_require_approval?: boolean
+          edit_require_reason?: boolean
+          edit_who?: string
+          id?: number
+          on_behalf_enabled?: boolean
+          oob_allow_offline?: boolean
+          oob_credit_rule?: string
+          oob_enabled?: boolean
+          oob_notify_manager?: boolean
+          oob_require_gps?: boolean
+          oob_require_reason?: boolean
+          oob_visibility?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          backdate_enabled?: boolean
+          backdate_max_days?: number
+          backdate_mode?: string
+          backdate_require_reason?: boolean
+          edit_approval_threshold?: number
+          edit_enabled?: boolean
+          edit_lock_hours?: number
+          edit_lock_point?: string
+          edit_lock_price?: boolean
+          edit_max_edits?: number
+          edit_require_approval?: boolean
+          edit_require_reason?: boolean
+          edit_who?: string
+          id?: number
+          on_behalf_enabled?: boolean
+          oob_allow_offline?: boolean
+          oob_credit_rule?: string
+          oob_enabled?: boolean
+          oob_notify_manager?: boolean
+          oob_require_gps?: boolean
+          oob_require_reason?: boolean
+          oob_visibility?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      order_backdate_date_grants: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          order_date: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          order_date: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          order_date?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       order_cancellation_log: {
         Row: {
           cancelled_at: string
@@ -11549,6 +11657,7 @@ export type Database = {
           amount_collected: number | null
           assigned_agent_id: string | null
           assigned_van_id: string | null
+          backdate_reason: string | null
           beat_id: string | null
           beat_name_snapshot: string | null
           cancellation_reason: string | null
@@ -11575,11 +11684,15 @@ export type Database = {
           idempotency_key: string
           invoice_generated_at: string | null
           invoice_number: string | null
+          is_backdated: boolean
           is_backorder: boolean | null
           is_credit_order: boolean | null
           is_edited: boolean
+          is_out_of_beat: boolean
+          is_planned_beat: boolean | null
           order_date: string | null
           order_source: string | null
+          out_of_beat_reason: string | null
           owner_id_snapshot: string | null
           packing_list_id: string | null
           parent_order_id: string | null
@@ -11587,6 +11700,7 @@ export type Database = {
           payment_proof_url: string | null
           payment_status: string | null
           picked_at: string | null
+          placed_by_user_id: string | null
           previous_pending_cleared: number | null
           replaced_by_order_id: string | null
           replaces_order_id: string | null
@@ -11607,6 +11721,7 @@ export type Database = {
           amount_collected?: number | null
           assigned_agent_id?: string | null
           assigned_van_id?: string | null
+          backdate_reason?: string | null
           beat_id?: string | null
           beat_name_snapshot?: string | null
           cancellation_reason?: string | null
@@ -11633,11 +11748,15 @@ export type Database = {
           idempotency_key: string
           invoice_generated_at?: string | null
           invoice_number?: string | null
+          is_backdated?: boolean
           is_backorder?: boolean | null
           is_credit_order?: boolean | null
           is_edited?: boolean
+          is_out_of_beat?: boolean
+          is_planned_beat?: boolean | null
           order_date?: string | null
           order_source?: string | null
+          out_of_beat_reason?: string | null
           owner_id_snapshot?: string | null
           packing_list_id?: string | null
           parent_order_id?: string | null
@@ -11645,6 +11764,7 @@ export type Database = {
           payment_proof_url?: string | null
           payment_status?: string | null
           picked_at?: string | null
+          placed_by_user_id?: string | null
           previous_pending_cleared?: number | null
           replaced_by_order_id?: string | null
           replaces_order_id?: string | null
@@ -11665,6 +11785,7 @@ export type Database = {
           amount_collected?: number | null
           assigned_agent_id?: string | null
           assigned_van_id?: string | null
+          backdate_reason?: string | null
           beat_id?: string | null
           beat_name_snapshot?: string | null
           cancellation_reason?: string | null
@@ -11691,11 +11812,15 @@ export type Database = {
           idempotency_key?: string
           invoice_generated_at?: string | null
           invoice_number?: string | null
+          is_backdated?: boolean
           is_backorder?: boolean | null
           is_credit_order?: boolean | null
           is_edited?: boolean
+          is_out_of_beat?: boolean
+          is_planned_beat?: boolean | null
           order_date?: string | null
           order_source?: string | null
+          out_of_beat_reason?: string | null
           owner_id_snapshot?: string | null
           packing_list_id?: string | null
           parent_order_id?: string | null
@@ -11703,6 +11828,7 @@ export type Database = {
           payment_proof_url?: string | null
           payment_status?: string | null
           picked_at?: string | null
+          placed_by_user_id?: string | null
           previous_pending_cleared?: number | null
           replaced_by_order_id?: string | null
           replaces_order_id?: string | null
