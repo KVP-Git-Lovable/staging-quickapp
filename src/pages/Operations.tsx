@@ -1267,8 +1267,13 @@ const Operations = () => {
         <Tabs value={topTab} onValueChange={setTopTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="approvals">Approvals</TabsTrigger>
             <TabsTrigger value="configuration">Configuration</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="approvals">
+            <BackdateApprovalsList />
+          </TabsContent>
 
           <TabsContent value="configuration">
             {can('operations_config', 'edit') ? (
