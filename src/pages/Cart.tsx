@@ -1411,7 +1411,7 @@ export const Cart = () => {
             return;
           }
 
-          const { data: finData, error: finErr } = await supabase.rpc('finalize_order_edit', {
+          const { data: reqData, error: finErr } = await supabase.rpc('request_order_edit', {
             p_original_order_id: editOrderId,
             p_replacement_order_id: result.order.id,
             p_edited_by: currentUserId,
@@ -1419,13 +1419,12 @@ export const Cart = () => {
             p_target_paid: editIntendedPaid,
             p_new_collection_id: editNewCollectionId,
           } as any);
-          const ok = !finErr && (finData as any)?.success === true;
-          if (!ok) {
-            console.error('[Cart][edit] finalize_order_edit failed, rolling back replacement:', finErr || finData);
+          if (finErr) {
+            console.error('[Cart][edit] request_order_edit failed, rolling back replacement:', finErr);
             try {
               await supabase.rpc('cancel_order_atomic', {
                 p_order_id: result.order.id,
-                p_reason: 'Edit finalize failed - rollback',
+                p_reason: 'Edit request failed - rollback',
                 p_cancelled_by: currentUserId,
               } as any);
             } catch (rbErr) {
@@ -1433,12 +1432,21 @@ export const Cart = () => {
             }
             toast({
               title: 'Edit Failed',
-              description: (finErr?.message || (finData as any)?.error || 'Could not finalize order edit. Your changes were not applied.'),
+              description: (finErr?.message || 'Could not submit order edit. Your changes were not applied.'),
               variant: 'destructive',
             });
-            // Do NOT clear edit cart on failure
             return;
           }
+          if ((reqData as any) === 'pending') {
+            toast({ title: 'Edit sent to your manager for approval' });
+            localStorage.removeItem(activeStorageKey);
+            localStorage.removeItem(tableFormStorageKey);
+            clearSchemes();
+            setCartItems([]);
+            navigate('/visits/retailers');
+            return;
+          }
+
 
           // Post-finalize: re-fetch replacement to render real server values.
           try {
