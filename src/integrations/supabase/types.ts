@@ -11344,10 +11344,12 @@ export type Database = {
       }
       operations_config: {
         Row: {
+          auto_cancel_enabled: boolean
           backdate_enabled: boolean
           backdate_max_days: number
           backdate_mode: string
           backdate_require_reason: boolean
+          carry_forward_enabled: boolean
           edit_approval_threshold: number
           edit_enabled: boolean
           edit_lock_hours: number
@@ -11357,6 +11359,8 @@ export type Database = {
           edit_require_approval: boolean
           edit_require_reason: boolean
           edit_who: string
+          eod_cutoff_time: string
+          eod_timezone: string
           id: number
           on_behalf_enabled: boolean
           oob_allow_offline: boolean
@@ -11370,10 +11374,12 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          auto_cancel_enabled?: boolean
           backdate_enabled?: boolean
           backdate_max_days?: number
           backdate_mode?: string
           backdate_require_reason?: boolean
+          carry_forward_enabled?: boolean
           edit_approval_threshold?: number
           edit_enabled?: boolean
           edit_lock_hours?: number
@@ -11383,6 +11389,8 @@ export type Database = {
           edit_require_approval?: boolean
           edit_require_reason?: boolean
           edit_who?: string
+          eod_cutoff_time?: string
+          eod_timezone?: string
           id?: number
           on_behalf_enabled?: boolean
           oob_allow_offline?: boolean
@@ -11396,10 +11404,12 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          auto_cancel_enabled?: boolean
           backdate_enabled?: boolean
           backdate_max_days?: number
           backdate_mode?: string
           backdate_require_reason?: boolean
+          carry_forward_enabled?: boolean
           edit_approval_threshold?: number
           edit_enabled?: boolean
           edit_lock_hours?: number
@@ -11409,6 +11419,8 @@ export type Database = {
           edit_require_approval?: boolean
           edit_require_reason?: boolean
           edit_who?: string
+          eod_cutoff_time?: string
+          eod_timezone?: string
           id?: number
           on_behalf_enabled?: boolean
           oob_allow_offline?: boolean
@@ -25994,6 +26006,7 @@ export type Database = {
       }
       visits: {
         Row: {
+          cancel_source: string | null
           check_in_address: string | null
           check_in_location: Json | null
           check_in_photo_url: string | null
@@ -26019,6 +26032,7 @@ export type Database = {
           visit_type: string | null
         }
         Insert: {
+          cancel_source?: string | null
           check_in_address?: string | null
           check_in_location?: Json | null
           check_in_photo_url?: string | null
@@ -26044,6 +26058,7 @@ export type Database = {
           visit_type?: string | null
         }
         Update: {
+          cancel_source?: string | null
           check_in_address?: string | null
           check_in_location?: Json | null
           check_in_photo_url?: string | null
@@ -26811,6 +26826,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      eod_cancel_pending_visits: { Args: never; Returns: number }
       execute_stock_action: {
         Args: {
           p_action: string
