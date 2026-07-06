@@ -147,6 +147,10 @@ export default function SecurityManagement() {
               <Users className="h-4 w-4" />
               Permission Set Groups
             </TabsTrigger>
+            <TabsTrigger value="feature-permissions" className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4" />
+              Feature Permissions
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="profiles" className="mt-6">
