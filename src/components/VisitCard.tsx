@@ -88,6 +88,8 @@ interface Visit {
     visitTime?: string;
     ownActivity: boolean;
   };
+  isCarryForward?: boolean;
+  carriedFromDate?: string;
 }
 interface VisitCardProps {
   visit: Visit;
@@ -2751,6 +2753,13 @@ export const VisitCard = ({
                   </button>
                 </h3>
                 
+                {/* Carried-over indicator */}
+                {visit.isCarryForward && (
+                  <Badge variant="outline" className="text-[10px] border-warning/40 bg-warning/10 text-warning-foreground" title={visit.carriedFromDate ? `Carried from ${visit.carriedFromDate}` : "Carried over"}>
+                    Carried over
+                  </Badge>
+                )}
+
                 {/* Phone Order Badge - only shown if applicable */}
                 {currentLog?.is_phone_order && (
                   <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">

@@ -1,83 +1,48 @@
-# Out-of-beat retailer search + ordering
 
-Mirrors the existing backdate / on-behalf patterns. No new screen, no schema changes (server already migrated). All UI changes are gated by `oob_enabled AND can('order_out_of_beat','create')`; when off, behaviour is unchanged.
+## Goal
 
-## 1. Shared plumbing (new small files)
+Surface EOD-cancelled retailers as an actionable "carried over" list in two places:
+1. Rep-facing **My Visits** day view (self).
+2. **Beat Coordinator** admin day/rep view (for each rep).
 
-**`src/hooks/useOOBConfig.ts`** — one-shot React Query for `operations_config` row `id = 1`, returns `{ oob_enabled, oob_visibility, oob_require_reason, oob_require_gps, oob_credit_rule }`. Cached with staleTime 5 min.
+Both call the DB functions already created: `get_carry_forward_retailers` and `add_carry_forward_to_plan`.
 
-**`src/hooks/useTodaysBeatIds.ts`** — returns `Set<string>` of beat_ids planned for the current user *today*: union of
-- `daily_beat_plans.beat_id` where `assigned_user_id = me AND plan_date = today AND status = 'active'`
-- `beat_plans.beat_id` where `user_id = me AND plan_date = today`
-- owned beats (`beats.user_id = me OR beats.owner_id = me`, `is_active = true`) — permanent ownership counts as "in today's beat"
+## Scope
 
-Used to decide `is_planned_beat` for a chosen retailer.
+### 1. Shared hook — `src/hooks/useCarryForward.ts` (new)
+- `useCarryForwardRetailers(userId, date)` — React Query fetch of `get_carry_forward_retailers(userId, date)`. Enabled only when `userId && date` and `operations_config.carry_forward_enabled === true` and `date === today`.
+- `useAddCarryForward()` — mutation calling `add_carry_forward_to_plan(userId, date, ids?)`. On success invalidates the day's visits query key and the carry-forward query.
+- Reads `carry_forward_enabled` via a small `useOperationsCarryForward()` helper (single-row `operations_config` select, cached).
 
-**`src/hooks/useMyTerritoryIds.ts`** — territory_ids from beats the user owns (`beats.user_id = me OR owner_id = me`). Used only when `oob_visibility = 'territory' | 'all'` to widen the retailer list.
+### 2. Shared UI — `src/components/visits/CarryForwardBanner.tsx` (new)
+Props: `userId`, `date`, `visitsQueryKey` (for invalidation), optional `variant: 'banner' | 'chip'`.
+- `banner` (rep view): shadcn `Alert` at top: "{N} retailers carried over from earlier". Expand to show list (name + cancelled_on). Checkboxes (default all selected). Primary button "Add to today's plan" → mutation with selected ids → toast + auto-collapse.
+- `chip` (coordinator view): compact `Badge` + button "Add to plan" that opens a small `Popover` with the same list/checkboxes/confirm.
+- Hidden entirely when count is 0 or feature disabled or date != today (banner variant only; chip variant respects `date` prop as-is so coordinator can view any date but action still permitted for today+).
 
-**`src/lib/outOfBeatContext.ts`** — session-scoped context, same shape as `onBehalfContext`:
-```
-type OutOfBeatContext = { retailerId: string; reason: string; gpsLat?: number; gpsLng?: number };
-```
-`getOutOfBeatContext / setOutOfBeatContext / clearOutOfBeatContext` keyed as `out_of_beat_context`.
+### 3. My Visits integration
+Files: `src/pages/MyVisits.tsx` and `src/pages/MyVisitsOptimized.tsx` (verify which is active; add to the one used by the current route, and to both if both are reachable).
+- Import `CarryForwardBanner`, render above the visit list when `selectedDate === today`.
+- Pass current `user.id`, `today`, and the existing visits query key so the list refetches after "Add to plan".
+- Extend the visit list row/`VisitCard.tsx` to show a small `Badge` "Carried over" when `visit.is_carry_forward === true`. Tooltip: `Carried from {carried_from_date}`.
 
-## 2. MyRetailers — widened loader + place-order gate
+### 4. Beat Coordinator integration
+File: `src/components/admin/beat-coordinator/BeatCoordinatorDayPanel.tsx` (per-rep day view) and `RepSidebar.tsx` (per-rep list).
+- In the per-rep row/header, render `<CarryForwardBanner variant="chip" userId={rep.id} date={selectedDate} .../>`.
+- Uses the same mutation; on success invalidate the coordinator day-visits query.
 
-In `src/pages/MyRetailers.tsx`, when `oob_enabled && can('order_out_of_beat','create')` and the selected view is "self" (single user, self):
+## Technical Details
 
-- Extend `loadRetailers` with an additive fetch based on `oob_visibility`:
-  - `beat` → no widening.
-  - `assigned` → current loader already covers assigned + shared. No extra fetch.
-  - `territory` → additionally `select * from retailers where territory_id IN <my territories>` (dedupe by id into existing map). Cached with the rest.
-  - `all` → **search-driven only, online-only**. Skip auto-load. When `navigator.onLine === false`, gate is disabled and a small "Search is limited to your beats while offline" hint appears in the search box tooltip. When online + search term length ≥ 3, hit `retailers` filtered by `name ILIKE %q% OR phone ILIKE %q%` with `limit 50`, and merge into `retailers` state (marking these as OOB-sourced rows).
-- Rows that lie outside `useTodaysBeatIds()` show a small "Out of beat" muted badge next to the beat name. Rows unavailable due to OOB gate off keep behaving as today.
+- **Types**: `get_carry_forward_retailers` return row is `{ retailer_id: string; retailer_name: string; cancelled_on: string }`. `add_carry_forward_to_plan` returns `number`. RPCs are already in generated `types.ts` after the last migration.
+- **Query keys**:
+  - `['carry-forward', userId, date]`
+  - Existing visits keys already in `MyVisits*` and `BeatCoordinatorDayPanel` — read them before wiring to reuse verbatim.
+- **Gating**: `carry_forward_enabled` fetched once via React Query (`['operations-config','carry-forward']`, staleTime 5 min).
+- **Today check**: use `date === format(new Date(), 'yyyy-MM-dd')` in the app timezone helper already present (`useAppTimezone`).
+- **Permissions**: RPCs enforce self-or-subordinate via `is_subordinate_of`. No client-side role check needed; coordinator page is already permission-gated.
+- **Badge on visit rows**: `is_carry_forward` and `carried_from_date` columns were added in the prior migration; regenerated types expose them on `visits`.
 
-The ShoppingCart action stays visible for OOB-scope rows. On click:
-1. Compute `isPlannedBeat = todaysBeatIds.has(r.beat_id)`.
-2. If in-beat → navigate to `/order-entry?...` as today; also call `clearOutOfBeatContext()`.
-3. If out-of-beat → open a small confirm dialog with:
-   - Warning banner "This retailer is outside today's planned beat".
-   - Reason input (required when `oob_require_reason`).
-   - GPS capture button (required when `oob_require_gps`) using existing `navigator.geolocation.getCurrentPosition`. Store lat/lng.
-   - Confirm sets `outOfBeatContext = { retailerId: r.id, reason, gpsLat, gpsLng }` and navigates.
+## Out of scope
 
-The existing on-behalf gate (`canPlaceOrderForRow`) is preserved and combines with the OOB gate.
-
-## 3. Cart — consume context, surface badge, ship flags
-
-In `src/pages/Cart.tsx`, mirror the backdate/on-behalf wiring:
-
-- Read `outOfBeatContext` on mount into `oobCtx`. Compute `isOutOfBeat = !!oobCtx && oobCtx.retailerId === validRetailerId`.
-- Compute `isPlannedBeat` from `useTodaysBeatIds()` for `validRetailerId` (fallback true when hook loading is unknown — server re-checks anyway).
-- Extend both order payload builders (regular ~L1094 and D-1 ~L2084) with:
-  ```
-  is_out_of_beat: isOutOfBeat,
-  out_of_beat_reason: isOutOfBeat ? oobCtx!.reason : null,
-  is_planned_beat: isOutOfBeat ? false : true,
-  ```
-  Keep `user_id = currentUserId` unchanged (server reassigns credit per `oob_credit_rule` — no client compute).
-- Add an "Out of beat" pill in the summary card, next to the existing Backdated / On-behalf badges (same styling), with sub-text showing the reason.
-- On successful submit and on manual cancel, call `clearOutOfBeatContext()` alongside the existing `sessionStorage.removeItem('backdated_order_context')` cleanup.
-
-GPS captured at pick-time is **not** persisted to a specific column here (no schema change requested) — the reason + is_out_of_beat + is_planned_beat + owner snapshot is the record. GPS is retained in session context in case a future step needs it; no order column write.
-
-## 4. What stays unchanged
-
-- OrderEntry doesn't need edits — it already receives `retailerId` via URL and hands off to Cart, which now enforces OOB flags.
-- Existing on-behalf and backdate flows continue independently and can coexist with OOB.
-- Users without `order_out_of_beat.create` see today's behaviour: only assigned/shared beat retailers, no OOB dialog, no badge.
-
-## Technical notes
-
-- Server RLS already returns OOB retailers when the caller matches `retailer_in_user_oob_scope`, so widened selects need no elevated privileges.
-- `oob_visibility = 'all'` must be online-only because RLS scans the full retailers table; enforce via `navigator.onLine` before enabling the search-driven path.
-- No new routes, no new pages, no DB migration.
-
-## Files touched
-
-- new `src/hooks/useOOBConfig.ts`
-- new `src/hooks/useTodaysBeatIds.ts`
-- new `src/hooks/useMyTerritoryIds.ts`
-- new `src/lib/outOfBeatContext.ts`
-- edit `src/pages/MyRetailers.tsx` — widened loader, OOB dialog on ShoppingCart click, OOB badge on rows
-- edit `src/pages/Cart.tsx` — read context, add payload flags, summary badge, cleanup on success/cancel
+- Bulk "add all reps' carry-forwards" action in coordinator (can be added later).
+- Editing/removing individual carried-forward planned visits (existing visit edit flow already handles).

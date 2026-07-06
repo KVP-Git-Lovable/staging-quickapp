@@ -43,6 +43,7 @@ import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
 import { usePermissions } from "@/hooks/usePermissions";
 import { SyncDataModal } from "@/components/SyncDataModal";
 import { InsightsPanel } from "@/components/visits/InsightsPanel";
+import { CarryForwardBanner } from "@/components/visits/CarryForwardBanner";
 import { StartBeatButton } from "@/components/StartBeatButton";
 import { AddActivityModal } from "@/components/AddActivityModal";
 
@@ -436,6 +437,8 @@ export const MyVisits = () => {
         pendingAmount: retailer.pending_amount || 0, // Include pending_amount from hook
         beatId: retailer.beat_id || undefined,
         teammateActivity,
+        isCarryForward: !!(visit as any)?.is_carry_forward,
+        carriedFromDate: (visit as any)?.carried_from_date || undefined,
       };
     });
 
@@ -1725,6 +1728,12 @@ export const MyVisits = () => {
               })}
             />
           )}
+
+          {/* Carry-forward banner — visible only for self + today */}
+          {isViewingSelf && user?.id && selectedDate === getLocalTodayDate() && (
+            <CarryForwardBanner userId={user.id} date={selectedDate} variant="banner" />
+          )}
+
 
           {/* No visits message - ONLY after loading completes AND a brief settling period */}
           {!dataLoading && hasLoadedOnce && filteredVisits.length === 0 && !hasActivities && (plannedBeats.length === 0 || searchTerm !== '') ? <Card className="shadow-card">
