@@ -1324,7 +1324,7 @@ const Operations = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-8">
+              <TabsList className={cn('grid w-full', can('operations_config', 'edit') ? 'grid-cols-9' : 'grid-cols-8')}>
                 <TabsTrigger value="checkins">Check-in/Out</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="stock">Stock</TabsTrigger>
@@ -1333,7 +1333,11 @@ const Operations = () => {
                 <TabsTrigger value="returnstock">Return Stock</TabsTrigger>
                 <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
                 <TabsTrigger value="edited">Edited</TabsTrigger>
+                {can('operations_config', 'edit') && (
+                  <TabsTrigger value="exceptions">Exceptions</TabsTrigger>
+                )}
               </TabsList>
+
 
               {/* Filters */}
               <div className="flex flex-wrap gap-4 mt-4 mb-6">
