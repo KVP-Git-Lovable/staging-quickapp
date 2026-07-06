@@ -27505,6 +27505,10 @@ export type Database = {
         }
         Returns: number
       }
+      retailer_in_user_oob_scope: {
+        Args: { p_retailer_id: string }
+        Returns: boolean
+      }
       returnable_qty: {
         Args: { p_order_id: string; p_product_id: string; p_variant_id: string }
         Returns: number
