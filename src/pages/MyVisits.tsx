@@ -1009,7 +1009,6 @@ export const MyVisits = () => {
     }
   };
   // Backdated-order gating for calendar selection
-  const { can } = usePermissions();
   const [backdateCfg, setBackdateCfg] = useState<{ enabled: boolean; requireReason: boolean; mode: 'direct' | 'approval' }>({ enabled: false, requireReason: true, mode: 'direct' });
   const [backdateApprovalPrompt, setBackdateApprovalPrompt] = useState<{ isoDate: string } | null>(null);
   const [backdateApprovalReason, setBackdateApprovalReason] = useState('');
@@ -1039,9 +1038,10 @@ export const MyVisits = () => {
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       return true;
     }
-    // Past date selected. Only intercept if the feature+permission are on;
-    // otherwise fall through so users can still view historical data as before.
-    if (!backdateCfg.enabled || !can('order_backdate', 'create')) {
+    // Past date selected. Only intercept if the feature is on; the RPC is the
+    // authoritative permission check, so freshly changed role permissions work
+    // even before client permission caches refresh.
+    if (!backdateCfg.enabled) {
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       return true;
     }
@@ -1069,7 +1069,7 @@ export const MyVisits = () => {
       toast.error(e?.message || 'Could not verify backdate permission');
       return false;
     }
-  }, [backdateCfg, can]);
+  }, [backdateCfg]);
 
   const submitBackdateApprovalRequest = useCallback(async () => {
     if (!backdateApprovalPrompt) return;
@@ -1117,15 +1117,17 @@ export const MyVisits = () => {
       setSelectedDate(selectedDayInfo.isoDate);
     }
   };
-  const navigateWeek = (direction: 'prev' | 'next') => {
+  const navigateWeek = async (direction: 'prev' | 'next') => {
     const newWeek = direction === 'prev' ? subWeeks(selectedWeek, 1) : addWeeks(selectedWeek, 1);
-    setSelectedWeek(newWeek);
-    setCalendarDate(newWeek);
-
-    // Keep the same day of week if possible, otherwise select the first day
     const newWeekDays = getWeekDays(newWeek);
     const sameWeekdayIndex = weekDays.findIndex(d => d.day === selectedDay);
     const targetDay = newWeekDays[sameWeekdayIndex] || newWeekDays[0];
+
+    const ok = await applyBackdateContext(targetDay.isoDate);
+    if (!ok) return;
+
+    setSelectedWeek(newWeek);
+    setCalendarDate(newWeek);
     setSelectedDay(targetDay.day);
     setSelectedDate(targetDay.isoDate);
   };
