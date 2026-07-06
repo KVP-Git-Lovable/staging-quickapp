@@ -17,9 +17,11 @@ import { toast } from 'sonner';
 
 export default function SecurityManagement() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { loading, user } = useAuth();
   const { hasModuleAccess, isLoading: permLoading } = useProfilePermissions();
-  const [activeTab, setActiveTab] = useState('profiles');
+  const initialTab = searchParams.get('tab') || 'profiles';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [granting, setGranting] = useState(false);
   const autoSyncedRef = useRef(false);
 
