@@ -27056,6 +27056,35 @@ export type Database = {
           retailer_name: string
         }[]
       }
+      get_operations_exceptions: {
+        Args: {
+          p_from?: string
+          p_to?: string
+          p_types?: string[]
+          p_user?: string
+        }
+        Returns: {
+          collector_id: string
+          collector_name: string
+          entered_on: string
+          invoice_number: string
+          is_backdated: boolean
+          is_edited: boolean
+          is_on_behalf: boolean
+          is_out_of_beat: boolean
+          oob_location: Json
+          order_date: string
+          order_id: string
+          owner_id: string
+          owner_name: string
+          placed_by_id: string
+          placed_by_name: string
+          reason: string
+          retailer_id: string
+          retailer_name: string
+          total_amount: number
+        }[]
+      }
       get_org_beat_names: {
         Args: { p_distributor_id?: string }
         Returns: {
