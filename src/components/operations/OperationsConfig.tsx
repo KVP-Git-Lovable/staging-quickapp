@@ -106,7 +106,7 @@ const OperationsConfig: React.FC = () => {
         {typeof n === 'number' ? (
           <Badge variant="secondary">{n} {n === 1 ? 'profile has' : 'profiles have'} access</Badge>
         ) : <span />}
-        <Button variant="link" className="px-0" onClick={() => navigate('/security-management')}>
+        <Button variant="link" className="px-0" onClick={() => navigate('/security-management?tab=feature-permissions')}>
           Manage who can use this <ArrowRight className="ml-1 h-4 w-4" />
         </Button>
       </CardFooter>
