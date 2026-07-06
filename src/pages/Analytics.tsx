@@ -1179,14 +1179,6 @@ const Analytics = () => {
           <div className="relative p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate(-1)}
-                  className="text-primary-foreground hover:bg-primary-foreground/20"
-                >
-                  <ArrowLeft size={20} />
-                </Button>
                 <div>
                   <h1 className="text-2xl font-bold">Analytics & Insights</h1>
                   <p className="text-primary-foreground/80 text-sm">Real-time business analytics</p>
