@@ -22,6 +22,8 @@ import { downloadCSV } from '@/utils/fileDownloader';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
 import EditedOrdersSection from '@/components/operations/EditedOrdersSection';
+import OperationsExceptionsTab from '@/components/operations/OperationsExceptionsTab';
+
 import OperationsConfig from '@/components/operations/OperationsConfig';
 import BackdateApprovalsList from '@/components/operations/BackdateApprovalsList';
 import OrderEditApprovalsList from '@/components/operations/OrderEditApprovalsList';
