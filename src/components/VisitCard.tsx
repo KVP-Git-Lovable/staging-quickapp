@@ -90,6 +90,8 @@ interface Visit {
   };
   isCarryForward?: boolean;
   carriedFromDate?: string;
+  isRescheduled?: boolean;
+  rescheduledFromDate?: string;
 }
 interface VisitCardProps {
   visit: Visit;
