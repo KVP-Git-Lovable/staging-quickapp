@@ -1514,6 +1514,65 @@ export const MyRetailers = () => {
           retailers={filtered as any}
           filteredCount={filtered.length}
         />
+
+        {/* Out-of-beat confirm dialog */}
+        <Dialog open={oobDialogOpen} onOpenChange={(v) => { if (!v) { setOobDialogOpen(false); setOobDialogRetailer(null); } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-amber-700">
+                <AlertTriangle className="h-5 w-5" />
+                Out-of-beat order
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2">
+                This retailer is outside today's planned beat.
+                {oobDialogRetailer && (
+                  <div className="mt-1 font-medium">{oobDialogRetailer.name}</div>
+                )}
+              </div>
+
+              {oobCfg?.oob_require_reason && (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Reason <span className="text-destructive">*</span>
+                  </label>
+                  <Textarea
+                    value={oobReason}
+                    onChange={(e) => setOobReason(e.target.value)}
+                    placeholder="Why are you visiting this retailer today?"
+                    rows={3}
+                    maxLength={300}
+                  />
+                </div>
+              )}
+
+              {oobCfg?.oob_require_gps && (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Location <span className="text-destructive">*</span>
+                  </label>
+                  {oobGps ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Captured: {oobGps.lat.toFixed(5)}, {oobGps.lng.toFixed(5)}</span>
+                      <Button size="sm" variant="ghost" onClick={captureOobGps} disabled={oobGpsCapturing}>Refresh</Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={captureOobGps} disabled={oobGpsCapturing}>
+                      <MapPin className="h-4 w-4 mr-1" />
+                      {oobGpsCapturing ? 'Capturing…' : 'Capture GPS'}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => { setOobDialogOpen(false); setOobDialogRetailer(null); }}>Cancel</Button>
+              <Button onClick={confirmOobAndPlace}>Continue to order</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </section>
     </Layout>
   );
