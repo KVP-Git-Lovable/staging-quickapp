@@ -1354,9 +1354,9 @@ export const MyRetailers = () => {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
+                                onClick={() => handlePlaceOrder(r)}
                                 className="h-8 w-8 p-0"
-                                title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : 'Phone Order'}
+                                title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : (oobEnabled && !isInTodaysBeat(r.beat_id) ? 'Out-of-beat order' : 'Phone Order')}
                               >
                                 <ShoppingCart className="h-4 w-4" />
                               </Button>
