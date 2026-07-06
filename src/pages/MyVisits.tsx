@@ -1470,6 +1470,7 @@ export const MyVisits = () => {
 
             {/* Quick Actions - Only show for own data, filtered by permissions */}
             {isViewingSelf && (() => {
+              const allBeatEnabled = isBackdateAllowedForDate(selectedDate);
               const row1Buttons = [
                 showAutoPlan && (
                   <Button key="auto-plan" variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={handleAutoGeneratePlan} disabled={isGeneratingPlan} title="AI generates optimized weekly beat plans">
@@ -1478,7 +1479,7 @@ export const MyVisits = () => {
                   </Button>
                 ),
                 showAllBeat && (
-                  <Button key="all-beat" variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => navigate(`/beat-planning?date=${selectedDate}`)} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
+                  <Button key="all-beat" variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3 ${!allBeatEnabled ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => navigate(`/beat-planning?date=${selectedDate}`)} disabled={!allBeatEnabled}>
                     <Route size={12} className="mr-1 sm:mr-1.5" />
                     <span className="whitespace-nowrap">{t('visits.journeyPlan')}</span>
                   </Button>
