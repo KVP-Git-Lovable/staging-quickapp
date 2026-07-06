@@ -22,6 +22,8 @@ import { downloadCSV } from '@/utils/fileDownloader';
 import { PaymentProofsView } from '@/components/admin/PaymentProofsView';
 import { OperationsSummaryBoxes } from '@/components/operations/OperationsSummaryBoxes';
 import EditedOrdersSection from '@/components/operations/EditedOrdersSection';
+import OperationsExceptionsTab from '@/components/operations/OperationsExceptionsTab';
+
 import OperationsConfig from '@/components/operations/OperationsConfig';
 import BackdateApprovalsList from '@/components/operations/BackdateApprovalsList';
 import OrderEditApprovalsList from '@/components/operations/OrderEditApprovalsList';
@@ -1322,7 +1324,7 @@ const Operations = () => {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-8">
+              <TabsList className={cn('grid w-full', can('operations_config', 'edit') ? 'grid-cols-9' : 'grid-cols-8')}>
                 <TabsTrigger value="checkins">Check-in/Out</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="stock">Stock</TabsTrigger>
@@ -1331,7 +1333,11 @@ const Operations = () => {
                 <TabsTrigger value="returnstock">Return Stock</TabsTrigger>
                 <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
                 <TabsTrigger value="edited">Edited</TabsTrigger>
+                {can('operations_config', 'edit') && (
+                  <TabsTrigger value="exceptions">Exceptions</TabsTrigger>
+                )}
               </TabsList>
+
 
               {/* Filters */}
               <div className="flex flex-wrap gap-4 mt-4 mb-6">
@@ -2681,6 +2687,13 @@ const Operations = () => {
               <TabsContent value="edited" className="space-y-4">
                 <EditedOrdersSection />
               </TabsContent>
+
+              {can('operations_config', 'edit') && (
+                <TabsContent value="exceptions" className="space-y-4">
+                  <OperationsExceptionsTab />
+                </TabsContent>
+              )}
+
             </Tabs>
           </CardContent>
         </Card>
