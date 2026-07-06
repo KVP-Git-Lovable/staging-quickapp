@@ -1148,6 +1148,11 @@ export const MyRetailers = () => {
                                 Shared
                               </span>
                             )}
+                            {oobEnabled && !isInTodaysBeat(r.beat_id) && (
+                              <span className="ml-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" /> Out of beat
+                              </span>
+                            )}
                           </h3>
                         </div>
                       <div className="flex items-center gap-1">
