@@ -1737,10 +1737,8 @@ export const MyVisits = () => {
             <CarryForwardBanner userId={user.id} date={selectedDate} variant="banner" />
           )}
 
-          {/* Missed beat days — self view */}
-          {isViewingSelf && user?.id && (
-            <MissedBeatsSection userId={user.id} variant="banner" />
-          )}
+          {/* Missed beat days — moved to Plan My Journey (/visits) */}
+
 
 
           {/* No visits message - ONLY after loading completes AND a brief settling period */}
