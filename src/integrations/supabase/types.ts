@@ -11576,6 +11576,51 @@ export type Database = {
         }
         Relationships: []
       }
+      order_edit_requests: {
+        Row: {
+          approval_request_id: string | null
+          created_at: string
+          edited_by: string
+          id: string
+          new_collection_id: string | null
+          new_total: number | null
+          old_total: number | null
+          original_order_id: string
+          reason: string | null
+          replacement_order_id: string
+          status: string
+          target_paid: number | null
+        }
+        Insert: {
+          approval_request_id?: string | null
+          created_at?: string
+          edited_by?: string
+          id?: string
+          new_collection_id?: string | null
+          new_total?: number | null
+          old_total?: number | null
+          original_order_id: string
+          reason?: string | null
+          replacement_order_id: string
+          status?: string
+          target_paid?: number | null
+        }
+        Update: {
+          approval_request_id?: string | null
+          created_at?: string
+          edited_by?: string
+          id?: string
+          new_collection_id?: string | null
+          new_total?: number | null
+          old_total?: number | null
+          original_order_id?: string
+          reason?: string | null
+          replacement_order_id?: string
+          status?: string
+          target_paid?: number | null
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           backorder_qty: number | null
@@ -26591,7 +26636,10 @@ export type Database = {
       }
       can_backdate_order: { Args: { p_date: string }; Returns: boolean }
       can_delete_beat: { Args: { p_beat_id: string }; Returns: Json }
-      can_edit_order: { Args: { p_order_id: string }; Returns: boolean }
+      can_edit_order: {
+        Args: { p_actor?: string; p_order_id: string }
+        Returns: boolean
+      }
       can_place_order_for_retailer: {
         Args: { p_retailer_id: string }
         Returns: Json
@@ -27501,6 +27549,17 @@ export type Database = {
       }
       request_backdate: {
         Args: { p_date: string; p_reason: string }
+        Returns: string
+      }
+      request_order_edit: {
+        Args: {
+          p_edited_by: string
+          p_new_collection_id?: string
+          p_original_order_id: string
+          p_reason: string
+          p_replacement_order_id: string
+          p_target_paid?: number
+        }
         Returns: string
       }
       reset_all_qa_data: { Args: never; Returns: undefined }
