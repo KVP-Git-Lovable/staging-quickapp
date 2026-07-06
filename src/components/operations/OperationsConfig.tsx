@@ -35,6 +35,9 @@ type OpsConfig = {
   edit_approval_threshold: number;
   edit_lock_price: boolean;
   edit_max_edits: number;
+  auto_cancel_enabled: boolean;
+  eod_cutoff_time: string;
+  carry_forward_enabled: boolean;
 };
 
 const OBJECTS = ['order_backdate', 'order_on_behalf', 'order_out_of_beat', 'order_edit'] as const;
