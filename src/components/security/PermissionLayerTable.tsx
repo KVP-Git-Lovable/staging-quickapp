@@ -76,10 +76,7 @@ function ItemRow({
   const some = isSomeChecked(perms);
 
   const handleAll = (checked: boolean) => {
-    onChange(row.name, 'can_read', checked);
-    onChange(row.name, 'can_create', checked);
-    onChange(row.name, 'can_edit', checked);
-    onChange(row.name, 'can_delete', checked);
+    ALL_KEYS.forEach(k => onChange(row.name, k, checked));
   };
 
   return (
