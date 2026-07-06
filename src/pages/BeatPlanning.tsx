@@ -845,6 +845,11 @@ export const BeatPlanning = () => {
           </CardContent>
         </Card>
 
+        {/* Beats not covered — self view */}
+        {(!selectedUserId || selectedUserId === 'self' || selectedUserId === user?.id) && user?.id && (
+          <MissedBeatsSection userId={user.id} variant="banner" />
+        )}
+
         {/* Category Tabs removed - showing all beats derived from your retailers */}
 
         {/* Beats List */}
