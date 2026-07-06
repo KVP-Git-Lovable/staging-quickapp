@@ -7,6 +7,7 @@ import { AlertTriangle, ArrowUpRight, CalendarRange, RefreshCw, Share2, Edit3 } 
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { CarryForwardBanner } from "@/components/visits/CarryForwardBanner";
 
 const sb = supabase as any;
 
