@@ -35,6 +35,9 @@ type OpsConfig = {
   edit_approval_threshold: number;
   edit_lock_price: boolean;
   edit_max_edits: number;
+  auto_cancel_enabled: boolean;
+  eod_cutoff_time: string;
+  carry_forward_enabled: boolean;
 };
 
 const OBJECTS = ['order_backdate', 'order_on_behalf', 'order_out_of_beat', 'order_edit'] as const;
@@ -334,6 +337,44 @@ const OperationsConfig: React.FC = () => {
           </CardContent>
         )}
         <FooterAccess object="order_edit" />
+      </Card>
+
+      {/* Beat journey */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Beat journey</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            At the cutoff, retailers still planned (not visited) are marked cancelled, ready to carry forward.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center justify-between">
+            <Label>Auto-cancel unvisited retailers at day end</Label>
+            <Switch
+              checked={c.auto_cancel_enabled}
+              onCheckedChange={(v) => save('auto_cancel_enabled', v)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>End-of-day cutoff</Label>
+            <Input
+              type="time"
+              value={(c.eod_cutoff_time || '20:00:00').slice(0, 5)}
+              onChange={(e) => setConfig({ ...c, eod_cutoff_time: `${e.target.value}:00` })}
+              onBlur={(e) => save('eod_cutoff_time', `${e.target.value}:00`)}
+              className="max-w-[180px]"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label>Carry unvisited retailers to the next day</Label>
+            <Switch
+              checked={c.carry_forward_enabled}
+              onCheckedChange={(v) => save('carry_forward_enabled', v)}
+            />
+          </div>
+        </CardContent>
       </Card>
     </div>
   );
