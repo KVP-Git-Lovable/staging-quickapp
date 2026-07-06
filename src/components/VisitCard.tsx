@@ -92,6 +92,8 @@ interface Visit {
   carriedFromDate?: string;
   isRescheduled?: boolean;
   rescheduledFromDate?: string;
+  coveredForUserId?: string;
+  coveredForUserName?: string;
 }
 interface VisitCardProps {
   visit: Visit;
@@ -2766,6 +2768,13 @@ export const VisitCard = ({
                 {visit.isRescheduled && (
                   <Badge variant="outline" className="text-[10px] border-primary/40 bg-primary/10 text-primary" title={visit.rescheduledFromDate ? `Rescheduled from ${visit.rescheduledFromDate}` : "Rescheduled"}>
                     Rescheduled
+                  </Badge>
+                )}
+
+                {/* Coverage indicator */}
+                {visit.coveredForUserId && (
+                  <Badge variant="outline" className="text-[10px] border-purple-400/50 bg-purple-500/10 text-purple-600" title={visit.coveredForUserName ? `Covering for ${visit.coveredForUserName}` : "Coverage visit"}>
+                    Coverage
                   </Badge>
                 )}
 
