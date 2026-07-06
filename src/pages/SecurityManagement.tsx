@@ -168,6 +168,12 @@ export default function SecurityManagement() {
               <PermissionSetGroupsTab />
             </div>
           </TabsContent>
+
+          <TabsContent value="feature-permissions" className="mt-6">
+            <div className="bg-card border rounded-xl p-6">
+              <ObjectPermissions />
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
