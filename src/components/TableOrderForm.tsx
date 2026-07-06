@@ -1262,15 +1262,18 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                     <div className="flex flex-col min-w-0">
                       <Popover 
                         open={openComboboxes[row.id]} 
-                        onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
+                        onOpenChange={(open) => { if (priceLocked) return; setOpenComboboxes(prev => ({ ...prev, [row.id]: open })); }}
                       >
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             role="combobox"
                             aria-expanded={openComboboxes[row.id]}
+                            disabled={priceLocked}
+                            title={priceLocked ? 'Price is locked for edited orders — only quantity can be changed' : undefined}
                             className="w-full min-w-0 justify-start h-9 md:h-11 text-xs md:text-sm font-normal bg-background px-2"
                           >
+
                             {row.product ? (
                               <div className="flex items-center gap-1.5 w-full overflow-hidden">
                                 {(row.variant ? isFocusedProductActive(row.variant) : isFocusedProductActive(row.product)) && (
