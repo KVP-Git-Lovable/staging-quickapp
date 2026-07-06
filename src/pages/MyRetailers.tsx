@@ -33,6 +33,12 @@ import { moveToRecycleBin } from "@/utils/recycleBinUtils";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { useDeleteConfirm } from "@/hooks/useDeleteConfirm";
 import { RetailersSkeleton } from "@/components/home/RetailersSkeleton";
+import { useOOBConfig } from "@/hooks/useOOBConfig";
+import { useTodaysBeatIds } from "@/hooks/useTodaysBeatIds";
+import { useMyTerritoryIds } from "@/hooks/useMyTerritoryIds";
+import { setOutOfBeatContext, clearOutOfBeatContext } from "@/lib/outOfBeatContext";
+import { Textarea } from "@/components/ui/textarea";
+import { AlertTriangle, MapPin } from "lucide-react";
 
 
 
@@ -83,6 +89,28 @@ export const MyRetailers = () => {
   const canPlaceForOther = can('order_on_behalf', 'create');
   const canPlaceOrderForRow = (row: Retailer) =>
     !isViewingOther || (canPlaceForOther && row.user_id !== user?.id);
+
+  // Out-of-beat ordering — gated by operations_config + permission
+  const { data: oobCfg } = useOOBConfig();
+  const canOOB = can('order_out_of_beat', 'create');
+  const canOOBAll = can('order_out_of_beat', 'view_all');
+  const oobEnabled = !!oobCfg?.oob_enabled && canOOB;
+  const oobVisibility = oobCfg?.oob_visibility ?? 'beat';
+  const isSelfView = !!user && selectedUserIds.length === 1 && selectedUserIds[0] === user.id;
+  const { data: todaysBeatIds } = useTodaysBeatIds();
+  const { data: myTerritoryIds } = useMyTerritoryIds();
+
+  // OOB place-order dialog state
+  const [oobDialogOpen, setOobDialogOpen] = useState(false);
+  const [oobDialogRetailer, setOobDialogRetailer] = useState<Retailer | null>(null);
+  const [oobReason, setOobReason] = useState('');
+  const [oobGps, setOobGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [oobGpsCapturing, setOobGpsCapturing] = useState(false);
+
+  const isInTodaysBeat = useCallback((beatId?: string | null) => {
+    if (!beatId) return false;
+    return !!todaysBeatIds && todaysBeatIds.has(beatId);
+  }, [todaysBeatIds]);
   
   // Track if initial data load is complete (prevents flickering)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -273,8 +301,33 @@ export const MyRetailers = () => {
           } catch (sharedErr) {
             console.warn('Shared beat retailers fetch failed (non-fatal):', sharedErr);
           }
-          
+
+          // Part 3: OOB widening — only when self-view + oob_enabled + permission
+          // 'territory' → include retailers in user's territories
+          // 'all' → search-driven; see search effect below
+          try {
+            if (oobEnabled && isSelfView && (oobVisibility === 'territory' || oobVisibility === 'all')) {
+              const terrIds = myTerritoryIds || [];
+              if (terrIds.length > 0) {
+                const { data: territoryRetailers } = await supabase
+                  .from('retailers')
+                  .select('*')
+                  .in('territory_id', terrIds as any)
+                  .order('name')
+                  .limit(2000);
+                if (territoryRetailers && territoryRetailers.length > 0) {
+                  const map = new Map<string, any>();
+                  [...allRetailers, ...territoryRetailers].forEach(r => map.set(r.id, r));
+                  allRetailers = Array.from(map.values());
+                }
+              }
+            }
+          } catch (oobErr) {
+            console.warn('OOB territory fetch failed (non-fatal):', oobErr);
+          }
+
           console.log('✅ Fetched total retailers:', allRetailers.length);
+          
           
           // Process and set all data at once (prevents flickering)
           setLoadingProgress('Processing...');
@@ -339,7 +392,7 @@ export const MyRetailers = () => {
       setInitialLoadComplete(true);
       loadingRef.current = false;
     }
-  }, [user]);
+  }, [user, oobEnabled, isSelfView, oobVisibility, myTerritoryIds]);
   
   // Stable ref for loadRetailers to avoid dependency issues
   const loadRetailersRef = useRef(loadRetailers);
@@ -351,6 +404,45 @@ export const MyRetailers = () => {
   const refreshRetailers = useCallback(() => {
     loadRetailersRef.current(selectedUserIds);
   }, [selectedUserIds]);
+
+  // OOB visibility='all' — search-driven merge (online only).
+  // When the user types ≥3 chars and view is self, look up matching retailers
+  // from the whole master (RLS gates to OOB scope) and merge into local state.
+  const oobAllOnline = oobEnabled && isSelfView && oobVisibility === 'all' && canOOBAll;
+  useEffect(() => {
+    if (!oobAllOnline) return;
+    if (!navigator.onLine) return;
+    const q = deferredSearch.trim();
+    if (q.length < 3) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const like = `%${q.replace(/[%_]/g, '')}%`;
+        const { data } = await supabase
+          .from('retailers')
+          .select('*')
+          .or(`name.ilike.${like},phone.ilike.${like}`)
+          .limit(50);
+        if (cancelled || !data || data.length === 0) return;
+        setRetailers(prev => {
+          const map = new Map<string, any>();
+          prev.forEach(r => map.set(r.id, r));
+          data.forEach((r: any) => {
+            if (!map.has(r.id)) {
+              map.set(r.id, { ...r, owner_name: userNameMap[r.user_id] || 'Other' });
+            }
+          });
+          const merged = Array.from(map.values());
+          buildRetailerIndex(merged);
+          return merged as Retailer[];
+        });
+      } catch (e) {
+        console.warn('OOB all-search fetch failed:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [oobAllOnline, deferredSearch, userNameMap]);
+
 
   // Debounce the loadRetailers call to prevent rapid firing
   const loadRetailersTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -758,6 +850,63 @@ export const MyRetailers = () => {
     }
   }, [location.state, retailers]);
 
+  // Navigate to Order Entry — either directly (in-beat) or via OOB confirm dialog
+  const handlePlaceOrder = useCallback((r: Retailer) => {
+    const inBeat = isInTodaysBeat(r.beat_id);
+    if (inBeat || !oobEnabled) {
+      clearOutOfBeatContext();
+      navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`);
+      return;
+    }
+    // Out-of-beat: open confirm dialog to capture reason + GPS as configured
+    setOobDialogRetailer(r);
+    setOobReason('');
+    setOobGps(null);
+    setOobDialogOpen(true);
+  }, [isInTodaysBeat, oobEnabled, navigate]);
+
+  const captureOobGps = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      toast({ title: 'GPS unavailable', description: 'This device does not support location.', variant: 'destructive' });
+      return;
+    }
+    setOobGpsCapturing(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setOobGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setOobGpsCapturing(false);
+      },
+      (err) => {
+        setOobGpsCapturing(false);
+        toast({ title: 'Location failed', description: err.message || 'Could not capture GPS.', variant: 'destructive' });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, []);
+
+  const confirmOobAndPlace = useCallback(() => {
+    if (!oobDialogRetailer) return;
+    if (oobCfg?.oob_require_reason && !oobReason.trim()) {
+      toast({ title: 'Reason required', description: 'Please enter a reason for the out-of-beat visit.', variant: 'destructive' });
+      return;
+    }
+    if (oobCfg?.oob_require_gps && !oobGps) {
+      toast({ title: 'GPS required', description: 'Please capture your location.', variant: 'destructive' });
+      return;
+    }
+    setOutOfBeatContext({
+      retailerId: oobDialogRetailer.id,
+      reason: oobReason.trim(),
+      gpsLat: oobGps?.lat,
+      gpsLng: oobGps?.lng,
+    });
+    const r = oobDialogRetailer;
+    setOobDialogOpen(false);
+    setOobDialogRetailer(null);
+    navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`);
+  }, [oobDialogRetailer, oobCfg, oobReason, oobGps, navigate]);
+
+
   // Show skeleton during initial load for smooth UX - no flicker
   if (!initialLoadComplete && loading) {
     return (
@@ -999,6 +1148,11 @@ export const MyRetailers = () => {
                                 Shared
                               </span>
                             )}
+                            {oobEnabled && !isInTodaysBeat(r.beat_id) && (
+                              <span className="ml-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" /> Out of beat
+                              </span>
+                            )}
                           </h3>
                         </div>
                       <div className="flex items-center gap-1">
@@ -1006,9 +1160,9 @@ export const MyRetailers = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
+                            onClick={() => handlePlaceOrder(r)}
                             className="h-8 w-8 p-0"
-                            title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : 'Phone Order'}
+                            title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : (oobEnabled && !isInTodaysBeat(r.beat_id) ? 'Out-of-beat order' : 'Phone Order')}
                           >
                             <ShoppingCart className="h-4 w-4" />
                           </Button>
@@ -1205,9 +1359,9 @@ export const MyRetailers = () => {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`)}
+                                onClick={() => handlePlaceOrder(r)}
                                 className="h-8 w-8 p-0"
-                                title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : 'Phone Order'}
+                                title={isViewingOther ? `Place order on behalf of ${r.owner_name || 'user'}` : (oobEnabled && !isInTodaysBeat(r.beat_id) ? 'Out-of-beat order' : 'Phone Order')}
                               >
                                 <ShoppingCart className="h-4 w-4" />
                               </Button>
@@ -1360,6 +1514,65 @@ export const MyRetailers = () => {
           retailers={filtered as any}
           filteredCount={filtered.length}
         />
+
+        {/* Out-of-beat confirm dialog */}
+        <Dialog open={oobDialogOpen} onOpenChange={(v) => { if (!v) { setOobDialogOpen(false); setOobDialogRetailer(null); } }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-amber-700">
+                <AlertTriangle className="h-5 w-5" />
+                Out-of-beat order
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2">
+                This retailer is outside today's planned beat.
+                {oobDialogRetailer && (
+                  <div className="mt-1 font-medium">{oobDialogRetailer.name}</div>
+                )}
+              </div>
+
+              {oobCfg?.oob_require_reason && (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Reason <span className="text-destructive">*</span>
+                  </label>
+                  <Textarea
+                    value={oobReason}
+                    onChange={(e) => setOobReason(e.target.value)}
+                    placeholder="Why are you visiting this retailer today?"
+                    rows={3}
+                    maxLength={300}
+                  />
+                </div>
+              )}
+
+              {oobCfg?.oob_require_gps && (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">
+                    Location <span className="text-destructive">*</span>
+                  </label>
+                  {oobGps ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Captured: {oobGps.lat.toFixed(5)}, {oobGps.lng.toFixed(5)}</span>
+                      <Button size="sm" variant="ghost" onClick={captureOobGps} disabled={oobGpsCapturing}>Refresh</Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={captureOobGps} disabled={oobGpsCapturing}>
+                      <MapPin className="h-4 w-4 mr-1" />
+                      {oobGpsCapturing ? 'Capturing…' : 'Capture GPS'}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => { setOobDialogOpen(false); setOobDialogRetailer(null); }}>Cancel</Button>
+              <Button onClick={confirmOobAndPlace}>Continue to order</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </section>
     </Layout>
   );

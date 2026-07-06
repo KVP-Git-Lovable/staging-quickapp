@@ -29,6 +29,8 @@ import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 import { calculateLocalVanStockUpdate } from "@/utils/localVanStockSync";
 import { getLocalTodayDate } from "@/utils/dateUtils";
 import { getOnBehalfContext, clearOnBehalfContext } from "@/lib/onBehalfContext";
+import { getOutOfBeatContext, clearOutOfBeatContext } from "@/lib/outOfBeatContext";
+import { useTodaysBeatIds } from "@/hooks/useTodaysBeatIds";
 import { isSlowConnection } from "@/utils/internetSpeedCheck";
 import { useOfflineSchemes } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
@@ -160,6 +162,12 @@ export const Cart = () => {
   const [onBehalfCtx] = React.useState<{ userId: string; name: string } | null>(() => getOnBehalfContext());
   const isOnBehalf = !!onBehalfCtx;
 
+  // Out-of-beat context set by MyRetailers when the picked retailer is outside today's beat.
+  // Server re-validates the OOB scope and applies the credit rule (owner vs collector).
+  const [oobCtx] = React.useState(() => getOutOfBeatContext());
+  const { data: todaysBeatIds } = useTodaysBeatIds();
+
+
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
@@ -169,6 +177,25 @@ export const Cart = () => {
   // Fix retailerId validation - don't use "." as a valid retailerId  
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
   const validVisitId = visitId && visitId.length > 1 ? visitId : null;
+
+  // Out-of-beat flags shipped with the order payload (server re-validates + credits per policy)
+  const isOutOfBeat = !!oobCtx && !!validRetailerId && oobCtx.retailerId === validRetailerId;
+  const [retailerBeatIdForOOB, setRetailerBeatIdForOOB] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!validRetailerId) { setRetailerBeatIdForOOB(null); return; }
+    (async () => {
+      try {
+        const { data } = await supabase.from('retailers').select('beat_id').eq('id', validRetailerId).maybeSingle();
+        if (!cancelled) setRetailerBeatIdForOOB(data?.beat_id ?? null);
+      } catch { /* fallback: treat as planned */ }
+    })();
+    return () => { cancelled = true; };
+  }, [validRetailerId]);
+  const isPlannedBeat = isOutOfBeat
+    ? false
+    : (retailerBeatIdForOOB && todaysBeatIds ? todaysBeatIds.has(retailerBeatIdForOOB) : true);
+
 
   // Use visitId and retailerId from URL params consistently (same as Order Entry)
   const activeStorageKey = isEditMode
@@ -1103,6 +1130,9 @@ export const Cart = () => {
         order_date: getEffectiveOrderDate(),
         is_backdated: isBackdated,
         backdate_reason: isBackdated ? (backdateReason.trim() || null) : null,
+        is_out_of_beat: isOutOfBeat,
+        out_of_beat_reason: isOutOfBeat ? (oobCtx?.reason?.trim() || null) : null,
+        is_planned_beat: !isOutOfBeat,
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
@@ -1539,6 +1569,7 @@ export const Cart = () => {
       console.log('✅ Navigating to My Visits');
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       clearOnBehalfContext();
+      clearOutOfBeatContext();
       navigate('/visits/retailers');
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
@@ -2091,6 +2122,9 @@ export const Cart = () => {
         order_date: getEffectiveOrderDate(),
         is_backdated: isBackdated,
         backdate_reason: isBackdated ? (backdateReason.trim() || null) : null,
+        is_out_of_beat: isOutOfBeat,
+        out_of_beat_reason: isOutOfBeat ? (oobCtx?.reason?.trim() || null) : null,
+        is_planned_beat: !isOutOfBeat,
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
@@ -2452,6 +2486,7 @@ export const Cart = () => {
       // Navigate back to My Visits
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       clearOnBehalfContext();
+      clearOutOfBeatContext();
       navigate('/visits/retailers');
 
     } catch (error: any) {
@@ -2560,6 +2595,21 @@ export const Cart = () => {
             </div>
           </div>
         )}
+
+        {isOutOfBeat && oobCtx && (
+          <div className="w-full px-2 sm:px-4 pb-2">
+            <div className="rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2 text-xs sm:text-sm flex items-start gap-2 flex-wrap">
+              <Badge variant="secondary" className="bg-amber-200 text-amber-900 border-amber-300">Out of beat</Badge>
+              <div className="flex-1 min-w-0">
+                <div>This retailer is outside today's planned beat. Credit will follow your out-of-beat policy.</div>
+                {oobCtx.reason && (
+                  <div className="mt-0.5 text-amber-800/90"><span className="font-medium">Reason:</span> {oobCtx.reason}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {isBackdated && backdateCtx && (
           <div className="w-full px-2 sm:px-4 pb-2 space-y-2">
