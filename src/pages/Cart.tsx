@@ -2590,7 +2590,7 @@ export const Cart = () => {
             </div>
             <div className="rounded-md border bg-card px-3 py-2">
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Reason for edit <span className="text-muted-foreground/70">(optional)</span>
+                Reason for edit {editReasonRequired ? <span className="text-destructive">*</span> : <span className="text-muted-foreground/70">(optional)</span>}
               </label>
               <input
                 type="text"
