@@ -293,6 +293,46 @@ export const VisitCard = ({
   } = useVanSales();
   const { can } = usePermissions();
   const editPolicy = useOrderEditPolicy();
+  const canEditPerm = can('order_edit', 'edit');
+
+  // Ask the DB per-order whether editing is currently allowed under policy
+  // (edit_who / lock point / max edits). Only runs when the policy is on and
+  // the user has the permission, so the picker/button reflect true state.
+  useEffect(() => {
+    if (!editPolicy.edit_enabled || !canEditPerm) {
+      setEditableOrderIds(new Set());
+      return;
+    }
+    const candidates = (ordersTodayList || []).filter(
+      (o: any) => !o.invoice_generated_at && !o.dispatched_at,
+    );
+    if (candidates.length === 0) {
+      setEditableOrderIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(
+        candidates.map(async (o: any) => {
+          try {
+            const { data, error } = await (supabase as any).rpc('can_edit_order', {
+              p_order_id: o.id,
+            });
+            if (error) return null;
+            return data === true ? o.id : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setEditableOrderIds(new Set(results.filter((x): x is string => !!x)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editPolicy.edit_enabled, canEditPerm, ordersTodayList]);
+
 
   const canCheckIn = can('action_attendance_check_in', 'read');
   const {
