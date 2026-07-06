@@ -3258,10 +3258,10 @@ export const VisitCard = ({
                         Cancel Order
                       </Button>
 
-                      {/* Edit Order Button (Phase 2b-3b) */}
-                      {can('action_order_edit', 'edit') && (() => {
-                        const editable = ordersTodayList.filter((o: any) =>
-                          !o.invoice_generated_at && !o.dispatched_at
+                      {/* Edit Order Button (Phase 2b-3b) — gated by operations_config + can_edit_order RPC */}
+                      {editPolicy.edit_enabled && canEditPerm && (() => {
+                        const editable = ordersTodayList.filter(
+                          (o: any) => editableOrderIds.has(o.id),
                         );
                         if (editable.length === 0) return null;
                         const goEdit = (orderId: string) => {
@@ -3285,6 +3285,7 @@ export const VisitCard = ({
                           </Button>
                         );
                       })()}
+
                     </div>}
                 </>}
             </div>}
