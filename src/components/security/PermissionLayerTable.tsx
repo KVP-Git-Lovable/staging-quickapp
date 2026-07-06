@@ -57,10 +57,6 @@ function isSomeChecked(perms: CRUDFlags | undefined): boolean {
   return ALL_KEYS.some(k => perms[k]);
 }
 
-function isSomeChecked(perms: CRUDFlags | undefined): boolean {
-  if (!perms) return false;
-  return perms.can_read || perms.can_create || perms.can_edit || perms.can_delete;
-}
 
 function ItemRow({
   row,
