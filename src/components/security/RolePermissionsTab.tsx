@@ -139,8 +139,8 @@ export const RolePermissionsTab = () => {
         can_create: perms.can_create,
         can_edit: perms.can_edit,
         can_delete: perms.can_delete,
-        can_view_all: false,
-        can_modify_all: false,
+        can_view_all: perms.can_view_all,
+        can_modify_all: perms.can_modify_all,
       }));
 
       const { error } = await supabase
