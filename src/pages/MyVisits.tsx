@@ -437,6 +437,8 @@ export const MyVisits = () => {
         pendingAmount: retailer.pending_amount || 0, // Include pending_amount from hook
         beatId: retailer.beat_id || undefined,
         teammateActivity,
+        isCarryForward: !!(visit as any)?.is_carry_forward,
+        carriedFromDate: (visit as any)?.carried_from_date || undefined,
       };
     });
 
