@@ -20,6 +20,8 @@ export interface CRUDFlags {
   can_create: boolean;
   can_edit: boolean;
   can_delete: boolean;
+  can_view_all: boolean;
+  can_modify_all: boolean;
 }
 
 export type PermissionMap = Record<string, CRUDFlags>;
