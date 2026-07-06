@@ -8,6 +8,7 @@ import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CarryForwardBanner } from "@/components/visits/CarryForwardBanner";
+import { MissedBeatsSection } from "@/components/visits/MissedBeatsSection";
 
 const sb = supabase as any;
 
@@ -95,6 +96,9 @@ export function BeatCoordinatorDayPanel({ repId, repName, selectedDate, onOpenAs
         <div className="flex flex-wrap gap-2 items-center">
           {repId && (
             <CarryForwardBanner userId={repId} date={selectedDate} variant="chip" />
+          )}
+          {repId && (
+            <MissedBeatsSection userId={repId} variant="chip" />
           )}
           <Button variant="outline" size="sm" onClick={onOpenAssign}>
             <Edit3 className="h-3.5 w-3.5 mr-1" /> Edit plan

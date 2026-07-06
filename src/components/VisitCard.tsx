@@ -90,6 +90,8 @@ interface Visit {
   };
   isCarryForward?: boolean;
   carriedFromDate?: string;
+  isRescheduled?: boolean;
+  rescheduledFromDate?: string;
 }
 interface VisitCardProps {
   visit: Visit;
@@ -2757,6 +2759,13 @@ export const VisitCard = ({
                 {visit.isCarryForward && (
                   <Badge variant="outline" className="text-[10px] border-warning/40 bg-warning/10 text-warning-foreground" title={visit.carriedFromDate ? `Carried from ${visit.carriedFromDate}` : "Carried over"}>
                     Carried over
+                  </Badge>
+                )}
+
+                {/* Rescheduled indicator */}
+                {visit.isRescheduled && (
+                  <Badge variant="outline" className="text-[10px] border-primary/40 bg-primary/10 text-primary" title={visit.rescheduledFromDate ? `Rescheduled from ${visit.rescheduledFromDate}` : "Rescheduled"}>
+                    Rescheduled
                   </Badge>
                 )}
 

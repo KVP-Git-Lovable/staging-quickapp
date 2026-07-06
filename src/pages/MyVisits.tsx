@@ -44,6 +44,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { SyncDataModal } from "@/components/SyncDataModal";
 import { InsightsPanel } from "@/components/visits/InsightsPanel";
 import { CarryForwardBanner } from "@/components/visits/CarryForwardBanner";
+import { MissedBeatsSection } from "@/components/visits/MissedBeatsSection";
 import { StartBeatButton } from "@/components/StartBeatButton";
 import { AddActivityModal } from "@/components/AddActivityModal";
 
@@ -439,6 +440,8 @@ export const MyVisits = () => {
         teammateActivity,
         isCarryForward: !!(visit as any)?.is_carry_forward,
         carriedFromDate: (visit as any)?.carried_from_date || undefined,
+        isRescheduled: !!(visit as any)?.is_rescheduled,
+        rescheduledFromDate: (visit as any)?.rescheduled_from_date || undefined,
       };
     });
 
@@ -1732,6 +1735,11 @@ export const MyVisits = () => {
           {/* Carry-forward banner — visible only for self + today */}
           {isViewingSelf && user?.id && selectedDate === getLocalTodayDate() && (
             <CarryForwardBanner userId={user.id} date={selectedDate} variant="banner" />
+          )}
+
+          {/* Missed beat days — self view */}
+          {isViewingSelf && user?.id && (
+            <MissedBeatsSection userId={user.id} variant="banner" />
           )}
 
 
