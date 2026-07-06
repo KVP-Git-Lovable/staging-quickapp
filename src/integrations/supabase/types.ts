@@ -11513,6 +11513,9 @@ export type Database = {
           edit_summary: Json | null
           edited_by: string | null
           id: string
+          new_total: number | null
+          old_total: number | null
+          order_id: string | null
           original_order_id: string
           original_snapshot: Json | null
           reason: string | null
@@ -11524,6 +11527,9 @@ export type Database = {
           edit_summary?: Json | null
           edited_by?: string | null
           id?: string
+          new_total?: number | null
+          old_total?: number | null
+          order_id?: string | null
           original_order_id: string
           original_snapshot?: Json | null
           reason?: string | null
@@ -11535,6 +11541,9 @@ export type Database = {
           edit_summary?: Json | null
           edited_by?: string | null
           id?: string
+          new_total?: number | null
+          old_total?: number | null
+          order_id?: string | null
           original_order_id?: string
           original_snapshot?: Json | null
           reason?: string | null
@@ -26582,6 +26591,7 @@ export type Database = {
       }
       can_backdate_order: { Args: { p_date: string }; Returns: boolean }
       can_delete_beat: { Args: { p_beat_id: string }; Returns: Json }
+      can_edit_order: { Args: { p_order_id: string }; Returns: boolean }
       can_place_order_for_retailer: {
         Args: { p_retailer_id: string }
         Returns: Json
