@@ -136,6 +136,8 @@ export const Cart = () => {
   const { isVanSalesEnabled } = useVanSales();
   const [companyQrCode, setCompanyQrCode] = React.useState<string | null>(null);
   const [editReason, setEditReason] = React.useState<string>('');
+  const editPolicy = useOrderEditPolicy();
+  const editReasonRequired = isEditMode && editPolicy.edit_require_reason;
 
   // Backdated-order context set by My Visits when the user picked a past date.
   const [backdateCtx, setBackdateCtx] = React.useState<{ date: string; requireReason: boolean } | null>(() => {
