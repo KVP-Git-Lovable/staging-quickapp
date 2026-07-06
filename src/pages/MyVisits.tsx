@@ -38,6 +38,7 @@ import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
 import { Preferences } from "@capacitor/preferences";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useProfilePermissions } from "@/hooks/useProfilePermissions";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
 import { SyncDataModal } from "@/components/SyncDataModal";
@@ -216,6 +217,7 @@ export const MyVisits = () => {
   const networkStatus = useConnectivity();
   const isOnline = networkStatus === 'online';
   const { permissions, hasModuleAccess, hasActionPermission, hasWidgetPermission } = useProfilePermissions();
+  const { can } = usePermissions();
   
   // Permission-based visibility: if user has a security profile, filter buttons
   const hasSecurityProfile = permissions.length > 0;
@@ -1008,7 +1010,7 @@ export const MyVisits = () => {
     }
   };
   // Backdated-order gating for calendar selection
-  const [backdateCfg, setBackdateCfg] = useState<{ enabled: boolean; requireReason: boolean; mode: 'direct' | 'approval' }>({ enabled: false, requireReason: true, mode: 'direct' });
+  const [backdateCfg, setBackdateCfg] = useState<{ enabled: boolean; requireReason: boolean; mode: 'direct' | 'approval'; maxDays: number }>({ enabled: false, requireReason: true, mode: 'direct', maxDays: 0 });
   const [backdateApprovalPrompt, setBackdateApprovalPrompt] = useState<{ isoDate: string } | null>(null);
   const [backdateApprovalReason, setBackdateApprovalReason] = useState('');
   const [backdateApprovalSubmitting, setBackdateApprovalSubmitting] = useState(false);
@@ -1017,7 +1019,7 @@ export const MyVisits = () => {
     (async () => {
       const { data } = await supabase
         .from('operations_config')
-        .select('backdate_enabled, backdate_require_reason, backdate_mode')
+        .select('backdate_enabled, backdate_require_reason, backdate_mode, backdate_max_days')
         .eq('id', 1)
         .maybeSingle();
       if (!cancelled && data) {
@@ -1025,6 +1027,7 @@ export const MyVisits = () => {
           enabled: !!data.backdate_enabled,
           requireReason: data.backdate_require_reason !== false,
           mode: (data.backdate_mode === 'approval' ? 'approval' : 'direct'),
+          maxDays: Number(data.backdate_max_days ?? 0),
         });
       }
     })();
