@@ -742,6 +742,41 @@ export function LeaveCoverageTab({ initialDate, initialRepId }: Props = {}) {
             </CardHeader>
 
             <CardContent className="space-y-4">
+              {/* Per-beat AI cover shortcut */}
+              {(() => {
+                const beats = Array.from(
+                  new Map(
+                    (retailerByRep[aid] || []).map((r) => [
+                      r.beat_id,
+                      { beat_id: r.beat_id, beat_name: r.beat_name },
+                    ]),
+                  ).values(),
+                );
+                if (beats.length === 0) return null;
+                return (
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Assisted cover by beat
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {beats.map((b) => (
+                        <BeatCoverSuggestion
+                          key={b.beat_id}
+                          beatId={b.beat_id}
+                          beatName={b.beat_name}
+                          date={planDate}
+                          absentUserId={aid}
+                          onAssigned={() => {
+                            refetchCover();
+                            qc.invalidateQueries({ queryKey: ["bc-absent-retailers"] });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Filter bar */}
               <div className="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" onClick={() => selectAllSmart(aid)}>
