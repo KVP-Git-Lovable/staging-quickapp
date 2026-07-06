@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfilePermissions } from '@/hooks/useProfilePermissions';
 import { Navigate } from 'react-router-dom';
@@ -7,7 +7,8 @@ import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Shield, Lock, Loader2, Users, UserCog, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Shield, Lock, Loader2, Users, UserCog, ShieldCheck, KeyRound } from 'lucide-react';
+import { ObjectPermissions } from '@/components/security/ObjectPermissions';
 import { RolePermissionsTab } from '@/components/security/RolePermissionsTab';
 import { PermissionSetGroupsTab } from '@/components/security/PermissionSetGroupsTab';
 import { ProfileManagement } from '@/components/security/ProfileManagement';
@@ -16,9 +17,11 @@ import { toast } from 'sonner';
 
 export default function SecurityManagement() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { loading, user } = useAuth();
   const { hasModuleAccess, isLoading: permLoading } = useProfilePermissions();
-  const [activeTab, setActiveTab] = useState('profiles');
+  const initialTab = searchParams.get('tab') || 'profiles';
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [granting, setGranting] = useState(false);
   const autoSyncedRef = useRef(false);
 
@@ -144,6 +147,10 @@ export default function SecurityManagement() {
               <Users className="h-4 w-4" />
               Permission Set Groups
             </TabsTrigger>
+            <TabsTrigger value="feature-permissions" className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4" />
+              Feature Permissions
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="profiles" className="mt-6">
@@ -159,6 +166,12 @@ export default function SecurityManagement() {
           <TabsContent value="permission-set-groups" className="mt-6">
             <div className="bg-card border rounded-xl p-6">
               <PermissionSetGroupsTab />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="feature-permissions" className="mt-6">
+            <div className="bg-card border rounded-xl p-6">
+              <ObjectPermissions />
             </div>
           </TabsContent>
         </Tabs>
