@@ -1056,17 +1056,20 @@ export const MyVisits = () => {
         } catch {}
         return true;
       }
-      // Not directly allowed. In approval mode, offer to request approval.
+      // Not directly allowed. Clear any stale context so past date is view-only.
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      // In approval mode, still surface the request dialog, but allow viewing.
       if (backdateCfg.mode === 'approval') {
         setBackdateApprovalReason('');
         setBackdateApprovalPrompt({ isoDate });
-        return false;
+      } else {
+        toast.info("Backdating isn't allowed for this date — showing past data (view only)");
       }
-      toast.error("Backdating is beyond the allowed limit or you don't have permission");
-      return false;
+      return true;
     } catch (e: any) {
-      toast.error(e?.message || 'Could not verify backdate permission');
-      return false;
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      toast.info('Could not verify backdate permission — showing past data (view only)');
+      return true;
     }
   }, [backdateCfg]);
 
