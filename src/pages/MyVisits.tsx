@@ -38,6 +38,7 @@ import { schedulePrefetch } from "@/utils/backgroundProductPrefetch";
 import { Preferences } from "@capacitor/preferences";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useProfilePermissions } from "@/hooks/useProfilePermissions";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
 import { SyncDataModal } from "@/components/SyncDataModal";
@@ -216,6 +217,7 @@ export const MyVisits = () => {
   const networkStatus = useConnectivity();
   const isOnline = networkStatus === 'online';
   const { permissions, hasModuleAccess, hasActionPermission, hasWidgetPermission } = useProfilePermissions();
+  const { can } = usePermissions();
   
   // Permission-based visibility: if user has a security profile, filter buttons
   const hasSecurityProfile = permissions.length > 0;
@@ -1008,7 +1010,7 @@ export const MyVisits = () => {
     }
   };
   // Backdated-order gating for calendar selection
-  const [backdateCfg, setBackdateCfg] = useState<{ enabled: boolean; requireReason: boolean; mode: 'direct' | 'approval' }>({ enabled: false, requireReason: true, mode: 'direct' });
+  const [backdateCfg, setBackdateCfg] = useState<{ enabled: boolean; requireReason: boolean; mode: 'direct' | 'approval'; maxDays: number }>({ enabled: false, requireReason: true, mode: 'direct', maxDays: 0 });
   const [backdateApprovalPrompt, setBackdateApprovalPrompt] = useState<{ isoDate: string } | null>(null);
   const [backdateApprovalReason, setBackdateApprovalReason] = useState('');
   const [backdateApprovalSubmitting, setBackdateApprovalSubmitting] = useState(false);
@@ -1017,7 +1019,7 @@ export const MyVisits = () => {
     (async () => {
       const { data } = await supabase
         .from('operations_config')
-        .select('backdate_enabled, backdate_require_reason, backdate_mode')
+        .select('backdate_enabled, backdate_require_reason, backdate_mode, backdate_max_days')
         .eq('id', 1)
         .maybeSingle();
       if (!cancelled && data) {
@@ -1025,6 +1027,7 @@ export const MyVisits = () => {
           enabled: !!data.backdate_enabled,
           requireReason: data.backdate_require_reason !== false,
           mode: (data.backdate_mode === 'approval' ? 'approval' : 'direct'),
+          maxDays: Number(data.backdate_max_days ?? 0),
         });
       }
     })();
@@ -1095,6 +1098,24 @@ export const MyVisits = () => {
     }
   }, [backdateApprovalPrompt, backdateApprovalReason, backdateCfg.requireReason]);
 
+  const isBackdateAllowedForDate = useCallback((isoDate: string): boolean => {
+    const today = getLocalTodayDate();
+    if (isoDate >= today) return true;
+    // Honor an already-validated backdate context for this date.
+    try {
+      const raw = sessionStorage.getItem('backdated_order_context');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.date === isoDate) return true;
+      }
+    } catch {}
+    // Fallback: config + permission + window check.
+    if (!backdateCfg.enabled) return false;
+    if (!can('order_backdate', 'create')) return false;
+    const minDate = new Date(today);
+    minDate.setDate(minDate.getDate() - Math.max(0, backdateCfg.maxDays));
+    return new Date(`${isoDate}T00:00:00`) >= minDate;
+  }, [backdateCfg, can]);
 
   const handleDayChange = async (day: string) => {
     const dayInfo = weekDays.find(d => d.day === day);
@@ -1449,6 +1470,7 @@ export const MyVisits = () => {
 
             {/* Quick Actions - Only show for own data, filtered by permissions */}
             {isViewingSelf && (() => {
+              const allBeatEnabled = isBackdateAllowedForDate(selectedDate);
               const row1Buttons = [
                 showAutoPlan && (
                   <Button key="auto-plan" variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={handleAutoGeneratePlan} disabled={isGeneratingPlan} title="AI generates optimized weekly beat plans">
@@ -1457,7 +1479,7 @@ export const MyVisits = () => {
                   </Button>
                 ),
                 showAllBeat && (
-                  <Button key="all-beat" variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3 ${selectedDate < new Date().toISOString().split('T')[0] ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => navigate(`/beat-planning?date=${selectedDate}`)} disabled={selectedDate < new Date().toISOString().split('T')[0]}>
+                  <Button key="all-beat" variant="secondary" size="sm" className={`bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3 ${!allBeatEnabled ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={() => navigate(`/beat-planning?date=${selectedDate}`)} disabled={!allBeatEnabled}>
                     <Route size={12} className="mr-1 sm:mr-1.5" />
                     <span className="whitespace-nowrap">{t('visits.journeyPlan')}</span>
                   </Button>
