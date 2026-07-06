@@ -2687,6 +2687,13 @@ const Operations = () => {
               <TabsContent value="edited" className="space-y-4">
                 <EditedOrdersSection />
               </TabsContent>
+
+              {can('operations_config', 'edit') && (
+                <TabsContent value="exceptions" className="space-y-4">
+                  <OperationsExceptionsTab />
+                </TabsContent>
+              )}
+
             </Tabs>
           </CardContent>
         </Card>
