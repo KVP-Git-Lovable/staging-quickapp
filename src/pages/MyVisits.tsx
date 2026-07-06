@@ -44,6 +44,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { SyncDataModal } from "@/components/SyncDataModal";
 import { InsightsPanel } from "@/components/visits/InsightsPanel";
 import { CarryForwardBanner } from "@/components/visits/CarryForwardBanner";
+import { MissedBeatsSection } from "@/components/visits/MissedBeatsSection";
 import { StartBeatButton } from "@/components/StartBeatButton";
 import { AddActivityModal } from "@/components/AddActivityModal";
 
