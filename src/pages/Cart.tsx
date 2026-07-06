@@ -1569,6 +1569,7 @@ export const Cart = () => {
       console.log('✅ Navigating to My Visits');
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       clearOnBehalfContext();
+      clearOutOfBeatContext();
       navigate('/visits/retailers');
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
