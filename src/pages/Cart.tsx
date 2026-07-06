@@ -845,6 +845,16 @@ export const Cart = () => {
       });
       return;
     }
+
+    if (editReasonRequired && !editReason.trim()) {
+      toast({
+        title: 'Reason required',
+        description: 'Please enter a reason for editing this order.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     
     if (cartItems.length === 0) {
       toast({
