@@ -117,6 +117,8 @@ export const RolePermissionsTab = () => {
           can_create: false,
           can_edit: false,
           can_delete: false,
+          can_view_all: false,
+          can_modify_all: false,
           ...prev[name],
           [field]: value,
         },
