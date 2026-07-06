@@ -1098,6 +1098,24 @@ export const MyVisits = () => {
     }
   }, [backdateApprovalPrompt, backdateApprovalReason, backdateCfg.requireReason]);
 
+  const isBackdateAllowedForDate = useCallback((isoDate: string): boolean => {
+    const today = getLocalTodayDate();
+    if (isoDate >= today) return true;
+    // Honor an already-validated backdate context for this date.
+    try {
+      const raw = sessionStorage.getItem('backdated_order_context');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.date === isoDate) return true;
+      }
+    } catch {}
+    // Fallback: config + permission + window check.
+    if (!backdateCfg.enabled) return false;
+    if (!can('order_backdate', 'create')) return false;
+    const minDate = new Date(today);
+    minDate.setDate(minDate.getDate() - Math.max(0, backdateCfg.maxDays));
+    return new Date(`${isoDate}T00:00:00`) >= minDate;
+  }, [backdateCfg, can]);
 
   const handleDayChange = async (day: string) => {
     const dayInfo = weekDays.find(d => d.day === day);
