@@ -1727,6 +1727,12 @@ export const MyVisits = () => {
             />
           )}
 
+          {/* Carry-forward banner — visible only for self + today */}
+          {isViewingSelf && user?.id && selectedDate === getLocalTodayDate() && (
+            <CarryForwardBanner userId={user.id} date={selectedDate} variant="banner" />
+          )}
+
+
           {/* No visits message - ONLY after loading completes AND a brief settling period */}
           {!dataLoading && hasLoadedOnce && filteredVisits.length === 0 && !hasActivities && (plannedBeats.length === 0 || searchTerm !== '') ? <Card className="shadow-card">
               <CardContent className="p-4 sm:p-8 text-center">
