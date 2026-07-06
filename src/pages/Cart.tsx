@@ -178,6 +178,25 @@ export const Cart = () => {
   const validRetailerId = retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null;
   const validVisitId = visitId && visitId.length > 1 ? visitId : null;
 
+  // Out-of-beat flags shipped with the order payload (server re-validates + credits per policy)
+  const isOutOfBeat = !!oobCtx && !!validRetailerId && oobCtx.retailerId === validRetailerId;
+  const [retailerBeatIdForOOB, setRetailerBeatIdForOOB] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!validRetailerId) { setRetailerBeatIdForOOB(null); return; }
+    (async () => {
+      try {
+        const { data } = await supabase.from('retailers').select('beat_id').eq('id', validRetailerId).maybeSingle();
+        if (!cancelled) setRetailerBeatIdForOOB(data?.beat_id ?? null);
+      } catch { /* fallback: treat as planned */ }
+    })();
+    return () => { cancelled = true; };
+  }, [validRetailerId]);
+  const isPlannedBeat = isOutOfBeat
+    ? false
+    : (retailerBeatIdForOOB && todaysBeatIds ? todaysBeatIds.has(retailerBeatIdForOOB) : true);
+
+
   // Use visitId and retailerId from URL params consistently (same as Order Entry)
   const activeStorageKey = isEditMode
     ? `order_cart:edit:${editOrderId}`
