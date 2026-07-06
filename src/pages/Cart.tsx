@@ -29,6 +29,8 @@ import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 import { calculateLocalVanStockUpdate } from "@/utils/localVanStockSync";
 import { getLocalTodayDate } from "@/utils/dateUtils";
 import { getOnBehalfContext, clearOnBehalfContext } from "@/lib/onBehalfContext";
+import { getOutOfBeatContext, clearOutOfBeatContext } from "@/lib/outOfBeatContext";
+import { useTodaysBeatIds } from "@/hooks/useTodaysBeatIds";
 import { isSlowConnection } from "@/utils/internetSpeedCheck";
 import { useOfflineSchemes } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
