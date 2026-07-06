@@ -2986,7 +2986,7 @@ export const VisitCard = ({
                 if (!isTodaysVisit) {
                   toast({
                     title: "Cannot Place Order",
-                    description: "You can only place orders for today's visits. Please select today's date.",
+                    description: "Orders can be placed for today's date, or for a past date when backdating is enabled and permitted for you.",
                     variant: "destructive",
                   });
                   return;
