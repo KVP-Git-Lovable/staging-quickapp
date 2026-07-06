@@ -21,6 +21,7 @@ import { useSchemePolicies } from "@/hooks/useSchemePolicies";
 import { calculateOrderWithSchemes, calculateSchemeDiscountForComparison, SchemeItem, isSchemeActive, isSchemeConditionMet, schemeHasConditions } from "@/utils/schemeEngine";
 import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
 import { resolveProduct, type ResolvedProduct } from "@/utils/resolveProduct";
+import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 interface Product {
   id: string;
   sku: string;
