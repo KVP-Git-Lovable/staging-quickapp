@@ -2771,6 +2771,13 @@ export const VisitCard = ({
                   </Badge>
                 )}
 
+                {/* Coverage indicator */}
+                {visit.coveredForUserId && (
+                  <Badge variant="outline" className="text-[10px] border-purple-400/50 bg-purple-500/10 text-purple-600" title={visit.coveredForUserName ? `Covering for ${visit.coveredForUserName}` : "Coverage visit"}>
+                    Coverage
+                  </Badge>
+                )}
+
                 {/* Phone Order Badge - only shown if applicable */}
                 {currentLog?.is_phone_order && (
                   <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
