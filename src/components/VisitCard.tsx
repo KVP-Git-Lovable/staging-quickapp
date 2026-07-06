@@ -92,6 +92,8 @@ interface Visit {
   carriedFromDate?: string;
   isRescheduled?: boolean;
   rescheduledFromDate?: string;
+  coveredForUserId?: string;
+  coveredForUserName?: string;
 }
 interface VisitCardProps {
   visit: Visit;
