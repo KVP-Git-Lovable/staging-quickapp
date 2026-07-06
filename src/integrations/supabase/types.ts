@@ -26021,10 +26021,12 @@ export type Database = {
           feedback: Json | null
           id: string
           is_carry_forward: boolean
+          is_rescheduled: boolean
           location_match_in: boolean | null
           location_match_out: boolean | null
           no_order_reason: string | null
           planned_date: string
+          rescheduled_from_date: string | null
           retailer_id: string | null
           skip_check_in_reason: string | null
           skip_check_in_time: string | null
@@ -26049,10 +26051,12 @@ export type Database = {
           feedback?: Json | null
           id?: string
           is_carry_forward?: boolean
+          is_rescheduled?: boolean
           location_match_in?: boolean | null
           location_match_out?: boolean | null
           no_order_reason?: string | null
           planned_date: string
+          rescheduled_from_date?: string | null
           retailer_id?: string | null
           skip_check_in_reason?: string | null
           skip_check_in_time?: string | null
@@ -26077,10 +26081,12 @@ export type Database = {
           feedback?: Json | null
           id?: string
           is_carry_forward?: boolean
+          is_rescheduled?: boolean
           location_match_in?: boolean | null
           location_match_out?: boolean | null
           no_order_reason?: string | null
           planned_date?: string
+          rescheduled_from_date?: string | null
           retailer_id?: string | null
           skip_check_in_reason?: string | null
           skip_check_in_time?: string | null
@@ -27080,6 +27086,14 @@ export type Database = {
           username: string
         }[]
       }
+      get_missed_beat_days: {
+        Args: { p_lookback?: number; p_user: string }
+        Returns: {
+          missed_date: string
+          on_leave: boolean
+          retailer_count: number
+        }[]
+      }
       get_my_operations_today: {
         Args: { p_date?: string }
         Returns: {
@@ -27502,6 +27516,10 @@ export type Database = {
         Args: { p_action: string; p_record_id: string; p_table_name: string }
         Returns: undefined
       }
+      next_free_day: {
+        Args: { p_from: string; p_user: string }
+        Returns: string
+      }
       nextval_text: { Args: { seq_name: string }; Returns: string }
       owns_completed_invitation: {
         Args: { _email: string; _user_id: string }
@@ -27624,6 +27642,13 @@ export type Database = {
           p_target_paid?: number
         }
         Returns: string
+      }
+      reschedule_missed_day: {
+        Args: { p_from_date: string; p_to_date?: string; p_user: string }
+        Returns: {
+          moved: number
+          to_date: string
+        }[]
       }
       reset_all_qa_data: { Args: never; Returns: undefined }
       resolve_effective_leave_policy: {
