@@ -26007,6 +26007,7 @@ export type Database = {
       visits: {
         Row: {
           cancel_source: string | null
+          carried_from_date: string | null
           check_in_address: string | null
           check_in_location: Json | null
           check_in_photo_url: string | null
@@ -26019,6 +26020,7 @@ export type Database = {
           created_at: string
           feedback: Json | null
           id: string
+          is_carry_forward: boolean
           location_match_in: boolean | null
           location_match_out: boolean | null
           no_order_reason: string | null
@@ -26033,6 +26035,7 @@ export type Database = {
         }
         Insert: {
           cancel_source?: string | null
+          carried_from_date?: string | null
           check_in_address?: string | null
           check_in_location?: Json | null
           check_in_photo_url?: string | null
@@ -26045,6 +26048,7 @@ export type Database = {
           created_at?: string
           feedback?: Json | null
           id?: string
+          is_carry_forward?: boolean
           location_match_in?: boolean | null
           location_match_out?: boolean | null
           no_order_reason?: string | null
@@ -26059,6 +26063,7 @@ export type Database = {
         }
         Update: {
           cancel_source?: string | null
+          carried_from_date?: string | null
           check_in_address?: string | null
           check_in_location?: Json | null
           check_in_photo_url?: string | null
@@ -26071,6 +26076,7 @@ export type Database = {
           created_at?: string
           feedback?: Json | null
           id?: string
+          is_carry_forward?: boolean
           location_match_in?: boolean | null
           location_match_out?: boolean | null
           no_order_reason?: string | null
@@ -26532,6 +26538,10 @@ export type Database = {
         }
         Returns: Json
       }
+      add_carry_forward_to_plan: {
+        Args: { p_date: string; p_retailer_ids?: string[]; p_user: string }
+        Returns: number
+      }
       admin_deactivate_all_products: { Args: never; Returns: Json }
       allocate_inventory_batches: {
         Args: {
@@ -26940,6 +26950,14 @@ export type Database = {
           full_name: string
           id: string
           username: string
+        }[]
+      }
+      get_carry_forward_retailers: {
+        Args: { p_date: string; p_user: string }
+        Returns: {
+          cancelled_on: string
+          retailer_id: string
+          retailer_name: string
         }[]
       }
       get_collection_workspace: {
