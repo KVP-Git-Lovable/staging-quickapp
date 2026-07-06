@@ -2993,7 +2993,8 @@ export const VisitCard = ({
                 }
 
                 // Check if check-in is required but not done (sync check, no network)
-                if (isCheckInEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
+                // Skip check-in requirement for backdated orders
+                if (!isBackdatedOrderAllowed && isCheckInEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
                   toast({
                     title: "Check-in Required",
                     description: "Please check in first to place an order.",
