@@ -18,6 +18,7 @@ import { useCoordinatorAlerts } from "@/hooks/useCoordinatorAlerts";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { applyHalfDayFilter } from "@/utils/halfDayRouteUtils";
 import { cn } from "@/lib/utils";
+import { BeatCoverSuggestion } from "./BeatCoverSuggestion";
 
 const sb = supabase as any;
 const todayStr = () => new Date().toISOString().slice(0, 10);
