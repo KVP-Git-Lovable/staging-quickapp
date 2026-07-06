@@ -89,6 +89,28 @@ export const MyRetailers = () => {
   const canPlaceForOther = can('order_on_behalf', 'create');
   const canPlaceOrderForRow = (row: Retailer) =>
     !isViewingOther || (canPlaceForOther && row.user_id !== user?.id);
+
+  // Out-of-beat ordering — gated by operations_config + permission
+  const { data: oobCfg } = useOOBConfig();
+  const canOOB = can('order_out_of_beat', 'create');
+  const canOOBAll = can('order_out_of_beat', 'view_all');
+  const oobEnabled = !!oobCfg?.oob_enabled && canOOB;
+  const oobVisibility = oobCfg?.oob_visibility ?? 'beat';
+  const isSelfView = !!user && selectedUserIds.length === 1 && selectedUserIds[0] === user.id;
+  const { data: todaysBeatIds } = useTodaysBeatIds();
+  const { data: myTerritoryIds } = useMyTerritoryIds();
+
+  // OOB place-order dialog state
+  const [oobDialogOpen, setOobDialogOpen] = useState(false);
+  const [oobDialogRetailer, setOobDialogRetailer] = useState<Retailer | null>(null);
+  const [oobReason, setOobReason] = useState('');
+  const [oobGps, setOobGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [oobGpsCapturing, setOobGpsCapturing] = useState(false);
+
+  const isInTodaysBeat = useCallback((beatId?: string | null) => {
+    if (!beatId) return false;
+    return !!todaysBeatIds && todaysBeatIds.has(beatId);
+  }, [todaysBeatIds]);
   
   // Track if initial data load is complete (prevents flickering)
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
