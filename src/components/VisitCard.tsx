@@ -567,7 +567,17 @@ export const VisitCard = ({
   // Check if the selected date is today's date (use local timezone for accurate comparison)
   const today = new Date();
   const localTodayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-  const isTodaysVisit = selectedDate === localTodayString;
+  // A past date is allowed for ordering when an active backdate context matches selectedDate
+  // (set by MyVisits.applyBackdateContext after can_backdate_order RPC succeeds).
+  const isBackdatedOrderAllowed = (() => {
+    try {
+      const raw = sessionStorage.getItem('backdated_order_context');
+      if (!raw) return false;
+      const ctx = JSON.parse(raw);
+      return ctx?.date && ctx.date === selectedDate;
+    } catch { return false; }
+  })();
+  const isTodaysVisit = selectedDate === localTodayString || isBackdatedOrderAllowed;
 
   // Ensure visit tracking ends when this card unmounts or user navigates away
   // REMOVED: Do NOT call endTracking on unmount - it was incorrectly updating end_time to "now"
@@ -2983,7 +2993,8 @@ export const VisitCard = ({
                 }
 
                 // Check if check-in is required but not done (sync check, no network)
-                if (isCheckInEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
+                // Skip check-in requirement for backdated orders
+                if (!isBackdatedOrderAllowed && isCheckInEnabled && isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn) {
                   toast({
                     title: "Check-in Required",
                     description: "Please check in first to place an order.",
