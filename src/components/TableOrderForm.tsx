@@ -131,6 +131,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const retailerId = searchParams.get("retailerId") || '';
   const editOrderId = searchParams.get("editOrderId") || '';
   const isEditMode = !!editOrderId;
+  const editPolicy = useOrderEditPolicy();
+  // When editing an order and the admin has locked pricing, freeze anything
+  // that would change the per-unit rate (product, variant, UOM) — only qty is editable.
+  const priceLocked = isEditMode && editPolicy.edit_lock_price;
 
   // PERF: disable noisy logs in hot paths
   const DEV_LOG = false;
