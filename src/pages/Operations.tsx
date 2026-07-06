@@ -1273,9 +1273,11 @@ const Operations = () => {
             <TabsTrigger value="configuration">Configuration</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="approvals">
+          <TabsContent value="approvals" className="space-y-4">
             <BackdateApprovalsList />
+            <OrderEditApprovalsList />
           </TabsContent>
+
 
           <TabsContent value="configuration">
             {can('operations_config', 'edit') ? (
