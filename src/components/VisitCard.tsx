@@ -29,6 +29,8 @@ import { VisitAIInsightsModal } from "./VisitAIInsightsModal";
 import { VanSalesModal } from "./VanSalesModal";
 import { useVanSales } from "@/hooks/useVanSales";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { checkUploadSpeed } from "@/utils/internetSpeedCheck";
 import { hasRecentUploadErrors, hasRecentUploadAttempts } from "@/utils/uploadErrorChecker";
 import { CameraCapture } from "./CameraCapture";
@@ -285,10 +287,53 @@ export const VisitCard = ({
   const [creditLimitData, setCreditLimitData] = useState<{ creditLimit: number; score: number; avgDso: number } | null>(null);
   const [showCancelOrderDialog, setShowCancelOrderDialog] = useState(false);
   const [showEditPickerDialog, setShowEditPickerDialog] = useState(false);
+  const [editableOrderIds, setEditableOrderIds] = useState<Set<string>>(new Set());
   const {
     isVanSalesEnabled
   } = useVanSales();
   const { can } = usePermissions();
+  const editPolicy = useOrderEditPolicy();
+  const canEditPerm = can('order_edit', 'edit');
+
+  // Ask the DB per-order whether editing is currently allowed under policy
+  // (edit_who / lock point / max edits). Only runs when the policy is on and
+  // the user has the permission, so the picker/button reflect true state.
+  useEffect(() => {
+    if (!editPolicy.edit_enabled || !canEditPerm) {
+      setEditableOrderIds(new Set());
+      return;
+    }
+    const candidates = (ordersTodayList || []).filter(
+      (o: any) => !o.invoice_generated_at && !o.dispatched_at,
+    );
+    if (candidates.length === 0) {
+      setEditableOrderIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const results = await Promise.all(
+        candidates.map(async (o: any) => {
+          try {
+            const { data, error } = await (supabase as any).rpc('can_edit_order', {
+              p_order_id: o.id,
+            });
+            if (error) return null;
+            return data === true ? o.id : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setEditableOrderIds(new Set(results.filter((x): x is string => !!x)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editPolicy.edit_enabled, canEditPerm, ordersTodayList]);
+
+
   const canCheckIn = can('action_attendance_check_in', 'read');
   const {
     isCheckInMandatory
@@ -3213,10 +3258,10 @@ export const VisitCard = ({
                         Cancel Order
                       </Button>
 
-                      {/* Edit Order Button (Phase 2b-3b) */}
-                      {can('action_order_edit', 'edit') && (() => {
-                        const editable = ordersTodayList.filter((o: any) =>
-                          !o.invoice_generated_at && !o.dispatched_at
+                      {/* Edit Order Button (Phase 2b-3b) — gated by operations_config + can_edit_order RPC */}
+                      {editPolicy.edit_enabled && canEditPerm && (() => {
+                        const editable = ordersTodayList.filter(
+                          (o: any) => editableOrderIds.has(o.id),
                         );
                         if (editable.length === 0) return null;
                         const goEdit = (orderId: string) => {
@@ -3240,6 +3285,7 @@ export const VisitCard = ({
                           </Button>
                         );
                       })()}
+
                     </div>}
                 </>}
             </div>}
@@ -3252,32 +3298,49 @@ export const VisitCard = ({
               <DialogTitle>Which order do you want to edit?</DialogTitle>
             </DialogHeader>
             <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-              {ordersTodayList
-                .filter((o: any) => !o.invoice_generated_at && !o.dispatched_at)
-                .map((o) => (
-                  <button
-                    key={o.id}
-                    className="w-full text-left border rounded-md p-3 hover:bg-accent transition"
-                    onClick={() => {
-                      setShowEditPickerDialog(false);
-                      const vId = currentVisitId || visit.id;
-                      const rId = (visit.retailerId || visit.id) as string;
-                      const rName = visit.retailerName || '';
-                      navigate(`/order-entry?visitId=${encodeURIComponent(vId)}&retailerId=${encodeURIComponent(rId)}&retailer=${encodeURIComponent(rName)}&editOrderId=${encodeURIComponent(o.id)}`);
-                    }}
-                  >
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-medium">
-                        {o.invoice_number ? `Invoice ${o.invoice_number}` : `Order ${o.id.slice(0, 8)}`}
-                      </span>
-                      <span className="text-muted-foreground">₹{Number(o.total_amount || 0).toLocaleString('en-IN')}</span>
-                    </div>
-                    {o.distributor_name && (
-                      <div className="text-xs text-muted-foreground mt-0.5">{o.distributor_name}</div>
-                    )}
-                  </button>
-                ))}
+              <TooltipProvider>
+                {ordersTodayList
+                  .filter((o: any) => !o.invoice_generated_at && !o.dispatched_at)
+                  .map((o) => {
+                    const allowed = editableOrderIds.has(o.id);
+                    const row = (
+                      <button
+                        key={o.id}
+                        disabled={!allowed}
+                        className="w-full text-left border rounded-md p-3 hover:bg-accent transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                        onClick={() => {
+                          if (!allowed) return;
+                          setShowEditPickerDialog(false);
+                          const vId = currentVisitId || visit.id;
+                          const rId = (visit.retailerId || visit.id) as string;
+                          const rName = visit.retailerName || '';
+                          navigate(`/order-entry?visitId=${encodeURIComponent(vId)}&retailerId=${encodeURIComponent(rId)}&retailer=${encodeURIComponent(rName)}&editOrderId=${encodeURIComponent(o.id)}`);
+                        }}
+                      >
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium">
+                            {o.invoice_number ? `Invoice ${o.invoice_number}` : `Order ${o.id.slice(0, 8)}`}
+                          </span>
+                          <span className="text-muted-foreground">₹{Number(o.total_amount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        {o.distributor_name && (
+                          <div className="text-xs text-muted-foreground mt-0.5">{o.distributor_name}</div>
+                        )}
+                      </button>
+                    );
+                    if (allowed) return row;
+                    return (
+                      <Tooltip key={o.id}>
+                        <TooltipTrigger asChild>
+                          <div>{row}</div>
+                        </TooltipTrigger>
+                        <TooltipContent>This order can no longer be edited</TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+              </TooltipProvider>
             </div>
+
           </DialogContent>
         </Dialog>
 

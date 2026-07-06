@@ -39,6 +39,7 @@ import { markVisitDataChanged } from "@/lib/visitChangeMarker";
 import { useD1Delivery } from "@/hooks/useD1Delivery";
 import { useOrderBasedDelivery } from "@/hooks/useOrderBasedDelivery";
 import { useVanSales } from "@/hooks/useVanSales";
+import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
 import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
 
@@ -135,6 +136,8 @@ export const Cart = () => {
   const { isVanSalesEnabled } = useVanSales();
   const [companyQrCode, setCompanyQrCode] = React.useState<string | null>(null);
   const [editReason, setEditReason] = React.useState<string>('');
+  const editPolicy = useOrderEditPolicy();
+  const editReasonRequired = isEditMode && editPolicy.edit_require_reason;
 
   // Backdated-order context set by My Visits when the user picked a past date.
   const [backdateCtx, setBackdateCtx] = React.useState<{ date: string; requireReason: boolean } | null>(() => {
@@ -842,6 +845,16 @@ export const Cart = () => {
       });
       return;
     }
+
+    if (editReasonRequired && !editReason.trim()) {
+      toast({
+        title: 'Reason required',
+        description: 'Please enter a reason for editing this order.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     
     if (cartItems.length === 0) {
       toast({
@@ -2577,7 +2590,7 @@ export const Cart = () => {
             </div>
             <div className="rounded-md border bg-card px-3 py-2">
               <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Reason for edit <span className="text-muted-foreground/70">(optional)</span>
+                Reason for edit {editReasonRequired ? <span className="text-destructive">*</span> : <span className="text-muted-foreground/70">(optional)</span>}
               </label>
               <input
                 type="text"

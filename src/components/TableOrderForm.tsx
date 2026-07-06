@@ -21,6 +21,7 @@ import { useSchemePolicies } from "@/hooks/useSchemePolicies";
 import { calculateOrderWithSchemes, calculateSchemeDiscountForComparison, SchemeItem, isSchemeActive, isSchemeConditionMet, schemeHasConditions } from "@/utils/schemeEngine";
 import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
 import { resolveProduct, type ResolvedProduct } from "@/utils/resolveProduct";
+import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 interface Product {
   id: string;
   sku: string;
@@ -130,6 +131,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const retailerId = searchParams.get("retailerId") || '';
   const editOrderId = searchParams.get("editOrderId") || '';
   const isEditMode = !!editOrderId;
+  const editPolicy = useOrderEditPolicy();
+  // When editing an order and the admin has locked pricing, freeze anything
+  // that would change the per-unit rate (product, variant, UOM) — only qty is editable.
+  const priceLocked = isEditMode && editPolicy.edit_lock_price;
 
   // PERF: disable noisy logs in hot paths
   const DEV_LOG = false;
@@ -1257,15 +1262,18 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                     <div className="flex flex-col min-w-0">
                       <Popover 
                         open={openComboboxes[row.id]} 
-                        onOpenChange={(open) => setOpenComboboxes(prev => ({ ...prev, [row.id]: open }))}
+                        onOpenChange={(open) => { if (priceLocked) return; setOpenComboboxes(prev => ({ ...prev, [row.id]: open })); }}
                       >
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
                             role="combobox"
                             aria-expanded={openComboboxes[row.id]}
+                            disabled={priceLocked}
+                            title={priceLocked ? 'Price is locked for edited orders — only quantity can be changed' : undefined}
                             className="w-full min-w-0 justify-start h-9 md:h-11 text-xs md:text-sm font-normal bg-background px-2"
                           >
+
                             {row.product ? (
                               <div className="flex items-center gap-1.5 w-full overflow-hidden">
                                 {(row.variant ? isFocusedProductActive(row.variant) : isFocusedProductActive(row.product)) && (
@@ -1416,9 +1424,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                           value={row.uomCode || row.unit}
                           context="sales"
                           hideWhenSingle={false}
+                          disabled={priceLocked}
                           className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2"
                           onChange={(sel) => updateRow(row.id, "unit", sel)}
                         />
+
                       ) : (
                         <div className="h-9 md:h-11 flex items-center text-xs text-muted-foreground">—</div>
                       )}
