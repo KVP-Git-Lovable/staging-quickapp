@@ -405,6 +405,45 @@ export const MyRetailers = () => {
     loadRetailersRef.current(selectedUserIds);
   }, [selectedUserIds]);
 
+  // OOB visibility='all' — search-driven merge (online only).
+  // When the user types ≥3 chars and view is self, look up matching retailers
+  // from the whole master (RLS gates to OOB scope) and merge into local state.
+  const oobAllOnline = oobEnabled && isSelfView && oobVisibility === 'all' && canOOBAll;
+  useEffect(() => {
+    if (!oobAllOnline) return;
+    if (!navigator.onLine) return;
+    const q = deferredSearch.trim();
+    if (q.length < 3) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const like = `%${q.replace(/[%_]/g, '')}%`;
+        const { data } = await supabase
+          .from('retailers')
+          .select('*')
+          .or(`name.ilike.${like},phone.ilike.${like}`)
+          .limit(50);
+        if (cancelled || !data || data.length === 0) return;
+        setRetailers(prev => {
+          const map = new Map<string, any>();
+          prev.forEach(r => map.set(r.id, r));
+          data.forEach((r: any) => {
+            if (!map.has(r.id)) {
+              map.set(r.id, { ...r, owner_name: userNameMap[r.user_id] || 'Other' });
+            }
+          });
+          const merged = Array.from(map.values());
+          buildRetailerIndex(merged);
+          return merged as Retailer[];
+        });
+      } catch (e) {
+        console.warn('OOB all-search fetch failed:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [oobAllOnline, deferredSearch, userNameMap]);
+
+
   // Debounce the loadRetailers call to prevent rapid firing
   const loadRetailersTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
