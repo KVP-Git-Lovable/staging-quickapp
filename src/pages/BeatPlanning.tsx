@@ -664,47 +664,10 @@ export const BeatPlanning = () => {
     }
   };
 
-  const handleAutoGeneratePlan = async () => {
+  const handleAutoGeneratePlan = () => {
     if (!effectiveUserId) return;
-    
-    setIsGeneratingPlan(true);
-    const loadingToast = toast.loading('Generating optimized plan for this week and next...');
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('auto-generate-beat-plan', {
-        body: { 
-          userId: effectiveUserId,
-          forceRegenerate: true 
-        }
-      });
-      
-      if (error) throw error;
-      
-      toast.dismiss(loadingToast);
-      
-      const result = data?.results?.[0];
-      if (result?.status === 'success') {
-        const plansCreated = result.plansCreated || 0;
-        const prescheduled = result.prescheduledPreserved || 0;
-        
-        toast.success(`Created ${plansCreated} new plans, preserved ${prescheduled} pre-scheduled beats!`);
-        
-        // Navigate to rationale page with the plan result
-        navigate('/auto-plan-rationale', { state: { planResult: result } });
-      } else {
-        toast.error(result?.reason || 'Failed to generate plan');
-      }
-      
-      // Refresh current view
-      loadBeatPlans(toLocalISODate(selectedDate));
-      loadBeatsFromNetwork();
-    } catch (error) {
-      console.error('Auto-generate error:', error);
-      toast.dismiss(loadingToast);
-      toast.error('Failed to generate plan. Please try again.');
-    } finally {
-      setIsGeneratingPlan(false);
-    }
+    // Unified with My Visits: open the preview/editor flow so the user can review before saving.
+    navigate('/auto-plan-preview');
   };
 
   const getTotalPlannedDays = () => {
