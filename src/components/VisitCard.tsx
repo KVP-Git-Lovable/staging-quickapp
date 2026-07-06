@@ -285,10 +285,13 @@ export const VisitCard = ({
   const [creditLimitData, setCreditLimitData] = useState<{ creditLimit: number; score: number; avgDso: number } | null>(null);
   const [showCancelOrderDialog, setShowCancelOrderDialog] = useState(false);
   const [showEditPickerDialog, setShowEditPickerDialog] = useState(false);
+  const [editableOrderIds, setEditableOrderIds] = useState<Set<string>>(new Set());
   const {
     isVanSalesEnabled
   } = useVanSales();
   const { can } = usePermissions();
+  const editPolicy = useOrderEditPolicy();
+
   const canCheckIn = can('action_attendance_check_in', 'read');
   const {
     isCheckInMandatory
