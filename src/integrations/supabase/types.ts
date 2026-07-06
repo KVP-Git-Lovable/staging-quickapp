@@ -26017,6 +26017,7 @@ export type Database = {
           check_out_photo_url: string | null
           check_out_time: string | null
           completion_source: string | null
+          covered_for_user_id: string | null
           created_at: string
           feedback: Json | null
           id: string
@@ -26047,6 +26048,7 @@ export type Database = {
           check_out_photo_url?: string | null
           check_out_time?: string | null
           completion_source?: string | null
+          covered_for_user_id?: string | null
           created_at?: string
           feedback?: Json | null
           id?: string
@@ -26077,6 +26079,7 @@ export type Database = {
           check_out_photo_url?: string | null
           check_out_time?: string | null
           completion_source?: string | null
+          covered_for_user_id?: string | null
           created_at?: string
           feedback?: Json | null
           id?: string
@@ -26594,6 +26597,15 @@ export type Database = {
           p_subordinate_ids: string[]
         }
         Returns: Json
+      }
+      assign_beat_cover: {
+        Args: {
+          p_absent_user: string
+          p_beat_id: string
+          p_cover_user: string
+          p_date: string
+        }
+        Returns: number
       }
       assign_retailer_to_beat: {
         Args: { p_beat_id: string; p_reason?: string; p_retailer_id: string }
@@ -27759,6 +27771,17 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      suggest_beat_cover: {
+        Args: { p_absent_user: string; p_beat_id: string; p_date: string }
+        Returns: {
+          candidate_name: string
+          candidate_user_id: string
+          distance_km: number
+          is_free: boolean
+          planned_load: number
+          score: number
+        }[]
+      }
       sync_order_with_items: {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
