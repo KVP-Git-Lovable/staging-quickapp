@@ -392,7 +392,7 @@ export const MyRetailers = () => {
       setInitialLoadComplete(true);
       loadingRef.current = false;
     }
-  }, [user]);
+  }, [user, oobEnabled, isSelfView, oobVisibility, myTerritoryIds]);
   
   // Stable ref for loadRetailers to avoid dependency issues
   const loadRetailersRef = useRef(loadRetailers);
