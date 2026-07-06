@@ -2762,6 +2762,13 @@ export const VisitCard = ({
                   </Badge>
                 )}
 
+                {/* Rescheduled indicator */}
+                {visit.isRescheduled && (
+                  <Badge variant="outline" className="text-[10px] border-primary/40 bg-primary/10 text-primary" title={visit.rescheduledFromDate ? `Rescheduled from ${visit.rescheduledFromDate}` : "Rescheduled"}>
+                    Rescheduled
+                  </Badge>
+                )}
+
                 {/* Phone Order Badge - only shown if applicable */}
                 {currentLog?.is_phone_order && (
                   <span className="flex items-center gap-1 text-xs text-blue-600 font-medium">
