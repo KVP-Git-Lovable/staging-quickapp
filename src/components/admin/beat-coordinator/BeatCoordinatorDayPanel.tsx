@@ -97,6 +97,9 @@ export function BeatCoordinatorDayPanel({ repId, repName, selectedDate, onOpenAs
           {repId && (
             <CarryForwardBanner userId={repId} date={selectedDate} variant="chip" />
           )}
+          {repId && (
+            <MissedBeatsSection userId={repId} variant="chip" />
+          )}
           <Button variant="outline" size="sm" onClick={onOpenAssign}>
             <Edit3 className="h-3.5 w-3.5 mr-1" /> Edit plan
           </Button>
