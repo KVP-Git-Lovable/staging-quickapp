@@ -92,7 +92,10 @@ export function BeatCoordinatorDayPanel({ repId, repName, selectedDate, onOpenAs
           <div className="text-base font-semibold">{dateLabel} — {repName}</div>
           <div className="text-xs text-muted-foreground">Day plan & quick actions</div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          {repId && (
+            <CarryForwardBanner userId={repId} date={selectedDate} variant="chip" />
+          )}
           <Button variant="outline" size="sm" onClick={onOpenAssign}>
             <Edit3 className="h-3.5 w-3.5 mr-1" /> Edit plan
           </Button>
