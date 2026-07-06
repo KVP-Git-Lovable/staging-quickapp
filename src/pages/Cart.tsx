@@ -1133,6 +1133,9 @@ export const Cart = () => {
         is_out_of_beat: isOutOfBeat,
         out_of_beat_reason: isOutOfBeat ? (oobCtx?.reason?.trim() || null) : null,
         is_planned_beat: !isOutOfBeat,
+        oob_location: isOutOfBeat && oobCtx?.gpsLat != null
+          ? { lat: oobCtx.gpsLat, lng: oobCtx.gpsLng }
+          : null,
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
@@ -2125,6 +2128,9 @@ export const Cart = () => {
         is_out_of_beat: isOutOfBeat,
         out_of_beat_reason: isOutOfBeat ? (oobCtx?.reason?.trim() || null) : null,
         is_planned_beat: !isOutOfBeat,
+        oob_location: isOutOfBeat && oobCtx?.gpsLat != null
+          ? { lat: oobCtx.gpsLat, lng: oobCtx.gpsLng }
+          : null,
         subtotal,
         discount_amount: discountAmount,
         total_amount: totalAmount,
