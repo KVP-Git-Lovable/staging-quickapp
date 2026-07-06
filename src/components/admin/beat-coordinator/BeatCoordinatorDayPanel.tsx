@@ -8,6 +8,7 @@ import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CarryForwardBanner } from "@/components/visits/CarryForwardBanner";
+import { MissedBeatsSection } from "@/components/visits/MissedBeatsSection";
 
 const sb = supabase as any;
 
