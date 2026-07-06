@@ -41,7 +41,11 @@ const CRUD_COLS: { key: keyof CRUDFlags; label: string }[] = [
   { key: 'can_create', label: 'Create' },
   { key: 'can_edit', label: 'Edit' },
   { key: 'can_delete', label: 'Delete' },
+  { key: 'can_view_all', label: 'View all' },
+  { key: 'can_modify_all', label: 'Modify all' },
 ];
+
+const ALL_KEYS: (keyof CRUDFlags)[] = ['can_read', 'can_create', 'can_edit', 'can_delete', 'can_view_all', 'can_modify_all'];
 
 function isAllChecked(perms: CRUDFlags | undefined): boolean {
   if (!perms) return false;
