@@ -301,8 +301,33 @@ export const MyRetailers = () => {
           } catch (sharedErr) {
             console.warn('Shared beat retailers fetch failed (non-fatal):', sharedErr);
           }
-          
+
+          // Part 3: OOB widening — only when self-view + oob_enabled + permission
+          // 'territory' → include retailers in user's territories
+          // 'all' → search-driven; see search effect below
+          try {
+            if (oobEnabled && isSelfView && (oobVisibility === 'territory' || oobVisibility === 'all')) {
+              const terrIds = myTerritoryIds || [];
+              if (terrIds.length > 0) {
+                const { data: territoryRetailers } = await supabase
+                  .from('retailers')
+                  .select('*')
+                  .in('territory_id', terrIds as any)
+                  .order('name')
+                  .limit(2000);
+                if (territoryRetailers && territoryRetailers.length > 0) {
+                  const map = new Map<string, any>();
+                  [...allRetailers, ...territoryRetailers].forEach(r => map.set(r.id, r));
+                  allRetailers = Array.from(map.values());
+                }
+              }
+            }
+          } catch (oobErr) {
+            console.warn('OOB territory fetch failed (non-fatal):', oobErr);
+          }
+
           console.log('✅ Fetched total retailers:', allRetailers.length);
+          
           
           // Process and set all data at once (prevents flickering)
           setLoadingProgress('Processing...');
