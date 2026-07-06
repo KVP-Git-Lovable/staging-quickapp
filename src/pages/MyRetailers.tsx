@@ -850,6 +850,63 @@ export const MyRetailers = () => {
     }
   }, [location.state, retailers]);
 
+  // Navigate to Order Entry — either directly (in-beat) or via OOB confirm dialog
+  const handlePlaceOrder = useCallback((r: Retailer) => {
+    const inBeat = isInTodaysBeat(r.beat_id);
+    if (inBeat || !oobEnabled) {
+      clearOutOfBeatContext();
+      navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`);
+      return;
+    }
+    // Out-of-beat: open confirm dialog to capture reason + GPS as configured
+    setOobDialogRetailer(r);
+    setOobReason('');
+    setOobGps(null);
+    setOobDialogOpen(true);
+  }, [isInTodaysBeat, oobEnabled, navigate]);
+
+  const captureOobGps = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      toast({ title: 'GPS unavailable', description: 'This device does not support location.', variant: 'destructive' });
+      return;
+    }
+    setOobGpsCapturing(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setOobGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setOobGpsCapturing(false);
+      },
+      (err) => {
+        setOobGpsCapturing(false);
+        toast({ title: 'Location failed', description: err.message || 'Could not capture GPS.', variant: 'destructive' });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, []);
+
+  const confirmOobAndPlace = useCallback(() => {
+    if (!oobDialogRetailer) return;
+    if (oobCfg?.oob_require_reason && !oobReason.trim()) {
+      toast({ title: 'Reason required', description: 'Please enter a reason for the out-of-beat visit.', variant: 'destructive' });
+      return;
+    }
+    if (oobCfg?.oob_require_gps && !oobGps) {
+      toast({ title: 'GPS required', description: 'Please capture your location.', variant: 'destructive' });
+      return;
+    }
+    setOutOfBeatContext({
+      retailerId: oobDialogRetailer.id,
+      reason: oobReason.trim(),
+      gpsLat: oobGps?.lat,
+      gpsLng: oobGps?.lng,
+    });
+    const r = oobDialogRetailer;
+    setOobDialogOpen(false);
+    setOobDialogRetailer(null);
+    navigate(`/order-entry?phoneOrder=true&retailerId=${r.id}&retailer=${encodeURIComponent(r.name)}`);
+  }, [oobDialogRetailer, oobCfg, oobReason, oobGps, navigate]);
+
+
   // Show skeleton during initial load for smooth UX - no flicker
   if (!initialLoadComplete && loading) {
     return (
