@@ -133,10 +133,7 @@ function GroupHeader({
 
   const handleGroupAll = (checked: boolean) => {
     group.items.forEach(item => {
-      onChange(item.name, 'can_read', checked);
-      onChange(item.name, 'can_create', checked);
-      onChange(item.name, 'can_edit', checked);
-      onChange(item.name, 'can_delete', checked);
+      ALL_KEYS.forEach(k => onChange(item.name, k, checked));
     });
   };
 
