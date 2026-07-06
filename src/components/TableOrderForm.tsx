@@ -1424,9 +1424,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                           value={row.uomCode || row.unit}
                           context="sales"
                           hideWhenSingle={false}
+                          disabled={priceLocked}
                           className="h-9 md:h-11 text-xs md:text-sm w-full bg-background px-2"
                           onChange={(sel) => updateRow(row.id, "unit", sel)}
                         />
+
                       ) : (
                         <div className="h-9 md:h-11 flex items-center text-xs text-muted-foreground">—</div>
                       )}
