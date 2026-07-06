@@ -88,6 +88,8 @@ interface Visit {
     visitTime?: string;
     ownActivity: boolean;
   };
+  isCarryForward?: boolean;
+  carriedFromDate?: string;
 }
 interface VisitCardProps {
   visit: Visit;
