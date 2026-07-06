@@ -440,6 +440,8 @@ export const MyVisits = () => {
         teammateActivity,
         isCarryForward: !!(visit as any)?.is_carry_forward,
         carriedFromDate: (visit as any)?.carried_from_date || undefined,
+        isRescheduled: !!(visit as any)?.is_rescheduled,
+        rescheduledFromDate: (visit as any)?.rescheduled_from_date || undefined,
       };
     });
 
