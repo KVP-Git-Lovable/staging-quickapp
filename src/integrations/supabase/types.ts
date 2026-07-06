@@ -11720,6 +11720,7 @@ export type Database = {
           is_edited: boolean
           is_out_of_beat: boolean
           is_planned_beat: boolean | null
+          oob_location: Json | null
           order_date: string | null
           order_source: string | null
           out_of_beat_reason: string | null
@@ -11784,6 +11785,7 @@ export type Database = {
           is_edited?: boolean
           is_out_of_beat?: boolean
           is_planned_beat?: boolean | null
+          oob_location?: Json | null
           order_date?: string | null
           order_source?: string | null
           out_of_beat_reason?: string | null
@@ -11848,6 +11850,7 @@ export type Database = {
           is_edited?: boolean
           is_out_of_beat?: boolean
           is_planned_beat?: boolean | null
+          oob_location?: Json | null
           order_date?: string | null
           order_source?: string | null
           out_of_beat_reason?: string | null
