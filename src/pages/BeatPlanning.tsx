@@ -21,6 +21,7 @@ import { UserSelector } from "@/components/UserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
 import { getMyBeats } from "@/services/beatService";
 import { useAppTimezone, getLocalDateString } from "@/hooks/useAppTimezone";
+import { MissedBeatsSection } from "@/components/visits/MissedBeatsSection";
 
 interface Beat {
   id: string; // beat_id
@@ -843,6 +844,11 @@ export const BeatPlanning = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Beats not covered — self view */}
+        {(!selectedUserId || selectedUserId === 'self' || selectedUserId === user?.id) && user?.id && (
+          <MissedBeatsSection userId={user.id} variant="banner" />
+        )}
 
         {/* Category Tabs removed - showing all beats derived from your retailers */}
 
