@@ -82,9 +82,9 @@ export const RolePermissionsTab = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_object_permissions')
-        .select('object_name, permission_type, can_read, can_create, can_edit, can_delete')
+        .select('object_name, permission_type, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
         .eq('profile_id', selectedProfileId)
-        .in('permission_type', ['module', 'field', 'action', 'widget']);
+        .in('permission_type', ['module', 'field', 'action', 'widget', 'feature']);
 
       if (error) throw error;
 
@@ -96,6 +96,8 @@ export const RolePermissionsTab = () => {
           can_create: p.can_create ?? false,
           can_edit: p.can_edit ?? false,
           can_delete: p.can_delete ?? false,
+          can_view_all: p.can_view_all ?? false,
+          can_modify_all: p.can_modify_all ?? false,
         };
       });
 
@@ -115,6 +117,8 @@ export const RolePermissionsTab = () => {
           can_create: false,
           can_edit: false,
           can_delete: false,
+          can_view_all: false,
+          can_modify_all: false,
           ...prev[name],
           [field]: value,
         },
@@ -135,8 +139,8 @@ export const RolePermissionsTab = () => {
         can_create: perms.can_create,
         can_edit: perms.can_edit,
         can_delete: perms.can_delete,
-        can_view_all: false,
-        can_modify_all: false,
+        can_view_all: perms.can_view_all,
+        can_modify_all: perms.can_modify_all,
       }));
 
       const { error } = await supabase

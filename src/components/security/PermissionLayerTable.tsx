@@ -20,6 +20,8 @@ export interface CRUDFlags {
   can_create: boolean;
   can_edit: boolean;
   can_delete: boolean;
+  can_view_all: boolean;
+  can_modify_all: boolean;
 }
 
 export type PermissionMap = Record<string, CRUDFlags>;
@@ -39,17 +41,22 @@ const CRUD_COLS: { key: keyof CRUDFlags; label: string }[] = [
   { key: 'can_create', label: 'Create' },
   { key: 'can_edit', label: 'Edit' },
   { key: 'can_delete', label: 'Delete' },
+  { key: 'can_view_all', label: 'View all' },
+  { key: 'can_modify_all', label: 'Modify all' },
 ];
+
+const ALL_KEYS: (keyof CRUDFlags)[] = ['can_read', 'can_create', 'can_edit', 'can_delete', 'can_view_all', 'can_modify_all'];
 
 function isAllChecked(perms: CRUDFlags | undefined): boolean {
   if (!perms) return false;
-  return perms.can_read && perms.can_create && perms.can_edit && perms.can_delete;
+  return ALL_KEYS.every(k => perms[k]);
 }
 
 function isSomeChecked(perms: CRUDFlags | undefined): boolean {
   if (!perms) return false;
-  return perms.can_read || perms.can_create || perms.can_edit || perms.can_delete;
+  return ALL_KEYS.some(k => perms[k]);
 }
+
 
 function ItemRow({
   row,
@@ -69,10 +76,7 @@ function ItemRow({
   const some = isSomeChecked(perms);
 
   const handleAll = (checked: boolean) => {
-    onChange(row.name, 'can_read', checked);
-    onChange(row.name, 'can_create', checked);
-    onChange(row.name, 'can_edit', checked);
-    onChange(row.name, 'can_delete', checked);
+    ALL_KEYS.forEach(k => onChange(row.name, k, checked));
   };
 
   return (
@@ -129,10 +133,7 @@ function GroupHeader({
 
   const handleGroupAll = (checked: boolean) => {
     group.items.forEach(item => {
-      onChange(item.name, 'can_read', checked);
-      onChange(item.name, 'can_create', checked);
-      onChange(item.name, 'can_edit', checked);
-      onChange(item.name, 'can_delete', checked);
+      ALL_KEYS.forEach(k => onChange(item.name, k, checked));
     });
   };
 

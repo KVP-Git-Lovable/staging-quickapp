@@ -835,6 +835,19 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
     ],
     widgets: [],
   },
+  {
+    name: 'operations',
+    label: 'Operations',
+    fields: [],
+    widgets: [],
+    actions: [
+      { name: 'order_backdate', label: 'Place backdated orders' },
+      { name: 'order_on_behalf', label: 'Place order on behalf' },
+      { name: 'order_out_of_beat', label: 'Place out-of-beat orders' },
+      { name: 'order_edit', label: 'Edit placed orders' },
+      { name: 'operations_config', label: 'Operations configuration' },
+    ],
+  },
 ];
 
 // Get all module names (for module-level permissions)
