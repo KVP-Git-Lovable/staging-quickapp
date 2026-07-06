@@ -1737,6 +1737,11 @@ export const MyVisits = () => {
             <CarryForwardBanner userId={user.id} date={selectedDate} variant="banner" />
           )}
 
+          {/* Missed beat days — self view */}
+          {isViewingSelf && user?.id && (
+            <MissedBeatsSection userId={user.id} variant="banner" />
+          )}
+
 
           {/* No visits message - ONLY after loading completes AND a brief settling period */}
           {!dataLoading && hasLoadedOnce && filteredVisits.length === 0 && !hasActivities && (plannedBeats.length === 0 || searchTerm !== '') ? <Card className="shadow-card">
