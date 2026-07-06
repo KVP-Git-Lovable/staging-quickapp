@@ -49,7 +49,12 @@ const ALL_KEYS: (keyof CRUDFlags)[] = ['can_read', 'can_create', 'can_edit', 'ca
 
 function isAllChecked(perms: CRUDFlags | undefined): boolean {
   if (!perms) return false;
-  return perms.can_read && perms.can_create && perms.can_edit && perms.can_delete;
+  return ALL_KEYS.every(k => perms[k]);
+}
+
+function isSomeChecked(perms: CRUDFlags | undefined): boolean {
+  if (!perms) return false;
+  return ALL_KEYS.some(k => perms[k]);
 }
 
 function isSomeChecked(perms: CRUDFlags | undefined): boolean {
