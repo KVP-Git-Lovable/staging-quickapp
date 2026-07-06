@@ -162,6 +162,12 @@ export const Cart = () => {
   const [onBehalfCtx] = React.useState<{ userId: string; name: string } | null>(() => getOnBehalfContext());
   const isOnBehalf = !!onBehalfCtx;
 
+  // Out-of-beat context set by MyRetailers when the picked retailer is outside today's beat.
+  // Server re-validates the OOB scope and applies the credit rule (owner vs collector).
+  const [oobCtx] = React.useState(() => getOutOfBeatContext());
+  const { data: todaysBeatIds } = useTodaysBeatIds();
+
+
   
   // Order-based delivery payment state (COD / Pay Now)
   const [deliveryPaymentType, setDeliveryPaymentType] = React.useState<'cod' | 'pay_now' | ''>('');
