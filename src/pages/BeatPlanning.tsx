@@ -21,6 +21,7 @@ import { UserSelector } from "@/components/UserSelector";
 import { useSubordinates } from "@/hooks/useSubordinates";
 import { getMyBeats } from "@/services/beatService";
 import { useAppTimezone, getLocalDateString } from "@/hooks/useAppTimezone";
+import { MissedBeatsSection } from "@/components/visits/MissedBeatsSection";
 
 interface Beat {
   id: string; // beat_id
