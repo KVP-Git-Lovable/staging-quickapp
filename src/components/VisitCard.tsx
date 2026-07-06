@@ -3298,32 +3298,49 @@ export const VisitCard = ({
               <DialogTitle>Which order do you want to edit?</DialogTitle>
             </DialogHeader>
             <div className="space-y-2 max-h-[60vh] overflow-y-auto">
-              {ordersTodayList
-                .filter((o: any) => !o.invoice_generated_at && !o.dispatched_at)
-                .map((o) => (
-                  <button
-                    key={o.id}
-                    className="w-full text-left border rounded-md p-3 hover:bg-accent transition"
-                    onClick={() => {
-                      setShowEditPickerDialog(false);
-                      const vId = currentVisitId || visit.id;
-                      const rId = (visit.retailerId || visit.id) as string;
-                      const rName = visit.retailerName || '';
-                      navigate(`/order-entry?visitId=${encodeURIComponent(vId)}&retailerId=${encodeURIComponent(rId)}&retailer=${encodeURIComponent(rName)}&editOrderId=${encodeURIComponent(o.id)}`);
-                    }}
-                  >
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-medium">
-                        {o.invoice_number ? `Invoice ${o.invoice_number}` : `Order ${o.id.slice(0, 8)}`}
-                      </span>
-                      <span className="text-muted-foreground">₹{Number(o.total_amount || 0).toLocaleString('en-IN')}</span>
-                    </div>
-                    {o.distributor_name && (
-                      <div className="text-xs text-muted-foreground mt-0.5">{o.distributor_name}</div>
-                    )}
-                  </button>
-                ))}
+              <TooltipProvider>
+                {ordersTodayList
+                  .filter((o: any) => !o.invoice_generated_at && !o.dispatched_at)
+                  .map((o) => {
+                    const allowed = editableOrderIds.has(o.id);
+                    const row = (
+                      <button
+                        key={o.id}
+                        disabled={!allowed}
+                        className="w-full text-left border rounded-md p-3 hover:bg-accent transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                        onClick={() => {
+                          if (!allowed) return;
+                          setShowEditPickerDialog(false);
+                          const vId = currentVisitId || visit.id;
+                          const rId = (visit.retailerId || visit.id) as string;
+                          const rName = visit.retailerName || '';
+                          navigate(`/order-entry?visitId=${encodeURIComponent(vId)}&retailerId=${encodeURIComponent(rId)}&retailer=${encodeURIComponent(rName)}&editOrderId=${encodeURIComponent(o.id)}`);
+                        }}
+                      >
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="font-medium">
+                            {o.invoice_number ? `Invoice ${o.invoice_number}` : `Order ${o.id.slice(0, 8)}`}
+                          </span>
+                          <span className="text-muted-foreground">₹{Number(o.total_amount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        {o.distributor_name && (
+                          <div className="text-xs text-muted-foreground mt-0.5">{o.distributor_name}</div>
+                        )}
+                      </button>
+                    );
+                    if (allowed) return row;
+                    return (
+                      <Tooltip key={o.id}>
+                        <TooltipTrigger asChild>
+                          <div>{row}</div>
+                        </TooltipTrigger>
+                        <TooltipContent>This order can no longer be edited</TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+              </TooltipProvider>
             </div>
+
           </DialogContent>
         </Dialog>
 
