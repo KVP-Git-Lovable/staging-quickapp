@@ -339,7 +339,8 @@ export const MyVisits = () => {
   // Track transformed retailers per date to prevent flash-to-0 during same-date sync.
   // Raw database rows must never enter this cache because the visit list expects
   // fields such as retailerName rather than name.
-  const prevRetailersRef = React.useRef<{ date: string; items: any[] }>({
+  const prevRetailersRef = React.useRef<{ user: string; date: string; items: any[] }>({
+    user: selectedViewUserId,
     date: selectedDate,
     items: [],
   });
@@ -349,8 +350,13 @@ export const MyVisits = () => {
     // SAFETY: Never return [] if we previously had retailers.
     // optimizedRetailers can momentarily be [] during any hook re-sync cycle.
     // Returning [] causes the entire visit list to vanish. Use previous value instead.
+    // Key by both user and date so switching to a subordinate doesn't show your list.
     if (optimizedRetailers.length === 0) {
-      if (prevRetailersRef.current.date === selectedDate && prevRetailersRef.current.items.length > 0) {
+      if (
+        prevRetailersRef.current.user === selectedViewUserId &&
+        prevRetailersRef.current.date === selectedDate &&
+        prevRetailersRef.current.items.length > 0
+      ) {
         console.log('[MyVisits] optimizedRetailers temporarily empty — using previous', prevRetailersRef.current.items.length);
         return prevRetailersRef.current.items;
       }
@@ -449,10 +455,10 @@ export const MyVisits = () => {
     // Store only the transformed shape, scoped to this date. Deferring avoids
     // mutating a ref during render while retaining the same-date anti-flicker behavior.
     Promise.resolve().then(() => {
-      prevRetailersRef.current = { date: selectedDate, items: transformedRetailers };
+      prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: transformedRetailers };
     });
     return transformedRetailers;
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate]);
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now
