@@ -1138,7 +1138,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           editedRate: restoredToCatalog ? null : nextRate,
           isPriceEdited: !restoredToCatalog,
           total,
+        };
+      });
+      syncRowsToCart(updated);
+      return updated;
+    });
   };
+
 
   /**
    * Live typing handler for admin price fields. Updates the raw text buffer so
