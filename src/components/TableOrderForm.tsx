@@ -1553,8 +1553,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                      </span>
                                    </>
                                  )}
-                               </div>
-                             ) : hasDiscount ? (
+                                </div>
+                                );
+                              })() : hasDiscount ? (
                                <span className="text-[9px] mt-0.5 flex items-center gap-1 flex-wrap">
                                  <span className="line-through text-muted-foreground">
                                    ₹{catalogRate.toFixed(2)}
