@@ -1512,28 +1512,37 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                          const effectiveRate = Math.max(0, shownRate - perUnitDiscount);
                          return (
                            <>
-                             {isAdminEdit ? (
-                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                 <label className="text-[9px] text-muted-foreground">Unit ₹</label>
-                                 <Input
-                                   type="number"
-                                   step="0.01"
-                                   min="0"
-                                   value={hasEdited ? String(row.editedRate) : catalogRate.toFixed(2)}
-                                   onChange={(e) => applyAdminPrice(row.id, 'rate', e.target.value)}
-                                   className="h-6 w-20 text-[10px] px-1.5"
-                                 />
-                                 <label className="text-[9px] text-muted-foreground">Line ₹</label>
-                                 <Input
-                                   type="number"
-                                   step="0.01"
-                                   min="0"
-                                   value={(shownRate * (Number(row.quantity) || 0)).toFixed(2)}
-                                   onChange={(e) => applyAdminPrice(row.id, 'total', e.target.value)}
-                                   className="h-6 w-24 text-[10px] px-1.5"
-                                   disabled={!(Number(row.quantity) > 0)}
-                                 />
-                                 <span className="text-[9px] text-muted-foreground">per {displayUnit}</span>
+                              {isAdminEdit ? (() => {
+                                const buf = priceEditText[row.id] || {};
+                                const qtyNum = Number(row.quantity) || 0;
+                                const rateDisplay = buf.rate !== undefined
+                                  ? buf.rate
+                                  : (hasEdited ? String(row.editedRate) : catalogRate.toFixed(2));
+                                const totalDisplay = buf.total !== undefined
+                                  ? buf.total
+                                  : (shownRate * qtyNum).toFixed(2);
+                                return (
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <label className="text-[9px] text-muted-foreground">Unit ₹</label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={rateDisplay}
+                                    onChange={(e) => onChangeAdminPrice(row.id, 'rate', e.target.value)}
+                                    onBlur={(e) => onBlurAdminPrice(row.id, 'rate', e.target.value)}
+                                    className="h-6 w-20 text-[10px] px-1.5"
+                                  />
+                                  <label className="text-[9px] text-muted-foreground">Line ₹</label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={totalDisplay}
+                                    onChange={(e) => onChangeAdminPrice(row.id, 'total', e.target.value)}
+                                    onBlur={(e) => onBlurAdminPrice(row.id, 'total', e.target.value)}
+                                    className="h-6 w-24 text-[10px] px-1.5"
+                                    disabled={!(qtyNum > 0)}
+                                  />
+                                  <span className="text-[9px] text-muted-foreground">per {displayUnit}</span>
                                  {row.isPriceEdited && (
                                    <>
                                      <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-500/15 text-amber-700 border-amber-500/30">
