@@ -419,22 +419,34 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
   doc.setFont("helvetica", "normal");
   doc.text((displayInvoiceTime || new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' })), pageWidth - 15, invoiceY, { align: "right" });
   
-  // Beat/Route Name
+  // Beat/Route Name — wrap long names so they don't overlap the label
   if (beatName) {
     invoiceY += 6;
     doc.setFont("helvetica", "bold");
     doc.text("ROUTE:", pageWidth - 60, invoiceY);
+    const routeLabelWidth = doc.getTextWidth("ROUTE:");
     doc.setFont("helvetica", "normal");
-    doc.text(beatName, pageWidth - 15, invoiceY, { align: "right" });
+    const routeMaxWidth = 45 - routeLabelWidth - 2; // 45mm column, 2mm gap
+    const routeLines = doc.splitTextToSize(String(beatName), Math.max(routeMaxWidth, 20));
+    routeLines.forEach((line: string, idx: number) => {
+      doc.text(line, pageWidth - 15, invoiceY + idx * 4, { align: "right" });
+    });
+    invoiceY += (routeLines.length - 1) * 4;
   }
-  
+
   // Salesman Name
   if (salesmanName) {
     invoiceY += 6;
     doc.setFont("helvetica", "bold");
     doc.text("SALESMAN:", pageWidth - 60, invoiceY);
+    const smLabelWidth = doc.getTextWidth("SALESMAN:");
     doc.setFont("helvetica", "normal");
-    doc.text(salesmanName, pageWidth - 15, invoiceY, { align: "right" });
+    const smMaxWidth = 45 - smLabelWidth - 2;
+    const smLines = doc.splitTextToSize(String(salesmanName), Math.max(smMaxWidth, 20));
+    smLines.forEach((line: string, idx: number) => {
+      doc.text(line, pageWidth - 15, invoiceY + idx * 4, { align: "right" });
+    });
+    invoiceY += (smLines.length - 1) * 4;
   }
 
   // Calculate total discount for savings display
