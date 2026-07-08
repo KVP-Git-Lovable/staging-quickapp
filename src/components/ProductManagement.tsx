@@ -945,7 +945,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       <Card>
         <CardContent className="pt-6">
 
-          <Tabs defaultValue="products" className="space-y-4">
+          <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="products" className="flex items-center gap-2">
                 <Package className="h-4 w-4" />
@@ -959,30 +959,38 @@ const [productForm, setProductForm] = useState(emptyProductForm());
 
             <TabsContent value="products" className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <Card className="border-l-4 border-l-primary">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Products</p>
-                    <p className="text-2xl font-bold mt-1">{products.length}</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-green-500">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Active</p>
-                    <p className="text-2xl font-bold mt-1 text-green-600">{activeProductsCount}</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-red-500">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Inactive</p>
-                    <p className="text-2xl font-bold mt-1 text-red-600">{inactiveProductsCount}</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-l-4 border-l-blue-500">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Categories</p>
-                    <p className="text-2xl font-bold mt-1 text-blue-600">{categories.length}</p>
-                  </CardContent>
-                </Card>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className={`text-left rounded-lg border bg-card border-l-4 border-l-primary p-4 transition hover:shadow-md ${statusFilter === 'all' ? 'ring-2 ring-primary' : ''}`}
+                >
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Products</p>
+                  <p className="text-2xl font-bold mt-1">{products.length}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('active')}
+                  className={`text-left rounded-lg border bg-card border-l-4 border-l-green-500 p-4 transition hover:shadow-md ${statusFilter === 'active' ? 'ring-2 ring-green-500' : ''}`}
+                >
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Active</p>
+                  <p className="text-2xl font-bold mt-1 text-green-600">{activeProductsCount}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('inactive')}
+                  className={`text-left rounded-lg border bg-card border-l-4 border-l-red-500 p-4 transition hover:shadow-md ${statusFilter === 'inactive' ? 'ring-2 ring-red-500' : ''}`}
+                >
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Inactive</p>
+                  <p className="text-2xl font-bold mt-1 text-red-600">{inactiveProductsCount}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMainTab('categories')}
+                  className="text-left rounded-lg border bg-card border-l-4 border-l-blue-500 p-4 transition hover:shadow-md"
+                >
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Categories</p>
+                  <p className="text-2xl font-bold mt-1 text-blue-600">{categories.length}</p>
+                </button>
               </div>
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
