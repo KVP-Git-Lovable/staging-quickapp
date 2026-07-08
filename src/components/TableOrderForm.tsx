@@ -657,12 +657,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       .filter(row => row.product && row.quantity > 0)
       .map(row => {
         const itemId = row.variant?.id || row.product!.id;
+        const catalog = getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase);
+        const eff = (row.editedRate != null && Number.isFinite(row.editedRate)) ? Number(row.editedRate) : catalog;
         return {
           id: itemId,
           product_id: itemId,
           variant_id: row.variant?.id,
           quantity: row.quantity,
-          rate: getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase),
+          rate: eff,
           name: row.variant?.variant_name || row.product!.name
         };
       });
