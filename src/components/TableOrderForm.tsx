@@ -78,6 +78,10 @@ interface OrderRow {
   priceBasisUomCode?: string | null;
   priceBasisConversionToBase?: number | null;
   total: number;
+  /** Admin-overridden per-unit price for this line (only set in admin edit context). */
+  editedRate?: number | null;
+  /** True when editedRate differs from the catalog rate. */
+  isPriceEdited?: boolean;
 }
 
 interface TableOrderFormProps {
