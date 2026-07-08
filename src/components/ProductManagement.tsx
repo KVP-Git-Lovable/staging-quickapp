@@ -114,6 +114,7 @@ const ProductManagement = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
+  const [mainTab, setMainTab] = useState<string>('products');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
