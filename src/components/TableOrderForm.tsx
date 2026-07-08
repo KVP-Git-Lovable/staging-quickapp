@@ -1138,7 +1138,52 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           editedRate: restoredToCatalog ? null : nextRate,
           isPriceEdited: !restoredToCatalog,
           total,
-        };
+  };
+
+  /**
+   * Live typing handler for admin price fields. Updates the raw text buffer so
+   * empty / partial values ("", "18.", "0.") are preserved in the input, and
+   * pushes a parseable number into editedRate WITHOUT clearing the override on
+   * empty/invalid input. Clearing happens on blur only (see onBlurAdminPrice).
+   */
+  const onChangeAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
+    if (!isAdminEdit) return;
+    // Keep only the field being typed in state; the other should recompute.
+    setPriceEditText(prev => ({ ...prev, [rowId]: { [mode]: rawValue } }));
+    const parsed = Number(rawValue);
+    if (rawValue === '' || !Number.isFinite(parsed) || parsed < 0) return; // don't clear mid-typing
+    setOrderRows(prev => {
+      const updated = prev.map(row => {
+        if (row.id !== rowId || !row.product) return row;
+        const qty = Number(row.quantity) || 0;
+        let nextRate: number;
+        if (mode === 'rate') {
+          nextRate = +parsed.toFixed(2);
+        } else {
+          if (qty <= 0) return row;
+          nextRate = +(parsed / qty).toFixed(2);
+        }
+        const total = +(nextRate * qty).toFixed(2);
+        return { ...row, editedRate: nextRate, isPriceEdited: true, total };
+      });
+      syncRowsToCart(updated);
+      return updated;
+    });
+  };
+
+  /** On blur: if the field was left empty, clear the override back to catalog. Always drop the raw text buffer. */
+  const onBlurAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
+    if (!isAdminEdit) return;
+    if (rawValue.trim() === '') {
+      applyAdminPrice(rowId, mode, '');
+    }
+    setPriceEditText(prev => {
+      if (!(rowId in prev)) return prev;
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+  };
       });
       syncRowsToCart(updated);
       return updated;
