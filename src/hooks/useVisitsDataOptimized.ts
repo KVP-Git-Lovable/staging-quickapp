@@ -620,7 +620,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date).abortSignal(controller.signal),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date).abortSignal(controller.signal),
         // Fetch own orders AND orders on own beats (beat owner sees all orders on their beats)
-        supabase.from('orders').select('*').eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
+        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
         fetchPointsForDate(uid, date)
       ]);
       clearTimeout(timeoutId);
