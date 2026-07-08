@@ -513,7 +513,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
         const { data: items, error } = await supabase
           .from('order_items')
-          .select('id, product_id, variant_id, product_name, rate, unit, quantity, total')
+          .select('id, product_id, variant_id, product_name, rate, original_rate, is_price_edited, unit, quantity, total')
           .eq('order_id', editOrderId);
 
         if (error) {
@@ -547,6 +547,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             : undefined;
           const qty = Number(it.quantity) || 0;
           const rate = Number(it.rate) || 0;
+          const originalRate = Number(it.original_rate ?? rate) || rate;
+          const wasEdited = !!it.is_price_edited && Math.abs(rate - originalRate) > 0.005;
           return {
             id: String(idx + 1),
             productCode: (liveVariant as any)?.sku || liveProduct?.sku || pid || '',
@@ -556,6 +558,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             closingStock: Number((liveVariant as any)?.stock_quantity ?? liveProduct?.closing_stock ?? 0),
             unit: it.unit || (liveProduct ? getDefaultOrderUnit(liveProduct) : 'pcs'),
             total: Number(it.total) || qty * rate,
+            editedRate: wasEdited ? rate : null,
+            isPriceEdited: wasEdited,
           } as OrderRow;
         });
 
