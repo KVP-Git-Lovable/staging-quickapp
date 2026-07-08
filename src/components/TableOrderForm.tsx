@@ -290,7 +290,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
       const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
       const selectedUnit = row.uomCode || row.unit || row.product!.unit || 'PC';
-      const ratePerSelectedUnit = getPricePerUnit(
+      const catalogRate = getPricePerUnit(
         row.product!,
         row.variant,
         selectedUnit,
@@ -298,8 +298,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         row.priceBasisConversionToBase,
       );
 
-        // Original (MRP) per the selected unit
-        const originalRatePerSelectedUnit = ratePerSelectedUnit;
+      // Admin-edited price overrides the catalog rate on the way to the cart.
+      // original_rate always keeps the catalog value for history.
+      const hasEditedPrice = row.editedRate != null && Number.isFinite(row.editedRate);
+      const effectiveRate = hasEditedPrice ? Number(row.editedRate) : catalogRate;
+      const isPriceEdited = !!row.isPriceEdited && hasEditedPrice
+        && Math.abs(Number(row.editedRate) - catalogRate) > 0.005;
+      const qty = Number(row.quantity) || 0;
+      const lineTotal = hasEditedPrice ? +(effectiveRate * qty).toFixed(2) : (Number(row.total) || 0);
 
       return {
         id: itemId,
@@ -307,19 +313,20 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         variant_id: row.variant ? row.variant.id : null,
         name: displayName || 'Unknown Product',
         category: row.product!.category?.name || 'Uncategorized',
-        rate: ratePerSelectedUnit,
-        original_rate: originalRatePerSelectedUnit,
+        rate: effectiveRate,
+        original_rate: catalogRate,
+        is_price_edited: isPriceEdited,
         unit: selectedUnit,
         uom_id: row.uomId || null,
         uom_code: row.uomCode || selectedUnit,
         conversion_to_base: row.conversionToBase ?? null,
         base_unit: selectedUnit,
-        quantity: Number(row.quantity) || 0,
-        total: Number(row.total) || 0,
+        quantity: qty,
+        total: lineTotal,
         closingStock: Number(stock) || 0,
         schemes: row.product!.schemes || [],
         display_unit: selectedUnit,
-        display_quantity: Number(row.quantity) || 0,
+        display_quantity: qty,
         hsn_code: (row.product as any)?.hsn_code || null,
         gst_percentage: (row.product as any)?.gst_percentage ?? null,
         tax_master_id: (row.product as any)?.tax_master_id ?? null
