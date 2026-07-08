@@ -1015,16 +1015,6 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       ))}
                     </SelectContent>
                   </Select>
-                  <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'active' | 'inactive' | 'all')}>
-                    <TabsList>
-                      <TabsTrigger value="active">Active ({activeProductsCount})</TabsTrigger>
-                      <TabsTrigger value="inactive">Inactive ({inactiveProductsCount})</TabsTrigger>
-                      <TabsTrigger value="all">All ({products.length})</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  <Badge variant="secondary" className="rounded-full">
-                    Showing: {filteredProducts.length}
-                  </Badge>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <Button variant="outline" onClick={() => navigate('/admin/uom-master')}>
