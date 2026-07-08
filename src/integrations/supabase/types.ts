@@ -22392,6 +22392,54 @@ export type Database = {
         }
         Relationships: []
       }
+      securityaudit_events: {
+        Row: {
+          backend_pid: number | null
+          client_addr: unknown
+          column_name: string | null
+          ddl_command: string
+          event_time: string
+          event_type: string
+          id: string
+          object_identity: string
+          policy_name: string | null
+          schema_name: string | null
+          session_id: string | null
+          session_user_name: string | null
+          table_name: string | null
+        }
+        Insert: {
+          backend_pid?: number | null
+          client_addr?: unknown
+          column_name?: string | null
+          ddl_command: string
+          event_time?: string
+          event_type: string
+          id?: string
+          object_identity: string
+          policy_name?: string | null
+          schema_name?: string | null
+          session_id?: string | null
+          session_user_name?: string | null
+          table_name?: string | null
+        }
+        Update: {
+          backend_pid?: number | null
+          client_addr?: unknown
+          column_name?: string | null
+          ddl_command?: string
+          event_time?: string
+          event_type?: string
+          id?: string
+          object_identity?: string
+          policy_name?: string | null
+          schema_name?: string | null
+          session_id?: string | null
+          session_user_name?: string | null
+          table_name?: string | null
+        }
+        Relationships: []
+      }
       sensitive_data_access_log: {
         Row: {
           accessed_at: string

@@ -25,11 +25,11 @@ const ProductManagementPage = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-subtle p-4">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <AdminPageHeader 
-            title="Product Management"
-            subtitle="Manage your product catalog, SKUs, and promotional schemes"
-          />
+        <div className="w-full space-y-6">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-foreground">Product Management</h1>
+            <p className="text-muted-foreground">Manage your product catalog, SKUs, and promotional schemes</p>
+          </div>
           <ProductManagement />
         </div>
       </div>
