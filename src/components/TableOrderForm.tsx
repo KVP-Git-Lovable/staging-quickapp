@@ -1087,6 +1087,57 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     });
   };
 
+  /**
+   * Admin-only: set an overridden per-unit price on a row. Pass mode='rate' with the new
+   * unit price, or mode='total' with the new line total (rate is back-computed from quantity).
+   * Passing an empty/invalid value clears the override so the catalog price returns.
+   */
+  const applyAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
+    if (!isAdminEdit) return;
+    setOrderRows(prev => {
+      const updated = prev.map(row => {
+        if (row.id !== rowId || !row.product) return row;
+        const qty = Number(row.quantity) || 0;
+        const selectedUnit = row.uomCode || row.unit || row.product.unit || 'PC';
+        const catalogRate = getPricePerUnit(
+          row.product,
+          row.variant,
+          selectedUnit,
+          row.conversionToBase,
+          row.priceBasisConversionToBase,
+        );
+
+        // Empty input clears the override.
+        const parsed = Number(rawValue);
+        if (rawValue === '' || !Number.isFinite(parsed) || parsed < 0) {
+          const total = +(catalogRate * qty).toFixed(2);
+          return { ...row, editedRate: null, isPriceEdited: false, total };
+        }
+
+        let nextRate: number;
+        if (mode === 'rate') {
+          nextRate = +parsed.toFixed(2);
+        } else {
+          // total mode: rate = total / qty. Guard qty=0.
+          if (qty <= 0) return row;
+          nextRate = +(parsed / qty).toFixed(2);
+        }
+
+        const restoredToCatalog = Math.abs(nextRate - catalogRate) < 0.005;
+        const total = +(nextRate * qty).toFixed(2);
+        return {
+          ...row,
+          editedRate: restoredToCatalog ? null : nextRate,
+          isPriceEdited: !restoredToCatalog,
+          total,
+        };
+      });
+      syncRowsToCart(updated);
+      return updated;
+    });
+  };
+
+
   const addToCart = () => {
     if (isAddingToCart) return;
     
