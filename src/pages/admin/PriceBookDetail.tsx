@@ -88,7 +88,7 @@ const PriceBookDetail = () => {
           .from('price_book_entries')
           .select(`
             *,
-            product:products(name, unit, category_id),
+            product:products(name, unit:base_unit, category_id),
             variant:product_variants(variant_name)
           `)
           .eq('price_book_id', id)
@@ -96,11 +96,12 @@ const PriceBookDetail = () => {
         fetchAllPaginated<any>((from, to) =>
           supabase
             .from('products')
-            .select('id, name, unit, rate, category_id, product_variants(id, variant_name, price)')
+            .select('id, name, unit:base_unit, rate, category_id, product_variants(id, variant_name, price)')
             .eq('is_active', true)
             .order('name')
             .range(from, to)
         ),
+
         supabase
           .from('product_categories')
           .select('id, name')
