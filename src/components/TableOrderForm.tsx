@@ -1037,15 +1037,24 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               updatedRow.priceBasisConversionToBase = null;
               updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
               updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity, updatedRow.unit);
+              // A new product resets any previous admin price override.
+              updatedRow.editedRate = null;
+              updatedRow.isPriceEdited = false;
             } else {
               updatedRow.product = undefined;
               updatedRow.variant = undefined;
               updatedRow.closingStock = 0;
               updatedRow.total = 0;
+              updatedRow.editedRate = null;
+              updatedRow.isPriceEdited = false;
             }
           } else if (field === "quantity") {
             // Use row.unit (current unit) since quantity is being updated
             updatedRow.total = computeTotal(row.product, row.variant, value, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase);
+            // Preserve admin-edited unit price across quantity changes.
+            if (updatedRow.editedRate != null && Number.isFinite(updatedRow.editedRate)) {
+              updatedRow.total = +(Number(updatedRow.editedRate) * (Number(value) || 0)).toFixed(2);
+            }
           } else if (field === "unit") {
             const sel = value as LineItemUomSelection;
             // When unit changes, convert quantity to the new unit automatically
@@ -1061,8 +1070,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             if (oldUnit && newUnit && row.quantity > 0) {
               updatedRow.quantity = convertBetweenUnits(row.quantity, oldUnit, newUnit);
             }
-            // Recalculate total with the NEW unit and converted quantity
+            // Recalculate total with the NEW unit and converted quantity — clears any admin override,
+            // because the previous override was tied to a different UOM's price basis.
             updatedRow.total = computeTotal(row.product, row.variant, updatedRow.quantity, sel.uomCode, sel.conversionToBase, sel.priceBasisConversionToBase);
+            updatedRow.editedRate = null;
+            updatedRow.isPriceEdited = false;
           }
           return updatedRow;
         }
