@@ -1,0 +1,2 @@
+ALTER TABLE public.order_items ADD COLUMN IF NOT EXISTS is_price_edited boolean NOT NULL DEFAULT false;
+COMMENT ON COLUMN public.order_items.is_price_edited IS 'True when an admin overrode the per-unit rate during an order edit. original_rate keeps the catalog price for history.';
