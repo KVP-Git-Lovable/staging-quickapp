@@ -1190,11 +1190,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       return next;
     });
   };
-      });
-      syncRowsToCart(updated);
-      return updated;
-    });
-  };
+
 
 
   const addToCart = () => {
