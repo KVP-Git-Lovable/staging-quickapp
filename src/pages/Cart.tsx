@@ -145,7 +145,7 @@ export const Cart = () => {
       const raw = sessionStorage.getItem('backdated_order_context');
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalTodayDate();
       if (parsed?.date && parsed.date < today) {
         return { date: parsed.date, requireReason: parsed.requireReason !== false };
       }
@@ -153,11 +153,26 @@ export const Cart = () => {
     return null;
   });
   const [backdateReason, setBackdateReason] = React.useState<string>('');
+
+  // Clear any stale (today/future) backdated context on mount so it can't leak into this or the next order.
+  React.useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('backdated_order_context');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.date || parsed.date >= getLocalTodayDate()) {
+        sessionStorage.removeItem('backdated_order_context');
+      }
+    } catch {
+      sessionStorage.removeItem('backdated_order_context');
+    }
+  }, []);
+
   const getEffectiveOrderDate = React.useCallback(
     () => backdateCtx?.date ?? getLocalTodayDate(),
     [backdateCtx]
   );
-  const isBackdated = !!backdateCtx;
+  const isBackdated = !!backdateCtx && backdateCtx.date < getLocalTodayDate();
 
   // On-behalf context: when a manager/admin selected a target user in the View-As selector
   // before opening this cart, the order will be credited to that user (user_id) while the
