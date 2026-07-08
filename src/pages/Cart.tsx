@@ -326,7 +326,7 @@ export const Cart = () => {
         if (isEmpty) {
           const { data: items } = await supabase
             .from('order_items')
-            .select('id, product_id, variant_id, product_name, category, rate, unit, quantity, total, hsn_code, uom_id, uom_code, conversion_to_base, original_rate, discount_amount')
+            .select('id, product_id, variant_id, product_name, category, rate, unit, quantity, total, hsn_code, uom_id, uom_code, conversion_to_base, original_rate, discount_amount, is_price_edited')
             .eq('order_id', editOrderId);
           const seeded: CartItem[] = (items || []).map((it: any) => {
             const cartId = it.variant_id
@@ -347,6 +347,7 @@ export const Cart = () => {
               ...(it.product_id ? { product_id: it.product_id } : {}),
               ...(it.variant_id ? { variant_id: it.variant_id } : {}),
               ...(it.original_rate ? { original_rate: Number(it.original_rate) } : {}),
+              ...(it.is_price_edited ? { is_price_edited: true } : {}),
             } as any;
           });
           localStorage.setItem(editKey, JSON.stringify(seeded));
