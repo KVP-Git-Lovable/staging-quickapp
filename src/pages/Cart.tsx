@@ -1223,6 +1223,7 @@ export const Cart = () => {
           igst_amount: 0,
           cess_rate: 0,
           cess_amount: lineTax?.cess ?? 0,
+          is_price_edited: !!(item as any).is_price_edited,
         };
       });
 
