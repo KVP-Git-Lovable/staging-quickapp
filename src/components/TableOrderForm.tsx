@@ -1442,19 +1442,54 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
                        {row.product && (() => {
                          const displayUnit = row.uomCode || row.unit;
-                         const originalRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase);
+                         const catalogRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase);
                          const itemId = row.variant?.id || row.product.id;
                          const itemSchemes = orderCalculation.itemSchemeDetails?.[itemId] || [];
                          const totalDiscount = itemSchemes.reduce((s, x) => s + (x.discountAmount || 0), 0);
                          const hasDiscount = totalDiscount > 0 && row.quantity > 0;
                          const perUnitDiscount = hasDiscount ? totalDiscount / row.quantity : 0;
-                         const effectiveRate = Math.max(0, originalRate - perUnitDiscount);
+                         const hasEdited = row.editedRate != null && Number.isFinite(row.editedRate);
+                         const shownRate = hasEdited ? Number(row.editedRate) : catalogRate;
+                         const effectiveRate = Math.max(0, shownRate - perUnitDiscount);
                          return (
                            <>
-                             {hasDiscount ? (
+                             {isAdminEdit ? (
+                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                 <label className="text-[9px] text-muted-foreground">Unit ₹</label>
+                                 <Input
+                                   type="number"
+                                   step="0.01"
+                                   min="0"
+                                   value={hasEdited ? String(row.editedRate) : catalogRate.toFixed(2)}
+                                   onChange={(e) => applyAdminPrice(row.id, 'rate', e.target.value)}
+                                   className="h-6 w-20 text-[10px] px-1.5"
+                                 />
+                                 <label className="text-[9px] text-muted-foreground">Line ₹</label>
+                                 <Input
+                                   type="number"
+                                   step="0.01"
+                                   min="0"
+                                   value={(shownRate * (Number(row.quantity) || 0)).toFixed(2)}
+                                   onChange={(e) => applyAdminPrice(row.id, 'total', e.target.value)}
+                                   className="h-6 w-24 text-[10px] px-1.5"
+                                   disabled={!(Number(row.quantity) > 0)}
+                                 />
+                                 <span className="text-[9px] text-muted-foreground">per {displayUnit}</span>
+                                 {row.isPriceEdited && (
+                                   <>
+                                     <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-500/15 text-amber-700 border-amber-500/30">
+                                       edited
+                                     </Badge>
+                                     <span className="text-[9px] text-muted-foreground">
+                                       list ₹{catalogRate.toFixed(2)}
+                                     </span>
+                                   </>
+                                 )}
+                               </div>
+                             ) : hasDiscount ? (
                                <span className="text-[9px] mt-0.5 flex items-center gap-1 flex-wrap">
                                  <span className="line-through text-muted-foreground">
-                                   ₹{originalRate.toFixed(2)}
+                                   ₹{catalogRate.toFixed(2)}
                                  </span>
                                  <span className="text-green-600 font-medium">
                                     ₹{effectiveRate.toFixed(2)} per {displayUnit}
@@ -1462,7 +1497,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                </span>
                              ) : (
                                <span className="text-[9px] text-muted-foreground mt-0.5">
-                                  ₹{originalRate.toFixed(2)} per {displayUnit}
+                                  ₹{catalogRate.toFixed(2)} per {displayUnit}
                                </span>
                              )}
                              {itemSchemes.length > 0 && row.quantity > 0 && (
