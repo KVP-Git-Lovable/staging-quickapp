@@ -203,6 +203,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showSchemesModal, setShowSchemesModal] = useState(false);
+  // Per-row raw text for admin price inputs so partial values ("", "18.", "0.") are allowed.
+  // Key = row.id, value = { rate?: rawUnitPriceText, total?: rawLineTotalText }.
+  // Only the field currently being typed holds its own text; the other stays derived.
+  const [priceEditText, setPriceEditText] = useState<Record<string, { rate?: string; total?: string }>>({});
   
   // Load schemes with offline support
   const { schemes, loading: schemesLoading, isOnline } = useOfflineSchemes();
