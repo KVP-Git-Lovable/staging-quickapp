@@ -756,24 +756,39 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       // These are orders saved to IndexedDB by offlineOrderUtils but not yet in Supabase
       const mergedOrders = [...newOrders];
       const dbOrderIds = new Set(newOrders.map(o => o.id));
-      
+      // Match already-synced local copies by their stable idempotency_key,
+      // because the DB row's id differs from the local client UUID after sync.
+      const dbIdemKeys = new Set(newOrders.map((o: any) => o.idempotency_key).filter(Boolean));
+
       // Check current state for locally-added orders not yet in DB
       const currentOrders = currentCache.orders || [];
       for (const localOrder of currentOrders) {
-        if (!dbOrderIds.has(localOrder.id) && 
-            localOrder.order_date === date && 
+        const alreadyInDb =
+          dbOrderIds.has(localOrder.id) ||
+          (localOrder.idempotency_key && dbIdemKeys.has(localOrder.idempotency_key));
+        if (!alreadyInDb &&
+            localOrder.order_date === date &&
             localOrder.status === 'confirmed' &&
             localOrder.user_id === uid) {
-          // This order exists locally but not in DB — preserve it
           mergedOrders.push(localOrder);
           console.log('[SmartSync] Preserving unsynced local order:', localOrder.id, '₹' + localOrder.total_amount);
         }
       }
-      
-      const oChanges = getChangedItems(currentCache.orders, mergedOrders);
+
+      // Safety net: collapse any residual duplicates by idempotency_key (fallback to id)
+      const _seen = new Set<string>();
+      const _deduped: any[] = [];
+      for (const o of mergedOrders) {
+        const k = (o as any).idempotency_key || o.id;
+        if (_seen.has(k)) continue;
+        _seen.add(k);
+        _deduped.push(o);
+      }
+
+      const oChanges = getChangedItems(currentCache.orders, _deduped);
       if (oChanges.changed.length > 0 || oChanges.added.length > 0 || oChanges.removed.length > 0) {
         uiUpdated = applyGranularUpdate(setOrders, oChanges) || uiUpdated;
-        currentCache.orders = mergedOrders;
+        currentCache.orders = _deduped;
       }
 
       // FIX #2: ALWAYS fetch ALL retailers by beat_id (not just from visits/orders)
