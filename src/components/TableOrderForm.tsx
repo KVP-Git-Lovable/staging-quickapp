@@ -203,6 +203,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showSchemesModal, setShowSchemesModal] = useState(false);
+  // Per-row raw text for admin price inputs so partial values ("", "18.", "0.") are allowed.
+  // Key = row.id, value = { rate?: rawUnitPriceText, total?: rawLineTotalText }.
+  // Only the field currently being typed holds its own text; the other stays derived.
+  const [priceEditText, setPriceEditText] = useState<Record<string, { rate?: string; total?: string }>>({});
   
   // Load schemes with offline support
   const { schemes, loading: schemesLoading, isOnline } = useOfflineSchemes();
@@ -653,12 +657,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       .filter(row => row.product && row.quantity > 0)
       .map(row => {
         const itemId = row.variant?.id || row.product!.id;
+        const catalog = getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase);
+        const eff = (row.editedRate != null && Number.isFinite(row.editedRate)) ? Number(row.editedRate) : catalog;
         return {
           id: itemId,
           product_id: itemId,
           variant_id: row.variant?.id,
           quantity: row.quantity,
-          rate: getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase),
+          rate: eff,
           name: row.variant?.variant_name || row.product!.name
         };
       });
@@ -1142,6 +1148,53 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   };
 
 
+  /**
+   * Live typing handler for admin price fields. Updates the raw text buffer so
+   * empty / partial values ("", "18.", "0.") are preserved in the input, and
+   * pushes a parseable number into editedRate WITHOUT clearing the override on
+   * empty/invalid input. Clearing happens on blur only (see onBlurAdminPrice).
+   */
+  const onChangeAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
+    if (!isAdminEdit) return;
+    // Keep only the field being typed in state; the other should recompute.
+    setPriceEditText(prev => ({ ...prev, [rowId]: { [mode]: rawValue } }));
+    const parsed = Number(rawValue);
+    if (rawValue === '' || !Number.isFinite(parsed) || parsed < 0) return; // don't clear mid-typing
+    setOrderRows(prev => {
+      const updated = prev.map(row => {
+        if (row.id !== rowId || !row.product) return row;
+        const qty = Number(row.quantity) || 0;
+        let nextRate: number;
+        if (mode === 'rate') {
+          nextRate = +parsed.toFixed(2);
+        } else {
+          if (qty <= 0) return row;
+          nextRate = +(parsed / qty).toFixed(2);
+        }
+        const total = +(nextRate * qty).toFixed(2);
+        return { ...row, editedRate: nextRate, isPriceEdited: true, total };
+      });
+      syncRowsToCart(updated);
+      return updated;
+    });
+  };
+
+  /** On blur: if the field was left empty, clear the override back to catalog. Always drop the raw text buffer. */
+  const onBlurAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
+    if (!isAdminEdit) return;
+    if (rawValue.trim() === '') {
+      applyAdminPrice(rowId, mode, '');
+    }
+    setPriceEditText(prev => {
+      if (!(rowId in prev)) return prev;
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+  };
+
+
+
   const addToCart = () => {
     if (isAddingToCart) return;
     
@@ -1197,12 +1250,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       .map(row => {
         // Use variant ID if available for unique identification - each variant is a separate product
         const itemId = row.variant?.id || row.product!.id;
+        const catalog = getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase);
+        const eff = (row.editedRate != null && Number.isFinite(row.editedRate)) ? Number(row.editedRate) : catalog;
         return {
           id: itemId,
           product_id: itemId,
           variant_id: row.variant?.id,
           quantity: row.quantity,
-          rate: getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase),
+          rate: eff,
           name: row.variant?.variant_name || row.product!.name
         };
       });
@@ -1457,28 +1512,37 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                          const effectiveRate = Math.max(0, shownRate - perUnitDiscount);
                          return (
                            <>
-                             {isAdminEdit ? (
-                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                 <label className="text-[9px] text-muted-foreground">Unit ₹</label>
-                                 <Input
-                                   type="number"
-                                   step="0.01"
-                                   min="0"
-                                   value={hasEdited ? String(row.editedRate) : catalogRate.toFixed(2)}
-                                   onChange={(e) => applyAdminPrice(row.id, 'rate', e.target.value)}
-                                   className="h-6 w-20 text-[10px] px-1.5"
-                                 />
-                                 <label className="text-[9px] text-muted-foreground">Line ₹</label>
-                                 <Input
-                                   type="number"
-                                   step="0.01"
-                                   min="0"
-                                   value={(shownRate * (Number(row.quantity) || 0)).toFixed(2)}
-                                   onChange={(e) => applyAdminPrice(row.id, 'total', e.target.value)}
-                                   className="h-6 w-24 text-[10px] px-1.5"
-                                   disabled={!(Number(row.quantity) > 0)}
-                                 />
-                                 <span className="text-[9px] text-muted-foreground">per {displayUnit}</span>
+                              {isAdminEdit ? (() => {
+                                const buf = priceEditText[row.id] || {};
+                                const qtyNum = Number(row.quantity) || 0;
+                                const rateDisplay = buf.rate !== undefined
+                                  ? buf.rate
+                                  : (hasEdited ? String(row.editedRate) : catalogRate.toFixed(2));
+                                const totalDisplay = buf.total !== undefined
+                                  ? buf.total
+                                  : (shownRate * qtyNum).toFixed(2);
+                                return (
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <label className="text-[9px] text-muted-foreground">Unit ₹</label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={rateDisplay}
+                                    onChange={(e) => onChangeAdminPrice(row.id, 'rate', e.target.value)}
+                                    onBlur={(e) => onBlurAdminPrice(row.id, 'rate', e.target.value)}
+                                    className="h-6 w-20 text-[10px] px-1.5"
+                                  />
+                                  <label className="text-[9px] text-muted-foreground">Line ₹</label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={totalDisplay}
+                                    onChange={(e) => onChangeAdminPrice(row.id, 'total', e.target.value)}
+                                    onBlur={(e) => onBlurAdminPrice(row.id, 'total', e.target.value)}
+                                    className="h-6 w-24 text-[10px] px-1.5"
+                                    disabled={!(qtyNum > 0)}
+                                  />
+                                  <span className="text-[9px] text-muted-foreground">per {displayUnit}</span>
                                  {row.isPriceEdited && (
                                    <>
                                      <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-500/15 text-amber-700 border-amber-500/30">
@@ -1489,8 +1553,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                      </span>
                                    </>
                                  )}
-                               </div>
-                             ) : hasDiscount ? (
+                                </div>
+                                );
+                              })() : hasDiscount ? (
                                <span className="text-[9px] mt-0.5 flex items-center gap-1 flex-wrap">
                                  <span className="line-through text-muted-foreground">
                                    ₹{catalogRate.toFixed(2)}
