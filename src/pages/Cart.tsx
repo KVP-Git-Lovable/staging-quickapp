@@ -326,7 +326,7 @@ export const Cart = () => {
         if (isEmpty) {
           const { data: items } = await supabase
             .from('order_items')
-            .select('id, product_id, variant_id, product_name, category, rate, unit, quantity, total, hsn_code, uom_id, uom_code, conversion_to_base, original_rate, discount_amount')
+            .select('id, product_id, variant_id, product_name, category, rate, unit, quantity, total, hsn_code, uom_id, uom_code, conversion_to_base, original_rate, discount_amount, is_price_edited')
             .eq('order_id', editOrderId);
           const seeded: CartItem[] = (items || []).map((it: any) => {
             const cartId = it.variant_id
@@ -347,6 +347,7 @@ export const Cart = () => {
               ...(it.product_id ? { product_id: it.product_id } : {}),
               ...(it.variant_id ? { variant_id: it.variant_id } : {}),
               ...(it.original_rate ? { original_rate: Number(it.original_rate) } : {}),
+              ...(it.is_price_edited ? { is_price_edited: true } : {}),
             } as any;
           });
           localStorage.setItem(editKey, JSON.stringify(seeded));
@@ -1223,6 +1224,7 @@ export const Cart = () => {
           igst_amount: 0,
           cess_rate: 0,
           cess_amount: lineTax?.cess ?? 0,
+          is_price_edited: !!(item as any).is_price_edited,
         };
       });
 
@@ -2220,6 +2222,7 @@ export const Cart = () => {
           igst_amount: 0,
           cess_rate: 0,
           cess_amount: lineTax?.cess ?? 0,
+          is_price_edited: !!(item as any).is_price_edited,
         };
       });
 
@@ -2720,15 +2723,35 @@ export const Cart = () => {
                         {/* Product Info - Compact */}
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-sm truncate leading-tight">{displayName}</h3>
-                          {hasDiscount ? (
-                            <p className="text-xs text-muted-foreground">
-                              <span className="line-through mr-1">₹{ratePerDisplayUnit.toFixed(2)}</span>
-                              <span className="text-success font-medium">₹{ratePerDisplayUnitAfterDiscount.toFixed(2)}</span>
-                              /{displayUnit}
-                            </p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">₹{ratePerDisplayUnit.toFixed(2)}/{displayUnit}</p>
-                          )}
+                          {(() => {
+                            const isPriceEdited = !!(item as any).is_price_edited;
+                            const originalRateRaw = Number((item as any).original_rate) || 0;
+                            const originalPerDisplayUnit = displayUnit?.toLowerCase() === 'kg' && item.unit?.toLowerCase() === 'grams'
+                              ? originalRateRaw * 1000
+                              : originalRateRaw;
+                            if (isAdminEdit && isPriceEdited && originalPerDisplayUnit > 0
+                                && Math.abs(originalPerDisplayUnit - ratePerDisplayUnit) > 0.005) {
+                              return (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+                                  <span className="line-through mr-1">₹{originalPerDisplayUnit.toFixed(2)}</span>
+                                  <span className="text-primary font-medium">₹{ratePerDisplayUnit.toFixed(2)}</span>
+                                  /{displayUnit}
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-500/15 text-amber-700 border-amber-500/30">
+                                    price edited
+                                  </Badge>
+                                </p>
+                              );
+                            }
+                            return hasDiscount ? (
+                              <p className="text-xs text-muted-foreground">
+                                <span className="line-through mr-1">₹{ratePerDisplayUnit.toFixed(2)}</span>
+                                <span className="text-success font-medium">₹{ratePerDisplayUnitAfterDiscount.toFixed(2)}</span>
+                                /{displayUnit}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">₹{ratePerDisplayUnit.toFixed(2)}/{displayUnit}</p>
+                            );
+                          })()}
                           
                           {/* GST per line — show rate next to each component */}
                           {lineTax && lineTax.taxRate > 0 && (() => {

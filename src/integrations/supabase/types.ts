@@ -11648,6 +11648,7 @@ export type Database = {
           id: string
           igst_amount: number | null
           igst_rate: number | null
+          is_price_edited: boolean
           order_id: string
           original_rate: number | null
           product_id: string | null
@@ -11678,6 +11679,7 @@ export type Database = {
           id?: string
           igst_amount?: number | null
           igst_rate?: number | null
+          is_price_edited?: boolean
           order_id: string
           original_rate?: number | null
           product_id?: string | null
@@ -11708,6 +11710,7 @@ export type Database = {
           id?: string
           igst_amount?: number | null
           igst_rate?: number | null
+          is_price_edited?: boolean
           order_id?: string
           original_rate?: number | null
           product_id?: string | null

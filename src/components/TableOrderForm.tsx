@@ -78,6 +78,10 @@ interface OrderRow {
   priceBasisUomCode?: string | null;
   priceBasisConversionToBase?: number | null;
   total: number;
+  /** Admin-overridden per-unit price for this line (only set in admin edit context). */
+  editedRate?: number | null;
+  /** True when editedRate differs from the catalog rate. */
+  isPriceEdited?: boolean;
 }
 
 interface TableOrderFormProps {
@@ -130,11 +134,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const visitId = searchParams.get("visitId") || '';
   const retailerId = searchParams.get("retailerId") || '';
   const editOrderId = searchParams.get("editOrderId") || '';
+  const source = searchParams.get("source") || '';
   const isEditMode = !!editOrderId;
+  const isAdminEdit = source === 'admin' && isEditMode;
   const editPolicy = useOrderEditPolicy();
   // When editing an order and the admin has locked pricing, freeze anything
   // that would change the per-unit rate (product, variant, UOM) — only qty is editable.
-  const priceLocked = isEditMode && editPolicy.edit_lock_price;
+  // Admin edit context always bypasses the price lock (admin is the override authority).
+  const priceLocked = isEditMode && editPolicy.edit_lock_price && !isAdminEdit;
 
   // PERF: disable noisy logs in hot paths
   const DEV_LOG = false;
@@ -283,7 +290,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const stock = row.variant ? row.variant.stock_quantity : row.product!.closing_stock;
       const itemId = row.variant ? `${row.product!.id}_variant_${row.variant.id}` : row.product!.id;
       const selectedUnit = row.uomCode || row.unit || row.product!.unit || 'PC';
-      const ratePerSelectedUnit = getPricePerUnit(
+      const catalogRate = getPricePerUnit(
         row.product!,
         row.variant,
         selectedUnit,
@@ -291,8 +298,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         row.priceBasisConversionToBase,
       );
 
-        // Original (MRP) per the selected unit
-        const originalRatePerSelectedUnit = ratePerSelectedUnit;
+      // Admin-edited price overrides the catalog rate on the way to the cart.
+      // original_rate always keeps the catalog value for history.
+      const hasEditedPrice = row.editedRate != null && Number.isFinite(row.editedRate);
+      const effectiveRate = hasEditedPrice ? Number(row.editedRate) : catalogRate;
+      const isPriceEdited = !!row.isPriceEdited && hasEditedPrice
+        && Math.abs(Number(row.editedRate) - catalogRate) > 0.005;
+      const qty = Number(row.quantity) || 0;
+      const lineTotal = hasEditedPrice ? +(effectiveRate * qty).toFixed(2) : (Number(row.total) || 0);
 
       return {
         id: itemId,
@@ -300,19 +313,20 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         variant_id: row.variant ? row.variant.id : null,
         name: displayName || 'Unknown Product',
         category: row.product!.category?.name || 'Uncategorized',
-        rate: ratePerSelectedUnit,
-        original_rate: originalRatePerSelectedUnit,
+        rate: effectiveRate,
+        original_rate: catalogRate,
+        is_price_edited: isPriceEdited,
         unit: selectedUnit,
         uom_id: row.uomId || null,
         uom_code: row.uomCode || selectedUnit,
         conversion_to_base: row.conversionToBase ?? null,
         base_unit: selectedUnit,
-        quantity: Number(row.quantity) || 0,
-        total: Number(row.total) || 0,
+        quantity: qty,
+        total: lineTotal,
         closingStock: Number(stock) || 0,
         schemes: row.product!.schemes || [],
         display_unit: selectedUnit,
-        display_quantity: Number(row.quantity) || 0,
+        display_quantity: qty,
         hsn_code: (row.product as any)?.hsn_code || null,
         gst_percentage: (row.product as any)?.gst_percentage ?? null,
         tax_master_id: (row.product as any)?.tax_master_id ?? null
@@ -499,7 +513,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
         const { data: items, error } = await supabase
           .from('order_items')
-          .select('id, product_id, variant_id, product_name, rate, unit, quantity, total')
+          .select('id, product_id, variant_id, product_name, rate, original_rate, is_price_edited, unit, quantity, total')
           .eq('order_id', editOrderId);
 
         if (error) {
@@ -533,6 +547,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             : undefined;
           const qty = Number(it.quantity) || 0;
           const rate = Number(it.rate) || 0;
+          const originalRate = Number(it.original_rate ?? rate) || rate;
+          const wasEdited = !!it.is_price_edited && Math.abs(rate - originalRate) > 0.005;
           return {
             id: String(idx + 1),
             productCode: (liveVariant as any)?.sku || liveProduct?.sku || pid || '',
@@ -542,6 +558,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             closingStock: Number((liveVariant as any)?.stock_quantity ?? liveProduct?.closing_stock ?? 0),
             unit: it.unit || (liveProduct ? getDefaultOrderUnit(liveProduct) : 'pcs'),
             total: Number(it.total) || qty * rate,
+            editedRate: wasEdited ? rate : null,
+            isPriceEdited: wasEdited,
           } as OrderRow;
         });
 
@@ -1023,15 +1041,24 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               updatedRow.priceBasisConversionToBase = null;
               updatedRow.closingStock = result.variant ? result.variant.stock_quantity : result.product.closing_stock;
               updatedRow.total = computeTotal(result.product, result.variant, updatedRow.quantity, updatedRow.unit);
+              // A new product resets any previous admin price override.
+              updatedRow.editedRate = null;
+              updatedRow.isPriceEdited = false;
             } else {
               updatedRow.product = undefined;
               updatedRow.variant = undefined;
               updatedRow.closingStock = 0;
               updatedRow.total = 0;
+              updatedRow.editedRate = null;
+              updatedRow.isPriceEdited = false;
             }
           } else if (field === "quantity") {
             // Use row.unit (current unit) since quantity is being updated
             updatedRow.total = computeTotal(row.product, row.variant, value, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase);
+            // Preserve admin-edited unit price across quantity changes.
+            if (updatedRow.editedRate != null && Number.isFinite(updatedRow.editedRate)) {
+              updatedRow.total = +(Number(updatedRow.editedRate) * (Number(value) || 0)).toFixed(2);
+            }
           } else if (field === "unit") {
             const sel = value as LineItemUomSelection;
             // When unit changes, convert quantity to the new unit automatically
@@ -1047,8 +1074,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             if (oldUnit && newUnit && row.quantity > 0) {
               updatedRow.quantity = convertBetweenUnits(row.quantity, oldUnit, newUnit);
             }
-            // Recalculate total with the NEW unit and converted quantity
+            // Recalculate total with the NEW unit and converted quantity — clears any admin override,
+            // because the previous override was tied to a different UOM's price basis.
             updatedRow.total = computeTotal(row.product, row.variant, updatedRow.quantity, sel.uomCode, sel.conversionToBase, sel.priceBasisConversionToBase);
+            updatedRow.editedRate = null;
+            updatedRow.isPriceEdited = false;
           }
           return updatedRow;
         }
@@ -1060,6 +1090,57 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       return updatedRows;
     });
   };
+
+  /**
+   * Admin-only: set an overridden per-unit price on a row. Pass mode='rate' with the new
+   * unit price, or mode='total' with the new line total (rate is back-computed from quantity).
+   * Passing an empty/invalid value clears the override so the catalog price returns.
+   */
+  const applyAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
+    if (!isAdminEdit) return;
+    setOrderRows(prev => {
+      const updated = prev.map(row => {
+        if (row.id !== rowId || !row.product) return row;
+        const qty = Number(row.quantity) || 0;
+        const selectedUnit = row.uomCode || row.unit || row.product.unit || 'PC';
+        const catalogRate = getPricePerUnit(
+          row.product,
+          row.variant,
+          selectedUnit,
+          row.conversionToBase,
+          row.priceBasisConversionToBase,
+        );
+
+        // Empty input clears the override.
+        const parsed = Number(rawValue);
+        if (rawValue === '' || !Number.isFinite(parsed) || parsed < 0) {
+          const total = +(catalogRate * qty).toFixed(2);
+          return { ...row, editedRate: null, isPriceEdited: false, total };
+        }
+
+        let nextRate: number;
+        if (mode === 'rate') {
+          nextRate = +parsed.toFixed(2);
+        } else {
+          // total mode: rate = total / qty. Guard qty=0.
+          if (qty <= 0) return row;
+          nextRate = +(parsed / qty).toFixed(2);
+        }
+
+        const restoredToCatalog = Math.abs(nextRate - catalogRate) < 0.005;
+        const total = +(nextRate * qty).toFixed(2);
+        return {
+          ...row,
+          editedRate: restoredToCatalog ? null : nextRate,
+          isPriceEdited: !restoredToCatalog,
+          total,
+        };
+      });
+      syncRowsToCart(updated);
+      return updated;
+    });
+  };
+
 
   const addToCart = () => {
     if (isAddingToCart) return;
@@ -1365,19 +1446,54 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
                        {row.product && (() => {
                          const displayUnit = row.uomCode || row.unit;
-                         const originalRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase);
+                         const catalogRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase);
                          const itemId = row.variant?.id || row.product.id;
                          const itemSchemes = orderCalculation.itemSchemeDetails?.[itemId] || [];
                          const totalDiscount = itemSchemes.reduce((s, x) => s + (x.discountAmount || 0), 0);
                          const hasDiscount = totalDiscount > 0 && row.quantity > 0;
                          const perUnitDiscount = hasDiscount ? totalDiscount / row.quantity : 0;
-                         const effectiveRate = Math.max(0, originalRate - perUnitDiscount);
+                         const hasEdited = row.editedRate != null && Number.isFinite(row.editedRate);
+                         const shownRate = hasEdited ? Number(row.editedRate) : catalogRate;
+                         const effectiveRate = Math.max(0, shownRate - perUnitDiscount);
                          return (
                            <>
-                             {hasDiscount ? (
+                             {isAdminEdit ? (
+                               <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                 <label className="text-[9px] text-muted-foreground">Unit ₹</label>
+                                 <Input
+                                   type="number"
+                                   step="0.01"
+                                   min="0"
+                                   value={hasEdited ? String(row.editedRate) : catalogRate.toFixed(2)}
+                                   onChange={(e) => applyAdminPrice(row.id, 'rate', e.target.value)}
+                                   className="h-6 w-20 text-[10px] px-1.5"
+                                 />
+                                 <label className="text-[9px] text-muted-foreground">Line ₹</label>
+                                 <Input
+                                   type="number"
+                                   step="0.01"
+                                   min="0"
+                                   value={(shownRate * (Number(row.quantity) || 0)).toFixed(2)}
+                                   onChange={(e) => applyAdminPrice(row.id, 'total', e.target.value)}
+                                   className="h-6 w-24 text-[10px] px-1.5"
+                                   disabled={!(Number(row.quantity) > 0)}
+                                 />
+                                 <span className="text-[9px] text-muted-foreground">per {displayUnit}</span>
+                                 {row.isPriceEdited && (
+                                   <>
+                                     <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-500/15 text-amber-700 border-amber-500/30">
+                                       edited
+                                     </Badge>
+                                     <span className="text-[9px] text-muted-foreground">
+                                       list ₹{catalogRate.toFixed(2)}
+                                     </span>
+                                   </>
+                                 )}
+                               </div>
+                             ) : hasDiscount ? (
                                <span className="text-[9px] mt-0.5 flex items-center gap-1 flex-wrap">
                                  <span className="line-through text-muted-foreground">
-                                   ₹{originalRate.toFixed(2)}
+                                   ₹{catalogRate.toFixed(2)}
                                  </span>
                                  <span className="text-green-600 font-medium">
                                     ₹{effectiveRate.toFixed(2)} per {displayUnit}
@@ -1385,7 +1501,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                </span>
                              ) : (
                                <span className="text-[9px] text-muted-foreground mt-0.5">
-                                  ₹{originalRate.toFixed(2)} per {displayUnit}
+                                  ₹{catalogRate.toFixed(2)} per {displayUnit}
                                </span>
                              )}
                              {itemSchemes.length > 0 && row.quantity > 0 && (
