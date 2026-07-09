@@ -26971,6 +26971,25 @@ export type Database = {
         Args: { p_invoice_id: string }
         Returns: Json
       }
+      find_duplicate_retailers: {
+        Args: {
+          p_exclude_id?: string
+          p_lat?: number
+          p_lng?: number
+          p_name: string
+          p_phone?: string
+          p_radius_m?: number
+        }
+        Returns: {
+          distance_m: number
+          id: string
+          matched_on: string[]
+          name: string
+          owner_name: string
+          owner_user_id: string
+          phone: string
+        }[]
+      }
       generate_delivery_challan: {
         Args: { p_packing_list_id: string }
         Returns: Json
