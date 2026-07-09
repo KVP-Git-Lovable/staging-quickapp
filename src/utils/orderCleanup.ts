@@ -213,20 +213,24 @@ export async function syncSnapshotWithDbOrders(
       return 0;
     }
     
-    // Replace snapshot orders with DB orders (DB is source of truth)
+    // Replace ONLY the current user's rows; keep teammate rows (shared beats) intact.
     const originalCount = snapshot.orders?.length || 0;
-    
-    // Map DB orders with required fields
-    snapshot.orders = dbOrders.map(o => ({
+    const preservedOthers = (snapshot.orders || []).filter(
+      (o: any) => o && o.user_id && o.user_id !== userId
+    );
+
+    const mineFromDb = dbOrders.map(o => ({
       id: o.id,
       total_amount: Math.round(Number(o.total_amount || 0)),
       retailer_id: o.retailer_id,
       order_date: o.order_date || targetDate,
       status: o.status || 'confirmed',
-      user_id: o.user_id || userId
+      user_id: o.user_id || userId,
     }));
-    
-    // Recalculate stats from synced orders
+
+    snapshot.orders = [...mineFromDb, ...preservedOthers];
+
+    // Recalculate stats from full (mine + teammate) list
     snapshot.progressStats.totalOrders = snapshot.orders.length;
     snapshot.progressStats.totalOrderValue = Math.round(
       snapshot.orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
