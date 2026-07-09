@@ -31,6 +31,9 @@ const AdminControls = () => {
   const { hasAdminAccess, permittedAdminPaths, loading } = useAdminAccess();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [draggedGroupId, setDraggedGroupId] = useState<string | null>(null);
 
   const adminModules = useMemo(() => [
     { title: "Price Book Management", description: "Create and manage price books for distributors and territories", icon: DollarSign, color: "emerald", path: "/admin/price-books" },
