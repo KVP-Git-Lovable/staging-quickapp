@@ -3147,6 +3147,25 @@ export const VisitCard = ({
                   {ordersTodayList.length > 1 && (
                     <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">{ordersTodayList.length} orders</Badge>
                   )}
+                  {ordersTodayList.length === 1 && orderSyncStatuses[ordersTodayList[0].id] && (
+                    <span className="ml-2 inline-flex align-middle">
+                      <OrderSyncBadge status={orderSyncStatuses[ordersTodayList[0].id]} />
+                    </span>
+                  )}
+                  {ordersTodayList.length > 1 && (() => {
+                    const worst = ordersTodayList.reduce<any>((acc, o) => {
+                      const s = orderSyncStatuses[o.id];
+                      if (!s) return acc;
+                      const rank = { failed: 3, retrying: 2, syncing: 2, pending: 2, synced: 1 } as any;
+                      if (!acc || rank[s.state] > rank[acc.state]) return s;
+                      return acc;
+                    }, undefined);
+                    return worst ? (
+                      <span className="ml-2 inline-flex align-middle">
+                        <OrderSyncBadge status={worst} />
+                      </span>
+                    ) : null;
+                  })()}
                 </span>
               <Button variant="ghost" size="sm" className="h-7" onClick={async () => {
               recordAction('view_order').catch(() => {});
