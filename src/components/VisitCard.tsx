@@ -59,6 +59,7 @@ import { checkLocationAvailability, classifyLocationError, requestLocationPermis
 import { openAppSettings } from "@/utils/permissions";
 import { Capacitor } from "@capacitor/core";
 import { reverseGeocode } from "@/utils/reverseGeocode";
+import { useOrderSyncStatuses, OrderSyncBadge, OrderSyncDetails } from "@/components/order/OrderSyncStatus";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -392,6 +393,10 @@ export const VisitCard = ({
     userId,
     selectedDate
   });
+
+  // Per-order sync status derivation (green/amber/red)
+  const { statuses: orderSyncStatuses, refresh: refreshOrderSyncStatuses } =
+    useOrderSyncStatuses(userId, ordersTodayList as any);
 
   // Handle logout - end all active logs
   useEffect(() => {
@@ -3142,6 +3147,25 @@ export const VisitCard = ({
                   {ordersTodayList.length > 1 && (
                     <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">{ordersTodayList.length} orders</Badge>
                   )}
+                  {ordersTodayList.length === 1 && orderSyncStatuses[ordersTodayList[0].id] && (
+                    <span className="ml-2 inline-flex align-middle">
+                      <OrderSyncBadge status={orderSyncStatuses[ordersTodayList[0].id]} />
+                    </span>
+                  )}
+                  {ordersTodayList.length > 1 && (() => {
+                    const worst = ordersTodayList.reduce<any>((acc, o) => {
+                      const s = orderSyncStatuses[o.id];
+                      if (!s) return acc;
+                      const rank = { failed: 3, retrying: 2, syncing: 2, pending: 2, synced: 1 } as any;
+                      if (!acc || rank[s.state] > rank[acc.state]) return s;
+                      return acc;
+                    }, undefined);
+                    return worst ? (
+                      <span className="ml-2 inline-flex align-middle">
+                        <OrderSyncBadge status={worst} />
+                      </span>
+                    ) : null;
+                  })()}
                 </span>
               <Button variant="ghost" size="sm" className="h-7" onClick={async () => {
               recordAction('view_order').catch(() => {});
@@ -3233,19 +3257,29 @@ export const VisitCard = ({
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="font-semibold">₹{Math.round(order.total_amount).toLocaleString()}</span>
+                                <OrderSyncBadge status={orderSyncStatuses[order.id]} />
                                 <span className="text-muted-foreground">{isExpanded ? '▲' : '▼'}</span>
                               </div>
                             </button>
                             
                             {isExpanded && (
-                              <OrderItemsExpanded 
-                                orderId={order.id} 
-                                displayItems={displayItems} 
-                                onItemsLoaded={(items) => {
-                                  // Merge newly fetched items into lastOrderItems
-                                  setLastOrderItems(prev => [...prev, ...items]);
-                                }}
-                              />
+                              <>
+                                <OrderItemsExpanded 
+                                  orderId={order.id} 
+                                  displayItems={displayItems} 
+                                  onItemsLoaded={(items) => {
+                                    // Merge newly fetched items into lastOrderItems
+                                    setLastOrderItems(prev => [...prev, ...items]);
+                                  }}
+                                />
+                                <div className="px-2 pb-2">
+                                  <OrderSyncDetails
+                                    orderId={order.id}
+                                    status={orderSyncStatuses[order.id]}
+                                    onChanged={refreshOrderSyncStatuses}
+                                  />
+                                </div>
+                              </>
                             )}
                           </div>
                         );
@@ -3272,6 +3306,13 @@ export const VisitCard = ({
                           </div>
                         );
                       })}
+                      {ordersTodayList.length === 1 && (
+                        <OrderSyncDetails
+                          orderId={ordersTodayList[0].id}
+                          status={orderSyncStatuses[ordersTodayList[0].id]}
+                          onChanged={refreshOrderSyncStatuses}
+                        />
+                      )}
                     </div>
                   ) : null}
                   
