@@ -963,8 +963,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
 
       const oChanges = getChangedItems(currentCache.orders, _deduped);
       if (oChanges.changed.length > 0 || oChanges.added.length > 0 || oChanges.removed.length > 0) {
-        uiUpdated = applyGranularUpdate(setOrders, oChanges) || uiUpdated;
-        currentCache.orders = _deduped;
+        // SAFETY: Never replace orders with an empty list if we had orders before,
+        // unless the beat plans also cleared. Prevents Total Order Value flashing ₹0.
+        const hadOrders = (currentCache.orders || []).length > 0;
+        const newOrdersEmpty = _deduped.length === 0;
+        const beatsGenuinelyCleared = newBeatIdsFromNetwork === '' && oldBeatIdsFromCache !== '';
+        if (newOrdersEmpty && hadOrders && !beatsGenuinelyCleared) {
+          console.log(`[SmartSync] Skipping empty orders replacement (transient) old=${currentCache.orders?.length}`);
+        } else {
+          uiUpdated = applyGranularUpdate(setOrders, oChanges) || uiUpdated;
+          currentCache.orders = _deduped;
+        }
       }
 
       // FIX #2: ALWAYS fetch ALL retailers by beat_id (not just from visits/orders)
