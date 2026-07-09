@@ -394,6 +394,10 @@ export const VisitCard = ({
     selectedDate
   });
 
+  // Per-order sync status derivation (green/amber/red)
+  const { statuses: orderSyncStatuses, refresh: refreshOrderSyncStatuses } =
+    useOrderSyncStatuses(userId, ordersTodayList as any);
+
   // Handle logout - end all active logs
   useEffect(() => {
     const handleLogout = async () => {
