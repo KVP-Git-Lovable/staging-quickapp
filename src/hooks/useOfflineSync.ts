@@ -1045,6 +1045,28 @@ export function useOfflineSync() {
         }
         break;
 
+      case 'CREATE_COLLECTION': {
+        console.log('Syncing retailer payment collection:', data);
+        const collection = data?.collection || data;
+        if (!collection?.id || !collection?.retailer_id || !collection?.amount) {
+          throw new Error('CREATE_COLLECTION missing required fields (id/retailer_id/amount)');
+        }
+        const { error: collErr } = await (supabase as any)
+          .from('retailer_payment_collections')
+          .upsert(collection, { onConflict: 'id', ignoreDuplicates: false });
+        if (collErr) throw collErr;
+        if (data?.apply_fifo !== false) {
+          const { error: fifoErr } = await (supabase as any).rpc('apply_retailer_payment_fifo', {
+            p_retailer_id: collection.retailer_id,
+            p_amount: collection.amount,
+            p_collection_id: collection.id,
+          });
+          if (fifoErr) throw fifoErr;
+        }
+        break;
+      }
+
+
       case 'CREATE_EXPENSE': {
         console.log('Syncing additional expense:', data);
         const { error: expenseError } = await supabase
