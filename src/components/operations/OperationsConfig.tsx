@@ -10,7 +10,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, Loader2, Info } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
 
 type OpsConfig = {
   id: number;
@@ -112,6 +114,33 @@ const OperationsConfig: React.FC = () => {
       </CardFooter>
     );
   };
+  const InfoPopover: React.FC<{
+    what: string;
+    enable: string;
+    happens: string;
+    pros: string;
+    cons: string;
+  }> = ({ what, enable, happens, pros, cons }) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="More info"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Info className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="start" className="w-80 text-sm space-y-2">
+        <div><span className="font-semibold">What it does: </span>{what}</div>
+        <div><span className="font-semibold">How to enable: </span>{enable}</div>
+        <div><span className="font-semibold">What happens: </span>{happens}</div>
+        <div><span className="font-semibold text-green-600">Pros: </span>{pros}</div>
+        <div><span className="font-semibold text-amber-600">Cons: </span>{cons}</div>
+      </PopoverContent>
+    </Popover>
+  );
+
 
   if (loading || !config) {
     return (
@@ -129,7 +158,17 @@ const OperationsConfig: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Backdated orders</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-1.5">
+              Backdated orders
+              <InfoPopover
+                what="Place an order dated to a past day within the allowed window."
+                enable="Toggle on, set max backdate days, and grant the order_backdate permission."
+                happens="Order flagged is_backdated, GPS skipped, reason required, may need manager approval."
+                pros="Capture genuinely missed orders."
+                cons="Can distort daily/attendance reports if abused — keep the day-limit tight and always require a reason."
+              />
+            </CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">Backdated orders skip GPS.</p>
           </div>
           <Switch checked={c.backdate_enabled} onCheckedChange={(v) => save('backdate_enabled', v)} />
@@ -171,7 +210,17 @@ const OperationsConfig: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Order on behalf</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-1.5">
+              Order on behalf
+              <InfoPopover
+                what="Place an order for another rep's retailer."
+                enable="Toggle on and grant the order_on_behalf permission."
+                happens="Order is credited to the target rep (owner); placed_by records you."
+                pros="Cover for absent teammates."
+                cons="Muddies credit attribution if misused; limited to your team/downline."
+              />
+            </CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">
               Credited to the selected user; recorded against whoever places it.
             </p>
@@ -185,7 +234,17 @@ const OperationsConfig: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Out-of-beat orders</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-1.5">
+              Out-of-beat orders
+              <InfoPopover
+                what="Order for a retailer outside your assigned beat."
+                enable="Toggle on, set the visibility level + credit rule, and grant the permission."
+                happens="Warning shown, reason + GPS captured, credit assigned per the rule, manager notified."
+                pros="Capture opportunistic sales."
+                cons="Erodes beat discipline — needs manager visibility."
+              />
+            </CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">Allow reps to place orders outside today's beat.</p>
           </div>
           <Switch checked={c.oob_enabled} onCheckedChange={(v) => save('oob_enabled', v)} />
@@ -251,7 +310,17 @@ const OperationsConfig: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Order edit policy</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-1.5">
+              Order edit policy
+              <InfoPopover
+                what="Edit a confirmed order."
+                enable="Toggle on, set the lock point (invoiced/dispatched), who can edit (own/team), price-lock, and grant order_edit."
+                happens="Creates a linked replacement order (original cancelled, replaces/replaced_by), collects/refunds the delta, requires approval over limits."
+                pros="Fix mistakes without cancel-and-re-enter."
+                cons="Adds audit complexity; lock rules intentionally block edits after fulfillment."
+              />
+            </CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">Control if and when placed orders can be edited.</p>
           </div>
           <Switch checked={c.edit_enabled} onCheckedChange={(v) => save('edit_enabled', v)} />
