@@ -258,6 +258,27 @@ export async function submitOrderWithOfflineSupport(
       
       await Promise.race([submitPromise, timeoutPromise]);
       console.log('✅ Order synced immediately to database:', orderId);
+
+      // Mark the local record synced, then remove it — mirrors the
+      // post-sync cleanup performed by the queue drain in useOfflineSync.
+      // Without this, OrderSyncStatus would keep reporting Pending for
+      // orders that were fully persisted via the immediate-sync path.
+      try {
+        const existing = await offlineStorage.get<any>(STORES.ORDERS, orderId).catch(() => null);
+        if (existing) {
+          await offlineStorage.save(STORES.ORDERS, {
+            ...existing,
+            sync_status: 'synced',
+            sync_attempts: (existing.sync_attempts || 0) + 1,
+            last_attempt_at: new Date().toISOString(),
+            sync_error: null,
+          });
+        }
+        await offlineStorage.delete(STORES.ORDERS, orderId);
+      } catch (cleanupErr) {
+        console.warn('[offlineOrderUtils] Post-sync local cleanup failed (non-fatal):', cleanupErr);
+      }
+
       options.onOnline?.();
     } catch (syncError: any) {
       // On any error/timeout, queue for retry - never lose order data
