@@ -1223,8 +1223,16 @@ export function useOfflineSync() {
         }
         break;
         
+      case 'VAN_STOCK_SYNC': {
+        const stockDate = data?.stockDate || data?.stock_date || getTodayDateString();
+        const ok = await syncOrdersToVanStock(stockDate, data?.userId);
+        if (!ok) throw new Error('VAN_STOCK_SYNC: syncOrdersToVanStock returned false');
+        break;
+      }
+
       default:
-        console.warn('Unknown sync action:', action);
+        console.warn('Unknown sync action, keeping in queue:', action);
+        throw new Error(`Unknown sync action: ${action}`);
     }
   };
 
