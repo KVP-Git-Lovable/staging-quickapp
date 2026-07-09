@@ -707,9 +707,12 @@ export const BeatDetail = () => {
           .eq('user_id', user.id);
       }
 
-      // Permanently delete the beat (pre-check confirmed it's safe)
-      const deleted = await beatLifecycle.deletePermanent(beatData.beat_id, beatData.beat_name);
-      if (!deleted) throw new Error('Failed to permanently delete beat');
+      // Route the final beat removal through the shared guard so history is never destroyed.
+      {
+        const { deactivateOrDeleteBeat } = await import('@/utils/safeRetailerBeatDelete');
+        const res = await deactivateOrDeleteBeat(beatData.beat_id);
+        if (res.action === 'failed') throw new Error('Failed to delete or deactivate beat');
+      }
 
       // Insert audit log
       try {
