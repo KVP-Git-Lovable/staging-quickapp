@@ -25,7 +25,7 @@ const UomMasterPage = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-subtle p-4">
-        <div className="max-w-7xl mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <AdminPageHeader
             title="Unit of Measure Master"
             subtitle="Manage which units appear in dropdowns, set per-category defaults, and reorder them"
