@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { SearchInput } from '@/components/SearchInput';
 import { Save, X, Users, MapPin, Clock, Truck, Repeat, CalendarDays, Navigation, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -428,7 +427,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-4 sm:p-6">
+      <DialogContent className="w-[95vw] max-w-4xl h-[90dvh] max-h-[90dvh] overflow-hidden !flex flex-col p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -447,8 +446,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
         </div>
         
         
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <ScrollArea className="h-full pr-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain pr-2 sm:pr-4 pb-28">
             <div className="space-y-6">
               {/* Beat Details Form */}
               <Card>
@@ -794,7 +792,6 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                 </CardContent>
               </Card>
             </div>
-          </ScrollArea>
         </div>
         
         <div className="flex justify-end gap-2 pt-4 border-t">
