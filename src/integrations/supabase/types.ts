@@ -27671,6 +27671,10 @@ export type Database = {
         Args: { p_actor_user_id: string; p_metadata?: Json; p_rule_id: string }
         Returns: number
       }
+      quarantine_orphan_orders: {
+        Args: { p_grace_minutes?: number }
+        Returns: number
+      }
       reactivate_beat: { Args: { p_beat_id: string }; Returns: Json }
       recompute_retailer_pending: {
         Args: { p_retailer_id: string }
