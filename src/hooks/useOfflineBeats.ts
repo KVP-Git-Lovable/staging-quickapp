@@ -191,13 +191,13 @@ export function useOfflineBeats() {
       setLoading(true);
 
       if (isOnline) {
-        // Online: Delete directly
-        const { error } = await supabase
-          .from('beats')
-          .delete()
-          .eq('id', beatId);
+        // Online: route through the safe guard so beats with history are deactivated instead of destroyed.
+        const { deactivateOrDeleteBeat } = await import("@/utils/safeRetailerBeatDelete");
+        const res = await deactivateOrDeleteBeat(beatId);
 
-        if (error) throw error;
+        if (res.action === "failed") {
+          return { success: false, offline: false };
+        }
 
         // Remove from cache
         await offlineStorage.delete(STORES.BEATS, beatId);
