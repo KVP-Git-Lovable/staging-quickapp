@@ -22055,6 +22055,24 @@ export type Database = {
           },
         ]
       }
+      rls_baseline: {
+        Row: {
+          policy_names: string[]
+          snapshot_at: string
+          table_name: string
+        }
+        Insert: {
+          policy_names?: string[]
+          snapshot_at?: string
+          table_name: string
+        }
+        Update: {
+          policy_names?: string[]
+          snapshot_at?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       role_definitions: {
         Row: {
           created_at: string
@@ -26778,6 +26796,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      check_rls_drift: { Args: never; Returns: number }
       cleanup_expired_coverage: { Args: never; Returns: undefined }
       cleanup_expired_insights: { Args: never; Returns: undefined }
       cleanup_expired_recommendations: { Args: never; Returns: undefined }
