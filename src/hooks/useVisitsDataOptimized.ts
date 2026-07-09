@@ -444,6 +444,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
   // STALE CLOSURE FIX: Keep refs in sync with latest values for event handlers
   const userIdRef = useRef(effectiveUserId);
   const selectedDateRef = useRef(selectedDate);
+
+  // FRESHNESS ORDERING: Older results (from any cache/network path) must never
+  // overwrite newer results. Track the latest "producedAt" applied per uid+date.
+  const lastAppliedAtRef = useRef<Map<string, number>>(new Map());
+  const isFresh = useCallback((uid: string, date: string, producedAt: number): boolean => {
+    if (!uid || !date) return false;
+    const key = `${uid}:${date}`;
+    const last = lastAppliedAtRef.current.get(key) || 0;
+    if (producedAt < last) return false;
+    lastAppliedAtRef.current.set(key, producedAt);
+    return true;
+  }, []);
+  // Marks network-fetched data as always-winning (bumps the freshness stamp).
+  const markNetworkApplied = useCallback((uid: string, date: string) => {
+    if (!uid || !date) return Date.now();
+    const now = Date.now();
+    lastAppliedAtRef.current.set(`${uid}:${date}`, now);
+    return now;
+  }, []);
   
   // FIX: Sync state to module-level cache so it survives unmount/remount
   useEffect(() => {
