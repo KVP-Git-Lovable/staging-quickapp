@@ -145,14 +145,6 @@ const GPSTrackManagement = () => {
       <div className="container mx-auto p-4 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button
-            onClick={() => navigate('/admin-controls')}
-            variant="ghost"
-            size="sm"
-            className="p-2"
-          >
-            <ArrowLeft size={20} />
-          </Button>
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <Navigation className="h-8 w-8" />

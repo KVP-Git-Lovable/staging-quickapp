@@ -145,9 +145,6 @@ const ActivityCoordinator: React.FC = () => {
         <div className="w-full space-y-4">
           {/* Header */}
           <div className="flex items-center gap-3">
-            <Button onClick={() => navigate('/admin')} variant="ghost" size="sm" className="p-2">
-              <ArrowLeft size={20} />
-            </Button>
             <div className="flex-1">
               <h1 className="text-2xl font-bold">Team activities</h1>
               <p className="text-sm text-muted-foreground">Coordinate, monitor, and assign field activities across your team.</p>

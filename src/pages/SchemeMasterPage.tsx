@@ -29,14 +29,6 @@ const SchemeMasterPage = () => {
         <div className="w-full space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <Button 
-              onClick={() => navigate('/admin-controls')} 
-              variant="ghost" 
-              size="sm"
-              className="p-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-foreground">Scheme Master</h1>
               <p className="text-muted-foreground">Create and manage promotional schemes, offers, and discounts</p>

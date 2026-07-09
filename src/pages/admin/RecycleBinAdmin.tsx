@@ -173,9 +173,6 @@ const RecycleBinAdmin = () => {
       <div className="p-4 space-y-4 pb-20">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
               <Trash2 className="h-5 w-5 text-destructive" />

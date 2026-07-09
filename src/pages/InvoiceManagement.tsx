@@ -31,13 +31,6 @@ export default function InvoiceManagement() {
     <Layout>
       <div className="container mx-auto p-6 space-y-6">
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate("/admin-controls")}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
           <div>
             <h1 className="text-2xl font-bold">Invoice Management</h1>
             <p className="text-muted-foreground">
