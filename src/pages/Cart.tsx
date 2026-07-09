@@ -1337,56 +1337,95 @@ export const Cart = () => {
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
       let syncedOrderRow: any = null;
       let syncedOrderAllocations: any[] = [];
-      if (!isEditMode && atOrderAmountPaid > 0 && validRetailerId && !result.offline && result.order?.id) {
-        try {
-          const { data: ret } = await supabase
-            .from('retailers')
-            .select('owner_id, user_id')
-            .eq('id', validRetailerId)
-            .maybeSingle();
-          const revenueOwnerId = (ret as any)?.owner_id || (ret as any)?.user_id || currentUserId;
-          const { data: collection, error: collErr } = await (supabase as any)
-            .from('retailer_payment_collections')
-            .insert({
-              retailer_id: validRetailerId,
-              amount: atOrderAmountPaid,
-              payment_method: orderPaymentMethod,
-              payment_proof_url: paymentProofUrl || null,
-              collected_by_user_id: currentUserId,
-              revenue_owner_id: revenueOwnerId,
-            })
-            .select('id')
-            .single();
-          if (collErr || !collection) throw collErr || new Error('collection insert failed');
-          const { error: fifoErr } = await (supabase as any).rpc('apply_retailer_payment_fifo', {
-            p_retailer_id: validRetailerId,
-            p_amount: atOrderAmountPaid,
-            p_collection_id: (collection as any).id,
-          });
-          if (fifoErr) throw fifoErr;
+      if (!isEditMode && atOrderAmountPaid > 0 && validRetailerId && result.order?.id) {
+        // Pre-mint the collection id so the online insert, offline enqueue, and
+        // any later retry all target the same row (idempotent via upsert).
+        const collectionId =
+          (typeof crypto !== 'undefined' && (crypto as any).randomUUID)
+            ? (crypto as any).randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
-          // Re-fetch the order row + its FIFO allocations so the UI shows the
-          // post-allocation credit_paid_amount / credit_pending_amount (server-side
-          // truth), not the pre-FIFO local values that were used at insert time.
+        // Resolve revenue owner — best-effort; fall back to current user offline.
+        let revenueOwnerId: string = currentUserId;
+        if (!result.offline) {
           try {
-            const { data: freshOrder } = await (supabase as any)
-              .from('orders')
-              .select('id, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, payment_status, previous_pending_cleared')
-              .eq('id', result.order.id)
+            const { data: ret } = await supabase
+              .from('retailers')
+              .select('owner_id, user_id')
+              .eq('id', validRetailerId)
               .maybeSingle();
-            if (freshOrder) syncedOrderRow = freshOrder;
-            const { data: allocs } = await (supabase as any)
-              .from('retailer_payment_allocations')
-              .select('id, order_id, amount, collection_id, created_at')
-              .eq('collection_id', (collection as any).id);
-            syncedOrderAllocations = allocs || [];
-          } catch (refetchErr) {
-            console.warn('[Cart] Post-FIFO re-fetch failed:', refetchErr);
+            revenueOwnerId = (ret as any)?.owner_id || (ret as any)?.user_id || currentUserId;
+          } catch { /* fall back to currentUserId */ }
+        }
+
+        const collectionPayload = {
+          id: collectionId,
+          retailer_id: validRetailerId,
+          amount: atOrderAmountPaid,
+          payment_method: orderPaymentMethod,
+          payment_proof_url: paymentProofUrl || null,
+          collected_by_user_id: currentUserId,
+          revenue_owner_id: revenueOwnerId,
+        };
+
+        if (result.offline) {
+          // Offline path — queue the ledger row; FIFO allocation runs on drain
+          // (server-side via apply_retailer_payment_fifo).
+          try {
+            await offlineStorage.addToSyncQueue('CREATE_COLLECTION', {
+              collection: collectionPayload,
+              apply_fifo: true,
+            });
+          } catch (qErr) {
+            console.error('[Cart] Failed to queue offline collection:', qErr);
           }
-        } catch (e) {
-          console.error('[Cart] At-order FIFO payment failed:', e);
+        } else {
+          try {
+            const { data: collection, error: collErr } = await (supabase as any)
+              .from('retailer_payment_collections')
+              .upsert(collectionPayload, { onConflict: 'id', ignoreDuplicates: false })
+              .select('id')
+              .single();
+            if (collErr || !collection) throw collErr || new Error('collection insert failed');
+            const { error: fifoErr } = await (supabase as any).rpc('apply_retailer_payment_fifo', {
+              p_retailer_id: validRetailerId,
+              p_amount: atOrderAmountPaid,
+              p_collection_id: (collection as any).id,
+            });
+            if (fifoErr) throw fifoErr;
+
+            // Re-fetch the order row + its FIFO allocations so the UI shows the
+            // post-allocation credit_paid_amount / credit_pending_amount (server-side
+            // truth), not the pre-FIFO local values that were used at insert time.
+            try {
+              const { data: freshOrder } = await (supabase as any)
+                .from('orders')
+                .select('id, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, payment_status, previous_pending_cleared')
+                .eq('id', result.order.id)
+                .maybeSingle();
+              if (freshOrder) syncedOrderRow = freshOrder;
+              const { data: allocs } = await (supabase as any)
+                .from('retailer_payment_allocations')
+                .select('id, order_id, amount, collection_id, created_at')
+                .eq('collection_id', (collection as any).id);
+              syncedOrderAllocations = allocs || [];
+            } catch (refetchErr) {
+              console.warn('[Cart] Post-FIFO re-fetch failed:', refetchErr);
+            }
+          } catch (e) {
+            console.error('[Cart] At-order FIFO payment failed — queuing for retry:', e);
+            try {
+              await offlineStorage.addToSyncQueue('CREATE_COLLECTION', {
+                collection: collectionPayload,
+                apply_fifo: true,
+              });
+            } catch (qErr) {
+              console.error('[Cart] Failed to queue collection after online error:', qErr);
+            }
+          }
         }
       }
+
 
       // --- Phase 2b-3a: finalize edit (replace original via RPC) ---
       if (isEditMode && editOrderId && result.order?.id && !result.offline) {
