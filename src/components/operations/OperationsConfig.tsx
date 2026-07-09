@@ -234,7 +234,17 @@ const OperationsConfig: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Out-of-beat orders</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-1.5">
+              Out-of-beat orders
+              <InfoPopover
+                what="Order for a retailer outside your assigned beat."
+                enable="Toggle on, set the visibility level + credit rule, and grant the permission."
+                happens="Warning shown, reason + GPS captured, credit assigned per the rule, manager notified."
+                pros="Capture opportunistic sales."
+                cons="Erodes beat discipline — needs manager visibility."
+              />
+            </CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">Allow reps to place orders outside today's beat.</p>
           </div>
           <Switch checked={c.oob_enabled} onCheckedChange={(v) => save('oob_enabled', v)} />
