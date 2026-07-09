@@ -12,6 +12,23 @@ import { enrichWithBeatSnapshots } from '@/utils/offlineOrderUtils';
 // Global lock shared across all hook instances to prevent duplicate queue runners
 let globalSyncInProgress = false;
 
+// Dependency-ordered drain priorities: lower drains first, so parents (retailers,
+// beats, visits) always sync before children (orders, invoices, check-out).
+const SYNC_PRIORITY: Record<string, number> = {
+  CREATE_RETAILER: 10, UPDATE_RETAILER: 10,
+  CREATE_BEAT: 20, UPDATE_BEAT: 20, CREATE_BEAT_PLAN: 25, UPDATE_BEAT_PLAN: 25,
+  CREATE_ATTENDANCE: 30, UPDATE_ATTENDANCE: 30,
+  CREATE_VISIT: 40, CHECK_IN: 40,
+  CREATE_ORDER: 50, UPDATE_ORDER: 55, CREATE_COLLECTION: 56,
+  NO_ORDER: 60, UPDATE_VISIT_NO_ORDER: 60, CREATE_VISIT_LOG: 60, UPDATE_VISIT_LOG: 60,
+  CREATE_COMPETITION_DATA: 60, CREATE_STOCK: 60, UPDATE_STOCK: 60,
+  CREATE_RETURN_STOCK: 60, CREATE_EXPENSE: 60,
+  VAN_STOCK_SYNC: 70, CHECK_OUT: 80,
+  UPLOAD_PAYMENT_PROOF: 85, SEND_INVOICE: 90, SEND_INVOICE_SMS: 95,
+};
+const priorityOf = (a: string) => SYNC_PRIORITY[a] ?? 50;
+
+
 const stripRetailerClientFields = (payload: any) => {
   const clientOnlyFields = new Set([
     'quality_status',
