@@ -168,6 +168,7 @@ import RetailerExternalDBPage from "./pages/admin/RetailerExternalDBPage";
 import RetailerUnsortedPage from "./pages/admin/RetailerUnsortedPage";
 import NotificationRulesAdmin from "./pages/admin/NotificationRulesAdmin";
 import ActivityTypeManagement from "./components/admin/ActivityTypeManagement";
+import SyncHealth from "./pages/admin/SyncHealth";
 import ActivityCoordinator from "./pages/ActivityCoordinator";
 import MyTargets from "./pages/MyTargets";
 import MyTarget from "./pages/MyTarget";
