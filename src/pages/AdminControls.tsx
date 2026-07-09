@@ -59,7 +59,7 @@ const AdminControls = () => {
     { title: "Recycle Bin Master", description: "Configure recycle bin settings and view permanent deletion logs", icon: Trash2, color: "rose", path: "/admin/recycle-bin" },
     { title: "Distributor Portal Admin", description: "Manage distributor portal users, orders, claims, support, and ideas", icon: Building2, color: "cyan", path: "/admin/distributor-portal" },
     { title: "Target Management", description: "Configure, assign, and track team targets with hierarchy cascade", icon: Target, color: "blue", path: "/admin/target-vs-actual" },
-    { title: "Pincode Master", description: "Import and manage India PIN code reference data", icon: Map, color: "teal", path: "/admin/pincode-master" },
+    { title: "Pincode Master", description: "Import and manage India PIN code reference data", icon: MapIcon, color: "teal", path: "/admin/pincode-master" },
     { title: "Tax Master", description: "Configure GST/IGST tax rates and map to product SKUs", icon: Percent, color: "violet", path: "/admin/tax-master" },
     { title: "Activity Type Master", description: "Configure activity types, weights, and productivity settings", icon: Activity, color: "teal", path: "/admin/activity-types" },
     { title: "Activity Coordinator", description: "View team activities and assign new ones", icon: Activity, color: "teal", path: "/admin/activity-coordinator" },
