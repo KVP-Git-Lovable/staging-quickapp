@@ -462,6 +462,17 @@ export const VisitCard = ({
     };
   }, [visit.retailerId, visit.id, hasOrderToday, visit.hasOrder]);
 
+  // Auto-load the order once on mount when the visit is known to have an order,
+  // so the Today's Order sync badge (Synced / Pending / Failed) appears without
+  // requiring the user to expand the "View" preview first.
+  useEffect(() => {
+    if (!hasOrderToday && !visit.hasOrder) return;
+    if (ordersTodayList.length > 0) return;
+    loadLastOrder().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasOrderToday, visit.hasOrder, visit.retailerId, visit.id]);
+
+
   const [showVisitDetailsModal, setShowVisitDetailsModal] = useState(false);
   
   // SYNC CACHE READ: Try to get status from cache OR use prop if it has authoritative status
