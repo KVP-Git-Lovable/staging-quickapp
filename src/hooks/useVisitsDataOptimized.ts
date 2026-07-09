@@ -753,7 +753,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       ]);
       clearTimeout(timeoutId);
 
-      if (!mountedRef.current || lastDateRef.current !== date) {
+      if (!mountedRef.current || lastDateRef.current !== date || userIdRef.current !== uid) {
         smartSyncLockRef.current = false;
         return;
       }
