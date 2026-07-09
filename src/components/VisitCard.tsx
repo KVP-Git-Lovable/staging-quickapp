@@ -59,6 +59,7 @@ import { checkLocationAvailability, classifyLocationError, requestLocationPermis
 import { openAppSettings } from "@/utils/permissions";
 import { Capacitor } from "@capacitor/core";
 import { reverseGeocode } from "@/utils/reverseGeocode";
+import { useOrderSyncStatuses, OrderSyncBadge, OrderSyncDetails } from "@/components/order/OrderSyncStatus";
 interface Visit {
   id: string;
   retailerId?: string;
