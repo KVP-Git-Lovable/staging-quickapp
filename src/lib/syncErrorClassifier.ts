@@ -5,7 +5,7 @@
 
 export type SyncErrorType = 'NETWORK' | 'VALIDATION' | 'AUTH' | 'CONFLICT' | 'SERVER' | 'UNKNOWN';
 
-export type SyncState = 'QUEUED' | 'SYNCING' | 'RETRYING' | 'SUCCESS';
+export type SyncState = 'QUEUED' | 'SYNCING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
 
 /** After this many retries, backoff switches to slow mode (max 30 min) but never stops */
 export const SLOW_RETRY_THRESHOLD = 5;
