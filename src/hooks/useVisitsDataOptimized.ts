@@ -1446,15 +1446,35 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const [bpRes, vRes, oRes, pointsFetched] = await Promise.all([
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date).abortSignal(controller.signal),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date).abortSignal(controller.signal),
-        // Fetch own orders AND orders on own beats (beat owner sees all orders on their beats)
-        supabase.from('orders').select('*').eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
+        // FIX #1 (unify with smartDeltaSync): fetch OWN orders only. Teammate
+        // activity is fetched below via fetchTeammateActivity and tagged with _source.
+        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
         fetchPointsForDate(uid, date)
       ]);
       clearTimeout(timeoutId);
 
       const beatPlansData = bpRes.data || [];
-      const visitsData = vRes.data || [];
-      const ordersData = oRes.data || [];
+      let visitsData: any[] = vRes.data || [];
+      let ordersData: any[] = oRes.data || [];
+
+      // === Teammate activity on shared beats (identical shape to smartDeltaSync) ===
+      try {
+        const seedBeatIds = new Set<string>();
+        beatPlansData.forEach((bp: any) => bp.beat_id && seedBeatIds.add(bp.beat_id));
+        visitsData.forEach((v: any) => v?.beat_id && seedBeatIds.add(v.beat_id));
+        ordersData.forEach((o: any) => o?.beat_id && seedBeatIds.add(o.beat_id));
+
+        const ownVisitIds = new Set(visitsData.map((v: any) => v.id));
+        const ownOrderIds = new Set(ordersData.map((o: any) => o.id));
+        const teamActivity = await fetchTeammateActivity(uid, date, seedBeatIds, ownVisitIds, ownOrderIds);
+        if (teamActivity.visits.length || teamActivity.orders.length) {
+          console.log(`[FullLoad] Teammate activity: +${teamActivity.visits.length} visits, +${teamActivity.orders.length} orders`);
+          visitsData = [...visitsData, ...teamActivity.visits];
+          ordersData = [...ordersData, ...teamActivity.orders];
+        }
+      } catch (e) {
+        console.warn('[FullLoad] Teammate fetch failed (non-fatal):', e);
+      }
 
       // Get retailer IDs
       const beatIds = beatPlansData.map(bp => bp.beat_id);
@@ -1492,7 +1512,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         retailersData = data || [];
       }
 
-      if (!mountedRef.current || lastDateRef.current !== date) return;
+      if (!mountedRef.current || lastDateRef.current !== date || userIdRef.current !== uid) return;
 
       // FIX #1: Merge unsynced local orders with DB orders (local-first)
       let mergedOrders = ordersData;
@@ -1510,14 +1530,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         if (unsyncedLocal.length > 0) {
           // Mark local orders with sync status
           const localWithStatus = unsyncedLocal.map((o: any) => ({ ...o, _syncStatus: 'pending' }));
-          mergedOrders = [...ordersData.map((o: any) => ({ ...o, _syncStatus: 'synced' })), ...localWithStatus];
+          mergedOrders = [...ordersData.map((o: any) => (o._source ? o : { ...o, _syncStatus: 'synced' })), ...localWithStatus];
           console.log(`[FullLoad] Merged ${unsyncedLocal.length} unsynced local orders with ${ordersData.length} DB orders`);
         }
       } catch (e) {
         console.warn('[FullLoad] Error merging local orders:', e);
       }
 
-      // Set state
+      // FRESHNESS: network sync always wins.
+      markNetworkApplied(uid, date);
+
+      // Set state (visits/orders keep their _source tag for progressStats)
       setBeatPlans(beatPlansData);
       setVisits(visitsData);
       setRetailers(retailersData);
@@ -1538,19 +1561,23 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       // MEMORY: Prune old date caches to prevent unbounded growth
       pruneDateCache();
 
+      // PERSPECTIVE: never persist teammate tags — they are per-viewer.
+      const persistVisits = stripPerspective(visitsData);
+      const persistOrders = stripPerspective(mergedOrders);
+
       await Promise.all([
         offlineStorage.mergeData(STORES.BEAT_PLANS, beatPlansData),
-        offlineStorage.mergeData(STORES.VISITS, visitsData),
+        offlineStorage.mergeData(STORES.VISITS, persistVisits),
         offlineStorage.mergeData(STORES.RETAILERS, retailersData),
-        offlineStorage.mergeData(STORES.ORDERS, ordersData)
+        offlineStorage.mergeData(STORES.ORDERS, persistOrders)
       ]);
 
       // Save snapshot - include points for faster loading
       await saveMyVisitsSnapshot(uid, date, {
         beatPlans: beatPlansData,
-        visits: visitsData,
+        visits: persistVisits,
         retailers: retailersData,
-        orders: mergedOrders,
+        orders: persistOrders,
         progressStats: calculateStats(visitsData, mergedOrders, retailersData, date),
         currentBeatName: beatPlansData.map(p => p.beat_name).join(', '),
         pointsTotal: pointsFetched.total,
@@ -1564,7 +1591,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
     } catch (e) {
       console.error('[FullLoad] Error:', e);
     }
-  }, []);
+  }, [markNetworkApplied]);
 
   // Invalidate cache for date and reload from local
   const invalidateData = useCallback(async () => {
