@@ -1127,23 +1127,10 @@ export const MyBeats = () => {
           .eq('user_id', user.id);
 
         if (retailersToDelete && retailersToDelete.length > 0) {
+          const { deactivateOrDeleteRetailer } = await import('@/utils/safeRetailerBeatDelete');
           for (const retailer of retailersToDelete) {
-            await moveToRecycleBin({
-              tableName: 'retailers',
-              recordId: retailer.id,
-              recordData: retailer,
-              moduleName: 'Retailers',
-              recordName: retailer.name || 'Unknown Retailer'
-            });
+            await deactivateOrDeleteRetailer(retailer.id, retailer);
           }
-
-          const { error: deleteRetailersError } = await supabase
-            .from('retailers')
-            .delete()
-            .eq('beat_id', deleteItemId)
-            .eq('user_id', user.id);
-
-          if (deleteRetailersError) throw deleteRetailersError;
 
           const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
           const retailerIdsToDelete = new Set(retailersToDelete.map(r => r.id));
