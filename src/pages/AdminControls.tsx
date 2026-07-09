@@ -77,17 +77,9 @@ const AdminControls = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-subtle p-4">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="w-full space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => navigate('/')} 
-            variant="ghost" 
-            size="sm"
-            className="p-2"
-          >
-            <ArrowLeft size={20} />
-          </Button>
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-foreground">Admin Controls</h1>
             <p className="text-muted-foreground">Manage different aspects of your system</p>
@@ -104,7 +96,7 @@ const AdminControls = () => {
         </div>
 
         {/* Admin Controls Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
           {filteredModules.map((module) => {
             const Icon = module.icon;
             return (
