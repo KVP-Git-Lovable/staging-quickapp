@@ -3,7 +3,7 @@ import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Package, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock, Bell, Trash2, Building2, Gift, Target, Map, Percent, Database, Ruler, Route, Activity, ChevronDown, Folder } from 'lucide-react';
+import { Users, Package, CalendarDays, MapPin, DollarSign, BarChart3, MessageSquareText, Navigation, Store, Truck, Flag, Trophy, FileText, CreditCard, Lock, Bell, Trash2, Building2, Gift, Target, Map as MapIcon, Percent, Database, Ruler, Route, Activity, ChevronDown, Folder } from 'lucide-react';
 import { SearchInput } from '@/components/SearchInput';
 import { NavCustomizeDialog } from '@/components/navigation/NavCustomizeDialog';
 import { useNavCustomization, NavItem } from '@/hooks/useNavCustomization';
