@@ -893,11 +893,46 @@ export const AddRetailer = () => {
   const { createRetailer } = useOfflineRetailers();
   const { isOnline } = useOfflineSync();
 
-  const performInsert = async (beatId: string) => {
+  type DuplicateMatch = {
+    id: string;
+    name: string;
+    phone: string | null;
+    owner_user_id: string;
+    owner_name: string | null;
+    matched_on: string[];
+    distance_m: number | null;
+  };
+  const [duplicateDialog, setDuplicateDialog] = useState<{ beatId: string; matches: DuplicateMatch[] } | null>(null);
+  const [duplicateSharing, setDuplicateSharing] = useState(false);
+
+  const performInsert = async (beatId: string, opts?: { skipDupCheck?: boolean; duplicateOfId?: string }) => {
     if (!user) {
       toast({ title: 'Not signed in', description: 'Please sign in to continue', variant: 'destructive' });
       return;
     }
+
+    // R-3: warn (never block) when a possible duplicate exists.
+    if (!isEditMode && !opts?.skipDupCheck) {
+      try {
+        const lat = retailerData.latitude ? parseFloat(retailerData.latitude) : null;
+        const lng = retailerData.longitude ? parseFloat(retailerData.longitude) : null;
+        const { data: dups, error: dupErr } = await supabase.rpc('find_duplicate_retailers' as any, {
+          p_name: retailerData.name,
+          p_phone: retailerData.phone || null,
+          p_lat: lat,
+          p_lng: lng,
+        });
+        if (dupErr) {
+          console.warn('find_duplicate_retailers failed, proceeding without warning:', dupErr);
+        } else if (Array.isArray(dups) && dups.length > 0) {
+          setDuplicateDialog({ beatId, matches: dups as DuplicateMatch[] });
+          return;
+        }
+      } catch (e) {
+        console.warn('find_duplicate_retailers threw, proceeding without warning:', e);
+      }
+    }
+
     setIsSaving(true);
     
     const payload: any = {
