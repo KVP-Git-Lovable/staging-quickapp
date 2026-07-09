@@ -482,8 +482,8 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const filteredBeatPlans = cachedBeatPlans.filter(bp => 
         bp.user_id === uid && bp.plan_date === date
       );
-      const filteredVisits = cachedVisits.filter(v => 
-        v.user_id === uid && v.planned_date === date
+      const filteredVisits = cachedVisits.filter(v =>
+        v.planned_date === date && (v.user_id === uid || v._source === 'teammate')
       );
       
       // Today's beat IDs from beat plans
@@ -517,10 +517,13 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const retailerIds = new Set(filteredRetailers.map(r => r.id));
       // FIX: Include orders matching user+date even if retailer isn't in today's beat plan
       // This ensures offline-created orders appear immediately without waiting for sync
-      const filteredOrders = cachedOrders.filter(o => 
-        o.user_id === uid && o.order_date === date && 
-        o.status === 'confirmed'
+      // FIX (flicker): Also include teammate-tagged orders so a snapshot reload doesn't
+      // wipe teammate rows previously merged by smartDeltaSync.
+      const filteredOrders = cachedOrders.filter(o =>
+        o.order_date === date && o.status === 'confirmed' &&
+        (o.user_id === uid || o._source === 'teammate')
       );
+
 
       console.log('[OfflineStorage] Loaded:', {
         beatPlans: filteredBeatPlans.length,
