@@ -1067,9 +1067,11 @@ export function useOfflineSync() {
         
       case 'CREATE_COMPETITION_DATA':
         console.log('Syncing competition data:', data);
+        if (!data.id) data.id = crypto.randomUUID();
         const { error: competitionError } = await supabase
           .from('competition_data')
-          .insert(data);
+          .upsert(data, { onConflict: 'id', ignoreDuplicates: false });
+
         if (competitionError) throw competitionError;
         break;
         
