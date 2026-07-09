@@ -1341,8 +1341,10 @@ export const MyVisits = () => {
   const totalOrderValue = progressStats.totalOrderValue;
   // Teammate breakdown (shared beats). Only renders sub-labels when > 0.
   const teamProductive = (progressStats as any).teamProductive || 0;
+  const teamUnproductive = (progressStats as any).teamUnproductive || 0;
   const teamOrderValue = (progressStats as any).teamOrderValue || 0;
   const mineProductive = Math.max(productiveVisits - teamProductive, 0);
+  const mineUnproductive = Math.max(unproductiveVisits - teamUnproductive, 0);
   const mineOrderValue = Math.max(totalOrderValue - teamOrderValue, 0);
   const handleViewDetails = (visitId: string) => {
     window.location.href = `/visit/${visitId}`;
