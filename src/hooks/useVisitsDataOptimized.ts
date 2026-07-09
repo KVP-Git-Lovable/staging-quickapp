@@ -324,24 +324,16 @@ const fetchTeammateActivity = async (
     const beatIdSet = new Set<string>();
     for (const id of seedBeatIds) if (id) beatIdSet.add(id);
     try {
-      const [dailyRes, ownedRes, shareRes] = await Promise.all([
+      const [dailyRes, ownedRes] = await Promise.all([
         (supabase as any)
           .from('daily_beat_plans')
           .select('beat_id')
           .eq('assigned_user_id', uid)
           .eq('plan_date', date),
         supabase.from('beats').select('beat_id').eq('owner_id', uid).eq('is_active', true),
-        supabase
-          .from('beat_user_access')
-          .select('beat_id, effective_from, effective_to, is_active')
-          .eq('user_id', uid)
-          .eq('is_active', true)
-          .lte('effective_from', `${date}T23:59:59.999Z`)
-          .or(`effective_to.is.null,effective_to.gte.${date}T00:00:00.000Z`),
       ]);
       (dailyRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
       (ownedRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
-      (shareRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
     } catch (e) {
       console.warn('[TeammateFetch] Extra beat-source fetch failed (non-fatal):', e);
     }
