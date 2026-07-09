@@ -1081,21 +1081,25 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       currentCache.timestamp = Date.now();
       cacheRef.current.set(date, currentCache);
 
-      // Save to offline storage (background, non-blocking)
+      // Save to offline storage (background, non-blocking).
+      // PERSPECTIVE: strip _source/_actor before writing so the store never carries
+      // teammate tags relative to another viewer (see stripPerspective).
+      const persistVisits = stripPerspective(currentCache.visits);
+      const persistOrders = stripPerspective(currentCache.orders);
       Promise.all([
         offlineStorage.mergeData(STORES.BEAT_PLANS, currentCache.beatPlans),
-        offlineStorage.mergeData(STORES.VISITS, currentCache.visits),
+        offlineStorage.mergeData(STORES.VISITS, persistVisits),
         offlineStorage.mergeData(STORES.RETAILERS, currentCache.retailers),
-        offlineStorage.mergeData(STORES.ORDERS, currentCache.orders)
+        offlineStorage.mergeData(STORES.ORDERS, persistOrders)
       ]).catch(e => console.error('[SmartSync] Storage error:', e));
 
       // Save snapshot (background) - pass date to calculateStats for proper filtering
       // Include points for faster loading on next visit
       saveMyVisitsSnapshot(uid, date, {
         beatPlans: currentCache.beatPlans,
-        visits: currentCache.visits,
+        visits: persistVisits,
         retailers: currentCache.retailers,
-        orders: currentCache.orders,
+        orders: persistOrders,
         progressStats: calculateStats(currentCache.visits, currentCache.orders, currentCache.retailers, date),
         currentBeatName: currentCache.beatPlans.map((p: any) => p.beat_name).join(', '),
         pointsTotal: pointsFetched.total,
