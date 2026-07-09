@@ -12,6 +12,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { compressImageFile } from '@/utils/imageCompression';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
+
 
 interface AdditionalExpensesProps {
   beatId?: string;
@@ -290,6 +292,35 @@ const AdditionalExpenses: React.FC<AdditionalExpensesProps> = ({
 
     setLoading(true);
     try {
+      const isOffline = !navigator.onLine;
+      let offlineCount = 0;
+
+      const persistExpense = async (payload: any) => {
+        // Save locally first for instant display / offline safety
+        try {
+          await offlineStorage.save(STORES.EXPENSES, { ...payload, cached_at: new Date().toISOString() });
+        } catch (e) {
+          console.warn('Failed to cache expense locally:', e);
+        }
+
+        if (isOffline) {
+          await offlineStorage.addToSyncQueue('CREATE_EXPENSE', payload);
+          offlineCount++;
+          return;
+        }
+
+        try {
+          const { error } = await (supabase as any)
+            .from('additional_expenses')
+            .upsert(payload, { onConflict: 'id', ignoreDuplicates: false });
+          if (error) throw error;
+        } catch (err) {
+          console.error('Expense upsert failed, queueing for retry:', err);
+          await offlineStorage.addToSyncQueue('CREATE_EXPENSE', payload);
+          offlineCount++;
+        }
+      };
+
       if (applyToAllBeats && expenseDate) {
         const { data: beatAllowances, error: beatError } = await (supabase as any)
           .from('beat_allowances')
@@ -301,32 +332,30 @@ const AdditionalExpenses: React.FC<AdditionalExpensesProps> = ({
 
         for (const beatAllowance of beatAllowances || []) {
           for (const expense of validExpenses) {
-            let billUrl = null;
-            
-            if (expense.bill_file) {
+            let billUrl: string | null = null;
+            if (expense.bill_file && !isOffline) {
               billUrl = await uploadFile(expense.bill_file, user.id);
             }
 
-            await (supabase as any)
-              .from('additional_expenses')
-              .insert({
-                user_id: user.id,
-                category: expense.category,
-                custom_category: expense.category === 'Other' ? expense.custom_category : null,
-                amount: expense.amount,
-                description: `${expense.description} (Applied to ${beatAllowance.beat_name})`,
-                bill_url: billUrl,
-                expense_date: expense.expense_date,
-                status: 'submitted',
-                submitted_at: new Date().toISOString()
-              });
+            const payload = {
+              id: crypto.randomUUID(),
+              user_id: user.id,
+              category: expense.category,
+              custom_category: expense.category === 'Other' ? expense.custom_category : null,
+              amount: expense.amount,
+              description: `${expense.description} (Applied to ${beatAllowance.beat_name})`,
+              bill_url: billUrl,
+              expense_date: expense.expense_date,
+              status: 'submitted',
+              submitted_at: new Date().toISOString(),
+            };
+            await persistExpense(payload);
           }
         }
       } else {
         for (const expense of validExpenses) {
           let billUrl = expense.bill_url || null;
-          
-          if (expense.bill_file) {
+          if (expense.bill_file && !isOffline) {
             const uploaded = await uploadFile(expense.bill_file, user.id);
             if (uploaded) {
               billUrl = uploaded;
@@ -335,7 +364,8 @@ const AdditionalExpenses: React.FC<AdditionalExpensesProps> = ({
             }
           }
 
-          const expenseData = {
+          const expenseData: any = {
+            id: expense.id || crypto.randomUUID(),
             user_id: user.id,
             category: expense.category,
             custom_category: expense.category === 'Other' ? expense.custom_category : null,
@@ -344,27 +374,32 @@ const AdditionalExpenses: React.FC<AdditionalExpensesProps> = ({
             bill_url: billUrl,
             expense_date: expense.expense_date,
             status: 'submitted',
-            submitted_at: new Date().toISOString()
+            submitted_at: new Date().toISOString(),
           };
 
-          if (expense.id) {
-            // Update existing expense
+          if (expense.id && !isOffline) {
+            // Update existing expense (online path)
             const { error } = await (supabase as any)
               .from('additional_expenses')
               .update(expenseData)
               .eq('id', expense.id);
-            if (error) throw error;
+            if (error) {
+              console.error('Expense update failed, queueing for retry:', error);
+              await offlineStorage.addToSyncQueue('CREATE_EXPENSE', expenseData);
+              offlineCount++;
+            }
           } else {
-            // Insert new expense
-            const { error } = await (supabase as any)
-              .from('additional_expenses')
-              .insert(expenseData);
-            if (error) throw error;
+            await persistExpense(expenseData);
           }
         }
       }
 
-      toast.success('Expenses saved & submitted for approval!');
+      if (offlineCount > 0) {
+        toast.success(`Saved offline — ${offlineCount} expense${offlineCount > 1 ? 's' : ''} will sync when online`);
+      } else {
+        toast.success('Expenses saved & submitted for approval!');
+      }
+
       setExpenses([{ ...initialExpense }]);
       setIsFormOpen(false);
       fetchSavedExpenses();

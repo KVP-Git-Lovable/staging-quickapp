@@ -34,7 +34,8 @@ export const STORES = {
   HOLIDAYS: 'holidays',
   // Phase 7-1: product availability rules + territory lookup (region/zone)
   PRODUCT_AVAILABILITY: 'productAvailability',
-  TERRITORIES_LOOKUP: 'territoriesLookup'
+  TERRITORIES_LOOKUP: 'territoriesLookup',
+  EXPENSES: 'expenses'
 } as const;
 
 // Sync metadata interface
