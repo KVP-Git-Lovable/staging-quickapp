@@ -312,6 +312,7 @@ export function LeaderboardBanner({ notification, onDismiss, isPreview, previewD
           alignItems: 'center',
           justifyContent: 'center',
           padding: 16,
+          pointerEvents: 'auto',
         }}
       >
         {children}
