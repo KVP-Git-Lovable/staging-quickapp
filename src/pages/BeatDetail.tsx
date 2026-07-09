@@ -646,21 +646,10 @@ export const BeatDetail = () => {
           .eq('user_id', user.id);
 
         if (retailersToDelete && retailersToDelete.length > 0) {
+          const { deactivateOrDeleteRetailer } = await import('@/utils/safeRetailerBeatDelete');
           for (const retailer of retailersToDelete) {
-            await moveToRecycleBin({
-              tableName: 'retailers',
-              recordId: retailer.id,
-              recordData: retailer,
-              moduleName: 'Retailers',
-              recordName: retailer.name || 'Unknown Retailer'
-            });
+            await deactivateOrDeleteRetailer(retailer.id, retailer);
           }
-
-          await supabase
-            .from('retailers')
-            .delete()
-            .eq('beat_id', beatData.beat_id)
-            .eq('user_id', user.id);
         }
       } else if (deleteOption === 'transfer' && targetBeatId) {
         const targetBeat = availableBeats.find(b => b.id === targetBeatId);
