@@ -902,9 +902,13 @@ export function useOfflineSync() {
         console.log('Syncing stock creation:', data);
         const { error: stockError } = await supabase
           .from('stock')
-          .insert(data);
+          .upsert(data, {
+            onConflict: 'user_id,retailer_id,visit_id,product_id',
+            ignoreDuplicates: false,
+          });
         if (stockError) throw stockError;
         break;
+
         
       case 'UPDATE_STOCK':
         console.log('Syncing stock update:', data);
