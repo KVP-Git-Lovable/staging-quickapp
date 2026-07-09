@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, BarChart3, Settings, Database, Pencil, Search, Columns3, X, LogIn } from 'lucide-react';
+import { Users, UserPlus, Shield, BarChart3, Database, Pencil, Search, Columns3, X, LogIn } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Navigate } from 'react-router-dom';
 import { clearUserScopedCaches } from '@/utils/userScopedCache';
