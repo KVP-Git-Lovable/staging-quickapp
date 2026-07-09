@@ -397,6 +397,8 @@ export const CreateBeat = () => {
       
       // Prepare beat data
       const beatData = {
+        // Stable client-generated id so offline queue retries upsert onto the same beat row
+        id: crypto.randomUUID(),
         beat_id: beatId,
         beat_name: beatName,
         created_by: user.id,
@@ -404,6 +406,7 @@ export const CreateBeat = () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
+
 
       if (isOnline) {
         // Online: Direct database operations
