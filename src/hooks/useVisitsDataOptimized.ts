@@ -603,13 +603,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const filteredBeatPlans = cachedBeatPlans.filter(bp => 
         bp.user_id === uid && bp.plan_date === date
       );
-      const filteredVisits = cachedVisits.filter(v =>
-        v.planned_date === date && (v.user_id === uid || v._source === 'teammate')
-      );
-      
+
       // Today's beat IDs from beat plans
       const todayBeatIds = filteredBeatPlans.map(bp => bp.beat_id);
-      const visitRetailerIds = new Set(filteredVisits.map(v => v.retailer_id));
+      const todayBeatIdSet = new Set(todayBeatIds);
+
+      // PERSPECTIVE FIX: never gate by the stale `_source` tag (that tag was written
+      // from whichever user last synced the store — it does NOT belong to `uid`).
+      // Include the row when either it's owned by `uid` OR its beat is one of
+      // `uid`'s planned beats today (teammate row on a shared beat). Then re-derive
+      // the perspective at the end using row.user_id vs uid.
+      const filteredVisitsRaw = cachedVisits.filter(v =>
+        v.planned_date === date &&
+        (v.user_id === uid || (v.beat_id && todayBeatIdSet.has(v.beat_id)))
+      );
+
+      const visitRetailerIds = new Set(filteredVisitsRaw.map(v => v.retailer_id));
       
       // Get explicit retailer IDs from beat_data
       const explicitRetailerIds: string[] = [];
@@ -620,31 +629,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         }
       }
       
-      // FIX: STRICT filter - only include retailers from:
-      // 1. Today's beat plans (todayBeatIds) - primary filter
-      // 2. Visits for today (visitRetailerIds)
-      // 3. Explicit retailer IDs in beat_data
-      // 4. Offline-created retailers ONLY if their beat_id matches today's beats
-      // FIX: Include retailers belonging to today's beats regardless of owner
+      // Include retailers belonging to today's beats regardless of owner
       // (shared beats have retailers owned by the original beat owner, not the current user).
       // Offline-created retailers still need the user_id check.
       const filteredRetailers = cachedRetailers.filter(r =>
         todayBeatIds.includes(r.beat_id) ||                                // Today's beat plans (any owner)
         (r.user_id === uid && visitRetailerIds.has(r.id)) ||               // Has visit today
         (r.user_id === uid && explicitRetailerIds.includes(r.id)) ||       // Explicit in beat_data
-        (r.id?.startsWith('offline_') && r.user_id === uid && todayBeatIds.includes(r.beat_id)) // Offline + today's beat
-      );
-      
-      const retailerIds = new Set(filteredRetailers.map(r => r.id));
-      // FIX: Include orders matching user+date even if retailer isn't in today's beat plan
-      // This ensures offline-created orders appear immediately without waiting for sync
-      // FIX (flicker): Also include teammate-tagged orders so a snapshot reload doesn't
-      // wipe teammate rows previously merged by smartDeltaSync.
-      const filteredOrders = cachedOrders.filter(o =>
-        o.order_date === date && o.status === 'confirmed' &&
-        (o.user_id === uid || o._source === 'teammate')
+        (r.id?.startsWith('offline_') && r.user_id === uid && todayBeatIds.includes(r.beat_id))
       );
 
+      // Orders: own orders OR orders on `uid`'s planned beats (teammate orders).
+      // Re-derive perspective at the end — do NOT trust persisted `_source`.
+      const filteredOrdersRaw = cachedOrders.filter(o =>
+        o.order_date === date && o.status === 'confirmed' &&
+        (o.user_id === uid || (o.beat_id && todayBeatIdSet.has(o.beat_id)))
+      );
+
+      // Re-derive teammate tagging vs current uid
+      const filteredVisits = retagPerspective(filteredVisitsRaw, uid);
+      const filteredOrders = retagPerspective(filteredOrdersRaw, uid);
 
       console.log('[OfflineStorage] Loaded:', {
         beatPlans: filteredBeatPlans.length,
