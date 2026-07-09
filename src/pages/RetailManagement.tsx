@@ -662,6 +662,9 @@ export default function RetailManagement() {
             <DropdownMenuItem onClick={() => openPhotoDialog(retailer)}>
               <Camera className="h-4 w-4 mr-2" /> Photo
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setMergeTarget(retailer)}>
+              <GitMerge className="h-4 w-4 mr-2 text-amber-600" /> Merge duplicate
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
