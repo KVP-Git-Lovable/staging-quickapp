@@ -29,6 +29,8 @@ import { RetailerCustomerPortalSection } from "@/components/retailer/RetailerCus
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { RetailerExportDialog } from "@/components/RetailerExportDialog";
+import { MergeRetailerDialog } from "@/components/retailer/MergeRetailerDialog";
+import { GitMerge } from "lucide-react";
 
 type RetailerColKey = 'photo' | 'name' | 'contact_person' | 'phone' | 'address' | 'territory' | 'status' | 'quality' | 'last_visited' | 'added_by' | 'verification' | 'verified_by' | 'actions';
 
@@ -170,6 +172,7 @@ export default function RetailManagement() {
     return new Set<RetailerColKey>(DEFAULT_VISIBLE_COLS);
   });
   const [exportOpen, setExportOpen] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<Retailer | null>(null);
 
   const toggleColumn = (key: RetailerColKey) => {
     const def = RETAILER_COLUMNS.find(c => c.key === key);
@@ -658,6 +661,9 @@ export default function RetailManagement() {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => openPhotoDialog(retailer)}>
               <Camera className="h-4 w-4 mr-2" /> Photo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setMergeTarget(retailer)}>
+              <GitMerge className="h-4 w-4 mr-2 text-amber-600" /> Merge duplicate
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -1292,6 +1298,13 @@ export default function RetailManagement() {
         onOpenChange={setExportOpen}
         retailers={filteredRetailers as any}
         filteredCount={filteredRetailers.length}
+      />
+
+      <MergeRetailerDialog
+        open={!!mergeTarget}
+        onOpenChange={(o) => { if (!o) setMergeTarget(null); }}
+        duplicate={mergeTarget as any}
+        onMerged={() => { setMergeTarget(null); loadData(); }}
       />
     </Layout>
   );
