@@ -27599,6 +27599,10 @@ export type Database = {
         Args: { p_action: string; p_record_id: string; p_table_name: string }
         Returns: undefined
       }
+      merge_retailers: {
+        Args: { p_reason?: string; p_source: string; p_target: string }
+        Returns: Json
+      }
       next_free_day: {
         Args: { p_from: string; p_user: string }
         Returns: string
