@@ -2230,6 +2230,94 @@ export const AddRetailer = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* R-3: possible-duplicate warning (never blocks) */}
+        <Dialog
+          open={!!duplicateDialog}
+          onOpenChange={(open) => { if (!open) setDuplicateDialog(null); }}
+        >
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Possible duplicate retailer</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              We found {duplicateDialog?.matches.length} retailer{(duplicateDialog?.matches.length || 0) > 1 ? 's' : ''} that may already exist. You can still continue.
+            </p>
+            <div className="max-h-64 overflow-y-auto divide-y rounded-md border">
+              {duplicateDialog?.matches.map((m) => (
+                <div key={m.id} className="p-3 text-sm">
+                  <div className="font-medium">{m.name}</div>
+                  <div className="text-muted-foreground">
+                    already present under <span className="font-medium text-foreground">{m.owner_name || 'another user'}</span>
+                    {' '}(matched on: {m.matched_on.join(', ') || '—'}
+                    {m.distance_m != null && m.matched_on.includes('location') ? ` · ${m.distance_m}m` : ''})
+                  </div>
+                  {m.phone ? <div className="text-xs text-muted-foreground mt-0.5">📞 {m.phone}</div> : null}
+                </div>
+              ))}
+            </div>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button
+                variant="ghost"
+                onClick={() => setDuplicateDialog(null)}
+                disabled={duplicateSharing}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={duplicateSharing || !duplicateDialog?.matches[0]}
+                onClick={async () => {
+                  if (!duplicateDialog || !user) return;
+                  const top = duplicateDialog.matches[0];
+                  setDuplicateSharing(true);
+                  try {
+                    const requesterName = (user.user_metadata as any)?.full_name || user.email || 'A colleague';
+                    const { error } = await supabase.from('notifications').insert({
+                      user_id: top.owner_user_id,
+                      title: 'Retailer share request',
+                      message: `${requesterName} wants to work with "${top.name}" and has requested share access.`,
+                      type: 'retailer_share_request',
+                      related_table: 'retailers',
+                      related_id: top.id,
+                      retailer_id: top.id,
+                      metadata: {
+                        requested_by: user.id,
+                        requested_by_name: requesterName,
+                        retailer_name: top.name,
+                        matched_on: top.matched_on,
+                      },
+                    } as any);
+                    if (error) throw error;
+                    toast({ title: 'Share request sent', description: `${top.owner_name || 'The owner'} will be notified.` });
+                    setDuplicateDialog(null);
+                    navigate(returnTo, { replace: true });
+                  } catch (e: any) {
+                    console.error('share request failed', e);
+                    toast({ title: 'Could not send request', description: e?.message || 'Try again', variant: 'destructive' });
+                  } finally {
+                    setDuplicateSharing(false);
+                  }
+                }}
+              >
+                {duplicateSharing ? 'Requesting…' : 'Request share'}
+              </Button>
+              <Button
+                variant="default"
+                disabled={duplicateSharing}
+                onClick={() => {
+                  if (!duplicateDialog) return;
+                  const top = duplicateDialog.matches[0];
+                  const beatId = duplicateDialog.beatId;
+                  setDuplicateDialog(null);
+                  performInsert(beatId, { skipDupCheck: true, duplicateOfId: top?.id });
+                }}
+              >
+                Continue anyway
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
     </Layout>
