@@ -996,9 +996,10 @@ export function useOfflineSync() {
         
       case 'CREATE_BEAT':
         console.log('Syncing beat creation:', data);
+        if (!data.id) data.id = crypto.randomUUID();
         const { error: beatError } = await supabase
           .from('beats')
-          .insert(data);
+          .upsert(data, { onConflict: 'id', ignoreDuplicates: false });
         if (beatError) throw beatError;
         break;
         
@@ -1015,9 +1016,13 @@ export function useOfflineSync() {
         console.log('Syncing beat plan creation:', data);
         const { error: beatPlanError } = await supabase
           .from('beat_plans')
-          .insert(data);
+          .upsert(data, {
+            onConflict: 'user_id,plan_date,beat_id',
+            ignoreDuplicates: false,
+          });
         if (beatPlanError) throw beatPlanError;
         break;
+
         
       case 'DELETE_RETAILER': {
         console.log('Syncing retailer deletion (via safe guard):', data);
