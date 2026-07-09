@@ -475,9 +475,8 @@ export function ShareBeatModal({ open, onOpenChange, beat, grantedBy }: ShareBea
                         onSelect={setUntilDate}
                         initialFocus
                         disabled={(d) => {
-                          const tz_tomorrow = getTodayInTimezone(timezone);
-                          tz_tomorrow.setDate(tz_tomorrow.getDate() + 1);
-                          return d < tz_tomorrow;
+                          const tzToday = getTodayInTimezone(timezone);
+                          return d < tzToday;
                         }}
                         className={cn("p-3 pointer-events-auto")}
                       />
