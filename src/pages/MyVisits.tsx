@@ -1617,10 +1617,15 @@ export const MyVisits = () => {
                </button>
                <button onClick={() => handleStatusClick("unproductive")} className={`p-2 sm:p-3 rounded-lg text-center transition-all transform hover:scale-105 flex flex-col items-center justify-center min-h-[70px] sm:min-h-[85px] ${statusFilter === "unproductive" ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/25" : "bg-gradient-to-br from-destructive/10 to-destructive/20 hover:from-destructive/20 hover:to-destructive/30 border border-destructive/30 text-destructive"}`}>
                  <div className="text-base sm:text-xl font-bold leading-tight">{unproductiveVisits}</div>
-                 <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">{t('visits.unproductive')}</div>
-               </button>
-               
-               {/* Row 3: Total Order Value, Points Earned */}
+                  <div className="text-[9px] sm:text-xs font-medium opacity-80 mt-1 leading-tight">{t('visits.unproductive')}</div>
+                  {teamUnproductive > 0 && (
+                    <div className="text-[9px] sm:text-[10px] font-medium mt-0.5 leading-tight opacity-90">
+                      {mineUnproductive} mine · {teamUnproductive} team
+                    </div>
+                  )}
+                </button>
+                
+                {/* Row 3: Total Order Value, Points Earned */}
                <button onClick={() => navigate(`/today-summary?date=${selectedDate}`)} className="bg-gradient-to-r from-success/10 to-success/5 p-2 sm:p-3 rounded-lg border border-success/20 cursor-pointer hover:from-success/15 hover:to-success/10 transition-all flex flex-col items-center justify-center text-center min-h-[70px] sm:min-h-[85px]">
                  <div className="text-base sm:text-xl font-bold text-success leading-tight">₹{Math.round(totalOrderValue).toLocaleString()}</div>
                  <div className="text-[9px] sm:text-xs text-success/80 font-medium mt-1 leading-tight">{t('visits.totalOrderValue')}</div>
