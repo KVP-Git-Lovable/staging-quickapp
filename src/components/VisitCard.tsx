@@ -255,6 +255,9 @@ export const VisitCard = ({
     invoice_number?: string;
     distributor_name?: string | null;
   }>>([]);
+  // Per-order sync status derivation (green/amber/red)
+  const { statuses: orderSyncStatuses, refresh: refreshOrderSyncStatuses } =
+    useOrderSyncStatuses(userId, ordersTodayList as any);
   const [previousPendingCleared, setPreviousPendingCleared] = useState<number>(0);
   // FIFO side-effect of today's payment: how much of OLDER outstanding invoices
   // got cleared automatically when today's collection ran through
