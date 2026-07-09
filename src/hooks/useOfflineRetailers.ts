@@ -311,25 +311,27 @@ export function useOfflineRetailers() {
       setLoading(true);
 
       if (isOnline) {
-        // Online: Delete directly
-        const { error } = await supabase
-          .from('retailers')
-          .delete()
-          .eq('id', retailerId);
+        // Online: route through the safe guard so retailers with history are deactivated instead of destroyed.
+        const { deactivateOrDeleteRetailer } = await import("@/utils/safeRetailerBeatDelete");
+        const res = await deactivateOrDeleteRetailer(retailerId);
 
-        if (error) throw error;
+        if (res.action === "failed") {
+          return { success: false, offline: false };
+        }
 
-        // Remove from cache
-        await offlineStorage.delete(STORES.RETAILERS, retailerId);
+        // Keep local cache in sync
+        if (res.action === "deleted") {
+          await offlineStorage.delete(STORES.RETAILERS, retailerId);
+        } else {
+          const cached: any = await offlineStorage.getById(STORES.RETAILERS, retailerId);
+          if (cached) {
+            await offlineStorage.save(STORES.RETAILERS, { ...cached, status: "inactive" });
+          }
+        }
 
-        toast({
-          title: "Retailer Deleted",
-          description: "Retailer has been deleted successfully.",
-        });
-
-        return { success: true, offline: false };
+        return { success: true, offline: false, action: res.action };
       } else {
-        // Offline: Queue for sync
+        // Offline: queue for sync (the queue handler applies the same guard on flush).
         await offlineStorage.delete(STORES.RETAILERS, retailerId);
         await offlineStorage.addToSyncQueue('DELETE_RETAILER', { id: retailerId });
 
