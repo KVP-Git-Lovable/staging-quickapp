@@ -1393,14 +1393,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       offlineData.orders.length > 0
     );
     if (hasValidOfflineData) {
-      setBeatPlans(offlineData.beatPlans);
-      setVisits(offlineData.visits);
-      setRetailers(offlineData.retailers);
-      setOrders(offlineData.orders);
+      const offlineStamp = Date.now();
+      if (isFresh(effectiveUserId, selectedDate, offlineStamp)) {
+        setBeatPlans(offlineData.beatPlans);
+        setVisits(offlineData.visits);
+        setRetailers(offlineData.retailers);
+        setOrders(offlineData.orders);
+      } else {
+        console.log('[LoadData] Skipping offline apply — newer data already applied');
+      }
       setIsLoading(false);
       setHasLoadedOnce(true);
       
-      cacheRef.current.set(selectedDate, offlineData);
+      cacheRef.current.set(selectedDate, { ...offlineData, timestamp: offlineStamp });
       
       // SLOW NETWORK FIX: Check connection quality before triggering sync
       const slowConn = isSlowConnection();
@@ -1408,10 +1413,9 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         console.log('[LoadData] ⚡ Using offline data only - slow connection detected');
       } else if (navigator.onLine) {
         // FIX: Immediately fetch points for the selected date (not just today)
-        // This ensures Points Earned updates correctly when date changes
         fetchPointsForDate(effectiveUserId, selectedDate)
           .then((pointsFetched) => {
-            if (mountedRef.current && lastDateRef.current === selectedDate) {
+            if (mountedRef.current && lastDateRef.current === selectedDate && userIdRef.current === effectiveUserId) {
               setPointsData(pointsFetched);
               console.log('[LoadData] Fetched points for', selectedDate, ':', pointsFetched.total);
             }
