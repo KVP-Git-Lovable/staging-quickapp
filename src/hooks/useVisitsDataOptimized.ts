@@ -35,6 +35,7 @@ interface ProgressStats {
   totalPlanned: number; // Total planned visits (doesn't change when status changes)
   // Teammate breakdown (shared beats). All zero when no shared activity exists.
   teamProductive: number;
+  teamUnproductive: number;
   teamOrders: number;
   teamOrderValue: number;
 }
