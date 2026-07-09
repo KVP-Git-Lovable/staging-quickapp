@@ -64,7 +64,7 @@ export async function cleanupOrphanOrders(
 
       if (idMatch) {
         // Same id — this IS the DB row. Update in place, do not delete.
-        await offlineStorage.put(STORES.ORDERS, {
+        await offlineStorage.save(STORES.ORDERS, {
           ...localOrder,
           ...idMatch,
           _synced: true,
