@@ -155,18 +155,32 @@ export const Cart = () => {
   const [backdateReason, setBackdateReason] = React.useState<string>('');
 
   // Clear any stale (today/future) backdated context on mount so it can't leak into this or the next order.
+  // Also clear it when the visitId encodes a date that doesn't match the backdate context — this happens
+  // when a previous backdated session left a sticky value in sessionStorage and the user then opens a
+  // today's (or different-day's) visit.
   React.useEffect(() => {
     try {
       const raw = sessionStorage.getItem('backdated_order_context');
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      if (!parsed?.date || parsed.date >= getLocalTodayDate()) {
+      const today = getLocalTodayDate();
+      // Extract yyyy-mm-dd embedded in an offline visit id like offline_<user>_<retailer>_YYYY-MM-DD_<ts>
+      const visitDateMatch = visitId.match(/_(\d{4}-\d{2}-\d{2})_/);
+      const visitDate = visitDateMatch?.[1] ?? null;
+      const isStale =
+        !parsed?.date ||
+        parsed.date >= today ||
+        (visitDate && parsed.date !== visitDate);
+      if (isStale) {
         sessionStorage.removeItem('backdated_order_context');
+        setBackdateCtx(null);
       }
     } catch {
       sessionStorage.removeItem('backdated_order_context');
+      setBackdateCtx(null);
     }
-  }, []);
+  }, [visitId]);
+
 
   const getEffectiveOrderDate = React.useCallback(
     () => backdateCtx?.date ?? getLocalTodayDate(),
