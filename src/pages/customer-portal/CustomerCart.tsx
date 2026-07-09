@@ -327,6 +327,11 @@ const CustomerCart = () => {
         console.warn('[CustomerCart] No distributor resolved for retailer', retailer.id, '- order will have NULL distributor_id');
       }
 
+      if (!currentItems || currentItems.length === 0) {
+        toast.error('Your cart is empty. Add items before placing an order.');
+        return;
+      }
+
       const orderPayload = {
         retailer_id: retailer.id, retailer_name: retailer.name,
         total_amount: totalAmount, subtotal: subtotalSnapshot,
@@ -365,7 +370,12 @@ const CustomerCart = () => {
       });
 
       const { error: itemsError } = await customerPortalSupabase.from('order_items').insert(orderItems);
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        // Roll back the header so we never leave an order without items.
+        await customerPortalSupabase.from('orders').delete().eq('id', order!.id);
+        throw itemsError;
+      }
+
 
       const { error: clearCartError } = await customerPortalSupabase
         .from('customer_portal_cart')
