@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/i18n/config';
 import { Toaster } from "@/components/ui/toaster";
@@ -7,7 +7,8 @@ import { PricingPage } from "@/pages/website/PricingPage";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { isQAMode } from "@/lib/tableRouter";
 import { registerNavigator as registerQANavigator } from "@/qa/automation/navigate";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -277,46 +278,30 @@ const MasterDataCacheInitializer = () => {
 };
 
 const App = () => {
-  const [hasError, setHasError] = useState(false);
-
   useEffect(() => {
-    const errorHandler = (event: ErrorEvent) => {
-      console.error("Global error:", event.error ?? event.message);
-      setHasError(true);
-    };
+    // Only genuinely harmless browser noise is downgraded. Everything else is LOGGED
+    // (so network/sync failures stay visible) but never blanks the app — render
+    // crashes are handled by <ErrorBoundary> instead.
+    const benign = ['resizeobserver loop', 'resizeobserver', 'script error', 'runtime.lasterror'];
+    const isBenign = (msg?: string) => !!msg && benign.some(e => msg.toLowerCase().includes(e));
 
+    const errorHandler = (event: ErrorEvent) => {
+      const msg = event.error?.message || event.message || '';
+      if (isBenign(msg)) { console.debug('Benign browser error ignored:', msg); event.preventDefault?.(); return; }
+      console.error('Global error (logged, non-fatal):', event.error ?? event.message);
+    };
     const rejectionHandler = (event: PromiseRejectionEvent) => {
       const message = event.reason?.message || event.reason?.toString() || '';
-      
-      const ignoredErrors = [
-        'ServiceWorker',
-        'service-worker',
-        'Failed to fetch',
-        'Network request failed',
-        'NetworkError',
-        'Load failed',
-        'AbortError',
-        'chunk',
-      ];
-      
-      const isIgnored = ignoredErrors.some(err => message.includes(err));
-      
-      if (isIgnored) {
-        console.warn("Non-critical rejection suppressed:", message);
-        event.preventDefault();
-        return;
-      }
-      
-      console.error("Unhandled rejection:", event.reason);
-      setHasError(true);
+      if (isBenign(message)) { console.debug('Benign rejection ignored:', message); event.preventDefault(); return; }
+      // Network/sync errors are meaningful in an offline-first app — log, do not suppress, do not blank UI.
+      console.error('Unhandled rejection (logged, non-fatal):', event.reason);
     };
 
-    window.addEventListener("error", errorHandler);
-    window.addEventListener("unhandledrejection", rejectionHandler);
-
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', rejectionHandler);
     return () => {
-      window.removeEventListener("error", errorHandler);
-      window.removeEventListener("unhandledrejection", rejectionHandler);
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', rejectionHandler);
     };
   }, []);
 
@@ -330,7 +315,7 @@ const App = () => {
                 <TooltipProvider>
                   <BrowserRouter>
                     <SlowConnectionBanner />
-                    <AppContent hasError={hasError} />
+                    <AppContent />
                   </BrowserRouter>
                 </TooltipProvider>
               </QAModeProvider>
@@ -342,7 +327,8 @@ const App = () => {
   );
 };
 
-const AppContent = ({ hasError }: { hasError: boolean }) => {
+const AppContent = () => {
+  const location = useLocation();
   useAndroidBackButton();
   useActivityTracker();
   useModuleUsageTracker();
@@ -368,22 +354,6 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
     };
   }, [setManualOfflineMode]);
 
-  if (hasError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
-          <p className="text-muted-foreground">Please refresh the page to try again</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
@@ -401,6 +371,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         />
       )}
       
+      <ErrorBoundary resetKey={location.pathname}>
       <Routes>
         {/* All routes - direct imports, no lazy loading for instant APK page loads */}
         <Route path="/" element={<LandingPage />} />
@@ -672,6 +643,7 @@ const AppContent = ({ hasError }: { hasError: boolean }) => {
         )}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </ErrorBoundary>
     </>
   );
 };
