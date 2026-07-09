@@ -409,11 +409,15 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
     onClose();
   };
 
-  const filteredRetailers = retailers.filter(retailer =>
-    retailer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    retailer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    retailer.phone.includes(searchTerm)
-  );
+  const filteredRetailers = retailers.filter(retailer => {
+    const q = searchTerm.toLowerCase();
+    return (
+      retailer.name.toLowerCase().includes(q) ||
+      retailer.address.toLowerCase().includes(q) ||
+      retailer.phone.includes(searchTerm) ||
+      (retailer.beat_name || '').toLowerCase().includes(q)
+    );
+  });
 
   const getCurrentBeatName = (retailer: Retailer) => {
     if (!retailer.beat_id || retailer.beat_id === 'unassigned') {
@@ -725,7 +729,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                   </div>
                   
                   <SearchInput
-                    placeholder="Search retailers by name, address, or phone"
+                    placeholder="Search retailers by name, address, phone, or beat"
                     value={searchTerm}
                     onChange={setSearchTerm}
                   />
