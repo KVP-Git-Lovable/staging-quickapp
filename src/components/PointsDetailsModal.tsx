@@ -129,12 +129,13 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
         reference_id,
         metadata,
         gamification_games(name),
-        gamification_actions(action_name, action_type)
+        gamification_actions(action_name, action_type, gamification_games(name))
       `)
       .eq("user_id", userId)
       .gte("earned_at", startDate.toISOString())
       .lte("earned_at", endDate.toISOString())
       .order("earned_at", { ascending: false });
+
 
     if (error) {
       toast.error("Failed to load point details");
@@ -211,7 +212,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
         id: item.id,
         earned_at: item.earned_at,
         points: item.points,
-        game_name: item.gamification_games?.name || "Unknown Game",
+        game_name: item.gamification_games?.name || item.gamification_actions?.gamification_games?.name || "Unknown Game",
         action_name: item.gamification_actions?.action_name || "Unknown Action",
         action_type: item.gamification_actions?.action_type || "",
         reference_type: item.reference_type,
