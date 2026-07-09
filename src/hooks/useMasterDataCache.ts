@@ -705,6 +705,7 @@ export function useMasterDataCache() {
       await Promise.all([
         cacheProducts(),
         cacheSchemes(),
+        cacheUomData(),
         cacheProductAvailability()
       ]);
       
@@ -719,7 +720,8 @@ export function useMasterDataCache() {
     } catch (error) {
       console.error('[Cache] Error syncing offline data:', error);
     }
-  }, [isOnline, user, cacheProducts, cacheSchemes, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability]);
+  }, [isOnline, user, cacheProducts, cacheSchemes, cacheUomData, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability]);
+
 
   // Force refresh master data AND notify UI to reload from storage
   const forceRefreshMasterData = useCallback(async () => {
