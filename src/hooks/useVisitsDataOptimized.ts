@@ -904,16 +904,26 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const visitCountDifferent = currentCache.visits?.length !== newVisits.length;
       
       if (visitsChanged || visitCountDifferent) {
-        // FIX: Deep compare to avoid no-op replacements that cause re-renders
-        const oldJson = JSON.stringify(currentCache.visits || []);
-        const newJson = JSON.stringify(newVisits);
-        if (oldJson !== newJson) {
-          setVisits(newVisits);
-          currentCache.visits = newVisits;
-          uiUpdated = true;
-          console.log(`[SmartSync] Visits REPLACED: ${currentCache.visits?.length || 0} → ${newVisits.length}`);
+        // SAFETY: Never replace visits with an empty list if we had visits before,
+        // unless the beat plans also cleared. Prevents transient empty fetches from
+        // wiping the UI (fetch was partial / timeout / aborted).
+        const hadVisits = (currentCache.visits || []).length > 0;
+        const newVisitsEmpty = newVisits.length === 0;
+        const beatsGenuinelyCleared = newBeatIdsFromNetwork === '' && oldBeatIdsFromCache !== '';
+        if (newVisitsEmpty && hadVisits && !beatsGenuinelyCleared) {
+          console.log(`[SmartSync] Skipping empty visits replacement (transient) old=${currentCache.visits?.length}`);
         } else {
-          console.log('[SmartSync] Visits identical, skipping state update');
+          // FIX: Deep compare to avoid no-op replacements that cause re-renders
+          const oldJson = JSON.stringify(currentCache.visits || []);
+          const newJson = JSON.stringify(newVisits);
+          if (oldJson !== newJson) {
+            setVisits(newVisits);
+            currentCache.visits = newVisits;
+            uiUpdated = true;
+            console.log(`[SmartSync] Visits REPLACED: ${currentCache.visits?.length || 0} → ${newVisits.length}`);
+          } else {
+            console.log('[SmartSync] Visits identical, skipping state update');
+          }
         }
       }
 
