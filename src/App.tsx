@@ -168,6 +168,7 @@ import RetailerExternalDBPage from "./pages/admin/RetailerExternalDBPage";
 import RetailerUnsortedPage from "./pages/admin/RetailerUnsortedPage";
 import NotificationRulesAdmin from "./pages/admin/NotificationRulesAdmin";
 import ActivityTypeManagement from "./components/admin/ActivityTypeManagement";
+import SyncHealth from "./pages/admin/SyncHealth";
 import ActivityCoordinator from "./pages/ActivityCoordinator";
 import MyTargets from "./pages/MyTargets";
 import MyTarget from "./pages/MyTarget";
@@ -512,6 +513,7 @@ const AppContent = () => {
         <Route path="/admin/notification-rules" element={<ProtectedRoute><NotificationRulesAdmin /></ProtectedRoute>} />
         <Route path="/admin/activity-types" element={<ProtectedRoute><ActivityTypeManagement /></ProtectedRoute>} />
         <Route path="/admin/activity-coordinator" element={<ProtectedRoute><ActivityCoordinator /></ProtectedRoute>} />
+        <Route path="/admin/sync-health" element={<ProtectedRoute><SyncHealth /></ProtectedRoute>} />
         <Route path="/distributor-master" element={<ProtectedRoute><DistributorMaster /></ProtectedRoute>} />
         <Route path="/add-distributor" element={<ProtectedRoute><AddDistributor /></ProtectedRoute>} />
         <Route path="/distributor/:id" element={<ProtectedRoute><DistributorDetail /></ProtectedRoute>} />
