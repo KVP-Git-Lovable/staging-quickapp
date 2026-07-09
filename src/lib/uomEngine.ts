@@ -150,8 +150,13 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
   const cached = productCache.get(productId);
   if (cached) return cached;
 
-  const { data, error } = await supabase.rpc('get_product_units', { p_product_id: productId });
-  if (error || !data) {
+  // Offline: skip the RPC and read from the master-data cache directly.
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const fromMaster = await loadProductUnitsFromOfflineCache(productId);
+    if (fromMaster.length > 0) {
+      productCache.set(productId, fromMaster);
+      return fromMaster;
+    }
     const fromIdb = await idbGet<ProductUnit[]>(`product:${productId}`);
     if (fromIdb) {
       productCache.set(productId, fromIdb);
@@ -159,6 +164,24 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
     }
     return [];
   }
+
+  const { data, error } = await supabase.rpc('get_product_units', { p_product_id: productId });
+  if (error || !data) {
+    // Prefer the master-data cache (kept fresh by useMasterDataCache) over the
+    // legacy per-product idb blob.
+    const fromMaster = await loadProductUnitsFromOfflineCache(productId);
+    if (fromMaster.length > 0) {
+      productCache.set(productId, fromMaster);
+      return fromMaster;
+    }
+    const fromIdb = await idbGet<ProductUnit[]>(`product:${productId}`);
+    if (fromIdb) {
+      productCache.set(productId, fromIdb);
+      return fromIdb;
+    }
+    return [];
+  }
+
   const mapped: ProductUnit[] = (data as any[]).map((r) => ({
     mappingId: r.mapping_id,
     uomId: r.uom_id,
