@@ -114,6 +114,33 @@ const OperationsConfig: React.FC = () => {
       </CardFooter>
     );
   };
+  const InfoPopover: React.FC<{
+    what: string;
+    enable: string;
+    happens: string;
+    pros: string;
+    cons: string;
+  }> = ({ what, enable, happens, pros, cons }) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="More info"
+          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <Info className="h-4 w-4" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="start" className="w-80 text-sm space-y-2">
+        <div><span className="font-semibold">What it does: </span>{what}</div>
+        <div><span className="font-semibold">How to enable: </span>{enable}</div>
+        <div><span className="font-semibold">What happens: </span>{happens}</div>
+        <div><span className="font-semibold text-green-600">Pros: </span>{pros}</div>
+        <div><span className="font-semibold text-amber-600">Cons: </span>{cons}</div>
+      </PopoverContent>
+    </Popover>
+  );
+
 
   if (loading || !config) {
     return (
