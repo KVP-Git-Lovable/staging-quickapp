@@ -14,9 +14,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Users, UserPlus, Shield, BarChart3, Settings, Database, ArrowLeft, Pencil, Search, Columns3, X, LogIn } from 'lucide-react';
+import { Users, UserPlus, Shield, BarChart3, Database, Pencil, Search, Columns3, X, LogIn } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { clearUserScopedCaches } from '@/utils/userScopedCache';
 import { setCachedUser } from '@/utils/cachedAuthIntegrity';
 
@@ -135,7 +135,6 @@ const getSortValue = (
 
 export const AdminDashboard = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
-  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
@@ -432,17 +431,9 @@ export const AdminDashboard = () => {
   return (
     <Layout>
     <div className="min-h-screen bg-gradient-subtle p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="w-full space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => navigate('/')} 
-            variant="ghost" 
-            size="sm"
-            className="p-2"
-          >
-            <ArrowLeft size={20} />
-          </Button>
+        <div>
           <div>
             <h1 className="text-3xl font-bold text-foreground">User Management</h1>
             <p className="text-muted-foreground">Manage users, roles, and team hierarchy</p>
