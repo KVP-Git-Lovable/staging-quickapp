@@ -163,16 +163,12 @@ export function useOfflineSync() {
       for (const bad of malformed) {
         console.warn('⚠️ Skipping malformed sync item, removing from queue:', bad);
         try {
-          if (bad?.id) await offlineStorage.removeSyncQueueItem(bad.id);
-          await offlineStorage.add(STORES.FAILED_SYNC_LOG as any, {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            action: bad?.action || 'UNKNOWN',
-            data: bad?.data ?? null,
-            error: 'Malformed queue item (missing action or data)',
-            timestamp: new Date().toISOString(),
-          }).catch(() => {});
+          if (bad?.id !== undefined && bad?.id !== null) {
+            await offlineStorage.delete(STORES.SYNC_QUEUE, bad.id);
+          }
         } catch { /* best-effort */ }
       }
+
 
       // Dependency-ordered drain: parents (retailers/beats/visits) before
       // children (orders → collection → check-out → invoice). Stable within a
