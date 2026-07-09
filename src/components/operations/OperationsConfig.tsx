@@ -310,7 +310,17 @@ const OperationsConfig: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Order edit policy</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-1.5">
+              Order edit policy
+              <InfoPopover
+                what="Edit a confirmed order."
+                enable="Toggle on, set the lock point (invoiced/dispatched), who can edit (own/team), price-lock, and grant order_edit."
+                happens="Creates a linked replacement order (original cancelled, replaces/replaced_by), collects/refunds the delta, requires approval over limits."
+                pros="Fix mistakes without cancel-and-re-enter."
+                cons="Adds audit complexity; lock rules intentionally block edits after fulfillment."
+              />
+            </CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">Control if and when placed orders can be edited.</p>
           </div>
           <Switch checked={c.edit_enabled} onCheckedChange={(v) => save('edit_enabled', v)} />
