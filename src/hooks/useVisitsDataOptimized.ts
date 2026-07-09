@@ -272,16 +272,16 @@ const _fetchPointsForDateImpl = async (uid: string, date: string): Promise<Point
 // Never persist them: strip on write; re-derive on read using row.user_id vs
 // the current effectiveUserId. A row is "mine" iff row.user_id === uid.
 // ============================================================================
-const stripPerspective = <T extends Record<string, any>>(rows: T[]): T[] =>
+const stripPerspective = (rows: any[]): any[] =>
   (rows || []).map(r => {
     if (r && (r._source !== undefined || r._actor !== undefined)) {
       const { _source, _actor, ...rest } = r as any;
-      return rest as T;
+      return rest;
     }
     return r;
   });
 
-const retagPerspective = <T extends Record<string, any>>(rows: T[], uid: string): T[] =>
+const retagPerspective = (rows: any[], uid: string): any[] =>
   (rows || []).map(r => {
     if (!r) return r;
     if (r.user_id && r.user_id !== uid) {
@@ -289,11 +289,11 @@ const retagPerspective = <T extends Record<string, any>>(rows: T[], uid: string)
         ...r,
         _source: 'teammate',
         _actor: r._actor || { user_id: r.user_id, name: 'Teammate' },
-      } as T;
+      };
     }
     if (r._source !== undefined || r._actor !== undefined) {
       const { _source, _actor, ...rest } = r as any;
-      return rest as T;
+      return rest;
     }
     return r;
   });
