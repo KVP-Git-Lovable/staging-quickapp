@@ -3306,6 +3306,13 @@ export const VisitCard = ({
                           </div>
                         );
                       })}
+                      {ordersTodayList.length === 1 && (
+                        <OrderSyncDetails
+                          orderId={ordersTodayList[0].id}
+                          status={orderSyncStatuses[ordersTodayList[0].id]}
+                          onChanged={refreshOrderSyncStatuses}
+                        />
+                      )}
                     </div>
                   ) : null}
                   
