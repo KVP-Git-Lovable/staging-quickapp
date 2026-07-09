@@ -3257,19 +3257,29 @@ export const VisitCard = ({
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="font-semibold">₹{Math.round(order.total_amount).toLocaleString()}</span>
+                                <OrderSyncBadge status={orderSyncStatuses[order.id]} />
                                 <span className="text-muted-foreground">{isExpanded ? '▲' : '▼'}</span>
                               </div>
                             </button>
                             
                             {isExpanded && (
-                              <OrderItemsExpanded 
-                                orderId={order.id} 
-                                displayItems={displayItems} 
-                                onItemsLoaded={(items) => {
-                                  // Merge newly fetched items into lastOrderItems
-                                  setLastOrderItems(prev => [...prev, ...items]);
-                                }}
-                              />
+                              <>
+                                <OrderItemsExpanded 
+                                  orderId={order.id} 
+                                  displayItems={displayItems} 
+                                  onItemsLoaded={(items) => {
+                                    // Merge newly fetched items into lastOrderItems
+                                    setLastOrderItems(prev => [...prev, ...items]);
+                                  }}
+                                />
+                                <div className="px-2 pb-2">
+                                  <OrderSyncDetails
+                                    orderId={order.id}
+                                    status={orderSyncStatuses[order.id]}
+                                    onChanged={refreshOrderSyncStatuses}
+                                  />
+                                </div>
+                              </>
                             )}
                           </div>
                         );
