@@ -327,7 +327,8 @@ const App = () => {
   );
 };
 
-const AppContent = ({ hasError }: { hasError: boolean }) => {
+const AppContent = () => {
+  const location = useLocation();
   useAndroidBackButton();
   useActivityTracker();
   useModuleUsageTracker();
