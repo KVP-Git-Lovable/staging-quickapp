@@ -371,6 +371,7 @@ const AppContent = () => {
         />
       )}
       
+      <ErrorBoundary resetKey={location.pathname}>
       <Routes>
         {/* All routes - direct imports, no lazy loading for instant APK page loads */}
         <Route path="/" element={<LandingPage />} />
