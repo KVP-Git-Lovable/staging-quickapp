@@ -969,7 +969,7 @@ export function useOfflineSync() {
         console.log('Syncing attendance check-in:', data);
         const { data: syncedAttendance, error: attendanceError } = await supabase
           .from('attendance')
-          .insert(data)
+          .upsert(data, { onConflict: 'user_id,date', ignoreDuplicates: false })
           .select()
           .single();
         if (attendanceError) throw attendanceError;
@@ -983,6 +983,7 @@ export function useOfflineSync() {
           console.log('✅ Attendance synced and cache updated with real ID');
         }
         break;
+
         
       case 'UPDATE_ATTENDANCE':
         console.log('Syncing attendance check-out:', data);
