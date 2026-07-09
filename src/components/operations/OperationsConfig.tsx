@@ -158,7 +158,17 @@ const OperationsConfig: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Backdated orders</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-1.5">
+              Backdated orders
+              <InfoPopover
+                what="Place an order dated to a past day within the allowed window."
+                enable="Toggle on, set max backdate days, and grant the order_backdate permission."
+                happens="Order flagged is_backdated, GPS skipped, reason required, may need manager approval."
+                pros="Capture genuinely missed orders."
+                cons="Can distort daily/attendance reports if abused — keep the day-limit tight and always require a reason."
+              />
+            </CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">Backdated orders skip GPS.</p>
           </div>
           <Switch checked={c.backdate_enabled} onCheckedChange={(v) => save('backdate_enabled', v)} />
