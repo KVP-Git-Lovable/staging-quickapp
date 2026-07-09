@@ -984,6 +984,17 @@ export function useOfflineSync() {
         }
         break;
 
+      case 'CREATE_EXPENSE': {
+        console.log('Syncing additional expense:', data);
+        const { error: expenseError } = await supabase
+          .from('additional_expenses')
+          .upsert(data, { onConflict: 'id', ignoreDuplicates: false });
+        if (expenseError) throw expenseError;
+        break;
+      }
+
+
+
         
       case 'UPDATE_ATTENDANCE':
         console.log('Syncing attendance check-out:', data);
