@@ -772,6 +772,10 @@ export function useOfflineSync() {
         console.log('Syncing visit/check-in:', data);
         // Only include valid columns - explicitly exclude invalid fields like visit_type
         const visitInsertData: any = {};
+        // Preserve client-generated id so retries are idempotent via upsert(onConflict:'id').
+        // Legacy queue items (queue_version < 2) may lack an id — generate one now so we
+        // still upsert cleanly instead of inserting a duplicate on retry.
+        visitInsertData.id = data.id || crypto.randomUUID();
         if (data.user_id) visitInsertData.user_id = data.user_id;
         if (data.retailer_id) visitInsertData.retailer_id = data.retailer_id;
         if (data.planned_date) visitInsertData.planned_date = data.planned_date;
@@ -787,9 +791,10 @@ export function useOfflineSync() {
         
         const { error: visitError } = await supabase
           .from('visits')
-          .insert(visitInsertData);
+          .upsert(visitInsertData, { onConflict: 'id', ignoreDuplicates: false });
         if (visitError) throw visitError;
         break;
+
         
       case 'CHECK_OUT':
         console.log('Syncing check-out:', data);
