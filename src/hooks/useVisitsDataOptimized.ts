@@ -1124,7 +1124,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
     } finally {
       smartSyncLockRef.current = false;
     }
-  }, [shouldSyncNow, applyGranularUpdate]);
+  }, [shouldSyncNow, applyGranularUpdate, markNetworkApplied]);
 
   // INITIAL LOAD: Local-first, instant display
   const loadData = useCallback(async () => {
