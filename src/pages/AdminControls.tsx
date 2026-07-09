@@ -130,22 +130,73 @@ const AdminControls = () => {
   const filteredUngrouped = organized.ungroupedItems.filter(matches);
   const totalVisible = filteredGroups.reduce((n, g) => n + g.items.length, 0) + filteredUngrouped.length;
 
-  const renderCard = (item: NavItem) => {
+  const handleDropReorder = (
+    groupId: string | null,
+    items: NavItem[],
+    fromId: string,
+    toId: string
+  ) => {
+    if (fromId === toId) return;
+    const ids = items.map(i => i.id);
+    const from = ids.indexOf(fromId);
+    const to = ids.indexOf(toId);
+    if (from === -1 || to === -1) return;
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+    reorderItems(groupId, ids);
+  };
+
+  const renderCard = (item: NavItem, groupId: string | null, items: NavItem[]) => {
     const Icon = item.icon;
+    const isDragged = draggedId === item.id;
+    const isOver = dragOverId === item.id && draggedId !== item.id;
     return (
-      <Card
+      <div
         key={item.id}
-        className="cursor-pointer hover:shadow-lg transition-shadow"
-        onClick={() => navigate(item.href)}
+        draggable
+        onDragStart={(e) => {
+          setDraggedId(item.id);
+          setDraggedGroupId(groupId);
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', item.id);
+        }}
+        onDragOver={(e) => {
+          if (draggedGroupId === groupId) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setDragOverId(item.id);
+          }
+        }}
+        onDragLeave={() => setDragOverId(prev => (prev === item.id ? null : prev))}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (draggedId && draggedGroupId === groupId) {
+            handleDropReorder(groupId, items, draggedId, item.id);
+          }
+          setDraggedId(null);
+          setDragOverId(null);
+          setDraggedGroupId(null);
+        }}
+        onDragEnd={() => {
+          setDraggedId(null);
+          setDragOverId(null);
+          setDraggedGroupId(null);
+        }}
+        className={`transition-all ${isDragged ? 'opacity-40 scale-95' : ''} ${isOver ? 'ring-2 ring-primary ring-offset-2 rounded-lg' : ''}`}
       >
-        <CardHeader className="text-center">
-          <div className={`mx-auto mb-4 rounded-full w-16 h-16 flex items-center justify-center bg-gradient-to-r ${item.color} shadow-md`}>
-            <Icon className="h-8 w-8 text-white" />
-          </div>
-          <CardTitle>{item.label}</CardTitle>
-          <CardDescription>{descriptionByPath.get(item.id)}</CardDescription>
-        </CardHeader>
-      </Card>
+        <Card
+          className="cursor-pointer hover:shadow-lg transition-shadow h-full"
+          onClick={() => navigate(item.href)}
+        >
+          <CardHeader className="text-center">
+            <div className={`mx-auto mb-4 rounded-full w-16 h-16 flex items-center justify-center bg-gradient-to-r ${item.color} shadow-md`}>
+              <Icon className="h-8 w-8 text-white" />
+            </div>
+            <CardTitle>{item.label}</CardTitle>
+            <CardDescription>{descriptionByPath.get(item.id)}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     );
   };
 
@@ -157,7 +208,7 @@ const AdminControls = () => {
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <h1 className="text-3xl font-bold text-foreground">Admin Controls</h1>
-              <p className="text-muted-foreground">Manage different aspects of your system</p>
+              <p className="text-muted-foreground">Drag cards to reorder, or use the gear to create groups</p>
             </div>
             <NavCustomizeDialog
               defaultItems={navItems}
@@ -195,7 +246,7 @@ const AdminControls = () => {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6 pt-4">
-                  {group.items.map(renderCard)}
+                  {group.items.map(item => renderCard(item, group.id, group.items))}
                 </div>
               </CollapsibleContent>
             </Collapsible>
@@ -208,10 +259,12 @@ const AdminControls = () => {
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ungrouped</h2>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-                {filteredUngrouped.map(renderCard)}
+                {filteredUngrouped.map(item => renderCard(item, null, filteredUngrouped))}
               </div>
             </div>
           )}
+
+
 
           {totalVisible === 0 && (
             <div className="text-center py-12">
