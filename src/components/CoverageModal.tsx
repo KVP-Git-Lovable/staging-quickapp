@@ -400,7 +400,9 @@ export function CoverageModal({
                     initialFocus
                     disabled={(d) => {
                       const today = getTodayInTimezone(timezone);
-                      return d < today;
+                      const dDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                      const tDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                      return dDay < tDay;
                     }}
                     className={cn("p-3 pointer-events-auto")}
                   />
