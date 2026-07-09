@@ -232,72 +232,149 @@ export function useOfflineSync() {
         return true;
       };
 
+      // Helper: update the local ORDERS record so the UI can render a sync status badge.
+      // Only meaningful for CREATE_ORDER actions; no-op for others.
+      const updateLocalOrderSyncStatus = async (
+        item: any,
+        patch: { sync_status: 'pending' | 'syncing' | 'retrying' | 'synced' | 'failed'; sync_error?: any; sync_attempts?: number; last_attempt_at?: string }
+      ) => {
+        if (item?.action !== 'CREATE_ORDER') return;
+        try {
+          const d = item.data || {};
+          const targetId = d.order?.id ?? d.id;
+          const targetKey = d.order?.idempotency_key ?? d.idempotency_key;
+          const all = await offlineStorage.getAll<any>(STORES.ORDERS);
+          const matches = all.filter((o: any) =>
+            (targetId && o.id === targetId) || (targetKey && o.idempotency_key === targetKey)
+          );
+          for (const m of matches) {
+            await offlineStorage.save(STORES.ORDERS, { ...m, ...patch });
+          }
+        } catch (e) {
+          console.warn('updateLocalOrderSyncStatus failed (non-fatal):', e);
+        }
+      };
+
       // Process a single sync item with error handling
       const processAndHandleItem = async (item: any): Promise<void> => {
+        const attemptNumber = (item.retryCount || 0) + 1;
+        await updateLocalOrderSyncStatus(item, {
+          sync_status: 'syncing',
+          sync_attempts: attemptNumber,
+          last_attempt_at: new Date().toISOString(),
+        });
         try {
           console.log(`⏳ Syncing ${item.action}...`, item.data);
-          
-          // Process each sync item based on action type (no SYNCING state write — saves a round-trip)
+
+          // Process each sync item based on action type
           await processSyncItem(item);
-          
+
           // Log success (no separate verification query — RPC already confirms)
           await logSyncAttempt(item, true);
-          
-          // Remove from queue after successful sync
+
+          // Remove from queue after successful sync. For CREATE_ORDER the local
+          // ORDERS record was already deleted inside processSyncItem; any remaining
+          // matches are marked synced defensively.
           await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+          await updateLocalOrderSyncStatus(item, {
+            sync_status: 'synced',
+            sync_error: null as any,
+            sync_attempts: attemptNumber,
+            last_attempt_at: new Date().toISOString(),
+          });
           console.log(`✅ Successfully synced ${item.action}`);
           successCount++;
         } catch (error: any) {
           const errorMsg = error?.message || error?.toString() || 'Unknown error';
-          const errorType = classifySyncError(error);
-          const retryable = isRetryableError(errorType);
+          const classified = classifySyncError(error);
+          const errorType: SyncErrorType = error?.__errorType || classified;
+          const forceFailed = !!error?.__forceFailed;
           const newRetryCount = (item.retryCount || 0) + 1;
 
           const alreadySynced = await verifyQueuedOrderAlreadySynced(item);
           if (alreadySynced) {
             await logSyncAttempt(item, true);
             await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+            await updateLocalOrderSyncStatus(item, {
+              sync_status: 'synced',
+              sync_error: null as any,
+              sync_attempts: attemptNumber,
+              last_attempt_at: new Date().toISOString(),
+            });
             console.log(`✅ Recovered ${item.action} after post-sync verification`);
             successCount++;
             return;
           }
-          
+
           console.error(`❌ Failed to sync ${item.action}:`, {
             action: item.action,
             error: errorMsg,
             errorType,
-            retryable,
             retryCount: newRetryCount,
             data: item.data
           });
-          
+
           // Log failure
           await logSyncAttempt(item, false, errorType, errorMsg);
-          
+
           failCount++;
           failedItems.push({ action: item.action, error: errorMsg, errorType });
-          
+
           // CONFLICT errors: item likely already synced, remove from queue
           if (errorType === 'CONFLICT') {
             console.log(`🔄 CONFLICT for ${item.action} — treating as already synced`);
             await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+            await updateLocalOrderSyncStatus(item, {
+              sync_status: 'synced',
+              sync_error: null as any,
+              sync_attempts: attemptNumber,
+              last_attempt_at: new Date().toISOString(),
+            });
             successCount++;
             failCount--;
             return;
           }
-          
-          // All retryable errors stay in RETRYING state indefinitely
+
+          // Terminal FAILED state:
+          //  - VALIDATION errors (data mismatch that won't self-heal)
+          //  - Retries reached/exceeded SLOW_RETRY_THRESHOLD
+          //  - Explicitly forced (e.g. quarantined orphan payloads)
+          // NETWORK errors NEVER become FAILED — they always stay RETRYING.
+          const isTerminal =
+            errorType !== 'NETWORK' &&
+            (errorType === 'VALIDATION' || forceFailed || newRetryCount >= SLOW_RETRY_THRESHOLD);
+
+          const nextSyncState: 'FAILED' | 'RETRYING' = isTerminal ? 'FAILED' : 'RETRYING';
+
           const updatedItem = {
             ...item,
             retryCount: newRetryCount,
             lastError: errorMsg,
             errorType,
-            syncState: 'RETRYING',
-            lastRetryAt: new Date().toISOString()
+            syncState: nextSyncState,
+            lastRetryAt: new Date().toISOString(),
           };
           await offlineStorage.save(STORES.SYNC_QUEUE, updatedItem);
+
+          await updateLocalOrderSyncStatus(item, {
+            sync_status: isTerminal ? 'failed' : 'retrying',
+            sync_error: { type: errorType, message: errorMsg },
+            sync_attempts: newRetryCount,
+            last_attempt_at: new Date().toISOString(),
+          });
+
+          if (item.action === 'CREATE_ORDER' && isTerminal) {
+            try {
+              toast({
+                title: 'Order not synced yet',
+                description: "Order couldn't be synced yet — it's saved and will retry automatically.",
+                variant: 'destructive',
+              });
+            } catch {}
+          }
         }
       };
+
 
       // PARALLEL BATCHING: Process up to 3 items concurrently for faster sync
       const BATCH_SIZE = 3;
