@@ -668,7 +668,7 @@ export default function RetailManagement() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 space-y-4">
+      <div className="w-full p-4 space-y-4">
         <div className="flex items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Retail Management</h1>
