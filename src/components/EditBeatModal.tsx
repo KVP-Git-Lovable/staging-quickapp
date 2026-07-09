@@ -447,8 +447,8 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
         </div>
         
         
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-[60vh] pr-4">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ScrollArea className="h-full pr-4">
             <div className="space-y-6">
               {/* Beat Details Form */}
               <Card>
