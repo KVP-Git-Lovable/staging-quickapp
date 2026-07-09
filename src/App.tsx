@@ -354,22 +354,6 @@ const AppContent = () => {
     };
   }, [setManualOfflineMode]);
 
-  if (hasError) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
-          <p className="text-muted-foreground">Please refresh the page to try again</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
-          >
-            Refresh Page
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>
