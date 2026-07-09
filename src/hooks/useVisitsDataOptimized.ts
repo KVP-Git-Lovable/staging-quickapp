@@ -1323,23 +1323,32 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
           }
         }
         
-        setBeatPlans(snapshot.beatPlans || []);
-        setVisits(mergedVisits);
-        setRetailers(mergedRetailers);
-        setOrders(mergedOrders);
-        
-        // FIX: Load points from snapshot for instant display
-        if (snapshot.pointsTotal !== undefined || snapshot.pointsByRetailer) {
-          // Normalize snapshot entries — older snapshots may not include `entries[]`.
-          // We add an empty entries array as a safe default; fresh sync will hydrate it.
-          const normalizedByRetailer = normalizeByRetailerEntries(snapshot.pointsByRetailer);
-          const pointsFromSnapshot: PointsData = {
-            total: snapshot.pointsTotal || 0,
-            byRetailer: normalizedByRetailer,
-          };
-          setPointsData(pointsFromSnapshot);
-          console.log('[LoadData] Loaded points from snapshot:', pointsFromSnapshot.total);
+        // PERSPECTIVE: snapshot rows are user-agnostic — retag against current user.
+        mergedVisits = retagPerspective(mergedVisits, effectiveUserId);
+        mergedOrders = retagPerspective(mergedOrders, effectiveUserId);
+
+        // FRESHNESS: skip if network sync already applied newer data.
+        const snapshotStamp = (snapshot as any).timestamp || Date.now();
+        if (isFresh(effectiveUserId, selectedDate, snapshotStamp)) {
+          setBeatPlans(snapshot.beatPlans || []);
+          setVisits(mergedVisits);
+          setRetailers(mergedRetailers);
+          setOrders(mergedOrders);
+
+          // FIX: Load points from snapshot for instant display
+          if (snapshot.pointsTotal !== undefined || snapshot.pointsByRetailer) {
+            const normalizedByRetailer = normalizeByRetailerEntries(snapshot.pointsByRetailer);
+            const pointsFromSnapshot: PointsData = {
+              total: snapshot.pointsTotal || 0,
+              byRetailer: normalizedByRetailer,
+            };
+            setPointsData(pointsFromSnapshot);
+            console.log('[LoadData] Loaded points from snapshot:', pointsFromSnapshot.total);
+          }
+        } else {
+          console.log('[LoadData] Skipping snapshot apply — newer data already applied');
         }
+
         
         setIsLoading(false);
         setHasLoadedOnce(true);
