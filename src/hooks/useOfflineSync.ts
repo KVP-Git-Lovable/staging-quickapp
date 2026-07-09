@@ -954,23 +954,23 @@ export function useOfflineSync() {
         if (beatPlanError) throw beatPlanError;
         break;
         
-      case 'DELETE_RETAILER':
-        console.log('Syncing retailer deletion:', data);
-        const { error: deleteRetailerError } = await supabase
-          .from('retailers')
-          .delete()
-          .eq('id', data.id);
-        if (deleteRetailerError) throw deleteRetailerError;
+      case 'DELETE_RETAILER': {
+        console.log('Syncing retailer deletion (via safe guard):', data);
+        const { deactivateOrDeleteRetailer } = await import('@/utils/safeRetailerBeatDelete');
+        const res = await deactivateOrDeleteRetailer(data.id);
+        if (res.action === 'failed') throw new Error(res.error || 'Retailer delete/deactivate failed');
         break;
-        
-      case 'DELETE_BEAT':
-        console.log('Syncing beat deletion:', data);
-        const { error: deleteBeatError } = await supabase
-          .from('beats')
-          .delete()
-          .eq('id', data.id);
-        if (deleteBeatError) throw deleteBeatError;
+      }
+
+      case 'DELETE_BEAT': {
+        console.log('Syncing beat deletion (via safe guard):', data);
+        const { deactivateOrDeleteBeat, resolveBeatTextId } = await import('@/utils/safeRetailerBeatDelete');
+        // Queue historically stored uuid `id`; guard needs text `beat_id`.
+        const textId = (data as any).beat_id || (await resolveBeatTextId(data.id)) || data.id;
+        const res = await deactivateOrDeleteBeat(textId);
+        if (res.action === 'failed') throw new Error(res.error || 'Beat delete/deactivate failed');
         break;
+      }
         
       case 'UPDATE_BEAT_PLAN':
         console.log('Syncing beat plan update:', data);
