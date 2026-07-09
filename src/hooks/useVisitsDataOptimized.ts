@@ -266,6 +266,108 @@ const _fetchPointsForDateImpl = async (uid: string, date: string): Promise<Point
   return { total, byRetailer };
 };
 
+// ============================================================================
+// PERSPECTIVE HELPERS
+// _source/_actor are perspective-specific (teammate RELATIVE TO the fetching user).
+// Never persist them: strip on write; re-derive on read using row.user_id vs
+// the current effectiveUserId. A row is "mine" iff row.user_id === uid.
+// ============================================================================
+const stripPerspective = <T extends Record<string, any>>(rows: T[]): T[] =>
+  (rows || []).map(r => {
+    if (r && (r._source !== undefined || r._actor !== undefined)) {
+      const { _source, _actor, ...rest } = r as any;
+      return rest as T;
+    }
+    return r;
+  });
+
+const retagPerspective = <T extends Record<string, any>>(rows: T[], uid: string): T[] =>
+  (rows || []).map(r => {
+    if (!r) return r;
+    if (r.user_id && r.user_id !== uid) {
+      return {
+        ...r,
+        _source: 'teammate',
+        _actor: r._actor || { user_id: r.user_id, name: 'Teammate' },
+      } as T;
+    }
+    if (r._source !== undefined || r._actor !== undefined) {
+      const { _source, _actor, ...rest } = r as any;
+      return rest as T;
+    }
+    return r;
+  });
+
+// Fetch teammate activity (visits + orders) on the user's beats for `date`.
+// Extracted so doFullInitialLoad and smartDeltaSync produce identically-shaped data.
+const fetchTeammateActivity = async (
+  uid: string,
+  date: string,
+  seedBeatIds: Iterable<string>,
+  ownVisitIds: Set<string>,
+  ownOrderIds: Set<string>
+): Promise<{ visits: any[]; orders: any[] }> => {
+  const empty = { visits: [] as any[], orders: [] as any[] };
+  try {
+    const beatIdSet = new Set<string>();
+    for (const id of seedBeatIds) if (id) beatIdSet.add(id);
+    try {
+      const [dailyRes, ownedRes, shareRes] = await Promise.all([
+        (supabase as any)
+          .from('daily_beat_plans')
+          .select('beat_id')
+          .eq('assigned_user_id', uid)
+          .eq('plan_date', date),
+        supabase.from('beats').select('beat_id').eq('owner_id', uid).eq('is_active', true),
+        supabase
+          .from('beat_user_access')
+          .select('beat_id, effective_from, effective_to, is_active')
+          .eq('user_id', uid)
+          .eq('is_active', true)
+          .lte('effective_from', `${date}T23:59:59.999Z`)
+          .or(`effective_to.is.null,effective_to.gte.${date}T00:00:00.000Z`),
+      ]);
+      (dailyRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
+      (ownedRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
+      (shareRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
+    } catch (e) {
+      console.warn('[TeammateFetch] Extra beat-source fetch failed (non-fatal):', e);
+    }
+    const todayBeatIds = Array.from(beatIdSet);
+    if (!todayBeatIds.length) return empty;
+
+    const teammates = await getBeatTeammates(uid, todayBeatIds, date);
+    if (!teammates.userIds.length) return empty;
+
+    const { data: sharedRetailers } = await supabase
+      .from('retailers')
+      .select('id, beat_id')
+      .in('beat_id', todayBeatIds);
+    const sharedRetailerIds = (sharedRetailers || []).map((r: any) => r.id);
+    if (!sharedRetailerIds.length) return empty;
+
+    const [tvRes, toRes] = await Promise.all([
+      supabase.from('visits').select('*').eq('planned_date', date)
+        .in('user_id', teammates.userIds).in('retailer_id', sharedRetailerIds),
+      supabase.from('orders').select('*').eq('order_date', date)
+        .in('status', ['confirmed', 'delivered'])
+        .in('user_id', teammates.userIds).in('retailer_id', sharedRetailerIds),
+    ]);
+    const tagActor = (row: any) => ({
+      ...row,
+      _source: 'teammate',
+      _actor: { user_id: row.user_id, name: teammates.names.get(row.user_id) || 'Teammate' },
+    });
+    return {
+      visits: (tvRes.data || []).filter((v: any) => !ownVisitIds.has(v.id)).map(tagActor),
+      orders: (toRes.data || []).filter((o: any) => !ownOrderIds.has(o.id)).map(tagActor),
+    };
+  } catch (e) {
+    console.warn('[TeammateFetch] failed:', e);
+    return empty;
+  }
+};
+
 // MODULE-LEVEL CACHE: Survives component unmount/remount to prevent flicker on navigation
 // This is the key fix for flickering when switching modules and returning
 const moduleCache = new Map<string, {
