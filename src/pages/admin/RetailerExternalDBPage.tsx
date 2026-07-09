@@ -84,7 +84,7 @@ const RetailerExternalDBPage: React.FC = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-subtle p-4">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="w-full space-y-6">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <AdminPageHeader
               title="Retailer External Database"

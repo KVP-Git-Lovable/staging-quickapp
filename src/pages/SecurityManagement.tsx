@@ -79,17 +79,9 @@ export default function SecurityManagement() {
   return (
     <Layout>
     <div className="min-h-screen bg-gradient-subtle p-4 pt-2">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="w-full space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => navigate('/admin-controls')} 
-            variant="ghost" 
-            size="sm"
-            className="p-2"
-          >
-            <ArrowLeft size={20} />
-          </Button>
           <div className="flex-1">
             <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
               <Shield className="h-8 w-8 text-primary" />

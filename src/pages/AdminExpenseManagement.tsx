@@ -29,7 +29,7 @@ const AdminExpenseManagement = () => {
     <Layout>
     <div className="min-h-screen bg-gradient-subtle">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
+        <div className="w-full px-3 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="hidden sm:flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 shrink-0">
@@ -49,7 +49,7 @@ const AdminExpenseManagement = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+      <div className="w-full px-3 sm:px-6 py-4 sm:py-6">
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="grid w-full grid-cols-3 h-10 mb-4 sm:mb-6">
             <TabsTrigger value="overview" className="text-xs sm:text-sm gap-1.5">

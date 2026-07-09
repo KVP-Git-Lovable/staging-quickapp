@@ -66,9 +66,6 @@ const BeatCoordinator = () => {
       <div className="min-h-screen bg-gradient-subtle">
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b">
           <div className="max-w-[1400px] mx-auto px-3 py-3 flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin-controls")}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
             <div className="flex-1 min-w-0">
               <h1 className="text-base md:text-xl font-bold truncate">Beat Coordinator</h1>
               <p className="text-xs text-muted-foreground truncate">

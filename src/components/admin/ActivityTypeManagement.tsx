@@ -336,7 +336,7 @@ export default function ActivityTypeManagement() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      <div className="p-6 space-y-6 w-full">
         {/* Header (no back button, no AdminPageHeader) */}
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>

@@ -19,7 +19,7 @@ const TerritoryMaster = () => {
 
         {/* Content */}
         <div className="p-4">
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <TerritoriesManagement />
           </div>
         </div>

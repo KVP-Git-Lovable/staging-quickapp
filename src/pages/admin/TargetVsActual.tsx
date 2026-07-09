@@ -94,17 +94,9 @@ const TargetVsActual = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-subtle p-4">
-        <div className="max-w-7xl mx-auto space-y-4">
+        <div className="w-full space-y-4">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <Button 
-              onClick={() => navigate('/admin-controls')} 
-              variant="ghost" 
-              size="sm"
-              className="p-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
             <div className="flex-1">
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">Target Management</h1>
               <p className="text-muted-foreground text-sm">Configure, assign, and track team targets</p>

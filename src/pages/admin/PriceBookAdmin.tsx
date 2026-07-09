@@ -619,9 +619,6 @@ const PriceBookAdmin = () => {
       <div className="container mx-auto px-4 py-6 max-w-5xl pb-24">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/admin-controls')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             <div>
               <h1 className="text-2xl font-bold">Price Book Management</h1>
               <p className="text-muted-foreground text-sm">{filteredPriceBooks.length} price books</p>

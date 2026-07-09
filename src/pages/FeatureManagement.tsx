@@ -125,17 +125,9 @@ const FeatureManagement = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-subtle p-4">
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="w-full space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button 
-            onClick={() => navigate('/admin-controls')} 
-            variant="ghost" 
-            size="sm"
-            className="p-2"
-          >
-            <ArrowLeft size={20} />
-          </Button>
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-foreground">Feature Management</h1>
             <p className="text-muted-foreground text-sm">Enable or disable features by module</p>
