@@ -424,14 +424,27 @@ export function useOfflineSync() {
       };
 
 
-      // PARALLEL BATCHING: Process up to 3 items concurrently for faster sync
+      // PARALLEL BATCHING within a priority band; bands are drained sequentially
+      // so a child (e.g. CREATE_ORDER) never runs before its parent (CREATE_RETAILER).
       const BATCH_SIZE = 3;
       const readyItems = syncQueue.filter(isReadyForRetry);
-      
-      for (let i = 0; i < readyItems.length; i += BATCH_SIZE) {
-        const batch = readyItems.slice(i, i + BATCH_SIZE);
-        await Promise.allSettled(batch.map(item => processAndHandleItem(item)));
+
+      const bands = new Map<number, any[]>();
+      for (const it of readyItems) {
+        const p = priorityOf(it.action);
+        const arr = bands.get(p);
+        if (arr) arr.push(it);
+        else bands.set(p, [it]);
       }
+      const sortedPriorities = Array.from(bands.keys()).sort((a, b) => a - b);
+      for (const p of sortedPriorities) {
+        const band = bands.get(p)!;
+        for (let i = 0; i < band.length; i += BATCH_SIZE) {
+          const batch = band.slice(i, i + BATCH_SIZE);
+          await Promise.allSettled(batch.map(item => processAndHandleItem(item)));
+        }
+      }
+
 
       // SILENT SYNC: Per offline-first architecture, sync should NOT dispatch UI refresh events
       if (successCount > 0) {
