@@ -210,7 +210,17 @@ const OperationsConfig: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <div>
-            <CardTitle className="text-lg">Order on behalf</CardTitle>
+            <CardTitle className="text-lg flex items-center gap-1.5">
+              Order on behalf
+              <InfoPopover
+                what="Place an order for another rep's retailer."
+                enable="Toggle on and grant the order_on_behalf permission."
+                happens="Order is credited to the target rep (owner); placed_by records you."
+                pros="Cover for absent teammates."
+                cons="Muddies credit attribution if misused; limited to your team/downline."
+              />
+            </CardTitle>
+
             <p className="text-sm text-muted-foreground mt-1">
               Credited to the selected user; recorded against whoever places it.
             </p>
