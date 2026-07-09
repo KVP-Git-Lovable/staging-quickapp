@@ -12,6 +12,44 @@
  * (0.001) for every Litre base product. The shim in unitDisplayUtils.ts uses this.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { offlineStorage, STORES } from '@/lib/offlineStorage';
+
+/** Offline fallback: assemble ProductUnit[] from the cached
+ *  product_uom_mapping + uom_master stores populated by useMasterDataCache. */
+async function loadProductUnitsFromOfflineCache(productId: string): Promise<ProductUnit[]> {
+  try {
+    const [mappings, units] = await Promise.all([
+      offlineStorage.getAll<any>(STORES.PRODUCT_UOM_MAPPING),
+      offlineStorage.getAll<any>(STORES.UOM_MASTER),
+    ]);
+    if (!mappings || mappings.length === 0) return [];
+    const uomById = new Map<string, any>();
+    for (const u of units || []) uomById.set(u.id, u);
+
+    const rows = mappings.filter((m) => m.product_id === productId);
+    const built: ProductUnit[] = [];
+    for (const m of rows) {
+      const u = uomById.get(m.uom_id);
+      if (!u) continue;
+      built.push({
+        mappingId: m.id,
+        uomId: m.uom_id,
+        code: u.code,
+        name: u.name,
+        category: u.category as UomCategory,
+        conversionToBase: Number(m.conversion_to_base),
+        isBase: !!u.is_base,
+        isDefaultSales: !!m.is_default_sales,
+        isPriceBasis: !!m.is_price_basis,
+        isDefaultPurchase: !!m.is_default_purchase,
+      });
+    }
+    return built;
+  } catch (err) {
+    console.warn('[uomEngine] Offline PRODUCT_UOM_MAPPING fallback failed:', err);
+    return [];
+  }
+}
 
 /**
  * UoM category code. Historically a fixed union of 4 values but now data-driven
@@ -112,8 +150,13 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
   const cached = productCache.get(productId);
   if (cached) return cached;
 
-  const { data, error } = await supabase.rpc('get_product_units', { p_product_id: productId });
-  if (error || !data) {
+  // Offline: skip the RPC and read from the master-data cache directly.
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const fromMaster = await loadProductUnitsFromOfflineCache(productId);
+    if (fromMaster.length > 0) {
+      productCache.set(productId, fromMaster);
+      return fromMaster;
+    }
     const fromIdb = await idbGet<ProductUnit[]>(`product:${productId}`);
     if (fromIdb) {
       productCache.set(productId, fromIdb);
@@ -121,6 +164,24 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
     }
     return [];
   }
+
+  const { data, error } = await supabase.rpc('get_product_units', { p_product_id: productId });
+  if (error || !data) {
+    // Prefer the master-data cache (kept fresh by useMasterDataCache) over the
+    // legacy per-product idb blob.
+    const fromMaster = await loadProductUnitsFromOfflineCache(productId);
+    if (fromMaster.length > 0) {
+      productCache.set(productId, fromMaster);
+      return fromMaster;
+    }
+    const fromIdb = await idbGet<ProductUnit[]>(`product:${productId}`);
+    if (fromIdb) {
+      productCache.set(productId, fromIdb);
+      return fromIdb;
+    }
+    return [];
+  }
+
   const mapped: ProductUnit[] = (data as any[]).map((r) => ({
     mappingId: r.mapping_id,
     uomId: r.uom_id,

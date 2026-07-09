@@ -35,7 +35,9 @@ export const STORES = {
   // Phase 7-1: product availability rules + territory lookup (region/zone)
   PRODUCT_AVAILABILITY: 'productAvailability',
   TERRITORIES_LOOKUP: 'territoriesLookup',
-  EXPENSES: 'expenses'
+  EXPENSES: 'expenses',
+  UOM_MASTER: 'uomMaster',
+  PRODUCT_UOM_MAPPING: 'productUomMapping'
 } as const;
 
 // Sync metadata interface
