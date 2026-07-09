@@ -27651,6 +27651,10 @@ export type Database = {
         Returns: string
       }
       nextval_text: { Args: { seq_name: string }; Returns: string }
+      notify_admins: {
+        Args: { p_message: string; p_title: string; p_type: string }
+        Returns: undefined
+      }
       owns_completed_invitation: {
         Args: { _email: string; _user_id: string }
         Returns: boolean
