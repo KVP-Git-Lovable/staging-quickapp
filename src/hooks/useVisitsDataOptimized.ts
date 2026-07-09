@@ -863,7 +863,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       }
 
       console.log(`[SmartSync] Fetched: ${newBeatPlans.length} beat plans, ${newVisits.length} visits, ${newOrders.length} orders, ${pointsFetched.total} points`);
-      
+
+      // FRESHNESS: network sync always wins over any cache/snapshot/offline path.
+      markNetworkApplied(uid, date);
+
       // Update points state
       setPointsData(pointsFetched);
 
