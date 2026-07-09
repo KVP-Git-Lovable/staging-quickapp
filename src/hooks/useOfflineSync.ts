@@ -925,12 +925,16 @@ export function useOfflineSync() {
         const retailerPayload = data.retailer || data;
         // Strip client-only fields before upload
         const retailerData = stripRetailerClientFields(retailerPayload);
+        // Ensure a stable client id so retries upsert onto the same row.
+        // Legacy payloads without an id fall back to a fresh UUID.
+        if (!retailerData.id) retailerData.id = crypto.randomUUID();
         const { data: syncedRetailer, error: retailerError } = await supabase
           .from('retailers')
-          .insert(retailerData)
+          .upsert(retailerData, { onConflict: 'id', ignoreDuplicates: false })
           .select('id, phone')
           .maybeSingle();
         if (retailerError) throw retailerError;
+
 
         if (syncedRetailer?.id && syncedRetailer?.phone) {
           const { data: waResult, error: waError } = await supabase.functions.invoke('send-retailer-welcome-whatsapp', {
