@@ -142,53 +142,52 @@ export async function verifyAndCleanLocalOrders(userId: string): Promise<number>
       .map(o => o.idempotency_key)
       .filter(Boolean);
     
-    // Batch check by IDs
-    let dbOrderIds = new Set<string>();
-    let dbIdempotencyKeys = new Set<string>();
-    
+    // Batch check by IDs and idempotency keys, tracking DB rows by both keys.
+    const dbById = new Map<string, any>();
+    const dbByKey = new Map<string, any>();
+
     if (orderIds.length > 0) {
       const { data: dbOrders } = await supabase
         .from('orders')
         .select('id, idempotency_key')
         .in('id', orderIds);
-      
-      if (dbOrders) {
-        dbOrders.forEach(o => {
-          dbOrderIds.add(o.id);
-          if (o.idempotency_key) dbIdempotencyKeys.add(o.idempotency_key);
-        });
-      }
+      (dbOrders || []).forEach((o: any) => {
+        dbById.set(o.id, o);
+        if (o.idempotency_key) dbByKey.set(o.idempotency_key, o);
+      });
     }
-    
-    // Also check by idempotency keys
+
     if (idempotencyKeys.length > 0) {
       const { data: dbOrdersByKey } = await supabase
         .from('orders')
         .select('id, idempotency_key')
         .in('idempotency_key', idempotencyKeys);
-      
-      if (dbOrdersByKey) {
-        dbOrdersByKey.forEach(o => {
-          dbOrderIds.add(o.id);
-          if (o.idempotency_key) dbIdempotencyKeys.add(o.idempotency_key);
-        });
-      }
+      (dbOrdersByKey || []).forEach((o: any) => {
+        dbById.set(o.id, o);
+        if (o.idempotency_key) dbByKey.set(o.idempotency_key, o);
+      });
     }
-    
-    // Delete local orders that exist in DB
+
+    // Only delete TRUE duplicates (same idempotency_key, different id).
+    // If id matches DB, mark _synced and preserve as offline read cache.
     let cleanedCount = 0;
     for (const order of userOrders) {
-      const existsById = dbOrderIds.has(order.id);
-      const existsByKey = order.idempotency_key && dbIdempotencyKeys.has(order.idempotency_key);
-      
-      if (existsById || existsByKey) {
+      const idMatch = dbById.get(order.id);
+      const keyMatch = order.idempotency_key ? dbByKey.get(order.idempotency_key) : undefined;
+
+      if (idMatch) {
+        await offlineStorage.save(STORES.ORDERS, { ...order, _synced: true });
+        continue;
+      }
+
+      if (keyMatch && keyMatch.id !== order.id) {
         await offlineStorage.delete(STORES.ORDERS, order.id);
         cleanedCount++;
       }
     }
-    
+
     if (cleanedCount > 0) {
-      console.log(`🧹 [orderCleanup] Verified and cleaned ${cleanedCount} synced orders`);
+      console.log(`🧹 [orderCleanup] Verified and removed ${cleanedCount} duplicate local copies`);
     }
     
     return cleanedCount;
