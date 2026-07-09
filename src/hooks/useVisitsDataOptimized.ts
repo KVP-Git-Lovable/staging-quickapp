@@ -35,6 +35,7 @@ interface ProgressStats {
   totalPlanned: number; // Total planned visits (doesn't change when status changes)
   // Teammate breakdown (shared beats). All zero when no shared activity exists.
   teamProductive: number;
+  teamUnproductive: number;
   teamOrders: number;
   teamOrderValue: number;
 }
@@ -158,9 +159,19 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
   const teamProductiveRetailers = new Set<string>(
     teamOrdersList.map((o: any) => o.retailer_id).filter(Boolean)
   );
+  // First pass: teammate visits marked productive add to productive set.
   dateFilteredVisits.forEach((v: any) => {
-    if (v?._source === 'teammate' && v.retailer_id && (v.status === 'productive' || !!v.no_order_reason || v.status === 'unproductive')) {
+    if (v?._source === 'teammate' && v.retailer_id && v.status === 'productive') {
       teamProductiveRetailers.add(v.retailer_id);
+    }
+  });
+  // Second pass: unproductive only if NOT already productive.
+  const teamUnproductiveRetailers = new Set<string>();
+  dateFilteredVisits.forEach((v: any) => {
+    if (v?._source !== 'teammate' || !v.retailer_id) return;
+    if (teamProductiveRetailers.has(v.retailer_id)) return;
+    if (v.status === 'unproductive' || !!v.no_order_reason) {
+      teamUnproductiveRetailers.add(v.retailer_id);
     }
   });
 
@@ -172,6 +183,7 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
     totalOrderValue: dateFilteredOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
     totalPlanned,
     teamProductive: teamProductiveRetailers.size,
+    teamUnproductive: teamUnproductiveRetailers.size,
     teamOrders: teamOrdersList.length,
     teamOrderValue: teamOrdersList.reduce((sum, o: any) => sum + Number(o.total_amount || 0), 0),
   };
