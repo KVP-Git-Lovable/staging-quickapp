@@ -26,7 +26,39 @@ const preGoLiveItems = [
   { id: "ssl-certificates", label: "SSL certificates valid", critical: false },
   { id: "load-testing", label: "Load testing completed", critical: false },
   { id: "mobile-testing", label: "Mobile app testing on all devices", critical: true },
+
+  // Production Readiness — Offline
+  { id: "prod-offline-reboot", label: "Offline · Queue survives reboot", critical: true },
+  { id: "prod-offline-app-update", label: "Offline · Queue survives app update", critical: true },
+  { id: "prod-offline-network-loss", label: "Offline · Queue survives network loss", critical: false },
+  { id: "prod-offline-app-kill", label: "Offline · Queue survives app kill", critical: true },
+  { id: "prod-offline-resume", label: "Offline · Sync resumes from where it stopped", critical: false },
+
+  // Production Readiness — Orders
+  { id: "prod-orders-no-empty", label: "Orders · No order without items", critical: true },
+  { id: "prod-orders-no-duplicates", label: "Orders · No duplicate orders", critical: true },
+  { id: "prod-orders-no-missing-retailer", label: "Orders · No missing retailer", critical: false },
+  { id: "prod-orders-no-missing-products", label: "Orders · No missing products", critical: false },
+  { id: "prod-orders-edit-resettles", label: "Orders · Order edit re-settles correctly", critical: false },
+
+  // Production Readiness — Master data
+  { id: "prod-master-no-orphan-variants", label: "Master data · No orphan variants", critical: false },
+  { id: "prod-master-no-duplicate-retailers", label: "Master data · No duplicate active retailers", critical: false },
+  { id: "prod-master-no-broken-beats", label: "Master data · No broken beats", critical: false },
+  { id: "prod-master-uom-schemes-offline", label: "Master data · UOM/schemes available offline", critical: false },
+
+  // Production Readiness — Security
+  { id: "prod-security-rls-enabled", label: "Security · RLS enabled on all tables", critical: true },
+  { id: "prod-security-policies-verified", label: "Security · Policies verified", critical: false },
+  { id: "prod-security-no-unexpected-ddl", label: "Security · No unexpected DDL changes (check Sync Health → security events)", critical: false },
+
+  // Production Readiness — Performance
+  { id: "prod-perf-1000-queue-drain", label: "Performance · 1,000 queued orders drain in bounded time", critical: false },
+  { id: "prod-perf-distributor-transfer", label: "Performance · Distributor transfer (50 retailers / 1,000 orders)", critical: false },
+  { id: "prod-perf-large-retailer-master", label: "Performance · Large retailer master", critical: false },
+  { id: "prod-perf-large-product-master", label: "Performance · Large product master", critical: false },
 ];
+
 
 const goLiveDayItems = [
   { id: "env-health", label: "Production environment health check", critical: true },
