@@ -1299,6 +1299,13 @@ export default function RetailManagement() {
         retailers={filteredRetailers as any}
         filteredCount={filteredRetailers.length}
       />
+
+      <MergeRetailerDialog
+        open={!!mergeTarget}
+        onOpenChange={(o) => { if (!o) setMergeTarget(null); }}
+        duplicate={mergeTarget as any}
+        onMerged={() => { setMergeTarget(null); loadData(); }}
+      />
     </Layout>
   );
 }
