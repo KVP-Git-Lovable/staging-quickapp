@@ -46,26 +46,41 @@ export async function cleanupOrphanOrders(
     }
     
     const dbOrderIds = new Set(dbOrders?.map(o => o.id) || []);
-    const dbIdempotencyKeys = new Set(
-      dbOrders?.filter(o => o.idempotency_key).map(o => o.idempotency_key) || []
+    const dbById = new Map((dbOrders || []).map((o: any) => [o.id, o]));
+    const dbByKey = new Map(
+      (dbOrders || []).filter((o: any) => o.idempotency_key).map((o: any) => [o.idempotency_key, o])
     );
     
-    console.log(`🧹 [orderCleanup] DB has ${dbOrderIds.size} orders, ${dbIdempotencyKeys.size} idempotency keys`);
+    console.log(`🧹 [orderCleanup] DB has ${dbOrderIds.size} orders, ${dbByKey.size} idempotency keys`);
     
-    // Step 3: Delete local orders that exist in DB
+    // Step 3: The IndexedDB orders store is BOTH pending-uploads queue AND offline read cache.
+    // Only delete true duplicates: same idempotency_key as a DB row but a DIFFERENT id
+    // (i.e. the local client-UUID copy of an order that now exists under a DB id).
+    // If the local row's id matches the DB row, mark it _synced and update its fields — do NOT delete.
     let cleanedCount = 0;
     for (const localOrder of localOrdersForDate) {
-      const existsById = dbOrderIds.has(localOrder.id);
-      const existsByKey = localOrder.idempotency_key && dbIdempotencyKeys.has(localOrder.idempotency_key);
-      
-      if (existsById || existsByKey) {
+      const idMatch = dbById.get(localOrder.id);
+      const keyMatch = localOrder.idempotency_key ? dbByKey.get(localOrder.idempotency_key) : undefined;
+
+      if (idMatch) {
+        // Same id — this IS the DB row. Update in place, do not delete.
+        await offlineStorage.save(STORES.ORDERS, {
+          ...localOrder,
+          ...idMatch,
+          _synced: true,
+        });
+        continue;
+      }
+
+      if (keyMatch && keyMatch.id !== localOrder.id) {
+        // True duplicate: local client-UUID copy of a now-persisted DB order.
         await offlineStorage.delete(STORES.ORDERS, localOrder.id);
         cleanedCount++;
-        console.log(`🧹 [orderCleanup] Removed synced order: ${localOrder.id}`);
+        console.log(`🧹 [orderCleanup] Removed duplicate local copy: ${localOrder.id} (DB id ${keyMatch.id})`);
       }
     }
     
-    console.log(`🧹 [orderCleanup] Cleaned ${cleanedCount} orders, ${localOrdersForDate.length - cleanedCount} remaining`);
+    console.log(`🧹 [orderCleanup] Cleaned ${cleanedCount} duplicates, ${localOrdersForDate.length - cleanedCount} preserved as read cache`);
     return { cleaned: cleanedCount, remaining: localOrdersForDate.length - cleanedCount };
   } catch (error) {
     console.error('🧹 [orderCleanup] Error in cleanupOrphanOrders:', error);
@@ -127,53 +142,52 @@ export async function verifyAndCleanLocalOrders(userId: string): Promise<number>
       .map(o => o.idempotency_key)
       .filter(Boolean);
     
-    // Batch check by IDs
-    let dbOrderIds = new Set<string>();
-    let dbIdempotencyKeys = new Set<string>();
-    
+    // Batch check by IDs and idempotency keys, tracking DB rows by both keys.
+    const dbById = new Map<string, any>();
+    const dbByKey = new Map<string, any>();
+
     if (orderIds.length > 0) {
       const { data: dbOrders } = await supabase
         .from('orders')
         .select('id, idempotency_key')
         .in('id', orderIds);
-      
-      if (dbOrders) {
-        dbOrders.forEach(o => {
-          dbOrderIds.add(o.id);
-          if (o.idempotency_key) dbIdempotencyKeys.add(o.idempotency_key);
-        });
-      }
+      (dbOrders || []).forEach((o: any) => {
+        dbById.set(o.id, o);
+        if (o.idempotency_key) dbByKey.set(o.idempotency_key, o);
+      });
     }
-    
-    // Also check by idempotency keys
+
     if (idempotencyKeys.length > 0) {
       const { data: dbOrdersByKey } = await supabase
         .from('orders')
         .select('id, idempotency_key')
         .in('idempotency_key', idempotencyKeys);
-      
-      if (dbOrdersByKey) {
-        dbOrdersByKey.forEach(o => {
-          dbOrderIds.add(o.id);
-          if (o.idempotency_key) dbIdempotencyKeys.add(o.idempotency_key);
-        });
-      }
+      (dbOrdersByKey || []).forEach((o: any) => {
+        dbById.set(o.id, o);
+        if (o.idempotency_key) dbByKey.set(o.idempotency_key, o);
+      });
     }
-    
-    // Delete local orders that exist in DB
+
+    // Only delete TRUE duplicates (same idempotency_key, different id).
+    // If id matches DB, mark _synced and preserve as offline read cache.
     let cleanedCount = 0;
     for (const order of userOrders) {
-      const existsById = dbOrderIds.has(order.id);
-      const existsByKey = order.idempotency_key && dbIdempotencyKeys.has(order.idempotency_key);
-      
-      if (existsById || existsByKey) {
+      const idMatch = dbById.get(order.id);
+      const keyMatch = order.idempotency_key ? dbByKey.get(order.idempotency_key) : undefined;
+
+      if (idMatch) {
+        await offlineStorage.save(STORES.ORDERS, { ...order, _synced: true });
+        continue;
+      }
+
+      if (keyMatch && keyMatch.id !== order.id) {
         await offlineStorage.delete(STORES.ORDERS, order.id);
         cleanedCount++;
       }
     }
-    
+
     if (cleanedCount > 0) {
-      console.log(`🧹 [orderCleanup] Verified and cleaned ${cleanedCount} synced orders`);
+      console.log(`🧹 [orderCleanup] Verified and removed ${cleanedCount} duplicate local copies`);
     }
     
     return cleanedCount;
@@ -199,20 +213,24 @@ export async function syncSnapshotWithDbOrders(
       return 0;
     }
     
-    // Replace snapshot orders with DB orders (DB is source of truth)
+    // Replace ONLY the current user's rows; keep teammate rows (shared beats) intact.
     const originalCount = snapshot.orders?.length || 0;
-    
-    // Map DB orders with required fields
-    snapshot.orders = dbOrders.map(o => ({
+    const preservedOthers = (snapshot.orders || []).filter(
+      (o: any) => o && o.user_id && o.user_id !== userId
+    );
+
+    const mineFromDb = dbOrders.map(o => ({
       id: o.id,
       total_amount: Math.round(Number(o.total_amount || 0)),
       retailer_id: o.retailer_id,
       order_date: o.order_date || targetDate,
       status: o.status || 'confirmed',
-      user_id: o.user_id || userId
+      user_id: o.user_id || userId,
     }));
-    
-    // Recalculate stats from synced orders
+
+    snapshot.orders = [...mineFromDb, ...preservedOthers];
+
+    // Recalculate stats from full (mine + teammate) list
     snapshot.progressStats.totalOrders = snapshot.orders.length;
     snapshot.progressStats.totalOrderValue = Math.round(
       snapshot.orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)

@@ -9,13 +9,39 @@ import { supabase } from '@/integrations/supabase/client';
 import { runFullOrderCleanup, cleanupStaleSyncedOrders } from '@/utils/orderCleanup';
 import { cleanupOldSnapshots } from '@/lib/myVisitsSnapshot';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
+import { getLocalTodayDate } from '@/utils/dateUtils';
+
+const LEGACY_PERSPECTIVE_MIGRATION_KEY = 'legacy_perspective_stripped_v1';
 
 /**
- * Get today's date in YYYY-MM-DD format
+ * One-time migration: remove stale `_source`/`_actor` perspective tags that were
+ * persisted into IndexedDB before the stripPerspective fix. These tags are the
+ * fetching user's PERSPECTIVE, not a property of the row, so persisting them
+ * causes the wrong user's rows to be shown as "teammate" activity on reload.
  */
-function getTodayDate(): string {
-  const now = new Date();
-  return now.toISOString().split('T')[0];
+async function stripLegacyPerspectiveTags(): Promise<void> {
+  try {
+    if (localStorage.getItem(LEGACY_PERSPECTIVE_MIGRATION_KEY) === '1') return;
+
+    let touched = 0;
+    for (const store of [STORES.VISITS, STORES.ORDERS]) {
+      const rows = await offlineStorage.getAll<any>(store);
+      for (const row of rows) {
+        if (row && (row._source !== undefined || row._actor !== undefined)) {
+          const { _source, _actor, ...clean } = row;
+          await offlineStorage.save(store, clean);
+          touched++;
+        }
+      }
+    }
+
+    localStorage.setItem(LEGACY_PERSPECTIVE_MIGRATION_KEY, '1');
+    if (touched > 0) {
+      console.log(`🧹 [startupCleanup] Stripped legacy perspective tags from ${touched} rows`);
+    }
+  } catch (e) {
+    console.warn('🧹 [startupCleanup] Legacy perspective migration failed:', e);
+  }
 }
 
 /**
@@ -49,8 +75,13 @@ export function useStartupCleanup() {
       console.log('🧹 [startupCleanup] Starting cleanup routines...');
       
       try {
-        const today = getTodayDate();
-        
+        // Use LOCAL today (device tz) — new Date().toISOString() is UTC,
+        // which returns the wrong date for IST users before 5:30 AM.
+        const today = getLocalTodayDate();
+
+        // One-time strip of legacy _source/_actor tags in IDB
+        await stripLegacyPerspectiveTags();
+
         // Run cleanup in parallel but with lower priority for order cleanup
         // Order cleanup syncs snapshot with DB, so it should refresh UI afterwards
         await Promise.all([
@@ -65,11 +96,16 @@ export function useStartupCleanup() {
         ]);
         
         // Run order cleanup separately - this SYNCS snapshot with DB
-        // This ensures Today's Progress shows accurate values after cleanup
+        // (updates _synced flag on local rows; does NOT delete matched-by-id rows)
         await runFullOrderCleanup(user.id, today);
         
-        // Dispatch event to refresh UI with synced data
-        window.dispatchEvent(new Event('visitDataChanged'));
+        // IMPORTANT: don't dispatch 'visitDataChanged' — that makes the hook
+        // reload from snapshot/IndexedDB (the stores we just touched). Instead
+        // ask it to run a NETWORK sync directly, so the freshest DB truth
+        // wins and race conditions with the local cache are avoided.
+        window.dispatchEvent(new CustomEvent('visitDataChanged', {
+          detail: { source: 'cleanup', date: today }
+        }));
         
         console.log('🧹 [startupCleanup] Cleanup routines completed');
       } catch (error) {
@@ -96,14 +132,16 @@ export function useStartupCleanup() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
-      const today = getTodayDate();
+      const today = getLocalTodayDate();
       console.log('🧹 [startupCleanup] Online restored - running cleanup and sync');
       
       // Run order cleanup which syncs snapshot with DB
       await runFullOrderCleanup(user.id, today);
       
-      // Dispatch event to refresh UI with synced data
-      window.dispatchEvent(new Event('visitDataChanged'));
+      // Ask the visits hook to refresh from NETWORK, not from IDB
+      window.dispatchEvent(new CustomEvent('visitDataChanged', {
+        detail: { source: 'cleanup', date: today }
+      }));
     };
     
     window.addEventListener('online', handleOnline);

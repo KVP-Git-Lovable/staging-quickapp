@@ -1988,8 +1988,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       
       if (!currentUserId) return;
       
-      // Extract date from event detail (if CustomEvent with date context)
-      const eventDate = (event as CustomEvent)?.detail?.date;
+      // Extract date + source from event detail (if CustomEvent with context)
+      const detail = (event as CustomEvent)?.detail || {};
+      const eventDate = detail.date;
+      const eventSource = detail.source;
       
       // If event has a specific date and it doesn't match our selected date, skip reload
       if (eventDate && eventDate !== currentDate) {
@@ -1997,6 +1999,20 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         // Still invalidate cache for that date so it's fresh when user navigates to it
         cacheRef.current.delete(eventDate);
         lastSyncTimeRef.current.delete(eventDate);
+        return;
+      }
+
+      // CLEANUP path: the startup cleanup routine just touched local stores.
+      // Do NOT reload from snapshot/IndexedDB (that's what cleanup mutated) —
+      // go straight to the network so DB truth wins and the "Total Order
+      // Value" tile doesn't briefly show the wrong (post-cleanup, pre-sync)
+      // local state.
+      if (eventSource === 'cleanup') {
+        console.log('[LocalEvent] visitDataChanged (cleanup) - triggering network sync directly');
+        if (navigator.onLine) {
+          lastSyncTimeRef.current.delete(currentDate);
+          smartDeltaSync(currentUserId, currentDate);
+        }
         return;
       }
       
@@ -2025,12 +2041,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
           setRetailers(filteredRetailers);
           
           // FIX #3: Merge snapshot orders with current local orders to preserve unsynced ones
+          const snapshotOrders = snapshot.orders || [];
+          const snapshotIds = new Set(snapshotOrders.map((o: any) => o.id));
+          const snapshotIdemKeys = new Set(
+            snapshotOrders.filter((o: any) => o.idempotency_key).map((o: any) => o.idempotency_key)
+          );
+          let mergedOrdersForCache: any[] = snapshotOrders;
           setOrders(prev => {
-            const snapshotOrders = snapshot.orders || [];
-            const snapshotIds = new Set(snapshotOrders.map((o: any) => o.id));
-            const snapshotIdemKeys = new Set(snapshotOrders.filter((o: any) => o.idempotency_key).map((o: any) => o.idempotency_key));
-            // Preserve local orders not in snapshot (pending sync)
-            const preserveLocal = prev.filter((o: any) => 
+            const preserveLocal = prev.filter((o: any) =>
               o.order_date === currentDate &&
               !snapshotIds.has(o.id) &&
               !(o.idempotency_key && snapshotIdemKeys.has(o.idempotency_key))
@@ -2038,16 +2056,19 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
             if (preserveLocal.length > 0) {
               console.log(`[LocalEvent] Preserved ${preserveLocal.length} local orders not in snapshot`);
             }
-            return [...snapshotOrders, ...preserveLocal];
+            const merged = [...snapshotOrders, ...preserveLocal];
+            mergedOrdersForCache = merged;
+            return merged;
           });
           
-          // Update cache (include preserved local orders from current state)
-          const currentOrders = snapshot.orders || [];
+          // FIX #6: Store the SAME merged array in cacheRef that we passed to
+          // setOrders — otherwise the next smartDeltaSync diffs against a
+          // different set than what's actually on screen.
           cacheRef.current.set(currentDate, {
             beatPlans: snapshot.beatPlans || [],
             visits: snapshot.visits || [],
             retailers: filteredRetailers,
-            orders: currentOrders,
+            orders: mergedOrdersForCache,
             timestamp: Date.now()
           });
           
