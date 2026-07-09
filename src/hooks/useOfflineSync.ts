@@ -772,6 +772,10 @@ export function useOfflineSync() {
         console.log('Syncing visit/check-in:', data);
         // Only include valid columns - explicitly exclude invalid fields like visit_type
         const visitInsertData: any = {};
+        // Preserve client-generated id so retries are idempotent via upsert(onConflict:'id').
+        // Legacy queue items (queue_version < 2) may lack an id — generate one now so we
+        // still upsert cleanly instead of inserting a duplicate on retry.
+        visitInsertData.id = data.id || crypto.randomUUID();
         if (data.user_id) visitInsertData.user_id = data.user_id;
         if (data.retailer_id) visitInsertData.retailer_id = data.retailer_id;
         if (data.planned_date) visitInsertData.planned_date = data.planned_date;
@@ -787,9 +791,10 @@ export function useOfflineSync() {
         
         const { error: visitError } = await supabase
           .from('visits')
-          .insert(visitInsertData);
+          .upsert(visitInsertData, { onConflict: 'id', ignoreDuplicates: false });
         if (visitError) throw visitError;
         break;
+
         
       case 'CHECK_OUT':
         console.log('Syncing check-out:', data);
@@ -897,9 +902,13 @@ export function useOfflineSync() {
         console.log('Syncing stock creation:', data);
         const { error: stockError } = await supabase
           .from('stock')
-          .insert(data);
+          .upsert(data, {
+            onConflict: 'user_id,retailer_id,visit_id,product_id',
+            ignoreDuplicates: false,
+          });
         if (stockError) throw stockError;
         break;
+
         
       case 'UPDATE_STOCK':
         console.log('Syncing stock update:', data);
@@ -916,12 +925,16 @@ export function useOfflineSync() {
         const retailerPayload = data.retailer || data;
         // Strip client-only fields before upload
         const retailerData = stripRetailerClientFields(retailerPayload);
+        // Ensure a stable client id so retries upsert onto the same row.
+        // Legacy payloads without an id fall back to a fresh UUID.
+        if (!retailerData.id) retailerData.id = crypto.randomUUID();
         const { data: syncedRetailer, error: retailerError } = await supabase
           .from('retailers')
-          .insert(retailerData)
+          .upsert(retailerData, { onConflict: 'id', ignoreDuplicates: false })
           .select('id, phone')
           .maybeSingle();
         if (retailerError) throw retailerError;
+
 
         if (syncedRetailer?.id && syncedRetailer?.phone) {
           const { data: waResult, error: waError } = await supabase.functions.invoke('send-retailer-welcome-whatsapp', {
@@ -956,7 +969,7 @@ export function useOfflineSync() {
         console.log('Syncing attendance check-in:', data);
         const { data: syncedAttendance, error: attendanceError } = await supabase
           .from('attendance')
-          .insert(data)
+          .upsert(data, { onConflict: 'user_id,date', ignoreDuplicates: false })
           .select()
           .single();
         if (attendanceError) throw attendanceError;
@@ -970,6 +983,7 @@ export function useOfflineSync() {
           console.log('✅ Attendance synced and cache updated with real ID');
         }
         break;
+
         
       case 'UPDATE_ATTENDANCE':
         console.log('Syncing attendance check-out:', data);
@@ -982,9 +996,10 @@ export function useOfflineSync() {
         
       case 'CREATE_BEAT':
         console.log('Syncing beat creation:', data);
+        if (!data.id) data.id = crypto.randomUUID();
         const { error: beatError } = await supabase
           .from('beats')
-          .insert(data);
+          .upsert(data, { onConflict: 'id', ignoreDuplicates: false });
         if (beatError) throw beatError;
         break;
         
@@ -1001,9 +1016,13 @@ export function useOfflineSync() {
         console.log('Syncing beat plan creation:', data);
         const { error: beatPlanError } = await supabase
           .from('beat_plans')
-          .insert(data);
+          .upsert(data, {
+            onConflict: 'user_id,plan_date,beat_id',
+            ignoreDuplicates: false,
+          });
         if (beatPlanError) throw beatPlanError;
         break;
+
         
       case 'DELETE_RETAILER': {
         console.log('Syncing retailer deletion (via safe guard):', data);
@@ -1048,9 +1067,11 @@ export function useOfflineSync() {
         
       case 'CREATE_COMPETITION_DATA':
         console.log('Syncing competition data:', data);
+        if (!data.id) data.id = crypto.randomUUID();
         const { error: competitionError } = await supabase
           .from('competition_data')
-          .insert(data);
+          .upsert(data, { onConflict: 'id', ignoreDuplicates: false });
+
         if (competitionError) throw competitionError;
         break;
         

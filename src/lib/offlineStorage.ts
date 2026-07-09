@@ -286,13 +286,17 @@ class OfflineStorage {
       data,
       timestamp: Date.now(),
       createdAt: Date.now(),
-      retryCount: 0
+      retryCount: 0,
+      // Bump when queue payload format changes. Drain treats missing/older
+      // versions as legacy and handles them gracefully.
+      queue_version: 2
     };
     
     await this.save(STORES.SYNC_QUEUE, syncItem);
     this.emitSyncQueueUpdated();
     console.log('[OfflineStorage] 📤 syncQueueUpdated event dispatched');
   }
+
 
   async getSyncQueue(): Promise<any[]> {
     return this.getAll(STORES.SYNC_QUEUE);

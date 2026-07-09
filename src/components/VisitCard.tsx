@@ -1727,6 +1727,7 @@ export const VisitCard = ({
           console.log('⚠️ [ensureVisit] Background network sync failed, keeping temp ID:', e);
           // Queue for sync when back online
           await offlineStorage.addToSyncQueue('CREATE_VISIT', {
+            id: crypto.randomUUID(),
             user_id: userId,
             retailer_id: retailerId,
             planned_date: date,
@@ -1737,11 +1738,13 @@ export const VisitCard = ({
     } else {
       // Offline - queue for sync
       await offlineStorage.addToSyncQueue('CREATE_VISIT', {
+        id: crypto.randomUUID(),
         user_id: userId,
         retailer_id: retailerId,
         planned_date: date,
         status: 'planned'
       });
+
     }
     
     return tempVisitId;

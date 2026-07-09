@@ -111,13 +111,15 @@ export const AddRetailerToVisitModal = ({ isOpen, onClose, retailer, onVisitCrea
       }
       
       const visitData = {
-        id: `${user.id}_${retailer.id}_${plannedDate}_${Date.now()}`,
+        // Stable client-generated UUID so queue retries upsert onto the same visit
+        id: crypto.randomUUID(),
         user_id: user.id,
         retailer_id: retailer.id,
         planned_date: plannedDate,
         status: 'planned',
         created_at: new Date().toISOString()
       };
+
 
       if (isOnline) {
         // Online: Create visit directly
