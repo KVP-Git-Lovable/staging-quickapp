@@ -729,7 +729,7 @@ export const EditBeatModal = ({ isOpen, onClose, beat, onBeatUpdated }: EditBeat
                   </div>
                   
                   <SearchInput
-                    placeholder="Search retailers by name, address, or phone"
+                    placeholder="Search retailers by name, address, phone, or beat"
                     value={searchTerm}
                     onChange={setSearchTerm}
                   />
