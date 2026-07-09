@@ -95,6 +95,48 @@ export function useOrderSyncStatuses(
           }
         }
 
+        // DB-truth check: which orders are confirmed with ≥1 line item?
+        const orderIds = orders.map((o) => o.id).filter(Boolean);
+        const idemKeys = Array.from(
+          new Set(
+            orders
+              .map(
+                (o) =>
+                  o.idempotency_key ||
+                  localById.get(o.id)?.idempotency_key ||
+                  queueByOrderId.get(o.id)?.data?.order?.idempotency_key ||
+                  null,
+              )
+              .filter((k): k is string => !!k),
+          ),
+        );
+
+        const confirmedIds = new Set<string>();
+        const confirmedKeys = new Set<string>();
+        try {
+          const orFilters: string[] = [];
+          if (orderIds.length) orFilters.push(`id.in.(${orderIds.join(",")})`);
+          if (idemKeys.length)
+            orFilters.push(
+              `idempotency_key.in.(${idemKeys.map((k) => `"${k}"`).join(",")})`,
+            );
+          if (orFilters.length) {
+            const { data: dbOrders } = await supabase
+              .from("orders")
+              .select("id, idempotency_key, order_items!inner(id)")
+              .or(orFilters.join(","))
+              .limit(1000);
+            if (dbOrders) {
+              for (const row of dbOrders as any[]) {
+                if (row?.id) confirmedIds.add(row.id);
+                if (row?.idempotency_key) confirmedKeys.add(row.idempotency_key);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[useOrderSyncStatuses] DB confirmation query failed:", e);
+        }
+
         const next: OrderSyncStatusMap = {};
         for (const o of orders) {
           const local =
@@ -110,10 +152,25 @@ export function useOrderSyncStatuses(
           const failedRow = key ? failedByKey.get(key) : undefined;
 
           const localSyncStatus: string | undefined = local?.sync_status;
-          const isLocalOnly = !!local && localSyncStatus !== "synced";
+          const confirmedInDb =
+            confirmedIds.has(o.id) || (key ? confirmedKeys.has(key) : false);
 
           let state: OrderSyncState = "synced";
-          if (failedRow || localSyncStatus === "failed") {
+          let isLocalOnly = !!local && localSyncStatus !== "synced";
+
+          if (confirmedInDb) {
+            // DB is source of truth — self-heal stale local artifacts
+            state = "synced";
+            isLocalOnly = false;
+            if (local) {
+              offlineStorage.delete(STORES.ORDERS, local.id).catch(() => {});
+            }
+            if (queueItem?.id) {
+              offlineStorage
+                .delete(STORES.SYNC_QUEUE, queueItem.id)
+                .catch(() => {});
+            }
+          } else if (failedRow || localSyncStatus === "failed") {
             state = "failed";
           } else if (
             localSyncStatus === "syncing" ||
@@ -128,19 +185,20 @@ export function useOrderSyncStatuses(
                   ? "retrying"
                   : "pending";
           } else if (isLocalOnly && !localSyncStatus) {
-            // Local record with no status stamp yet — treat as pending
             state = "pending";
           }
 
           next[o.id] = {
             state,
-            isLocalOnly: state !== "synced" || isLocalOnly,
+            isLocalOnly: state !== "synced" && isLocalOnly,
             error:
-              (failedRow?.error as string) ||
-              (typeof local?.sync_error === "string"
-                ? local.sync_error
-                : local?.sync_error?.message) ||
-              null,
+              state === "synced"
+                ? null
+                : (failedRow?.error as string) ||
+                  (typeof local?.sync_error === "string"
+                    ? local.sync_error
+                    : local?.sync_error?.message) ||
+                  null,
             attempts:
               (failedRow?.retry_count as number) ||
               (local?.sync_attempts as number) ||
@@ -151,7 +209,7 @@ export function useOrderSyncStatuses(
               (local?.last_attempt_at as string) ||
               null,
             idempotencyKey: key,
-            queueId: queueItem?.id || null,
+            queueId: state === "synced" ? null : queueItem?.id || null,
           };
         }
 
