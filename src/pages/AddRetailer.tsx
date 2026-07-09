@@ -1008,6 +1008,11 @@ export const AddRetailer = () => {
       payload.verified = false;             // Not verified yet
       payload.verification_method = null;   // Will be set to 'whatsapp' when customer confirms
       
+      if (opts?.duplicateOfId) {
+        payload.duplicate_of = opts.duplicateOfId;
+        payload.duplicate_risk_score = 90;
+      }
+
       const result = await createRetailer(payload);
       setIsSaving(false);
 
