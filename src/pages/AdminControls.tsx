@@ -213,6 +213,17 @@ const AdminControls = () => {
               <h1 className="text-3xl font-bold text-foreground">Admin Controls</h1>
               <p className="text-muted-foreground">Drag cards to reorder, or use the gear to create groups</p>
             </div>
+          </div>
+
+          {/* Search + Customize */}
+          <div className="flex items-center gap-2 max-w-md">
+            <div className="flex-1">
+              <SearchInput
+                placeholder="Search admin modules..."
+                value={searchQuery}
+                onChange={setSearchQuery}
+              />
+            </div>
             <NavCustomizeDialog
               defaultItems={navItems}
               customization={customization}
@@ -224,15 +235,6 @@ const AdminControls = () => {
               onReorderGroups={reorderGroups}
               onResetToDefault={resetToDefault}
               getOrganizedItems={getOrganizedItems}
-            />
-          </div>
-
-          {/* Search */}
-          <div className="max-w-md">
-            <SearchInput
-              placeholder="Search admin modules..."
-              value={searchQuery}
-              onChange={setSearchQuery}
             />
           </div>
 
