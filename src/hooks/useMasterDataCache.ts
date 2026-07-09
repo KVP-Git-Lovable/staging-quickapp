@@ -814,6 +814,7 @@ export function useMasterDataCache() {
   return {
     cacheProducts,
     cacheSchemes,
+    cacheUomData,
     cacheBeats,
     cacheRetailers,
     cacheBeatPlans,
