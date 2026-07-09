@@ -46,26 +46,41 @@ export async function cleanupOrphanOrders(
     }
     
     const dbOrderIds = new Set(dbOrders?.map(o => o.id) || []);
-    const dbIdempotencyKeys = new Set(
-      dbOrders?.filter(o => o.idempotency_key).map(o => o.idempotency_key) || []
+    const dbById = new Map((dbOrders || []).map((o: any) => [o.id, o]));
+    const dbByKey = new Map(
+      (dbOrders || []).filter((o: any) => o.idempotency_key).map((o: any) => [o.idempotency_key, o])
     );
     
-    console.log(`🧹 [orderCleanup] DB has ${dbOrderIds.size} orders, ${dbIdempotencyKeys.size} idempotency keys`);
+    console.log(`🧹 [orderCleanup] DB has ${dbOrderIds.size} orders, ${dbByKey.size} idempotency keys`);
     
-    // Step 3: Delete local orders that exist in DB
+    // Step 3: The IndexedDB orders store is BOTH pending-uploads queue AND offline read cache.
+    // Only delete true duplicates: same idempotency_key as a DB row but a DIFFERENT id
+    // (i.e. the local client-UUID copy of an order that now exists under a DB id).
+    // If the local row's id matches the DB row, mark it _synced and update its fields — do NOT delete.
     let cleanedCount = 0;
     for (const localOrder of localOrdersForDate) {
-      const existsById = dbOrderIds.has(localOrder.id);
-      const existsByKey = localOrder.idempotency_key && dbIdempotencyKeys.has(localOrder.idempotency_key);
-      
-      if (existsById || existsByKey) {
+      const idMatch = dbById.get(localOrder.id);
+      const keyMatch = localOrder.idempotency_key ? dbByKey.get(localOrder.idempotency_key) : undefined;
+
+      if (idMatch) {
+        // Same id — this IS the DB row. Update in place, do not delete.
+        await offlineStorage.put(STORES.ORDERS, {
+          ...localOrder,
+          ...idMatch,
+          _synced: true,
+        });
+        continue;
+      }
+
+      if (keyMatch && keyMatch.id !== localOrder.id) {
+        // True duplicate: local client-UUID copy of a now-persisted DB order.
         await offlineStorage.delete(STORES.ORDERS, localOrder.id);
         cleanedCount++;
-        console.log(`🧹 [orderCleanup] Removed synced order: ${localOrder.id}`);
+        console.log(`🧹 [orderCleanup] Removed duplicate local copy: ${localOrder.id} (DB id ${keyMatch.id})`);
       }
     }
     
-    console.log(`🧹 [orderCleanup] Cleaned ${cleanedCount} orders, ${localOrdersForDate.length - cleanedCount} remaining`);
+    console.log(`🧹 [orderCleanup] Cleaned ${cleanedCount} duplicates, ${localOrdersForDate.length - cleanedCount} preserved as read cache`);
     return { cleaned: cleanedCount, remaining: localOrdersForDate.length - cleanedCount };
   } catch (error) {
     console.error('🧹 [orderCleanup] Error in cleanupOrphanOrders:', error);
