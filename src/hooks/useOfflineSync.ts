@@ -148,7 +148,42 @@ export function useOfflineSync() {
         return;
       }
 
+      // Drop malformed items up-front so they don't wedge the queue.
+      const malformed: any[] = [];
+      syncQueue = syncQueue.filter((it: any) => {
+        const bad =
+          !it ||
+          typeof it.action !== 'string' ||
+          !it.action.trim() ||
+          it.data === undefined ||
+          it.data === null;
+        if (bad) malformed.push(it);
+        return !bad;
+      });
+      for (const bad of malformed) {
+        console.warn('⚠️ Skipping malformed sync item, removing from queue:', bad);
+        try {
+          if (bad?.id) await offlineStorage.removeSyncQueueItem(bad.id);
+          await offlineStorage.add(STORES.FAILED_SYNC_LOG as any, {
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            action: bad?.action || 'UNKNOWN',
+            data: bad?.data ?? null,
+            error: 'Malformed queue item (missing action or data)',
+            timestamp: new Date().toISOString(),
+          }).catch(() => {});
+        } catch { /* best-effort */ }
+      }
+
+      // Dependency-ordered drain: parents (retailers/beats/visits) before
+      // children (orders → collection → check-out → invoice). Stable within a
+      // priority band using the item's insertion timestamp.
+      syncQueue.sort((a: any, b: any) =>
+        priorityOf(a.action) - priorityOf(b.action) ||
+        ((a.timestamp ?? 0) - (b.timestamp ?? 0))
+      );
+
       console.log(`🔄 Processing ${syncQueue.length} queued sync items`);
+
 
       // Helper to log sync attempts
       const logSyncAttempt = async (item: any, success: boolean, errorType?: SyncErrorType, errorMessage?: string) => {
