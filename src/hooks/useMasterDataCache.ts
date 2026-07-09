@@ -574,6 +574,16 @@ export function useMasterDataCache() {
       onItemCount?.('schemes', summary.schemes);
       onProgress('schemes', 'done');
 
+      // UOM master + product UOM mappings (unit selector needs these offline)
+      onProgress('uom', 'loading');
+      try {
+        await cacheUomData();
+      } catch (e) {
+        console.error('[Cache] UOM sync error:', e);
+      }
+      onProgress('uom', 'done');
+
+
       // Beats
       onProgress('beats', 'loading');
       const { data: beats } = await supabase.from('beats').select('*').eq('is_active', true).eq('user_id', user.id);
