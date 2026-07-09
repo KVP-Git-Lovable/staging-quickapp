@@ -99,19 +99,24 @@ export function useNotifications() {
   }, [user?.id]);
 
   const dismissBanner = useCallback(async () => {
-    const current = pendingBanner;
     setPendingBanner(null);
-    if (!current || !user?.id) return;
+    if (!user?.id) return;
     try {
-      await supabase
+      const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('id', current.id)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('type', 'leaderboard_banner')
+        .eq('is_read', false)
+        .or('target_portal.is.null,target_portal.eq.field_sales_app');
+
+      if (error) {
+        console.error('Error dismissing banner:', error);
+      }
     } catch (e) {
       console.error('Error dismissing banner:', e);
     }
-  }, [pendingBanner, user?.id]);
+  }, [user?.id]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
