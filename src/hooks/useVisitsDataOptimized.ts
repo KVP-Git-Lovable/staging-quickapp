@@ -1194,21 +1194,32 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
     const isCacheStale = isTodayDate && cacheAge > MAX_CACHE_AGE_MS;
     
     if (hasValidCachedData && isCacheDataValid) {
-      // FIX: Batch all state updates to prevent intermediate empty renders
-      React.startTransition(() => {
-        setBeatPlans(cached.beatPlans || []);
-        setVisits(cached.visits || []);
-        setRetailers(cached.retailers || []);
-        setOrders(cached.orders || []);
-        if (cached.points) {
-          setPointsData({
-            total: cached.points.total,
-            byRetailer: normalizeByRetailerEntries(cached.points.byRetailer),
-          });
-        }
+      // FRESHNESS: only apply if newer than what's been applied for this user+date.
+      const producedAt = cached?.timestamp || Date.now();
+      if (isFresh(effectiveUserId, selectedDate, producedAt)) {
+        // Retag cached rows in case they came from another user's perspective.
+        const cachedVisits = retagPerspective(cached.visits || [], effectiveUserId);
+        const cachedOrders = retagPerspective(cached.orders || [], effectiveUserId);
+        // FIX: Batch all state updates to prevent intermediate empty renders
+        React.startTransition(() => {
+          setBeatPlans(cached.beatPlans || []);
+          setVisits(cachedVisits);
+          setRetailers(cached.retailers || []);
+          setOrders(cachedOrders);
+          if (cached.points) {
+            setPointsData({
+              total: cached.points.total,
+              byRetailer: normalizeByRetailerEntries(cached.points.byRetailer),
+            });
+          }
+          setIsLoading(false);
+          setHasLoadedOnce(true);
+        });
+      } else {
+        console.log('[LoadData] Skipping in-memory cache apply — newer data already applied');
         setIsLoading(false);
         setHasLoadedOnce(true);
-      });
+      }
       
       // Background smart sync - force if cache is stale
       // SLOW CONNECTION CHECK: Skip background sync entirely on slow connections
