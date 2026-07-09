@@ -26667,6 +26667,7 @@ export type Database = {
         Returns: undefined
       }
       backfill_retailer_payment_allocations: { Args: never; Returns: Json }
+      beat_has_history: { Args: { p_beat_id: string }; Returns: boolean }
       calculate_beat_adherence: {
         Args: { p_end: string; p_start: string; p_user_id: string }
         Returns: number
@@ -27727,6 +27728,10 @@ export type Database = {
           p_uom_id?: string
         }
         Returns: number
+      }
+      retailer_has_history: {
+        Args: { p_retailer_id: string }
+        Returns: boolean
       }
       retailer_in_user_oob_scope: {
         Args: { p_retailer_id: string }
