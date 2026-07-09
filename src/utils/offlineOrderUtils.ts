@@ -264,7 +264,7 @@ export async function submitOrderWithOfflineSupport(
       // Without this, OrderSyncStatus would keep reporting Pending for
       // orders that were fully persisted via the immediate-sync path.
       try {
-        const existing = await offlineStorage.get<any>(STORES.ORDERS, orderId).catch(() => null);
+        const existing = await offlineStorage.getById<any>(STORES.ORDERS, orderId).catch(() => null);
         if (existing) {
           await offlineStorage.save(STORES.ORDERS, {
             ...existing,
