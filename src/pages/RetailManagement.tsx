@@ -172,6 +172,7 @@ export default function RetailManagement() {
     return new Set<RetailerColKey>(DEFAULT_VISIBLE_COLS);
   });
   const [exportOpen, setExportOpen] = useState(false);
+  const [mergeTarget, setMergeTarget] = useState<Retailer | null>(null);
 
   const toggleColumn = (key: RetailerColKey) => {
     const def = RETAILER_COLUMNS.find(c => c.key === key);
