@@ -3994,6 +3994,30 @@ export type Database = {
           },
         ]
       }
+      data_health_log: {
+        Row: {
+          anomaly_count: number
+          check_name: string
+          checked_at: string
+          id: string
+          sample_ids: string[] | null
+        }
+        Insert: {
+          anomaly_count: number
+          check_name: string
+          checked_at?: string
+          id?: string
+          sample_ids?: string[] | null
+        }
+        Update: {
+          anomaly_count?: number
+          check_name?: string
+          checked_at?: string
+          id?: string
+          sample_ids?: string[] | null
+        }
+        Relationships: []
+      }
       deleted_records_audit: {
         Row: {
           app_context: string | null
@@ -27795,6 +27819,7 @@ export type Database = {
         Args: { p_share_id: string }
         Returns: undefined
       }
+      run_data_health_checks: { Args: never; Returns: number }
       run_load_test: { Args: never; Returns: undefined }
       search_products_for_order: {
         Args: { p_category?: string; p_limit?: number; p_query: string }
