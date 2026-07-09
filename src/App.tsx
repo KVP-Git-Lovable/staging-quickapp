@@ -315,7 +315,7 @@ const App = () => {
                 <TooltipProvider>
                   <BrowserRouter>
                     <SlowConnectionBanner />
-                    <AppContent hasError={hasError} />
+                    <AppContent />
                   </BrowserRouter>
                 </TooltipProvider>
               </QAModeProvider>
