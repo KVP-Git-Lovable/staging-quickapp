@@ -684,30 +684,12 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
 
     setLoading(true);
     try {
-      const movedToRecycleBin = await moveToRecycleBin({
-        tableName: 'retailers',
-        recordId: formData.id,
-        recordData: formData,
-        moduleName: 'Retailers',
-        recordName: formData.name
-      });
+      const { deactivateOrDeleteRetailer } = await import("@/utils/safeRetailerBeatDelete");
+      const res = await deactivateOrDeleteRetailer(formData.id, formData);
 
-      if (!movedToRecycleBin) {
-        throw new Error("Could not move to recycle bin");
+      if (res.action === "failed") {
+        throw new Error(res.error || "Delete failed");
       }
-
-      const { error } = await supabase
-        .from('retailers')
-        .delete()
-        .eq('id', formData.id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Moved to Recycle Bin",
-        description: `${formData.name} can be restored from Recycle Bin`,
-      });
 
       setShowDeleteConfirm(false);
       onSuccess();

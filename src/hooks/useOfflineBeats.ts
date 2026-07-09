@@ -191,16 +191,23 @@ export function useOfflineBeats() {
       setLoading(true);
 
       if (isOnline) {
-        // Online: Delete directly
-        const { error } = await supabase
-          .from('beats')
-          .delete()
-          .eq('id', beatId);
+        // Online: route through the safe guard so beats with history are deactivated instead of destroyed.
+        const { deactivateOrDeleteBeat } = await import("@/utils/safeRetailerBeatDelete");
+        const res = await deactivateOrDeleteBeat(beatId);
 
-        if (error) throw error;
+        if (res.action === "failed") {
+          return { success: false, offline: false };
+        }
 
-        // Remove from cache
-        await offlineStorage.delete(STORES.BEATS, beatId);
+        // Keep local cache in sync (whether deleted or deactivated).
+        if (res.action === "deleted") {
+          await offlineStorage.delete(STORES.BEATS, beatId);
+        } else {
+          const cached: any = await offlineStorage.getById(STORES.BEATS, beatId);
+          if (cached) {
+            await offlineStorage.save(STORES.BEATS, { ...cached, is_active: false });
+          }
+        }
 
         // Clear all beat_plans associated with this beat from cache
         const cachedPlans = await offlineStorage.getAll(STORES.BEAT_PLANS);
@@ -209,24 +216,21 @@ export function useOfflineBeats() {
           await offlineStorage.delete(STORES.BEAT_PLANS, (plan as any).id);
         }
 
-        // Update retailers in cache to unassign from this beat
-        const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
-        const retailersToUpdate = (cachedRetailers as any[]).filter((r: any) => r.beat_id === beatId);
-        for (const retailer of retailersToUpdate) {
-          const retailerData = retailer as any;
-          await offlineStorage.save(STORES.RETAILERS, {
-            ...retailerData,
-            beat_id: 'unassigned',
-            beat_name: null
-          });
+        // Update retailers in cache to unassign from this beat (only when actually deleted)
+        if (res.action === "deleted") {
+          const cachedRetailers = await offlineStorage.getAll(STORES.RETAILERS);
+          const retailersToUpdate = (cachedRetailers as any[]).filter((r: any) => r.beat_id === beatId);
+          for (const retailer of retailersToUpdate) {
+            const retailerData = retailer as any;
+            await offlineStorage.save(STORES.RETAILERS, {
+              ...retailerData,
+              beat_id: 'unassigned',
+              beat_name: null
+            });
+          }
         }
 
-        toast({
-          title: "Beat Deleted",
-          description: "Beat has been deleted successfully.",
-        });
-
-        return { success: true, offline: false };
+        return { success: true, offline: false, action: res.action };
       } else {
         // Offline: Queue for sync
         await offlineStorage.delete(STORES.BEATS, beatId);
