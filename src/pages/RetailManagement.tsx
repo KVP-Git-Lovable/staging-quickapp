@@ -29,6 +29,8 @@ import { RetailerCustomerPortalSection } from "@/components/retailer/RetailerCus
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { RetailerExportDialog } from "@/components/RetailerExportDialog";
+import { MergeRetailerDialog } from "@/components/retailer/MergeRetailerDialog";
+import { GitMerge } from "lucide-react";
 
 type RetailerColKey = 'photo' | 'name' | 'contact_person' | 'phone' | 'address' | 'territory' | 'status' | 'quality' | 'last_visited' | 'added_by' | 'verification' | 'verified_by' | 'actions';
 
