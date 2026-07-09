@@ -12,6 +12,23 @@ import { enrichWithBeatSnapshots } from '@/utils/offlineOrderUtils';
 // Global lock shared across all hook instances to prevent duplicate queue runners
 let globalSyncInProgress = false;
 
+// Dependency-ordered drain priorities: lower drains first, so parents (retailers,
+// beats, visits) always sync before children (orders, invoices, check-out).
+const SYNC_PRIORITY: Record<string, number> = {
+  CREATE_RETAILER: 10, UPDATE_RETAILER: 10,
+  CREATE_BEAT: 20, UPDATE_BEAT: 20, CREATE_BEAT_PLAN: 25, UPDATE_BEAT_PLAN: 25,
+  CREATE_ATTENDANCE: 30, UPDATE_ATTENDANCE: 30,
+  CREATE_VISIT: 40, CHECK_IN: 40,
+  CREATE_ORDER: 50, UPDATE_ORDER: 55, CREATE_COLLECTION: 56,
+  NO_ORDER: 60, UPDATE_VISIT_NO_ORDER: 60, CREATE_VISIT_LOG: 60, UPDATE_VISIT_LOG: 60,
+  CREATE_COMPETITION_DATA: 60, CREATE_STOCK: 60, UPDATE_STOCK: 60,
+  CREATE_RETURN_STOCK: 60, CREATE_EXPENSE: 60,
+  VAN_STOCK_SYNC: 70, CHECK_OUT: 80,
+  UPLOAD_PAYMENT_PROOF: 85, SEND_INVOICE: 90, SEND_INVOICE_SMS: 95,
+};
+const priorityOf = (a: string) => SYNC_PRIORITY[a] ?? 50;
+
+
 const stripRetailerClientFields = (payload: any) => {
   const clientOnlyFields = new Set([
     'quality_status',
@@ -131,7 +148,38 @@ export function useOfflineSync() {
         return;
       }
 
+      // Drop malformed items up-front so they don't wedge the queue.
+      const malformed: any[] = [];
+      syncQueue = syncQueue.filter((it: any) => {
+        const bad =
+          !it ||
+          typeof it.action !== 'string' ||
+          !it.action.trim() ||
+          it.data === undefined ||
+          it.data === null;
+        if (bad) malformed.push(it);
+        return !bad;
+      });
+      for (const bad of malformed) {
+        console.warn('⚠️ Skipping malformed sync item, removing from queue:', bad);
+        try {
+          if (bad?.id !== undefined && bad?.id !== null) {
+            await offlineStorage.delete(STORES.SYNC_QUEUE, bad.id);
+          }
+        } catch { /* best-effort */ }
+      }
+
+
+      // Dependency-ordered drain: parents (retailers/beats/visits) before
+      // children (orders → collection → check-out → invoice). Stable within a
+      // priority band using the item's insertion timestamp.
+      syncQueue.sort((a: any, b: any) =>
+        priorityOf(a.action) - priorityOf(b.action) ||
+        ((a.timestamp ?? 0) - (b.timestamp ?? 0))
+      );
+
       console.log(`🔄 Processing ${syncQueue.length} queued sync items`);
+
 
       // Helper to log sync attempts
       const logSyncAttempt = async (item: any, success: boolean, errorType?: SyncErrorType, errorMessage?: string) => {
@@ -376,14 +424,27 @@ export function useOfflineSync() {
       };
 
 
-      // PARALLEL BATCHING: Process up to 3 items concurrently for faster sync
+      // PARALLEL BATCHING within a priority band; bands are drained sequentially
+      // so a child (e.g. CREATE_ORDER) never runs before its parent (CREATE_RETAILER).
       const BATCH_SIZE = 3;
       const readyItems = syncQueue.filter(isReadyForRetry);
-      
-      for (let i = 0; i < readyItems.length; i += BATCH_SIZE) {
-        const batch = readyItems.slice(i, i + BATCH_SIZE);
-        await Promise.allSettled(batch.map(item => processAndHandleItem(item)));
+
+      const bands = new Map<number, any[]>();
+      for (const it of readyItems) {
+        const p = priorityOf(it.action);
+        const arr = bands.get(p);
+        if (arr) arr.push(it);
+        else bands.set(p, [it]);
       }
+      const sortedPriorities = Array.from(bands.keys()).sort((a, b) => a - b);
+      for (const p of sortedPriorities) {
+        const band = bands.get(p)!;
+        for (let i = 0; i < band.length; i += BATCH_SIZE) {
+          const batch = band.slice(i, i + BATCH_SIZE);
+          await Promise.allSettled(batch.map(item => processAndHandleItem(item)));
+        }
+      }
+
 
       // SILENT SYNC: Per offline-first architecture, sync should NOT dispatch UI refresh events
       if (successCount > 0) {
@@ -983,6 +1044,28 @@ export function useOfflineSync() {
           console.log('✅ Attendance synced and cache updated with real ID');
         }
         break;
+
+      case 'CREATE_COLLECTION': {
+        console.log('Syncing retailer payment collection:', data);
+        const collection = data?.collection || data;
+        if (!collection?.id || !collection?.retailer_id || !collection?.amount) {
+          throw new Error('CREATE_COLLECTION missing required fields (id/retailer_id/amount)');
+        }
+        const { error: collErr } = await (supabase as any)
+          .from('retailer_payment_collections')
+          .upsert(collection, { onConflict: 'id', ignoreDuplicates: false });
+        if (collErr) throw collErr;
+        if (data?.apply_fifo !== false) {
+          const { error: fifoErr } = await (supabase as any).rpc('apply_retailer_payment_fifo', {
+            p_retailer_id: collection.retailer_id,
+            p_amount: collection.amount,
+            p_collection_id: collection.id,
+          });
+          if (fifoErr) throw fifoErr;
+        }
+        break;
+      }
+
 
       case 'CREATE_EXPENSE': {
         console.log('Syncing additional expense:', data);
