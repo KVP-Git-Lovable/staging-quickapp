@@ -278,46 +278,30 @@ const MasterDataCacheInitializer = () => {
 };
 
 const App = () => {
-  const [hasError, setHasError] = useState(false);
-
   useEffect(() => {
-    const errorHandler = (event: ErrorEvent) => {
-      console.error("Global error:", event.error ?? event.message);
-      setHasError(true);
-    };
+    // Only genuinely harmless browser noise is downgraded. Everything else is LOGGED
+    // (so network/sync failures stay visible) but never blanks the app — render
+    // crashes are handled by <ErrorBoundary> instead.
+    const benign = ['resizeobserver loop', 'resizeobserver', 'script error', 'runtime.lasterror'];
+    const isBenign = (msg?: string) => !!msg && benign.some(e => msg.toLowerCase().includes(e));
 
+    const errorHandler = (event: ErrorEvent) => {
+      const msg = event.error?.message || event.message || '';
+      if (isBenign(msg)) { console.debug('Benign browser error ignored:', msg); event.preventDefault?.(); return; }
+      console.error('Global error (logged, non-fatal):', event.error ?? event.message);
+    };
     const rejectionHandler = (event: PromiseRejectionEvent) => {
       const message = event.reason?.message || event.reason?.toString() || '';
-      
-      const ignoredErrors = [
-        'ServiceWorker',
-        'service-worker',
-        'Failed to fetch',
-        'Network request failed',
-        'NetworkError',
-        'Load failed',
-        'AbortError',
-        'chunk',
-      ];
-      
-      const isIgnored = ignoredErrors.some(err => message.includes(err));
-      
-      if (isIgnored) {
-        console.warn("Non-critical rejection suppressed:", message);
-        event.preventDefault();
-        return;
-      }
-      
-      console.error("Unhandled rejection:", event.reason);
-      setHasError(true);
+      if (isBenign(message)) { console.debug('Benign rejection ignored:', message); event.preventDefault(); return; }
+      // Network/sync errors are meaningful in an offline-first app — log, do not suppress, do not blank UI.
+      console.error('Unhandled rejection (logged, non-fatal):', event.reason);
     };
 
-    window.addEventListener("error", errorHandler);
-    window.addEventListener("unhandledrejection", rejectionHandler);
-
+    window.addEventListener('error', errorHandler);
+    window.addEventListener('unhandledrejection', rejectionHandler);
     return () => {
-      window.removeEventListener("error", errorHandler);
-      window.removeEventListener("unhandledrejection", rejectionHandler);
+      window.removeEventListener('error', errorHandler);
+      window.removeEventListener('unhandledrejection', rejectionHandler);
     };
   }, []);
 
