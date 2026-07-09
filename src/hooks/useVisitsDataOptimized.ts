@@ -639,7 +639,45 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       // shares, or the original beat owner if the current user is a sharee) so the
       // user doesn't double-visit a retailer their teammate already covered today.
       try {
-        const todayBeatIds: string[] = newBeatPlans.map((bp: any) => bp.beat_id).filter(Boolean);
+        // Union of beat sources for the day so both the beat owner AND a sharee
+        // see teammate activity even when neither has a `beat_plans` row:
+        //   - beat_plans / daily_beat_plans for the date
+        //   - beats permanently owned by the user
+        //   - beat_user_access shares active on the date (user is sharee)
+        //   - beats referenced by any visit/order already fetched for the date
+        const beatIdSet = new Set<string>();
+        newBeatPlans.forEach((bp: any) => bp.beat_id && beatIdSet.add(bp.beat_id));
+        try {
+          const [dailyRes, ownedRes, shareRes] = await Promise.all([
+            (supabase as any)
+              .from('daily_beat_plans')
+              .select('beat_id')
+              .eq('assigned_user_id', uid)
+              .eq('plan_date', date),
+            supabase
+              .from('beats')
+              .select('beat_id')
+              .eq('owner_id', uid)
+              .eq('is_active', true),
+            supabase
+              .from('beat_user_access')
+              .select('beat_id, effective_from, effective_to, is_active')
+              .eq('user_id', uid)
+              .eq('is_active', true)
+              .lte('effective_from', `${date}T23:59:59.999Z`)
+              .or(`effective_to.is.null,effective_to.gte.${date}T00:00:00.000Z`),
+          ]);
+          (dailyRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
+          (ownedRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
+          (shareRes.data || []).forEach((r: any) => r.beat_id && beatIdSet.add(r.beat_id));
+        } catch (e) {
+          console.warn('[SmartSync] Extra beat-source fetch failed (non-fatal):', e);
+        }
+        // Also include beats referenced by any already-fetched visit/order.
+        newVisits.forEach((v: any) => v?.beat_id && beatIdSet.add(v.beat_id));
+        newOrders.forEach((o: any) => o?.beat_id && beatIdSet.add(o.beat_id));
+
+        const todayBeatIds: string[] = Array.from(beatIdSet);
         if (todayBeatIds.length > 0) {
           const teammates = await getBeatTeammates(uid, todayBeatIds, date);
           if (teammates.userIds.length > 0) {
