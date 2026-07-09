@@ -144,6 +144,52 @@ export function useMasterDataCache() {
     }
   }, []);
 
+  // Cache UOM master (enabled units) + product↔UOM mappings so the unit
+  // selector works offline. Mirrors the schemes-caching block above.
+  const cacheUomData = useCallback(async (onProgress?: CacheProgressCallback) => {
+    try {
+      onProgress?.('uom', 'loading');
+      console.log('[Cache] Syncing UOM master + product UOM mappings...');
+
+      // Enabled uom_master rows (joined with enabled_units.enabled = true)
+      const { data: uomRows } = await supabase
+        .from('uom_master')
+        .select('id, code, name, category, is_base, is_system, enabled_units!inner(enabled)')
+        .eq('enabled_units.enabled', true)
+        .order('name');
+
+      const enabledUnits = (uomRows || []).map((r: any) => ({
+        id: r.id,
+        code: r.code,
+        name: r.name,
+        category: r.category,
+        is_base: r.is_base,
+        is_system: r.is_system,
+      }));
+
+      // All product_uom_mapping rows (paginated to bypass 1k cap)
+      const mappings = await fetchAllPaginated<any>((from, to) =>
+        supabase.from('product_uom_mapping').select('*').range(from, to)
+      );
+
+      if (enabledUnits.length > 0) {
+        await offlineStorage.replaceAll(STORES.UOM_MASTER, enabledUnits);
+        console.log(`[Cache] ✅ ${enabledUnits.length} enabled UOM units cached`);
+      }
+
+      if (mappings) {
+        await offlineStorage.replaceAll(STORES.PRODUCT_UOM_MAPPING, mappings);
+        console.log(`[Cache] ✅ ${mappings.length} product UOM mappings cached`);
+      }
+
+      onProgress?.('uom', 'done');
+    } catch (error) {
+      console.error('[Cache] Error caching UOM data, keeping existing cache:', error);
+      onProgress?.('uom', 'error');
+    }
+  }, []);
+
+
   // Cache ONLY active beats for current user
   const cacheBeats = useCallback(async (onProgress?: CacheProgressCallback) => {
     if (!user) return;
