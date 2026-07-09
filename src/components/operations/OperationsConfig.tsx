@@ -411,7 +411,16 @@ const OperationsConfig: React.FC = () => {
       {/* Beat journey */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Beat journey</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-1.5">
+            Beat journey
+            <InfoPopover
+              what="Automatically cancels a rep's un-visited planned retailers at end-of-day, and lets those cancelled retailers be carried forward into the next day's plan."
+              enable="Turn on Auto-cancel, set the EOD cutoff time, and turn on Carry-forward."
+              happens="At the cutoff, planned-but-unvisited visits are marked cancelled (cancel_source='eod_auto'); carry-forward surfaces them as a banner to re-add the next day."
+              pros="Keeps journey plans clean — no stale 'planned' visits, and missed retailers aren't forgotten."
+              cons="If the cutoff is too early, genuine late visits get auto-cancelled — set it to match real field hours."
+            />
+          </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
             At the cutoff, retailers still planned (not visited) are marked cancelled, ready to carry forward.
           </p>
