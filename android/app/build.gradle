@@ -18,6 +18,9 @@ android {
             noCompress 'googledrive-630.1.0.tar.gz'
         }
     }
+    buildFeatures {
+        buildConfig true
+    }
     buildTypes {
         release {
             minifyEnabled false
