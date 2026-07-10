@@ -272,7 +272,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
         p_category_id: deleteConfirm.id, p_active: makeActive,
       });
       if (error) {
-        toast.error(`Failed: ${error.message}`);
+        toast.error(error.message);
       } else {
         const r = (data ?? {}) as { affected_products?: number; affected_variants?: number };
         toast.success(`${makeActive ? 'Activated' : 'Inactivated'} "${deleteConfirm.name}": ${r.affected_products ?? 0} products, ${r.affected_variants ?? 0} variants.`);
