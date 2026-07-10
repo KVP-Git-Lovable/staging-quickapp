@@ -13,10 +13,10 @@ async function upsertToken(token: string, _userId: string, platform: 'android' |
     const device_info = info
       ? { model: info.model, os: info.operatingSystem, osVersion: info.osVersion }
       : {};
-    const { error } = await supabase.rpc('claim_push_token', {
+    const { error } = await (supabase.rpc as any)('claim_push_token', {
       p_token: token,
       p_platform: platform,
-      p_device_info: device_info as any,
+      p_device_info: device_info,
     });
     if (error) throw error;
     currentToken = token;
