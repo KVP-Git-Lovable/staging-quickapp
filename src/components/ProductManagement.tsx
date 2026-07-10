@@ -119,6 +119,17 @@ const ProductManagement = () => {
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const handleBulkSetActive = async (makeActive: boolean) => {
+    const ids = Array.from(selectedIds);
+    const { data, error } = await supabase.rpc('set_products_active', { p_product_ids: ids, p_active: makeActive });
+    if (error) { toast.error(error.message); return; }
+    const r = (data ?? {}) as { affected_products?: number; affected_variants?: number };
+    toast.success(`${makeActive ? 'Activated' : 'Inactivated'} ${r.affected_products ?? 0} products, ${r.affected_variants ?? 0} variants.`);
+    setSelectedIds(new Set());
+    await Promise.all([fetchProducts(), fetchVariants()]);
+  };
 
   // Dialog states
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
@@ -1122,11 +1133,34 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                 </div>
               </div>
 
+              {selectedIds.size > 0 && (
+                <div className="flex items-center gap-2 p-2 mb-2 rounded-md border bg-muted/40">
+                  <span className="text-sm font-medium">{selectedIds.size} selected</span>
+                  <Button size="sm" variant="destructive" onClick={() => handleBulkSetActive(false)}>
+                    <Ban className="h-4 w-4 mr-1" /> Inactivate selected
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => handleBulkSetActive(true)}>
+                    <CheckCircle className="h-4 w-4 mr-1" /> Activate selected
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+                </div>
+              )}
+
               <div className="h-[400px] rounded-md border overflow-auto">
                 <Table className="min-w-[1100px]">
 
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-8">
+                        <Checkbox
+                          checked={productsPagination.paginatedItems.length > 0 && productsPagination.paginatedItems.every(p => selectedIds.has(p.id))}
+                          onCheckedChange={(c) => {
+                            const next = new Set(selectedIds);
+                            productsPagination.paginatedItems.forEach(p => c ? next.add(p.id) : next.delete(p.id));
+                            setSelectedIds(next);
+                          }}
+                        />
+                      </TableHead>
                       <TableHead>Image</TableHead>
                       <TableHead>SKU</TableHead>
                       <TableHead>Name</TableHead>
@@ -1143,6 +1177,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                   <TableBody>
                     {productsPagination.paginatedItems.map((product) => (
                       <TableRow key={product.id}>
+                        <TableCell className="w-8">
+                          <Checkbox
+                            checked={selectedIds.has(product.id)}
+                            onCheckedChange={(c) => {
+                              const next = new Set(selectedIds);
+                              c ? next.add(product.id) : next.delete(product.id);
+                              setSelectedIds(next);
+                            }}
+                          />
+                        </TableCell>
                         <TableCell>
                           {(product as any).sku_image_url ? (
                             <img 
