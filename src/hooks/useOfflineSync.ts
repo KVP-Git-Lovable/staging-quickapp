@@ -673,6 +673,33 @@ export function useOfflineSync() {
           variant_id: isUUID(it.variant_id) ? it.variant_id : null,
         }));
 
+        // 🩹 Recover missing retailer_id from retailer_name (unique match, scoped to user)
+        if (!orderToInsert.retailer_id) {
+          const nameGuess = (orderToInsert.retailer_name || (orderPayload as any).retailer_name || (orderPayload as any).retailer || '').toString().trim();
+          const uid = orderToInsert.user_id;
+          if (nameGuess && uid) {
+            let match: any = null;
+            try {
+              const cached = await offlineStorage.getAll<any>(STORES.RETAILERS);
+              const hits = (cached || []).filter((r: any) =>
+                r.user_id === uid && (r.name || '').trim().toLowerCase() === nameGuess.toLowerCase());
+              if (hits.length === 1) match = hits[0];
+            } catch {}
+            if (!match && navigator.onLine) {
+              const { data: rMatch } = await supabase.from('retailers')
+                .select('id').eq('user_id', uid).ilike('name', nameGuess).limit(2);
+              if (rMatch && rMatch.length === 1) match = rMatch[0];
+            }
+            if (match?.id) {
+              orderToInsert.retailer_id = match.id;
+              console.log('🩹 Recovered retailer_id from retailer_name for stuck order:', match.id);
+            }
+          }
+        }
+        // If still no retailer_id, let it fail as before (truly unrecoverable).
+
+
+
         // SINGLE RPC CALL: Upsert order + items in one transaction (replaces 4-5 round-trips)
         // Do not fall back to direct inserts here — that can create header-only orders if item insert fails.
         let actualOrderId = offlineOrderId;
