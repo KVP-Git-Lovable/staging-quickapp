@@ -568,6 +568,7 @@ export function useMasterDataCache() {
       await cacheProducts(onProgress);
       await cacheSchemes(onProgress);
       await cacheUomData(onProgress);
+      await cacheOrgData(onProgress);
       await cacheBeats(onProgress);
       await cacheRetailers(onProgress);
       await cacheBeatPlans(onProgress);
