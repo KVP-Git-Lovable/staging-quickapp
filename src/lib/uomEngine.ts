@@ -46,25 +46,34 @@ async function loadProductUnitsFromOfflineCache(productId: string): Promise<Prod
     }
     if (built.length > 0) return built;
 
-    // Fallback — synthesize the base unit from product.base_unit + uom_master
+    // GUARANTEED base-unit fallback — works even if UOM_MASTER/mapping caches are empty.
     const prod = (products || []).find((p) => p.id === productId);
-    const baseCode = prod?.base_unit ? String(prod.base_unit).toUpperCase() : null;
-    if (baseCode) {
-      const u = (units || []).find((x) =>
-        String(x.code || '').toUpperCase() === baseCode ||
-        String(x.name || '').toUpperCase() === baseCode);
-      if (u) return [{
-        mappingId: `synth-base-${productId}`,
-        uomId: u.id,
-        code: u.code,
-        name: u.name,
-        category: u.category as UomCategory,
-        conversionToBase: 1,
-        isBase: true,
-        isDefaultSales: true,
-        isPriceBasis: true,
-        isDefaultPurchase: true,
-      }];
+    if (prod) {
+      const baseCode = prod.base_unit ? String(prod.base_unit).trim() : '';
+      if (baseCode) {
+        // Prefer a UOM_MASTER match (gives the canonical id + display name)...
+        const u = (units || []).find((x) =>
+          String(x.code || '').toUpperCase() === baseCode.toUpperCase() ||
+          String(x.name || '').toUpperCase() === baseCode.toUpperCase());
+        if (u) {
+          return [{
+            mappingId: `synth-base-${productId}`,
+            uomId: u.id, code: u.code, name: u.name,
+            category: u.category as UomCategory,
+            conversionToBase: 1, isBase: true,
+            isDefaultSales: true, isPriceBasis: true, isDefaultPurchase: true,
+          }];
+        }
+        // ...otherwise synthesize from the PRODUCT ROW alone (real uom id, no cache needed).
+        const uomId = prod.default_sales_uom_id || prod.price_basis_uom_id || `synth-uom-${productId}`;
+        return [{
+          mappingId: `synth-base-${productId}`,
+          uomId, code: baseCode, name: baseCode,
+          category: (prod.base_unit_category || 'unit') as UomCategory,
+          conversionToBase: 1, isBase: true,
+          isDefaultSales: true, isPriceBasis: true, isDefaultPurchase: true,
+        }];
+      }
     }
     return [];
   } catch (err) {
