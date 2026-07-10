@@ -50,7 +50,13 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
     }
 
     if (!getApps().length) initializeApp(config);
-    const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    // Pass Firebase web config to the SW via URL params so the SW file stays generic
+    const swUrl =
+      `/firebase-messaging-sw.js?apiKey=${encodeURIComponent(config.apiKey!)}` +
+      `&projectId=${encodeURIComponent(config.projectId!)}` +
+      `&appId=${encodeURIComponent(config.appId!)}` +
+      `&senderId=${encodeURIComponent(config.messagingSenderId!)}`;
+    const reg = await navigator.serviceWorker.register(swUrl);
     const messaging = getMessaging();
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (!token) return null;
