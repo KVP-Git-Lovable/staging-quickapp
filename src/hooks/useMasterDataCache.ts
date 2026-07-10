@@ -190,7 +190,8 @@ export function useMasterDataCache() {
       try {
         const mappings = await fetchAllPaginated<any>((from, to) =>
           supabase.from('product_uom_mapping')
-            .select('id, product_id, uom_id, conversion_to_base, is_default_sales, is_price_basis, is_default_purchase, is_active')
+            .select('id, product_id, uom_id, conversion_to_base, is_default_sales, is_price_basis, is_default_purchase, is_active, products!inner(is_active)')
+            .or('is_active.is.null,is_active.eq.true', { referencedTable: 'products' })
             .range(from, to)
         );
 
