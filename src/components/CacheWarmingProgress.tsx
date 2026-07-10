@@ -213,6 +213,12 @@ export const cacheWarmingStore = {
     sharedState.isWarming = false;
     emit();
   },
+  /** Mark all steps as done using the persisted cache; used when freshness check passes. */
+  markReadyFromCache() {
+    sharedState.steps = sharedState.steps.map(s => ({ ...s, status: 'done' as const }));
+    sharedState.currentStep = sharedState.steps.length;
+    emit();
+  },
 };
 
 // Hook to manage cache warming state (shared across all consumers)
