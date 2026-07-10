@@ -4,12 +4,25 @@ import { create, getNumericDate } from 'https://deno.land/x/djwt@v3.0.2/mod.ts';
 
 const PROJECT_ID = Deno.env.get('FIREBASE_PROJECT_ID')!;
 const SERVICE_ACCOUNT_RAW = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')!;
-const TRIGGER_SECRET = Deno.env.get('PUSH_TRIGGER_SHARED_SECRET') ?? '';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 let cachedToken: { token: string; exp: number } | null = null;
+let cachedTriggerSecret: { value: string; exp: number } | null = null;
+
+async function loadTriggerSecret(admin: ReturnType<typeof createClient>): Promise<string | null> {
+  const now = Date.now();
+  if (cachedTriggerSecret && cachedTriggerSecret.exp > now) return cachedTriggerSecret.value;
+  const { data, error } = await admin
+    .from('push_config')
+    .select('trigger_secret')
+    .eq('id', true)
+    .maybeSingle();
+  if (error || !data?.trigger_secret) return null;
+  cachedTriggerSecret = { value: data.trigger_secret as string, exp: now + 5 * 60 * 1000 };
+  return cachedTriggerSecret.value;
+}
 
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   const b64 = pem
