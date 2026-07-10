@@ -258,7 +258,7 @@ export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncPro
     }
   }, [loadSyncQueue]);
 
-
+  useEffect(() => {
     if (!open) return;
     loadSyncQueue();
     if (onTriggerSync) onTriggerSync();
