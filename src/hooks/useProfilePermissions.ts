@@ -98,42 +98,53 @@ export const useProfilePermissions = () => {
     queryKey: ['profile-permissions', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
+      const cached = getCachedPermissions(user.id) as ProfilePermission[] | null;
 
-      // Get profile-level permissions via user_profiles join
-      const { data: profilePerms, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('profile_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Offline → use cached permissions; don't attempt a fetch that will fail and wipe them.
+      if (typeof navigator !== 'undefined' && !navigator.onLine) return cached ?? [];
 
-      if (profileError) {
-        console.error('[Permissions] Failed to fetch user profile:', profileError);
-        return [];
+      try {
+        const { data: profilePerms, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('profile_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('[Permissions] user_profiles failed, using cache:', profileError);
+          return cached ?? [];
+        }
+        if (!profilePerms?.profile_id) {
+          console.warn('[Permissions] no profile_id, using cache');
+          return cached ?? [];
+        }
+
+        const { data: perms, error: permsError } = await supabase
+          .from('profile_object_permissions')
+          .select('object_name, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
+          .eq('profile_id', profilePerms.profile_id);
+
+        if (permsError) {
+          console.error('[Permissions] perms failed, using cache:', permsError);
+          return cached ?? [];
+        }
+
+        const result = (perms || []) as ProfilePermission[];
+
+        console.info('[Permissions] Loaded', result.length, 'permissions for profile', profilePerms.profile_id);
+
+        // Only overwrite the cache when we actually got permissions — never cache an empty result.
+        if (result.length > 0) {
+          setCachedPermissions(user.id, result);
+          return result;
+        }
+        return cached ?? result;
+      } catch (e) {
+        console.error('[Permissions] fetch threw, using cache:', e);
+        return cached ?? [];
       }
-      if (!profilePerms?.profile_id) {
-        console.warn('[Permissions] No profile_id found for user:', user.id);
-        return [];
-      }
-
-      const { data: perms, error: permsError } = await supabase
-        .from('profile_object_permissions')
-        .select('object_name, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
-        .eq('profile_id', profilePerms.profile_id);
-
-      if (permsError) {
-        console.error('[Permissions] Failed to fetch permissions:', permsError);
-        return [];
-      }
-
-      const result = (perms || []) as ProfilePermission[];
-
-      console.info('[Permissions] Loaded', result.length, 'permissions for profile', profilePerms.profile_id);
-
-      // ✅ Persist to localStorage after every successful fetch
-      setCachedPermissions(user.id, result);
-
-      return result;
     },
+
     enabled: !!user?.id,
     // ✅ Load from localStorage instantly — no blank nav on startup
     placeholderData: () => {
