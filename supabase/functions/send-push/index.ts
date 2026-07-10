@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
 
     let sent = 0;
     const stale: string[] = [];
+    const errors: string[] = [];
     await Promise.all(
       tokens.map(async (t) => {
         const message = {
@@ -159,9 +160,10 @@ Deno.serve(async (req) => {
           sent++;
         } else {
           const txt = await r.text();
-          if (r.status === 404 || r.status === 410 || txt.includes('UNREGISTERED') || txt.includes('INVALID_ARGUMENT')) {
+          if (r.status === 404 || r.status === 410 || txt.includes('UNREGISTERED')) {
             stale.push(t.id);
           }
+          errors.push(`${r.status}:${txt.slice(0, 200)}`);
           console.error('FCM error', r.status, txt);
         }
       }),
@@ -171,7 +173,24 @@ Deno.serve(async (req) => {
       await admin.from('push_device_tokens').delete().in('id', stale);
     }
 
-    return new Response(JSON.stringify({ sent, stale: stale.length }), {
+    try {
+      await admin.from('notification_event_log').insert({
+        notification_id: data?.notification_id ?? null,
+        user_id,
+        event_type: 'push_dispatch',
+        status: sent > 0 ? 'sent' : (tokens.length > 0 ? 'failed' : 'no_tokens'),
+        metadata: {
+          attempted: tokens.length,
+          sent,
+          stale: stale.length,
+          errors: errors.slice(0, 5),
+        },
+      });
+    } catch (logErr) {
+      console.error('log insert failed', logErr);
+    }
+
+    return new Response(JSON.stringify({ sent, stale: stale.length, attempted: tokens.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {

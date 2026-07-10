@@ -7,22 +7,21 @@ import { devLog, devError } from '@/utils/devLog';
 let listenersRegistered = false;
 let currentToken: string | null = null;
 
-async function upsertToken(token: string, userId: string, platform: 'android' | 'ios') {
+async function upsertToken(token: string, _userId: string, platform: 'android' | 'ios') {
   try {
     const info = await Device.getInfo().catch(() => null);
-    await supabase.from('push_device_tokens').upsert(
-      {
-        user_id: userId,
-        token,
-        platform,
-        device_info: info ? { model: info.model, os: info.operatingSystem, osVersion: info.osVersion } : {},
-        last_seen_at: new Date().toISOString(),
-      },
-      { onConflict: 'token' },
-    );
+    const device_info = info
+      ? { model: info.model, os: info.operatingSystem, osVersion: info.osVersion }
+      : {};
+    const { error } = await supabase.rpc('claim_push_token', {
+      p_token: token,
+      p_platform: platform,
+      p_device_info: device_info as any,
+    });
+    if (error) throw error;
     currentToken = token;
   } catch (e) {
-    devError('[Push] upsert token failed', e);
+    devError('[Push] claim token failed', e);
   }
 }
 

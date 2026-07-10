@@ -26875,6 +26875,10 @@ export type Database = {
         Returns: boolean
       }
       check_rls_drift: { Args: never; Returns: number }
+      claim_push_token: {
+        Args: { p_device_info?: Json; p_platform: string; p_token: string }
+        Returns: undefined
+      }
       cleanup_expired_coverage: { Args: never; Returns: undefined }
       cleanup_expired_insights: { Args: never; Returns: undefined }
       cleanup_expired_recommendations: { Args: never; Returns: undefined }
