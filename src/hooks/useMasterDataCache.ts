@@ -84,7 +84,7 @@ export function useMasterDataCache() {
             .or('is_active.eq.true,is_active.is.null')
             .order('name')
             .range(from, to),
-          { pageSize: 500 }
+          500
         );
 
         const variants = await fetchAllPaginated<any>((from, to) =>
@@ -93,7 +93,7 @@ export function useMasterDataCache() {
             .select('*')
             .or('is_active.eq.true,is_active.is.null')
             .range(from, to),
-          { pageSize: 500 }
+          500
         );
 
         // Only clear and update cache if all fetches succeeded.
