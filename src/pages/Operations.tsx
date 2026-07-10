@@ -694,6 +694,8 @@ const Operations = () => {
         
         return {
           id: order.id,
+          retailer_id: order.retailer_id,
+          visit_id: (order as any).visit_id ?? null,
           user_name: user?.full_name || user?.username || 'Unknown',
           retailer_name: order.retailer_name || 'Unknown',
           retailer_phone: (retailer?.phone || counter?.phone || null) as string | null,
