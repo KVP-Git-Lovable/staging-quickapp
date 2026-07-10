@@ -21,6 +21,7 @@ import { AboutEditMode } from '@/components/profile/about/AboutEditMode';
 import { ProfilePointsBadge } from '@/components/profile/ProfilePointsBadge';
 import { PasswordChangeSection } from '@/components/profile/PasswordChangeSection';
 import { LanguageSettings } from '@/components/profile/LanguageSettings';
+import { PushNotificationSettings } from '@/components/PushNotificationSettings';
 
 
 interface Territory {
@@ -261,6 +262,10 @@ const UserProfile = () => {
 
             {/* Language Settings */}
             <LanguageSettings />
+
+            {/* Push Notifications */}
+            <PushNotificationSettings />
+
 
             {/* Additional Sections - Always in view/edit with their own controls */}
             <WorkExperienceSection />
