@@ -235,7 +235,30 @@ export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncPro
     }
   }, [onTriggerSync, loadSyncQueue]);
 
-  useEffect(() => {
+  const handleDiscard = useCallback(async (item: SyncItem) => {
+    if (!confirm('Discard this queued item permanently? It will not be retried.')) return;
+    try {
+      await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+      const idemKey = (item.data as any)?.order?.idempotency_key
+        || (item.data as any)?.idempotency_key
+        || (item.data as any)?.order?.id
+        || (item.data as any)?.id;
+      if (idemKey && navigator.onLine) {
+        try {
+          await supabase.from('failed_sync_log' as any)
+            .update({ resolved: true, resolved_at: new Date().toISOString() } as any)
+            .eq('idempotency_key', idemKey);
+        } catch (e) {
+          console.warn('failed_sync_log resolve failed (non-fatal):', e);
+        }
+      }
+      await loadSyncQueue();
+    } catch (e) {
+      console.error('Discard failed:', e);
+    }
+  }, [loadSyncQueue]);
+
+
     if (!open) return;
     loadSyncQueue();
     if (onTriggerSync) onTriggerSync();
