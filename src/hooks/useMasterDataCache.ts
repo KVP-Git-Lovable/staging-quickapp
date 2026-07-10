@@ -589,7 +589,7 @@ export function useMasterDataCache() {
       console.error('[Cache] Cache warming failed:', error);
       return false;
     }
-  }, [user, cacheProducts, cacheSchemes, cacheUomData, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability, cacheVisits, cacheOrders]);
+  }, [user, cacheProducts, cacheSchemes, cacheUomData, cacheOrgData, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability, cacheVisits, cacheOrders]);
 
 
   // Full sync with item counts - returns summary for UI
