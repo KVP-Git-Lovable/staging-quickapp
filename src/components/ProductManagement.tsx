@@ -1399,6 +1399,24 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                             <Button
                               variant="outline"
                               size="sm"
+                              className="text-destructive hover:text-destructive"
+                              title="Inactivate category"
+                              onClick={() => setDeleteConfirm({ open: true, type: 'category-deactivate', id: category.id, name: category.name })}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700"
+                              title="Activate category"
+                              onClick={() => setDeleteConfirm({ open: true, type: 'category-activate', id: category.id, name: category.name })}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleDeleteCategory(category.id, category.name)}
                             >
                               <Trash2 className="h-4 w-4" />
