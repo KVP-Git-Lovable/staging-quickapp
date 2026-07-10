@@ -413,19 +413,35 @@ export const AddRetailer = () => {
     }
   };
 
-  // Load all users for owner dropdown
+  // Load all users for owner dropdown (cache-fallback when offline)
   const loadAllUsers = async () => {
+    const loadFromCache = async () => {
+      try {
+        await offlineStorage.init();
+        const cached = await offlineStorage.getAll<any>(STORES.PROFILES);
+        setAllUsers((cached || []).filter((u: any) => u.full_name));
+      } catch (e) {
+        console.error('[AddRetailer] cache read profiles failed:', e);
+        setAllUsers([]);
+      }
+    };
+
+    if (!navigator.onLine) {
+      await loadFromCache();
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name')
         .order('full_name');
-      
+
       if (error) throw error;
       setAllUsers((data || []).filter(u => u.full_name));
     } catch (error) {
-      console.error('Error loading users:', error);
-      setAllUsers([]);
+      console.error('Error loading users, falling back to cache:', error);
+      await loadFromCache();
     }
   };
 
