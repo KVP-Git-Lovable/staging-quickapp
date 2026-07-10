@@ -36,7 +36,10 @@ export const StatusBar = () => {
   }
 
   return (
-    <div className="fixed bottom-16 left-0 right-0 z-40 py-2 px-4 bg-orange-600 text-white text-sm font-medium transition-all duration-300">
+    <div
+      className="fixed left-0 right-0 z-40 py-2 px-4 bg-orange-600 text-white text-sm font-medium transition-all duration-300"
+      style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-center sm:justify-between gap-2">
         <div className="flex items-center gap-2">
           <WifiOff className="h-4 w-4" />

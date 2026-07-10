@@ -30,6 +30,7 @@
     "@capacitor/network": "^7.0.0",
     "@capacitor/preferences": "^7.0.2",
     "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@elevenlabs/react": "^0.13.1",
     "@hookform/resolvers": "^3.9.0",
     "@huggingface/transformers": "^3.7.2",
