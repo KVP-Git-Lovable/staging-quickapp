@@ -876,12 +876,38 @@ export function useOfflineSync() {
         if (data.skip_check_in_reason) visitInsertData.skip_check_in_reason = data.skip_check_in_reason;
         if (data.skip_check_in_time) visitInsertData.skip_check_in_time = data.skip_check_in_time;
         if (data.no_order_reason) visitInsertData.no_order_reason = data.no_order_reason;
-        
+
+        // Stamp the authenticated user if the offline payload's user_id is missing/stale,
+        // so the RLS `user_id = auth.uid()` check holds.
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser?.id) visitInsertData.user_id = visitInsertData.user_id || authUser.id;
+
+        // A visit with no retailer can never pass RLS — quarantine instead of retrying forever.
+        if (!visitInsertData.retailer_id) {
+          const err: any = new Error('visit_missing_retailer');
+          err.__forceFailed = true; err.__errorType = 'VALIDATION';
+          throw err;
+        }
+
+        // If online, verify the retailer exists in the DB. If not, the paired retailer
+        // hasn't synced yet — DEFER (throw a NETWORK-class error so it retries, never terminal),
+        // rather than hard-failing RLS.
+        if (navigator.onLine) {
+          const { data: rExists } = await supabase.from('retailers')
+            .select('id').eq('id', visitInsertData.retailer_id).maybeSingle();
+          if (!rExists) {
+            const err: any = new Error('retailer_not_synced_yet');
+            err.__errorType = 'NETWORK';   // stays RETRYING; heals once the retailer syncs
+            throw err;
+          }
+        }
+
         const { error: visitError } = await supabase
           .from('visits')
           .upsert(visitInsertData, { onConflict: 'id', ignoreDuplicates: false });
         if (visitError) throw visitError;
         break;
+
 
         
       case 'CHECK_OUT':
