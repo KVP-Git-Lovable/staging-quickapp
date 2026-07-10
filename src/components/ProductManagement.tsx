@@ -128,7 +128,7 @@ const ProductManagement = () => {
   const [isVariantsViewOpen, setIsVariantsViewOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
-    type: 'product' | 'category' | 'variant' | 'all-products' | null;
+    type: 'product' | 'category' | 'variant' | 'all-products' | 'category-deactivate' | 'category-activate' | null;
     id: string;
     name: string;
   }>({ open: false, type: null, id: '', name: '' });
