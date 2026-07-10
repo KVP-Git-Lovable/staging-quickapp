@@ -148,59 +148,96 @@ export const AddRetailer = () => {
   ];
   const [customRetailType, setCustomRetailType] = useState("");
 
-  // Load all distributors from distributors table
+  // Load all distributors from distributors table (cache-fallback when offline)
   const loadDistributors = async () => {
     if (!user) return;
+
+    const loadFromCache = async () => {
+      try {
+        await offlineStorage.init();
+        const cached = await offlineStorage.getAll<any>(STORES.DISTRIBUTORS);
+        setDistributors(
+          (cached || [])
+            .filter((d: any) => !d.status || d.status === 'active')
+            .map((d: any) => ({ id: d.id, name: d.name }))
+        );
+      } catch (e) {
+        console.error('[AddRetailer] cache read distributors failed:', e);
+        setDistributors([]);
+      }
+    };
+
+    if (!navigator.onLine) {
+      await loadFromCache();
+      return;
+    }
+
     const { data, error } = await supabase
       .from('distributors')
       .select('id, name')
       .eq('status', 'active')
       .order('name');
-    
+
     if (error) {
-      console.error('Failed to load distributors:', error);
-      setDistributors([]);
+      console.error('Failed to load distributors, falling back to cache:', error);
+      await loadFromCache();
     } else {
       setDistributors(data || []);
     }
   };
 
-  // Load distributors mapped to the selected beat
+  // Load distributors mapped to the selected beat (cache-fallback when offline)
   const loadBeatMappedDistributors = async (beatId: string) => {
     if (!beatId || beatId === 'unassigned') {
       setBeatMappedDistributors([]);
       return;
     }
-    
-    try {
-      // Find the beat's UUID from beat_id
-      const beat = beats.find(b => b.beat_id === beatId);
-      if (!beat?.id) {
-        setBeatMappedDistributors([]);
-        return;
-      }
 
+    // Find the beat's UUID from beat_id
+    const beat = beats.find(b => b.beat_id === beatId);
+    if (!beat?.id) {
+      setBeatMappedDistributors([]);
+      return;
+    }
+
+    const applyMapped = (rows: any[]) => {
+      const mapped = (rows || [])
+        .filter(d => d.distributors)
+        .map(d => ({ id: (d.distributors as any)?.id, name: (d.distributors as any)?.name }));
+      setBeatMappedDistributors(mapped);
+      if (mapped.length > 0 && !retailerData.selectedDistributors.length) {
+        handleInputChange("selectedDistributors", [mapped[0].id]);
+        handleInputChange("parentName", mapped[0].name);
+      }
+    };
+
+    const loadFromCache = async () => {
+      try {
+        await offlineStorage.init();
+        const cached = await offlineStorage.getAll<any>(STORES.DISTRIBUTOR_BEAT_MAPPINGS);
+        applyMapped((cached || []).filter((m: any) => m.beat_id === beat.id));
+      } catch (e) {
+        console.error('[AddRetailer] cache read beat mappings failed:', e);
+        setBeatMappedDistributors([]);
+      }
+    };
+
+    if (!navigator.onLine) {
+      await loadFromCache();
+      return;
+    }
+
+    try {
       const { data, error } = await supabase
         .from('distributor_beat_mappings')
         .select('distributor_id, distributors(id, name)')
         .eq('beat_id', beat.id);
-      
+
       if (error) throw error;
-      
-      const mappedDistributors = (data || [])
-        .filter(d => d.distributors)
-        .map(d => ({ id: (d.distributors as any)?.id, name: (d.distributors as any)?.name }));
-      
-      setBeatMappedDistributors(mappedDistributors);
-      
-      // Auto-select first distributor if available
-      if (mappedDistributors.length > 0 && !retailerData.selectedDistributors.length) {
-        handleInputChange("selectedDistributors", [mappedDistributors[0].id]);
-        handleInputChange("parentName", mappedDistributors[0].name);
-      }
+      applyMapped(data || []);
     } catch (error) {
-      console.error('Failed to load beat-mapped distributors:', error);
-      setBeatMappedDistributors([]);
+      console.error('Failed to load beat-mapped distributors, falling back to cache:', error);
+      await loadFromCache();
     }
   };
 
@@ -376,19 +413,35 @@ export const AddRetailer = () => {
     }
   };
 
-  // Load all users for owner dropdown
+  // Load all users for owner dropdown (cache-fallback when offline)
   const loadAllUsers = async () => {
+    const loadFromCache = async () => {
+      try {
+        await offlineStorage.init();
+        const cached = await offlineStorage.getAll<any>(STORES.PROFILES);
+        setAllUsers((cached || []).filter((u: any) => u.full_name));
+      } catch (e) {
+        console.error('[AddRetailer] cache read profiles failed:', e);
+        setAllUsers([]);
+      }
+    };
+
+    if (!navigator.onLine) {
+      await loadFromCache();
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name')
         .order('full_name');
-      
+
       if (error) throw error;
       setAllUsers((data || []).filter(u => u.full_name));
     } catch (error) {
-      console.error('Error loading users:', error);
-      setAllUsers([]);
+      console.error('Error loading users, falling back to cache:', error);
+      await loadFromCache();
     }
   };
 
@@ -438,13 +491,13 @@ export const AddRetailer = () => {
     if (isEditMode && editingRetailer?.owner_id) {
       setSelectedOwnerId(editingRetailer.owner_id);
       setSelectedOwnerName(editingRetailer.owner_name || '');
-    } else if (!isEditMode && user && allUsers.length > 0 && !selectedOwnerId) {
-      // Auto-fill owner with current user when creating new retailer
-      const currentUserProfile = allUsers.find(u => u.id === user.id);
-      if (currentUserProfile) {
-        setSelectedOwnerId(user.id);
-        setSelectedOwnerName(currentUserProfile.full_name || '');
-      }
+    } else if (!isEditMode && user && !selectedOwnerId) {
+      // Auto-fill owner with current user (works offline even if profiles cache is empty)
+      const prof = allUsers.find(u => u.id === user.id);
+      setSelectedOwnerId(user.id);
+      setSelectedOwnerName(
+        prof?.full_name || (user.user_metadata as any)?.full_name || 'Me'
+      );
     }
   }, [isEditMode, editingRetailer, user, allUsers, selectedOwnerId]);
 
@@ -1110,11 +1163,33 @@ export const AddRetailer = () => {
     setValidationErrors(errors);
     
     if (Object.keys(errors).length > 0) {
-      // Show toast as backup, but inline errors will always show
+      // Toast lists the actual missing fields so an offline user immediately
+      // sees WHICH field (Distributor, GPS, etc.) is blocking Save.
+      const messages = Object.values(errors).filter(Boolean);
       toast({
         title: "Missing Required Fields",
-        description: "Please fill in all fields marked with *",
+        description: messages.join(' • '),
         variant: "destructive"
+      });
+
+      // Scroll to the first errored field
+      const firstKey = Object.keys(errors)[0];
+      const idMap: Record<string, string> = {
+        location: 'latitude',
+        distributor: 'beat',
+        parentType: 'beat',
+        retailType: 'name',
+        category: 'name',
+      };
+      const targetId = idMap[firstKey] || firstKey;
+      requestAnimationFrame(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { (el as HTMLElement).focus?.(); } catch { /* no-op */ }
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       });
       return;
     }
