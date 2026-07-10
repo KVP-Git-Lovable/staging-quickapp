@@ -272,26 +272,63 @@ const MasterDataCacheInitializer = () => {
     if (!isOnline || !user?.id) return;
 
     // Guard against duplicate concurrent warms for the same user+online state.
-    // This lets the effect re-run on login / user switch (user.id in deps) but
-    // skips redundant re-warms when other deps churn.
     const warmKey = `${user.id}:${isOnline ? 'online' : 'offline'}`;
     if (lastWarmedRef.current === warmKey) return;
     lastWarmedRef.current = warmKey;
 
-    // Delay background sync by 1.5s to let UI render first for faster perceived startup.
-    // Drives the shared cache-warming store so the header indicator goes amber → green
-    // automatically on app open, first login, and every logout→login.
-    const timeoutId = setTimeout(() => {
-      cacheAllMasterData();
+    const FRESHNESS_MS = 12 * 60 * 60 * 1000; // 12h
+
+    const decideAndRun = async () => {
+      let needsFullWarm = true;
       try {
+        const readyAtRaw = localStorage.getItem('master_cache_ready_at');
+        const cachedUser = localStorage.getItem('master_cache_user');
+        const readyAt = readyAtRaw ? parseInt(readyAtRaw, 10) : 0;
+        const isSameUser = cachedUser === user.id;
+        const isFresh = readyAt > 0 && Date.now() - readyAt < FRESHNESS_MS;
+
+        // Core store populated check
+        let productsCount = 0;
+        try {
+          const products = await offlineStorage.getAll(STORES.PRODUCTS);
+          productsCount = products?.length ?? 0;
+        } catch {}
+
+        if (isSameUser && isFresh && productsCount > 0) {
+          needsFullWarm = false;
+        }
+      } catch (e) {
+        console.warn('[MasterDataCacheInitializer] freshness check failed:', e);
+      }
+
+      if (!needsFullWarm) {
+        // Persisted cache is used as-is; mark header green and do a lightweight non-blocking refresh.
+        try { cacheWarmingStore.markReadyFromCache(); } catch {}
+        try { cacheAllMasterData(); } catch (e) {
+          console.warn('[MasterDataCacheInitializer] background refresh failed:', e);
+        }
+        return;
+      }
+
+      try {
+        cacheAllMasterData();
         cacheWarmingStore.startBackgroundWarming();
         warmCacheWithProgress((stepId, status) => {
           cacheWarmingStore.updateStep(stepId, status);
-        }).catch((e) => console.warn('[MasterDataCacheInitializer] background warm failed:', e));
+        })
+          .then(() => {
+            try {
+              localStorage.setItem('master_cache_ready_at', String(Date.now()));
+              localStorage.setItem('master_cache_user', user.id);
+            } catch {}
+          })
+          .catch((e) => console.warn('[MasterDataCacheInitializer] background warm failed:', e));
       } catch (e) {
         console.warn('[MasterDataCacheInitializer] warm start failed:', e);
       }
-    }, 1500);
+    };
+
+    const timeoutId = setTimeout(() => { void decideAndRun(); }, 1500);
     return () => clearTimeout(timeoutId);
   }, [isOnline, user?.id, cacheAllMasterData, warmCacheWithProgress]);
 
