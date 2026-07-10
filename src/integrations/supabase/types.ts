@@ -27941,6 +27941,10 @@ export type Database = {
           success: boolean
         }[]
       }
+      set_products_active: {
+        Args: { p_active: boolean; p_product_ids: string[] }
+        Returns: Json
+      }
       set_role_feature: {
         Args: { p_enabled: boolean; p_feature_key: string; p_role_id: string }
         Returns: undefined
