@@ -168,4 +168,11 @@ console.log('✅ App rendered successfully');
   } catch (error) {
     console.warn('⚠️ Crashlytics init failed:', error);
   }
+
+  try {
+    const { initNativeStatusBar } = await import('./utils/nativeStatusBar');
+    await initNativeStatusBar();
+  } catch (error) {
+    console.warn('⚠️ Native status bar init failed:', error);
+  }
 })();
