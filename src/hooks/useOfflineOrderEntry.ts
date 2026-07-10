@@ -156,6 +156,9 @@ export function useOfflineOrderEntry() {
       const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
       const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
 
+      const cachedCategories = await offlineStorage.getAll<any>(STORES.CATEGORIES);
+      const categoryNameById = new Map((cachedCategories || []).map((c: any) => [c.id, c.name]));
+
       if (cachedProducts.length > 0) {
         // Filter only active products: is_active must be true or null/undefined (never false)
         const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active !== false);
@@ -171,6 +174,9 @@ export function useOfflineOrderEntry() {
         
         const enrichedProducts = activeProducts.map((product: any) => ({
           ...product,
+          category: product.category ?? (product.category_id
+            ? { name: categoryNameById.get(product.category_id) || 'Uncategorized' }
+            : null),
           variants: variantsByProductId.get(product.id) || [],
           schemes: activeSchemes.filter((s: any) => s.product_id === product.id)
         }));
@@ -213,6 +219,9 @@ export function useOfflineOrderEntry() {
         const cachedVariants = await offlineStorage.getAll(STORES.VARIANTS);
         const cachedSchemes = await offlineStorage.getAll(STORES.SCHEMES);
 
+        const cachedCategories = await offlineStorage.getAll<any>(STORES.CATEGORIES);
+        const categoryNameById = new Map((cachedCategories || []).map((c: any) => [c.id, c.name]));
+
         if (cachedProducts.length > 0) {
           const activeProducts = (cachedProducts || []).filter((p: any) => p.is_active !== false);
           const activeVariants = (cachedVariants || []).filter((v: any) => v.is_active !== false && !!v.product_id);
@@ -227,6 +236,9 @@ export function useOfflineOrderEntry() {
           
           const enrichedProducts = activeProducts.map((product: any) => ({
             ...product,
+            category: product.category ?? (product.category_id
+              ? { name: categoryNameById.get(product.category_id) || 'Uncategorized' }
+              : null),
             variants: variantsByProductId.get(product.id) || [],
             schemes: activeSchemes.filter((s: any) => s.product_id === product.id)
           }));

@@ -80,7 +80,7 @@ export function useMasterDataCache() {
         const products = await fetchAllPaginated<any>((from, to) =>
           supabase
             .from('products')
-            .select(PRODUCT_PICKER_COLUMNS)
+            .select(`${PRODUCT_PICKER_COLUMNS}, category:product_categories(name)`)
             .or('is_active.eq.true,is_active.is.null')
             .order('name')
             .range(from, to),
@@ -632,7 +632,7 @@ export function useMasterDataCache() {
       onProgress('products', 'loading');
       // PAGINATED to load EVERY active product/variant (no 1k cap)
       const products = await fetchAllPaginated<any>((from, to) =>
-        supabase.from('products').select(PRODUCT_PICKER_COLUMNS).or('is_active.eq.true,is_active.is.null').order('name').range(from, to)
+        supabase.from('products').select(`${PRODUCT_PICKER_COLUMNS}, category:product_categories(name)`).or('is_active.eq.true,is_active.is.null').order('name').range(from, to)
       );
       const variants = await fetchAllPaginated<any>((from, to) =>
         supabase.from('product_variants').select('*').or('is_active.eq.true,is_active.is.null').range(from, to)
