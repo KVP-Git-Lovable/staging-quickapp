@@ -3,10 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle2, AlertCircle, Clock, RefreshCw, AlertTriangle, XCircle, WifiOff, ChevronDown, ChevronUp, Package, MapPin, User, Calendar } from "lucide-react";
+import { CheckCircle2, AlertCircle, Clock, RefreshCw, AlertTriangle, XCircle, WifiOff, ChevronDown, ChevronUp, Package, MapPin, User, Calendar, Trash2 } from "lucide-react";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useManagedInterval } from "@/utils/intervalManager";
 import { type SyncErrorType, type SyncState, SLOW_RETRY_THRESHOLD } from "@/lib/syncErrorClassifier";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SyncItem {
   id: string;
@@ -234,6 +235,29 @@ export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncPro
     }
   }, [onTriggerSync, loadSyncQueue]);
 
+  const handleDiscard = useCallback(async (item: SyncItem) => {
+    if (!confirm('Discard this queued item permanently? It will not be retried.')) return;
+    try {
+      await offlineStorage.delete(STORES.SYNC_QUEUE, item.id);
+      const idemKey = (item.data as any)?.order?.idempotency_key
+        || (item.data as any)?.idempotency_key
+        || (item.data as any)?.order?.id
+        || (item.data as any)?.id;
+      if (idemKey && navigator.onLine) {
+        try {
+          await supabase.from('failed_sync_log' as any)
+            .update({ resolved: true, resolved_at: new Date().toISOString() } as any)
+            .eq('idempotency_key', idemKey);
+        } catch (e) {
+          console.warn('failed_sync_log resolve failed (non-fatal):', e);
+        }
+      }
+      await loadSyncQueue();
+    } catch (e) {
+      console.error('Discard failed:', e);
+    }
+  }, [loadSyncQueue]);
+
   useEffect(() => {
     if (!open) return;
     loadSyncQueue();
@@ -361,6 +385,17 @@ export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncPro
                       <CollapsibleContent>
                         <div className="px-3 pb-3">
                           <SyncItemDetails item={item} />
+                          <div className="mt-2 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDiscard(item)}
+                              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Discard
+                            </Button>
+                          </div>
                         </div>
                       </CollapsibleContent>
                     </div>
