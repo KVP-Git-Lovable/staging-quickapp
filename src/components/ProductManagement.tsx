@@ -119,6 +119,17 @@ const ProductManagement = () => {
   const [selectedProductForVariants, setSelectedProductForVariants] = useState<string>('');
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const handleBulkSetActive = async (makeActive: boolean) => {
+    const ids = Array.from(selectedIds);
+    const { data, error } = await supabase.rpc('set_products_active', { p_product_ids: ids, p_active: makeActive });
+    if (error) { toast.error(error.message); return; }
+    const r = (data ?? {}) as { affected_products?: number; affected_variants?: number };
+    toast.success(`${makeActive ? 'Activated' : 'Inactivated'} ${r.affected_products ?? 0} products, ${r.affected_variants ?? 0} variants.`);
+    setSelectedIds(new Set());
+    await Promise.all([fetchProducts(), fetchVariants()]);
+  };
 
   // Dialog states
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
