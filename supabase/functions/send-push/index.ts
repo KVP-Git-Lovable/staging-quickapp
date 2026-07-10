@@ -70,9 +70,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { user_id, title, body: message, data } = body ?? {};
-    if (!user_id || !title || !message) {
+    const payload = await req.json();
+    const { user_id, title, body: messageBody, data } = payload ?? {};
+    if (!user_id || !title || !messageBody) {
       return new Response(JSON.stringify({ error: 'missing fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -120,14 +120,14 @@ Deno.serve(async (req) => {
         const message = {
           message: {
             token: t.token,
-            notification: { title, body: body.body },
+            notification: { title, body: messageBody },
             data: stringData,
             android: {
               priority: 'HIGH',
               notification: { channel_id: 'default', click_action: 'FLUTTER_NOTIFICATION_CLICK' },
             },
             webpush: {
-              notification: { title, body: body.body, icon: '/icons/app-icon.png' },
+              notification: { title, body: messageBody, icon: '/icons/app-icon.png' },
               fcm_options: { link: route },
             },
           },
