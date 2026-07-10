@@ -611,6 +611,7 @@ const Operations = () => {
           status,
           retailer_name,
           retailer_id,
+          visit_id,
           counter_customer_id,
           is_credit_order,
           credit_pending_amount,
@@ -693,6 +694,8 @@ const Operations = () => {
         
         return {
           id: order.id,
+          retailer_id: order.retailer_id,
+          visit_id: (order as any).visit_id ?? null,
           user_name: user?.full_name || user?.username || 'Unknown',
           retailer_name: order.retailer_name || 'Unknown',
           retailer_phone: (retailer?.phone || counter?.phone || null) as string | null,
@@ -2218,9 +2221,13 @@ const Operations = () => {
                                   className="h-8 w-8"
                                   title="Edit Order"
                                   onClick={() => {
+                                    if (!item.retailer_id) {
+                                      toast.error('Cannot edit: this order has no linked retailer.');
+                                      return;
+                                    }
                                     const params = new URLSearchParams();
                                     if ((item as any).visit_id) params.set('visitId', (item as any).visit_id);
-                                    if (item.retailer_id) params.set('retailerId', item.retailer_id);
+                                    params.set('retailerId', item.retailer_id);
                                     if (item.retailer_name) params.set('retailer', item.retailer_name);
                                     params.set('editOrderId', item.id);
                                     params.set('source', 'admin');
