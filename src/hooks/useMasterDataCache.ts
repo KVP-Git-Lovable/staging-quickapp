@@ -875,7 +875,7 @@ export function useMasterDataCache() {
       console.error('[Cache] Force refresh failed:', error);
       return false;
     }
-  }, [user, cacheProducts, cacheSchemes, cacheUomData, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability]);
+  }, [user, cacheProducts, cacheSchemes, cacheUomData, cacheOrgData, cacheBeats, cacheRetailers, cacheBeatPlans, cacheCompetitionData, cacheProductAvailability]);
 
 
   // Load cached data (used when offline)
