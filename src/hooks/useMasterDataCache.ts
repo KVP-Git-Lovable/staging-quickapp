@@ -164,7 +164,7 @@ export function useMasterDataCache() {
       onProgress?.('uom', 'loading');
       console.log('[Cache] Syncing UOM master + product UOM mappings...');
 
-      // Enabled uom_master rows (joined with enabled_units.enabled = true)
+      // 1) Small, reliable: enabled uom_master — cache it IMMEDIATELY.
       const { data: uomRows } = await supabase
         .from('uom_master')
         .select('id, code, name, category, is_base, is_system, enabled_units!inner(enabled)')
@@ -180,19 +180,26 @@ export function useMasterDataCache() {
         is_system: r.is_system,
       }));
 
-      // All product_uom_mapping rows (paginated to bypass 1k cap)
-      const mappings = await fetchAllPaginated<any>((from, to) =>
-        supabase.from('product_uom_mapping').select('id, product_id, uom_id, conversion_to_base, is_default_sales, is_price_basis, is_default_purchase, is_active').range(from, to)
-      );
-
       if (enabledUnits.length > 0) {
         await offlineStorage.replaceAll(STORES.UOM_MASTER, enabledUnits);
         console.log(`[Cache] ✅ ${enabledUnits.length} enabled UOM units cached`);
       }
 
-      if (mappings) {
-        await offlineStorage.replaceAll(STORES.PRODUCT_UOM_MAPPING, mappings);
-        console.log(`[Cache] ✅ ${mappings.length} product UOM mappings cached`);
+      // 2) Big & fragile: product_uom_mapping — ISOLATED so a failure here
+      //    can't wipe out the UOM_MASTER cache (base-unit fallback depends on it).
+      try {
+        const mappings = await fetchAllPaginated<any>((from, to) =>
+          supabase.from('product_uom_mapping')
+            .select('id, product_id, uom_id, conversion_to_base, is_default_sales, is_price_basis, is_default_purchase, is_active')
+            .range(from, to)
+        );
+
+        if (mappings) {
+          await offlineStorage.replaceAll(STORES.PRODUCT_UOM_MAPPING, mappings);
+          console.log(`[Cache] ✅ ${mappings.length} product UOM mappings cached`);
+        }
+      } catch (mapErr) {
+        console.warn('[Cache] product_uom_mapping fetch failed; UOM_MASTER + base-unit fallback still available', mapErr);
       }
 
       onProgress?.('uom', 'done');
@@ -201,6 +208,7 @@ export function useMasterDataCache() {
       onProgress?.('uom', 'error');
     }
   }, []);
+
 
   // Cache profiles + distributors + distributor↔beat mappings so the
   // AddRetailer form (Owner dropdown, Distributor selector) works offline.
