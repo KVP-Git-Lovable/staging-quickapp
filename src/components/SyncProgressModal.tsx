@@ -385,6 +385,17 @@ export const SyncProgressModal = ({ open, onOpenChange, onTriggerSync }: SyncPro
                       <CollapsibleContent>
                         <div className="px-3 pb-3">
                           <SyncItemDetails item={item} />
+                          <div className="mt-2 flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDiscard(item)}
+                              className="h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Discard
+                            </Button>
+                          </div>
                         </div>
                       </CollapsibleContent>
                     </div>
