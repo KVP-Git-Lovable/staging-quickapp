@@ -1163,11 +1163,33 @@ export const AddRetailer = () => {
     setValidationErrors(errors);
     
     if (Object.keys(errors).length > 0) {
-      // Show toast as backup, but inline errors will always show
+      // Toast lists the actual missing fields so an offline user immediately
+      // sees WHICH field (Distributor, GPS, etc.) is blocking Save.
+      const messages = Object.values(errors).filter(Boolean);
       toast({
         title: "Missing Required Fields",
-        description: "Please fill in all fields marked with *",
+        description: messages.join(' • '),
         variant: "destructive"
+      });
+
+      // Scroll to the first errored field
+      const firstKey = Object.keys(errors)[0];
+      const idMap: Record<string, string> = {
+        location: 'latitude',
+        distributor: 'beat',
+        parentType: 'beat',
+        retailType: 'name',
+        category: 'name',
+      };
+      const targetId = idMap[firstKey] || firstKey;
+      requestAnimationFrame(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          try { (el as HTMLElement).focus?.(); } catch { /* no-op */ }
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       });
       return;
     }
