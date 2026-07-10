@@ -182,7 +182,7 @@ export function useMasterDataCache() {
 
       // All product_uom_mapping rows (paginated to bypass 1k cap)
       const mappings = await fetchAllPaginated<any>((from, to) =>
-        supabase.from('product_uom_mapping').select('*').range(from, to)
+        supabase.from('product_uom_mapping').select('id, product_id, uom_id, conversion_to_base, is_default_sales, is_price_basis, is_default_purchase, is_active').range(from, to)
       );
 
       if (enabledUnits.length > 0) {

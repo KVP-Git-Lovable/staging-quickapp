@@ -18,15 +18,15 @@ import { offlineStorage, STORES } from '@/lib/offlineStorage';
  *  product_uom_mapping + uom_master stores populated by useMasterDataCache. */
 async function loadProductUnitsFromOfflineCache(productId: string): Promise<ProductUnit[]> {
   try {
-    const [mappings, units] = await Promise.all([
+    const [mappings, units, products] = await Promise.all([
       offlineStorage.getAll<any>(STORES.PRODUCT_UOM_MAPPING),
       offlineStorage.getAll<any>(STORES.UOM_MASTER),
+      offlineStorage.getAll<any>(STORES.PRODUCTS),
     ]);
-    if (!mappings || mappings.length === 0) return [];
     const uomById = new Map<string, any>();
     for (const u of units || []) uomById.set(u.id, u);
 
-    const rows = mappings.filter((m) => m.product_id === productId);
+    const rows = (mappings || []).filter((m) => m.product_id === productId);
     const built: ProductUnit[] = [];
     for (const m of rows) {
       const u = uomById.get(m.uom_id);
@@ -44,12 +44,35 @@ async function loadProductUnitsFromOfflineCache(productId: string): Promise<Prod
         isDefaultPurchase: !!m.is_default_purchase,
       });
     }
-    return built;
+    if (built.length > 0) return built;
+
+    // Fallback — synthesize the base unit from product.base_unit + uom_master
+    const prod = (products || []).find((p) => p.id === productId);
+    const baseCode = prod?.base_unit ? String(prod.base_unit).toUpperCase() : null;
+    if (baseCode) {
+      const u = (units || []).find((x) =>
+        String(x.code || '').toUpperCase() === baseCode ||
+        String(x.name || '').toUpperCase() === baseCode);
+      if (u) return [{
+        mappingId: `synth-base-${productId}`,
+        uomId: u.id,
+        code: u.code,
+        name: u.name,
+        category: u.category as UomCategory,
+        conversionToBase: 1,
+        isBase: true,
+        isDefaultSales: true,
+        isPriceBasis: true,
+        isDefaultPurchase: true,
+      }];
+    }
+    return [];
   } catch (err) {
     console.warn('[uomEngine] Offline PRODUCT_UOM_MAPPING fallback failed:', err);
     return [];
   }
 }
+
 
 /**
  * UoM category code. Historically a fixed union of 4 values but now data-driven
