@@ -1924,9 +1924,19 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       <AlertDialog open={deleteConfirm.open} onOpenChange={(open) => !open && setDeleteConfirm({ open: false, type: null, id: '', name: '' })}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteConfirm.type === 'category-deactivate'
+                ? `Inactivate category "${deleteConfirm.name}"?`
+                : deleteConfirm.type === 'category-activate'
+                  ? `Activate category "${deleteConfirm.name}"?`
+                  : 'Are you absolutely sure?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteConfirm.type === 'all-products' ? (
+              {deleteConfirm.type === 'category-deactivate' ? (
+                <>This will set <strong>ALL products linked to "{deleteConfirm.name}"</strong> — and their variants — to inactive. They will no longer appear in order entry, search, or the offline cache until reactivated. Order history and inventory are preserved. Do you wish to proceed?</>
+              ) : deleteConfirm.type === 'category-activate' ? (
+                <>This will set <strong>ALL products linked to "{deleteConfirm.name}"</strong> — and their variants — back to active. They will reappear in order entry, search, and the offline cache. Do you wish to proceed?</>
+              ) : deleteConfirm.type === 'all-products' ? (
                 <>This will <strong>deactivate {deleteConfirm.name}</strong> (set <em>is_active = false</em>). Order history, distributor inventory, and schemes are preserved. Products can be reactivated individually later.</>
               ) : deleteConfirm.type === 'product' || deleteConfirm.type === 'variant' ? (
                 <>This will <strong>discontinue {deleteConfirm.name}</strong> instead of deleting it. History, returns, schemes, price books, tax links, and inventory references are preserved. It can be reactivated later from the Inactive tab.</>
@@ -1939,12 +1949,21 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             <AlertDialogCancel onClick={() => setDeleteConfirm({ open: false, type: null, id: '', name: '' })}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAction} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {deleteConfirm.type === 'all-products'
-                ? 'Yes, Deactivate All'
-                : deleteConfirm.type === 'product' || deleteConfirm.type === 'variant'
-                  ? 'Yes, Discontinue'
-                  : 'Yes, Delete'}
+            <AlertDialogAction
+              onClick={handleConfirmAction}
+              className={deleteConfirm.type === 'category-activate'
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
+            >
+              {deleteConfirm.type === 'category-deactivate'
+                ? 'Yes, inactivate all'
+                : deleteConfirm.type === 'category-activate'
+                  ? 'Yes, activate all'
+                  : deleteConfirm.type === 'all-products'
+                    ? 'Yes, Deactivate All'
+                    : deleteConfirm.type === 'product' || deleteConfirm.type === 'variant'
+                      ? 'Yes, Discontinue'
+                      : 'Yes, Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
