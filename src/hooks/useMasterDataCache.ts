@@ -80,7 +80,7 @@ export function useMasterDataCache() {
         const products = await fetchAllPaginated<any>((from, to) =>
           supabase
             .from('products')
-            .select(PRODUCT_PICKER_COLUMNS)
+            .select(`${PRODUCT_PICKER_COLUMNS}, category:product_categories(name)`)
             .or('is_active.eq.true,is_active.is.null')
             .order('name')
             .range(from, to),
