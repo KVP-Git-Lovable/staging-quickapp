@@ -825,6 +825,7 @@ export function useMasterDataCache() {
         cacheProducts(),
         cacheSchemes(),
         cacheUomData(),
+        cacheOrgData(),
         cacheProductAvailability()
       ]);
       
