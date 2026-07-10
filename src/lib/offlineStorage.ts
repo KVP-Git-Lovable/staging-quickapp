@@ -106,8 +106,22 @@ class OfflineStorage {
       }
       
       const key = this.getStoreKey(storeName);
-      const { value } = await Preferences.get({ key });
-      const data = value ? JSON.parse(value) : [];
+      const meta = await Preferences.get({ key: `${key}::meta` });
+      let json: string | null;
+      if (meta.value) {
+        const n = parseInt(meta.value, 10) || 0;
+        let acc = '';
+        let incomplete = false;
+        for (let i = 0; i < n; i++) {
+          const part = await Preferences.get({ key: `${key}::c${i}` });
+          if (part.value == null) { incomplete = true; break; }
+          acc += part.value;
+        }
+        json = incomplete ? null : (acc || null);
+      } else {
+        json = (await Preferences.get({ key })).value;
+      }
+      const data = json ? JSON.parse(json) : [];
       
       // Cache in memory for fast subsequent reads
       this.memoryCache.set(storeName, { data, timestamp: Date.now() });
@@ -123,7 +137,29 @@ class OfflineStorage {
   private async setStoreData(storeName: string, data: any[]): Promise<void> {
     try {
       const key = this.getStoreKey(storeName);
-      await Preferences.set({ key, value: JSON.stringify(data) });
+      const json = JSON.stringify(data);
+
+      // Clear any previous chunk manifest first
+      const prev = await Preferences.get({ key: `${key}::meta` });
+      if (prev.value) {
+        const pn = parseInt(prev.value, 10) || 0;
+        for (let i = 0; i < pn; i++) await Preferences.remove({ key: `${key}::c${i}` });
+        await Preferences.remove({ key: `${key}::meta` });
+      }
+
+      if (json.length <= this.CHUNK_SIZE) {
+        await Preferences.set({ key, value: json });
+      } else {
+        await Preferences.remove({ key }); // avoid a stale single value
+        const n = Math.ceil(json.length / this.CHUNK_SIZE);
+        for (let i = 0; i < n; i++) {
+          await Preferences.set({
+            key: `${key}::c${i}`,
+            value: json.slice(i * this.CHUNK_SIZE, (i + 1) * this.CHUNK_SIZE),
+          });
+        }
+        await Preferences.set({ key: `${key}::meta`, value: String(n) });
+      }
       
       // Update memory cache and prune if needed
       this.memoryCache.set(storeName, { data, timestamp: Date.now() });
@@ -133,6 +169,7 @@ class OfflineStorage {
       throw error;
     }
   }
+
 
   // Invalidate memory cache for a store (call after external updates)
   invalidateCache(storeName: string): void {
