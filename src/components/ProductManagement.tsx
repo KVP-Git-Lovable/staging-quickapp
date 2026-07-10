@@ -257,7 +257,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   };
 
 
-  const handleConfirmAction = () => {
+  const handleConfirmAction = async () => {
     if (deleteConfirm.type === 'product') {
       executeDeleteProduct(deleteConfirm.id);
     } else if (deleteConfirm.type === 'category') {
@@ -266,6 +266,19 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       executeDeleteVariant(deleteConfirm.id);
     } else if (deleteConfirm.type === 'all-products') {
       executeDeleteAllProducts();
+    } else if (deleteConfirm.type === 'category-deactivate' || deleteConfirm.type === 'category-activate') {
+      const makeActive = deleteConfirm.type === 'category-activate';
+      const { data, error } = await supabase.rpc('set_category_products_active', {
+        p_category_id: deleteConfirm.id, p_active: makeActive,
+      });
+      if (error) {
+        toast.error(`Failed: ${error.message}`);
+      } else {
+        const r = (data ?? {}) as { affected_products?: number; affected_variants?: number };
+        toast.success(`${makeActive ? 'Activated' : 'Inactivated'} "${deleteConfirm.name}": ${r.affected_products ?? 0} products, ${r.affected_variants ?? 0} variants.`);
+        await Promise.all([fetchCategories(), fetchProducts(), fetchVariants()]);
+      }
+      setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     }
   };
 
