@@ -608,15 +608,37 @@ export function useMasterDataCache() {
       onProgress('uom', 'done');
 
 
-      // Beats
+      // Beats (owned + shared with access_type — mirrors AddRetailer online query)
       onProgress('beats', 'loading');
-      const { data: beats } = await supabase.from('beats').select('*').eq('is_active', true).eq('user_id', user.id);
-      if (beats) {
-        await offlineStorage.replaceAll(STORES.BEATS, beats);
+      const beatsNowIso = new Date().toISOString();
+      const [ownedBeatsRes, sharedBeatsRes] = await Promise.all([
+        supabase.from('beats').select('*').eq('is_active', true).eq('user_id', user.id),
+        supabase
+          .from('beat_user_access')
+          .select('access_type, beat_id, effective_from, effective_to, is_active, beats:beats!beat_user_access_beat_id_fkey(*)')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .or(`effective_to.is.null,effective_to.gt.${beatsNowIso}`),
+      ]);
+      const WRITE_ACCESS_FULL = new Set(['OWNED', 'CO_OWNER', 'OPERATIONAL', 'COVERAGE']);
+      const beatsById = new Map<string, any>();
+      for (const b of (ownedBeatsRes.data ?? [])) {
+        beatsById.set(b.beat_id, { ...b, access_type: 'OWNED' });
       }
-      summary.beats = beats?.length || 0;
+      for (const row of ((sharedBeatsRes.data ?? []) as any[])) {
+        const at = String(row.access_type || '').toUpperCase();
+        if (!WRITE_ACCESS_FULL.has(at)) continue;
+        const beat = row.beats;
+        if (!beat?.beat_id || beat.is_active === false) continue;
+        if (beatsById.has(beat.beat_id)) continue;
+        beatsById.set(beat.beat_id, { ...beat, access_type: at });
+      }
+      const beats = Array.from(beatsById.values());
+      await offlineStorage.replaceAll(STORES.BEATS, beats);
+      summary.beats = beats.length;
       onItemCount?.('beats', summary.beats);
       onProgress('beats', 'done');
+
 
       // Retailers
       onProgress('retailers', 'loading');
