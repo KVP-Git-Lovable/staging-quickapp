@@ -491,13 +491,13 @@ export const AddRetailer = () => {
     if (isEditMode && editingRetailer?.owner_id) {
       setSelectedOwnerId(editingRetailer.owner_id);
       setSelectedOwnerName(editingRetailer.owner_name || '');
-    } else if (!isEditMode && user && allUsers.length > 0 && !selectedOwnerId) {
-      // Auto-fill owner with current user when creating new retailer
-      const currentUserProfile = allUsers.find(u => u.id === user.id);
-      if (currentUserProfile) {
-        setSelectedOwnerId(user.id);
-        setSelectedOwnerName(currentUserProfile.full_name || '');
-      }
+    } else if (!isEditMode && user && !selectedOwnerId) {
+      // Auto-fill owner with current user (works offline even if profiles cache is empty)
+      const prof = allUsers.find(u => u.id === user.id);
+      setSelectedOwnerId(user.id);
+      setSelectedOwnerName(
+        prof?.full_name || (user.user_metadata as any)?.full_name || 'Me'
+      );
     }
   }, [isEditMode, editingRetailer, user, allUsers, selectedOwnerId]);
 
