@@ -66,48 +66,61 @@ export function useMasterDataCache() {
 
   // Cache ONLY active products and related data needed for order entry
   const cacheProducts = useCallback(async (onProgress?: CacheProgressCallback) => {
-    try {
-      onProgress?.('products', 'loading');
-      console.log('[Cache] Syncing active products for offline order entry...');
-      
-      // Fetch data FIRST, only clear cache if fetch succeeds
-      // PAGINATED: PostgREST caps individual requests at 1,000 rows — loop until short page.
-      const products = await fetchAllPaginated<any>((from, to) =>
-        supabase
-          .from('products')
-          .select(PRODUCT_PICKER_COLUMNS)
-          .or('is_active.eq.true,is_active.is.null')
-          .order('name')
-          .range(from, to)
-      );
+    onProgress?.('products', 'loading');
+    console.log('[Cache] Syncing active products for offline order entry...');
 
-      // Cache only active variants (also paginated)
-      const variants = await fetchAllPaginated<any>((from, to) =>
-        supabase
-          .from('product_variants')
-          .select('*')
-          .or('is_active.eq.true,is_active.is.null')
-          .range(from, to)
-      );
+    const MAX_ATTEMPTS = 3;
+    const BACKOFF_MS = [1000, 2000, 4000];
+    let lastError: unknown = null;
 
-      // Only clear and update cache if all fetches succeeded.
-      // BATCH write — single underlying storage write instead of N awaits.
-      if (products) {
-        await offlineStorage.replaceAll(STORES.PRODUCTS, products);
-        console.log(`[Cache] ✅ ${products.length} active products cached`);
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        // PAGINATED: PostgREST caps individual requests at 1,000 rows — loop until short page.
+        // Smaller pageSize (500) keeps each request lighter on slow mobile networks.
+        const products = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from('products')
+            .select(PRODUCT_PICKER_COLUMNS)
+            .or('is_active.eq.true,is_active.is.null')
+            .order('name')
+            .range(from, to),
+          500
+        );
+
+        const variants = await fetchAllPaginated<any>((from, to) =>
+          supabase
+            .from('product_variants')
+            .select('*')
+            .or('is_active.eq.true,is_active.is.null')
+            .range(from, to),
+          500
+        );
+
+        // Only clear and update cache if all fetches succeeded.
+        if (products) {
+          await offlineStorage.replaceAll(STORES.PRODUCTS, products);
+          console.log(`[Cache] ✅ ${products.length} active products cached`);
+        }
+        if (variants) {
+          await offlineStorage.replaceAll(STORES.VARIANTS, variants);
+          console.log(`[Cache] ✅ ${variants.length} variants cached`);
+        }
+
+        onProgress?.('products', 'done');
+        return;
+      } catch (error) {
+        lastError = error;
+        console.warn(`[Cache] Products fetch attempt ${attempt}/${MAX_ATTEMPTS} failed:`, error);
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt - 1] ?? 2000));
+        }
       }
-
-      if (variants) {
-        await offlineStorage.replaceAll(STORES.VARIANTS, variants);
-        console.log(`[Cache] ✅ ${variants.length} variants cached`);
-      }
-
-      onProgress?.('products', 'done');
-    } catch (error) {
-      console.error('[Cache] Error caching products, keeping existing cache:', error);
-      onProgress?.('products', 'error');
     }
+
+    console.error('[Cache] Error caching products after retries, keeping existing cache:', lastError);
+    onProgress?.('products', 'error');
   }, []);
+
 
   // Cache schemes separately for progress tracking
   const cacheSchemes = useCallback(async (onProgress?: CacheProgressCallback) => {
