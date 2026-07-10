@@ -1,6 +1,6 @@
 import { useEffect, useState, memo, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Database } from "lucide-react";
+import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Database, CloudCog } from "lucide-react";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage } from "@/lib/offlineStorage";
 import { toast } from "@/hooks/use-toast";
