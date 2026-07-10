@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -133,67 +133,114 @@ export const CacheWarmingProgress = ({
   );
 };
 
-// Hook to manage cache warming state
-export const useCacheWarming = () => {
-  const [isWarming, setIsWarming] = useState(false);
-  const [steps, setSteps] = useState<CacheStep[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
+// ---------------------------------------------------------------------------
+// Shared cache-warming store (module-level singleton) so multiple components —
+// SyncStatusIndicator header badge, MasterDataCacheInitializer background
+// warmup, and the modal itself — all observe the same step state.
+// ---------------------------------------------------------------------------
 
-  const initSteps = useCallback(() => {
-    const initialSteps: CacheStep[] = [
-      { id: 'products', label: 'Products & Variants', status: 'pending' },
-      { id: 'schemes', label: 'Schemes & Offers', status: 'pending' },
-      { id: 'beats', label: 'Beat Routes', status: 'pending' },
-      { id: 'retailers', label: 'Retailers', status: 'pending' },
-      { id: 'beatPlans', label: 'Beat Plans', status: 'pending' },
-      { id: 'competition', label: 'Competition Data', status: 'pending' },
-    ];
-    setSteps(initialSteps);
-    setCurrentStep(0);
-  }, []);
+const INITIAL_STEPS: CacheStep[] = [
+  { id: 'products', label: 'Products & Variants', status: 'pending' },
+  { id: 'schemes', label: 'Schemes & Offers', status: 'pending' },
+  { id: 'beats', label: 'Beat Routes', status: 'pending' },
+  { id: 'retailers', label: 'Retailers', status: 'pending' },
+  { id: 'beatPlans', label: 'Beat Plans', status: 'pending' },
+  { id: 'competition', label: 'Competition Data', status: 'pending' },
+];
 
-  const updateStep = useCallback((stepId: string, status: CacheStep['status']) => {
-    setSteps(prev => prev.map(s => 
-      s.id === stepId ? { ...s, status } : s
-    ));
-    if (status === 'done') {
-      setCurrentStep(prev => prev + 1);
+interface CacheWarmingState {
+  isWarming: boolean;   // dialog visible (manual "Prepare Offline Data")
+  steps: CacheStep[];
+  currentStep: number;
+}
+
+let sharedState: CacheWarmingState = {
+  isWarming: false,
+  steps: INITIAL_STEPS.map(s => ({ ...s })),
+  currentStep: 0,
+};
+
+const listeners = new Set<() => void>();
+const subscribe = (cb: () => void) => {
+  listeners.add(cb);
+  return () => { listeners.delete(cb); };
+};
+const emit = () => {
+  sharedState = { ...sharedState };
+  listeners.forEach(l => l());
+};
+const getSnapshot = () => sharedState;
+
+const resetStepsInternal = () => {
+  sharedState.steps = INITIAL_STEPS.map(s => ({ ...s }));
+  sharedState.currentStep = 0;
+};
+
+export const cacheWarmingStore = {
+  subscribe,
+  getSnapshot,
+  startWarming() {
+    resetStepsInternal();
+    sharedState.isWarming = true;
+    emit();
+  },
+  startBackgroundWarming() {
+    // Reset only if not currently in the middle of a warm
+    const anyLoading = sharedState.steps.some(s => s.status === 'loading');
+    if (!anyLoading) {
+      resetStepsInternal();
+      emit();
     }
-  }, []);
+  },
+  updateStep(stepId: string, status: CacheStep['status']) {
+    sharedState.steps = sharedState.steps.map(s =>
+      s.id === stepId ? { ...s, status } : s
+    );
+    if (status === 'done') sharedState.currentStep += 1;
 
-  const startWarming = useCallback(() => {
-    initSteps();
-    setIsWarming(true);
-  }, [initSteps]);
+    // Persist "ready" timestamp when all steps complete
+    if (sharedState.steps.length > 0 && sharedState.steps.every(s => s.status === 'done')) {
+      try { localStorage.setItem('master_cache_ready_at', String(Date.now())); } catch { /* no-op */ }
+    }
+    emit();
+  },
+  completeWarming() {
+    sharedState.isWarming = false;
+    try { localStorage.setItem('cache_warmed_at', Date.now().toString()); } catch { /* no-op */ }
+    emit();
+  },
+  dismissWarming() {
+    sharedState.isWarming = false;
+    emit();
+  },
+};
 
-  const completeWarming = useCallback(() => {
-    setIsWarming(false);
-    localStorage.setItem('cache_warmed_at', Date.now().toString());
-  }, []);
+// Hook to manage cache warming state (shared across all consumers)
+export const useCacheWarming = () => {
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
-  const dismissWarming = useCallback(() => {
-    setIsWarming(false);
-  }, []);
+  const startWarming = useCallback(() => cacheWarmingStore.startWarming(), []);
+  const updateStep = useCallback(
+    (stepId: string, status: CacheStep['status']) => cacheWarmingStore.updateStep(stepId, status),
+    []
+  );
+  const completeWarming = useCallback(() => cacheWarmingStore.completeWarming(), []);
+  const dismissWarming = useCallback(() => cacheWarmingStore.dismissWarming(), []);
 
   // Check if cache needs warming
   const needsWarming = useCallback((): boolean => {
     const lastWarmed = localStorage.getItem('cache_warmed_at');
     const masterDataCached = localStorage.getItem('master_data_cached_at');
-    
-    // Never warmed
     if (!lastWarmed && !masterDataCached) return true;
-    
-    // Check if cache is older than 24 hours
     const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
     const lastTime = parseInt(lastWarmed || masterDataCached || '0');
-    
     return lastTime < twentyFourHoursAgo;
   }, []);
 
   return {
-    isWarming,
-    steps,
-    currentStep,
+    isWarming: state.isWarming,
+    steps: state.steps,
+    currentStep: state.currentStep,
     startWarming,
     updateStep,
     completeWarming,
@@ -201,3 +248,4 @@ export const useCacheWarming = () => {
     needsWarming,
   };
 };
+

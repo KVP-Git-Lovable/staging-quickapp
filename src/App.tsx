@@ -16,6 +16,7 @@ import { FeatureProvider } from "@/context/FeatureContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
+import { cacheWarmingStore } from "@/components/CacheWarmingProgress";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
 import { visitStatusCache } from "@/lib/visitStatusCache";
@@ -263,18 +264,27 @@ const queryClient = new QueryClient({
 
 // Master data cache initializer - delayed to let UI render first
 const MasterDataCacheInitializer = () => {
-  const { cacheAllMasterData, isOnline } = useMasterDataCache();
-  
+  const { cacheAllMasterData, warmCacheWithProgress, isOnline } = useMasterDataCache();
+
   useEffect(() => {
-    if (isOnline) {
-      // Delay background sync by 1.5s to let UI render first for faster perceived startup
-      const timeoutId = setTimeout(() => {
-        cacheAllMasterData();
-      }, 1500);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isOnline, cacheAllMasterData]);
-  
+    if (!isOnline) return;
+    // Delay background sync by 1.5s to let UI render first for faster perceived startup.
+    // Drives the shared cache-warming store so the header indicator goes amber → green
+    // automatically on every online open (no user tap required).
+    const timeoutId = setTimeout(() => {
+      cacheAllMasterData();
+      try {
+        cacheWarmingStore.startBackgroundWarming();
+        warmCacheWithProgress((stepId, status) => {
+          cacheWarmingStore.updateStep(stepId, status);
+        }).catch((e) => console.warn('[MasterDataCacheInitializer] background warm failed:', e));
+      } catch (e) {
+        console.warn('[MasterDataCacheInitializer] warm start failed:', e);
+      }
+    }, 1500);
+    return () => clearTimeout(timeoutId);
+  }, [isOnline, cacheAllMasterData, warmCacheWithProgress]);
+
   return null;
 };
 

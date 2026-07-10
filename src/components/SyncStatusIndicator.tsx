@@ -1,6 +1,6 @@
 import { useEffect, useState, memo, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Database } from "lucide-react";
+import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Database, CloudCog } from "lucide-react";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage } from "@/lib/offlineStorage";
 import { toast } from "@/hooks/use-toast";
@@ -40,6 +40,27 @@ export const SyncStatusIndicator = memo(() => {
     completeWarming,
     dismissWarming,
   } = useCacheWarming();
+
+  // Derive offline-readiness signals from warming steps
+  const cacheWarming = steps.some(s => s.status === 'loading');
+  const allDone = steps.length > 0 && steps.every(s => s.status === 'done');
+
+  // Persist "ready today" so a reopen doesn't flash amber before background re-warm confirms
+  const [readyHydrated, setReadyHydrated] = useState<boolean>(() => {
+    try {
+      const ts = Number(localStorage.getItem('master_cache_ready_at') || 0);
+      if (!ts) return false;
+      const d = new Date(ts);
+      const now = new Date();
+      return d.toDateString() === now.toDateString();
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (allDone) setReadyHydrated(true);
+  }, [allDone]);
+  const cacheReady = allDone || (readyHydrated && !cacheWarming);
   
   // Only show syncing UI if sync takes more than 500ms (reduces visual noise)
   useEffect(() => {
@@ -224,7 +245,34 @@ export const SyncStatusIndicator = memo(() => {
       );
     }
     
-    // Always show sync icon for access to Prepare Offline Data
+    // Amber: preparing offline data (any warming step loading)
+    if (cacheWarming) {
+      return (
+        <button
+          className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+          title="Preparing offline data…"
+        >
+          <CloudCog className="h-4 w-4 text-amber-400" />
+          <RefreshCw className="h-3 w-3 animate-spin text-amber-400" />
+          <span className="text-xs text-amber-400 hidden sm:inline">Preparing…</span>
+        </button>
+      );
+    }
+
+    // Green: fully cached and safe to go offline
+    if (isOnline && cacheReady && syncQueueCount === 0) {
+      return (
+        <button
+          className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+          title="Ready for offline"
+        >
+          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <span className="text-xs text-green-500 hidden sm:inline">Ready for offline</span>
+        </button>
+      );
+    }
+
+    // Default: sync icon for access to Prepare Offline Data
     return (
       <button
         className="flex items-center gap-1 hover:opacity-80 transition-opacity"
