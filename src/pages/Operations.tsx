@@ -611,6 +611,7 @@ const Operations = () => {
           status,
           retailer_name,
           retailer_id,
+          visit_id,
           counter_customer_id,
           is_credit_order,
           credit_pending_amount,
