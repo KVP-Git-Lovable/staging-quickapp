@@ -1,62 +1,86 @@
 
-# Apr–Jul 2026 Feature Audit — Plan
+# Real Push Notifications (Android APK + Installed PWA)
 
-## Goal
-Produce a single markdown file `CHANGELOG_APR_JUL_2026.md` at the project root listing every meaningful feature/change shipped between **2026-04-01 and 2026-07-07**, grouped by month and by surface (Rep mobile, Internal dashboard, Distributor portal, Customer portal + WhatsApp, Platform/infra). No code changes, no automated tests — just the changelog you can use as a manual test list.
+Every insert into `public.notifications` becomes a real device push, with per-user opt-in and self-suppression via `metadata.actor_id`.
 
-## Inputs (already surveyed)
-- **3,391 git commits** in the window (`git log --since=2026-04-01 --until=2026-07-08`).
-- **204 supabase migrations** in `supabase/migrations/` dated 20260401–20260708.
-- **Lovable chat history** for this project (via `recall_chat_history` / `search_chat_history`).
+## 0. Firebase Web App setup (you do this first, then paste keys)
 
-## Method
+Before I can wire the PWA:
 
-1. **Mine git** — dump commits with date + subject, drop noise (`chore:`, `wip`, `merge`, revert-and-restore pairs, doc-only, formatting), then cluster remaining subjects by keyword into feature themes.
-2. **Mine migrations** — for each of the 204 SQL files, extract the first meaningful DDL/RPC/policy line to label it (new table, new RPC, policy change, trigger, cron). Group by area.
-3. **Mine chat history** — run 4 parallel `recall_chat_history` sweeps (one per month) to catch feature decisions/renames that aren't obvious from commit subjects, plus any explicit "we shipped X" moments.
-4. **Merge & dedupe** — one bullet per feature, not per commit. Each bullet: *feature name — 1-line what it does — surface tag — month first shipped*. Cross-reference migration file + representative commit SHA where useful so you can jump to code.
-5. **Group** the merged list into the deliverable structure below and write the file.
+1. Firebase Console → your project → Project settings → General → **Add app → Web**. Register it (nickname e.g. "QuickApp PWA"). Copy the config: `apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`.
+2. Same project → Cloud Messaging tab → **Web configuration** → Generate key pair → copy the **VAPID public key**.
+3. Project settings → Service accounts → **Generate new private key** → download JSON (used by the edge function).
 
-## Deliverable structure
+Paste back:
+- Web config values (I'll add them to `.env` as `VITE_FIREBASE_*` — publishable, safe in client)
+- VAPID public key → `VITE_FIREBASE_VAPID_KEY`
+- Service account JSON → I'll store as secret `FIREBASE_SERVICE_ACCOUNT`
 
-`CHANGELOG_APR_JUL_2026.md`:
+## 1. Database
 
-```text
-# Feature Changelog — Apr–Jul 2026
+New migration:
 
-## How to use this
-- Each bullet = one shippable feature to smoke-test.
-- Tags: [Rep] [Dashboard] [Distributor] [Customer/WhatsApp] [Platform]
+- Table `public.push_device_tokens` (`id`, `user_id`, `token unique`, `platform` check-in `('android','ios','web')`, `device_info jsonb`, `created_at`, `updated_at` + updated_at trigger). GRANTs for `authenticated` + `service_role`. RLS: user manages own rows; service_role reads all.
+- Extend `public.notification_preferences` semantics — add key `push_enabled boolean default true` (per user master toggle), reusing existing per-type rows for type-level suppression.
+- Trigger `notifications_push_dispatch` — `AFTER INSERT ON public.notifications`:
+  - Skip if `NEW.user_id IS NULL`.
+  - Skip if `NEW.metadata->>'actor_id' = NEW.user_id::text`.
+  - `net.http_post` (pg_net) to the `send-push` edge function with `{ user_id, title, body: message, data: { route: coalesce(metadata->>'route', ...) , notification_id, type } }`, using the service-role key from `vault`/GUC.
 
-## April 2026
-### Rep mobile
-- ...
-### Internal dashboard
-- ...
-### Customer portal + WhatsApp
-- ...
-### Platform / infra (RLS, migrations, cron, edge fns)
-- ...
+## 2. Edge function `send-push`
 
-## May 2026
-(same structure)
+`supabase/functions/send-push/index.ts`, `verify_jwt = false` (called from DB trigger with a shared secret header validated in-function; also usable from client for test).
 
-## June 2026
-(same structure)
+- Input Zod-validated: `{ user_id: uuid, title: string, body: string, data?: { route?: string, ...} }`.
+- Load master `push_enabled` from `notification_preferences`; short-circuit if disabled.
+- Load all `push_device_tokens` for `user_id`.
+- Mint a Google OAuth2 access token from `FIREBASE_SERVICE_ACCOUNT` (JWT → token endpoint), cached in-memory per invocation.
+- Send FCM HTTP v1 `messages:send` per token with platform-specific config (Android channel, Web `fcm_options.link` = deep link, WebPush notification payload with icon).
+- On response `UNREGISTERED` / 404 / 410 → delete that token row.
+- Log every attempt into `public.notification_event_log` (status, error, token id).
+- CORS headers on all responses.
 
-## July 2026 (through Jul 7)
-(same structure)
+Secrets required: `FIREBASE_SERVICE_ACCOUNT`, `FIREBASE_PROJECT_ID`, `PUSH_TRIGGER_SHARED_SECRET`.
 
-## Appendix — noteworthy DB changes
-- New tables, new RPCs, new triggers, new pg_cron jobs (from the 204 migrations).
-```
+## 3. Client — Capacitor Android
 
-## Scope boundaries
-- **Included:** Rep mobile app, `/dashboard`, `/distributor-portal`, customer portal, WhatsApp automation, edge functions, DB schema/RLS changes, cron jobs — i.e. "everything" as you selected.
-- **Excluded:** pure refactors, dependency bumps, styling tweaks, doc edits, revert churn.
-- **Not included in this task:** writing automated QA actions or executing tests. This is the reference list you'll test against.
+- `bun add @capacitor/push-notifications`; `npx cap sync` note for the user.
+- New `src/utils/pushRegistration.ts`:
+  - `registerNativePush(userId)` — request permission, `PushNotifications.register()`, on `registration` upsert `{ user_id, token, platform: 'android' (or 'ios'), device_info: { model, os } }` into `push_device_tokens`.
+  - `pushNotificationReceived` (foreground) → show local toast/banner.
+  - `pushNotificationActionPerformed` → `navigate(data.route)`.
+  - `unregisterNativePush()` on logout → delete row by token.
+- Call from `useAuth`/root effect after login when `Capacitor.isNativePlatform()`.
 
-## Execution notes (technical)
-- Use `acp_subagent--spawn_agent` to parallelize: one subagent per month for git+migration digestion, one for chat-history recall. Each returns a structured bullet list; the main turn merges them.
-- Cap the output file at ~1,500 lines so it stays reviewable; overflow goes to the appendix.
-- No files other than `CHANGELOG_APR_JUL_2026.md` will be created or modified.
+## 4. Client — PWA (Firebase Cloud Messaging Web)
+
+- `bun add firebase`.
+- `public/firebase-messaging-sw.js` — dedicated messaging worker (separate from existing Workbox `service-worker.ts`, per project rules). Initializes Firebase with the web config, handles `onBackgroundMessage` → `self.registration.showNotification(title, { body, icon, data })`, and `notificationclick` → focus/open `data.route`.
+- `src/lib/firebaseMessaging.ts` — `initWebPush(userId)`: guard for non-native + `Notification` supported + not in Lovable preview iframe; register `/firebase-messaging-sw.js`; `getToken({ vapidKey, serviceWorkerRegistration })`; upsert token with `platform: 'web'`; `onMessage` → in-app toast + `refetch` of `useNotifications`.
+- Settings screen: add a **Push notifications** toggle (writes `notification_preferences.push_enabled`). Only this toggle triggers `Notification.requestPermission()` + token registration — never on first load.
+- Logout: delete the token row and call `deleteToken()`.
+
+## 5. Wiring the deep link
+
+Existing notification `metadata.route` (or derived from `related_table`/`related_id`) is passed through as `data.route`. Both native handler and web `notificationclick` navigate to it via the app router when opened.
+
+## 6. Verification
+
+- Insert a test row via `supabase--insert` into `public.notifications` for a test user with the app killed on Android → banner appears, tap opens deep link.
+- Same for installed desktop Chrome PWA with the tab closed.
+- Insert a row where `metadata.actor_id = user_id` → no push, but in-app notification still appears.
+- Toggle push off in settings → subsequent inserts don't push.
+
+## Technical notes
+
+- Existing Workbox `src/service-worker.ts` is untouched; `firebase-messaging-sw.js` is a separate worker (different scope/file) — allowed by the PWA skill.
+- `pg_net` extension will be enabled in the migration if not already.
+- All hex/type/schema changes live in one migration; RLS + GRANTs included per project rules.
+- No changes to existing notification-creation code paths.
+
+## Deliverables
+
+1. Migration: `push_device_tokens` + trigger + `push_enabled` preference default.
+2. Edge function: `send-push` + secrets requested via `add_secret`.
+3. Client code: `pushRegistration.ts`, `firebaseMessaging.ts`, `public/firebase-messaging-sw.js`, settings toggle, auth hookups.
+4. Env vars added to `.env` for web Firebase config once you paste them.
