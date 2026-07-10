@@ -148,59 +148,96 @@ export const AddRetailer = () => {
   ];
   const [customRetailType, setCustomRetailType] = useState("");
 
-  // Load all distributors from distributors table
+  // Load all distributors from distributors table (cache-fallback when offline)
   const loadDistributors = async () => {
     if (!user) return;
+
+    const loadFromCache = async () => {
+      try {
+        await offlineStorage.init();
+        const cached = await offlineStorage.getAll<any>(STORES.DISTRIBUTORS);
+        setDistributors(
+          (cached || [])
+            .filter((d: any) => !d.status || d.status === 'active')
+            .map((d: any) => ({ id: d.id, name: d.name }))
+        );
+      } catch (e) {
+        console.error('[AddRetailer] cache read distributors failed:', e);
+        setDistributors([]);
+      }
+    };
+
+    if (!navigator.onLine) {
+      await loadFromCache();
+      return;
+    }
+
     const { data, error } = await supabase
       .from('distributors')
       .select('id, name')
       .eq('status', 'active')
       .order('name');
-    
+
     if (error) {
-      console.error('Failed to load distributors:', error);
-      setDistributors([]);
+      console.error('Failed to load distributors, falling back to cache:', error);
+      await loadFromCache();
     } else {
       setDistributors(data || []);
     }
   };
 
-  // Load distributors mapped to the selected beat
+  // Load distributors mapped to the selected beat (cache-fallback when offline)
   const loadBeatMappedDistributors = async (beatId: string) => {
     if (!beatId || beatId === 'unassigned') {
       setBeatMappedDistributors([]);
       return;
     }
-    
-    try {
-      // Find the beat's UUID from beat_id
-      const beat = beats.find(b => b.beat_id === beatId);
-      if (!beat?.id) {
-        setBeatMappedDistributors([]);
-        return;
-      }
 
+    // Find the beat's UUID from beat_id
+    const beat = beats.find(b => b.beat_id === beatId);
+    if (!beat?.id) {
+      setBeatMappedDistributors([]);
+      return;
+    }
+
+    const applyMapped = (rows: any[]) => {
+      const mapped = (rows || [])
+        .filter(d => d.distributors)
+        .map(d => ({ id: (d.distributors as any)?.id, name: (d.distributors as any)?.name }));
+      setBeatMappedDistributors(mapped);
+      if (mapped.length > 0 && !retailerData.selectedDistributors.length) {
+        handleInputChange("selectedDistributors", [mapped[0].id]);
+        handleInputChange("parentName", mapped[0].name);
+      }
+    };
+
+    const loadFromCache = async () => {
+      try {
+        await offlineStorage.init();
+        const cached = await offlineStorage.getAll<any>(STORES.DISTRIBUTOR_BEAT_MAPPINGS);
+        applyMapped((cached || []).filter((m: any) => m.beat_id === beat.id));
+      } catch (e) {
+        console.error('[AddRetailer] cache read beat mappings failed:', e);
+        setBeatMappedDistributors([]);
+      }
+    };
+
+    if (!navigator.onLine) {
+      await loadFromCache();
+      return;
+    }
+
+    try {
       const { data, error } = await supabase
         .from('distributor_beat_mappings')
         .select('distributor_id, distributors(id, name)')
         .eq('beat_id', beat.id);
-      
+
       if (error) throw error;
-      
-      const mappedDistributors = (data || [])
-        .filter(d => d.distributors)
-        .map(d => ({ id: (d.distributors as any)?.id, name: (d.distributors as any)?.name }));
-      
-      setBeatMappedDistributors(mappedDistributors);
-      
-      // Auto-select first distributor if available
-      if (mappedDistributors.length > 0 && !retailerData.selectedDistributors.length) {
-        handleInputChange("selectedDistributors", [mappedDistributors[0].id]);
-        handleInputChange("parentName", mappedDistributors[0].name);
-      }
+      applyMapped(data || []);
     } catch (error) {
-      console.error('Failed to load beat-mapped distributors:', error);
-      setBeatMappedDistributors([]);
+      console.error('Failed to load beat-mapped distributors, falling back to cache:', error);
+      await loadFromCache();
     }
   };
 
