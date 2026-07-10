@@ -3,10 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { CheckCircle2, AlertCircle, Clock, RefreshCw, AlertTriangle, XCircle, WifiOff, ChevronDown, ChevronUp, Package, MapPin, User, Calendar } from "lucide-react";
+import { CheckCircle2, AlertCircle, Clock, RefreshCw, AlertTriangle, XCircle, WifiOff, ChevronDown, ChevronUp, Package, MapPin, User, Calendar, Trash2 } from "lucide-react";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useManagedInterval } from "@/utils/intervalManager";
 import { type SyncErrorType, type SyncState, SLOW_RETRY_THRESHOLD } from "@/lib/syncErrorClassifier";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SyncItem {
   id: string;
