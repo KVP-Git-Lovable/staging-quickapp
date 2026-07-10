@@ -10,6 +10,8 @@ import { offlineStorage } from '@/lib/offlineStorage';
 import { clearRetailerIndex } from '@/lib/retailerIndex';
 import { clearUserScopedCaches } from '@/utils/userScopedCache';
 import { requestLocationPermission, requestStoragePermission } from '@/utils/permissions';
+import { registerNativePush, unregisterNativePush } from '@/utils/pushRegistration';
+import { Capacitor } from '@capacitor/core';
 import i18n from '@/i18n/config';
 
 interface AuthContextType {
@@ -271,6 +273,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               const secProfile = await fetchSecurityProfileName(currentUser.id);
               setSecurityProfileName(secProfile);
               if (secProfile) localStorage.setItem('cached_security_profile', secProfile);
+
+              // Register native push token on Android/iOS after login
+              if (Capacitor.isNativePlatform()) {
+                registerNativePush(currentUser.id, (route) => {
+                  window.location.assign(route);
+                });
+              }
             } catch (err) {
               devError('Error loading user data in auth change:', err);
               const basicProfile: UserProfile = {
@@ -540,6 +549,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     monitoring.logout();
     try {
+      // Unregister push token before clearing session
+      await unregisterNativePush().catch(() => {});
       // Sign out from Supabase (no longer auto-cancels visits)
       const { error } = await supabase.auth.signOut({ scope: 'local' });
       if (error) {
