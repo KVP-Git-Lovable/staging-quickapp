@@ -353,7 +353,7 @@ const fetchTeammateActivity = async (
     const [tvRes, toRes] = await Promise.all([
       supabase.from('visits').select('*').eq('planned_date', date)
         .in('user_id', teammates.userIds).in('retailer_id', sharedRetailerIds),
-      supabase.from('orders').select('*').eq('order_date', date)
+      supabase.from('orders').select('*, order_items!order_items_order_id_fkey(*)').eq('order_date', date)
         .in('status', ['confirmed', 'delivered'])
         .in('user_id', teammates.userIds).in('retailer_id', sharedRetailerIds),
     ]);
@@ -752,7 +752,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         supabase.from('beat_plans').select('*').eq('user_id', uid).eq('plan_date', date).abortSignal(controller.signal),
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date).abortSignal(controller.signal),
         // Fetch own orders AND orders on own beats (beat owner sees all orders on their beats)
-        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
+        supabase.from('orders').select('*, order_items!order_items_order_id_fkey(*)').eq('user_id', uid).eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
         fetchPointsForDate(uid, date)
       ]);
       clearTimeout(timeoutId);
@@ -1093,11 +1093,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       // teammate tags relative to another viewer (see stripPerspective).
       const persistVisits = stripPerspective(currentCache.visits);
       const persistOrders = stripPerspective(currentCache.orders);
+      const persistOrdersForCache = (persistOrders || []).map((o: any) => ({
+        ...o,
+        items: o.items || o.order_items || [],
+        sync_status: o.sync_status || 'synced',
+      }));
       Promise.all([
         offlineStorage.mergeData(STORES.BEAT_PLANS, currentCache.beatPlans),
         offlineStorage.mergeData(STORES.VISITS, persistVisits),
         offlineStorage.mergeData(STORES.RETAILERS, currentCache.retailers),
-        offlineStorage.mergeData(STORES.ORDERS, persistOrders)
+        offlineStorage.mergeData(STORES.ORDERS, persistOrdersForCache)
       ]).catch(e => console.error('[SmartSync] Storage error:', e));
 
       // Save snapshot (background) - pass date to calculateStats for proper filtering
@@ -1479,7 +1484,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         supabase.from('visits').select('*').eq('user_id', uid).eq('planned_date', date).abortSignal(controller.signal),
         // FIX #1 (unify with smartDeltaSync): fetch OWN orders only. Teammate
         // activity is fetched below via fetchTeammateActivity and tagged with _source.
-        supabase.from('orders').select('*').eq('user_id', uid).eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
+        supabase.from('orders').select('*, order_items!order_items_order_id_fkey(*)').eq('user_id', uid).eq('order_date', date).in('status', ['confirmed', 'delivered']).abortSignal(controller.signal),
         fetchPointsForDate(uid, date)
       ]);
       clearTimeout(timeoutId);
@@ -1596,11 +1601,16 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const persistVisits = stripPerspective(visitsData);
       const persistOrders = stripPerspective(mergedOrders);
 
+      const persistOrdersForCache = (persistOrders || []).map((o: any) => ({
+        ...o,
+        items: o.items || o.order_items || [],
+        sync_status: o.sync_status || 'synced',
+      }));
       await Promise.all([
         offlineStorage.mergeData(STORES.BEAT_PLANS, beatPlansData),
         offlineStorage.mergeData(STORES.VISITS, persistVisits),
         offlineStorage.mergeData(STORES.RETAILERS, retailersData),
-        offlineStorage.mergeData(STORES.ORDERS, persistOrders)
+        offlineStorage.mergeData(STORES.ORDERS, persistOrdersForCache)
       ]);
 
       // Save snapshot - include points for faster loading
