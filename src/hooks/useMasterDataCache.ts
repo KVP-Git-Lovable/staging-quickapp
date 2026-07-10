@@ -11,7 +11,7 @@ import type { AvailabilityRow, TerritoryLookupEntry } from '@/utils/productAvail
 // Trimmed columns for picker / order-entry use case (avoids select('*')
 // pulling rarely-used heavy fields). Kept in sync with TableOrderForm needs.
 const PRODUCT_PICKER_COLUMNS =
-  'id, name, sku, product_number, rate, unit, base_unit, base_unit_category, category_id, closing_stock, gst_percentage, hsn_code, tax_master_id, default_sales_uom_id, price_basis_uom_id, is_active';
+  'id, name, sku, product_number, rate, base_unit, base_unit_category, category_id, closing_stock, gst_percentage, hsn_code, tax_master_id, default_sales_uom_id, price_basis_uom_id, is_active';
 
 // Progress callback type for cache warming UI
 export type CacheProgressCallback = (stepId: string, status: 'loading' | 'done' | 'error') => void;
