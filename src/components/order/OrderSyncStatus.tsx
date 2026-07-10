@@ -184,6 +184,8 @@ export function useOrderSyncStatuses(
                 : localSyncStatus === "retrying"
                   ? "retrying"
                   : "pending";
+          } else if (local && (local.status === 'confirmed' || local.status === 'delivered' || local.invoice_number)) {
+            state = 'synced'; isLocalOnly = false;
           } else if (isLocalOnly && !localSyncStatus) {
             state = "pending";
           }
