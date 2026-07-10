@@ -245,7 +245,34 @@ export const SyncStatusIndicator = memo(() => {
       );
     }
     
-    // Always show sync icon for access to Prepare Offline Data
+    // Amber: preparing offline data (any warming step loading)
+    if (cacheWarming) {
+      return (
+        <button
+          className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+          title="Preparing offline data…"
+        >
+          <CloudCog className="h-4 w-4 text-amber-400" />
+          <RefreshCw className="h-3 w-3 animate-spin text-amber-400" />
+          <span className="text-xs text-amber-400 hidden sm:inline">Preparing…</span>
+        </button>
+      );
+    }
+
+    // Green: fully cached and safe to go offline
+    if (isOnline && cacheReady && syncQueueCount === 0) {
+      return (
+        <button
+          className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+          title="Ready for offline"
+        >
+          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <span className="text-xs text-green-500 hidden sm:inline">Ready for offline</span>
+        </button>
+      );
+    }
+
+    // Default: sync icon for access to Prepare Offline Data
     return (
       <button
         className="flex items-center gap-1 hover:opacity-80 transition-opacity"
