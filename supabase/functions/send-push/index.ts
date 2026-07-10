@@ -74,9 +74,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    // Validate shared secret from DB trigger (skip if not configured to allow local test)
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    // Validate shared secret from DB trigger. Fail closed: if the secret can't
+    // be loaded from push_config, reject the request rather than skipping.
     const providedSecret = req.headers.get('x-push-secret') ?? '';
-    if (TRIGGER_SECRET && providedSecret !== TRIGGER_SECRET) {
+    const expectedSecret = await loadTriggerSecret(admin);
+    if (!expectedSecret || providedSecret !== expectedSecret) {
       return new Response(JSON.stringify({ error: 'unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -91,8 +95,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     // Master push toggle from notification_preferences (template_type='push_master')
     const { data: pref } = await admin
