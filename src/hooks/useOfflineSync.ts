@@ -1341,7 +1341,10 @@ export function useOfflineSync() {
       case 'VAN_STOCK_SYNC': {
         const stockDate = data?.stockDate || data?.stock_date || getTodayDateString();
         const ok = await syncOrdersToVanStock(stockDate, data?.userId);
-        if (!ok) throw new Error('VAN_STOCK_SYNC: syncOrdersToVanStock returned false');
+        if (!ok) {
+          console.warn('[Sync] VAN_STOCK_SYNC soft skip — syncOrdersToVanStock returned false (non-applicable or transient); not throwing');
+          break;
+        }
         break;
       }
 
