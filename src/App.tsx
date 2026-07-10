@@ -16,6 +16,7 @@ import { FeatureProvider } from "@/context/FeatureContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
+import { cacheWarmingStore } from "@/components/CacheWarmingProgress";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAndroidBackButton } from "@/hooks/useAndroidBackButton";
 import { visitStatusCache } from "@/lib/visitStatusCache";
