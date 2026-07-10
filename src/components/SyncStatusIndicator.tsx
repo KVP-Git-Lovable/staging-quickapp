@@ -40,6 +40,27 @@ export const SyncStatusIndicator = memo(() => {
     completeWarming,
     dismissWarming,
   } = useCacheWarming();
+
+  // Derive offline-readiness signals from warming steps
+  const cacheWarming = steps.some(s => s.status === 'loading');
+  const allDone = steps.length > 0 && steps.every(s => s.status === 'done');
+
+  // Persist "ready today" so a reopen doesn't flash amber before background re-warm confirms
+  const [readyHydrated, setReadyHydrated] = useState<boolean>(() => {
+    try {
+      const ts = Number(localStorage.getItem('master_cache_ready_at') || 0);
+      if (!ts) return false;
+      const d = new Date(ts);
+      const now = new Date();
+      return d.toDateString() === now.toDateString();
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (allDone) setReadyHydrated(true);
+  }, [allDone]);
+  const cacheReady = allDone || (readyHydrated && !cacheWarming);
   
   // Only show syncing UI if sync takes more than 500ms (reduces visual noise)
   useEffect(() => {
