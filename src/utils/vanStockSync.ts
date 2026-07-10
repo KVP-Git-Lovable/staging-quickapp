@@ -150,8 +150,8 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
     }
 
     if (!vanStocks || vanStocks.length === 0) {
-      console.log('No van stock found for this date');
-      return false;
+      console.log('No van stock found for this date — nothing to sync (no-op success)');
+      return true;
     }
 
     // Get all orders for today by this user using order_date (DATE column) for reliable filtering
