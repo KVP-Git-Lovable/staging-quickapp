@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect } from "react";
+import { Suspense, lazy, useEffect, useRef } from "react";
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/i18n/config';
 import { Toaster } from "@/components/ui/toaster";
