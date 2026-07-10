@@ -202,6 +202,55 @@ export function useMasterDataCache() {
     }
   }, []);
 
+  // Cache profiles + distributors + distributor↔beat mappings so the
+  // AddRetailer form (Owner dropdown, Distributor selector) works offline.
+  const cacheOrgData = useCallback(async (onProgress?: CacheProgressCallback) => {
+    try {
+      onProgress?.('org', 'loading');
+      console.log('[Cache] Syncing profiles + distributors + beat mappings...');
+
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .order('full_name');
+      if (profs) {
+        await offlineStorage.replaceAll(STORES.PROFILES, profs.filter((p: any) => p.full_name));
+        console.log(`[Cache] ✅ ${profs.length} profiles cached`);
+      }
+
+      const { data: dists } = await supabase
+        .from('distributors')
+        .select('id, name, status')
+        .eq('status', 'active')
+        .order('name');
+      if (dists) {
+        await offlineStorage.replaceAll(STORES.DISTRIBUTORS, dists);
+        console.log(`[Cache] ✅ ${dists.length} distributors cached`);
+      }
+
+      const maps = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('distributor_beat_mappings')
+          .select('beat_id, distributor_id, distributors(id, name)')
+          .range(from, to)
+      );
+      if (maps) {
+        // Ensure each row has an id for offlineStorage keying
+        const withIds = maps.map((m: any, idx: number) => ({
+          id: `${m.beat_id}__${m.distributor_id}__${idx}`,
+          ...m,
+        }));
+        await offlineStorage.replaceAll(STORES.DISTRIBUTOR_BEAT_MAPPINGS, withIds);
+        console.log(`[Cache] ✅ ${withIds.length} distributor-beat mappings cached`);
+      }
+
+      onProgress?.('org', 'done');
+    } catch (error) {
+      console.error('[Cache] Error caching org data, keeping existing cache:', error);
+      onProgress?.('org', 'error');
+    }
+  }, []);
+
 
   // Cache ONLY active beats for current user
   const cacheBeats = useCallback(async (onProgress?: CacheProgressCallback) => {
