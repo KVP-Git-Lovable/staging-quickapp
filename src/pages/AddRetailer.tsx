@@ -300,23 +300,16 @@ export const AddRetailer = () => {
           String(a.beat_name || '').localeCompare(String(b.beat_name || ''))
         );
         
-        // Cache merged beats for offline access (include ownership fields)
-        if (merged.length > 0) {
+        // Cache merged beats for offline access (single batched write)
+        try {
           await offlineStorage.init();
-          console.log('[AddRetailer Online] Caching beats to IndexedDB:', merged.length);
-          for (const beat of merged) {
-            await offlineStorage.save(STORES.BEATS, {
-              id: beat.id,
-              beat_id: beat.beat_id,
-              beat_name: beat.beat_name,
-              user_id: beat.user_id,
-              created_by: beat.created_by,
-              owner_name: beat.owner_name ?? null,
-              access_type: beat.access_type,
-              is_active: true,
-            });
-          }
-          console.log('[AddRetailer Online] ✅ Beats cached successfully');
+          await offlineStorage.replaceAll(
+            STORES.BEATS,
+            merged.map((b: any) => ({ ...b, is_active: true }))
+          );
+          console.log('[AddRetailer Online] ✅ Beats cached to IndexedDB:', merged.length);
+        } catch (e) {
+          console.warn('[AddRetailer] cache beats failed:', e);
         }
         
         setBeats(merged);
