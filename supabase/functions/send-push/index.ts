@@ -175,10 +175,11 @@ Deno.serve(async (req) => {
 
     try {
       await admin.from('notification_event_log').insert({
-        notification_id: data?.notification_id ?? null,
-        user_id,
-        event_type: 'push_dispatch',
-        status: sent > 0 ? 'sent' : (tokens.length > 0 ? 'failed' : 'no_tokens'),
+        event_code: 'push_dispatch',
+        source_table: 'notifications',
+        record_id: data?.notification_id ? String(data.notification_id) : null,
+        actor_user_id: user_id,
+        processed: sent > 0,
         metadata: {
           attempted: tokens.length,
           sent,
