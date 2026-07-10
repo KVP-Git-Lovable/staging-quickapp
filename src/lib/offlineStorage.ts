@@ -61,6 +61,8 @@ class OfflineStorage {
   private memoryCache: Map<string, { data: any[]; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 60000; // 1 minute cache
   private readonly MAX_CACHE_SIZE = 10; // Limit number of cached stores to prevent memory bloat
+  private readonly CHUNK_SIZE = 1_000_000; // ~1MB/value — safely under the SharedPreferences bridge limit
+
 
   async init(): Promise<void> {
     if (this.initialized) return;
