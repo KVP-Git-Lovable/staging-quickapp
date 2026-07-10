@@ -27924,6 +27924,10 @@ export type Database = {
         }
         Returns: string
       }
+      set_category_products_active: {
+        Args: { p_active: boolean; p_category_id: string }
+        Returns: Json
+      }
       set_company_feature: {
         Args: {
           p_cascade?: boolean

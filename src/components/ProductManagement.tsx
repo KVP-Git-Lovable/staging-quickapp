@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download, Ban, CheckCircle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
 import { ProductExtendedFields } from './ProductExtendedFields';
@@ -128,7 +128,7 @@ const ProductManagement = () => {
   const [isVariantsViewOpen, setIsVariantsViewOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean;
-    type: 'product' | 'category' | 'variant' | 'all-products' | null;
+    type: 'product' | 'category' | 'variant' | 'all-products' | 'category-deactivate' | 'category-activate' | null;
     id: string;
     name: string;
   }>({ open: false, type: null, id: '', name: '' });
@@ -257,7 +257,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   };
 
 
-  const handleConfirmAction = () => {
+  const handleConfirmAction = async () => {
     if (deleteConfirm.type === 'product') {
       executeDeleteProduct(deleteConfirm.id);
     } else if (deleteConfirm.type === 'category') {
@@ -266,6 +266,19 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       executeDeleteVariant(deleteConfirm.id);
     } else if (deleteConfirm.type === 'all-products') {
       executeDeleteAllProducts();
+    } else if (deleteConfirm.type === 'category-deactivate' || deleteConfirm.type === 'category-activate') {
+      const makeActive = deleteConfirm.type === 'category-activate';
+      const { data, error } = await supabase.rpc('set_category_products_active', {
+        p_category_id: deleteConfirm.id, p_active: makeActive,
+      });
+      if (error) {
+        toast.error(`Failed: ${error.message}`);
+      } else {
+        const r = (data ?? {}) as { affected_products?: number; affected_variants?: number };
+        toast.success(`${makeActive ? 'Activated' : 'Inactivated'} "${deleteConfirm.name}": ${r.affected_products ?? 0} products, ${r.affected_variants ?? 0} variants.`);
+        await Promise.all([fetchCategories(), fetchProducts(), fetchVariants()]);
+      }
+      setDeleteConfirm({ open: false, type: null, id: '', name: '' });
     }
   };
 
@@ -1386,6 +1399,24 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                             <Button
                               variant="outline"
                               size="sm"
+                              className="text-destructive hover:text-destructive"
+                              title="Inactivate category"
+                              onClick={() => setDeleteConfirm({ open: true, type: 'category-deactivate', id: category.id, name: category.name })}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700"
+                              title="Activate category"
+                              onClick={() => setDeleteConfirm({ open: true, type: 'category-activate', id: category.id, name: category.name })}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
                               onClick={() => handleDeleteCategory(category.id, category.name)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1893,9 +1924,19 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       <AlertDialog open={deleteConfirm.open} onOpenChange={(open) => !open && setDeleteConfirm({ open: false, type: null, id: '', name: '' })}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {deleteConfirm.type === 'category-deactivate'
+                ? `Inactivate category "${deleteConfirm.name}"?`
+                : deleteConfirm.type === 'category-activate'
+                  ? `Activate category "${deleteConfirm.name}"?`
+                  : 'Are you absolutely sure?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteConfirm.type === 'all-products' ? (
+              {deleteConfirm.type === 'category-deactivate' ? (
+                <>This will set <strong>ALL products linked to "{deleteConfirm.name}"</strong> — and their variants — to inactive. They will no longer appear in order entry, search, or the offline cache until reactivated. Order history and inventory are preserved. Do you wish to proceed?</>
+              ) : deleteConfirm.type === 'category-activate' ? (
+                <>This will set <strong>ALL products linked to "{deleteConfirm.name}"</strong> — and their variants — back to active. They will reappear in order entry, search, and the offline cache. Do you wish to proceed?</>
+              ) : deleteConfirm.type === 'all-products' ? (
                 <>This will <strong>deactivate {deleteConfirm.name}</strong> (set <em>is_active = false</em>). Order history, distributor inventory, and schemes are preserved. Products can be reactivated individually later.</>
               ) : deleteConfirm.type === 'product' || deleteConfirm.type === 'variant' ? (
                 <>This will <strong>discontinue {deleteConfirm.name}</strong> instead of deleting it. History, returns, schemes, price books, tax links, and inventory references are preserved. It can be reactivated later from the Inactive tab.</>
@@ -1908,12 +1949,21 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             <AlertDialogCancel onClick={() => setDeleteConfirm({ open: false, type: null, id: '', name: '' })}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmAction} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {deleteConfirm.type === 'all-products'
-                ? 'Yes, Deactivate All'
-                : deleteConfirm.type === 'product' || deleteConfirm.type === 'variant'
-                  ? 'Yes, Discontinue'
-                  : 'Yes, Delete'}
+            <AlertDialogAction
+              onClick={handleConfirmAction}
+              className={deleteConfirm.type === 'category-activate'
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
+            >
+              {deleteConfirm.type === 'category-deactivate'
+                ? 'Yes, inactivate all'
+                : deleteConfirm.type === 'category-activate'
+                  ? 'Yes, activate all'
+                  : deleteConfirm.type === 'all-products'
+                    ? 'Yes, Deactivate All'
+                    : deleteConfirm.type === 'product' || deleteConfirm.type === 'variant'
+                      ? 'Yes, Discontinue'
+                      : 'Yes, Delete'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
