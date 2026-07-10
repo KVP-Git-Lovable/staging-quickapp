@@ -4,12 +4,25 @@ import { create, getNumericDate } from 'https://deno.land/x/djwt@v3.0.2/mod.ts';
 
 const PROJECT_ID = Deno.env.get('FIREBASE_PROJECT_ID')!;
 const SERVICE_ACCOUNT_RAW = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')!;
-const TRIGGER_SECRET = Deno.env.get('PUSH_TRIGGER_SHARED_SECRET') ?? '';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 let cachedToken: { token: string; exp: number } | null = null;
+let cachedTriggerSecret: { value: string; exp: number } | null = null;
+
+async function loadTriggerSecret(admin: ReturnType<typeof createClient>): Promise<string | null> {
+  const now = Date.now();
+  if (cachedTriggerSecret && cachedTriggerSecret.exp > now) return cachedTriggerSecret.value;
+  const { data, error } = await admin
+    .from('push_config')
+    .select('trigger_secret')
+    .eq('id', true)
+    .maybeSingle();
+  if (error || !data?.trigger_secret) return null;
+  cachedTriggerSecret = { value: data.trigger_secret as string, exp: now + 5 * 60 * 1000 };
+  return cachedTriggerSecret.value;
+}
 
 async function importPrivateKey(pem: string): Promise<CryptoKey> {
   const b64 = pem
@@ -61,9 +74,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    // Validate shared secret from DB trigger (skip if not configured to allow local test)
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    // Validate shared secret from DB trigger. Fail closed: if the secret can't
+    // be loaded from push_config, reject the request rather than skipping.
     const providedSecret = req.headers.get('x-push-secret') ?? '';
-    if (TRIGGER_SECRET && providedSecret !== TRIGGER_SECRET) {
+    const expectedSecret = await loadTriggerSecret(admin);
+    if (!expectedSecret || providedSecret !== expectedSecret) {
       return new Response(JSON.stringify({ error: 'unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -78,8 +95,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
     // Master push toggle from notification_preferences (template_type='push_master')
     const { data: pref } = await admin
