@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download, Ban, CheckCircle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
 import { ProductExtendedFields } from './ProductExtendedFields';
