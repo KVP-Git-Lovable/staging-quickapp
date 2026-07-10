@@ -37,7 +37,10 @@ export const STORES = {
   TERRITORIES_LOOKUP: 'territoriesLookup',
   EXPENSES: 'expenses',
   UOM_MASTER: 'uomMaster',
-  PRODUCT_UOM_MAPPING: 'productUomMapping'
+  PRODUCT_UOM_MAPPING: 'productUomMapping',
+  PROFILES: 'profiles',
+  DISTRIBUTORS: 'distributors',
+  DISTRIBUTOR_BEAT_MAPPINGS: 'distributorBeatMappings'
 } as const;
 
 // Sync metadata interface
