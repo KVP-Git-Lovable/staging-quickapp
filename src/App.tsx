@@ -265,12 +265,22 @@ const queryClient = new QueryClient({
 // Master data cache initializer - delayed to let UI render first
 const MasterDataCacheInitializer = () => {
   const { cacheAllMasterData, warmCacheWithProgress, isOnline } = useMasterDataCache();
+  const { user } = useAuth();
+  const lastWarmedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isOnline) return;
+    if (!isOnline || !user?.id) return;
+
+    // Guard against duplicate concurrent warms for the same user+online state.
+    // This lets the effect re-run on login / user switch (user.id in deps) but
+    // skips redundant re-warms when other deps churn.
+    const warmKey = `${user.id}:${isOnline ? 'online' : 'offline'}`;
+    if (lastWarmedRef.current === warmKey) return;
+    lastWarmedRef.current = warmKey;
+
     // Delay background sync by 1.5s to let UI render first for faster perceived startup.
     // Drives the shared cache-warming store so the header indicator goes amber → green
-    // automatically on every online open (no user tap required).
+    // automatically on app open, first login, and every logout→login.
     const timeoutId = setTimeout(() => {
       cacheAllMasterData();
       try {
@@ -283,7 +293,7 @@ const MasterDataCacheInitializer = () => {
       }
     }, 1500);
     return () => clearTimeout(timeoutId);
-  }, [isOnline, cacheAllMasterData, warmCacheWithProgress]);
+  }, [isOnline, user?.id, cacheAllMasterData, warmCacheWithProgress]);
 
   return null;
 };
