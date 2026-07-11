@@ -1377,7 +1377,10 @@ export const VisitCard = ({
             return sum + Number(isCredit ? (o.credit_paid_amount || 0) : (o.total_amount || 0));
           }, 0);
           const reconciled = Math.max(0, cachedPending - todaysPaidOffline);
-          if (pendingAmount !== reconciled) setPendingAmount(reconciled);
+          const todaysCreditPending = todaysOrders.reduce((s: number, o: any) =>
+            s + Number(o.credit_pending_amount ?? 0), 0);
+          const shown = Math.max(reconciled, todaysCreditPending);
+          if (pendingAmount !== shown) setPendingAmount(shown);
         } catch (e) { console.log('[VisitCard] offline pending read failed', e); }
       })();
       return;
