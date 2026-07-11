@@ -16,6 +16,10 @@ const PRODUCT_PICKER_COLUMNS =
 // Progress callback type for cache warming UI
 export type CacheProgressCallback = (stepId: string, status: 'loading' | 'done' | 'error') => void;
 
+// Bump to force every device to re-warm master data once (overwrites stale
+// UOM blob + header-only order rows from before the fetch fixes).
+const MASTER_CACHE_SCHEMA_VERSION = '2';
+
 /**
  * Hook to cache ONLY essential offline data (products, beats, retailers)
  * Does NOT cache historical data, visits, or orders - only what's needed for offline operations
