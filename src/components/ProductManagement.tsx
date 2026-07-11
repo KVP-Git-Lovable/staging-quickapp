@@ -106,6 +106,7 @@ const ProductManagement = () => {
   const [unitsValue, setUnitsValue] = useState<ProductUnitsEditorValue>(() => emptyProductUnitsEditorValue());
   const [savingProduct, setSavingProduct] = useState(false);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categoryUsage, setCategoryUsage] = useState<Record<string, number>>({});
   const [products, setProducts] = useState<Product[]>([]);
   
   const [variants, setVariants] = useState<ProductVariant[]>([]);
@@ -385,6 +386,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     
     if (error) throw error;
     setCategories(data || []);
+    fetchCategoryUsage();
+  };
+
+  const fetchCategoryUsage = async () => {
+    const { data } = await supabase.rpc('get_category_usage');
+    const map: Record<string, number> = {};
+    (data || []).forEach((r: any) => {
+      map[r.category_id] = Number(r.product_count) + Number(r.variant_count) + Number(r.scheme_count);
+    });
+    setCategoryUsage(map);
   };
 
   const fetchProducts = async () => {
@@ -837,15 +848,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
 
   const executeDeleteCategory = async (id: string) => {
     try {
-      const [{ count: prodCount }, { count: varCount }] = await Promise.all([
+      const [{ count: prodCount }, { count: varCount }, { count: schemeCount }] = await Promise.all([
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('category_id', id),
         supabase.from('product_variants').select('id', { count: 'exact', head: true }).eq('category_id', id),
+        supabase.from('product_schemes').select('id', { count: 'exact', head: true }).eq('category_id', id),
       ]);
 
-      const total = (prodCount ?? 0) + (varCount ?? 0);
+      const total = (prodCount ?? 0) + (varCount ?? 0) + (schemeCount ?? 0);
 
       if (total > 0) {
-        toast.error(`Cannot delete: ${prodCount ?? 0} product(s) and ${varCount ?? 0} variant(s) use this category. Reassign them first.`);
+        toast.error(`Cannot delete: ${prodCount ?? 0} product(s), ${varCount ?? 0} variant(s), and ${schemeCount ?? 0} scheme(s) use this category. Inactivate it instead.`);
         setDeleteConfirm({ open: false, type: null, id: '', name: '' });
         return;
       }
@@ -1458,13 +1470,23 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                             >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteCategory(category.id, category.name)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {(categoryUsage[category.id] ?? 0) === 0 ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                title="Delete empty category"
+                                onClick={() => handleDeleteCategory(category.id, category.name)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span
+                                className="text-xs text-muted-foreground px-2"
+                                title="This category has products/history — inactivate instead of deleting"
+                              >
+                                {categoryUsage[category.id]} in use
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

@@ -27150,6 +27150,15 @@ export type Database = {
           retailer_name: string
         }[]
       }
+      get_category_usage: {
+        Args: never
+        Returns: {
+          category_id: string
+          product_count: number
+          scheme_count: number
+          variant_count: number
+        }[]
+      }
       get_collection_workspace: {
         Args: { p_filter?: string }
         Returns: {
