@@ -14,6 +14,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 
+const isSynthFallback = (u: ProductUnit[]) =>
+  u.length === 1 && String(u[0]?.mappingId || '').startsWith('synth-');
+
+
 /** Offline fallback: assemble ProductUnit[] from the cached
  *  product_uom_mapping + uom_master stores populated by useMasterDataCache. */
 async function loadProductUnitsFromOfflineCache(productId: string): Promise<ProductUnit[]> {
