@@ -394,6 +394,13 @@ export function clearUomCache(productId?: string) {
   }
 }
 
+/** Wipe all in-memory UOM caches (product + enabled units). Use on
+ *  offline→online transition to force a fresh RPC re-fetch. */
+export function clearProductUnitsCache() {
+  productCache.clear();
+  enabledCache.clear();
+}
+
 // ============================================================================
 // Phase 2 — Per-UOM Price Override (additive layer on top of derived pricing)
 // ============================================================================
