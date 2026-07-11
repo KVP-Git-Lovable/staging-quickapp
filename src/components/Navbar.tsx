@@ -202,10 +202,7 @@ export const Navbar = memo(() => {
   return (
     <>
       {/* Navbar - positioned below safe area top */}
-      <nav
-        className="navbar-safe-area bg-gradient-primary text-white shadow-lg z-50"
-        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-      >
+      <nav className="navbar-safe-area bg-gradient-primary text-white shadow-lg z-50">
         <div className="px-4 py-3">
 
           <div className="flex items-center justify-between">

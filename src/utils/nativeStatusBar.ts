@@ -9,7 +9,7 @@ export const initNativeStatusBar = async () => {
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
     // Keep WebView below status bar — insets remain reliable across notch/punch-hole devices.
-    await StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+    await StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
     await StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
   } catch (e) {
     console.warn('[nativeStatusBar] init failed:', e);
