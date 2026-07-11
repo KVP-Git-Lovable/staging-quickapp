@@ -5,7 +5,7 @@ import { useConnectivity } from './useConnectivity';
 import { useAuth } from './useAuth';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { useManagedInterval } from '@/utils/intervalManager';
-import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+import { fetchAllPaginated, chunkIds } from '@/utils/fetchAllPaginated';
 import type { AvailabilityRow, TerritoryLookupEntry } from '@/utils/productAvailability';
 
 // Trimmed columns for picker / order-entry use case (avoids select('*')
