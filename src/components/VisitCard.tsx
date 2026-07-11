@@ -773,7 +773,20 @@ export const VisitCard = ({
       try {
         const cachedRetailer = await offlineStorage.getById<any>(STORES.RETAILERS, visitRetailerId as string);
         const cachedPending = Number(cachedRetailer?.pending_amount || 0);
-        if (cachedPending > 0 && pendingAmount !== cachedPending) setPendingAmount(cachedPending);
+        // Reconcile with today's offline orders/payments so paid credit doesn't linger.
+        const cachedOrders = await offlineStorage.getAll<any>(STORES.ORDERS);
+        const targetDateStr = targetDate.split('T')[0];
+        const todaysOrders = cachedOrders.filter((o: any) => {
+          const orderDateStr = (o.order_date || o.created_at || '').split('T')[0];
+          const isLive = o && o.status !== 'cancelled' && !o.replaced_by_order_id;
+          return isLive && o.user_id === currentUserId && o.retailer_id === visitRetailerId && orderDateStr === targetDateStr;
+        });
+        const todaysPaidOffline = todaysOrders.reduce((sum: number, o: any) => {
+          const isCredit = (o.payment_method || '').toLowerCase() === 'credit';
+          return sum + Number(isCredit ? (o.credit_paid_amount || 0) : (o.total_amount || 0));
+        }, 0);
+        const reconciled = Math.max(0, cachedPending - todaysPaidOffline);
+        if (pendingAmount !== reconciled) setPendingAmount(reconciled);
       } catch (e) { console.log('[VisitCard] offline pending read failed', e); }
       const cachedStatus = await visitStatusCache.get(visitRetailerId, currentUserId, targetDate);
       if (cachedStatus) {
