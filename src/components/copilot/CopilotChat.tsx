@@ -80,12 +80,10 @@ function ChatInner({
 
   useEffect(() => { inputRef.current?.focus(); }, [threadId, status]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSend = async () => {
     const text = input.trim();
     if (!text || status === 'submitted' || status === 'streaming') return;
     setInput('');
-    // Persist the user message so it survives reload
     const { data: sess } = await supabase.auth.getUser();
     if (sess.user) {
       await supabase.from('copilot_messages').insert({
@@ -123,8 +121,8 @@ function ChatInner({
         <ConversationScrollButton />
       </Conversation>
 
-      <form onSubmit={handleSubmit} className="border-t bg-background">
-        <PromptInput onSubmit={handleSubmit}>
+      <div className="border-t bg-background">
+        <PromptInput onSubmit={() => { void doSend(); }}>
           <PromptInputTextarea
             ref={inputRef as any}
             value={input}
@@ -136,14 +134,14 @@ function ChatInner({
             <PromptInputSubmit status={status} disabled={!input.trim()} />
           </PromptInputFooter>
         </PromptInput>
-      </form>
+      </div>
     </div>
   );
 }
 
 function MessageRow({
   message, onApprove,
-}: { message: UIMessage; onApprove: (r: { toolCallId: string; result: unknown }) => void }) {
+}: { message: UIMessage; onApprove: (r: { tool: string; toolCallId: string; output: unknown }) => void }) {
   return (
     <Message from={message.role as any}>
       <MessageContent>
