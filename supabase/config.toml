@@ -56,3 +56,7 @@ verify_jwt = false
 
 [functions.send-push]
 verify_jwt = false
+
+[functions.copilot-agent]
+verify_jwt = true
+
