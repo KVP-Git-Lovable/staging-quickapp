@@ -386,6 +386,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     
     if (error) throw error;
     setCategories(data || []);
+    fetchCategoryUsage();
+  };
+
+  const fetchCategoryUsage = async () => {
+    const { data } = await supabase.rpc('get_category_usage');
+    const map: Record<string, number> = {};
+    (data || []).forEach((r: any) => {
+      map[r.category_id] = Number(r.product_count) + Number(r.variant_count) + Number(r.scheme_count);
+    });
+    setCategoryUsage(map);
   };
 
   const fetchProducts = async () => {
