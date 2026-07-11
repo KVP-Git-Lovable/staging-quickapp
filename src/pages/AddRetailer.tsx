@@ -1088,7 +1088,7 @@ export const AddRetailer = () => {
             name: retailerData.name,
           });
         } else {
-          navigate(returnTo, { replace: true });
+          navigate(result.offline ? '/visits/retailers' : returnTo, { replace: true });
         }
       } else {
         toast({
