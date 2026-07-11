@@ -53,6 +53,29 @@ export function useOfflineRetailers() {
       // Save to local cache immediately
       await offlineStorage.save(STORES.RETAILERS, localRetailer);
 
+      try {
+        const uid = localRetailer.user_id;
+        const beatId = localRetailer.beat_id;
+        if (uid && beatId && beatId !== 'unassigned') {
+          const today = getLocalTodayDate();
+          const cachedBeatPlans = await offlineStorage.getAll<any>(STORES.BEAT_PLANS);
+          const todaysPlan = cachedBeatPlans.find((bp: any) =>
+            bp.user_id === uid && bp.plan_date === today && bp.beat_id === beatId);
+          if (todaysPlan) {
+            const beatData = todaysPlan.beat_data || {};
+            const ids = Array.isArray(beatData.retailer_ids) ? beatData.retailer_ids : [];
+            if (!ids.includes(localRetailer.id)) {
+              const updatedPlan = { ...todaysPlan,
+                beat_data: { ...beatData, retailer_ids: [...ids, localRetailer.id] },
+                updated_at: new Date().toISOString() };
+              await offlineStorage.save(STORES.BEAT_PLANS, updatedPlan);
+              await updateBeatPlanInSnapshot(uid, today, updatedPlan);
+            }
+          }
+          await addRetailerToSnapshot(uid, today, localRetailer);
+        }
+      } catch (e) { console.error('[createRetailer] join-to-today failed:', e); }
+
       // Dispatch retailerAdded event immediately for instant UI update
       window.dispatchEvent(new CustomEvent('retailerAdded', { 
         detail: { retailer: localRetailer } 
