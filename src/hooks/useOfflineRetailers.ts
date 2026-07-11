@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useConnectivity } from './useConnectivity';
 import { toast } from './use-toast';
 import { isSlowConnection } from '@/utils/internetSpeedCheck';
+import { addRetailerToSnapshot, updateBeatPlanInSnapshot } from '@/lib/myVisitsSnapshot';
+import { getLocalTodayDate } from '@/utils/dateUtils';
 
 const stripRetailerClientFields = (payload: any) => {
   const clientOnlyFields = new Set([
