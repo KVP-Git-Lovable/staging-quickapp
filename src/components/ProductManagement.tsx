@@ -106,6 +106,7 @@ const ProductManagement = () => {
   const [unitsValue, setUnitsValue] = useState<ProductUnitsEditorValue>(() => emptyProductUnitsEditorValue());
   const [savingProduct, setSavingProduct] = useState(false);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [categoryUsage, setCategoryUsage] = useState<Record<string, number>>({});
   const [products, setProducts] = useState<Product[]>([]);
   
   const [variants, setVariants] = useState<ProductVariant[]>([]);
