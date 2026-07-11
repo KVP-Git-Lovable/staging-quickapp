@@ -52,6 +52,7 @@ import { ContactPage } from "./pages/website/ContactPage";
 import PrivacyPolicyPage from "./pages/website/PrivacyPolicyPage";
 import DemoRequestPage from "./pages/website/DemoRequestPage";
 import Index from "./pages/Index";
+import Copilot from "./pages/Copilot";
 import { MyVisits } from "./pages/MyVisits";
 import { OrderEntry } from "./pages/OrderEntry";
 import CounterSales from "./pages/CounterSales";
