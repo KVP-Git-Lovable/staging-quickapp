@@ -188,17 +188,20 @@ export function useMasterDataCache() {
       // 2) Big & fragile: product_uom_mapping — ISOLATED so a failure here
       //    can't wipe out the UOM_MASTER cache (base-unit fallback depends on it).
       try {
-        const mappings = await fetchAllPaginated<any>((from, to) =>
-          supabase.from('product_uom_mapping')
-            .select('id, product_id, uom_id, conversion_to_base, is_default_sales, is_price_basis, is_default_purchase, is_active, products!inner(is_active)')
-            .or('is_active.is.null,is_active.eq.true', { referencedTable: 'products' })
-            .range(from, to)
-        );
-
-        if (mappings) {
-          await offlineStorage.replaceAll(STORES.PRODUCT_UOM_MAPPING, mappings);
-          console.log(`[Cache] ✅ ${mappings.length} product UOM mappings cached`);
+        const activeProducts = await offlineStorage.getAll<any>(STORES.PRODUCTS);
+        const activeIds = (activeProducts || []).map((p: any) => p.id).filter(Boolean);
+        const mappings: any[] = [];
+        for (const chunk of chunkIds(activeIds)) {
+          const part = await fetchAllPaginated<any>((from, to) =>
+            supabase.from('product_uom_mapping')
+              .select('id, product_id, uom_id, conversion_to_base, is_default_sales, is_price_basis, is_default_purchase, is_active')
+              .in('product_id', chunk)
+              .order('id', { ascending: true })   // deterministic pagination — no dropped rows
+              .range(from, to));
+          if (part) mappings.push(...part);
         }
+        await offlineStorage.replaceAll(STORES.PRODUCT_UOM_MAPPING, mappings);
+        console.log(`[Cache] ✅ ${mappings.length} product UOM mappings cached`);
       } catch (mapErr) {
         console.warn('[Cache] product_uom_mapping fetch failed; UOM_MASTER + base-unit fallback still available', mapErr);
       }
