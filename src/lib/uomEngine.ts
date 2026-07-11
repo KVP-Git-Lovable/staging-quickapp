@@ -186,17 +186,19 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
   const cached = productCache.get(productId);
   if (cached) return cached;
 
-  // Offline: skip the RPC and read from the master-data cache directly.
+  // Offline: prefer the complete per-product IndexedDB blob (written by
+  // prefetchAllProductUnits — always complete) before the paginated
+  // mapping-cache join, which can be partial.
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    const fromMaster = await loadProductUnitsFromOfflineCache(productId);
-    if (fromMaster.length > 0) {
-      if (!isSynthFallback(fromMaster)) productCache.set(productId, fromMaster); // don't cache the stopgap
-      return fromMaster;
-    }
     const fromIdb = await idbGet<ProductUnit[]>(`product:${productId}`);
-    if (fromIdb) {
+    if (fromIdb && fromIdb.length > 0) {
       productCache.set(productId, fromIdb);
       return fromIdb;
+    }
+    const fromMaster = await loadProductUnitsFromOfflineCache(productId);
+    if (fromMaster.length > 0) {
+      if (!isSynthFallback(fromMaster)) productCache.set(productId, fromMaster);
+      return fromMaster;
     }
     return [];
   }
@@ -390,6 +392,13 @@ export function clearUomCache(productId?: string) {
     productCache.clear();
     enabledCache.clear();
   }
+}
+
+/** Wipe all in-memory UOM caches (product + enabled units). Use on
+ *  offline→online transition to force a fresh RPC re-fetch. */
+export function clearProductUnitsCache() {
+  productCache.clear();
+  enabledCache.clear();
 }
 
 // ============================================================================

@@ -27357,6 +27357,22 @@ export type Database = {
         Returns: string
       }
       get_activity_logging_summary: { Args: { p_days: number }; Returns: Json }
+      get_all_product_units: {
+        Args: never
+        Returns: {
+          category: string
+          code: string
+          conversion_to_base: number
+          is_base: boolean
+          is_default_purchase: boolean
+          is_default_sales: boolean
+          is_price_basis: boolean
+          mapping_id: string
+          name: string
+          product_id: string
+          uom_id: string
+        }[]
+      }
       get_all_subordinates: {
         Args: { manager_user_id: string }
         Returns: {

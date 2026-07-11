@@ -7,6 +7,7 @@ import { getLocalTodayDate } from '@/utils/dateUtils';
 import { useManagedInterval } from '@/utils/intervalManager';
 import { fetchAllPaginated, chunkIds } from '@/utils/fetchAllPaginated';
 import type { AvailabilityRow, TerritoryLookupEntry } from '@/utils/productAvailability';
+import { prefetchAllProductUnits } from '@/lib/uomEngine';
 
 // Trimmed columns for picker / order-entry use case (avoids select('*')
 // pulling rarely-used heavy fields). Kept in sync with TableOrderForm needs.
@@ -208,6 +209,15 @@ export function useMasterDataCache() {
         console.log(`[Cache] ✅ ${mappings.length} product UOM mappings cached`);
       } catch (mapErr) {
         console.warn('[Cache] product_uom_mapping fetch failed; UOM_MASTER + base-unit fallback still available', mapErr);
+      }
+
+      // 3) Bulk-prefetch complete per-product unit blobs via one RPC.
+      //    Immune to pagination — populates in-memory + IndexedDB caches.
+      try {
+        await prefetchAllProductUnits();
+        console.log('[Cache] ✅ all product units prefetched');
+      } catch (e) {
+        console.warn('[Cache] prefetch units failed', e);
       }
 
       onProgress?.('uom', 'done');

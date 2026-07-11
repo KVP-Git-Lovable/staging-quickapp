@@ -266,9 +266,30 @@ const queryClient = new QueryClient({
 
 // Master data cache initializer - delayed to let UI render first
 const MasterDataCacheInitializer = () => {
-  const { cacheAllMasterData, warmCacheWithProgress, isOnline } = useMasterDataCache();
+  const { cacheAllMasterData, warmCacheWithProgress, forceRefreshMasterData, isOnline } = useMasterDataCache();
   const { user } = useAuth();
   const lastWarmedRef = useRef<string | null>(null);
+  const wasOnlineRef = useRef<boolean>(isOnline);
+
+  // Offline→online transition: drop stale in-memory UOM caches, invalidate
+  // React Query, and re-fetch the full unit list immediately.
+  useEffect(() => {
+    const wasOnline = wasOnlineRef.current;
+    wasOnlineRef.current = isOnline;
+    if (!user?.id) return;
+    if (!wasOnline && isOnline) {
+      (async () => {
+        try {
+          const { clearProductUnitsCache } = await import('@/lib/uomEngine');
+          clearProductUnitsCache();
+        } catch {}
+        try { queryClient.invalidateQueries({ queryKey: ['uom'] }); } catch {}
+        try { await forceRefreshMasterData(); } catch (e) {
+          console.warn('[MasterDataCacheInitializer] online-transition refresh failed:', e);
+        }
+      })();
+    }
+  }, [isOnline, user?.id, forceRefreshMasterData]);
 
   useEffect(() => {
     if (!isOnline || !user?.id) return;
