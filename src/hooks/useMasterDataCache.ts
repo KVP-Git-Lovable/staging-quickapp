@@ -210,6 +210,15 @@ export function useMasterDataCache() {
         console.warn('[Cache] product_uom_mapping fetch failed; UOM_MASTER + base-unit fallback still available', mapErr);
       }
 
+      // 3) Bulk-prefetch complete per-product unit blobs via one RPC.
+      //    Immune to pagination — populates in-memory + IndexedDB caches.
+      try {
+        await prefetchAllProductUnits();
+        console.log('[Cache] ✅ all product units prefetched');
+      } catch (e) {
+        console.warn('[Cache] prefetch units failed', e);
+      }
+
       onProgress?.('uom', 'done');
     } catch (error) {
       console.error('[Cache] Error caching UOM data, keeping existing cache:', error);
