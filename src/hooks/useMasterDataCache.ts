@@ -7,6 +7,7 @@ import { getLocalTodayDate } from '@/utils/dateUtils';
 import { useManagedInterval } from '@/utils/intervalManager';
 import { fetchAllPaginated, chunkIds } from '@/utils/fetchAllPaginated';
 import type { AvailabilityRow, TerritoryLookupEntry } from '@/utils/productAvailability';
+import { prefetchAllProductUnits } from '@/lib/uomEngine';
 
 // Trimmed columns for picker / order-entry use case (avoids select('*')
 // pulling rarely-used heavy fields). Kept in sync with TableOrderForm needs.
