@@ -770,6 +770,11 @@ export const VisitCard = ({
     // OFFLINE GUARD: When offline, use ONLY cached data - NO network calls
     if (!navigator.onLine) {
       console.log('📵 [VisitCard] OFFLINE - using cache only for:', visitRetailerId);
+      try {
+        const cachedRetailer = await offlineStorage.getById<any>(STORES.RETAILERS, visitRetailerId as string);
+        const cachedPending = Number(cachedRetailer?.pending_amount || 0);
+        if (cachedPending > 0 && pendingAmount !== cachedPending) setPendingAmount(cachedPending);
+      } catch (e) { console.log('[VisitCard] offline pending read failed', e); }
       const cachedStatus = await visitStatusCache.get(visitRetailerId, currentUserId, targetDate);
       if (cachedStatus) {
         if (currentStatus !== cachedStatus.status) {
@@ -1331,8 +1336,18 @@ export const VisitCard = ({
   // Fetch pending amount for retailer - ONLY when online
   // FIX: Defer to avoid initial render cascade that causes flickering
   useEffect(() => {
-    // OFFLINE GUARD: Skip network calls when offline - use existing cached state
-    if (!navigator.onLine) return;
+    // OFFLINE GUARD: Read pending from cached retailers store instead of network
+    const visitRetailerId = visit.retailerId || visit.id;
+    if (!navigator.onLine) {
+      (async () => {
+        try {
+          const cachedRetailer = await offlineStorage.getById<any>(STORES.RETAILERS, visitRetailerId as string);
+          const cachedPending = Number(cachedRetailer?.pending_amount || 0);
+          if (cachedPending > 0 && pendingAmount !== cachedPending) setPendingAmount(cachedPending);
+        } catch (e) { console.log('[VisitCard] offline pending read failed', e); }
+      })();
+      return;
+    }
     
     // Defer to avoid blocking initial paint
     const timer = setTimeout(async () => {
