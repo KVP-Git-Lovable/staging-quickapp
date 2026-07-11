@@ -173,11 +173,11 @@ function MessageRow({
                     <div className="p-3 border-t flex gap-2 items-center bg-muted/50">
                       <span className="text-xs flex-1">This will make a change. Approve?</span>
                       <Button size="sm" variant="outline"
-                        onClick={() => onApprove({ toolCallId: part.toolCallId, result: { denied: true } })}>
+                        onClick={() => onApprove({ tool: toolName, toolCallId: part.toolCallId, output: { denied: true } })}>
                         <X className="w-3 h-3 mr-1" /> Deny
                       </Button>
                       <Button size="sm"
-                        onClick={() => onApprove({ toolCallId: part.toolCallId, result: { approved: true } })}>
+                        onClick={() => onApprove({ tool: toolName, toolCallId: part.toolCallId, output: { approved: true } })}>
                         <Check className="w-3 h-3 mr-1" /> Approve
                       </Button>
                     </div>
