@@ -913,8 +913,15 @@ export function useMasterDataCache() {
     const lastCached = localStorage.getItem('master_data_cached_at');
     const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
     
+    const cachedSchemaVersion = localStorage.getItem('master_cache_schema_version');
+    const schemaChanged = cachedSchemaVersion !== MASTER_CACHE_SCHEMA_VERSION;
+
     if (isOnline) {
-      if (!lastCached || parseInt(lastCached) < fourHoursAgo) {
+      if (schemaChanged) {
+        console.log('[Cache] Schema version changed, forcing one-time re-warm...');
+        forceRefreshMasterData();
+        localStorage.setItem('master_cache_schema_version', MASTER_CACHE_SCHEMA_VERSION);
+      } else if (!lastCached || parseInt(lastCached) < fourHoursAgo) {
         console.log('[Cache] Cache expired or missing, syncing offline data...');
         // Use forceRefreshMasterData to also notify UI
         forceRefreshMasterData();
