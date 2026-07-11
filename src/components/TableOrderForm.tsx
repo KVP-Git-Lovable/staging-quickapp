@@ -1277,6 +1277,24 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     return parseFloat(orderCalculation.finalTotal.toFixed(2));
   };
 
+  const getGstAmount = () => {
+    const taxable = orderRows.filter(r => r.product && r.quantity > 0);
+    const subtotal = taxable.reduce((s, r) => {
+      const catalog = getPricePerUnit(r.product!, r.variant, r.uomCode || r.unit, r.conversionToBase, r.priceBasisConversionToBase);
+      const eff = (r.editedRate != null && Number.isFinite(r.editedRate)) ? Number(r.editedRate) : catalog;
+      return s + eff * r.quantity;
+    }, 0);
+    if (subtotal <= 0) return 0;
+    const discountFactor = getFinalTotal() / subtotal;
+    return taxable.reduce((tax, r) => {
+      const catalog = getPricePerUnit(r.product!, r.variant, r.uomCode || r.unit, r.conversionToBase, r.priceBasisConversionToBase);
+      const eff = (r.editedRate != null && Number.isFinite(r.editedRate)) ? Number(r.editedRate) : catalog;
+      const lineTaxable = eff * r.quantity * discountFactor;
+      const gstPct = Number((r.product as any)?.gst_percentage) || 0;
+      return tax + lineTaxable * gstPct / 100;
+    }, 0);
+  };
+
   const hasActiveSchemes = (product: Product) => {
     return product.schemes && product.schemes.some(scheme => scheme.is_active);
   };
