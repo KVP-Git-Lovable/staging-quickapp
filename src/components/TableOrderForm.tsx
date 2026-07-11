@@ -1751,7 +1751,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             <p className="text-lg font-bold">₹{getFinalTotal().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            (incl. GST: ₹{(getFinalTotal() * 1.05).toLocaleString('en-IN', { maximumFractionDigits: 2 })})
+            (incl. GST: ₹{(getFinalTotal() + getGstAmount()).toLocaleString('en-IN', { maximumFractionDigits: 2 })})
           </p>
         </div>
       </div>
