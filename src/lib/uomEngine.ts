@@ -14,6 +14,10 @@
 import { supabase } from '@/integrations/supabase/client';
 import { offlineStorage, STORES } from '@/lib/offlineStorage';
 
+const isSynthFallback = (u: ProductUnit[]) =>
+  u.length === 1 && String(u[0]?.mappingId || '').startsWith('synth-');
+
+
 /** Offline fallback: assemble ProductUnit[] from the cached
  *  product_uom_mapping + uom_master stores populated by useMasterDataCache. */
 async function loadProductUnitsFromOfflineCache(productId: string): Promise<ProductUnit[]> {
@@ -186,7 +190,7 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     const fromMaster = await loadProductUnitsFromOfflineCache(productId);
     if (fromMaster.length > 0) {
-      productCache.set(productId, fromMaster);
+      if (!isSynthFallback(fromMaster)) productCache.set(productId, fromMaster); // don't cache the stopgap
       return fromMaster;
     }
     const fromIdb = await idbGet<ProductUnit[]>(`product:${productId}`);
@@ -203,7 +207,7 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
     // legacy per-product idb blob.
     const fromMaster = await loadProductUnitsFromOfflineCache(productId);
     if (fromMaster.length > 0) {
-      productCache.set(productId, fromMaster);
+      if (!isSynthFallback(fromMaster)) productCache.set(productId, fromMaster); // don't cache the stopgap
       return fromMaster;
     }
     const fromIdb = await idbGet<ProductUnit[]>(`product:${productId}`);
