@@ -207,7 +207,7 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
     // legacy per-product idb blob.
     const fromMaster = await loadProductUnitsFromOfflineCache(productId);
     if (fromMaster.length > 0) {
-      productCache.set(productId, fromMaster);
+      if (!isSynthFallback(fromMaster)) productCache.set(productId, fromMaster); // don't cache the stopgap
       return fromMaster;
     }
     const fromIdb = await idbGet<ProductUnit[]>(`product:${productId}`);
