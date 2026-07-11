@@ -16,6 +16,10 @@ const PRODUCT_PICKER_COLUMNS =
 // Progress callback type for cache warming UI
 export type CacheProgressCallback = (stepId: string, status: 'loading' | 'done' | 'error') => void;
 
+// Bump to force every device to re-warm master data once (overwrites stale
+// UOM blob + header-only order rows from before the fetch fixes).
+const MASTER_CACHE_SCHEMA_VERSION = '2';
+
 /**
  * Hook to cache ONLY essential offline data (products, beats, retailers)
  * Does NOT cache historical data, visits, or orders - only what's needed for offline operations
@@ -909,8 +913,15 @@ export function useMasterDataCache() {
     const lastCached = localStorage.getItem('master_data_cached_at');
     const fourHoursAgo = Date.now() - (4 * 60 * 60 * 1000);
     
+    const cachedSchemaVersion = localStorage.getItem('master_cache_schema_version');
+    const schemaChanged = cachedSchemaVersion !== MASTER_CACHE_SCHEMA_VERSION;
+
     if (isOnline) {
-      if (!lastCached || parseInt(lastCached) < fourHoursAgo) {
+      if (schemaChanged) {
+        console.log('[Cache] Schema version changed, forcing one-time re-warm...');
+        forceRefreshMasterData();
+        localStorage.setItem('master_cache_schema_version', MASTER_CACHE_SCHEMA_VERSION);
+      } else if (!lastCached || parseInt(lastCached) < fourHoursAgo) {
         console.log('[Cache] Cache expired or missing, syncing offline data...');
         // Use forceRefreshMasterData to also notify UI
         forceRefreshMasterData();
