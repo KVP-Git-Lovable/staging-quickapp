@@ -848,15 +848,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
 
   const executeDeleteCategory = async (id: string) => {
     try {
-      const [{ count: prodCount }, { count: varCount }] = await Promise.all([
+      const [{ count: prodCount }, { count: varCount }, { count: schemeCount }] = await Promise.all([
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('category_id', id),
         supabase.from('product_variants').select('id', { count: 'exact', head: true }).eq('category_id', id),
+        supabase.from('product_schemes').select('id', { count: 'exact', head: true }).eq('category_id', id),
       ]);
 
-      const total = (prodCount ?? 0) + (varCount ?? 0);
+      const total = (prodCount ?? 0) + (varCount ?? 0) + (schemeCount ?? 0);
 
       if (total > 0) {
-        toast.error(`Cannot delete: ${prodCount ?? 0} product(s) and ${varCount ?? 0} variant(s) use this category. Reassign them first.`);
+        toast.error(`Cannot delete: ${prodCount ?? 0} product(s), ${varCount ?? 0} variant(s), and ${schemeCount ?? 0} scheme(s) use this category. Inactivate it instead.`);
         setDeleteConfirm({ open: false, type: null, id: '', name: '' });
         return;
       }
