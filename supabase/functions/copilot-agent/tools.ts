@@ -39,7 +39,7 @@ export function buildReadTools(ctx: ToolCtx) {
 
     get_attendance_summary: tool({
       description:
-        "Get the user's attendance summary (present/absent/leave count) for a period. Defaults to current month.",
+        "Get the current user's attendance records (present/absent/leave/half-day counts, plus per-day rows) for any date range — current month, past months, or a custom range. ALWAYS call this tool when the user asks about their attendance, check-in/out, working days, or absences for any period (including past months like 'June 2026'). Never say you don't have access.",
       inputSchema: z.object({
         from_date: z.string().nullable().describe("YYYY-MM-DD; defaults to first of current month"),
         to_date: z.string().nullable().describe("YYYY-MM-DD; defaults to today"),
@@ -49,14 +49,15 @@ export function buildReadTools(ctx: ToolCtx) {
         const from = from_date || `${today.slice(0, 7)}-01`;
         const { data, error } = await supabase
           .from("attendance")
-          .select("attendance_date, status")
+          .select("date, status, check_in_time, check_out_time, total_hours")
           .eq("user_id", userId)
-          .gte("attendance_date", from)
-          .lte("attendance_date", to);
+          .gte("date", from)
+          .lte("date", to)
+          .order("date", { ascending: true });
         if (error) return { error: error.message };
         const counts: Record<string, number> = {};
         for (const r of data ?? []) counts[r.status] = (counts[r.status] || 0) + 1;
-        return { from, to, counts, total_days: data?.length ?? 0 };
+        return { from, to, counts, total_days: data?.length ?? 0, records: data ?? [] };
       },
     }),
 
