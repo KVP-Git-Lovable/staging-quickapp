@@ -1470,13 +1470,23 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                             >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteCategory(category.id, category.name)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            {(categoryUsage[category.id] ?? 0) === 0 ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                title="Delete empty category"
+                                onClick={() => handleDeleteCategory(category.id, category.name)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <span
+                                className="text-xs text-muted-foreground px-2"
+                                title="This category has products/history — inactivate instead of deleting"
+                              >
+                                {categoryUsage[category.id]} in use
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
