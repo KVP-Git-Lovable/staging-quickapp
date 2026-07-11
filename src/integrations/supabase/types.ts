@@ -3252,6 +3252,250 @@ export type Database = {
           },
         ]
       }
+      copilot_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          is_archived: boolean
+          is_pinned: boolean
+          last_message_at: string
+          metadata: Json
+          model: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_pinned?: boolean
+          last_message_at?: string
+          metadata?: Json
+          model?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_pinned?: boolean
+          last_message_at?: string
+          metadata?: Json
+          model?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      copilot_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          message_id: string
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          message_id: string
+          rating: number
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string
+          rating?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copilot_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "copilot_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      copilot_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          latency_ms: number | null
+          model: string | null
+          parts: Json
+          role: string
+          token_count: number | null
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          parts?: Json
+          role: string
+          token_count?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          parts?: Json
+          role?: string
+          token_count?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copilot_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "copilot_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      copilot_tool_audit: {
+        Row: {
+          approved_at: string | null
+          args: Json
+          conversation_id: string | null
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          id: string
+          message_id: string | null
+          result: Json | null
+          status: string
+          tool_name: string
+          user_id: string
+          was_write: boolean
+        }
+        Insert: {
+          approved_at?: string | null
+          args?: Json
+          conversation_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          message_id?: string | null
+          result?: Json | null
+          status?: string
+          tool_name: string
+          user_id: string
+          was_write?: boolean
+        }
+        Update: {
+          approved_at?: string | null
+          args?: Json
+          conversation_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          message_id?: string | null
+          result?: Json | null
+          status?: string
+          tool_name?: string
+          user_id?: string
+          was_write?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copilot_tool_audit_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "copilot_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copilot_tool_audit_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "copilot_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      copilot_user_memory: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          user_id: string
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          user_id: string
+          value: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          user_id?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      copilot_user_quotas: {
+        Row: {
+          created_at: string
+          daily_token_limit: number
+          daily_tool_call_limit: number
+          quota_reset_at: string
+          tokens_used_today: number
+          tool_calls_today: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_token_limit?: number
+          daily_tool_call_limit?: number
+          quota_reset_at?: string
+          tokens_used_today?: number
+          tool_calls_today?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_token_limit?: number
+          daily_tool_call_limit?: number
+          quota_reset_at?: string
+          tokens_used_today?: number
+          tool_calls_today?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       counter_customers: {
         Row: {
           address: string | null

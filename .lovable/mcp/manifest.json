@@ -22,19 +22,16 @@
           "openWorldHint": false
         },
         "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "properties": {
             "text": {
-              "type": "string",
-              "minLength": 1,
-              "description": "Text to echo back."
+              "type": "string"
             }
           },
           "required": [
             "text"
-          ],
-          "additionalProperties": false,
-          "$schema": "http://json-schema.org/draft-07/schema#"
+          ]
         },
         "outputSchema": null
       },
