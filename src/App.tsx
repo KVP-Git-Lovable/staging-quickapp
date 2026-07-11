@@ -460,6 +460,9 @@ const AppContent = () => {
         <Route path="/ai-features-export" element={<AIFeaturesExport />} />
         <Route path="/auth/complete-profile" element={<CompleteProfile />} />
         <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+        <Route path="/copilot" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
+        <Route path="/copilot/:threadId" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
+        
         
         <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
