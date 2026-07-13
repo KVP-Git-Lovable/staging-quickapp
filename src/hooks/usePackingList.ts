@@ -686,7 +686,29 @@ export function usePackingList() {
       }
 
       if (aggregatedItems.length === 0) {
-        toast({ title: 'No items to pack', description: 'All items were rejected or have zero approved quantity', variant: 'destructive' });
+        // If everything was pushed to backorder (typically due to zero stock),
+        // still create backorder orders so nothing is silently dropped.
+        const backorderCount = hasApproval
+          ? Object.values(approvedItems!).filter(i => (i.backorder_qty || 0) > 0).length
+          : 0;
+        if (backorderCount > 0) {
+          try {
+            await createBackorders(approvedItems!, orders, orderType);
+            toast({
+              title: 'Out of stock — backorders created',
+              description: 'No stock was available at the selected warehouse. Backorder(s) were created for the shortfall; no packing list was generated.',
+            });
+          } catch (e) {
+            console.error('Failed to create backorders for all-shortfall case:', e);
+            toast({
+              title: 'Out of stock',
+              description: 'No stock available and backorder creation failed. Please replenish inventory and try again.',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          toast({ title: 'No items to pack', description: 'All items were rejected or have zero approved quantity', variant: 'destructive' });
+        }
         setLoading(false);
         return null;
       }
