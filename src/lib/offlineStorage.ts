@@ -1,4 +1,18 @@
 import { Preferences } from '@capacitor/preferences';
+import { sqliteStore, type KvRow } from './sqliteStore';
+
+/**
+ * Offline engine selector (Offline Architecture v2 · Phase 1).
+ * SQLite is used only on native platforms AND only when explicitly enabled
+ * (localStorage 'offline_engine' === 'sqlite'). Default OFF → current Preferences
+ * behaviour is unchanged. Flip on to test v2; flip off to revert instantly.
+ */
+export function offlineEngineIsSqlite(): boolean {
+  try {
+    const v = typeof localStorage !== 'undefined' ? localStorage.getItem('offline_engine') : null;
+    return v === 'sqlite';
+  } catch { return false; }
+}
 
 // Capacitor Preferences for offline storage (works in both PWA and APK)
 // STORAGE STRATEGY: Only cache essential data needed for offline operations
@@ -67,10 +81,69 @@ class OfflineStorage {
   private readonly CHUNK_SIZE = 1_000_000; // ~1MB/value — safely under the SharedPreferences bridge limit
 
 
+  private useSqlite(): boolean {
+    return offlineEngineIsSqlite() && sqliteStore.isSupported();
+  }
+
   async init(): Promise<void> {
     if (this.initialized) return;
-    console.log('[OfflineStorage] ✅ Capacitor Preferences ready - data persists across app restarts');
+    if (this.useSqlite()) {
+      const ok = await sqliteStore.ready();
+      if (ok) {
+        await this.migratePreferencesToSqlite();
+        console.log('[OfflineStorage] ✅ SQLite engine active (offline v2)');
+      } else {
+        console.warn('[OfflineStorage] SQLite unavailable — using Preferences');
+      }
+    } else {
+      console.log('[OfflineStorage] ✅ Capacitor Preferences ready - data persists across app restarts');
+    }
     this.initialized = true;
+  }
+
+  /** Raw Preferences read (no SQLite, no mem-cache) — used only by the importer. */
+  private async readPreferencesStore<T>(storeName: string): Promise<T[]> {
+    try {
+      const key = this.getStoreKey(storeName);
+      const meta = await Preferences.get({ key: `${key}::meta` });
+      let json: string | null;
+      if (meta.value) {
+        const n = parseInt(meta.value, 10) || 0;
+        let acc = ''; let incomplete = false;
+        for (let i = 0; i < n; i++) {
+          const part = await Preferences.get({ key: `${key}::c${i}` });
+          if (part.value == null) { incomplete = true; break; }
+          acc += part.value;
+        }
+        json = incomplete ? null : (acc || null);
+      } else {
+        json = (await Preferences.get({ key })).value;
+      }
+      return json ? JSON.parse(json) : [];
+    } catch { return []; }
+  }
+
+  /** One-time copy of existing Preferences data → SQLite (zero queued-order loss). */
+  private async migratePreferencesToSqlite(): Promise<void> {
+    try {
+      if ((await sqliteStore.metaGet('pref_import_done')) === '1') return;
+      let moved = 0;
+      for (const storeName of Object.values(STORES)) {
+        const items = await this.readPreferencesStore<any>(storeName);
+        if (items && items.length) {
+          const rows: KvRow[] = items.map((it: any, i: number) => ({
+            id: String(it?.id ?? `${storeName}_${i}_${Date.now()}`),
+            data: it,
+          }));
+          await sqliteStore.replaceAll(storeName, rows);
+          moved += rows.length;
+        }
+      }
+      await sqliteStore.metaSet('pref_import_done', '1');
+      console.log(`[OfflineStorage] ✅ Imported ${moved} rows Preferences → SQLite`);
+    } catch (e) {
+      console.warn('[OfflineStorage] Preferences→SQLite import failed (non-fatal):', e);
+    }
   }
 
   // Prune cache if it exceeds max size (LRU-like: remove oldest entries)
@@ -101,6 +174,9 @@ class OfflineStorage {
 
   // Helper to get data from Preferences with memory caching
   private async getStoreData<T>(storeName: string): Promise<T[]> {
+    if (this.useSqlite()) {
+      return sqliteStore.getAll<T>(storeName);
+    }
     try {
       // Check memory cache first (avoids JSON parsing on repeated reads)
       const cached = this.memoryCache.get(storeName);
@@ -138,6 +214,15 @@ class OfflineStorage {
 
   // Helper to save data to Preferences and update cache
   private async setStoreData(storeName: string, data: any[]): Promise<void> {
+    if (this.useSqlite()) {
+      const rows: KvRow[] = (data || []).map((it: any, i: number) => ({
+        id: String(it?.id ?? `${storeName}_${i}_${Date.now()}`),
+        data: it,
+      }));
+      await sqliteStore.replaceAll(storeName, rows);
+      this.memoryCache.delete(storeName);
+      return;
+    }
     try {
       const key = this.getStoreKey(storeName);
       const json = JSON.stringify(data);
@@ -188,7 +273,13 @@ class OfflineStorage {
   // Generic CRUD operations
   async save<T>(storeName: string, data: T): Promise<void> {
     await this.ensureReady();
-    
+    if (this.useSqlite()) {
+      const d: any = data;
+      if (d.id == null) d.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+      await sqliteStore.upsert(storeName, String(d.id), d);
+      this.memoryCache.delete(storeName);
+      return;
+    }
     try {
       const items = await this.getStoreData<T>(storeName);
       const dataWithId = data as any;
@@ -264,7 +355,9 @@ class OfflineStorage {
 
   async getById<T>(storeName: string, id: string): Promise<T | null> {
     await this.ensureReady();
-    
+    if (this.useSqlite()) {
+      return sqliteStore.getById<T>(storeName, String(id));
+    }
     try {
       const items = await this.getStoreData<T>(storeName);
       const item = items.find((item: any) => item.id === id);
@@ -290,7 +383,11 @@ class OfflineStorage {
 
   async delete(storeName: string, id: string | number): Promise<void> {
     await this.ensureReady();
-    
+    if (this.useSqlite()) {
+      await sqliteStore.remove(storeName, String(id));
+      this.memoryCache.delete(storeName);
+      return;
+    }
     try {
       const items = await this.getStoreData(storeName);
       const filtered = items.filter((item: any) => item.id !== id);
