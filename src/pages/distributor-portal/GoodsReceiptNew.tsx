@@ -91,12 +91,16 @@ const GoodsReceiptNew = () => {
     setItems(prev => prev.map(item => {
       if (item.id !== itemId) return item;
       const updated = { ...item, [field]: value };
-      // Ensure received + returned doesn't exceed ordered
+      // Received capped at ordered; returned capped at received (returned is a subset of what was received)
       if (field === 'received_quantity') {
         updated.received_quantity = Math.max(0, Math.min(updated.ordered_quantity, Number(value) || 0));
+        // Keep returned <= received
+        if (updated.returned_quantity > updated.received_quantity) {
+          updated.returned_quantity = updated.received_quantity;
+        }
       }
       if (field === 'returned_quantity') {
-        updated.returned_quantity = Math.max(0, Math.min(updated.ordered_quantity - updated.received_quantity, Number(value) || 0));
+        updated.returned_quantity = Math.max(0, Math.min(updated.received_quantity, Number(value) || 0));
       }
       return updated;
     }));
