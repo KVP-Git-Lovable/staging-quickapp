@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CachedImg } from "@/components/CachedImg";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { 
@@ -81,8 +82,8 @@ export function GiftCard({
             isEligible ? "bg-green-100" : "bg-muted"
           }`}>
             {gift.image_url ? (
-              <img 
-                src={gift.image_url} 
+              <CachedImg
+                url={gift.image_url}
                 alt={gift.gift_name}
                 className="w-full h-full object-cover rounded-lg"
               />

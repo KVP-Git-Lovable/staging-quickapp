@@ -1489,7 +1489,28 @@ export function useOfflineSync() {
         }
       };
       window.addEventListener('focus', handleFocus);
-      
+
+      // Native app resume (Capacitor): visibilitychange/focus don't fire reliably
+      // when a native WebView is backgrounded — App.appStateChange does. This is
+      // the real "background sync whenever connectivity returns" trigger on device.
+      let appResumeListener: { remove?: () => void } | undefined;
+      import('@capacitor/app').then(({ App }) => {
+        App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive && connectivityStatus === 'online') {
+            console.log('📲 App resumed - triggering sync...');
+            processSyncQueue();
+            // Offline v2: also pull deltas on resume (SQLite engine only)
+            import('@/lib/offlineStorage')
+              .then(({ offlineEngineIsSqlite }) => {
+                if (offlineEngineIsSqlite()) {
+                  import('@/lib/syncPull').then((m) => m.runDeltaPull().catch(() => {}));
+                }
+              })
+              .catch(() => {});
+          }
+        }).then((l) => { appResumeListener = l; });
+      }).catch(() => {});
+
       // REMOVED: cleanup timeout that called deleteOldSyncedItems
       // Sync queue items now persist until successfully synced and verified
       
@@ -1498,6 +1519,7 @@ export function useOfflineSync() {
         clearInterval(periodicSyncInterval);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         window.removeEventListener('focus', handleFocus);
+        appResumeListener?.remove?.();
       };
     }
   }, [connectivityStatus, processSyncQueue]);
