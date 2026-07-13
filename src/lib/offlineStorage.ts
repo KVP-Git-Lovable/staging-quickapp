@@ -14,6 +14,15 @@ export function offlineEngineIsSqlite(): boolean {
   } catch { return false; }
 }
 
+/** Phase 4: broadcast a store-changed signal so reactive readers (useOfflineQuery) refresh. */
+export function emitOfflineChange(store?: string): void {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('offlineStoreChanged', { detail: { store } }));
+    }
+  } catch { /* ignore */ }
+}
+
 // Capacitor Preferences for offline storage (works in both PWA and APK)
 // STORAGE STRATEGY: Only cache essential data needed for offline operations
 // - PRODUCTS, VARIANTS, SCHEMES, CATEGORIES: Active items for order entry
@@ -221,6 +230,7 @@ class OfflineStorage {
       }));
       await sqliteStore.replaceAll(storeName, rows);
       this.memoryCache.delete(storeName);
+      emitOfflineChange(storeName);
       return;
     }
     try {
@@ -278,6 +288,7 @@ class OfflineStorage {
       if (d.id == null) d.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
       await sqliteStore.upsert(storeName, String(d.id), d);
       this.memoryCache.delete(storeName);
+      emitOfflineChange(storeName);
       return;
     }
     try {
@@ -386,6 +397,7 @@ class OfflineStorage {
     if (this.useSqlite()) {
       await sqliteStore.remove(storeName, String(id));
       this.memoryCache.delete(storeName);
+      emitOfflineChange(storeName);
       return;
     }
     try {

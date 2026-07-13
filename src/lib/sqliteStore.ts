@@ -23,6 +23,14 @@ const DB_VERSION = 1;
 
 export interface KvRow { id: string; data: any; }
 
+/** Phase 5: encryption opt-in via a separate encrypted DB (no in-place migration risk). */
+function encryptEnabled(): boolean {
+  try { return typeof localStorage !== 'undefined' && localStorage.getItem('offline_encrypt') === '1'; }
+  catch { return false; }
+}
+// App-level passphrase. In production, derive per-user/device; constant here is fine for a gated rollout.
+function deriveSecret(): string { return 'qa-offline-v2-8f3c1a9e-secret'; }
+
 class SqliteStore {
   private sqlite: SQLiteConnection | null = null;
   private db: SQLiteDBConnection | null = null;
@@ -45,14 +53,23 @@ class SqliteStore {
   private async doInit(): Promise<boolean> {
     try {
       this.sqlite = new SQLiteConnection(CapacitorSQLite);
-      const conn = await this.sqlite.isConnection(DB_NAME, false);
+      const encrypt = encryptEnabled();
+      const dbName = encrypt ? `${DB_NAME}_enc` : DB_NAME;
+      const mode = encrypt ? 'secret' : 'no-encryption';
+      if (encrypt) {
+        try {
+          const stored = await this.sqlite.isSecretStored();
+          if (!stored?.result) await this.sqlite.setEncryptionSecret(deriveSecret());
+        } catch (e) { console.warn('[sqliteStore] encryption secret setup failed:', e); }
+      }
+      const conn = await this.sqlite.isConnection(dbName, false);
       this.db = conn.result
-        ? await this.sqlite.retrieveConnection(DB_NAME, false)
-        : await this.sqlite.createConnection(DB_NAME, false, 'no-encryption', DB_VERSION, false);
+        ? await this.sqlite.retrieveConnection(dbName, false)
+        : await this.sqlite.createConnection(dbName, encrypt, mode, DB_VERSION, false);
       await this.db.open();
       await this.migrate();
       this.available = true;
-      console.log('[sqliteStore] ✅ SQLite offline engine ready');
+      console.log(`[sqliteStore] ✅ SQLite offline engine ready${encrypt ? ' (encrypted)' : ''}`);
       return true;
     } catch (e) {
       console.warn('[sqliteStore] init failed, falling back to Preferences:', e);
