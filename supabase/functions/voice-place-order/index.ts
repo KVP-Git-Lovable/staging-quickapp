@@ -131,11 +131,52 @@ Deno.serve(async (req) => {
       0,
     );
 
+    // Resolve distributor_id: retailer -> retailer_mapping -> beat -> owner's default
+    let distributorId: string | null = retailer.distributor_id ?? null;
+    if (!distributorId) {
+      const { data: rm } = await supabase
+        .from("distributor_retailer_mappings")
+        .select("distributor_id")
+        .eq("retailer_id", retailer.id)
+        .limit(1)
+        .maybeSingle();
+      distributorId = rm?.distributor_id ?? null;
+    }
+    if (!distributorId && retailer.beat_id) {
+      const { data: b } = await supabase
+        .from("beats")
+        .select("distributor_id")
+        .eq("beat_id", retailer.beat_id)
+        .not("distributor_id", "is", null)
+        .limit(1)
+        .maybeSingle();
+      distributorId = b?.distributor_id ?? null;
+    }
+    const ownerUserId = retailer.owner_id ?? retailer.user_id ?? retailer.created_by ?? null;
+    if (!distributorId && ownerUserId) {
+      const { data: owned } = await supabase
+        .from("distributors")
+        .select("id")
+        .eq("owner_id", ownerUserId)
+        .limit(1)
+        .maybeSingle();
+      distributorId = owned?.id ?? null;
+    }
+
+    // Generate invoice number up-front (no trigger on orders for this).
+    let invoiceNumber: string | null = null;
+    try {
+      const { data: inv } = await supabase.rpc("generate_invoice_number");
+      if (typeof inv === "string" && inv.length > 0) invoiceNumber = inv;
+    } catch (e) {
+      console.warn("generate_invoice_number RPC failed:", (e as Error).message);
+    }
+
     const orderRow: Record<string, unknown> = {
       retailer_id: retailer.id,
       retailer_name: retailer.name,
       user_id: retailer.user_id ?? retailer.owner_id ?? retailer.created_by ?? null,
-      distributor_id: retailer.distributor_id ?? null,
+      distributor_id: distributorId,
       territory_id: retailer.territory_id ?? null,
       beat_id: retailer.beat_id ?? null,
       beat_name_snapshot: retailer.beat_name ?? null,
@@ -146,6 +187,7 @@ Deno.serve(async (req) => {
       order_source: "Voice",
       sales_channel: "field",
       order_date: today,
+      invoice_number: invoiceNumber,
       idempotency_key: `bolna-${crypto.randomUUID()}`,
     };
 
