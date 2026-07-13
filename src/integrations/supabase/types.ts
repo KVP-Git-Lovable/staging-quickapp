@@ -4701,6 +4701,7 @@ export type Database = {
           created_by: string | null
           distributor_id: string
           id: string
+          updated_at: string
         }
         Insert: {
           beat_id: string
@@ -4708,6 +4709,7 @@ export type Database = {
           created_by?: string | null
           distributor_id: string
           id?: string
+          updated_at?: string
         }
         Update: {
           beat_id?: string
@@ -4715,6 +4717,7 @@ export type Database = {
           created_by?: string | null
           distributor_id?: string
           id?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -23324,6 +23327,30 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_deletions: {
+        Row: {
+          deleted_at: string
+          id: number
+          row_id: string
+          table_name: string
+          user_id: string | null
+        }
+        Insert: {
+          deleted_at?: string
+          id?: never
+          row_id: string
+          table_name: string
+          user_id?: string | null
+        }
+        Update: {
+          deleted_at?: string
+          id?: never
+          row_id?: string
+          table_name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       target_actual_logs: {
         Row: {
           created_at: string | null
@@ -24136,6 +24163,7 @@ export type Database = {
           is_base: boolean
           is_system: boolean
           name: string
+          updated_at: string
         }
         Insert: {
           category: string
@@ -24147,6 +24175,7 @@ export type Database = {
           is_base?: boolean
           is_system?: boolean
           name: string
+          updated_at?: string
         }
         Update: {
           category?: string
@@ -24158,6 +24187,7 @@ export type Database = {
           is_base?: boolean
           is_system?: boolean
           name?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -28248,6 +28278,7 @@ export type Database = {
           score: number
         }[]
       }
+      sync_counts: { Args: never; Returns: Json }
       sync_order_with_items: {
         Args: { p_items: Json; p_order: Json }
         Returns: Json
@@ -28257,6 +28288,7 @@ export type Database = {
         Args: { p_packing_list_id: string }
         Returns: undefined
       }
+      sync_pull: { Args: { p_since?: string }; Returns: Json }
       to_base_qty: {
         Args: { p_product_id: string; p_qty: number; p_uom_code: string }
         Returns: number
