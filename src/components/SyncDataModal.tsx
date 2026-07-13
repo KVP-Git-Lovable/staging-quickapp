@@ -9,6 +9,7 @@ import { useConnectivity } from '@/hooks/useConnectivity';
 import { useAuth } from '@/hooks/useAuth';
 import { Preferences } from '@capacitor/preferences';
 import { getLocalTodayDate } from '@/utils/dateUtils';
+import { OfflineEngineToggle } from '@/components/OfflineEngineToggle';
 
 interface SyncStep {
   id: string;
@@ -124,6 +125,7 @@ export const SyncDataModal = ({ isOpen, onClose, onComplete }: SyncDataModalProp
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <OfflineEngineToggle />
           {/* Progress bar (only show when syncing or complete) */}
           {(isSyncing || syncComplete) && (
             <div className="space-y-2">
