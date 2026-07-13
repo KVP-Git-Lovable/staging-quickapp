@@ -284,6 +284,14 @@ const MasterDataCacheInitializer = () => {
           clearProductUnitsCache();
         } catch {}
         try { queryClient.invalidateQueries({ queryKey: ['uom'] }); } catch {}
+        // Offline v2: incremental delta pull (SQLite engine only). Inert otherwise.
+        try {
+          const { offlineEngineIsSqlite } = await import('@/lib/offlineStorage');
+          if (offlineEngineIsSqlite()) {
+            const { runDeltaPull } = await import('@/lib/syncPull');
+            runDeltaPull().catch(() => {});
+          }
+        } catch {}
         try { await forceRefreshMasterData(); } catch (e) {
           console.warn('[MasterDataCacheInitializer] online-transition refresh failed:', e);
         }
