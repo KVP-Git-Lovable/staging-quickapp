@@ -31,7 +31,7 @@ async function sendViaMsg91(mobile: string, name: string, otp: string) {
       template_id: TEMPLATE_ID,
       short_url: '0',
       realTimeResponse: '1',
-      recipients: [{ mobiles: mobile, VAR1: name, VAR2: otp }],
+      recipients: [{ mobiles: mobile, OTP: name, var: otp, VAR1: name, VAR2: otp, name, otp }],
     }),
   });
 
