@@ -168,7 +168,7 @@ const GoodsReceiptNew = () => {
         if (updErr) throw updErr;
       }
 
-      // Resolve default warehouse (required NOT NULL on inventory + transactions)
+      // Resolve default warehouse (required for stock RPC + batch tracking)
       const { data: warehouse, error: whError } = await supabase
         .from('warehouses')
         .select('id')
@@ -182,71 +182,34 @@ const GoodsReceiptNew = () => {
       }
       const warehouseId = warehouse.id;
 
-      // Update inventory
+      // Update inventory + batches + transaction ledger via the atomic GRN RPC.
+      // This keeps distributor_inventory.quantity, inventory_batches, and
+      // distributor_inventory_transactions in sync automatically.
       for (const item of items) {
         if (item.received_quantity <= 0) continue;
 
-        const { data: existing, error: invSelErr } = await supabase
-          .from('distributor_inventory')
-          .select('id, quantity, unit_cost, batch_number, expiry_date')
-          .eq('distributor_id', distributorId)
-          .eq('product_id', item.product_id)
-          .eq('warehouse_id', warehouseId)
-          .maybeSingle();
-        if (invSelErr) throw invSelErr;
-
-        let newBalance = item.received_quantity;
-        if (existing) {
-          newBalance = (existing.quantity || 0) + item.received_quantity;
-          const { error: invUpdErr } = await supabase.from('distributor_inventory').update({
-            quantity: newBalance,
-            last_received_date: new Date().toISOString().split('T')[0],
-            batch_number: item.batch_number || existing.batch_number,
-            expiry_date: item.expiry_date || existing.expiry_date,
-            updated_at: new Date().toISOString(),
-          }).eq('id', existing.id);
-          if (invUpdErr) throw invUpdErr;
-        } else {
-          const { error: invInsErr } = await supabase.from('distributor_inventory').insert({
-            distributor_id: distributorId,
-            warehouse_id: warehouseId,
-            product_id: item.product_id,
-            variant_id: item.variant_id || null,
-            product_name: item.product_name,
-            variant_name: item.variant_name || null,
-            quantity: item.received_quantity,
-            reserved_quantity: 0,
-            reorder_level: 10,
-            max_stock_level: 1000,
-            unit: item.unit,
-            unit_cost: item.unit_price,
-            batch_number: item.batch_number || null,
-            expiry_date: item.expiry_date || null,
-            last_received_date: new Date().toISOString().split('T')[0],
-          });
-          if (invInsErr) throw invInsErr;
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('execute_stock_action', {
+          p_distributor_id: distributorId,
+          p_product_id: item.product_id,
+          p_action: 'GRN',
+          p_quantity: Math.round(item.received_quantity),
+          p_notes: `GRN ${grnNumber} from order ${order.order_number}`,
+          p_created_by: null,
+          p_warehouse_id: warehouseId,
+          p_batch_no: item.batch_number?.trim() || null, // auto-generate if empty
+          p_expiry_date: item.expiry_date || null,
+          p_reference_id: grn.id,
+          p_reference_number: grnNumber,
+          p_supplier_batch_code: item.batch_number?.trim() || null,
+          p_mfg_date: null,
+        } as any);
+        if (rpcErr) throw rpcErr;
+        const result = typeof rpcData === 'string' ? JSON.parse(rpcData) : rpcData;
+        if (!result?.success) {
+          throw new Error(`${item.product_name}: ${result?.error || 'Failed to update inventory'}`);
         }
-
-        // Log inward transaction
-        const { error: txErr } = await supabase.from('distributor_inventory_transactions').insert({
-          distributor_id: distributorId,
-          warehouse_id: warehouseId,
-          product_id: item.product_id,
-          product_name: item.product_name,
-          variant_id: item.variant_id || null,
-          transaction_type: 'inward',
-          balance_qty: item.received_quantity,
-          running_balance: newBalance,
-          reference_type: 'grn',
-          reference_id: grn.id,
-          reference_number: grnNumber,
-          batch_number: item.batch_number || null,
-          unit: item.unit,
-          unit_cost: item.unit_price,
-          notes: `GRN ${grnNumber} from order ${order.order_number}`,
-        });
-        if (txErr) throw txErr;
       }
+
 
       // Create return note if any items returned
       const returnedItems = items.filter(i => i.returned_quantity > 0);
