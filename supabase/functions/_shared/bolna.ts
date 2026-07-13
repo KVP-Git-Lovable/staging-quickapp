@@ -303,7 +303,7 @@ export async function searchProducts(
       name: p.name,
       sku: p.sku,
       rate: p.rate,
-      unit: p.unit,
+      unit: null,
       closing_stock: p.closing_stock,
       brand: p.brand ?? null,
       description: p.description ?? null,
