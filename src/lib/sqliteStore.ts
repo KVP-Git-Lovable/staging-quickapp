@@ -221,6 +221,17 @@ class SqliteStore {
 
   // ---------------- maintenance ----------------
 
+  /** SQLite self-check — returns false if the DB reports corruption. */
+  async integrityCheck(): Promise<boolean> {
+    if (!(await this.ready()) || !this.db) return true;
+    try {
+      const res = await this.db.query('PRAGMA integrity_check');
+      const first: any = res.values?.[0];
+      const val = first ? (first.integrity_check ?? Object.values(first)[0]) : 'ok';
+      return String(val).toLowerCase() === 'ok';
+    } catch { return false; }
+  }
+
   /** Wipe all cached rows; optionally keep the outbox (unsynced writes). */
   async clearAll(preserveQueue = false): Promise<void> {
     if (!(await this.ready()) || !this.db) return;

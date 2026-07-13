@@ -290,6 +290,8 @@ const MasterDataCacheInitializer = () => {
           if (offlineEngineIsSqlite()) {
             const { runDeltaPull } = await import('@/lib/syncPull');
             runDeltaPull().catch(() => {});
+            const { runHealthCheck } = await import('@/lib/offlineHealth');
+            runHealthCheck().catch(() => {}); // throttled self-heal
           }
         } catch {}
         try { await forceRefreshMasterData(); } catch (e) {
