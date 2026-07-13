@@ -153,6 +153,38 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [invoicesLoading, setInvoicesLoading] = useState(false);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
+  const [sendingOtp, setSendingOtp] = useState(false);
+
+  const isValidIndianMobile = (phone?: string | null): boolean => {
+    if (!phone) return false;
+    const digits = String(phone).replace(/\D/g, '');
+    return digits.length === 10 || (digits.length === 12 && digits.startsWith('91'));
+  };
+
+  const handleSendOtp = async () => {
+    if (!retailer?.id || !isValidIndianMobile(formData.phone)) return;
+    setSendingOtp(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-retailer-otp', {
+        body: {
+          retailer_id: retailer.id,
+          retailer_name: formData.name || 'Retailer',
+          mobile: formData.phone,
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast({ title: 'OTP sent successfully.' });
+      } else {
+        toast({ title: 'Failed to send OTP', description: data?.error || 'Unknown error', variant: 'destructive' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Failed to send OTP', description: e?.message || 'Unknown error', variant: 'destructive' });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
   const [invoicesDisplayCount, setInvoicesDisplayCount] = useState(5);
   const [associatedDistributor, setAssociatedDistributor] = useState<string | null>(null);
   const [ownership, setOwnership] = useState<{
@@ -1233,12 +1265,27 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       <Label className="text-xs text-muted-foreground">Owner's Number</Label>
                       {isEditing ? (
                         <Input value={formData.phone || ''} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="h-8 text-sm mt-1" />
-                      ) : formData.phone ? (
-                        <a href={`tel:${formData.phone}`} className="flex items-center gap-1 text-sm hover:text-primary">
-                          <Phone size={12} className="text-primary" /> {formData.phone}
-                        </a>
                       ) : (
-                        <p className="text-sm text-muted-foreground">-</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {formData.phone ? (
+                            <a href={`tel:${formData.phone}`} className="flex items-center gap-1 text-sm hover:text-primary">
+                              <Phone size={12} className="text-primary" /> {formData.phone}
+                            </a>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">-</p>
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                            disabled={!isValidIndianMobile(formData.phone) || sendingOtp}
+                            onClick={handleSendOtp}
+                          >
+                            {sendingOtp ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                            Send OTP
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
