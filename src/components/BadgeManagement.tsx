@@ -347,44 +347,75 @@ export function BadgeManagement() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {badges.map(badge => (
-          <Card key={badge.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <span className="text-3xl">{badge.icon}</span>
-                  {badge.name}
-                </span>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEditDialog(badge)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteBadge(badge.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+      {badges.length === 0 ? (
+        <div className="rounded-2xl border border-dashed bg-white py-16 flex flex-col items-center justify-center text-center">
+          <div className="h-16 w-16 rounded-full bg-amber-50 flex items-center justify-center mb-4 ring-1 ring-amber-100">
+            <Award className="h-8 w-8 text-amber-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">No badges yet</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm">Create your first achievement badge to celebrate team milestones.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {badges.map(badge => {
+            const style = BADGE_COLOR_STYLES[badge.badge_color] || DEFAULT_BADGE_STYLE;
+            const criteriaLabel = CRITERIA_TYPES.find(t => t.value === badge.criteria_type)?.label;
+            return (
+              <div
+                key={badge.id}
+                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all"
+              >
+                <div className={`h-1.5 ${style.bar}`} />
+                <div className="p-5">
+                  <div className="flex items-start gap-3">
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center text-2xl ${style.tint} ring-1 ${style.ring} shrink-0`}>
+                      {badge.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-base leading-tight text-slate-900 truncate">{badge.name}</h3>
+                      {badge.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{badge.description}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className={`rounded-xl ${style.tint} ring-1 ${style.ring} p-3`}>
+                      <div className={`flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium ${style.accent}`}>
+                        <Target className="h-3 w-3" /> Target
+                      </div>
+                      <div className={`text-xl font-bold leading-tight mt-0.5 ${style.accent}`}>
+                        {badge.criteria_value}
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-3">
+                      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium text-slate-500">
+                        <Award className="h-3 w-3" /> Type
+                      </div>
+                      <div className="text-sm font-semibold leading-tight mt-1 text-slate-700 line-clamp-2">
+                        {criteriaLabel || badge.criteria_type}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between pt-3 border-t">
+                    <span className={`text-xs font-medium capitalize ${style.accent}`}>{badge.badge_color}</span>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEditDialog(badge)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => deleteBadge(badge.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-2">{badge.description}</p>
-              <div className="text-xs space-y-1">
-                <p><strong>Type:</strong> {CRITERIA_TYPES.find(t => t.value === badge.criteria_type)?.label}</p>
-                <p><strong>Target:</strong> {badge.criteria_value}</p>
-                <p><strong>Color:</strong> {badge.badge_color}</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
     </div>
   );
 }
