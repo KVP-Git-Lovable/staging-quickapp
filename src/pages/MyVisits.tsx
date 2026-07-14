@@ -1438,22 +1438,33 @@ export const MyVisits = () => {
                 </div>
                 <ModuleHelpButton categoryId="my-visit" variant="onDark" />
               </div>
-              <CompactMultiUserSelector
-                selectedUserIds={selectedUserIds}
-                onSelectionChange={(ids) => {
-                  if (ids.length > 1) {
-                    const newest = ids.filter(id => !selectedUserIds.includes(id));
-                    setSelectedUserIds(newest.length > 0 ? [newest[0]] : [ids[ids.length - 1]]);
+              <BeatSharePeerTabs
+                selectedPeerId={isViewingSelf ? null : selectedUserIds[0]}
+                onChange={(peer: BeatSharePeer | null) => {
+                  if (!peer) {
+                    setSelectedUserIds([]);
+                    setPeerBeatIds(new Set());
                   } else {
-                    setSelectedUserIds(ids);
+                    setSelectedUserIds([peer.userId]);
+                    setPeerBeatIds(new Set(peer.beatIds));
                   }
                 }}
                 variant="onDark"
-                showAllTeam={false}
-                enableOnBehalf
+              />
+              </div>
+            </div>
+          </CardHeader>
+          {/* removed extra wrapper */}
+          {false && (
+          <CardHeader>
+            <div>
+              <CompactMultiUserSelector
+                selectedUserIds={selectedUserIds}
+                onSelectionChange={setSelectedUserIds}
               />
             </div>
           </CardHeader>
+          )}
           <CardContent className="space-y-2 sm:space-y-4 px-2 sm:px-6 pb-2 sm:pb-6">
             {/* Calendar Selector */}
             <div className="flex items-center justify-between gap-1.5 sm:gap-2 mb-2 sm:mb-4">
