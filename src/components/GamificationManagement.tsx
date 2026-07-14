@@ -1080,7 +1080,7 @@ export function GamificationManagement() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {actions.map((action) => {
+              {actions.filter(a => activityFilter === 'all' ? true : activityFilter === 'active' ? a.is_enabled : !a.is_enabled).map((action) => {
                 const visual = METRIC_VISUALS[action.action_type] || DEFAULT_VISUAL;
                 const Icon = visual.icon;
                 const game = games.find(g => g.id === action.game_id);
