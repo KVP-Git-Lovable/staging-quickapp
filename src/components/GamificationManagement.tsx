@@ -1078,7 +1078,7 @@ export function GamificationManagement() {
                     }`}
                   >
                     {/* Top tint bar */}
-                    <div className={`h-1.5 ${action.is_enabled ? visual.tint.replace("bg-", "bg-").replace("-50", "-200") : "bg-slate-200"}`} />
+                    <div className={`h-1.5 ${action.is_enabled ? visual.bar : "bg-slate-200"}`} />
 
                     {/* Status ribbon */}
                     <div className="absolute top-4 right-4 z-10">
