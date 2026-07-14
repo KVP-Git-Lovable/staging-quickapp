@@ -670,17 +670,30 @@ export function GamificationManagement() {
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Gamification Management</h2>
               <p className="text-slate-500 text-sm sm:text-base mt-1">Configure activities, badges & rewards to keep your team engaged</p>
               <div className="flex flex-wrap gap-2 mt-3">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
-                  <Sparkles className="h-3 w-3 text-indigo-500" /> {actions.length} Total
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 ring-1 ring-emerald-200 px-3 py-1 text-xs font-medium text-emerald-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('all')}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${activityFilter === 'all' ? 'bg-indigo-600 text-white ring-1 ring-indigo-600 shadow-sm' : 'bg-white ring-1 ring-slate-200 text-slate-700 hover:ring-indigo-300'}`}
+                >
+                  <Sparkles className={`h-3 w-3 ${activityFilter === 'all' ? 'text-white' : 'text-indigo-500'}`} /> {actions.length} Total
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('active')}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${activityFilter === 'active' ? 'bg-emerald-600 text-white ring-1 ring-emerald-600 shadow-sm' : 'bg-emerald-50 ring-1 ring-emerald-200 text-emerald-700 hover:ring-emerald-400'}`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${activityFilter === 'active' ? 'bg-white' : 'bg-emerald-500'}`} />
                   {actions.filter(a => a.is_enabled).length} Active
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
-                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivityFilter('inactive')}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${activityFilter === 'inactive' ? 'bg-slate-700 text-white ring-1 ring-slate-700 shadow-sm' : 'bg-slate-50 ring-1 ring-slate-200 text-slate-600 hover:ring-slate-400'}`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${activityFilter === 'inactive' ? 'bg-white' : 'bg-slate-400'}`} />
                   {actions.filter(a => !a.is_enabled).length} Inactive
-                </span>
+                </button>
+
               </div>
             </div>
 
