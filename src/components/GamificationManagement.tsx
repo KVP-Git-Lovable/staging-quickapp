@@ -16,19 +16,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const METRIC_VISUALS: Record<string, { icon: any; gradient: string; iconBg: string; accent: string }> = {
-  first_order_new_retailer: { icon: UserPlus,     gradient: "from-fuchsia-500 to-pink-500",   iconBg: "bg-fuchsia-100 text-fuchsia-700",   accent: "text-fuchsia-600" },
-  daily_target:             { icon: Target,       gradient: "from-blue-500 to-indigo-500",    iconBg: "bg-blue-100 text-blue-700",         accent: "text-blue-600" },
-  focused_product_sales:    { icon: Star,         gradient: "from-amber-500 to-orange-500",   iconBg: "bg-amber-100 text-amber-700",       accent: "text-amber-600" },
-  productive_visit:         { icon: CheckCircle2, gradient: "from-emerald-500 to-teal-500",   iconBg: "bg-emerald-100 text-emerald-700",   accent: "text-emerald-600" },
-  order_frequency:          { icon: Repeat,       gradient: "from-violet-500 to-purple-500",  iconBg: "bg-violet-100 text-violet-700",     accent: "text-violet-600" },
-  beat_growth:              { icon: TrendingUp,   gradient: "from-green-500 to-lime-500",     iconBg: "bg-green-100 text-green-700",       accent: "text-green-600" },
-  competition_insight:      { icon: Search,       gradient: "from-rose-500 to-red-500",       iconBg: "bg-rose-100 text-rose-700",         accent: "text-rose-600" },
-  retailer_feedback:        { icon: MessageSquare,gradient: "from-cyan-500 to-sky-500",       iconBg: "bg-cyan-100 text-cyan-700",         accent: "text-cyan-600" },
-  branding_request:         { icon: Megaphone,    gradient: "from-orange-500 to-rose-500",    iconBg: "bg-orange-100 text-orange-700",     accent: "text-orange-600" },
-  total_visits:             { icon: Footprints,   gradient: "from-indigo-500 to-blue-500",    iconBg: "bg-indigo-100 text-indigo-700",     accent: "text-indigo-600" },
+const METRIC_VISUALS: Record<string, { icon: any; tint: string; bar: string; iconBg: string; accent: string; ring: string }> = {
+  first_order_new_retailer: { icon: UserPlus,     tint: "bg-fuchsia-50",  bar: "bg-fuchsia-200",  iconBg: "bg-fuchsia-100 text-fuchsia-600",   accent: "text-fuchsia-600", ring: "ring-fuchsia-100" },
+  daily_target:             { icon: Target,       tint: "bg-blue-50",     bar: "bg-blue-200",     iconBg: "bg-blue-100 text-blue-600",         accent: "text-blue-600",    ring: "ring-blue-100" },
+  focused_product_sales:    { icon: Star,         tint: "bg-amber-50",    bar: "bg-amber-200",    iconBg: "bg-amber-100 text-amber-600",       accent: "text-amber-600",   ring: "ring-amber-100" },
+  productive_visit:         { icon: CheckCircle2, tint: "bg-emerald-50",  bar: "bg-emerald-200",  iconBg: "bg-emerald-100 text-emerald-600",   accent: "text-emerald-600", ring: "ring-emerald-100" },
+  order_frequency:          { icon: Repeat,       tint: "bg-violet-50",   bar: "bg-violet-200",   iconBg: "bg-violet-100 text-violet-600",     accent: "text-violet-600",  ring: "ring-violet-100" },
+  beat_growth:              { icon: TrendingUp,   tint: "bg-green-50",    bar: "bg-green-200",    iconBg: "bg-green-100 text-green-600",       accent: "text-green-600",   ring: "ring-green-100" },
+  competition_insight:      { icon: Search,       tint: "bg-rose-50",     bar: "bg-rose-200",     iconBg: "bg-rose-100 text-rose-600",         accent: "text-rose-600",    ring: "ring-rose-100" },
+  retailer_feedback:        { icon: MessageSquare,tint: "bg-cyan-50",     bar: "bg-cyan-200",     iconBg: "bg-cyan-100 text-cyan-600",         accent: "text-cyan-600",    ring: "ring-cyan-100" },
+  branding_request:         { icon: Megaphone,    tint: "bg-orange-50",   bar: "bg-orange-200",   iconBg: "bg-orange-100 text-orange-600",     accent: "text-orange-600",  ring: "ring-orange-100" },
+  total_visits:             { icon: Footprints,   tint: "bg-indigo-50",   bar: "bg-indigo-200",   iconBg: "bg-indigo-100 text-indigo-600",     accent: "text-indigo-600",  ring: "ring-indigo-100" },
 };
-const DEFAULT_VISUAL = { icon: Sparkles, gradient: "from-slate-500 to-slate-700", iconBg: "bg-slate-100 text-slate-700", accent: "text-slate-600" };
+const DEFAULT_VISUAL = { icon: Sparkles, tint: "bg-slate-50", bar: "bg-slate-200", iconBg: "bg-slate-100 text-slate-600", accent: "text-slate-600", ring: "ring-slate-100" };
+
+
 
 interface Game {
   id: string;
@@ -654,33 +656,36 @@ export function GamificationManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 p-6 sm:p-8 text-white shadow-xl">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-        <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
+      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-6 sm:p-8 shadow-sm">
+        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-indigo-100/50 blur-3xl" />
+        <div className="absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-amber-100/40 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-xl bg-white/15 backdrop-blur ring-1 ring-white/25">
-              <Trophy className="h-7 w-7 text-amber-300" />
+            <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-xl bg-white ring-1 ring-indigo-100 shadow-sm">
+              <Trophy className="h-7 w-7 text-amber-500" />
             </div>
             <div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Gamification Management</h2>
-              <p className="text-white/80 text-sm sm:text-base mt-1">Configure activities, badges & rewards to keep your team engaged</p>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Gamification Management</h2>
+              <p className="text-slate-500 text-sm sm:text-base mt-1">Configure activities, badges & rewards to keep your team engaged</p>
               <div className="flex flex-wrap gap-2 mt-3">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
-                  <Sparkles className="h-3 w-3" /> {actions.length} Total
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                  <Sparkles className="h-3 w-3 text-indigo-500" /> {actions.length} Total
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-3 py-1 text-xs font-medium backdrop-blur">
-                  <CheckCircle2 className="h-3 w-3" /> {actions.filter(a => a.is_enabled).length} Active
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 ring-1 ring-emerald-200 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {actions.filter(a => a.is_enabled).length} Active
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
                   {actions.filter(a => !a.is_enabled).length} Inactive
                 </span>
               </div>
             </div>
+
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button onClick={openCreateDialog} size="lg" className="bg-white text-indigo-700 hover:bg-white/90 font-semibold shadow-lg">
+              <Button onClick={openCreateDialog} size="lg" className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Create New Activity
               </Button>
@@ -1068,17 +1073,17 @@ export function GamificationManagement() {
                   <div
                     key={action.id}
                     onClick={() => openEditDialog(action)}
-                    className={`group relative overflow-hidden rounded-2xl border bg-card shadow-sm hover:shadow-xl transition-all cursor-pointer ${
-                      action.is_enabled ? "border-transparent ring-1 ring-border" : "opacity-70 hover:opacity-100 grayscale hover:grayscale-0"
+                    className={`group relative overflow-hidden rounded-2xl border bg-white shadow-sm hover:shadow-md transition-all cursor-pointer ${
+                      action.is_enabled ? "border-slate-200" : "border-dashed border-slate-200 bg-slate-50/50"
                     }`}
                   >
-                    {/* Top gradient bar */}
-                    <div className={`h-2 bg-gradient-to-r ${visual.gradient}`} />
+                    {/* Top tint bar */}
+                    <div className={`h-1.5 ${action.is_enabled ? visual.bar : "bg-slate-200"}`} />
 
                     {/* Status ribbon */}
                     <div className="absolute top-4 right-4 z-10">
                       {action.is_enabled ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold ring-1 ring-emerald-200">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-1 text-xs font-semibold ring-1 ring-emerald-200">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                           Active
                         </span>
@@ -1092,11 +1097,11 @@ export function GamificationManagement() {
 
                     <div className="p-5 pt-4">
                       <div className="flex items-start gap-3">
-                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${visual.iconBg} shadow-sm shrink-0`}>
+                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${visual.iconBg} ring-1 ${visual.ring} shrink-0`}>
                           <Icon className="h-6 w-6" />
                         </div>
                         <div className="min-w-0 pr-16">
-                          <h3 className="font-semibold text-base leading-tight truncate">{action.action_name}</h3>
+                          <h3 className="font-semibold text-base leading-tight truncate text-slate-900">{action.action_name}</h3>
                           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                             {getConfigSummary(action)}
                           </p>
@@ -1105,14 +1110,15 @@ export function GamificationManagement() {
 
                       {/* Reward pills */}
                       <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className={`rounded-xl bg-gradient-to-br ${visual.gradient} p-3 text-white`}>
-                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-90">
+                        <div className={`rounded-xl ${visual.tint} ring-1 ${visual.ring} p-3`}>
+                          <div className={`flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium ${visual.accent}`}>
                             <Award className="h-3 w-3" /> Reward
                           </div>
-                          <div className="text-xl font-bold leading-tight mt-0.5">
-                            {action.points} <span className="text-xs font-medium opacity-90">pts</span>
+                          <div className={`text-xl font-bold leading-tight mt-0.5 ${visual.accent}`}>
+                            {action.points} <span className="text-xs font-medium">pts</span>
                           </div>
                         </div>
+
                         <div className="rounded-xl bg-muted/60 p-3">
                           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                             <Coins className="h-3 w-3" /> Value
