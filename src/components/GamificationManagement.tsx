@@ -654,18 +654,38 @@ export function GamificationManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold">Gamification Management</h2>
-          <p className="text-muted-foreground">Configure activities and manage redemptions</p>
-        </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create New Activity
-            </Button>
-          </DialogTrigger>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 p-6 sm:p-8 text-white shadow-xl">
+        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-xl bg-white/15 backdrop-blur ring-1 ring-white/25">
+              <Trophy className="h-7 w-7 text-amber-300" />
+            </div>
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Gamification Management</h2>
+              <p className="text-white/80 text-sm sm:text-base mt-1">Configure activities, badges & rewards to keep your team engaged</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+                  <Sparkles className="h-3 w-3" /> {actions.length} Total
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-3 py-1 text-xs font-medium backdrop-blur">
+                  <CheckCircle2 className="h-3 w-3" /> {actions.filter(a => a.is_enabled).length} Active
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+                  {actions.filter(a => !a.is_enabled).length} Inactive
+                </span>
+              </div>
+            </div>
+          </div>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreateDialog} size="lg" className="bg-white text-indigo-700 hover:bg-white/90 font-semibold shadow-lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Activity
+              </Button>
+            </DialogTrigger>
+
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Activity</DialogTitle>
