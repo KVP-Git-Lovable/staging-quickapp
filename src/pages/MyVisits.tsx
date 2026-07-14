@@ -458,6 +458,14 @@ export const MyVisits = () => {
       };
     });
 
+    // Beat-share peer scoping: when viewing a peer, restrict to the beats we
+    // actually share with them. This is the critical filter that makes the view
+    // symmetric — without it, RLS via manager hierarchy could leak the peer's
+    // rows from beats that were never shared.
+    const scoped = peerBeatIds.size > 0
+      ? transformedRetailers.filter((r: any) => r.beatId && peerBeatIds.has(r.beatId))
+      : transformedRetailers;
+
     // Store only the transformed shape, scoped to this date. Deferring avoids
     // mutating a ref during render while retaining the same-date anti-flicker behavior.
     Promise.resolve().then(() => {
