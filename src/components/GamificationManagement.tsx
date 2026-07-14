@@ -684,7 +684,7 @@ export function GamificationManagement() {
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
-              <Button onClick={openCreateDialog} size="lg" className="bg-white text-indigo-700 hover:bg-white/90 font-semibold shadow-lg">
+              <Button onClick={openCreateDialog} size="lg" className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Create New Activity
               </Button>
