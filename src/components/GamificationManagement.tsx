@@ -1028,7 +1028,7 @@ export function GamificationManagement() {
         </Dialog>
           </div>
         </div>
-      </div>
+
 
 
 
