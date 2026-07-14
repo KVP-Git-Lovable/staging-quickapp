@@ -698,6 +698,17 @@ export function GamificationManagement() {
             </div>
 
           </div>
+          <div className="hidden lg:flex flex-1 items-center justify-center pointer-events-none select-none" aria-hidden="true">
+            <div className="relative h-24 w-64">
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-6xl animate-party-shake drop-shadow-md">🎉</span>
+              <span className="absolute left-4 top-2 h-2 w-2 rounded-full bg-pink-400 animate-confetti-1" />
+              <span className="absolute left-12 top-8 h-2 w-2 rounded-sm bg-amber-400 animate-confetti-2" />
+              <span className="absolute right-10 top-3 h-2 w-2 rounded-full bg-indigo-500 animate-confetti-3" />
+              <span className="absolute right-4 top-10 h-2 w-2 rounded-sm bg-emerald-500 animate-confetti-4" />
+              <span className="absolute left-20 bottom-2 h-2 w-2 rounded-full bg-sky-500 animate-confetti-5" />
+              <span className="absolute right-16 bottom-1 h-2 w-2 rounded-sm bg-rose-500 animate-confetti-6" />
+            </div>
+          </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button onClick={openCreateDialog} size="lg" className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-sm">
