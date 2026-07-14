@@ -1072,17 +1072,17 @@ export function GamificationManagement() {
                   <div
                     key={action.id}
                     onClick={() => openEditDialog(action)}
-                    className={`group relative overflow-hidden rounded-2xl border bg-card shadow-sm hover:shadow-xl transition-all cursor-pointer ${
-                      action.is_enabled ? "border-transparent ring-1 ring-border" : "opacity-70 hover:opacity-100 grayscale hover:grayscale-0"
+                    className={`group relative overflow-hidden rounded-2xl border bg-white shadow-sm hover:shadow-md transition-all cursor-pointer ${
+                      action.is_enabled ? "border-slate-200" : "border-dashed border-slate-200 bg-slate-50/50"
                     }`}
                   >
-                    {/* Top gradient bar */}
-                    <div className={`h-2 bg-gradient-to-r ${visual.gradient}`} />
+                    {/* Top tint bar */}
+                    <div className={`h-1.5 ${action.is_enabled ? visual.tint.replace("bg-", "bg-").replace("-50", "-200") : "bg-slate-200"}`} />
 
                     {/* Status ribbon */}
                     <div className="absolute top-4 right-4 z-10">
                       {action.is_enabled ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold ring-1 ring-emerald-200">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-1 text-xs font-semibold ring-1 ring-emerald-200">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                           Active
                         </span>
@@ -1096,11 +1096,11 @@ export function GamificationManagement() {
 
                     <div className="p-5 pt-4">
                       <div className="flex items-start gap-3">
-                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${visual.iconBg} shadow-sm shrink-0`}>
+                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${visual.iconBg} ring-1 ${visual.ring} shrink-0`}>
                           <Icon className="h-6 w-6" />
                         </div>
                         <div className="min-w-0 pr-16">
-                          <h3 className="font-semibold text-base leading-tight truncate">{action.action_name}</h3>
+                          <h3 className="font-semibold text-base leading-tight truncate text-slate-900">{action.action_name}</h3>
                           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
                             {getConfigSummary(action)}
                           </p>
@@ -1109,14 +1109,15 @@ export function GamificationManagement() {
 
                       {/* Reward pills */}
                       <div className="mt-4 grid grid-cols-2 gap-2">
-                        <div className={`rounded-xl bg-gradient-to-br ${visual.gradient} p-3 text-white`}>
-                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-90">
+                        <div className={`rounded-xl ${visual.tint} ring-1 ${visual.ring} p-3`}>
+                          <div className={`flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium ${visual.accent}`}>
                             <Award className="h-3 w-3" /> Reward
                           </div>
-                          <div className="text-xl font-bold leading-tight mt-0.5">
-                            {action.points} <span className="text-xs font-medium opacity-90">pts</span>
+                          <div className={`text-xl font-bold leading-tight mt-0.5 ${visual.accent}`}>
+                            {action.points} <span className="text-xs font-medium">pts</span>
                           </div>
                         </div>
+
                         <div className="rounded-xl bg-muted/60 p-3">
                           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                             <Coins className="h-3 w-3" /> Value
