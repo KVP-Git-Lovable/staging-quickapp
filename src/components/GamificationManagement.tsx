@@ -655,29 +655,32 @@ export function GamificationManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 p-6 sm:p-8 text-white shadow-xl">
-        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
-        <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
+      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50 via-white to-indigo-50/40 p-6 sm:p-8 shadow-sm">
+        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-indigo-100/50 blur-3xl" />
+        <div className="absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-amber-100/40 blur-3xl" />
         <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-xl bg-white/15 backdrop-blur ring-1 ring-white/25">
-              <Trophy className="h-7 w-7 text-amber-300" />
+            <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-xl bg-white ring-1 ring-indigo-100 shadow-sm">
+              <Trophy className="h-7 w-7 text-amber-500" />
             </div>
             <div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Gamification Management</h2>
-              <p className="text-white/80 text-sm sm:text-base mt-1">Configure activities, badges & rewards to keep your team engaged</p>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Gamification Management</h2>
+              <p className="text-slate-500 text-sm sm:text-base mt-1">Configure activities, badges & rewards to keep your team engaged</p>
               <div className="flex flex-wrap gap-2 mt-3">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
-                  <Sparkles className="h-3 w-3" /> {actions.length} Total
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                  <Sparkles className="h-3 w-3 text-indigo-500" /> {actions.length} Total
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-3 py-1 text-xs font-medium backdrop-blur">
-                  <CheckCircle2 className="h-3 w-3" /> {actions.filter(a => a.is_enabled).length} Active
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 ring-1 ring-emerald-200 px-3 py-1 text-xs font-medium text-emerald-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {actions.filter(a => a.is_enabled).length} Active
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
                   {actions.filter(a => !a.is_enabled).length} Inactive
                 </span>
               </div>
             </div>
+
           </div>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
