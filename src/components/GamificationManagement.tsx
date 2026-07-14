@@ -1026,10 +1026,10 @@ export function GamificationManagement() {
             </div>
           </DialogContent>
         </Dialog>
-        </Dialog>
           </div>
         </div>
       </div>
+
 
 
       <Tabs defaultValue="activities" className="space-y-4">
