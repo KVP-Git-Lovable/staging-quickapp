@@ -469,10 +469,10 @@ export const MyVisits = () => {
     // Store only the transformed shape, scoped to this date. Deferring avoids
     // mutating a ref during render while retaining the same-date anti-flicker behavior.
     Promise.resolve().then(() => {
-      prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: transformedRetailers };
+      prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: scoped };
     });
-    return transformedRetailers;
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId]);
+    return scoped;
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId, peerBeatIds]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now
