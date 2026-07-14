@@ -8,7 +8,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Award, Pencil } from "lucide-react";
+import { Plus, Trash2, Award, Pencil, Target } from "lucide-react";
+
+const BADGE_COLOR_STYLES: Record<string, { tint: string; bar: string; iconBg: string; accent: string; ring: string }> = {
+  gold:   { tint: "bg-amber-50",   bar: "bg-amber-200",   iconBg: "bg-amber-100 text-amber-600",   accent: "text-amber-700",   ring: "ring-amber-100" },
+  silver: { tint: "bg-slate-50",   bar: "bg-slate-200",   iconBg: "bg-slate-100 text-slate-600",   accent: "text-slate-700",   ring: "ring-slate-100" },
+  blue:   { tint: "bg-blue-50",    bar: "bg-blue-200",    iconBg: "bg-blue-100 text-blue-600",     accent: "text-blue-700",    ring: "ring-blue-100" },
+  green:  { tint: "bg-emerald-50", bar: "bg-emerald-200", iconBg: "bg-emerald-100 text-emerald-600", accent: "text-emerald-700", ring: "ring-emerald-100" },
+  purple: { tint: "bg-violet-50",  bar: "bg-violet-200",  iconBg: "bg-violet-100 text-violet-600", accent: "text-violet-700",  ring: "ring-violet-100" },
+  red:    { tint: "bg-rose-50",    bar: "bg-rose-200",    iconBg: "bg-rose-100 text-rose-600",     accent: "text-rose-700",    ring: "ring-rose-100" },
+  orange: { tint: "bg-orange-50",  bar: "bg-orange-200",  iconBg: "bg-orange-100 text-orange-600", accent: "text-orange-700",  ring: "ring-orange-100" },
+};
+const DEFAULT_BADGE_STYLE = BADGE_COLOR_STYLES.blue;
+
 
 interface Badge {
   id: string;
