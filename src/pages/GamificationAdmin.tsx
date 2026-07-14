@@ -23,9 +23,10 @@ export default function GamificationAdmin() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 sm:p-6">
+      <div className="w-full px-2 sm:px-4 py-4 sm:py-6">
         <GamificationManagement />
       </div>
+
     </Layout>
   );
 }
