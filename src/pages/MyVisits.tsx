@@ -4,8 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Calendar as CalendarIcon, FileText, Plus, TrendingUp, Route, CheckCircle, CalendarDays, MapPin, Users, Clock, Truck, ArrowUpDown, RefreshCw, Download, Sparkles, Loader2, BarChart3 } from "lucide-react";
 import { ModuleHelpButton } from "@/components/help/ModuleHelpButton";
 
-import { BeatSharePeerTabs } from "@/components/BeatSharePeerTabs";
-import type { BeatSharePeer } from "@/hooks/useBeatSharePeers";
+import { CompactMultiUserSelector } from "@/components/CompactMultiUserSelector";
 import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { format, startOfWeek, addDays, isSameDay, startOfMonth, endOfMonth, addWeeks, subWeeks, differenceInDays } from "date-fns";
 import { SearchInput } from "@/components/SearchInput";
@@ -211,10 +210,6 @@ export const MyVisits = () => {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  // Beat-share peer selection: when a peer tab is active, scope everything
-  // (retailers/visits/orders) to the beats we actually share with that peer.
-  // Empty set = "Mine" (no peer scope).
-  const [peerBeatIds, setPeerBeatIds] = useState<Set<string>>(new Set());
   const {
     user,
     userProfile
@@ -458,21 +453,13 @@ export const MyVisits = () => {
       };
     });
 
-    // Beat-share peer scoping: when viewing a peer, restrict to the beats we
-    // actually share with them. This is the critical filter that makes the view
-    // symmetric — without it, RLS via manager hierarchy could leak the peer's
-    // rows from beats that were never shared.
-    const scoped = peerBeatIds.size > 0
-      ? transformedRetailers.filter((r: any) => r.beatId && peerBeatIds.has(r.beatId))
-      : transformedRetailers;
-
     // Store only the transformed shape, scoped to this date. Deferring avoids
     // mutating a ref during render while retaining the same-date anti-flicker behavior.
     Promise.resolve().then(() => {
-      prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: scoped };
+      prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: transformedRetailers };
     });
-    return scoped;
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId, peerBeatIds]);
+    return transformedRetailers;
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now
@@ -1438,18 +1425,19 @@ export const MyVisits = () => {
                 </div>
                 <ModuleHelpButton categoryId="my-visit" variant="onDark" />
               </div>
-              <BeatSharePeerTabs
-                selectedPeerId={isViewingSelf ? null : selectedUserIds[0]}
-                onChange={(peer: BeatSharePeer | null) => {
-                  if (!peer) {
-                    setSelectedUserIds([]);
-                    setPeerBeatIds(new Set());
+              <CompactMultiUserSelector
+                selectedUserIds={selectedUserIds}
+                onSelectionChange={(ids) => {
+                  if (ids.length > 1) {
+                    const newest = ids.filter(id => !selectedUserIds.includes(id));
+                    setSelectedUserIds(newest.length > 0 ? [newest[0]] : [ids[ids.length - 1]]);
                   } else {
-                    setSelectedUserIds([peer.userId]);
-                    setPeerBeatIds(new Set(peer.beatIds));
+                    setSelectedUserIds(ids);
                   }
                 }}
                 variant="onDark"
+                showAllTeam={false}
+                enableOnBehalf
               />
             </div>
           </CardHeader>
