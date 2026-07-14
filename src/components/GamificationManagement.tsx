@@ -691,161 +691,317 @@ export function GamificationManagement() {
               </Button>
             </DialogTrigger>
 
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Activity</DialogTitle>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 bg-slate-50">
+            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-r from-indigo-50 to-sky-50 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-white border border-indigo-100 flex items-center justify-center shadow-sm">
+                  <Plus className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-semibold text-slate-800">Create New Activity</DialogTitle>
+                  <p className="text-xs text-slate-500 mt-0.5">Configure a new gamification activity for your team</p>
+                </div>
+              </div>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="activityName">Activity Name *</Label>
-                <Select value={selectedActivity} onValueChange={(value) => {
-                  setSelectedActivity(value);
-                  const activity = METRIC_TYPES.find(a => a.value === value);
-                  setRewardPoints(activity?.defaultPoints.toString() || "");
-                }}>
-                  <SelectTrigger id="activityName">
-                    <SelectValue placeholder="Select an activity" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background">
-                    {METRIC_TYPES.map((activity) => (
-                      <SelectItem key={activity.value} value={activity.value}>
-                        {activity.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="p-6 space-y-4">
+              <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Activity Details</div>
+                <div>
+                  <Label htmlFor="activityName" className="text-slate-700">Activity Name *</Label>
+                  <Select value={selectedActivity} onValueChange={(value) => {
+                    setSelectedActivity(value);
+                    const activity = METRIC_TYPES.find(a => a.value === value);
+                    setRewardPoints(activity?.defaultPoints.toString() || "");
+                  }}>
+                    <SelectTrigger id="activityName" className="mt-1 bg-white">
+                      <SelectValue placeholder="Select an activity" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {METRIC_TYPES.map((activity) => (
+                        <SelectItem key={activity.value} value={activity.value}>
+                          {activity.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="gameDescription" className="text-slate-700">Description</Label>
+                  <Textarea
+                    id="gameDescription"
+                    value={gameDescription}
+                    onChange={(e) => setGameDescription(e.target.value)}
+                    placeholder="Describe the activity objectives..."
+                    className="mt-1 bg-white"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">
+                  <div>
+                    <Label htmlFor="gameActive" className="text-slate-700 font-medium">Game Active</Label>
+                    <p className="text-xs text-slate-500">Enable this activity for participants</p>
+                  </div>
+                  <Switch id="gameActive" checked={isActive} onCheckedChange={setIsActive} />
+                </div>
               </div>
 
-              <div>
-                <Label htmlFor="rewardPoints">Reward Points per Activity *</Label>
-                <Input
-                  id="rewardPoints"
-                  type="number"
-                  value={rewardPoints}
-                  onChange={(e) => setRewardPoints(e.target.value)}
-                  placeholder="Enter points"
-                  min="0"
-                />
+              <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rewards & Conversion</div>
+                <div>
+                  <Label htmlFor="rewardPoints" className="text-slate-700">Reward Points per Activity *</Label>
+                  <Input
+                    id="rewardPoints"
+                    type="number"
+                    value={rewardPoints}
+                    onChange={(e) => setRewardPoints(e.target.value)}
+                    placeholder="Enter points"
+                    min="0"
+                    className="mt-1 bg-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="pointsConversion" className="text-slate-700">Points to Rupee Conversion</Label>
+                  <Input
+                    id="pointsConversion"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={pointsToRupeeConversion}
+                    onChange={(e) => setPointsToRupeeConversion(e.target.value)}
+                    placeholder="1 point = ? rupees (e.g., 1 or 0.5)"
+                    className="mt-1 bg-white"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    1 point = ₹{pointsToRupeeConversion || "1"}
+                  </p>
+                </div>
               </div>
 
               {selectedActivity && (
-                <MetricConfigFields
-                  metricType={selectedActivity}
-                  config={metricConfig}
-                  onConfigChange={setMetricConfig}
-                />
+                <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Metric Configuration</div>
+                  <MetricConfigFields
+                    metricType={selectedActivity}
+                    config={metricConfig}
+                    onConfigChange={setMetricConfig}
+                  />
+                </div>
               )}
 
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="gameActive"
-                  checked={isActive}
-                  onCheckedChange={setIsActive}
-                />
-                <Label htmlFor="gameActive">Game Active</Label>
-              </div>
-
-              <div>
-                <Label htmlFor="gameDescription">Description</Label>
-                <Textarea
-                  id="gameDescription"
-                  value={gameDescription}
-                  onChange={(e) => setGameDescription(e.target.value)}
-                  placeholder="Describe the activity objectives..."
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startDate">Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="endDate">End Date</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="pointsConversion">Points to Rupee Conversion</Label>
-                <Input
-                  id="pointsConversion"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={pointsToRupeeConversion}
-                  onChange={(e) => setPointsToRupeeConversion(e.target.value)}
-                  placeholder="1 point = ? rupees (e.g., 1 or 0.5)"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Set how many rupees equals 1 point (e.g., 1 point = ₹{pointsToRupeeConversion || "1"})
-                </p>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="allTerritories"
-                  checked={isAllTerritories}
-                  onCheckedChange={setIsAllTerritories}
-                />
-                <Label htmlFor="allTerritories">Apply to all territories</Label>
-              </div>
-
-              {!isAllTerritories && (
-                <div>
-                  <Label>Select Territories *</Label>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {territories.map((territory) => (
-                      <div key={territory} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`territory-${territory}`}
-                          checked={selectedTerritories.includes(territory)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedTerritories([...selectedTerritories, territory]);
-                            } else {
-                              setSelectedTerritories(
-                                selectedTerritories.filter((t) => t !== territory)
-                              );
-                            }
-                          }}
-                          className="rounded border-gray-300"
-                        />
-                        <Label htmlFor={`territory-${territory}`} className="font-normal">
-                          {territory}
-                        </Label>
-                      </div>
-                    ))}
+              <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="startDate" className="text-slate-700">Start Date</Label>
+                    <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 bg-white" />
+                  </div>
+                  <div>
+                    <Label htmlFor="endDate" className="text-slate-700">End Date</Label>
+                    <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 bg-white" />
                   </div>
                 </div>
-              )}
+              </div>
 
-              <div className="flex gap-2">
-                <Button onClick={createActivity} className="flex-1">
+              <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Territory Scope</div>
+                <div className="flex items-center justify-between rounded-lg bg-sky-50 border border-sky-100 px-3 py-2">
+                  <Label htmlFor="allTerritories" className="text-slate-700 font-medium">Apply to all territories</Label>
+                  <Switch id="allTerritories" checked={isAllTerritories} onCheckedChange={setIsAllTerritories} />
+                </div>
+                {!isAllTerritories && (
+                  <div>
+                    <Label className="text-slate-700">Select Territories *</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      {territories.map((territory) => (
+                        <div key={territory} className="flex items-center space-x-2 rounded-md border border-slate-200 px-2 py-1.5 bg-slate-50">
+                          <input
+                            type="checkbox"
+                            id={`territory-${territory}`}
+                            checked={selectedTerritories.includes(territory)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedTerritories([...selectedTerritories, territory]);
+                              } else {
+                                setSelectedTerritories(selectedTerritories.filter((t) => t !== territory));
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <Label htmlFor={`territory-${territory}`} className="font-normal text-sm">{territory}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button onClick={createActivity} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white">
                   Create Activity
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCreateDialog(false)}
-                  className="flex-1"
-                >
+                <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="flex-1">
                   Cancel
                 </Button>
               </div>
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 bg-slate-50">
+            <DialogHeader className="px-6 pt-6 pb-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-white border border-amber-100 flex items-center justify-center shadow-sm">
+                  <Pencil className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <DialogTitle className="text-lg font-semibold text-slate-800">Edit Activity</DialogTitle>
+                  <p className="text-xs text-slate-500 mt-0.5">Update the configuration for this activity</p>
+                </div>
+              </div>
+            </DialogHeader>
+            <div className="p-6 space-y-4">
+              <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Activity Details</div>
+                <div>
+                  <Label htmlFor="editActivityName" className="text-slate-700">Activity Name *</Label>
+                  <Select value={selectedActivity} onValueChange={(value) => {
+                    setSelectedActivity(value);
+                    const activity = METRIC_TYPES.find(a => a.value === value);
+                    setRewardPoints(activity?.defaultPoints.toString() || "");
+                  }}>
+                    <SelectTrigger id="editActivityName" className="mt-1 bg-white">
+                      <SelectValue placeholder="Select an activity" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {METRIC_TYPES.map((activity) => (
+                        <SelectItem key={activity.value} value={activity.value}>
+                          {activity.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="editGameDescription" className="text-slate-700">Description</Label>
+                  <Textarea
+                    id="editGameDescription"
+                    value={gameDescription}
+                    onChange={(e) => setGameDescription(e.target.value)}
+                    placeholder="Describe the activity objectives..."
+                    className="mt-1 bg-white"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">
+                  <div>
+                    <Label htmlFor="editGameActive" className="text-slate-700 font-medium">Game Active</Label>
+                    <p className="text-xs text-slate-500">Enable this activity for participants</p>
+                  </div>
+                  <Switch id="editGameActive" checked={isActive} onCheckedChange={setIsActive} />
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rewards & Conversion</div>
+                <div>
+                  <Label htmlFor="editRewardPoints" className="text-slate-700">Reward Points per Activity *</Label>
+                  <Input
+                    id="editRewardPoints"
+                    type="number"
+                    value={rewardPoints}
+                    onChange={(e) => setRewardPoints(e.target.value)}
+                    placeholder="Enter points"
+                    min="0"
+                    className="mt-1 bg-white"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editPointsConversion" className="text-slate-700">Points to Rupee Conversion</Label>
+                  <Input
+                    id="editPointsConversion"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={pointsToRupeeConversion}
+                    onChange={(e) => setPointsToRupeeConversion(e.target.value)}
+                    placeholder="1 point = ? rupees (e.g., 1 or 0.5)"
+                    className="mt-1 bg-white"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    1 point = ₹{pointsToRupeeConversion || "1"}
+                  </p>
+                </div>
+              </div>
+
+              {selectedActivity && (
+                <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Metric Configuration</div>
+                  <MetricConfigFields
+                    metricType={selectedActivity}
+                    config={metricConfig}
+                    onConfigChange={setMetricConfig}
+                  />
+                </div>
+              )}
+
+              <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-4">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editStartDate" className="text-slate-700">Start Date</Label>
+                    <Input id="editStartDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="mt-1 bg-white" />
+                  </div>
+                  <div>
+                    <Label htmlFor="editEndDate" className="text-slate-700">End Date</Label>
+                    <Input id="editEndDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="mt-1 bg-white" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-white border border-slate-200 p-4 space-y-3">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Territory Scope</div>
+                <div className="flex items-center justify-between rounded-lg bg-sky-50 border border-sky-100 px-3 py-2">
+                  <Label htmlFor="editAllTerritories" className="text-slate-700 font-medium">Apply to all territories</Label>
+                  <Switch id="editAllTerritories" checked={isAllTerritories} onCheckedChange={setIsAllTerritories} />
+                </div>
+                {!isAllTerritories && (
+                  <div>
+                    <Label className="text-slate-700">Select Territories *</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      {territories.map((territory) => (
+                        <div key={territory} className="flex items-center space-x-2 rounded-md border border-slate-200 px-2 py-1.5 bg-slate-50">
+                          <input
+                            type="checkbox"
+                            id={`edit-territory-${territory}`}
+                            checked={selectedTerritories.includes(territory)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedTerritories([...selectedTerritories, territory]);
+                              } else {
+                                setSelectedTerritories(selectedTerritories.filter((t) => t !== territory));
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <Label htmlFor={`edit-territory-${territory}`} className="font-normal text-sm">{territory}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button onClick={updateActivity} className="flex-1 bg-amber-600 hover:bg-amber-700 text-white">
+                  Update Activity
+                </Button>
+                <Button variant="outline" onClick={() => setShowEditDialog(false)} className="flex-1">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
 
         <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
