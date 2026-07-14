@@ -1451,20 +1451,8 @@ export const MyVisits = () => {
                 }}
                 variant="onDark"
               />
-              </div>
             </div>
           </CardHeader>
-          {/* removed extra wrapper */}
-          {false && (
-          <CardHeader>
-            <div>
-              <CompactMultiUserSelector
-                selectedUserIds={selectedUserIds}
-                onSelectionChange={setSelectedUserIds}
-              />
-            </div>
-          </CardHeader>
-          )}
           <CardContent className="space-y-2 sm:space-y-4 px-2 sm:px-6 pb-2 sm:pb-6">
             {/* Calendar Selector */}
             <div className="flex items-center justify-between gap-1.5 sm:gap-2 mb-2 sm:mb-4">
