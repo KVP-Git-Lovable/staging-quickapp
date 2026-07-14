@@ -9,12 +9,26 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Pencil, Trophy } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, Trophy, UserPlus, Target, Star, CheckCircle2, Repeat, TrendingUp, Search, MessageSquare, Megaphone, Footprints, Sparkles, Gift, Award, Coins } from "lucide-react";
 import { BadgeManagement } from "./BadgeManagement";
 import { MetricConfigFields } from "./MetricConfigFields";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const METRIC_VISUALS: Record<string, { icon: any; gradient: string; iconBg: string; accent: string }> = {
+  first_order_new_retailer: { icon: UserPlus,     gradient: "from-fuchsia-500 to-pink-500",   iconBg: "bg-fuchsia-100 text-fuchsia-700",   accent: "text-fuchsia-600" },
+  daily_target:             { icon: Target,       gradient: "from-blue-500 to-indigo-500",    iconBg: "bg-blue-100 text-blue-700",         accent: "text-blue-600" },
+  focused_product_sales:    { icon: Star,         gradient: "from-amber-500 to-orange-500",   iconBg: "bg-amber-100 text-amber-700",       accent: "text-amber-600" },
+  productive_visit:         { icon: CheckCircle2, gradient: "from-emerald-500 to-teal-500",   iconBg: "bg-emerald-100 text-emerald-700",   accent: "text-emerald-600" },
+  order_frequency:          { icon: Repeat,       gradient: "from-violet-500 to-purple-500",  iconBg: "bg-violet-100 text-violet-700",     accent: "text-violet-600" },
+  beat_growth:              { icon: TrendingUp,   gradient: "from-green-500 to-lime-500",     iconBg: "bg-green-100 text-green-700",       accent: "text-green-600" },
+  competition_insight:      { icon: Search,       gradient: "from-rose-500 to-red-500",       iconBg: "bg-rose-100 text-rose-700",         accent: "text-rose-600" },
+  retailer_feedback:        { icon: MessageSquare,gradient: "from-cyan-500 to-sky-500",       iconBg: "bg-cyan-100 text-cyan-700",         accent: "text-cyan-600" },
+  branding_request:         { icon: Megaphone,    gradient: "from-orange-500 to-rose-500",    iconBg: "bg-orange-100 text-orange-700",     accent: "text-orange-600" },
+  total_visits:             { icon: Footprints,   gradient: "from-indigo-500 to-blue-500",    iconBg: "bg-indigo-100 text-indigo-700",     accent: "text-indigo-600" },
+};
+const DEFAULT_VISUAL = { icon: Sparkles, gradient: "from-slate-500 to-slate-700", iconBg: "bg-slate-100 text-slate-700", accent: "text-slate-600" };
 
 interface Game {
   id: string;
@@ -640,18 +654,38 @@ export function GamificationManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold">Gamification Management</h2>
-          <p className="text-muted-foreground">Configure activities and manage redemptions</p>
-        </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create New Activity
-            </Button>
-          </DialogTrigger>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 p-6 sm:p-8 text-white shadow-xl">
+        <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-20 -left-10 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-xl bg-white/15 backdrop-blur ring-1 ring-white/25">
+              <Trophy className="h-7 w-7 text-amber-300" />
+            </div>
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Gamification Management</h2>
+              <p className="text-white/80 text-sm sm:text-base mt-1">Configure activities, badges & rewards to keep your team engaged</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+                  <Sparkles className="h-3 w-3" /> {actions.length} Total
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/25 px-3 py-1 text-xs font-medium backdrop-blur">
+                  <CheckCircle2 className="h-3 w-3" /> {actions.filter(a => a.is_enabled).length} Active
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur">
+                  {actions.filter(a => !a.is_enabled).length} Inactive
+                </span>
+              </div>
+            </div>
+          </div>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={openCreateDialog} size="lg" className="bg-white text-indigo-700 hover:bg-white/90 font-semibold shadow-lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Create New Activity
+              </Button>
+            </DialogTrigger>
+
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Create New Activity</DialogTitle>
@@ -992,7 +1026,11 @@ export function GamificationManagement() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+          </div>
+        </div>
+
+
+
 
       <Tabs defaultValue="activities" className="space-y-4">
         <TabsList>
@@ -1004,86 +1042,130 @@ export function GamificationManagement() {
         </TabsList>
 
         <TabsContent value="activities" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Activities</CardTitle>
-              <CardDescription>Click on an activity to edit</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Activity Name</TableHead>
-                    <TableHead>Game</TableHead>
-                    <TableHead>Reward</TableHead>
-                    <TableHead>Points to Rs.</TableHead>
-                    <TableHead>Configuration</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {actions.map((action) => {
-                    const game = games.find(g => g.id === action.game_id);
-                    return (
-                    <TableRow
-                      key={action.id}
-                      className="cursor-pointer hover:bg-muted"
-                      onClick={() => openEditDialog(action)}
-                    >
-                      <TableCell className="font-medium">{action.action_name}</TableCell>
-                      <TableCell className="text-sm">
-                        {game?.name || "N/A"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="default">{action.points} points</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">1 pt = ₹{game?.points_to_rupee_conversion || 1}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {getConfigSummary(action)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={action.is_enabled ? "default" : "secondary"}>
-                          {action.is_enabled ? "Active" : "Inactive"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
+          {actions.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center mb-4">
+                  <Trophy className="h-8 w-8 text-indigo-500" />
+                </div>
+                <h3 className="text-lg font-semibold">No activities yet</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                  Create your first gamification activity to start rewarding your team.
+                </p>
+                <Button onClick={openCreateDialog} className="mt-4">
+                  <Plus className="mr-2 h-4 w-4" /> Create Activity
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {actions.map((action) => {
+                const visual = METRIC_VISUALS[action.action_type] || DEFAULT_VISUAL;
+                const Icon = visual.icon;
+                const game = games.find(g => g.id === action.game_id);
+                const conversion = game?.points_to_rupee_conversion || 1;
+                return (
+                  <div
+                    key={action.id}
+                    onClick={() => openEditDialog(action)}
+                    className={`group relative overflow-hidden rounded-2xl border bg-card shadow-sm hover:shadow-xl transition-all cursor-pointer ${
+                      action.is_enabled ? "border-transparent ring-1 ring-border" : "opacity-70 hover:opacity-100 grayscale hover:grayscale-0"
+                    }`}
+                  >
+                    {/* Top gradient bar */}
+                    <div className={`h-2 bg-gradient-to-r ${visual.gradient}`} />
+
+                    {/* Status ribbon */}
+                    <div className="absolute top-4 right-4 z-10">
+                      {action.is_enabled ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2.5 py-1 text-xs font-semibold ring-1 ring-emerald-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 text-slate-600 px-2.5 py-1 text-xs font-semibold ring-1 ring-slate-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                          Inactive
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-5 pt-4">
+                      <div className="flex items-start gap-3">
+                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${visual.iconBg} shadow-sm shrink-0`}>
+                          <Icon className="h-6 w-6" />
+                        </div>
+                        <div className="min-w-0 pr-16">
+                          <h3 className="font-semibold text-base leading-tight truncate">{action.action_name}</h3>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                            {getConfigSummary(action)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Reward pills */}
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className={`rounded-xl bg-gradient-to-br ${visual.gradient} p-3 text-white`}>
+                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-90">
+                            <Award className="h-3 w-3" /> Reward
+                          </div>
+                          <div className="text-xl font-bold leading-tight mt-0.5">
+                            {action.points} <span className="text-xs font-medium opacity-90">pts</span>
+                          </div>
+                        </div>
+                        <div className="rounded-xl bg-muted/60 p-3">
+                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            <Coins className="h-3 w-3" /> Value
+                          </div>
+                          <div className={`text-xl font-bold leading-tight mt-0.5 ${visual.accent}`}>
+                            ₹{conversion}
+                            <span className="text-xs font-medium text-muted-foreground"> /pt</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Footer */}
+                      <div className="mt-4 flex items-center justify-between pt-3 border-t">
+                        <span className="text-xs text-muted-foreground truncate max-w-[60%]">
+                          {game?.name?.split(" - ")[0] || "Standalone"}
+                        </span>
+                        <div className="flex gap-1">
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               openEditDialog(action);
                             }}
                           >
-                            <Pencil className="h-3 w-3" />
+                            <Pencil className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={(e) => {
                               e.stopPropagation();
                               setActionToDelete(action);
                               setShowDeleteDialog(true);
                             }}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
         </TabsContent>
 
         <TabsContent value="badges" className="space-y-4">
+
           <BadgeManagement />
         </TabsContent>
 
