@@ -16,19 +16,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const METRIC_VISUALS: Record<string, { icon: any; tint: string; iconBg: string; accent: string; ring: string }> = {
-  first_order_new_retailer: { icon: UserPlus,     tint: "bg-fuchsia-50",  iconBg: "bg-fuchsia-100 text-fuchsia-600",   accent: "text-fuchsia-600", ring: "ring-fuchsia-100" },
-  daily_target:             { icon: Target,       tint: "bg-blue-50",     iconBg: "bg-blue-100 text-blue-600",         accent: "text-blue-600",    ring: "ring-blue-100" },
-  focused_product_sales:    { icon: Star,         tint: "bg-amber-50",    iconBg: "bg-amber-100 text-amber-600",       accent: "text-amber-600",   ring: "ring-amber-100" },
-  productive_visit:         { icon: CheckCircle2, tint: "bg-emerald-50",  iconBg: "bg-emerald-100 text-emerald-600",   accent: "text-emerald-600", ring: "ring-emerald-100" },
-  order_frequency:          { icon: Repeat,       tint: "bg-violet-50",   iconBg: "bg-violet-100 text-violet-600",     accent: "text-violet-600",  ring: "ring-violet-100" },
-  beat_growth:              { icon: TrendingUp,   tint: "bg-green-50",    iconBg: "bg-green-100 text-green-600",       accent: "text-green-600",   ring: "ring-green-100" },
-  competition_insight:      { icon: Search,       tint: "bg-rose-50",     iconBg: "bg-rose-100 text-rose-600",         accent: "text-rose-600",    ring: "ring-rose-100" },
-  retailer_feedback:        { icon: MessageSquare,tint: "bg-cyan-50",     iconBg: "bg-cyan-100 text-cyan-600",         accent: "text-cyan-600",    ring: "ring-cyan-100" },
-  branding_request:         { icon: Megaphone,    tint: "bg-orange-50",   iconBg: "bg-orange-100 text-orange-600",     accent: "text-orange-600",  ring: "ring-orange-100" },
-  total_visits:             { icon: Footprints,   tint: "bg-indigo-50",   iconBg: "bg-indigo-100 text-indigo-600",     accent: "text-indigo-600",  ring: "ring-indigo-100" },
+const METRIC_VISUALS: Record<string, { icon: any; tint: string; bar: string; iconBg: string; accent: string; ring: string }> = {
+  first_order_new_retailer: { icon: UserPlus,     tint: "bg-fuchsia-50",  bar: "bg-fuchsia-200",  iconBg: "bg-fuchsia-100 text-fuchsia-600",   accent: "text-fuchsia-600", ring: "ring-fuchsia-100" },
+  daily_target:             { icon: Target,       tint: "bg-blue-50",     bar: "bg-blue-200",     iconBg: "bg-blue-100 text-blue-600",         accent: "text-blue-600",    ring: "ring-blue-100" },
+  focused_product_sales:    { icon: Star,         tint: "bg-amber-50",    bar: "bg-amber-200",    iconBg: "bg-amber-100 text-amber-600",       accent: "text-amber-600",   ring: "ring-amber-100" },
+  productive_visit:         { icon: CheckCircle2, tint: "bg-emerald-50",  bar: "bg-emerald-200",  iconBg: "bg-emerald-100 text-emerald-600",   accent: "text-emerald-600", ring: "ring-emerald-100" },
+  order_frequency:          { icon: Repeat,       tint: "bg-violet-50",   bar: "bg-violet-200",   iconBg: "bg-violet-100 text-violet-600",     accent: "text-violet-600",  ring: "ring-violet-100" },
+  beat_growth:              { icon: TrendingUp,   tint: "bg-green-50",    bar: "bg-green-200",    iconBg: "bg-green-100 text-green-600",       accent: "text-green-600",   ring: "ring-green-100" },
+  competition_insight:      { icon: Search,       tint: "bg-rose-50",     bar: "bg-rose-200",     iconBg: "bg-rose-100 text-rose-600",         accent: "text-rose-600",    ring: "ring-rose-100" },
+  retailer_feedback:        { icon: MessageSquare,tint: "bg-cyan-50",     bar: "bg-cyan-200",     iconBg: "bg-cyan-100 text-cyan-600",         accent: "text-cyan-600",    ring: "ring-cyan-100" },
+  branding_request:         { icon: Megaphone,    tint: "bg-orange-50",   bar: "bg-orange-200",   iconBg: "bg-orange-100 text-orange-600",     accent: "text-orange-600",  ring: "ring-orange-100" },
+  total_visits:             { icon: Footprints,   tint: "bg-indigo-50",   bar: "bg-indigo-200",   iconBg: "bg-indigo-100 text-indigo-600",     accent: "text-indigo-600",  ring: "ring-indigo-100" },
 };
-const DEFAULT_VISUAL = { icon: Sparkles, tint: "bg-slate-50", iconBg: "bg-slate-100 text-slate-600", accent: "text-slate-600", ring: "ring-slate-100" };
+const DEFAULT_VISUAL = { icon: Sparkles, tint: "bg-slate-50", bar: "bg-slate-200", iconBg: "bg-slate-100 text-slate-600", accent: "text-slate-600", ring: "ring-slate-100" };
+
 
 
 interface Game {
