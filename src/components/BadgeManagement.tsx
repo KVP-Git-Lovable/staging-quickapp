@@ -171,18 +171,31 @@ export function BadgeManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Badge Management</h2>
-          <p className="text-muted-foreground">Create and manage achievement badges</p>
-        </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Badge
-            </Button>
-          </DialogTrigger>
+      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50 via-white to-amber-50/40 p-6 sm:p-8 shadow-sm">
+        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-100/50 blur-3xl" />
+        <div className="absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-indigo-100/40 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-xl bg-white ring-1 ring-amber-100 shadow-sm">
+              <Award className="h-7 w-7 text-amber-500" />
+            </div>
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Badge Management</h2>
+              <p className="text-slate-500 text-sm sm:text-base mt-1">Create and manage achievement badges</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                  <Award className="h-3 w-3 text-amber-500" /> {badges.length} Total Badges
+                </span>
+              </div>
+            </div>
+          </div>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button size="lg" className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Badge
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Badge</DialogTitle>
@@ -197,6 +210,7 @@ export function BadgeManagement() {
                   placeholder="Century Maker"
                 />
               </div>
+
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea
