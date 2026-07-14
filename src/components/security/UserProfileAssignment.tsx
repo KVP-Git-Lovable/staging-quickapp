@@ -64,13 +64,15 @@ export const UserProfileAssignment = () => {
     }
   });
 
-  // Fetch all profiles for dropdown
+  // Fetch ACTIVE profiles for the assignment dropdown — deactivated profiles
+  // cannot be assigned to users (sub-key still prefix-invalidated by ['security-profiles']).
   const { data: profiles } = useQuery({
-    queryKey: ['security-profiles'],
+    queryKey: ['security-profiles', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('security_profiles')
-        .select('id, name')
+        .select('id, name, is_active')
+        .eq('is_active', true)
         .order('name');
       if (error) throw error;
       return data;
