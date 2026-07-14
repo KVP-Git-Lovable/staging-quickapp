@@ -185,6 +185,8 @@ export function GamificationManagement() {
   const [rewardPoints, setRewardPoints] = useState("");
   const [metricConfig, setMetricConfig] = useState<any>({});
   const [isActive, setIsActive] = useState(true);
+  const [activityFilter, setActivityFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [actionToDelete, setActionToDelete] = useState<GameAction | null>(null);
   const [pointsToRupeeConversion, setPointsToRupeeConversion] = useState("1");
