@@ -989,10 +989,27 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const visitRetailerIds = newVisits.map(v => v.retailer_id);
       const orderRetailerIds = newOrders.map(o => o.retailer_id);
 
-      // CORRECT: Only use beats that the user has PLANNED for today.
-      // Shared beat access grants visibility but retailers only load when the beat is planned.
-      // This prevents ALL shared beats (regardless of plan) from inflating the retailer count.
-      const beatIds = [...new Set(planBeatIds)];
+      // Beats the user has PLANNED for today PLUS beats explicitly shared with the
+      // user via an active `beat_user_access` grant covering today. An active dated
+      // share is an intentional grant, so its retailers must load for the sharee —
+      // otherwise Rep B (whom Rep A shared a beat with) sees an empty list while
+      // Rep A still sees both sides.
+      let sharedBeatIds: string[] = [];
+      try {
+        const { data: shareRows } = await supabase
+          .from('beat_user_access')
+          .select('beat_id')
+          .eq('user_id', uid)
+          .eq('is_active', true)
+          .lte('effective_from', `${date}T23:59:59.999Z`)
+          .or(`effective_to.is.null,effective_to.gte.${date}T00:00:00.000Z`);
+        sharedBeatIds = (shareRows || [])
+          .map((r: any) => r.beat_id)
+          .filter(Boolean);
+      } catch (e) {
+        console.warn('[SmartSync] Shared-beat fetch failed (non-fatal):', e);
+      }
+      const beatIds = [...new Set([...planBeatIds, ...sharedBeatIds])];
 
       // Get explicit retailer IDs from beat_data
       const explicitRetailerIds: string[] = [];
