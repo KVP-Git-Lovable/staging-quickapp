@@ -126,11 +126,28 @@ export default {
 					to: {
 						height: '0'
 					}
-				}
+				},
+				'party-shake': {
+					'0%, 100%': { transform: 'translate(-50%, -50%) rotate(-8deg)' },
+					'50%': { transform: 'translate(-50%, -55%) rotate(8deg)' }
+				},
+				'confetti-1': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(-30px,-40px) scale(0.3)', opacity: '0' } },
+				'confetti-2': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(-45px,30px) scale(0.3)', opacity: '0' } },
+				'confetti-3': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(35px,-35px) scale(0.3)', opacity: '0' } },
+				'confetti-4': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(40px,25px) scale(0.3)', opacity: '0' } },
+				'confetti-5': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(-25px,40px) scale(0.3)', opacity: '0' } },
+				'confetti-6': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(30px,35px) scale(0.3)', opacity: '0' } }
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'party-shake': 'party-shake 1.6s ease-in-out infinite',
+				'confetti-1': 'confetti-1 2s ease-out infinite',
+				'confetti-2': 'confetti-2 2.3s ease-out infinite 0.2s',
+				'confetti-3': 'confetti-3 2.1s ease-out infinite 0.4s',
+				'confetti-4': 'confetti-4 2.4s ease-out infinite 0.6s',
+				'confetti-5': 'confetti-5 2.2s ease-out infinite 0.3s',
+				'confetti-6': 'confetti-6 2.5s ease-out infinite 0.5s'
 			}
 		}
 	},
