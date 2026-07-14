@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, Shield, Users as UsersIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Shield, Users as UsersIcon, Power, PowerOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -17,6 +17,7 @@ interface Profile {
   name: string;
   description: string | null;
   is_system: boolean;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -110,6 +111,24 @@ export const ProfileManagement = () => {
     }
   });
 
+  // Activate / deactivate mutation — the safe alternative to deleting a profile in use.
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase
+        .from('security_profiles')
+        .update({ is_active })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['security-profiles'] });
+      toast.success(variables.is_active ? 'Profile activated' : 'Profile deactivated');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update profile status');
+    }
+  });
+
   const handleSave = () => {
     if (!formData.name.trim()) {
       toast.error('Profile name is required');
@@ -129,10 +148,15 @@ export const ProfileManagement = () => {
 
   const handleDelete = (profile: Profile) => {
     if (profile.is_system) {
-      toast.error('Cannot delete system profiles');
+      toast.error('System profiles cannot be deleted. Deactivate it instead.');
       return;
     }
-    if (confirm(`Delete profile "${profile.name}"? Users will need to be reassigned.`)) {
+    const users = userCounts?.[profile.id] || 0;
+    if (users > 0) {
+      toast.error(`"${profile.name}" has ${users} user(s) assigned. Reassign them or deactivate the profile instead of deleting.`);
+      return;
+    }
+    if (confirm(`Permanently delete profile "${profile.name}"? This is allowed only because no users are assigned to it.`)) {
       deleteMutation.mutate(profile.id);
     }
   };
@@ -208,6 +232,7 @@ export const ProfileManagement = () => {
               <TableHead>Description</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="text-center">Users</TableHead>
+              <TableHead className="text-center">Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -234,6 +259,13 @@ export const ProfileManagement = () => {
                     <span className="font-medium">{userCounts?.[profile.id] || 0}</span>
                   </div>
                 </TableCell>
+                <TableCell className="text-center">
+                  {profile.is_active !== false ? (
+                    <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/30">Active</Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-muted text-muted-foreground">Inactive</Badge>
+                  )}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex gap-2 justify-end">
                     <Button
@@ -247,8 +279,22 @@ export const ProfileManagement = () => {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => toggleActiveMutation.mutate({ id: profile.id, is_active: profile.is_active === false })}
+                        disabled={toggleActiveMutation.isPending}
+                        title={profile.is_active !== false ? 'Deactivate profile' : 'Activate profile'}
+                      >
+                        {profile.is_active !== false
+                          ? <PowerOff className="h-4 w-4 text-amber-600" />
+                          : <Power className="h-4 w-4 text-green-600" />}
+                      </Button>
+                    )}
+                    {!profile.is_system && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDelete(profile)}
-                        disabled={deleteMutation.isPending}
+                        disabled={deleteMutation.isPending || (userCounts?.[profile.id] || 0) > 0}
+                        title={(userCounts?.[profile.id] || 0) > 0 ? 'Has users assigned — deactivate instead of deleting' : 'Delete profile (no users assigned)'}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
