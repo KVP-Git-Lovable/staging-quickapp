@@ -1162,8 +1162,10 @@ export function GamificationManagement() {
             </div>
           )}
 
+        </TabsContent>
 
         <TabsContent value="badges" className="space-y-4">
+
           <BadgeManagement />
         </TabsContent>
 
