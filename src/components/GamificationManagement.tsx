@@ -9,12 +9,26 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Pencil, Trophy } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, Trophy, UserPlus, Target, Star, CheckCircle2, Repeat, TrendingUp, Search, MessageSquare, Megaphone, Footprints, Sparkles, Gift, Award, Coins } from "lucide-react";
 import { BadgeManagement } from "./BadgeManagement";
 import { MetricConfigFields } from "./MetricConfigFields";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const METRIC_VISUALS: Record<string, { icon: any; gradient: string; iconBg: string; accent: string }> = {
+  first_order_new_retailer: { icon: UserPlus,     gradient: "from-fuchsia-500 to-pink-500",   iconBg: "bg-fuchsia-100 text-fuchsia-700",   accent: "text-fuchsia-600" },
+  daily_target:             { icon: Target,       gradient: "from-blue-500 to-indigo-500",    iconBg: "bg-blue-100 text-blue-700",         accent: "text-blue-600" },
+  focused_product_sales:    { icon: Star,         gradient: "from-amber-500 to-orange-500",   iconBg: "bg-amber-100 text-amber-700",       accent: "text-amber-600" },
+  productive_visit:         { icon: CheckCircle2, gradient: "from-emerald-500 to-teal-500",   iconBg: "bg-emerald-100 text-emerald-700",   accent: "text-emerald-600" },
+  order_frequency:          { icon: Repeat,       gradient: "from-violet-500 to-purple-500",  iconBg: "bg-violet-100 text-violet-700",     accent: "text-violet-600" },
+  beat_growth:              { icon: TrendingUp,   gradient: "from-green-500 to-lime-500",     iconBg: "bg-green-100 text-green-700",       accent: "text-green-600" },
+  competition_insight:      { icon: Search,       gradient: "from-rose-500 to-red-500",       iconBg: "bg-rose-100 text-rose-700",         accent: "text-rose-600" },
+  retailer_feedback:        { icon: MessageSquare,gradient: "from-cyan-500 to-sky-500",       iconBg: "bg-cyan-100 text-cyan-700",         accent: "text-cyan-600" },
+  branding_request:         { icon: Megaphone,    gradient: "from-orange-500 to-rose-500",    iconBg: "bg-orange-100 text-orange-700",     accent: "text-orange-600" },
+  total_visits:             { icon: Footprints,   gradient: "from-indigo-500 to-blue-500",    iconBg: "bg-indigo-100 text-indigo-700",     accent: "text-indigo-600" },
+};
+const DEFAULT_VISUAL = { icon: Sparkles, gradient: "from-slate-500 to-slate-700", iconBg: "bg-slate-100 text-slate-700", accent: "text-slate-600" };
 
 interface Game {
   id: string;
