@@ -269,7 +269,9 @@ export function BadgeManagement() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
