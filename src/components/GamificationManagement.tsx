@@ -1176,74 +1176,129 @@ export function GamificationManagement() {
         </TabsContent>
 
         <TabsContent value="redemptions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Redemption Requests</CardTitle>
-              <CardDescription>Review and process user redemption requests</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {redemptions.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">
-                    No redemption requests
-                  </p>
-                ) : (
-                  redemptions.map((redemption) => (
-                    <div
-                      key={redemption.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">{redemption.profiles.full_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {redemption.points_redeemed} points → ₹{redemption.voucher_amount}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(redemption.requested_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        {redemption.status === "pending" && (
-                          <>
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                const code = prompt("Enter voucher code:");
-                                if (code) processRedemption(redemption.id, "approved", code);
-                              }}
-                            >
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => {
-                                const reason = prompt("Enter rejection reason:");
-                                if (reason)
-                                  processRedemption(redemption.id, "rejected", undefined, reason);
-                              }}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        {redemption.status !== "pending" && (
-                          <Badge
-                            variant={
-                              redemption.status === "approved" ? "default" : "destructive"
-                            }
-                          >
-                            {redemption.status}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
+          <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50 via-white to-emerald-50/40 p-6 shadow-sm">
+            <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-emerald-100/40 blur-3xl" />
+            <div className="relative flex items-start gap-4">
+              <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-xl bg-white ring-1 ring-emerald-100 shadow-sm">
+                <Gift className="h-6 w-6 text-emerald-500" />
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-slate-900">Redemption Requests</h3>
+                <p className="text-slate-500 text-sm mt-0.5">Review and process user reward redemptions</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                    {redemptions.length} Total
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 ring-1 ring-amber-200 px-3 py-1 text-xs font-medium text-amber-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    {redemptions.filter(r => r.status === "pending").length} Pending
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 ring-1 ring-emerald-200 px-3 py-1 text-xs font-medium text-emerald-700">
+                    {redemptions.filter(r => r.status === "approved").length} Approved
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {redemptions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed bg-white py-16 flex flex-col items-center justify-center text-center">
+              <div className="h-16 w-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4 ring-1 ring-emerald-100">
+                <Gift className="h-8 w-8 text-emerald-500" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">No redemption requests</h3>
+              <p className="text-sm text-muted-foreground mt-1 max-w-sm">Approved redemptions will appear here once users start converting points.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {redemptions.map((redemption) => {
+                const isPending = redemption.status === "pending";
+                const isApproved = redemption.status === "approved";
+                const statusStyle = isPending
+                  ? { bar: "bg-amber-200", tint: "bg-amber-50", ring: "ring-amber-100", accent: "text-amber-700", pill: "bg-amber-50 text-amber-700 ring-amber-200", dot: "bg-amber-500 animate-pulse" }
+                  : isApproved
+                  ? { bar: "bg-emerald-200", tint: "bg-emerald-50", ring: "ring-emerald-100", accent: "text-emerald-700", pill: "bg-emerald-50 text-emerald-700 ring-emerald-200", dot: "bg-emerald-500" }
+                  : { bar: "bg-rose-200", tint: "bg-rose-50", ring: "ring-rose-100", accent: "text-rose-700", pill: "bg-rose-50 text-rose-700 ring-rose-200", dot: "bg-rose-500" };
+                return (
+                  <div
+                    key={redemption.id}
+                    className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all"
+                  >
+                    <div className={`h-1.5 ${statusStyle.bar}`} />
+                    <div className="absolute top-4 right-4 z-10">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 capitalize ${statusStyle.pill}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`} />
+                        {redemption.status}
+                      </span>
+                    </div>
+
+                    <div className="p-5">
+                      <div className="flex items-start gap-3">
+                        <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${statusStyle.tint} ring-1 ${statusStyle.ring} shrink-0`}>
+                          <Gift className={`h-6 w-6 ${statusStyle.accent}`} />
+                        </div>
+                        <div className="min-w-0 pr-20">
+                          <h3 className="font-semibold text-base leading-tight text-slate-900 truncate">
+                            {redemption.profiles.full_name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {new Date(redemption.requested_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-3">
+                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium text-slate-500">
+                            <Coins className="h-3 w-3" /> Points
+                          </div>
+                          <div className="text-xl font-bold leading-tight mt-0.5 text-slate-800">
+                            {redemption.points_redeemed}
+                          </div>
+                        </div>
+                        <div className={`rounded-xl ${statusStyle.tint} ring-1 ${statusStyle.ring} p-3`}>
+                          <div className={`flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium ${statusStyle.accent}`}>
+                            <Award className="h-3 w-3" /> Voucher
+                          </div>
+                          <div className={`text-xl font-bold leading-tight mt-0.5 ${statusStyle.accent}`}>
+                            ₹{redemption.voucher_amount}
+                          </div>
+                        </div>
+                      </div>
+
+                      {isPending && (
+                        <div className="mt-4 flex gap-2 pt-3 border-t">
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => {
+                              const code = prompt("Enter voucher code:");
+                              if (code) processRedemption(redemption.id, "approved", code);
+                            }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                            onClick={() => {
+                              const reason = prompt("Enter rejection reason:");
+                              if (reason) processRedemption(redemption.id, "rejected", undefined, reason);
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
+
       </Tabs>
     </div>
   );
