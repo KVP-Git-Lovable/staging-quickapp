@@ -27435,6 +27435,16 @@ export type Database = {
           username: string
         }[]
       }
+      get_beat_share_peers: {
+        Args: never
+        Returns: {
+          beat_id: string
+          beat_name: string
+          peer_name: string
+          peer_user_id: string
+          role: string
+        }[]
+      }
       get_carry_forward_retailers: {
         Args: { p_date: string; p_user: string }
         Returns: {
