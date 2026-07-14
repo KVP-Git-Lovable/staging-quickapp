@@ -211,7 +211,8 @@ export const useTeamAttendance = (
 
       // Parallel: show all pending steps for pending requests
       const myTurnSteps = (steps || []).filter((s: any) =>
-        s.approval_requests?.status === 'pending'
+        s.approval_requests?.status === 'pending' &&
+        ['leave', 'regularization'].includes(s.approval_requests?.entity_type)
       );
 
       if (myTurnSteps.length === 0) return [];
@@ -387,7 +388,8 @@ export const useTeamAttendance = (
       }
 
       const processedSteps = (steps || []).filter((s: any) =>
-        ['approved', 'rejected'].includes(s.approval_requests?.status)
+        ['approved', 'rejected'].includes(s.approval_requests?.status) &&
+        ['leave', 'regularization'].includes(s.approval_requests?.entity_type)
       );
 
       if (processedSteps.length === 0) return [];
