@@ -211,6 +211,10 @@ export const MyVisits = () => {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  // Beat-share peer selection: when a peer tab is active, scope everything
+  // (retailers/visits/orders) to the beats we actually share with that peer.
+  // Empty set = "Mine" (no peer scope).
+  const [peerBeatIds, setPeerBeatIds] = useState<Set<string>>(new Set());
   const {
     user,
     userProfile
