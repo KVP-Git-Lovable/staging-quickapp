@@ -8,7 +8,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, Award, Pencil } from "lucide-react";
+import { Plus, Trash2, Award, Pencil, Target } from "lucide-react";
+
+const BADGE_COLOR_STYLES: Record<string, { tint: string; bar: string; iconBg: string; accent: string; ring: string }> = {
+  gold:   { tint: "bg-amber-50",   bar: "bg-amber-200",   iconBg: "bg-amber-100 text-amber-600",   accent: "text-amber-700",   ring: "ring-amber-100" },
+  silver: { tint: "bg-slate-50",   bar: "bg-slate-200",   iconBg: "bg-slate-100 text-slate-600",   accent: "text-slate-700",   ring: "ring-slate-100" },
+  blue:   { tint: "bg-blue-50",    bar: "bg-blue-200",    iconBg: "bg-blue-100 text-blue-600",     accent: "text-blue-700",    ring: "ring-blue-100" },
+  green:  { tint: "bg-emerald-50", bar: "bg-emerald-200", iconBg: "bg-emerald-100 text-emerald-600", accent: "text-emerald-700", ring: "ring-emerald-100" },
+  purple: { tint: "bg-violet-50",  bar: "bg-violet-200",  iconBg: "bg-violet-100 text-violet-600", accent: "text-violet-700",  ring: "ring-violet-100" },
+  red:    { tint: "bg-rose-50",    bar: "bg-rose-200",    iconBg: "bg-rose-100 text-rose-600",     accent: "text-rose-700",    ring: "ring-rose-100" },
+  orange: { tint: "bg-orange-50",  bar: "bg-orange-200",  iconBg: "bg-orange-100 text-orange-600", accent: "text-orange-700",  ring: "ring-orange-100" },
+};
+const DEFAULT_BADGE_STYLE = BADGE_COLOR_STYLES.blue;
+
 
 interface Badge {
   id: string;
@@ -159,18 +171,31 @@ export function BadgeManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Badge Management</h2>
-          <p className="text-muted-foreground">Create and manage achievement badges</p>
-        </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Badge
-            </Button>
-          </DialogTrigger>
+      <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50 via-white to-amber-50/40 p-6 sm:p-8 shadow-sm">
+        <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-amber-100/50 blur-3xl" />
+        <div className="absolute -bottom-16 -left-10 h-48 w-48 rounded-full bg-indigo-100/40 blur-3xl" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-xl bg-white ring-1 ring-amber-100 shadow-sm">
+              <Award className="h-7 w-7 text-amber-500" />
+            </div>
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Badge Management</h2>
+              <p className="text-slate-500 text-sm sm:text-base mt-1">Create and manage achievement badges</p>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white ring-1 ring-slate-200 px-3 py-1 text-xs font-medium text-slate-700">
+                  <Award className="h-3 w-3 text-amber-500" /> {badges.length} Total Badges
+                </span>
+              </div>
+            </div>
+          </div>
+          <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+            <DialogTrigger asChild>
+              <Button size="lg" className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Badge
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create New Badge</DialogTitle>
@@ -185,6 +210,7 @@ export function BadgeManagement() {
                   placeholder="Century Maker"
                 />
               </div>
+
               <div>
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -243,7 +269,9 @@ export function BadgeManagement() {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
 
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
@@ -319,44 +347,75 @@ export function BadgeManagement() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {badges.map(badge => (
-          <Card key={badge.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <span className="text-3xl">{badge.icon}</span>
-                  {badge.name}
-                </span>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => openEditDialog(badge)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteBadge(badge.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+      {badges.length === 0 ? (
+        <div className="rounded-2xl border border-dashed bg-white py-16 flex flex-col items-center justify-center text-center">
+          <div className="h-16 w-16 rounded-full bg-amber-50 flex items-center justify-center mb-4 ring-1 ring-amber-100">
+            <Award className="h-8 w-8 text-amber-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900">No badges yet</h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-sm">Create your first achievement badge to celebrate team milestones.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {badges.map(badge => {
+            const style = BADGE_COLOR_STYLES[badge.badge_color] || DEFAULT_BADGE_STYLE;
+            const criteriaLabel = CRITERIA_TYPES.find(t => t.value === badge.criteria_type)?.label;
+            return (
+              <div
+                key={badge.id}
+                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all"
+              >
+                <div className={`h-1.5 ${style.bar}`} />
+                <div className="p-5">
+                  <div className="flex items-start gap-3">
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center text-2xl ${style.tint} ring-1 ${style.ring} shrink-0`}>
+                      {badge.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-base leading-tight text-slate-900 truncate">{badge.name}</h3>
+                      {badge.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{badge.description}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className={`rounded-xl ${style.tint} ring-1 ${style.ring} p-3`}>
+                      <div className={`flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium ${style.accent}`}>
+                        <Target className="h-3 w-3" /> Target
+                      </div>
+                      <div className={`text-xl font-bold leading-tight mt-0.5 ${style.accent}`}>
+                        {badge.criteria_value}
+                      </div>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-3">
+                      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide font-medium text-slate-500">
+                        <Award className="h-3 w-3" /> Type
+                      </div>
+                      <div className="text-sm font-semibold leading-tight mt-1 text-slate-700 line-clamp-2">
+                        {criteriaLabel || badge.criteria_type}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between pt-3 border-t">
+                    <span className={`text-xs font-medium capitalize ${style.accent}`}>{badge.badge_color}</span>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEditDialog(badge)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => deleteBadge(badge.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-2">{badge.description}</p>
-              <div className="text-xs space-y-1">
-                <p><strong>Type:</strong> {CRITERIA_TYPES.find(t => t.value === badge.criteria_type)?.label}</p>
-                <p><strong>Target:</strong> {badge.criteria_value}</p>
-                <p><strong>Color:</strong> {badge.badge_color}</p>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
     </div>
   );
 }
