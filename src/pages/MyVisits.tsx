@@ -1425,18 +1425,19 @@ export const MyVisits = () => {
                 </div>
                 <ModuleHelpButton categoryId="my-visit" variant="onDark" />
               </div>
-              <BeatSharePeerTabs
-                selectedPeerId={isViewingSelf ? null : selectedUserIds[0]}
-                onChange={(peer: BeatSharePeer | null) => {
-                  if (!peer) {
-                    setSelectedUserIds([]);
-                    setPeerBeatIds(new Set());
+              <CompactMultiUserSelector
+                selectedUserIds={selectedUserIds}
+                onSelectionChange={(ids) => {
+                  if (ids.length > 1) {
+                    const newest = ids.filter(id => !selectedUserIds.includes(id));
+                    setSelectedUserIds(newest.length > 0 ? [newest[0]] : [ids[ids.length - 1]]);
                   } else {
-                    setSelectedUserIds([peer.userId]);
-                    setPeerBeatIds(new Set(peer.beatIds));
+                    setSelectedUserIds(ids);
                   }
                 }}
                 variant="onDark"
+                showAllTeam={false}
+                enableOnBehalf
               />
             </div>
           </CardHeader>
