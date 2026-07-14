@@ -453,21 +453,13 @@ export const MyVisits = () => {
       };
     });
 
-    // Beat-share peer scoping: when viewing a peer, restrict to the beats we
-    // actually share with them. This is the critical filter that makes the view
-    // symmetric — without it, RLS via manager hierarchy could leak the peer's
-    // rows from beats that were never shared.
-    const scoped = peerBeatIds.size > 0
-      ? transformedRetailers.filter((r: any) => r.beatId && peerBeatIds.has(r.beatId))
-      : transformedRetailers;
-
     // Store only the transformed shape, scoped to this date. Deferring avoids
     // mutating a ref during render while retaining the same-date anti-flicker behavior.
     Promise.resolve().then(() => {
-      prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: scoped };
+      prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: transformedRetailers };
     });
-    return scoped;
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId, peerBeatIds]);
+    return transformedRetailers;
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now
