@@ -311,12 +311,47 @@ export function useMasterDataCache() {
 
       if (ownedRes.error) throw ownedRes.error;
 
+      // Fallback if FK relation name differs: the shared-access embed
+      // (beats:beats!beat_user_access_beat_id_fkey) errors because that FK
+      // does not exist, so re-query without the alias and stitch client-side.
+      let accessRows: any[] = (accessRes?.data ?? []) as any[];
+      if (accessRes?.error || accessRes?.data == null) {
+        try {
+          const alt = await supabase
+            .from('beat_user_access')
+            .select('access_type, beat_id, effective_from, effective_to, is_active')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .or(`effective_to.is.null,effective_to.gt.${nowIso}`);
+          if (alt.error) throw alt.error;
+          const textIds = (alt.data ?? []).map((r: any) => r.beat_id);
+          if (textIds.length) {
+            const { data: beatRows, error: beatErr } = await supabase
+              .from('beats')
+              .select('*')
+              .in('beat_id', textIds);
+            if (beatErr) throw beatErr;
+            const beatMap = new Map<string, any>();
+            for (const b of (beatRows ?? [])) beatMap.set(b.beat_id, b);
+            accessRows = (alt.data ?? []).map((r: any) => ({
+              ...r,
+              beats: beatMap.get(r.beat_id),
+            }));
+          } else {
+            accessRows = [];
+          }
+        } catch (fallbackErr) {
+          console.error('[Cache] Shared-beat access fallback failed:', fallbackErr);
+          accessRows = [];
+        }
+      }
+
       const WRITE_ACCESS = new Set(['OWNED', 'CO_OWNER', 'OPERATIONAL', 'COVERAGE']);
       const byId = new Map<string, any>();
       for (const b of (ownedRes.data ?? [])) {
         byId.set(b.beat_id, { ...b, access_type: 'OWNED' });
       }
-      for (const row of (accessRes?.data ?? []) as any[]) {
+      for (const row of accessRows) {
         const at = String(row.access_type || '').toUpperCase();
         if (!WRITE_ACCESS.has(at)) continue;
         const beat = row.beats;
