@@ -460,6 +460,7 @@ export const MyVisits = () => {
       const ap = a.pendingSync ? 1 : 0;
       const bp = b.pendingSync ? 1 : 0;
       return bp - ap;
+    });
 
     // Store only the transformed shape, scoped to this date. Deferring avoids
     // mutating a ref during render while retaining the same-date anti-flicker behavior.
