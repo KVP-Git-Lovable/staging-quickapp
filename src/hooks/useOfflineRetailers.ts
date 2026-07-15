@@ -44,11 +44,16 @@ export function useOfflineRetailers() {
 
       // STEP 1: ALWAYS create local retailer first for instant response
       const retailerId = crypto.randomUUID();
+      const willQueue = !isOnline || slowConnection;
       const localRetailer = {
         ...retailerData,
         id: retailerId,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        // Mark as pending until server sync confirms it. Used by My Visits
+        // UI to show a "Pending sync" badge and to place the retailer at the
+        // top of the list so users can act on it immediately.
+        _pendingSync: willQueue,
       };
 
       // Save to local cache immediately
