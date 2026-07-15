@@ -1279,6 +1279,10 @@ export const MyVisits = () => {
 
     // Apply sorting
     return filtered.sort((a, b) => {
+      // Pending-sync (offline-created) retailers always float to the top
+      const ap = (a as any).pendingSync ? 1 : 0;
+      const bp = (b as any).pendingSync ? 1 : 0;
+      if (ap !== bp) return bp - ap;
       if (sortOrder === 'recent') {
         // Primary sort: use retailer createdAt from database (most reliable)
         const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
