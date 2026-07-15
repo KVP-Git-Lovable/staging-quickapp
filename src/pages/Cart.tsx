@@ -1379,6 +1379,31 @@ export const Cart = () => {
           } catch (qErr) {
             console.error('[Cart] Failed to queue offline collection:', qErr);
           }
+
+          // Optimistic offline update: reflect the paid/pending split on the
+          // cached order immediately so the retailer card shows the correct
+          // status offline instead of "Pending / full". Display-only — the
+          // queued CREATE_COLLECTION + server FIFO remain the source of truth,
+          // and VisitCard's authoritative refetch reconciles on sync.
+          try {
+            const paid = atOrderAmountPaid;                 // already computed above
+            const pending = Math.max(0, totalAmount - paid);
+            const payStatus = pending <= 0 ? 'paid' : (paid > 0 ? 'partial' : 'pending');
+            const cachedOrder: any = await offlineStorage.getById(STORES.ORDERS, result.order.id);
+            if (cachedOrder) {
+              await offlineStorage.save(STORES.ORDERS, {
+                ...cachedOrder,
+                credit_paid_amount: paid,
+                credit_pending_amount: pending,
+                is_credit_order: pending > 0,
+                payment_status: payStatus,
+              });
+              // nudge the visit card to re-read local order state
+              window.dispatchEvent(new CustomEvent('orderDataChanged', { detail: { orderId: result.order.id, retailerId: validRetailerId } }));
+            }
+          } catch (e) {
+            console.warn('[Cart] optimistic offline payment split failed (non-fatal):', e);
+          }
         } else {
           try {
             const { data: collection, error: collErr } = await (supabase as any)
@@ -1820,172 +1845,8 @@ export const Cart = () => {
         }
       })();
 
-      // IMPORTANT: Send invoice PDF + WhatsApp/SMS
-      console.log('📋 Invoice SMS Check:', {
-        offline: result.offline,
-        hasOrder: !!result.order,
-        orderId: result.order?.id,
-        validRetailerId,
-        connectivityStatus,
-        navigatorOnline: navigator.onLine,
-        willSendSMS: !result.offline && !!result.order && !!validRetailerId
-      });
-
-      try {
-        // Force online SMS if navigator.onLine is true, regardless of result.offline
-        const shouldSendSMSNow = navigator.onLine && result.order && validRetailerId;
-        
-        if (shouldSendSMSNow) {
-          // ONLINE: Send immediately
-          console.log('🔄 Starting invoice WhatsApp/SMS process (online)...');
-
-          // Fetch retailer phone
-          const { data: retailer, error: retailerError } = await supabase
-            .from('retailers')
-            .select('phone')
-            .eq('id', validRetailerId)
-            .single();
-
-          if (retailerError) {
-            console.error('❌ Failed to fetch retailer for SMS/WhatsApp:', retailerError);
-            // Don't throw - let navigation continue
-          }
-
-          console.log('📱 Retailer phone:', retailer?.phone);
-
-          if (retailer?.phone) {
-            console.log('📄 Generating invoice PDF (foreground)...');
-
-            const { fetchAndGenerateInvoice } = await import('@/utils/invoiceGenerator');
-            const { blob, invoiceNumber } = await fetchAndGenerateInvoice(result.order.id);
-
-            console.log('✅ Invoice generated:', invoiceNumber);
-
-            const fileName = `invoice-${invoiceNumber}.pdf`;
-
-            console.log('☁️ Uploading invoice PDF to storage...');
-            const { data: uploadData, error: uploadError } = await supabase.storage
-              .from('invoices')
-              .upload(fileName, blob, {
-                contentType: 'application/pdf',
-                upsert: true
-              });
-
-            if (uploadError) {
-              console.error('❌ Storage upload failed (invoice SMS/WhatsApp):', uploadError);
-              // Don't throw - let navigation continue
-            }
-
-            if (uploadData) {
-              console.log('✅ PDF uploaded successfully');
-
-              // TEMPORARILY DISABLED: SMS/WhatsApp invoice sending
-              // Uncomment the code below to re-enable invoice SMS delivery
-              /*
-              const { data: { publicUrl } } = await supabase.storage
-                .from('invoices')
-                .getPublicUrl(uploadData.path);
-
-              console.log('🔗 Public URL for invoice:', publicUrl);
-
-              console.log('📨 Invoking send-invoice-whatsapp edge function (WhatsApp + SMS)...');
-              console.log('📨 Edge function payload:', {
-                invoiceId: result.order.id,
-                customerPhone: retailer.phone,
-                invoiceNumber: invoiceNumber,
-                pdfUrlLength: publicUrl?.length
-              });
-
-              const { data: fnResult, error: fnError } = await supabase.functions.invoke('send-invoice-whatsapp', {
-                body: {
-                  invoiceId: result.order.id,
-                  customerPhone: retailer.phone,
-                  pdfUrl: publicUrl,
-                  invoiceNumber: invoiceNumber
-                }
-              });
-
-              if (fnError) {
-                console.error('❌ Edge function error (send-invoice-whatsapp):', fnError);
-                console.error('❌ Edge function error details:', JSON.stringify(fnError, null, 2));
-                toast({
-                  title: 'Invoice Message Failed',
-                  description: `Order saved successfully, but SMS delivery failed.`,
-                  variant: 'destructive',
-                  duration: 5000,
-                });
-                // Don't throw - let navigation continue
-              }
-
-              console.log('✅ Edge function response:', fnResult);
-              console.log('✅ SMS/WhatsApp sent successfully!');
-              
-              toast({
-                title: 'SMS Sent',
-                description: 'Invoice delivered via SMS/WhatsApp successfully',
-                duration: 3000,
-              });
-              */
-              console.log('ℹ️ Invoice SMS/WhatsApp sending is temporarily disabled');
-            }
-          } else {
-            console.log('⚠️ No phone number found for retailer; skipping SMS/WhatsApp');
-          }
-        } else {
-          // OFFLINE or not online: Queue message for later
-          console.log('📵 Offline/Non-online mode detected:', {
-            offline: result.offline,
-            hasOrder: !!result.order,
-            validRetailerId,
-            navigatorOnline: navigator.onLine
-          });
-          
-          if (result.order && validRetailerId) {
-            console.log('📵 Queueing invoice SMS/WhatsApp for sync...');
-            
-            // Fetch retailer phone from offline cache
-            const cachedRetailers = await offlineStorage.getAll('retailers');
-            const retailer = cachedRetailers.find((r: any) => r.id === validRetailerId) as any;
-            
-            console.log('📱 Cached retailer found:', {
-              found: !!retailer,
-              hasPhone: !!retailer?.phone,
-              phone: retailer?.phone
-            });
-            
-            if (retailer?.phone) {
-              // Add to sync queue with all necessary data
-              const smsQueueItem = {
-                orderId: result.order.id,
-                customerPhone: String(retailer.phone),
-                retailerName: retailerName,
-                queuedAt: new Date().toISOString()
-              };
-              
-              console.log('📦 Adding to SMS sync queue:', smsQueueItem);
-              
-              await offlineStorage.addToSyncQueue('SEND_INVOICE_SMS', smsQueueItem);
-              
-              console.log('✅ Invoice SMS/WhatsApp queued for sync successfully');
-              
-              toast({
-                title: '📵 SMS Queued',
-                description: 'Invoice SMS will be sent automatically when online',
-                duration: 3000,
-              });
-            } else {
-              console.log('⚠️ No phone number in offline cache; skipping SMS queue');
-            }
-          } else {
-            console.log('⚠️ Missing order or retailer ID, cannot queue SMS');
-          }
-        }
-      } catch (notifyError: any) {
-        console.error('❌ Failed to send/queue invoice via WhatsApp/SMS:', notifyError);
-        console.error('❌ Full error details:', JSON.stringify(notifyError, null, 2));
-        console.error('❌ Error stack:', notifyError.stack);
-        // Don't show error toast since user already navigated - just log
-      }
+      // Invoice SMS/WhatsApp sending has been removed entirely. Nothing related to
+      // invoice SMS is generated, queued, or toasted after an order is placed.
     } catch (error: any) {
       console.error('Error submitting order:', error);
       toast({

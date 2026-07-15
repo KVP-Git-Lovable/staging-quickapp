@@ -24,7 +24,7 @@ const SYNC_PRIORITY: Record<string, number> = {
   CREATE_COMPETITION_DATA: 60, CREATE_STOCK: 60, UPDATE_STOCK: 60,
   CREATE_RETURN_STOCK: 60, CREATE_EXPENSE: 60,
   VAN_STOCK_SYNC: 70, CHECK_OUT: 80,
-  UPLOAD_PAYMENT_PROOF: 85, SEND_INVOICE: 90, SEND_INVOICE_SMS: 95,
+  UPLOAD_PAYMENT_PROOF: 85, SEND_INVOICE: 90,
 };
 const priorityOf = (a: string) => SYNC_PRIORITY[a] ?? 50;
 
@@ -201,6 +201,51 @@ export function useOfflineSync() {
       };
 
       const verifyQueuedOrderAlreadySynced = async (item: any): Promise<boolean> => {
+        // Generic "confirm-exists-before-retry": for a handful of create actions whose
+        // response may have been lost on a flaky link but which actually committed
+        // server-side, confirm the record exists so we clear the item instead of looping.
+        // Each lookup is wrapped so a failed lookup swallows the error and returns false
+        // (never throws) — only a positive existence check returns true.
+        try {
+          switch (item.action) {
+            case 'CREATE_RETAILER': {
+              const rid = item?.data?.retailer?.id || item?.data?.id;
+              if (rid) {
+                const { data } = await supabase.from('retailers').select('id').eq('id', rid).maybeSingle();
+                if (data?.id) return true;
+              }
+              return false;
+            }
+            case 'CREATE_VISIT':
+            case 'CHECK_IN': {
+              const vid = item?.data?.id;
+              if (vid) {
+                const { data } = await supabase.from('visits').select('id').eq('id', vid).maybeSingle();
+                if (data?.id) return true;
+              }
+              return false;
+            }
+            case 'CREATE_VISIT_LOG': {
+              const d = item?.data || {};
+              const uidv = d.user_id, ridv = d.retailer_id, dt = d.visit_date;
+              if (uidv && ridv && dt) {
+                const { data } = await supabase
+                  .from('retailer_visit_logs')
+                  .select('id')
+                  .eq('user_id', uidv)
+                  .eq('retailer_id', ridv)
+                  .eq('visit_date', dt)
+                  .maybeSingle();
+                if (data?.id) return true;
+              }
+              return false;
+            }
+          }
+        } catch (lookupError) {
+          console.warn('⚠️ confirm-exists lookup failed (non-fatal):', lookupError);
+          return false;
+        }
+
         if (item.action !== 'CREATE_ORDER') return false;
 
         const queuedOrder = item?.data?.order;
@@ -1044,7 +1089,12 @@ export function useOfflineSync() {
         if (!retailerData.id) retailerData.id = crypto.randomUUID();
         const { data: syncedRetailer, error: retailerError } = await supabase
           .from('retailers')
-          .upsert(retailerData, { onConflict: 'id', ignoreDuplicates: false })
+          // insert-or-IGNORE: a pre-existing row (common on retries / shared-coverage beats)
+          // must NOT take the ON CONFLICT -> UPDATE path, because retailers_update's RLS USING
+          // requires module_my_retailers/can_edit (no field profile has it) + auth.uid()=user_id
+          // (false on coverage beats where user_id = beat owner). DO NOTHING on conflict avoids
+          // that trap; the row already exists, so we treat it as synced.
+          .upsert(retailerData, { onConflict: 'id', ignoreDuplicates: true })
           .select('id, phone')
           .maybeSingle();
         if (retailerError) throw retailerError;
@@ -1295,76 +1345,6 @@ export function useOfflineSync() {
         } catch (invoiceError) {
           console.error('Failed to send invoice during sync:', invoiceError);
           throw invoiceError;
-        }
-        break;
-        
-      case 'SEND_INVOICE_SMS':
-        console.log('📨 Syncing invoice SMS/WhatsApp from offline queue:', data);
-        try {
-          console.log('📄 Generating invoice PDF for order:', data.orderId);
-          
-          // Generate invoice PDF
-          const { fetchAndGenerateInvoice } = await import('@/utils/invoiceGenerator');
-          const { blob, invoiceNumber } = await fetchAndGenerateInvoice(data.orderId);
-          
-          console.log('✅ Invoice generated:', invoiceNumber);
-          
-          const fileName = `invoice-${invoiceNumber}.pdf`;
-          
-          console.log('☁️ Uploading PDF to storage:', fileName);
-          
-          // Upload to storage
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('invoices')
-            .upload(fileName, blob, {
-              contentType: 'application/pdf',
-              upsert: true
-            });
-
-          if (uploadError) {
-            console.error('❌ Storage upload failed during sync:', uploadError);
-            throw uploadError;
-          }
-
-          if (uploadData) {
-            console.log('✅ PDF uploaded successfully');
-            
-            // Get public URL
-            const { data: { publicUrl } } = await supabase.storage
-              .from('invoices')
-              .getPublicUrl(uploadData.path);
-
-            console.log('🔗 Public URL:', publicUrl);
-            console.log('📨 Invoking send-invoice-whatsapp edge function...');
-
-            // Send via edge function
-            const { data: fnResult, error: fnError } = await supabase.functions.invoke('send-invoice-whatsapp', {
-              body: {
-                invoiceId: data.orderId,
-                customerPhone: data.customerPhone,
-                pdfUrl: publicUrl,
-                invoiceNumber: invoiceNumber
-              }
-            });
-
-            if (fnError) {
-              console.error('❌ Edge function error during sync:', fnError);
-              throw fnError;
-            }
-            
-            console.log('✅ Invoice SMS/WhatsApp sent successfully during sync:', fnResult);
-            
-            // Show success notification
-            toast({
-              title: '✅ SMS Sent',
-              description: 'Offline invoice SMS delivered successfully',
-              duration: 3000,
-            });
-          }
-        } catch (smsError) {
-          console.error('❌ Failed to send invoice SMS during sync:', smsError);
-          console.error('❌ SMS error details:', JSON.stringify(smsError, null, 2));
-          throw smsError;
         }
         break;
         

@@ -1226,11 +1226,32 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         // Retag cached rows in case they came from another user's perspective.
         const cachedVisits = retagPerspective(cached.visits || [], effectiveUserId);
         const cachedOrders = retagPerspective(cached.orders || [], effectiveUserId);
+
+        // MERGE locally-created offline retailers into the in-memory fast path.
+        // The snapshot/offline branches already merge via loadFromOfflineStorage, but
+        // this Priority-1 warm-cache path applied cached.retailers verbatim, so a
+        // retailer added offline (still pending sync) was invisible in My Visits.
+        // Only add offline retailers that (a) aren't already present and (b) belong
+        // to a beat that's part of today's cached beat plans.
+        const offlineData = await loadFromOfflineStorage(effectiveUserId, selectedDate);
+        const cachedBeatIds = new Set((cached.beatPlans || []).map((bp: any) => bp.beat_id));
+        let mergedRetailers = cached.retailers || [];
+        if (offlineData?.retailers?.length) {
+          const existingIds = new Set(mergedRetailers.map((r: any) => r.id));
+          const extra = offlineData.retailers.filter((r: any) => !existingIds.has(r.id) && cachedBeatIds.has(r.beat_id));
+          if (extra.length) { mergedRetailers = [...mergedRetailers, ...extra]; }
+        }
+        // Persist the merged list back so the warm module cache doesn't re-serve the
+        // stale (offline-retailer-less) list on the next mount for this user+date.
+        if (mergedRetailers !== (cached.retailers || [])) {
+          cacheRef.current.set(selectedDate, { ...cached, retailers: mergedRetailers });
+        }
+
         // FIX: Batch all state updates to prevent intermediate empty renders
         React.startTransition(() => {
           setBeatPlans(cached.beatPlans || []);
           setVisits(cachedVisits);
-          setRetailers(cached.retailers || []);
+          setRetailers(mergedRetailers);
           setOrders(cachedOrders);
           if (cached.points) {
             setPointsData({
