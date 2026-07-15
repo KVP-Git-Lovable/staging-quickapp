@@ -85,7 +85,12 @@ export async function streamChat(params: {
           if (!payload || payload === "[DONE]") continue;
           try {
             const evt = JSON.parse(payload);
-            const delta: string = evt?.choices?.[0]?.delta?.content ?? "";
+            const d = evt?.choices?.[0]?.delta ?? {};
+            const delta: string =
+              (typeof d.content === "string" ? d.content : "") ||
+              (typeof d.reasoning_content === "string" ? d.reasoning_content : "") ||
+              (typeof d.reasoning === "string" ? d.reasoning : "") ||
+              (typeof evt?.choices?.[0]?.text === "string" ? evt.choices[0].text : "");
             if (delta) {
               full += delta;
               controller.enqueue(delta);
