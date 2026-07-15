@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, ArrowLeft } from "lucide-react";
 import { useConversations } from "../hooks/useConversations";
 import { ConversationSidebar } from "../components/sidebar/ConversationSidebar";
 import { ChatWindow } from "../components/chat/ChatWindow";
