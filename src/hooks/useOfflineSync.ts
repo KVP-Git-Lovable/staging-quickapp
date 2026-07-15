@@ -471,7 +471,10 @@ export function useOfflineSync() {
 
       // PARALLEL BATCHING within a priority band; bands are drained sequentially
       // so a child (e.g. CREATE_ORDER) never runs before its parent (CREATE_RETAILER).
-      const BATCH_SIZE = 3;
+      // Items in the SAME band are independent (parents are always a lower band), so
+      // raising concurrency here is dependency-safe and speeds up order-heavy syncs
+      // (e.g. ~18 orders drain in 3 waves instead of 6). Kept conservative for mobile.
+      const BATCH_SIZE = 6;
       const readyItems = syncQueue.filter(isReadyForRetry);
 
       const bands = new Map<number, any[]>();
