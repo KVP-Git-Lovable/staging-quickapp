@@ -1,0 +1,102 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { friendlyError, sendMessage } from "../services/copilotService";
+import type { CopilotMessage } from "../types";
+import { sanitizeInput } from "../utils/sanitize";
+
+export type ChatStatus = "idle" | "submitting" | "streaming" | "error";
+
+export function useCopilotChat(conversationId: string | null) {
+  const [messages, setMessages] = useState<CopilotMessage[]>([]);
+  const [status, setStatus] = useState<ChatStatus>("idle");
+  const [loading, setLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Load persisted messages when thread changes.
+  useEffect(() => {
+    let cancel = false;
+    if (!conversationId) { setMessages([]); setLoading(false); return; }
+    setLoading(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from("copilot_messages")
+        .select("id, conversation_id, role, content, created_at")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true });
+      if (cancel) return;
+      if (error) console.error("[copilot] load messages", error);
+      setMessages((data ?? []) as CopilotMessage[]);
+      setLoading(false);
+    })();
+    return () => { cancel = true; };
+  }, [conversationId]);
+
+  const send = useCallback(async (rawText: string) => {
+    if (!conversationId) return;
+    const text = sanitizeInput(rawText);
+    if (!text || status === "submitting" || status === "streaming") return;
+
+    const nowIso = new Date().toISOString();
+    const userMsg: CopilotMessage = {
+      id: crypto.randomUUID(),
+      conversation_id: conversationId,
+      role: "user",
+      content: text,
+      created_at: nowIso,
+    };
+    const assistantMsg: CopilotMessage = {
+      id: crypto.randomUUID(),
+      conversation_id: conversationId,
+      role: "assistant",
+      content: "",
+      created_at: new Date(Date.now() + 1).toISOString(),
+      streaming: true,
+    };
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setStatus("submitting");
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    let firstDelta = true;
+
+    try {
+      await sendMessage({
+        conversationId,
+        message: text,
+        signal: controller.signal,
+        onDelta: (delta) => {
+          if (firstDelta) { firstDelta = false; setStatus("streaming"); }
+          setMessages((prev) => prev.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: m.content + delta } : m
+          ));
+        },
+      });
+      setMessages((prev) => prev.map((m) =>
+        m.id === assistantMsg.id
+          ? { ...m, streaming: false, content: m.content || "_(no response received)_" }
+          : m
+      ));
+      setStatus("idle");
+    } catch (err) {
+      const msg = friendlyError(err);
+      toast.error(msg);
+      setMessages((prev) => prev.map((m) =>
+        m.id === assistantMsg.id
+          ? { ...m, streaming: false, content: `⚠️ ${msg}` }
+          : m
+      ));
+      setStatus("error");
+    } finally {
+      abortRef.current = null;
+    }
+  }, [conversationId, status]);
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStatus("idle");
+  }, []);
+
+  return { messages, status, loading, send, stop };
+}
