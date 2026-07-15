@@ -39,8 +39,10 @@ interface TaxMasterRecord {
 }
 
 interface PmProduct {
-  id: string;
-  name: string;
+  id: string;               // real row id (products.id or product_variants.id)
+  key: string;              // selection key: 'p:<id>' for base product, 'v:<id>' for variant
+  isVariant: boolean;
+  name: string;             // variants shown as "Parent — Variant"
   sku: string;
   gst_percentage: number | null;
   tax_master_id: string | null;
@@ -120,11 +122,10 @@ const TaxMaster = () => {
       // EXACT, uncapped counts per bracket — run head-count queries in parallel.
       const countResults = await Promise.all(
         ids.map(id =>
-          supabase
-            .from('products')
-            .select('id', { count: 'exact', head: true })
-            .eq('tax_master_id', id)
-            .then(r => ({ id, count: r.count || 0 }))
+          Promise.all([
+            supabase.from('products').select('id', { count: 'exact', head: true }).eq('tax_master_id', id),
+            supabase.from('product_variants').select('id', { count: 'exact', head: true }).eq('tax_master_id', id),
+          ]).then(([pr, vr]) => ({ id, count: (pr.count || 0) + (vr.count || 0) }))
         )
       );
       const countMap: Record<string, number> = {};
@@ -142,12 +143,14 @@ const TaxMaster = () => {
       setTaxes(result);
 
       // Summary head counts
-      const [taxedRes, unassignedRes] = await Promise.all([
+      const [pTaxed, vTaxed, pUnassigned, vUnassigned] = await Promise.all([
         supabase.from('products').select('id', { count: 'exact', head: true }).not('tax_master_id', 'is', null),
+        supabase.from('product_variants').select('id', { count: 'exact', head: true }).not('tax_master_id', 'is', null),
         supabase.from('products').select('id', { count: 'exact', head: true }).is('tax_master_id', null),
+        supabase.from('product_variants').select('id', { count: 'exact', head: true }).is('tax_master_id', null),
       ]);
-      setTaxedCount(taxedRes.count || 0);
-      setUnassignedCount(unassignedRes.count || 0);
+      setTaxedCount((pTaxed.count || 0) + (vTaxed.count || 0));
+      setUnassignedCount((pUnassigned.count || 0) + (vUnassigned.count || 0));
     } catch (e: any) {
       toast.error('Failed to load tax masters');
     } finally {
@@ -163,25 +166,47 @@ const TaxMaster = () => {
     const cur = panels[key] ?? emptyPanel();
     updatePanel(key, { loading: true });
     try {
-      let q = supabase
-        .from('products')
-        .select('id, name, sku, gst_percentage, tax_master_id, product_categories(name)', { count: 'exact' });
-      if (bracketId === null) q = q.is('tax_master_id', null);
-      else q = q.eq('tax_master_id', bracketId);
       const trimmed = cur.search.trim();
-      if (trimmed) q = q.or(`name.ilike.%${trimmed}%,sku.ilike.%${trimmed}%`);
       const from = cur.page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      const { data, count, error } = await q.order('name').range(from, to);
-      if (error) throw error;
+
+      // Base products
+      let pq = supabase
+        .from('products')
+        .select('id, name, sku, gst_percentage, tax_master_id, product_categories(name)', { count: 'exact' });
+      pq = bracketId === null ? pq.is('tax_master_id', null) : pq.eq('tax_master_id', bracketId);
+      if (trimmed) pq = pq.or(`name.ilike.%${trimmed}%,sku.ilike.%${trimmed}%`);
+
+      // Variants — each carries its own tax_master_id / gst, so they belong here too
+      let vq = supabase
+        .from('product_variants')
+        .select('id, variant_name, sku, gst_percentage, tax_master_id, products(name)', { count: 'exact' });
+      vq = bracketId === null ? vq.is('tax_master_id', null) : vq.eq('tax_master_id', bracketId);
+      if (trimmed) vq = vq.or(`variant_name.ilike.%${trimmed}%,sku.ilike.%${trimmed}%`);
+
+      const [{ data: pData, count: pCount, error: pErr }, { data: vData, count: vCount, error: vErr }] =
+        await Promise.all([pq.order('name').range(from, to), vq.order('variant_name').range(from, to)]);
+      if (pErr) throw pErr;
+      if (vErr) throw vErr;
+
+      const rows: PmProduct[] = [
+        ...(pData || []).map((p: any) => ({
+          id: p.id, key: `p:${p.id}`, isVariant: false,
+          name: p.name, sku: p.sku, gst_percentage: p.gst_percentage,
+          tax_master_id: p.tax_master_id, category_name: p.product_categories?.name ?? null,
+        })),
+        ...(vData || []).map((v: any) => ({
+          id: v.id, key: `v:${v.id}`, isVariant: true,
+          name: `${v.products?.name ?? 'Product'} — ${v.variant_name ?? 'Variant'}`,
+          sku: v.sku, gst_percentage: v.gst_percentage,
+          tax_master_id: v.tax_master_id, category_name: null,
+        })),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+
       updatePanel(key, {
         loading: false,
-        total: count || 0,
-        products: (data || []).map((p: any) => ({
-          id: p.id, name: p.name, sku: p.sku,
-          gst_percentage: p.gst_percentage, tax_master_id: p.tax_master_id,
-          category_name: p.product_categories?.name ?? null,
-        })),
+        total: (pCount || 0) + (vCount || 0),
+        products: rows,
       });
     } catch (e: any) {
       updatePanel(key, { loading: false });
@@ -216,13 +241,16 @@ const TaxMaster = () => {
     if (!p.targetBracket) { toast.error('Choose a target GST bracket'); return; }
     updatePanel(key, { saving: true });
     try {
-      const ids = Array.from(p.selected);
-      const { error } = await supabase
-        .from('products')
-        .update({ tax_master_id: p.targetBracket })
-        .in('id', ids);
-      if (error) throw error;
-      toast.success(`Moved ${ids.length} product(s) to the selected bracket`);
+      const keys = Array.from(p.selected);
+      const productIds = keys.filter(k => k.startsWith('p:')).map(k => k.slice(2));
+      const variantIds = keys.filter(k => k.startsWith('v:')).map(k => k.slice(2));
+      const ops: Promise<any>[] = [];
+      if (productIds.length) ops.push(supabase.from('products').update({ tax_master_id: p.targetBracket }).in('id', productIds));
+      if (variantIds.length) ops.push(supabase.from('product_variants').update({ tax_master_id: p.targetBracket }).in('id', variantIds));
+      const results = await Promise.all(ops);
+      const failed = results.find((r: any) => r.error);
+      if (failed) throw (failed as any).error;
+      toast.success(`Moved ${keys.length} item(s) to the selected bracket`);
       updatePanel(key, { saving: false, selected: new Set() });
       await Promise.all([
         loadPanelProducts(key, bracketId),
@@ -411,7 +439,7 @@ const TaxMaster = () => {
                     checked={p.products.length > 0 && p.selected.size === p.products.length}
                     onCheckedChange={(checked) => {
                       updatePanel(key, {
-                        selected: checked ? new Set(p.products.map(x => x.id)) : new Set(),
+                        selected: checked ? new Set(p.products.map(x => x.key)) : new Set(),
                       });
                     }}
                   />
@@ -428,18 +456,21 @@ const TaxMaster = () => {
               ) : p.products.length === 0 ? (
                 <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">No products found.</TableCell></TableRow>
               ) : p.products.map(pr => (
-                <TableRow key={pr.id}>
+                <TableRow key={pr.key}>
                   <TableCell>
                     <Checkbox
-                      checked={p.selected.has(pr.id)}
+                      checked={p.selected.has(pr.key)}
                       onCheckedChange={(checked) => {
                         const next = new Set(p.selected);
-                        if (checked) next.add(pr.id); else next.delete(pr.id);
+                        if (checked) next.add(pr.key); else next.delete(pr.key);
                         updatePanel(key, { selected: next });
                       }}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{pr.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {pr.name}
+                    {pr.isVariant && <Badge variant="secondary" className="ml-2 text-[10px] align-middle">Variant</Badge>}
+                  </TableCell>
                   <TableCell className="font-mono text-xs">{pr.sku}</TableCell>
                   <TableCell>{pr.category_name || '—'}</TableCell>
                   <TableCell className="text-right">
