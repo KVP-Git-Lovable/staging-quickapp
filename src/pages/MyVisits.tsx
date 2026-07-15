@@ -450,7 +450,16 @@ export const MyVisits = () => {
         carriedFromDate: (visit as any)?.carried_from_date || undefined,
         isRescheduled: !!(visit as any)?.is_rescheduled,
         rescheduledFromDate: (visit as any)?.rescheduled_from_date || undefined,
+        pendingSync: !!(retailer as any)?._pendingSync,
       };
+    });
+
+    // Pending-sync (offline-created) retailers float to the top so the user
+    // can act on them immediately without waiting for the network round-trip.
+    transformedRetailers.sort((a: any, b: any) => {
+      const ap = a.pendingSync ? 1 : 0;
+      const bp = b.pendingSync ? 1 : 0;
+      return bp - ap;
     });
 
     // Store only the transformed shape, scoped to this date. Deferring avoids
@@ -1270,6 +1279,10 @@ export const MyVisits = () => {
 
     // Apply sorting
     return filtered.sort((a, b) => {
+      // Pending-sync (offline-created) retailers always float to the top
+      const ap = (a as any).pendingSync ? 1 : 0;
+      const bp = (b as any).pendingSync ? 1 : 0;
+      if (ap !== bp) return bp - ap;
       if (sortOrder === 'recent') {
         // Primary sort: use retailer createdAt from database (most reliable)
         const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;

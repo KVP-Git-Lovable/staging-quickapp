@@ -15,6 +15,7 @@ const stripRetailerClientFields = (payload: any) => {
     'lastError',
     'errorType',
     '_synced',
+    '_pendingSync',
     'cached_at',
   ]);
 
@@ -43,11 +44,16 @@ export function useOfflineRetailers() {
 
       // STEP 1: ALWAYS create local retailer first for instant response
       const retailerId = crypto.randomUUID();
+      const willQueue = !isOnline || slowConnection;
       const localRetailer = {
         ...retailerData,
         id: retailerId,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        // Mark as pending until server sync confirms it. Used by My Visits
+        // UI to show a "Pending sync" badge and to place the retailer at the
+        // top of the list so users can act on it immediately.
+        _pendingSync: willQueue,
       };
 
       // Save to local cache immediately
@@ -106,8 +112,13 @@ export function useOfflineRetailers() {
 
       if (error) {
         console.warn('Retailer sync failed, queuing:', error.message);
-        await offlineStorage.addToSyncQueue('CREATE_RETAILER', localRetailer);
-        return { success: true, offline: true, data: localRetailer };
+        // Persist the pending flag so the badge shows until the queue drains.
+        await offlineStorage.save(STORES.RETAILERS, { ...localRetailer, _pendingSync: true });
+        await offlineStorage.addToSyncQueue('CREATE_RETAILER', { ...localRetailer, _pendingSync: true });
+        window.dispatchEvent(new CustomEvent('retailerAdded', {
+          detail: { retailer: { ...localRetailer, _pendingSync: true } }
+        }));
+        return { success: true, offline: true, data: { ...localRetailer, _pendingSync: true } };
       }
 
       // Update cache with server response

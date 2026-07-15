@@ -1063,8 +1063,23 @@ export function useOfflineSync() {
           }
         }
         
+        // Clear the offline "pending sync" flag in the cache and notify the UI
+        // so the "Pending sync" badge disappears immediately after sync succeeds.
+        try {
+          const cached: any = await offlineStorage.getById(STORES.RETAILERS, String(retailerData.id));
+          if (cached && cached._pendingSync) {
+            const { _pendingSync, ...cleaned } = cached;
+            await offlineStorage.save(STORES.RETAILERS, cleaned);
+          }
+        } catch (e) {
+          console.warn('Failed to clear _pendingSync flag on retailer cache:', e);
+        }
+
         // Dispatch event to refresh retailer list
         window.dispatchEvent(new Event('retailerDataChanged'));
+        window.dispatchEvent(new CustomEvent('retailerAdded', {
+          detail: { retailer: { ...retailerData, _pendingSync: false } }
+        }));
         console.log('✅ Retailer created successfully');
         break;
         
