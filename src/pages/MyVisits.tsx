@@ -450,8 +450,16 @@ export const MyVisits = () => {
         carriedFromDate: (visit as any)?.carried_from_date || undefined,
         isRescheduled: !!(visit as any)?.is_rescheduled,
         rescheduledFromDate: (visit as any)?.rescheduled_from_date || undefined,
+        pendingSync: !!(retailer as any)?._pendingSync,
       };
     });
+
+    // Pending-sync (offline-created) retailers float to the top so the user
+    // can act on them immediately without waiting for the network round-trip.
+    transformedRetailers.sort((a: any, b: any) => {
+      const ap = a.pendingSync ? 1 : 0;
+      const bp = b.pendingSync ? 1 : 0;
+      return bp - ap;
 
     // Store only the transformed shape, scoped to this date. Deferring avoids
     // mutating a ref during render while retaining the same-date anti-flicker behavior.
