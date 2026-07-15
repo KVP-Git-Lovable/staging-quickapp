@@ -58,7 +58,12 @@ export function ChatWindow({ conversationId, onFirstMessage }: Props) {
           </div>
         </div>
       ) : (
-        <MessageList messages={messages} showTyping={status === "submitting"} />
+        <>
+          <MessageList messages={messages} showTyping={status === "submitting"} />
+          <div className="border-t bg-background/60 px-4 py-2">
+            <PromptCardGrid onSelect={pickPrompt} disabled={isBusy} variant="chips" />
+          </div>
+        </>
       )}
       <ChatComposer ref={composerRef} disabled={isBusy} onSend={handleSend} />
     </div>
