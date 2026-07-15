@@ -2839,6 +2839,13 @@ export const VisitCard = ({
                   </button>
                 </h3>
                 
+                {/* Pending offline sync indicator */}
+                {visit.pendingSync && (
+                  <Badge variant="outline" className="text-[10px] border-amber-400/60 bg-amber-500/10 text-amber-700 dark:text-amber-400" title="Created offline. Will sync when back online.">
+                    Pending sync
+                  </Badge>
+                )}
+
                 {/* Carried-over indicator */}
                 {visit.isCarryForward && (
                   <Badge variant="outline" className="text-[10px] border-warning/40 bg-warning/10 text-warning-foreground" title={visit.carriedFromDate ? `Carried from ${visit.carriedFromDate}` : "Carried over"}>
