@@ -112,8 +112,13 @@ export function useOfflineRetailers() {
 
       if (error) {
         console.warn('Retailer sync failed, queuing:', error.message);
-        await offlineStorage.addToSyncQueue('CREATE_RETAILER', localRetailer);
-        return { success: true, offline: true, data: localRetailer };
+        // Persist the pending flag so the badge shows until the queue drains.
+        await offlineStorage.save(STORES.RETAILERS, { ...localRetailer, _pendingSync: true });
+        await offlineStorage.addToSyncQueue('CREATE_RETAILER', { ...localRetailer, _pendingSync: true });
+        window.dispatchEvent(new CustomEvent('retailerAdded', {
+          detail: { retailer: { ...localRetailer, _pendingSync: true } }
+        }));
+        return { success: true, offline: true, data: { ...localRetailer, _pendingSync: true } };
       }
 
       // Update cache with server response
