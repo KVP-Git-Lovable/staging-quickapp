@@ -1,4 +1,4 @@
-import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff, AlertTriangle } from "lucide-react";
+import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff, AlertTriangle, Sparkles } from "lucide-react";
 
 
 import { toast } from 'sonner';
@@ -249,6 +249,13 @@ export const Navbar = memo(() => {
             </div>
             
             <div className="flex items-center gap-1">
+              <NavLink
+                to="/copilot"
+                title="Copilot"
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white flex items-center"
+              >
+                <Sparkles size={18} />
+              </NavLink>
               <NotificationBell />
               <button 
                 onClick={() => setIsMenuOpen(true)}
