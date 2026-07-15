@@ -55,14 +55,18 @@ interface SupervisorReportProps {
 
 const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1', '#14b8a6', '#f97316', '#84cc16'];
 
-const toKgQuantity = (quantity: unknown, _unit?: unknown) => {
-  // Quantity is counted as-is in the unit it was captured in (Piece is the
-  // only enabled unit). We no longer drop non-weight units — we simply sum.
+const toKgQuantity = (quantity: unknown, unit?: unknown) => {
+  // Normalize every order line to KG so kg + gram orders sum correctly.
+  // Active selling units are KG and grams (no piece): grams convert at /1000;
+  // kg / kilogram / kilo / unspecified count as-is (kg).
   const qty = Number(quantity || 0);
-  return Number.isFinite(qty) ? qty : 0;
+  if (!Number.isFinite(qty)) return 0;
+  const u = String(unit ?? '').trim().toLowerCase();
+  if (u === 'grams' || u === 'gram' || u === 'g') return qty / 1000;
+  return qty;
 };
 
-const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} PCs`;
+const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} KG`;
 
 export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeReady = true }: SupervisorReportProps) => {
   const isMobile = useIsMobile();
@@ -1287,7 +1291,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           productGroups[productName] = {
             product_name: productName,
             quantity: 0,
-            unit: 'PCs',
+            unit: 'KG',
             total: 0
           };
         }
@@ -1573,7 +1577,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       // --- Section 1: Business Summary ---
       addSectionHeader('Business Summary');
       addKeyValue('Total Order Value', `₹${businessSummary.totalRevenue.toLocaleString()}`);
-      addKeyValue('Total Quantity (PCs)', formatKg(businessSummary.totalKg));
+      addKeyValue('Total Quantity (KG)', formatKg(businessSummary.totalKg));
       addKeyValue('Total Orders', businessSummary.totalOrders.toLocaleString());
       addKeyValue('Total Beats', businessSummary.totalBeats.toLocaleString());
       addKeyValue('Total Retailers', businessSummary.totalRetailers.toLocaleString());
@@ -1592,7 +1596,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
         autoTable(pdf, {
           startY: y,
           margin: { left: margin, right: margin },
-          head: [['#', 'User Name', 'Total PCs', 'Total Order Value']],
+          head: [['#', 'User Name', 'Total KG', 'Total Order Value']],
           body: orderTableData,
           styles: { fontSize: 9, cellPadding: 4 },
           headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -1650,7 +1654,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           existing.revenue += Number(item.total || 0);
         } else {
           skuMap.set(key, {
-            unit: 'PCs',
+            unit: 'KG',
             quantityKg: toKgQuantity(item.quantity, item.unit),
             revenue: Number(item.total || 0)
           });
@@ -2122,7 +2126,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                       <Tooltip 
                         formatter={(value: number, name: string, props: any) => {
                           const entry = props.payload;
-                          return [`${value.toLocaleString()} PCs`, name];
+                          return [`${value.toLocaleString()} KG`, name];
                         }}
                         labelFormatter={() => ''}
                       />
@@ -2131,7 +2135,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                   ) : (
                     <BarChart data={pieChartData} layout="vertical" margin={{ left: isMobile ? 10 : 20, right: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis type="number" tickFormatter={(value) => `${value.toLocaleString()} PCs`} />
+                      <XAxis type="number" tickFormatter={(value) => `${value.toLocaleString()} KG`} />
                       <YAxis 
                         type="category" 
                         dataKey="name" 
@@ -2145,7 +2149,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                         }}
                       />
                       <Tooltip 
-                        formatter={(value: number, name: string) => [`${value.toLocaleString()} PCs`, name]}
+                        formatter={(value: number, name: string) => [`${value.toLocaleString()} KG`, name]}
                         labelFormatter={() => ''}
                       />
                       <Bar 
@@ -2190,7 +2194,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                         <thead className="sticky top-0 bg-muted/50 z-10">
                           <tr className="bg-muted/50 border-b">
                             <th className={cn("text-left font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Full Name</th>
-                            <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Qty (PCs)</th>
+                            <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Qty (KG)</th>
                             <th className={cn("text-right font-medium text-muted-foreground whitespace-nowrap", isMobile ? "py-1 px-2" : "h-12 px-4")}>Total Order Value</th>
                           </tr>
                         </thead>
@@ -2568,7 +2572,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                     >
                       <div className="flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] sm:text-sm mb-0.5 sm:mb-1">
                         <Scale className="h-3 w-3 sm:h-4 sm:w-4" />
-                        Total PCs
+                        Total KG
                       </div>
                       <div className="text-sm sm:text-2xl font-bold">{formatKg(detailsSummary.totalKg)}</div>
                     </Card>
@@ -2674,7 +2678,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                           <TableHeader className="sticky top-0 bg-muted/50 z-10">
                             <TableRow>
                               <TableHead className="text-xs py-1.5 px-2 whitespace-nowrap">Date</TableHead>
-                              <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Qty (PCs)</TableHead>
+                              <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Qty (KG)</TableHead>
                               <TableHead className="text-xs py-1.5 px-2 text-right whitespace-nowrap">Revenue</TableHead>
                             </TableRow>
                           </TableHeader>
