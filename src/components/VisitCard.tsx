@@ -95,6 +95,7 @@ interface Visit {
   rescheduledFromDate?: string;
   coveredForUserId?: string;
   coveredForUserName?: string;
+  pendingSync?: boolean;
 }
 interface VisitCardProps {
   visit: Visit;
