@@ -245,8 +245,8 @@ const TaxMaster = () => {
       const productIds = keys.filter(k => k.startsWith('p:')).map(k => k.slice(2));
       const variantIds = keys.filter(k => k.startsWith('v:')).map(k => k.slice(2));
       const ops: Promise<any>[] = [];
-      if (productIds.length) ops.push(supabase.from('products').update({ tax_master_id: p.targetBracket }).in('id', productIds));
-      if (variantIds.length) ops.push(supabase.from('product_variants').update({ tax_master_id: p.targetBracket }).in('id', variantIds));
+      if (productIds.length) ops.push(Promise.resolve(supabase.from('products').update({ tax_master_id: p.targetBracket }).in('id', productIds)));
+      if (variantIds.length) ops.push(Promise.resolve(supabase.from('product_variants').update({ tax_master_id: p.targetBracket }).in('id', variantIds)));
       const results = await Promise.all(ops);
       const failed = results.find((r: any) => r.error);
       if (failed) throw (failed as any).error;
