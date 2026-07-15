@@ -4,9 +4,28 @@ import { PROMPT_CARDS } from "../../prompts/promptCards";
 interface Props {
   onSelect: (prompt: string) => void;
   disabled?: boolean;
+  variant?: "grid" | "chips";
 }
 
-export function PromptCardGrid({ onSelect, disabled }: Props) {
+export function PromptCardGrid({ onSelect, disabled, variant = "grid" }: Props) {
+  if (variant === "chips") {
+    return (
+      <div className="flex flex-wrap gap-2 w-full max-w-3xl mx-auto">
+        {PROMPT_CARDS.map((card) => (
+          <button
+            key={card.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onSelect(card.prompt)}
+            className="text-xs rounded-full border bg-card px-3 py-1.5 text-foreground hover:border-primary/40 hover:bg-accent transition-colors disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {card.title}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-3xl">
       {PROMPT_CARDS.map((card) => (
