@@ -15,6 +15,7 @@ const stripRetailerClientFields = (payload: any) => {
     'lastError',
     'errorType',
     '_synced',
+    '_pendingSync',
     'cached_at',
   ]);
 
