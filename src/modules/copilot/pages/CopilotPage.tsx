@@ -29,6 +29,13 @@ export default function CopilotPage() {
     });
   }, [loading, threadId, items, create, navigate]);
 
+  // Admin read policies can expose other users' thread ids. Never open those
+  // ids in the personal chat UI; route back to an owned conversation instead.
+  useEffect(() => {
+    if (loading || !threadId || items.some((item) => item.id === threadId)) return;
+    navigate(items[0] ? `/copilot/${items[0].id}` : "/copilot", { replace: true });
+  }, [loading, threadId, items, navigate]);
+
   const handleNew = async () => {
     const c = await create();
     if (c) { navigate(`/copilot/${c.id}`); setMobileOpen(false); }
@@ -62,7 +69,7 @@ export default function CopilotPage() {
       <div className="hidden md:flex h-full">{sidebar}</div>
 
       <main className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-green-900 bg-green-700">
+        <div className="copilot-chrome flex items-center gap-2 border-b border-primary-foreground/10 px-3 py-2.5">
           <div className="md:hidden">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { CopilotConversation } from "../../types";
+import { CopilotInsights } from "./CopilotInsights";
 
 interface Props {
   items: CopilotConversation[];
@@ -14,18 +15,18 @@ interface Props {
 
 export function ConversationSidebar({ items, activeId, onSelect, onNew, onDelete }: Props) {
   return (
-    <aside className="w-64 shrink-0 border-r border-green-900 bg-green-700 text-white flex flex-col h-full">
-      <div className="px-3 py-3 border-b border-green-900 flex items-center gap-2">
+    <aside className="copilot-chrome flex h-full w-64 shrink-0 flex-col border-r border-primary-foreground/10 text-primary-foreground">
+      <div className="flex items-center gap-2 border-b border-primary-foreground/10 px-3 py-3">
         <div className="w-7 h-7 rounded-lg bg-black/30 flex items-center justify-center">
           <Sparkles className="w-4 h-4 text-amber-400" />
         </div>
-        <span className="font-semibold text-sm text-white">Copilot</span>
+        <span className="text-sm font-semibold text-primary-foreground">Copilot</span>
       </div>
 
       <div className="p-2">
         <Button
           onClick={onNew}
-          className="w-full bg-black text-amber-400 hover:bg-black/90 border border-amber-500/40"
+          className="copilot-action w-full border border-warning/40 text-warning hover:opacity-90"
           size="sm"
         >
           <Plus className="w-4 h-4 mr-1.5" /> New chat
@@ -34,18 +35,18 @@ export function ConversationSidebar({ items, activeId, onSelect, onNew, onDelete
 
       <div className="px-2 pb-2">
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/60" />
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primary-foreground/60" />
           <Input
             disabled
             placeholder="Search conversations"
-            className="pl-7 h-8 text-xs bg-black/20 border-white/20 text-white placeholder:text-white/50"
+            className="h-8 border-primary-foreground/20 bg-primary-foreground/5 pl-7 text-xs text-primary-foreground placeholder:text-primary-foreground/50"
           />
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 space-y-0.5">
         {items.length === 0 && (
-          <p className="text-xs text-white/70 px-2 py-4 text-center">
+          <p className="px-2 py-4 text-center text-xs text-primary-foreground/70">
             No conversations yet.
           </p>
         )}
@@ -53,14 +54,14 @@ export function ConversationSidebar({ items, activeId, onSelect, onNew, onDelete
           <div
             key={c.id}
             className={cn(
-              "group flex items-center gap-1 rounded-md px-2 py-1.5 hover:bg-black/20 transition-colors",
-              c.id === activeId && "bg-black/30",
+              "group flex items-center gap-1 rounded-md px-2 py-1.5 hover:bg-primary-foreground/10 transition-colors",
+              c.id === activeId && "bg-primary-foreground/15",
             )}
           >
             <button
               type="button"
               onClick={() => onSelect(c.id)}
-              className="flex-1 min-w-0 text-left flex items-center gap-2 text-sm text-white"
+              className="flex-1 min-w-0 text-left flex items-center gap-2 text-sm text-primary-foreground"
             >
               <MessageSquare className="w-3.5 h-3.5 shrink-0 text-amber-300" />
               <span className="truncate">{c.title || "New chat"}</span>
@@ -68,7 +69,7 @@ export function ConversationSidebar({ items, activeId, onSelect, onNew, onDelete
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
-              className="opacity-0 group-hover:opacity-100 text-white/60 hover:text-amber-300 shrink-0"
+              className="shrink-0 text-primary-foreground/60 opacity-0 hover:text-warning group-hover:opacity-100"
               aria-label="Delete conversation"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -76,6 +77,7 @@ export function ConversationSidebar({ items, activeId, onSelect, onNew, onDelete
           </div>
         ))}
       </div>
+      <CopilotInsights />
     </aside>
   );
 }
