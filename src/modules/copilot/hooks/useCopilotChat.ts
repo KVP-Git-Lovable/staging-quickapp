@@ -12,6 +12,7 @@ export function useCopilotChat(conversationId: string | null) {
   const [status, setStatus] = useState<ChatStatus>("idle");
   const [loading, setLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
+  const sendingRef = useRef(false);
 
   // Load persisted messages when thread changes.
   useEffect(() => {
@@ -26,7 +27,17 @@ export function useCopilotChat(conversationId: string | null) {
         .order("created_at", { ascending: true });
       if (cancel) return;
       if (error) console.error("[copilot] load messages", error);
-      setMessages((data ?? []) as CopilotMessage[]);
+      const loaded = (data ?? []) as CopilotMessage[];
+      // Hide identical consecutive legacy rows produced by the former
+      // prompt-card race while preserving distinct failed questions.
+      setMessages(loaded.filter((message, index) => {
+        const previous = loaded[index - 1];
+        return !(
+          message.role === "user" &&
+          previous?.role === "user" &&
+          message.content.trim() === previous.content.trim()
+        );
+      }));
       setLoading(false);
     })();
     return () => { cancel = true; };
@@ -35,7 +46,8 @@ export function useCopilotChat(conversationId: string | null) {
   const send = useCallback(async (rawText: string) => {
     if (!conversationId) return;
     const text = sanitizeInput(rawText);
-    if (!text || status === "submitting" || status === "streaming") return;
+    if (!text || sendingRef.current || status === "submitting" || status === "streaming") return;
+    sendingRef.current = true;
 
     const nowIso = new Date().toISOString();
     const userMsg: CopilotMessage = {
@@ -89,6 +101,7 @@ export function useCopilotChat(conversationId: string | null) {
       setStatus("error");
     } finally {
       abortRef.current = null;
+      sendingRef.current = false;
     }
   }, [conversationId, status]);
 

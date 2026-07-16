@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -12,18 +12,21 @@ export default function CopilotPage() {
   const navigate = useNavigate();
   const { items, loading, create, remove, refresh } = useConversations();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const bootstrappingRef = useRef(false);
 
   // Bootstrap: pick most recent or create a new one when no thread in URL.
   useEffect(() => {
     if (loading || threadId) return;
     if (items[0]) {
       navigate(`/copilot/${items[0].id}`, { replace: true });
-    } else {
-      (async () => {
-        const c = await create();
-        if (c) navigate(`/copilot/${c.id}`, { replace: true });
-      })();
+      return;
     }
+    if (bootstrappingRef.current) return;
+    bootstrappingRef.current = true;
+    void create().then((c) => {
+      if (c) navigate(`/copilot/${c.id}`, { replace: true });
+      else bootstrappingRef.current = false;
+    });
   }, [loading, threadId, items, create, navigate]);
 
   const handleNew = async () => {

@@ -1,38 +1,55 @@
-## Together.ai integration audit
+## Goal
+Make Copilot prompt cards produce one complete answer, remove duplicate/hanging questions, and answer from the signed-in user’s live QuickApp data.
 
-I checked our implementation in `supabase/functions/copilot-agent/services/togetherClient.ts` and `config.ts` against the docs you pasted. Overall the integration is correct and compliant with Together's OpenAI-compatible Chat Completions API. One small modernization is worth doing; everything else is intentional.
+## Confirmed causes
+- Together.ai reasoning tokens are currently treated as answer text. GPT-OSS returns private reasoning separately from final `content`.
+- Both server and browser stream parsers can discard the final buffered SSE frame, cutting replies off mid-sentence.
+- Prompt-card submission has no synchronous lock, so rapid clicks can insert duplicate user messages before React updates the busy state.
+- Initial conversation creation can run twice under React StrictMode.
+- The Edge Function currently reads only profile and chat history. It has no queries or tools for leave, attendance, targets, beats, visits, or collections.
 
-### What matches the docs ✅
+## Implementation
 
-| Docs requirement | Our code |
-|---|---|
-| `Authorization: Bearer <TOGETHER_API_KEY>` | `Authorization: Bearer ${apiKey}` (line 35) |
-| API key from env `TOGETHER_API_KEY` | Read from Supabase secret and passed in |
-| `POST /v1/chat/completions` | ✅ |
-| Body: `model`, `messages[{role,content}]`, `stream:true` | ✅ (plus `temperature: 0.4`) |
-| SSE parsing: `data: {json}\n\n`, ignore `[DONE]` | ✅ |
-| Delta extraction from `choices[0].delta.content` | ✅ |
-| Reasoning-model support (`reasoning` / `reasoning_content` fields) | ✅ (added last turn to fix "three dots" bug) |
-| Error handling for 401/403/429/5xx | ✅ mapped to `provider_auth`/`rate_limited`/`provider_upstream` |
+### 1. Correct Together.ai streaming
+- Update `togetherClient.ts` to emit only `delta.content`; never expose `reasoning` or `reasoning_content` as the user-facing answer.
+- Use GPT-OSS-compatible parameters: explicit `reasoning_effort`, sufficient `max_tokens`, and supported sampling values.
+- Track `finish_reason`; log and return a clear error if the provider ends because of a token limit before producing final content.
+- Flush the decoder and any remaining SSE frame before closing the stream.
+- Apply the same residual-frame handling in `copilotService.ts` so the browser cannot lose the final token block.
 
-### One recommended change
+### 2. Prevent duplicate questions
+- Add a synchronous `useRef` send lock in `useCopilotChat`; acquire it before optimistic insertion and release it in `finally`.
+- Make the prompt-card/imperative composer path obey the same disabled and empty-input checks as typed submission.
+- Add a StrictMode-safe bootstrap guard in `CopilotPage` so one empty account creates only one conversation.
+- Collapse identical consecutive legacy user messages while rendering so existing duplicated prompts no longer appear twice; retain non-duplicate failed turns.
 
-**Base URL**: docs now show `https://api.together.ai/v1`. We use `https://api.together.xyz/v1` (the older host — still works, but `.ai` is the current canonical). Swap to align with docs.
+### 3. Ground prompt-card answers in Supabase
+Add read-only, server-side data handlers for the six existing cards:
+- **Leave balance:** current-year `leave_balance` joined with active `leave_types`.
+- **Attendance this month:** signed-in user’s current-month attendance summary.
+- **Last 3 beats:** latest three accessible beat/visit records, respecting existing beat access and RLS.
+- **Pending collections:** accessible outstanding retailer collections only.
+- **Plan today’s visits:** today’s accessible visits/beat plan with concise prioritization context.
+- **Today’s targets:** current target period and progress for the signed-in user.
 
-```diff
-- export const TOGETHER_URL = "https://api.together.xyz/v1/chat/completions";
-+ export const TOGETHER_URL = "https://api.together.ai/v1/chat/completions";
-```
+The Edge Function will:
+- Query with the caller’s bearer token, never service-role access, so existing RLS remains authoritative.
+- Route card prompts and close paraphrases to the matching read handler.
+- Return compact, deterministic Markdown for simple factual requests such as leave balance.
+- Supply bounded query results to the model only when summarization or planning is useful.
+- Return an explicit “no data configured” response for empty results instead of inventing values.
+- Check and log every Supabase query and persistence error.
 
-### Intentional deviations (leave as-is)
+### 4. Keep history consistent
+- Persist exactly one user message before processing and one completed assistant message after successful completion.
+- Do not save private reasoning.
+- Ensure errors do not leave a permanent typing indicator; replace it with a retryable error state.
+- Preserve complete conversation history within the configured limit for follow-up context.
 
-- **Model**: we use `openai/gpt-oss-20b` (your spec). Docs example uses `MiniMaxAI/MiniMax-M3` — just an example, not required.
-- **We merge `reasoning*` into the output stream** rather than surfacing it in a separate UI field. This was the fix for the "three dots forever" issue on the leave-balance prompt. Docs describe them as separate; our merge is deliberate for UX.
-- **No `response_format` / structured output / vision**: we don't need them for the current chat surface.
-- **Raw `fetch` instead of the official SDK**: correct for Deno edge functions — the Node SDK isn't appropriate here.
-
-### Files to change
-
-- `supabase/functions/copilot-agent/config.ts` — update `TOGETHER_URL` host from `.xyz` to `.ai`.
-
-No other changes needed. This is unrelated to the current `conversation_not_found` 404 you were debugging — that's an RLS/grant issue, not a Together client issue.
+### 5. Validate and deploy
+- Test all six prompt cards against live, RLS-scoped data.
+- Double-click a prompt card and verify only one user row and one assistant row are created.
+- Verify “What is my leave balance?” returns the current user’s actual leave rows and a complete final sentence/table.
+- Test an empty-data user and confirm a truthful empty state.
+- Verify the last SSE frame is rendered and persisted identically.
+- Deploy the updated `copilot-agent` Edge Function and inspect its logs for provider, query, truncation, or persistence errors.

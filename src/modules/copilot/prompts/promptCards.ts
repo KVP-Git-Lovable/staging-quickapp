@@ -1,6 +1,6 @@
 import type { PromptCard } from "../types";
 
-// Phase 1: placeholder prompts. Real business data lands in Phase 2 via tools/RAG.
+// Each prompt is backed by a read-only, RLS-scoped server data handler.
 export const PROMPT_CARDS: PromptCard[] = [
   { id: "leave",       title: "Leave balance",         subtitle: "Check remaining days",           prompt: "What is my leave balance?" },
   { id: "attendance",  title: "Attendance this month", subtitle: "Days present, late, missed",     prompt: "Show my attendance this month." },

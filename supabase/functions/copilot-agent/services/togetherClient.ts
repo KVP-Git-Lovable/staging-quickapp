@@ -40,7 +40,10 @@ export async function streamChat(params: {
       model: params.model ?? MODEL,
       messages: params.messages,
       stream: true,
-      temperature: 0.4,
+      temperature: 1,
+      top_p: 1,
+      reasoning_effort: "low",
+      max_tokens: 4096,
     }),
   });
 
@@ -65,11 +68,44 @@ export async function streamChat(params: {
   let buffered = "";
   let full = "";
 
+  const processLine = (
+    rawLine: string,
+    controller: ReadableStreamDefaultController<string>,
+  ) => {
+    const line = rawLine.trim();
+    if (!line.startsWith("data:")) return;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === "[DONE]") return;
+    try {
+      const evt = JSON.parse(payload);
+      const choice = evt?.choices?.[0];
+      if (choice?.finish_reason === "length") {
+        console.error("[copilot-agent] Together response reached max_tokens");
+      }
+      // GPT-OSS returns private reasoning separately. Only final `content`
+      // belongs in the user-facing answer and persisted conversation.
+      const content = typeof choice?.delta?.content === "string"
+        ? choice.delta.content
+        : typeof choice?.text === "string"
+          ? choice.text
+          : "";
+      if (content) {
+        full += content;
+        controller.enqueue(content);
+      }
+    } catch {
+      // Ignore malformed keep-alives without dropping valid content frames.
+    }
+  };
+
   const tokens = new ReadableStream<string>({
     async pull(controller) {
       try {
         const { value, done } = await reader.read();
         if (done) {
+          buffered += decoder.decode();
+          if (buffered.trim()) processLine(buffered, controller);
+          buffered = "";
           controller.close();
           resolveFull(full);
           return;
@@ -78,26 +114,9 @@ export async function streamChat(params: {
         // Parse SSE lines: "data: {json}\n\n"
         let sepIndex: number;
         while ((sepIndex = buffered.indexOf("\n")) !== -1) {
-          const line = buffered.slice(0, sepIndex).trim();
+          const line = buffered.slice(0, sepIndex);
           buffered = buffered.slice(sepIndex + 1);
-          if (!line.startsWith("data:")) continue;
-          const payload = line.slice(5).trim();
-          if (!payload || payload === "[DONE]") continue;
-          try {
-            const evt = JSON.parse(payload);
-            const d = evt?.choices?.[0]?.delta ?? {};
-            const delta: string =
-              (typeof d.content === "string" ? d.content : "") ||
-              (typeof d.reasoning_content === "string" ? d.reasoning_content : "") ||
-              (typeof d.reasoning === "string" ? d.reasoning : "") ||
-              (typeof evt?.choices?.[0]?.text === "string" ? evt.choices[0].text : "");
-            if (delta) {
-              full += delta;
-              controller.enqueue(delta);
-            }
-          } catch {
-            // skip malformed keep-alives
-          }
+          processLine(line, controller);
         }
       } catch (err) {
         controller.error(err);
