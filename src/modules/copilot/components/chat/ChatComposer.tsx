@@ -27,14 +27,15 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
     setValue: (v) => setValue(v),
     submit: (v) => {
       const text = v.trim();
-      if (!text) return;
+      if (!text || disabled) return;
       setValue("");
       onSend(text);
     },
-  }), [onSend]);
+  }), [disabled, onSend]);
 
 
   const submit = () => {
+    if (disabled) return;
     const t = value.trim();
     if (!t) return;
     setValue("");
@@ -63,12 +64,13 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
             onKeyDown={onKeyDown}
             placeholder={placeholder}
             rows={1}
+            disabled={disabled}
             className="flex-1 resize-none border-0 shadow-none focus-visible:ring-0 min-h-[36px] max-h-40 p-1 bg-transparent"
           />
           <Button
             type="submit"
             size="icon"
-            disabled={!value.trim()}
+            disabled={disabled || !value.trim()}
             className="copilot-action shrink-0 rounded-full text-warning hover:opacity-90"
             aria-label="Send message"
           >
