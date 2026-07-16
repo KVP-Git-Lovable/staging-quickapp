@@ -67,6 +67,14 @@ class SqliteStore {
         ? await this.sqlite.retrieveConnection(dbName, false)
         : await this.sqlite.createConnection(dbName, encrypt, mode, DB_VERSION, false);
       await this.db.open();
+      // Phase 3: durability + concurrency. WAL survives crashes mid-write and lets
+      // reads proceed during a sync; synchronous=NORMAL is the safe WAL companion;
+      // busy_timeout avoids "database is locked" under background sync. Best-effort.
+      try {
+        await this.db.execute(
+          'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;'
+        );
+      } catch (e) { console.warn('[sqliteStore] PRAGMA setup skipped:', e); }
       await this.migrate();
       this.available = true;
       console.log(`[sqliteStore] ✅ SQLite offline engine ready${encrypt ? ' (encrypted)' : ''}`);
