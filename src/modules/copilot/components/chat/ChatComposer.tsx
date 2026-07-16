@@ -27,11 +27,11 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
     setValue: (v) => setValue(v),
     submit: (v) => {
       const text = v.trim();
-      if (!text) return;
+      if (!text || disabled) return;
       setValue("");
       onSend(text);
     },
-  }), [onSend]);
+  }), [disabled, onSend]);
 
 
   const submit = () => {

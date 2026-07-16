@@ -29,33 +29,37 @@ export async function streamChat(params: {
   model?: string;
   signal?: AbortSignal;
 }): Promise<StreamResult> {
-  const res = await fetch(TOGETHER_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${params.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    signal: params.signal,
-    body: JSON.stringify({
-      model: params.model ?? MODEL,
-      messages: params.messages,
-      stream: true,
-      temperature: 0.4,
-      top_p: 1,
-      max_tokens: MAX_OUTPUT_TOKENS,
-    }),
+  const openStream = async (messages: ChatMessage[]) => {
+    const res = await fetch(TOGETHER_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${params.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: params.signal,
+      body: JSON.stringify({
+        model: params.model ?? MODEL,
+        messages,
+        stream: true,
+        temperature: 0.4,
+        top_p: 1,
+        max_tokens: MAX_OUTPUT_TOKENS,
+      }),
+    });
 
-  });
+    if (!res.ok || !res.body) {
+      let detail = "";
+      try { detail = (await res.text()).slice(0, 300); } catch { /* ignore */ }
+      const code = res.status === 429 ? "rate_limited"
+        : res.status === 401 || res.status === 403 ? "provider_auth"
+        : res.status >= 500 ? "provider_upstream"
+        : "provider_error";
+      throw new TogetherError(res.status, code, `Together API ${res.status}: ${detail || res.statusText}`);
+    }
+    return res.body.getReader();
+  };
 
-  if (!res.ok || !res.body) {
-    let detail = "";
-    try { detail = (await res.text()).slice(0, 300); } catch { /* ignore */ }
-    const code = res.status === 429 ? "rate_limited"
-      : res.status === 401 || res.status === 403 ? "provider_auth"
-      : res.status >= 500 ? "provider_upstream"
-      : "provider_error";
-    throw new TogetherError(res.status, code, `Together API ${res.status}: ${detail || res.statusText}`);
-  }
+  let reader = await openStream(params.messages);
 
   let resolveFull!: (v: string) => void;
   let rejectFull!: (e: unknown) => void;
@@ -63,10 +67,12 @@ export async function streamChat(params: {
     resolveFull = resolve; rejectFull = reject;
   });
 
-  const decoder = new TextDecoder();
-  const reader = res.body.getReader();
+  let decoder = new TextDecoder();
   let buffered = "";
   let full = "";
+  let finishReason: string | null = null;
+  let sawDone = false;
+  let continuationCount = 0;
 
   const processLine = (
     rawLine: string,
@@ -75,7 +81,11 @@ export async function streamChat(params: {
     const line = rawLine.trim();
     if (!line.startsWith("data:")) return;
     const payload = line.slice(5).trim();
-    if (!payload || payload === "[DONE]") return;
+    if (!payload) return;
+    if (payload === "[DONE]") {
+      sawDone = true;
+      return;
+    }
     try {
       const evt = JSON.parse(payload);
       const choice = evt?.choices?.[0];
@@ -90,12 +100,7 @@ export async function streamChat(params: {
         full += content;
         controller.enqueue(content);
       }
-      if (choice?.finish_reason === "length") {
-        console.error("[copilot-agent] Together response reached max_tokens");
-        const notice = "\n\n_…response truncated. Ask me to continue._";
-        full += notice;
-        controller.enqueue(notice);
-      }
+      if (typeof choice?.finish_reason === "string") finishReason = choice.finish_reason;
     } catch {
       // Ignore malformed keep-alives without dropping valid content frames.
     }
@@ -110,6 +115,33 @@ export async function streamChat(params: {
           buffered += decoder.decode();
           if (buffered.trim()) processLine(buffered, controller);
           buffered = "";
+
+          const incomplete = finishReason === "length" || (!sawDone && !finishReason);
+          if (incomplete && continuationCount < 1 && full.trim()) {
+            continuationCount += 1;
+            console.warn(`[copilot-agent] continuing incomplete Together stream (${finishReason ?? "premature_eof"})`);
+            reader = await openStream([
+              ...params.messages,
+              { role: "assistant", content: full },
+              {
+                role: "user",
+                content: "Continue exactly where the previous answer stopped. Do not repeat completed text. Finish the answer concisely.",
+              },
+            ]);
+            decoder = new TextDecoder();
+            finishReason = null;
+            sawDone = false;
+            return;
+          }
+
+          if (!sawDone && !finishReason) {
+            throw new TogetherError(502, "provider_upstream", "Together stream closed before completion");
+          }
+          if (finishReason === "length") {
+            const notice = "\n\n_The answer reached its maximum length. Ask me to continue._";
+            full += notice;
+            controller.enqueue(notice);
+          }
           controller.close();
           resolveFull(full);
           return;
