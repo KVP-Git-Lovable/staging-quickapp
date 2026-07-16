@@ -27,18 +27,20 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
     setValue: (v) => setValue(v),
     submit: (v) => {
       const text = v.trim();
-      if (!text || disabled) return;
+      if (!text) return;
       setValue("");
       onSend(text);
     },
-  }), [disabled, onSend]);
+  }), [onSend]);
+
 
   const submit = () => {
     const t = value.trim();
-    if (!t || disabled) return;
+    if (!t) return;
     setValue("");
     onSend(t);
   };
+
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -66,12 +68,13 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
           <Button
             type="submit"
             size="icon"
-            disabled={disabled || !value.trim()}
+            disabled={!value.trim()}
             className="copilot-action shrink-0 rounded-full text-warning hover:opacity-90"
             aria-label="Send message"
           >
             <Send className="h-4 w-4" />
           </Button>
+
         </div>
         <p className="text-[10px] text-muted-foreground text-center mt-1.5">
           Copilot may make mistakes. Verify important information.
