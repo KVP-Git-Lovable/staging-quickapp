@@ -1,47 +1,34 @@
-## Audit: what hits Together.AI today vs. what's answered locally
+## Fix two Copilot chat regressions
 
-The `copilot-agent` edge function (`supabase/functions/copilot-agent/index.ts`) runs a regex-based `classifyDataIntent()` on every incoming user message. If it matches one of six intents, the response is generated **locally from SQL** and streamed back as a static string. Together.AI is **never called** for those. Everything else falls through to `streamChat()` and hits Together.AI (`openai/gpt-oss-20b`, defined in `config.ts`).
+### Issue 1 — Composer is unresponsive after the first response
 
-### Prompt card → current routing
+Root cause candidates in `useCopilotChat.ts` + `ChatComposer.tsx`:
 
-| Prompt card (label / subtitle) | Sent text | Matched intent | Where the answer comes from |
-|---|---|---|---|
-| Leave balance / Check remaining days | "What is my leave balance?" | `leave` | **Local SQL** (`leave_balance` + `leave_types`). No LLM call. |
-| Attendance this month / Days present, late, missed | "Show my attendance this month." | `attendance` | **Local SQL** (`attendance`). No LLM call. |
-| Last 3 beats / Summarise recent coverage | "Summarise my last three beats." | `beats` | **Local SQL** (`beats` + best-effort `retailers`/`visits`/`orders`). No LLM call. |
-| Pending collections / Retailers with dues | "Show pending collections." | `collections` | **Local SQL** (`retailers.pending_amount`). No LLM call. |
-| Plan today's visits / Prioritise retailers | "Help me plan today's visits." | `visits` | **Local SQL** (`visits` + `retailers`). No LLM call. |
-| Today's targets / What I need to hit | "Explain today's targets." | `targets` | **Local SQL** (`user_period_targets` + `target_kpi_definitions`). No LLM call. |
-| Any free-typed question that doesn't match the regexes | user text | none | **Together.AI** streaming call. |
+- `send()` guards on `status === "submitting" | "streaming"`, but `status` is captured in the `useCallback` closure via deps. If the stream ends with `finish_reason=length` or the SSE connection closes without a proper `[DONE]` (Deno edge → browser proxy buffering can cause this), the client's `while (!completed)` loop exits but `status` may never transition back to `"idle"` cleanly, leaving `isBusy=true` and the Send button permanently disabled.
+- Additional edge case: `catch (err) { if (controller.signal.aborted) return; }` returns without resetting `status`, so a mid-stream abort leaves status stuck.
 
-So all six prompt cards currently short-circuit before the model. The user's session id, profile, and message history are still loaded, but `streamChat` is only invoked in the `else` branch (line 453).
+Fixes in `src/modules/copilot/hooks/useCopilotChat.ts`:
+1. Replace the `status`-based reentry guard with a pure `sendingRef` guard so a stale/stuck status can never block a new send.
+2. Always transition `status` to `"idle"` in the `finally` block (only keep `"error"` if we actually set an error message). This guarantees the composer re-enables after any stream outcome, including aborts and provider-side hangs.
+3. Guarantee the assistant message's `streaming: false` flag is set in `finally` too, so message list never stays in a phantom "typing" state.
 
-Side note: `useTextAssistant.ts` uses ElevenLabs (voice text agent), which is a separate integration and unrelated to Together.AI.
+Fix in `src/modules/copilot/components/chat/ChatComposer.tsx`:
+4. Keep the send button clickable independent of `status`; rely on the hook's re-entry guard to drop duplicates. This makes the UI resilient even if the parent's `isBusy` becomes stale.
 
-## Proposed change: route prompt cards through Together.AI, using SQL as grounding context
+### Issue 2 — Responses truncated mid-sentence ("These dishes…")
 
-Goal: keep the accuracy of live SQL data, but let Together.AI phrase the answer so tone/formatting is consistent with free-typed questions.
+Root cause in `supabase/functions/copilot-agent/services/togetherClient.ts`: `max_tokens: 1024` is too small for open-ended questions (like "best local food in Mangaluru"). Together returns `finish_reason: "length"` and the stream ends abruptly. We already log this but never act on it.
 
-### Approach
+Fixes:
+1. Raise `max_tokens` to `2048` (safe headroom for grounded answers + free-form replies while still bounding worst-case latency).
+2. When `finish_reason === "length"`, append a short markdown notice (`\n\n_…response truncated. Ask me to continue._`) to the stream so the user sees clearly that the answer was cut, instead of a silent mid-sentence stop.
+3. Keep the console warning for observability.
 
-1. **Keep** `classifyDataIntent()` and the six `*Answer()` SQL functions in `supabase/functions/copilot-agent/index.ts`. They already produce clean, RLS-scoped facts.
-2. **Change the branch at lines 442–454** so that when an intent matches, instead of returning `staticStream(sqlAnswer)`:
-   - Run the SQL function to produce a compact "data block" (markdown/JSON facts).
-   - Append a synthetic `system` (or `user`-role tool-result) message to the `messages` array containing that data block, wrapped with an instruction like: *"Use only the following authoritative data from the user's workspace to answer. Do not invent numbers."*
-   - Call `streamChat({ apiKey, messages })` as normal so Together.AI generates the final answer.
-3. **Fallback**: if the SQL call throws, send the user's message to Together.AI without a data block plus a note that live data was unavailable (so the model can respond gracefully instead of a static error string).
-4. **No schema, no client, and no UI changes.** Prompt cards, sidebar, and utility panel remain as-is.
+### Files touched
+- `src/modules/copilot/hooks/useCopilotChat.ts`
+- `src/modules/copilot/components/chat/ChatComposer.tsx`
+- `supabase/functions/copilot-agent/services/togetherClient.ts`
 
-### Technical notes
-
-- File touched: `supabase/functions/copilot-agent/index.ts` only.
-- Model, streaming, SSE format, and persistence stay unchanged — the assistant reply Together.AI streams is what gets saved (already handled after line 454 in the existing code).
-- Token cost: each of the six intents will now consume Together.AI tokens per call. The data block is small (tens of rows max) so it fits comfortably in the current 4096 `max_tokens` budget.
-- Latency: adds one LLM round-trip (~1–3s streamed) on top of the SQL query.
-- Grounding rule in the injected block prevents the model from hallucinating leave days / target numbers.
-
-### Out of scope
-
-- No changes to regex intents themselves (we can broaden them later).
-- No changes to the ElevenLabs voice path.
-- No changes to Copilot UI, sidebar insights, or utility panel.
+### Verification
+- Send "Summarise my last three beats", wait for full response, then send a second question in the same thread — composer must accept and send it.
+- Ask "What is the best local food in Mangaluru?" — full answer should render; if it still hits the cap, the truncation notice appears at the end.

@@ -42,8 +42,9 @@ export async function streamChat(params: {
       stream: true,
       temperature: 0.4,
       top_p: 1,
-      max_tokens: 1024,
+      max_tokens: 2048,
     }),
+
   });
 
   if (!res.ok || !res.body) {
@@ -78,9 +79,6 @@ export async function streamChat(params: {
     try {
       const evt = JSON.parse(payload);
       const choice = evt?.choices?.[0];
-      if (choice?.finish_reason === "length") {
-        console.error("[copilot-agent] Together response reached max_tokens");
-      }
       // GPT-OSS returns private reasoning separately. Only final `content`
       // belongs in the user-facing answer and persisted conversation.
       const content = typeof choice?.delta?.content === "string"
@@ -92,10 +90,17 @@ export async function streamChat(params: {
         full += content;
         controller.enqueue(content);
       }
+      if (choice?.finish_reason === "length") {
+        console.error("[copilot-agent] Together response reached max_tokens");
+        const notice = "\n\n_…response truncated. Ask me to continue._";
+        full += notice;
+        controller.enqueue(notice);
+      }
     } catch {
       // Ignore malformed keep-alives without dropping valid content frames.
     }
   };
+
 
   const tokens = new ReadableStream<string>({
     async pull(controller) {
