@@ -10,7 +10,7 @@ export function MessageBubble({ message }: { message: CopilotMessage }) {
         className={cn(
           "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
           isUser
-            ? "bg-primary text-primary-foreground rounded-br-sm shadow-sm"
+            ? "bg-black text-white rounded-br-sm shadow-sm"
             : "text-foreground"
         )}
       >

@@ -53,7 +53,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
         onSubmit={(e) => { e.preventDefault(); submit(); }}
         className="max-w-3xl mx-auto p-3 sm:p-4"
       >
-        <div className="relative flex items-end gap-2 rounded-2xl border bg-card shadow-sm focus-within:ring-2 focus-within:ring-primary/40 px-3 py-2">
+        <div className="relative flex items-end gap-2 rounded-2xl border bg-card shadow-sm focus-within:ring-2 focus-within:ring-amber-400/50 px-3 py-2">
           <Textarea
             ref={areaRef}
             value={value}
@@ -67,7 +67,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
             type="submit"
             size="icon"
             disabled={disabled || !value.trim()}
-            className="rounded-full shrink-0"
+            className="rounded-full shrink-0 bg-black text-amber-400 hover:bg-black/90"
             aria-label="Send message"
           >
             <Send className="h-4 w-4" />

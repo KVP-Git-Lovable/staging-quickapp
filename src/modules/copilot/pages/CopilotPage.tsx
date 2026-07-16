@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { PanelLeft, ArrowLeft } from "lucide-react";
+import { PanelLeft, ArrowLeft, Bot } from "lucide-react";
 import { useConversations } from "../hooks/useConversations";
 import { ConversationSidebar } from "../components/sidebar/ConversationSidebar";
 import { ChatWindow } from "../components/chat/ChatWindow";
@@ -62,11 +62,13 @@ export default function CopilotPage() {
       <div className="hidden md:flex h-full">{sidebar}</div>
 
       <main className="flex-1 min-w-0 flex flex-col">
-        <div className="flex items-center gap-2 px-3 py-2 border-b">
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-green-900 bg-green-700">
           <div className="md:hidden">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon"><PanelLeft className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="icon" className="text-white hover:bg-black/20 hover:text-amber-300">
+                  <PanelLeft className="w-4 h-4" />
+                </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72">
                 {sidebar}
@@ -77,12 +79,17 @@ export default function CopilotPage() {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/dashboard")}
-            className="gap-1.5"
+            className="gap-1.5 text-white hover:bg-black/20 hover:text-amber-300"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </Button>
-          <span className="text-sm font-medium ml-1">Copilot</span>
+          <h1 className="text-base sm:text-lg font-bold text-white ml-1 truncate">
+            Welcome to QuickApp Copilot!
+          </h1>
+          <div className="ml-auto flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-black shrink-0 shadow-sm">
+            <Bot className="w-5 h-5 text-white" />
+          </div>
         </div>
         <div className="flex-1 min-h-0">
           {threadId ? (
