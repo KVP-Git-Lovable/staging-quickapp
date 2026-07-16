@@ -141,30 +141,72 @@ async function recentBeatsAnswer(
   userId: string,
   today: string,
 ): Promise<string> {
-  const { data: plans, error } = await supabase
-    .from("daily_beat_plans")
-    .select("plan_date, beat_id, status, assignment_type")
-    .eq("assigned_user_id", userId)
-    .lte("plan_date", today)
-    .order("plan_date", { ascending: false })
-    .limit(3);
-  if (error) throw error;
-  if (!plans?.length) return "No recent beat plans were found for your account.";
+  // Prefer actual executed beats via visits (most reliable across owned/shared beats).
+  const { data: visits, error: visitsError } = await supabase
+    .from("visits")
+    .select("beat_id, planned_date, check_in_time, created_at")
+    .eq("user_id", userId)
+    .not("beat_id", "is", null)
+    .lte("planned_date", today)
+    .order("planned_date", { ascending: false })
+    .limit(200);
+  if (visitsError) throw visitsError;
 
-  const beatIds = [...new Set(plans.map((plan: any) => plan.beat_id).filter(Boolean))];
-  const { data: beats, error: beatsError } = await supabase
+  type BeatAgg = { beat_id: string; last_date: string; visit_count: number; checked_in: number };
+  const map = new Map<string, BeatAgg>();
+  (visits ?? []).forEach((v: any) => {
+    const key = v.beat_id as string;
+    const existing = map.get(key);
+    const dateStr = v.planned_date || (v.created_at ? String(v.created_at).slice(0, 10) : today);
+    if (!existing) {
+      map.set(key, { beat_id: key, last_date: dateStr, visit_count: 1, checked_in: v.check_in_time ? 1 : 0 });
+    } else {
+      existing.visit_count += 1;
+      if (v.check_in_time) existing.checked_in += 1;
+      if (dateStr > existing.last_date) existing.last_date = dateStr;
+    }
+  });
+  let recent: BeatAgg[] = Array.from(map.values())
+    .sort((a, b) => (a.last_date < b.last_date ? 1 : -1))
+    .slice(0, 3);
+
+  // Fallback to planned beats if no visits recorded yet.
+  if (!recent.length) {
+    const { data: plans } = await supabase
+      .from("daily_beat_plans")
+      .select("plan_date, beat_id")
+      .eq("assigned_user_id", userId)
+      .lte("plan_date", today)
+      .order("plan_date", { ascending: false })
+      .limit(3);
+    recent = (plans ?? [])
+      .filter((p: any) => p.beat_id)
+      .map((p: any) => ({ beat_id: p.beat_id, last_date: p.plan_date, visit_count: 0, checked_in: 0 }));
+  }
+
+  if (!recent.length) {
+    return "I couldn't find any recent beats in your history yet. Once you start visiting retailers on your beats, they'll show up here.";
+  }
+
+  const beatIds = recent.map((r) => r.beat_id);
+  const { data: beats } = await supabase
     .from("beats")
     .select("beat_id, beat_name")
     .in("beat_id", beatIds);
-  if (beatsError) throw beatsError;
-  const names = new Map((beats ?? []).map((beat: any) => [beat.beat_id, beat.beat_name]));
-  return [
-    "## Your last 3 beats",
-    "",
-    "| Date | Beat | Status |",
-    "|---|---|---|",
-    ...plans.map((plan: any) => `| ${plan.plan_date} | ${escapeCell(names.get(plan.beat_id) ?? plan.beat_id)} | ${escapeCell(plan.status)} |`),
-  ].join("\n");
+  const names = new Map((beats ?? []).map((b: any) => [b.beat_id, b.beat_name]));
+
+  const lines = recent.map((r, i) => {
+    const name = names.get(r.beat_id) ?? r.beat_id;
+    const parts = [`**${i + 1}. ${name}** — last worked ${r.last_date}`];
+    if (r.visit_count > 0) {
+      parts.push(`${r.visit_count} visit${r.visit_count === 1 ? "" : "s"}, ${r.checked_in} check-in${r.checked_in === 1 ? "" : "s"}`);
+    } else {
+      parts.push("planned, no visits recorded yet");
+    }
+    return `- ${parts.join(" · ")}`;
+  });
+
+  return ["Here's a quick summary of your last three beats:", "", ...lines].join("\n");
 }
 
 async function pendingCollectionsAnswer(
@@ -177,16 +219,22 @@ async function pendingCollectionsAnswer(
     .order("pending_amount", { ascending: false })
     .limit(20);
   if (error) throw error;
-  if (!data?.length) return "No pending retailer collections were found in your accessible records.";
+  if (!data?.length) {
+    return "Good news — you have no pending collections right now. All retailer balances are cleared.";
+  }
   const total = data.reduce((sum: number, retailer: any) => sum + Number(retailer.pending_amount ?? 0), 0);
+  const lines = data.map((r: any, i: number) => {
+    const beat = r.beat_name ? ` _(${r.beat_name})_` : "";
+    return `${i + 1}. **${r.name ?? "Retailer"}**${beat} — ₹${formatNumber(r.pending_amount)}`;
+  });
   return [
-    "## Pending collections",
+    "Sure — here are your pending collections:",
     "",
-    `**Total outstanding:** ₹${formatNumber(total)}`,
+    `**Total outstanding:** ₹${formatNumber(total)} across ${data.length} retailer${data.length === 1 ? "" : "s"}.`,
     "",
-    "| Retailer | Beat | Amount |",
-    "|---|---|---:|",
-    ...data.map((retailer: any) => `| ${escapeCell(retailer.name)} | ${escapeCell(retailer.beat_name)} | ₹${formatNumber(retailer.pending_amount)} |`),
+    ...lines,
+    "",
+    "Let me know if you'd like to prioritise any of these for today's route.",
   ].join("\n");
 }
 
