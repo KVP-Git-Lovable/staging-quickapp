@@ -1,5 +1,5 @@
 // Thin Together.ai Serverless Inference client. Streaming chat completions only.
-import { MODEL, TOGETHER_URL } from "../config.ts";
+import { MAX_OUTPUT_TOKENS, MODEL, TOGETHER_URL } from "../config.ts";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -42,7 +42,7 @@ export async function streamChat(params: {
       stream: true,
       temperature: 0.4,
       top_p: 1,
-      max_tokens: 2048,
+      max_tokens: MAX_OUTPUT_TOKENS,
     }),
 
   });
