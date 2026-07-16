@@ -45,7 +45,6 @@ export function ChatWindow({ conversationId, onFirstMessage }: Props) {
   const pickPrompt = (prompt: string) => {
     if (isBusy) return;
     composerRef.current?.submit(prompt);
-    if (messages.length === 0) onFirstMessage?.();
   };
 
   return (
