@@ -6,5 +6,6 @@
 export const MODEL = "meta-llama/Llama-3.3-70B-Instruct-Turbo";
 export const TOGETHER_URL = "https://api.together.ai/v1/chat/completions";
 export const MAX_INPUT_CHARS = 4000;
+export const MAX_OUTPUT_TOKENS = 4096;
 export const HISTORY_LIMIT = 30;
 export const APP_NAME = "QuickApp";

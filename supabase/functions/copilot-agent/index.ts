@@ -481,8 +481,9 @@ Deno.serve(async (req) => {
       throw err;
     }
 
-    // Persist assistant message after stream completes.
-    stream.fullText.then(async (text) => {
+    // Persist before the terminal SSE event so the next question cannot race
+    // ahead of the completed answer's conversation history.
+    const persistAssistant = async (text: string) => {
       const finalText = text.trim();
       const nowIso = new Date().toISOString();
       const { error: assistantMessageError } = await supabase.from("copilot_messages").insert({
@@ -502,7 +503,7 @@ Deno.serve(async (req) => {
         updates.title = message.slice(0, 60);
       }
       await supabase.from("copilot_conversations").update(updates).eq("id", conversationId);
-    }).catch((e) => console.error("[copilot-agent] persist error:", e));
+    };
 
     // Wrap token stream as SSE text events.
     const encoder = new TextEncoder();
@@ -515,6 +516,8 @@ Deno.serve(async (req) => {
             if (done) break;
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: value })}\n\n`));
           }
+          const completedText = await stream.fullText;
+          await persistAssistant(completedText);
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
           controller.close();
         } catch (err) {

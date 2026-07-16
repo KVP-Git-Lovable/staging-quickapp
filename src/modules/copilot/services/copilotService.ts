@@ -88,6 +88,9 @@ export async function sendMessage({
 
   // Proxies may close without a trailing blank line; keep the final frame.
   if (buffered.trim()) processFrame(buffered);
+  if (!completed) {
+    throw new CopilotServiceError(502, "stream_incomplete", "The response stream ended unexpectedly.");
+  }
 }
 
 export function friendlyError(err: unknown): string {
@@ -97,6 +100,7 @@ export function friendlyError(err: unknown): string {
       case "invalid_request":    return err.message || "Please rephrase your message.";
       case "rate_limited":       return "Copilot is busy right now. Please retry in a moment.";
       case "provider_upstream":  return "AI service is temporarily unavailable. Please try again.";
+      case "stream_incomplete":  return "The response was interrupted. Please retry your question.";
       case "conversation_not_found": return "This conversation is no longer available.";
       case "server_misconfigured":   return "Copilot is not configured. Contact your admin.";
       default:                   return err.message || "Something went wrong.";
