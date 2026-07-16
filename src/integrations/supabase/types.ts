@@ -28292,6 +28292,16 @@ export type Database = {
         Returns: undefined
       }
       sync_pull: { Args: { p_since?: string }; Returns: Json }
+      sync_pull_chunk: {
+        Args: {
+          p_after_id?: string
+          p_after_updated_at?: string
+          p_limit?: number
+          p_since?: string
+          p_table: string
+        }
+        Returns: Json
+      }
       to_base_qty: {
         Args: { p_product_id: string; p_qty: number; p_uom_code: string }
         Returns: number
