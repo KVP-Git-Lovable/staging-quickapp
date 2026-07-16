@@ -7,6 +7,7 @@ import { ChatComposer, type ChatComposerHandle } from "./ChatComposer";
 import { WelcomeHeader } from "./WelcomeHeader";
 import { PromptCardGrid } from "../cards/PromptCardGrid";
 
+
 interface Props {
   conversationId: string;
   onFirstMessage?: () => void;
@@ -53,7 +54,6 @@ export function ChatWindow({ conversationId, onFirstMessage }: Props) {
         <div className="flex-1 overflow-y-auto">
           <div className="min-h-full flex flex-col items-center justify-center gap-8 px-4 py-10">
             <WelcomeHeader userName={userName} />
-            <PromptCardGrid onSelect={pickPrompt} disabled={isBusy} />
           </div>
         </div>
       ) : (
