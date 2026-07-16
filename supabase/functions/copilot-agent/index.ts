@@ -202,7 +202,7 @@ async function recentBeatsAnswer(
   const names = new Map((beats ?? []).map((b: any) => [b.beat_id, b.beat_name]));
 
   const lines = recent.map((r, i) => {
-    const name = names.get(r.beat_id) ?? r.beat_id;
+    const name = r.beat_name ?? names.get(r.beat_id) ?? r.beat_id;
     const parts = [`**${i + 1}. ${name}** — last worked ${r.last_date}`];
     if (r.visit_count > 0) {
       parts.push(`${r.visit_count} visit${r.visit_count === 1 ? "" : "s"}, ${r.checked_in} check-in${r.checked_in === 1 ? "" : "s"}`);
