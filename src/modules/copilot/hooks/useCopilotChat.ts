@@ -57,31 +57,41 @@ export function useCopilotChat(conversationId: string | null) {
     if (!text || sendingRef.current) return;
     sendingRef.current = true;
 
-    const nowIso = new Date().toISOString();
-    const userMsg: CopilotMessage = {
-      id: crypto.randomUUID(),
-      conversation_id: conversationId,
-      role: "user",
-      content: text,
-      created_at: nowIso,
-    };
-    const assistantMsg: CopilotMessage = {
-      id: crypto.randomUUID(),
-      conversation_id: conversationId,
-      role: "assistant",
-      content: "",
-      created_at: new Date(Date.now() + 1).toISOString(),
-      streaming: true,
-    };
-    setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    setStatus("submitting");
-
-    const controller = new AbortController();
-    abortRef.current = controller;
-    let firstDelta = true;
+    // Everything from here on runs inside try/finally: if any step throws
+    // before the network call even starts (e.g. crypto.randomUUID
+    // unavailable in an insecure context, or a setState error), the guard
+    // and status must still be released — otherwise every future send()
+    // call silently no-ops forever with no visible error, which is the
+    // "second message never sends" composer lock.
     let hadError = false;
+    let controller: AbortController | null = null;
+    let userMsg: CopilotMessage | null = null;
+    let assistantMsg: CopilotMessage | null = null;
 
     try {
+      const nowIso = new Date().toISOString();
+      userMsg = {
+        id: crypto.randomUUID(),
+        conversation_id: conversationId,
+        role: "user",
+        content: text,
+        created_at: nowIso,
+      };
+      assistantMsg = {
+        id: crypto.randomUUID(),
+        conversation_id: conversationId,
+        role: "assistant",
+        content: "",
+        created_at: new Date(Date.now() + 1).toISOString(),
+        streaming: true,
+      };
+      setMessages((prev) => [...prev, userMsg!, assistantMsg!]);
+      setStatus("submitting");
+
+      controller = new AbortController();
+      abortRef.current = controller;
+      let firstDelta = true;
+
       await sendMessage({
         conversationId,
         message: text,
@@ -89,34 +99,36 @@ export function useCopilotChat(conversationId: string | null) {
         onDelta: (delta) => {
           if (firstDelta) { firstDelta = false; setStatus("streaming"); }
           setMessages((prev) => prev.map((m) =>
-            m.id === assistantMsg.id ? { ...m, content: m.content + delta } : m
+            m.id === assistantMsg!.id ? { ...m, content: m.content + delta } : m
           ));
         },
       });
       setMessages((prev) => prev.map((m) =>
-        m.id === assistantMsg.id
+        m.id === assistantMsg!.id
           ? { ...m, streaming: false, content: m.content || "_(no response received)_" }
           : m
       ));
     } catch (err) {
-      if (controller.signal.aborted) {
+      if (controller?.signal.aborted) {
         // Aborted (unmount/thread switch). Clear streaming flag; status reset in finally.
-        setMessages((prev) => prev.map((m) =>
-          m.id === assistantMsg.id ? { ...m, streaming: false } : m
-        ));
-        return;
-      }
-      hadError = true;
-      const msg = friendlyError(err);
-      toast.error(msg);
-      if ((err as { code?: string })?.code === "conversation_not_found") {
-        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== assistantMsg.id));
+        if (assistantMsg) {
+          const id = assistantMsg.id;
+          setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, streaming: false } : m)));
+        }
       } else {
-        setMessages((prev) => prev.map((m) =>
-          m.id === assistantMsg.id
-            ? { ...m, streaming: false, content: `⚠️ ${msg}` }
-            : m
-        ));
+        hadError = true;
+        const msg = friendlyError(err);
+        toast.error(msg);
+        if (userMsg && assistantMsg && (err as { code?: string })?.code === "conversation_not_found") {
+          const uid = userMsg.id;
+          const aid = assistantMsg.id;
+          setMessages((prev) => prev.filter((m) => m.id !== uid && m.id !== aid));
+        } else if (assistantMsg) {
+          const id = assistantMsg.id;
+          setMessages((prev) => prev.map((m) =>
+            m.id === id ? { ...m, streaming: false, content: `⚠️ ${msg}` } : m
+          ));
+        }
       }
     } finally {
       abortRef.current = null;
