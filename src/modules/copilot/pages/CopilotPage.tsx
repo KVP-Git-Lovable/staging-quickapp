@@ -6,6 +6,7 @@ import { PanelLeft, ArrowLeft, Bot } from "lucide-react";
 import { useConversations } from "../hooks/useConversations";
 import { ConversationSidebar } from "../components/sidebar/ConversationSidebar";
 import { ChatWindow } from "../components/chat/ChatWindow";
+import { CopilotUtilityPanel } from "../components/panel/CopilotUtilityPanel";
 
 export default function CopilotPage() {
   const { threadId } = useParams<{ threadId?: string }>();
@@ -116,6 +117,8 @@ export default function CopilotPage() {
           )}
         </div>
       </main>
+
+      <CopilotUtilityPanel />
     </div>
   );
 }
