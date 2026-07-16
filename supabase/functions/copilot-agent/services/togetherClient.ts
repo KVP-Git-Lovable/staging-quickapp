@@ -40,10 +40,9 @@ export async function streamChat(params: {
       model: params.model ?? MODEL,
       messages: params.messages,
       stream: true,
-      temperature: 1,
+      temperature: 0.4,
       top_p: 1,
-      reasoning_effort: "low",
-      max_tokens: 4096,
+      max_tokens: 1024,
     }),
   });
 
