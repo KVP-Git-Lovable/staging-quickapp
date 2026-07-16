@@ -11,13 +11,14 @@ interface Props {
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  deletingId?: string | null;
 }
 
-export function ConversationSidebar({ items, activeId, onSelect, onNew, onDelete }: Props) {
+export function ConversationSidebar({ items, activeId, onSelect, onNew, onDelete, deletingId }: Props) {
   return (
     <aside className="copilot-chrome flex h-full w-64 shrink-0 flex-col border-r border-primary-foreground/10 text-primary-foreground">
       <div className="flex items-center gap-2 border-b border-primary-foreground/10 px-3 py-3">
-        <div className="w-7 h-7 rounded-lg bg-black/30 flex items-center justify-center">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-foreground/10">
           <Sparkles className="w-4 h-4 text-amber-400" />
         </div>
         <span className="text-sm font-semibold text-primary-foreground">Copilot</span>
@@ -69,6 +70,7 @@ export function ConversationSidebar({ items, activeId, onSelect, onNew, onDelete
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
+              disabled={Boolean(deletingId)}
               className="shrink-0 text-primary-foreground/60 opacity-0 hover:text-warning group-hover:opacity-100"
               aria-label="Delete conversation"
             >

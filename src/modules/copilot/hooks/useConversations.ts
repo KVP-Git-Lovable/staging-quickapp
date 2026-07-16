@@ -46,8 +46,9 @@ export function useConversations() {
 
   const remove = useCallback(async (id: string) => {
     const { error } = await supabase.from("copilot_conversations").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(error.message); return false; }
     setItems((prev) => prev.filter((c) => c.id !== id));
+    return true;
   }, []);
 
   const patch = useCallback((id: string, changes: Partial<CopilotConversation>) => {

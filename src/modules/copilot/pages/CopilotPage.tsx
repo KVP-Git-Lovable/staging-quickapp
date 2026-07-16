@@ -12,6 +12,7 @@ export default function CopilotPage() {
   const navigate = useNavigate();
   const { items, loading, create, remove, refresh } = useConversations();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const bootstrappingRef = useRef(false);
 
   // Bootstrap: pick most recent or create a new one when no thread in URL.
@@ -47,11 +48,13 @@ export default function CopilotPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (deletingId) return;
+    const isActive = id === threadId;
+    const next = items.find((c) => c.id !== id);
+    setDeletingId(id); // Unmounts active chat and aborts its stream before DELETE.
+    if (isActive) navigate(next ? `/copilot/${next.id}` : "/copilot", { replace: true });
     await remove(id);
-    if (id === threadId) {
-      const next = items.find((c) => c.id !== id);
-      navigate(next ? `/copilot/${next.id}` : "/copilot", { replace: true });
-    }
+    setDeletingId(null);
   };
 
   const sidebar = (
@@ -61,6 +64,7 @@ export default function CopilotPage() {
       onSelect={handleSelect}
       onNew={handleNew}
       onDelete={handleDelete}
+      deletingId={deletingId}
     />
   );
 
@@ -73,7 +77,7 @@ export default function CopilotPage() {
           <div className="md:hidden">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-black/20 hover:text-amber-300">
+                <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-warning">
                   <PanelLeft className="w-4 h-4" />
                 </Button>
               </SheetTrigger>
@@ -86,20 +90,20 @@ export default function CopilotPage() {
             variant="ghost"
             size="sm"
             onClick={() => navigate("/dashboard")}
-            className="gap-1.5 text-white hover:bg-black/20 hover:text-amber-300"
+            className="gap-1.5 text-primary-foreground hover:bg-primary-foreground/10 hover:text-warning"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </Button>
-          <h1 className="text-base sm:text-lg font-bold text-white ml-1 truncate">
+          <h1 className="ml-1 truncate text-base font-bold text-primary-foreground sm:text-lg">
             Welcome to QuickApp Copilot!
           </h1>
-          <div className="ml-auto flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-black shrink-0 shadow-sm">
-            <Bot className="w-5 h-5 text-white" />
+          <div className="copilot-action ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-warning/50 shadow-sm">
+            <Bot className="h-5 w-5 text-primary-foreground" />
           </div>
         </div>
         <div className="flex-1 min-h-0">
-          {threadId ? (
+          {threadId && deletingId !== threadId ? (
             <ChatWindow
               key={threadId}
               conversationId={threadId}

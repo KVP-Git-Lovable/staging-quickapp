@@ -14,6 +14,12 @@ export function useCopilotChat(conversationId: string | null) {
   const abortRef = useRef<AbortController | null>(null);
   const sendingRef = useRef(false);
 
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    sendingRef.current = false;
+  }, []);
+
   // Load persisted messages when thread changes.
   useEffect(() => {
     let cancel = false;
@@ -91,6 +97,7 @@ export function useCopilotChat(conversationId: string | null) {
       ));
       setStatus("idle");
     } catch (err) {
+      if (controller.signal.aborted) return;
       const msg = friendlyError(err);
       toast.error(msg);
       if ((err as { code?: string })?.code === "conversation_not_found") {

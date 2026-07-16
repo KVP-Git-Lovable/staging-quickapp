@@ -17,7 +17,7 @@ export function PromptCardGrid({ onSelect, disabled, variant = "grid" }: Props) 
             type="button"
             disabled={disabled}
             onClick={() => onSelect(card.prompt)}
-            className="copilot-action rounded-full border border-primary-foreground/15 px-3 py-1.5 text-xs text-primary-foreground transition-opacity hover:opacity-85 disabled:pointer-events-none disabled:opacity-50"
+            className="copilot-action rounded-full border border-primary-foreground/15 px-3 py-1.5 text-xs text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
           >
             {card.title}
           </button>
