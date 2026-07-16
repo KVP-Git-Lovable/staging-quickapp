@@ -78,6 +78,13 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 25% 25%;
     --sidebar-ring: 35 65% 55%;
+
+    /* Copilot chrome: neutral black-to-grey, independent of success colors. */
+    --copilot-chrome-start: 0 0% 3%;
+    --copilot-chrome-mid: 220 5% 11%;
+    --copilot-chrome-end: 220 4% 22%;
+    --copilot-card: 0 0% 100% / 0.07;
+    --copilot-card-hover: 0 0% 100% / 0.11;
   }
 
   .dark {
@@ -131,6 +138,33 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 220 30% 20%;
     --sidebar-ring: 35 65% 55%;
+
+    --copilot-chrome-start: 0 0% 2%;
+    --copilot-chrome-mid: 220 5% 9%;
+    --copilot-chrome-end: 220 4% 18%;
+    --copilot-card: 0 0% 100% / 0.07;
+    --copilot-card-hover: 0 0% 100% / 0.12;
+  }
+}
+
+@layer components {
+  .copilot-chrome {
+    background: linear-gradient(145deg, hsl(var(--copilot-chrome-start)), hsl(var(--copilot-chrome-mid)) 55%, hsl(var(--copilot-chrome-end)));
+  }
+
+  .copilot-action {
+    background: linear-gradient(135deg, hsl(var(--copilot-chrome-start)), hsl(var(--copilot-chrome-end)));
+  }
+
+  .copilot-insight-card,
+  .copilot-question-card {
+    border: 1px solid hsl(0 0% 100% / 0.1);
+    border-radius: 0.5rem;
+    background: hsl(var(--copilot-card));
+  }
+
+  .copilot-question-card:hover {
+    background: hsl(var(--copilot-card-hover));
   }
 }
 
