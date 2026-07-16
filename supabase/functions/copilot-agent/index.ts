@@ -185,7 +185,7 @@ async function recentBeatsAnswer(
         (visits ?? []).forEach((visit: any) => {
           const beatId = beatByRetailer.get(visit.retailer_id);
           if (!beatId) return;
-          const date = visit.planned_date ?? String(visit.created_at ?? "").slice(0, 10) || null;
+          const date = visit.planned_date ?? (String(visit.created_at ?? "").slice(0, 10) || null);
           const aggregate = visitsByBeat.get(beatId) ?? { count: 0, checkedIn: 0, lastDate: null };
           aggregate.count += 1;
           if (visit.check_in_time) aggregate.checkedIn += 1;
@@ -206,7 +206,7 @@ async function recentBeatsAnswer(
   } else {
     (orders ?? []).forEach((order: any) => {
       if (!order.beat_id) return;
-      const date = order.order_date ?? String(order.created_at ?? "").slice(0, 10) || null;
+      const date = order.order_date ?? (String(order.created_at ?? "").slice(0, 10) || null);
       const aggregate = ordersByBeat.get(order.beat_id) ?? { count: 0, value: 0, lastDate: null };
       aggregate.count += 1;
       aggregate.value += Number(order.total_amount ?? 0);
