@@ -139,80 +139,97 @@ async function attendanceAnswer(
 async function recentBeatsAnswer(
   supabase: SupabaseClient,
   userId: string,
-  today: string,
+  _today: string,
 ): Promise<string> {
-  // Derive from actual visits joined to retailers (visits has no beat_id column).
-  const { data: visits, error: visitsError } = await supabase
-    .from("visits")
-    .select("retailer_id, planned_date, check_in_time, created_at, retailers:retailer_id(beat_id, beat_name)")
-    .eq("user_id", userId)
-    .lte("planned_date", today)
-    .order("planned_date", { ascending: false })
-    .limit(200);
-  if (visitsError) throw visitsError;
-
-  type BeatAgg = { beat_id: string; beat_name: string | null; last_date: string; visit_count: number; checked_in: number };
-  const map = new Map<string, BeatAgg>();
-  (visits ?? []).forEach((v: any) => {
-    const beatId = v.retailers?.beat_id;
-    if (!beatId) return;
-    const dateStr = v.planned_date || (v.created_at ? String(v.created_at).slice(0, 10) : today);
-    const existing = map.get(beatId);
-    if (!existing) {
-      map.set(beatId, {
-        beat_id: beatId,
-        beat_name: v.retailers?.beat_name ?? null,
-        last_date: dateStr,
-        visit_count: 1,
-        checked_in: v.check_in_time ? 1 : 0,
-      });
-    } else {
-      existing.visit_count += 1;
-      if (v.check_in_time) existing.checked_in += 1;
-      if (dateStr > existing.last_date) existing.last_date = dateStr;
-    }
-  });
-  let recent: BeatAgg[] = Array.from(map.values())
-    .sort((a, b) => (a.last_date < b.last_date ? 1 : -1))
-    .slice(0, 3);
-
-  // Fallback to planned beats if no visits recorded yet.
-  if (!recent.length) {
-    const { data: plans } = await supabase
-      .from("daily_beat_plans")
-      .select("plan_date, beat_id")
-      .eq("assigned_user_id", userId)
-      .lte("plan_date", today)
-      .order("plan_date", { ascending: false })
-      .limit(3);
-    recent = (plans ?? [])
-      .filter((p: any) => p.beat_id)
-      .map((p: any) => ({ beat_id: p.beat_id, beat_name: null, last_date: p.plan_date, visit_count: 0, checked_in: 0 }));
-  }
-
-  if (!recent.length) {
-    return "I couldn't find any recent beats in your history yet. Once you start visiting retailers on your beats, they'll show up here.";
-  }
-
-  const beatIds = recent.map((r) => r.beat_id);
-  const { data: beats } = await supabase
+  // The source of truth is the user's three most recently created beats.
+  // Related activity is fetched separately because visits.retailer_id has no FK
+  // relationship that PostgREST can use for an embedded retailers join.
+  const { data: beats, error: beatsError } = await supabase
     .from("beats")
-    .select("beat_id, beat_name")
-    .in("beat_id", beatIds);
-  const names = new Map((beats ?? []).map((b: any) => [b.beat_id, b.beat_name]));
+    .select("beat_id, beat_name, created_at, is_active")
+    .eq("created_by", userId)
+    .order("created_at", { ascending: false })
+    .limit(3);
+  if (beatsError) throw beatsError;
+  if (!beats?.length) {
+    return "I couldn't find any beats created by your account yet.";
+  }
 
-  const lines = recent.map((r, i) => {
-    const name = r.beat_name ?? names.get(r.beat_id) ?? r.beat_id;
-    const parts = [`**${i + 1}. ${name}** — last worked ${r.last_date}`];
-    if (r.visit_count > 0) {
-      parts.push(`${r.visit_count} visit${r.visit_count === 1 ? "" : "s"}, ${r.checked_in} check-in${r.checked_in === 1 ? "" : "s"}`);
-    } else {
-      parts.push("planned, no visits recorded yet");
+  const beatIds = beats.map((beat: any) => beat.beat_id).filter(Boolean);
+  const visitsByBeat = new Map<string, { count: number; checkedIn: number; lastDate: string | null }>();
+  const ordersByBeat = new Map<string, { count: number; value: number; lastDate: string | null }>();
+
+  // Enrichment is deliberately best-effort: a related-table policy or data issue
+  // must never hide the beats that were successfully retrieved above.
+  const { data: retailers, error: retailersError } = await supabase
+    .from("retailers")
+    .select("id, beat_id")
+    .in("beat_id", beatIds);
+
+  if (retailersError) {
+    console.error("[copilot-agent] beat retailer enrichment failed:", retailersError);
+  } else {
+    const beatByRetailer = new Map(
+      (retailers ?? []).map((retailer: any) => [retailer.id, retailer.beat_id]),
+    );
+    const retailerIds = [...beatByRetailer.keys()];
+    if (retailerIds.length) {
+      const { data: visits, error: visitsError } = await supabase
+        .from("visits")
+        .select("retailer_id, planned_date, check_in_time, created_at")
+        .eq("user_id", userId)
+        .in("retailer_id", retailerIds);
+      if (visitsError) {
+        console.error("[copilot-agent] beat visit enrichment failed:", visitsError);
+      } else {
+        (visits ?? []).forEach((visit: any) => {
+          const beatId = beatByRetailer.get(visit.retailer_id);
+          if (!beatId) return;
+          const date = visit.planned_date ?? (String(visit.created_at ?? "").slice(0, 10) || null);
+          const aggregate = visitsByBeat.get(beatId) ?? { count: 0, checkedIn: 0, lastDate: null };
+          aggregate.count += 1;
+          if (visit.check_in_time) aggregate.checkedIn += 1;
+          if (date && (!aggregate.lastDate || date > aggregate.lastDate)) aggregate.lastDate = date;
+          visitsByBeat.set(beatId, aggregate);
+        });
+      }
     }
-    return `- ${parts.join(" · ")}`;
+  }
+
+  const { data: orders, error: ordersError } = await supabase
+    .from("orders")
+    .select("beat_id, total_amount, order_date, created_at")
+    .eq("user_id", userId)
+    .in("beat_id", beatIds);
+  if (ordersError) {
+    console.error("[copilot-agent] beat order enrichment failed:", ordersError);
+  } else {
+    (orders ?? []).forEach((order: any) => {
+      if (!order.beat_id) return;
+      const date = order.order_date ?? (String(order.created_at ?? "").slice(0, 10) || null);
+      const aggregate = ordersByBeat.get(order.beat_id) ?? { count: 0, value: 0, lastDate: null };
+      aggregate.count += 1;
+      aggregate.value += Number(order.total_amount ?? 0);
+      if (date && (!aggregate.lastDate || date > aggregate.lastDate)) aggregate.lastDate = date;
+      ordersByBeat.set(order.beat_id, aggregate);
+    });
+  }
+
+  const lines = beats.map((beat: any, index: number) => {
+    const visits = visitsByBeat.get(beat.beat_id);
+    const orders = ordersByBeat.get(beat.beat_id);
+    const activity = [
+      visits?.count
+        ? `${visits.count} linked visit${visits.count === 1 ? "" : "s"} (${visits.checkedIn} checked in)`
+        : "no linked visits",
+      orders?.count
+        ? `${orders.count} order${orders.count === 1 ? "" : "s"} worth ₹${formatNumber(orders.value)}`
+        : "no orders",
+    ];
+    return `- **${index + 1}. ${beat.beat_name ?? beat.beat_id}** — created ${String(beat.created_at).slice(0, 10)} · ${activity.join(" · ")}`;
   });
 
-  return ["Here's a quick summary of your last three beats:", "", ...lines].join("\n");
+  return ["Your last three beats information is as follows:", "", ...lines].join("\n");
 }
 
 async function pendingCollectionsAnswer(
