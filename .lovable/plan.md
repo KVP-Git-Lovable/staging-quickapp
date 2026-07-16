@@ -1,55 +1,46 @@
-## Goal
-Make Copilot prompt cards produce one complete answer, remove duplicate/hanging questions, and answer from the signed-in user’s live QuickApp data.
+# Copilot: Right Panel + Welcome Redesign
 
-## Confirmed causes
-- Together.ai reasoning tokens are currently treated as answer text. GPT-OSS returns private reasoning separately from final `content`.
-- Both server and browser stream parsers can discard the final buffered SSE frame, cutting replies off mid-sentence.
-- Prompt-card submission has no synchronous lock, so rapid clicks can insert duplicate user messages before React updates the busy state.
-- Initial conversation creation can run twice under React StrictMode.
-- The Edge Function currently reads only profile and chat history. It has no queries or tools for leave, attendance, targets, beats, visits, or collections.
+## 1. New Right Sidebar (`CopilotUtilityPanel.tsx`)
 
-## Implementation
+Fixed-width (~260px) panel on the right of `CopilotPage`, light grey background (`bg-muted/40`). Chat window shrinks to accommodate. Hidden on mobile (`hidden lg:flex`).
 
-### 1. Correct Together.ai streaming
-- Update `togetherClient.ts` to emit only `delta.content`; never expose `reasoning` or `reasoning_content` as the user-facing answer.
-- Use GPT-OSS-compatible parameters: explicit `reasoning_effort`, sufficient `max_tokens`, and supported sampling values.
-- Track `finish_reason`; log and return a clear error if the provider ends because of a token limit before producing final content.
-- Flush the decoder and any remaining SSE frame before closing the stream.
-- Apply the same residual-frame handling in `copilotService.ts` so the browser cannot lose the final token block.
+### 1a. Orders chart (last 7 days)
+- New hook `useMyOrdersLast7Days`: queries `orders` where `user_id = auth.uid()`, `order_date >= today-6`, status not cancelled. Joins `order_items` to sum quantity converted to KG (use existing `uomQuantity` helper if available; fallback to `quantity` field assuming KG).
+- Render with `recharts` `<AreaChart>` (already in deps via shadcn `chart`): X = date (dd MMM), Y = KG. Compact ~180px tall, gradient fill (navy→transparent), no legend, minimal axes.
+- Wrap in a `<button>` navigating to `/analytics` on click. Hover ring for affordance.
+- Title: "Orders · Last 7 days (KG)".
 
-### 2. Prevent duplicate questions
-- Add a synchronous `useRef` send lock in `useCopilotChat`; acquire it before optimistic insertion and release it in `finally`.
-- Make the prompt-card/imperative composer path obey the same disabled and empty-input checks as typed submission.
-- Add a StrictMode-safe bootstrap guard in `CopilotPage` so one empty account creates only one conversation.
-- Collapse identical consecutive legacy user messages while rendering so existing duplicated prompts no longer appear twice; retain non-duplicate failed turns.
+### 1b. Ticket Assistant
+- Section header "Ticket Assistant".
+- 4 category cards, each showing English + Hindi label, colored backgrounds:
+  - App Issues / ऐप समस्या — pink (`bg-pink-100 text-pink-900`)
+  - Not able to place order / ऑर्डर नहीं कर पा रहे — light blue (`bg-sky-100 text-sky-900`)
+  - Cannot create Retailer / रिटेलर नहीं बन रहा — amber (`bg-amber-100 text-amber-900`)
+  - Issues with Beat / बीट में समस्या — violet (`bg-violet-100 text-violet-900`)
+- Clicking opens a shadcn `<Dialog>` (`TicketStubDialog`) with:
+  - Category name, logged-in user name/email (from `profiles`)
+  - Auto-generated ticket ID (`TCK-` + timestamp)
+  - Optional textarea for note
+  - "Submit" button → toast "Ticket raised (demo)" and closes. No DB write.
 
-### 3. Ground prompt-card answers in Supabase
-Add read-only, server-side data handlers for the six existing cards:
-- **Leave balance:** current-year `leave_balance` joined with active `leave_types`.
-- **Attendance this month:** signed-in user’s current-month attendance summary.
-- **Last 3 beats:** latest three accessible beat/visit records, respecting existing beat access and RLS.
-- **Pending collections:** accessible outstanding retailer collections only.
-- **Plan today’s visits:** today’s accessible visits/beat plan with concise prioritization context.
-- **Today’s targets:** current target period and progress for the signed-in user.
+## 2. Welcome Screen Redesign (`WelcomeHeader.tsx` + `ChatWindow.tsx`)
 
-The Edge Function will:
-- Query with the caller’s bearer token, never service-role access, so existing RLS remains authoritative.
-- Route card prompts and close paraphrases to the matching read handler.
-- Return compact, deterministic Markdown for simple factual requests such as leave balance.
-- Supply bounded query results to the model only when summarization or planning is useful.
-- Return an explicit “no data configured” response for empty results instead of inventing values.
-- Check and log every Supabase query and persistence error.
+- Remove the 3 static prompt cards from empty state (keep `PromptCardGrid` chips row above composer for non-empty state as-is).
+- Empty state now shows:
+  - Blue circular Copilot icon (~72px, `bg-primary` navy or blue-500, white `Bot` lucide icon, subtle glow).
+  - Text below: `Hi {firstName}! I am your QuickApp Copilot`.
+  - After 3s, swap text to Hindi: `नमस्ते {firstName}! मैं आपका QuickApp Copilot हूँ`.
+  - Toggle continues alternating every 3s (fade transition).
+- `firstName` from `profiles.full_name` (first token) fallback to email prefix.
 
-### 4. Keep history consistent
-- Persist exactly one user message before processing and one completed assistant message after successful completion.
-- Do not save private reasoning.
-- Ensure errors do not leave a permanent typing indicator; replace it with a retryable error state.
-- Preserve complete conversation history within the configured limit for follow-up context.
+## 3. Layout wiring (`CopilotPage.tsx`)
 
-### 5. Validate and deploy
-- Test all six prompt cards against live, RLS-scoped data.
-- Double-click a prompt card and verify only one user row and one assistant row are created.
-- Verify “What is my leave balance?” returns the current user’s actual leave rows and a complete final sentence/table.
-- Test an empty-data user and confirm a truthful empty state.
-- Verify the last SSE frame is rendered and persisted identically.
-- Deploy the updated `copilot-agent` Edge Function and inspect its logs for provider, query, truncation, or persistence errors.
+```
+[Sidebar 256] [Chat main flex-1] [UtilityPanel 260 lg+]
+```
+
+## Technical notes
+- New files: `src/modules/copilot/components/panel/CopilotUtilityPanel.tsx`, `TicketStubDialog.tsx`, `OrdersChart.tsx`; `src/modules/copilot/hooks/useMyOrdersLast7Days.ts`.
+- Edits: `CopilotPage.tsx` (add panel), `ChatWindow.tsx` (drop PromptCardGrid from empty state), `WelcomeHeader.tsx` (icon + bilingual rotating greeting via `setInterval`).
+- Chart uses existing `recharts` dep.
+- No backend/schema changes.
