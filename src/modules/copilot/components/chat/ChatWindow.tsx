@@ -24,10 +24,10 @@ export function ChatWindow({ conversationId, onFirstMessage }: Props) {
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, name")
+        .select("full_name, username")
         .eq("id", user.id)
         .maybeSingle();
-      setUserName(data?.full_name || data?.name || user.email || null);
+      setUserName(data?.full_name || data?.username || null);
     })();
   }, []);
 
@@ -54,6 +54,7 @@ export function ChatWindow({ conversationId, onFirstMessage }: Props) {
         <div className="flex-1 overflow-y-auto">
           <div className="min-h-full flex flex-col items-center justify-center gap-8 px-4 py-10">
             <WelcomeHeader userName={userName} />
+            <PromptCardGrid onSelect={pickPrompt} disabled={isBusy} variant="grid" />
           </div>
         </div>
       ) : (
