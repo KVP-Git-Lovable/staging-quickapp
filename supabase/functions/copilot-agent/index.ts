@@ -139,32 +139,97 @@ async function attendanceAnswer(
 async function recentBeatsAnswer(
   supabase: SupabaseClient,
   userId: string,
-  today: string,
+  _today: string,
 ): Promise<string> {
-  const { data: plans, error } = await supabase
-    .from("daily_beat_plans")
-    .select("plan_date, beat_id, status, assignment_type")
-    .eq("assigned_user_id", userId)
-    .lte("plan_date", today)
-    .order("plan_date", { ascending: false })
-    .limit(3);
-  if (error) throw error;
-  if (!plans?.length) return "No recent beat plans were found for your account.";
-
-  const beatIds = [...new Set(plans.map((plan: any) => plan.beat_id).filter(Boolean))];
+  // The source of truth is the user's three most recently created beats.
+  // Related activity is fetched separately because visits.retailer_id has no FK
+  // relationship that PostgREST can use for an embedded retailers join.
   const { data: beats, error: beatsError } = await supabase
     .from("beats")
-    .select("beat_id, beat_name")
-    .in("beat_id", beatIds);
+    .select("beat_id, beat_name, created_at, is_active")
+    .eq("created_by", userId)
+    .order("created_at", { ascending: false })
+    .limit(3);
   if (beatsError) throw beatsError;
-  const names = new Map((beats ?? []).map((beat: any) => [beat.beat_id, beat.beat_name]));
-  return [
-    "## Your last 3 beats",
-    "",
-    "| Date | Beat | Status |",
-    "|---|---|---|",
-    ...plans.map((plan: any) => `| ${plan.plan_date} | ${escapeCell(names.get(plan.beat_id) ?? plan.beat_id)} | ${escapeCell(plan.status)} |`),
-  ].join("\n");
+  if (!beats?.length) {
+    return "I couldn't find any beats created by your account yet.";
+  }
+
+  const beatIds = beats.map((beat: any) => beat.beat_id).filter(Boolean);
+  const visitsByBeat = new Map<string, { count: number; checkedIn: number; lastDate: string | null }>();
+  const ordersByBeat = new Map<string, { count: number; value: number; lastDate: string | null }>();
+
+  // Enrichment is deliberately best-effort: a related-table policy or data issue
+  // must never hide the beats that were successfully retrieved above.
+  const { data: retailers, error: retailersError } = await supabase
+    .from("retailers")
+    .select("id, beat_id")
+    .in("beat_id", beatIds);
+
+  if (retailersError) {
+    console.error("[copilot-agent] beat retailer enrichment failed:", retailersError);
+  } else {
+    const beatByRetailer = new Map(
+      (retailers ?? []).map((retailer: any) => [retailer.id, retailer.beat_id]),
+    );
+    const retailerIds = [...beatByRetailer.keys()];
+    if (retailerIds.length) {
+      const { data: visits, error: visitsError } = await supabase
+        .from("visits")
+        .select("retailer_id, planned_date, check_in_time, created_at")
+        .eq("user_id", userId)
+        .in("retailer_id", retailerIds);
+      if (visitsError) {
+        console.error("[copilot-agent] beat visit enrichment failed:", visitsError);
+      } else {
+        (visits ?? []).forEach((visit: any) => {
+          const beatId = beatByRetailer.get(visit.retailer_id);
+          if (!beatId) return;
+          const date = visit.planned_date ?? (String(visit.created_at ?? "").slice(0, 10) || null);
+          const aggregate = visitsByBeat.get(beatId) ?? { count: 0, checkedIn: 0, lastDate: null };
+          aggregate.count += 1;
+          if (visit.check_in_time) aggregate.checkedIn += 1;
+          if (date && (!aggregate.lastDate || date > aggregate.lastDate)) aggregate.lastDate = date;
+          visitsByBeat.set(beatId, aggregate);
+        });
+      }
+    }
+  }
+
+  const { data: orders, error: ordersError } = await supabase
+    .from("orders")
+    .select("beat_id, total_amount, order_date, created_at")
+    .eq("user_id", userId)
+    .in("beat_id", beatIds);
+  if (ordersError) {
+    console.error("[copilot-agent] beat order enrichment failed:", ordersError);
+  } else {
+    (orders ?? []).forEach((order: any) => {
+      if (!order.beat_id) return;
+      const date = order.order_date ?? (String(order.created_at ?? "").slice(0, 10) || null);
+      const aggregate = ordersByBeat.get(order.beat_id) ?? { count: 0, value: 0, lastDate: null };
+      aggregate.count += 1;
+      aggregate.value += Number(order.total_amount ?? 0);
+      if (date && (!aggregate.lastDate || date > aggregate.lastDate)) aggregate.lastDate = date;
+      ordersByBeat.set(order.beat_id, aggregate);
+    });
+  }
+
+  const lines = beats.map((beat: any, index: number) => {
+    const visits = visitsByBeat.get(beat.beat_id);
+    const orders = ordersByBeat.get(beat.beat_id);
+    const activity = [
+      visits?.count
+        ? `${visits.count} linked visit${visits.count === 1 ? "" : "s"} (${visits.checkedIn} checked in)`
+        : "no linked visits",
+      orders?.count
+        ? `${orders.count} order${orders.count === 1 ? "" : "s"} worth ₹${formatNumber(orders.value)}`
+        : "no orders",
+    ];
+    return `- **${index + 1}. ${beat.beat_name ?? beat.beat_id}** — created ${String(beat.created_at).slice(0, 10)} · ${activity.join(" · ")}`;
+  });
+
+  return ["Your last three beats information is as follows:", "", ...lines].join("\n");
 }
 
 async function pendingCollectionsAnswer(
@@ -177,16 +242,22 @@ async function pendingCollectionsAnswer(
     .order("pending_amount", { ascending: false })
     .limit(20);
   if (error) throw error;
-  if (!data?.length) return "No pending retailer collections were found in your accessible records.";
+  if (!data?.length) {
+    return "Good news — you have no pending collections right now. All retailer balances are cleared.";
+  }
   const total = data.reduce((sum: number, retailer: any) => sum + Number(retailer.pending_amount ?? 0), 0);
+  const lines = data.map((r: any, i: number) => {
+    const beat = r.beat_name ? ` _(${r.beat_name})_` : "";
+    return `${i + 1}. **${r.name ?? "Retailer"}**${beat} — ₹${formatNumber(r.pending_amount)}`;
+  });
   return [
-    "## Pending collections",
+    "Sure — here are your pending collections:",
     "",
-    `**Total outstanding:** ₹${formatNumber(total)}`,
+    `**Total outstanding:** ₹${formatNumber(total)} across ${data.length} retailer${data.length === 1 ? "" : "s"}.`,
     "",
-    "| Retailer | Beat | Amount |",
-    "|---|---|---:|",
-    ...data.map((retailer: any) => `| ${escapeCell(retailer.name)} | ${escapeCell(retailer.beat_name)} | ₹${formatNumber(retailer.pending_amount)} |`),
+    ...lines,
+    "",
+    "Let me know if you'd like to prioritise any of these for today's route.",
   ].join("\n");
 }
 
