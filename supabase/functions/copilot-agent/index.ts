@@ -442,17 +442,37 @@ Deno.serve(async (req) => {
     let stream: Awaited<ReturnType<typeof streamChat>>;
     try {
       const intent = classifyDataIntent(message);
+      let llmMessages = messages;
       if (intent) {
         try {
-          stream = staticStream(await dataAnswer(intent, supabase, userId, today));
+          const dataBlock = await dataAnswer(intent, supabase, userId, today);
+          const grounding: ChatMessage = {
+            role: "system",
+            content:
+              `The following is authoritative live data from the signed-in user's workspace, retrieved just now via RLS-scoped SQL for intent "${intent}". ` +
+              `Use ONLY these facts to answer the user's question — do not invent numbers, names, dates, or totals. ` +
+              `Answer diplomatically and conversationally in the same language the user used. You may reformat, summarise, or add brief insight, but every figure must come from this block.\n\n` +
+              `---\n${dataBlock}\n---`,
+          };
+          llmMessages = [
+            messages[0],
+            grounding,
+            ...messages.slice(1),
+          ];
         } catch (dataError) {
           console.error(`[copilot-agent] ${intent} query failed:`, dataError);
-          stream = staticStream("I couldn't retrieve that information right now. Please retry in a moment.");
+          const note: ChatMessage = {
+            role: "system",
+            content:
+              `Live workspace data for intent "${intent}" could not be retrieved this turn. ` +
+              `Apologise briefly, tell the user the live data is temporarily unavailable, and offer to retry — do not fabricate figures.`,
+          };
+          llmMessages = [messages[0], note, ...messages.slice(1)];
         }
-      } else {
-        stream = await streamChat({ apiKey, messages });
       }
+      stream = await streamChat({ apiKey, messages: llmMessages });
     } catch (err) {
+
       if (err instanceof TogetherError) {
         console.error("[copilot-agent] together error:", err.status, err.message);
         const httpStatus = err.status === 429 ? 429 : err.status >= 500 ? 502 : 500;
