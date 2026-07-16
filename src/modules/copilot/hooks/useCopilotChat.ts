@@ -52,7 +52,9 @@ export function useCopilotChat(conversationId: string | null) {
   const send = useCallback(async (rawText: string) => {
     if (!conversationId) return;
     const text = sanitizeInput(rawText);
-    if (!text || sendingRef.current || status === "submitting" || status === "streaming") return;
+    // Use a ref-only reentry guard so a stale `status` (e.g. after an
+    // abrupt SSE close) can never lock the composer.
+    if (!text || sendingRef.current) return;
     sendingRef.current = true;
 
     const nowIso = new Date().toISOString();
@@ -77,6 +79,7 @@ export function useCopilotChat(conversationId: string | null) {
     const controller = new AbortController();
     abortRef.current = controller;
     let firstDelta = true;
+    let hadError = false;
 
     try {
       await sendMessage({
@@ -95,14 +98,18 @@ export function useCopilotChat(conversationId: string | null) {
           ? { ...m, streaming: false, content: m.content || "_(no response received)_" }
           : m
       ));
-      setStatus("idle");
     } catch (err) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        // Aborted (unmount/thread switch). Clear streaming flag; status reset in finally.
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantMsg.id ? { ...m, streaming: false } : m
+        ));
+        return;
+      }
+      hadError = true;
       const msg = friendlyError(err);
       toast.error(msg);
       if ((err as { code?: string })?.code === "conversation_not_found") {
-        // The optimistic user/assistant pair was never persisted. Remove it so
-        // a stale URL cannot leave repeated phantom errors in the transcript.
         setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== assistantMsg.id));
       } else {
         setMessages((prev) => prev.map((m) =>
@@ -111,12 +118,15 @@ export function useCopilotChat(conversationId: string | null) {
             : m
         ));
       }
-      setStatus("error");
     } finally {
       abortRef.current = null;
       sendingRef.current = false;
+      // Always release the composer. Keep "error" briefly only if we set one;
+      // callers can see it via toast — the UI must never stay busy.
+      setStatus(hadError ? "error" : "idle");
     }
-  }, [conversationId, status]);
+  }, [conversationId]);
+
 
   const stop = useCallback(() => {
     abortRef.current?.abort();
