@@ -14,6 +14,12 @@ export function useCopilotChat(conversationId: string | null) {
   const abortRef = useRef<AbortController | null>(null);
   const sendingRef = useRef(false);
 
+  useEffect(() => () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    sendingRef.current = false;
+  }, []);
+
   // Load persisted messages when thread changes.
   useEffect(() => {
     let cancel = false;
@@ -91,13 +97,20 @@ export function useCopilotChat(conversationId: string | null) {
       ));
       setStatus("idle");
     } catch (err) {
+      if (controller.signal.aborted) return;
       const msg = friendlyError(err);
       toast.error(msg);
-      setMessages((prev) => prev.map((m) =>
-        m.id === assistantMsg.id
-          ? { ...m, streaming: false, content: `⚠️ ${msg}` }
-          : m
-      ));
+      if ((err as { code?: string })?.code === "conversation_not_found") {
+        // The optimistic user/assistant pair was never persisted. Remove it so
+        // a stale URL cannot leave repeated phantom errors in the transcript.
+        setMessages((prev) => prev.filter((m) => m.id !== userMsg.id && m.id !== assistantMsg.id));
+      } else {
+        setMessages((prev) => prev.map((m) =>
+          m.id === assistantMsg.id
+            ? { ...m, streaming: false, content: `⚠️ ${msg}` }
+            : m
+        ));
+      }
       setStatus("error");
     } finally {
       abortRef.current = null;

@@ -67,7 +67,7 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
             type="submit"
             size="icon"
             disabled={disabled || !value.trim()}
-            className="rounded-full shrink-0 bg-black text-amber-400 hover:bg-black/90"
+            className="copilot-action shrink-0 rounded-full text-warning hover:opacity-90"
             aria-label="Send message"
           >
             <Send className="h-4 w-4" />

@@ -17,7 +17,7 @@ export function PromptCardGrid({ onSelect, disabled, variant = "grid" }: Props) 
             type="button"
             disabled={disabled}
             onClick={() => onSelect(card.prompt)}
-            className="text-xs rounded-full border border-green-800 bg-green-600 px-3 py-1.5 text-white hover:border-amber-400 hover:bg-green-500 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+            className="copilot-action rounded-full border border-primary-foreground/15 px-3 py-1.5 text-xs text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
           >
             {card.title}
           </button>
@@ -34,14 +34,14 @@ export function PromptCardGrid({ onSelect, disabled, variant = "grid" }: Props) 
           type="button"
           disabled={disabled}
           onClick={() => onSelect(card.prompt)}
-          className="group text-left rounded-xl border border-green-800 bg-green-600 px-4 py-3.5 shadow-sm hover:shadow-md hover:border-amber-400 hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:pointer-events-none"
+          className="copilot-action group rounded-lg border border-primary-foreground/15 px-4 py-3.5 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-warning/60 hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-white truncate">{card.title}</p>
-              <p className="text-xs text-white/80 mt-0.5 line-clamp-2">{card.subtitle}</p>
+              <p className="truncate text-sm font-medium text-primary-foreground">{card.title}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs text-primary-foreground/80">{card.subtitle}</p>
             </div>
-            <ArrowUpRight className="w-4 h-4 text-white/70 group-hover:text-amber-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-primary-foreground/70 opacity-0 transition-opacity group-hover:text-warning group-hover:opacity-100" />
           </div>
         </button>
       ))}

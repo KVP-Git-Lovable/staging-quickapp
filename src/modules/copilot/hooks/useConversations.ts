@@ -6,11 +6,20 @@ import type { CopilotConversation } from "../types";
 export function useConversations() {
   const [items, setItems] = useState<CopilotConversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUserId(user?.id ?? null);
+    if (!user) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
     const { data, error } = await supabase
       .from("copilot_conversations")
       .select("id, title, last_message_at, created_at")
+      .eq("user_id", user.id)
       .eq("is_archived", false)
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
@@ -37,13 +46,14 @@ export function useConversations() {
 
   const remove = useCallback(async (id: string) => {
     const { error } = await supabase.from("copilot_conversations").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(error.message); return false; }
     setItems((prev) => prev.filter((c) => c.id !== id));
+    return true;
   }, []);
 
   const patch = useCallback((id: string, changes: Partial<CopilotConversation>) => {
     setItems((prev) => prev.map((c) => (c.id === id ? { ...c, ...changes } : c)));
   }, []);
 
-  return { items, loading, refresh, create, remove, patch };
+  return { items, loading, userId, refresh, create, remove, patch };
 }
