@@ -141,25 +141,31 @@ async function recentBeatsAnswer(
   userId: string,
   today: string,
 ): Promise<string> {
-  // Prefer actual executed beats via visits (most reliable across owned/shared beats).
+  // Derive from actual visits joined to retailers (visits has no beat_id column).
   const { data: visits, error: visitsError } = await supabase
     .from("visits")
-    .select("beat_id, planned_date, check_in_time, created_at")
+    .select("retailer_id, planned_date, check_in_time, created_at, retailers:retailer_id(beat_id, beat_name)")
     .eq("user_id", userId)
-    .not("beat_id", "is", null)
     .lte("planned_date", today)
     .order("planned_date", { ascending: false })
     .limit(200);
   if (visitsError) throw visitsError;
 
-  type BeatAgg = { beat_id: string; last_date: string; visit_count: number; checked_in: number };
+  type BeatAgg = { beat_id: string; beat_name: string | null; last_date: string; visit_count: number; checked_in: number };
   const map = new Map<string, BeatAgg>();
   (visits ?? []).forEach((v: any) => {
-    const key = v.beat_id as string;
-    const existing = map.get(key);
+    const beatId = v.retailers?.beat_id;
+    if (!beatId) return;
     const dateStr = v.planned_date || (v.created_at ? String(v.created_at).slice(0, 10) : today);
+    const existing = map.get(beatId);
     if (!existing) {
-      map.set(key, { beat_id: key, last_date: dateStr, visit_count: 1, checked_in: v.check_in_time ? 1 : 0 });
+      map.set(beatId, {
+        beat_id: beatId,
+        beat_name: v.retailers?.beat_name ?? null,
+        last_date: dateStr,
+        visit_count: 1,
+        checked_in: v.check_in_time ? 1 : 0,
+      });
     } else {
       existing.visit_count += 1;
       if (v.check_in_time) existing.checked_in += 1;
@@ -181,7 +187,7 @@ async function recentBeatsAnswer(
       .limit(3);
     recent = (plans ?? [])
       .filter((p: any) => p.beat_id)
-      .map((p: any) => ({ beat_id: p.beat_id, last_date: p.plan_date, visit_count: 0, checked_in: 0 }));
+      .map((p: any) => ({ beat_id: p.beat_id, beat_name: null, last_date: p.plan_date, visit_count: 0, checked_in: 0 }));
   }
 
   if (!recent.length) {
@@ -196,7 +202,7 @@ async function recentBeatsAnswer(
   const names = new Map((beats ?? []).map((b: any) => [b.beat_id, b.beat_name]));
 
   const lines = recent.map((r, i) => {
-    const name = names.get(r.beat_id) ?? r.beat_id;
+    const name = r.beat_name ?? names.get(r.beat_id) ?? r.beat_id;
     const parts = [`**${i + 1}. ${name}** — last worked ${r.last_date}`];
     if (r.visit_count > 0) {
       parts.push(`${r.visit_count} visit${r.visit_count === 1 ? "" : "s"}, ${r.checked_in} check-in${r.checked_in === 1 ? "" : "s"}`);
