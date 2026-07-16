@@ -50,28 +50,44 @@ export async function sendMessage({
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffered = "";
+  let completed = false;
 
-  while (true) {
+  const processFrame = (frame: string) => {
+    const chunk = frame.trim();
+    if (!chunk.startsWith("data:")) return;
+    const payload = chunk.slice(5).trim();
+    if (payload === "[DONE]") {
+      completed = true;
+      return;
+    }
+    try {
+      const evt = JSON.parse(payload);
+      if (evt.error) throw new CopilotServiceError(500, evt.error, "AI stream failed");
+      if (typeof evt.delta === "string") onDelta(evt.delta);
+    } catch (err) {
+      if (err instanceof CopilotServiceError) throw err;
+      // Ignore malformed keep-alives.
+    }
+  };
+
+  while (!completed) {
     const { value, done } = await reader.read();
-    if (done) break;
+    if (done) {
+      buffered += decoder.decode();
+      break;
+    }
     buffered += decoder.decode(value, { stream: true });
     let idx: number;
     while ((idx = buffered.indexOf("\n\n")) !== -1) {
-      const chunk = buffered.slice(0, idx).trim();
+      const chunk = buffered.slice(0, idx);
       buffered = buffered.slice(idx + 2);
-      if (!chunk.startsWith("data:")) continue;
-      const payload = chunk.slice(5).trim();
-      if (payload === "[DONE]") return;
-      try {
-        const evt = JSON.parse(payload);
-        if (evt.error) throw new CopilotServiceError(500, evt.error, "AI stream failed");
-        if (typeof evt.delta === "string") onDelta(evt.delta);
-      } catch (err) {
-        if (err instanceof CopilotServiceError) throw err;
-        // ignore parse errors
-      }
+      processFrame(chunk);
+      if (completed) return;
     }
   }
+
+  // Proxies may close without a trailing blank line; keep the final frame.
+  if (buffered.trim()) processFrame(buffered);
 }
 
 export function friendlyError(err: unknown): string {

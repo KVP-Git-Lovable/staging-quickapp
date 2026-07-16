@@ -25,8 +25,13 @@ export const ChatComposer = forwardRef<ChatComposerHandle, Props>(function ChatC
   useImperativeHandle(ref, () => ({
     focus: () => areaRef.current?.focus(),
     setValue: (v) => setValue(v),
-    submit: (v) => { setValue(""); onSend(v); },
-  }));
+    submit: (v) => {
+      const text = v.trim();
+      if (!text || disabled) return;
+      setValue("");
+      onSend(text);
+    },
+  }), [disabled, onSend]);
 
   const submit = () => {
     const t = value.trim();

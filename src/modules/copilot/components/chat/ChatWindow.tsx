@@ -26,7 +26,7 @@ export function ChatWindow({ conversationId, onFirstMessage }: Props) {
         .select("full_name, name")
         .eq("id", user.id)
         .maybeSingle();
-      setUserName((data as any)?.full_name || (data as any)?.name || user.email || null);
+      setUserName(data?.full_name || data?.name || user.email || null);
     })();
   }, []);
 
@@ -45,7 +45,6 @@ export function ChatWindow({ conversationId, onFirstMessage }: Props) {
   const pickPrompt = (prompt: string) => {
     if (isBusy) return;
     composerRef.current?.submit(prompt);
-    if (messages.length === 0) onFirstMessage?.();
   };
 
   return (
