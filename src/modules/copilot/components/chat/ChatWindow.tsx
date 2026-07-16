@@ -58,6 +58,9 @@ export function ChatWindow({ conversationId, onFirstMessage }: Props) {
         </div>
       ) : (
         <>
+          <div className="border-b bg-background/60 px-4 py-2 flex items-center">
+            <WelcomeHeader userName={userName} variant="compact" />
+          </div>
           <MessageList messages={messages} showTyping={status === "submitting"} />
           <div className="border-t bg-background/60 px-4 py-2">
             <PromptCardGrid onSelect={pickPrompt} disabled={isBusy} variant="chips" />
