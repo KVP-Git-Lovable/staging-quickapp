@@ -20185,6 +20185,125 @@ export type Database = {
         }
         Relationships: []
       }
+      quickapp_help_agents: {
+        Row: {
+          agent_id: string
+          created_at: string
+          default_language: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          default_language?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          default_language?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quickapp_help_articles: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          keywords: string[]
+          language: string
+          module: string
+          priority: number
+          steps: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          language?: string
+          module: string
+          priority?: number
+          steps?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          language?: string
+          module?: string
+          priority?: number
+          steps?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quickapp_help_logs: {
+        Row: {
+          agent_id: string | null
+          answered: boolean
+          article_id: string | null
+          caller_phone: string | null
+          created_at: string
+          detected_intent: string | null
+          detected_module: string | null
+          id: string
+          language: string | null
+          question: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          answered?: boolean
+          article_id?: string | null
+          caller_phone?: string | null
+          created_at?: string
+          detected_intent?: string | null
+          detected_module?: string | null
+          id?: string
+          language?: string | null
+          question?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          answered?: boolean
+          article_id?: string | null
+          caller_phone?: string | null
+          created_at?: string
+          detected_intent?: string | null
+          detected_module?: string | null
+          id?: string
+          language?: string | null
+          question?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quickapp_help_logs_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "quickapp_help_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recommendation_feedback: {
         Row: {
           created_at: string | null
@@ -28001,6 +28120,17 @@ export type Database = {
       log_sensitive_access: {
         Args: { p_action: string; p_record_id: string; p_table_name: string }
         Returns: undefined
+      }
+      match_help_article: {
+        Args: { p_language?: string; p_question: string }
+        Returns: {
+          id: string
+          language: string
+          module: string
+          score: number
+          steps: string[]
+          title: string
+        }[]
       }
       merge_retailers: {
         Args: { p_reason?: string; p_source: string; p_target: string }
