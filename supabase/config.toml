@@ -63,4 +63,9 @@ verify_jwt = true
 [functions.send-retailer-otp]
 verify_jwt = true
 
+[functions.bolna-help-webhook]
+verify_jwt = false
+
+
+
 
