@@ -9336,39 +9336,57 @@ export type Database = {
       influencer_referrals: {
         Row: {
           area: string | null
+          consumer_address: string | null
+          consumer_name: string | null
+          consumer_phone: string | null
           converted_retailer_id: string | null
           created_at: string
           id: string
           influencer_id: string
+          interested_products: Json
           notes: string | null
           phone: string | null
           retailer_name: string
           status: Database["public"]["Enums"]["influencer_referral_status"]
+          tagged_retailer_id: string | null
           updated_at: string
+          voice_transcript: string | null
         }
         Insert: {
           area?: string | null
+          consumer_address?: string | null
+          consumer_name?: string | null
+          consumer_phone?: string | null
           converted_retailer_id?: string | null
           created_at?: string
           id?: string
           influencer_id: string
+          interested_products?: Json
           notes?: string | null
           phone?: string | null
           retailer_name: string
           status?: Database["public"]["Enums"]["influencer_referral_status"]
+          tagged_retailer_id?: string | null
           updated_at?: string
+          voice_transcript?: string | null
         }
         Update: {
           area?: string | null
+          consumer_address?: string | null
+          consumer_name?: string | null
+          consumer_phone?: string | null
           converted_retailer_id?: string | null
           created_at?: string
           id?: string
           influencer_id?: string
+          interested_products?: Json
           notes?: string | null
           phone?: string | null
           retailer_name?: string
           status?: Database["public"]["Enums"]["influencer_referral_status"]
+          tagged_retailer_id?: string | null
           updated_at?: string
+          voice_transcript?: string | null
         }
         Relationships: [
           {
