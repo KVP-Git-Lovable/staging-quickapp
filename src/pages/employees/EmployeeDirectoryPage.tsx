@@ -172,7 +172,14 @@ export default function EmployeeDirectoryPage() {
               <TableBody>
                 {filtered.map(r => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.full_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <button
+                        onClick={() => openDetail(r)}
+                        className="text-indigo-600 hover:underline text-left"
+                      >
+                        {r.full_name}
+                      </button>
+                    </TableCell>
                     <TableCell>{r.employee_code || '—'}</TableCell>
                     <TableCell>{r.department || '—'}</TableCell>
                     <TableCell>{r.location || '—'}</TableCell>
