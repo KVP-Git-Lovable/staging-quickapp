@@ -131,6 +131,8 @@ import InfluencersPage from "./pages/influencers/InfluencersPage";
 import InfluencerDetailPage from "./pages/influencers/InfluencerDetailPage";
 import InfluencerPortalLogin from "./pages/influencer-portal/InfluencerPortalLogin";
 import InfluencerPortalHome from "./pages/influencer-portal/InfluencerPortalHome";
+import EmployeePortalLogin from "./pages/employee-portal/EmployeePortalLogin";
+import EmployeePortalHome from "./pages/employee-portal/EmployeePortalHome";
 import UserRoles from "./pages/UserRoles";
 import BrandingRequests from "./pages/BrandingRequests";
 import { BeatDetail } from "./pages/BeatDetail";
