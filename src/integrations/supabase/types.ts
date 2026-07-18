@@ -7244,6 +7244,8 @@ export type Database = {
           joining_date: string | null
           location: string | null
           phone: string | null
+          portal_enabled: boolean
+          portal_pin: string | null
           previous_experience: string | null
           reports_to_directory_id: string | null
           reports_to_profile_id: string | null
@@ -7264,6 +7266,8 @@ export type Database = {
           joining_date?: string | null
           location?: string | null
           phone?: string | null
+          portal_enabled?: boolean
+          portal_pin?: string | null
           previous_experience?: string | null
           reports_to_directory_id?: string | null
           reports_to_profile_id?: string | null
@@ -7284,6 +7288,8 @@ export type Database = {
           joining_date?: string | null
           location?: string | null
           phone?: string | null
+          portal_enabled?: boolean
+          portal_pin?: string | null
           previous_experience?: string | null
           reports_to_directory_id?: string | null
           reports_to_profile_id?: string | null
@@ -7332,6 +7338,109 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      employee_market_visits: {
+        Row: {
+          additional_notes: string | null
+          competitor_notes: string | null
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          employee_name: string | null
+          id: string
+          is_new_retailer: boolean
+          latitude: number | null
+          longitude: number | null
+          next_action: string | null
+          overall_sentiment: string | null
+          pricing_feedback: string | null
+          product_interest: string | null
+          retailer_id: string | null
+          retailer_name: string | null
+          retailer_photo_url: string | null
+          retailer_response: string | null
+          supply_issues: string | null
+          territory_executive_id: string | null
+          territory_executive_name: string | null
+          territory_id: string | null
+          updated_at: string
+          visit_purpose: string | null
+        }
+        Insert: {
+          additional_notes?: string | null
+          competitor_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          employee_name?: string | null
+          id?: string
+          is_new_retailer?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          next_action?: string | null
+          overall_sentiment?: string | null
+          pricing_feedback?: string | null
+          product_interest?: string | null
+          retailer_id?: string | null
+          retailer_name?: string | null
+          retailer_photo_url?: string | null
+          retailer_response?: string | null
+          supply_issues?: string | null
+          territory_executive_id?: string | null
+          territory_executive_name?: string | null
+          territory_id?: string | null
+          updated_at?: string
+          visit_purpose?: string | null
+        }
+        Update: {
+          additional_notes?: string | null
+          competitor_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          employee_name?: string | null
+          id?: string
+          is_new_retailer?: boolean
+          latitude?: number | null
+          longitude?: number | null
+          next_action?: string | null
+          overall_sentiment?: string | null
+          pricing_feedback?: string | null
+          product_interest?: string | null
+          retailer_id?: string | null
+          retailer_name?: string | null
+          retailer_photo_url?: string | null
+          retailer_response?: string | null
+          supply_issues?: string | null
+          territory_executive_id?: string | null
+          territory_executive_name?: string | null
+          territory_id?: string | null
+          updated_at?: string
+          visit_purpose?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_market_visits_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_market_visits_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_market_visits_territory_id_fkey"
+            columns: ["territory_id"]
+            isOneToOne: false
+            referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       employee_recommendations: {
         Row: {

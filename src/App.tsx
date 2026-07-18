@@ -131,6 +131,8 @@ import InfluencersPage from "./pages/influencers/InfluencersPage";
 import InfluencerDetailPage from "./pages/influencers/InfluencerDetailPage";
 import InfluencerPortalLogin from "./pages/influencer-portal/InfluencerPortalLogin";
 import InfluencerPortalHome from "./pages/influencer-portal/InfluencerPortalHome";
+import EmployeePortalLogin from "./pages/employee-portal/EmployeePortalLogin";
+import EmployeePortalHome from "./pages/employee-portal/EmployeePortalHome";
 import UserRoles from "./pages/UserRoles";
 import BrandingRequests from "./pages/BrandingRequests";
 import { BeatDetail } from "./pages/BeatDetail";
@@ -492,6 +494,8 @@ const AppContent = () => {
         <Route path="/influencers/:id" element={<ProtectedRoute><InfluencerDetailPage /></ProtectedRoute>} />
         <Route path="/influencer-portal/login" element={<InfluencerPortalLogin />} />
         <Route path="/influencer-portal" element={<InfluencerPortalHome />} />
+        <Route path="/employee-portal/login" element={<EmployeePortalLogin />} />
+        <Route path="/employee-portal" element={<EmployeePortalHome />} />
         <Route path="/copilot" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
         <Route path="/copilot/:threadId" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
         
