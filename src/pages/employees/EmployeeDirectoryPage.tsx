@@ -32,14 +32,15 @@ export default function EmployeeDirectoryPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<Row>({
-    full_name: '', employee_code: '', email: '', phone: '',
-    department: '', location: '', joining_date: '',
-    previous_experience: '', bio: '',
-    social_links: { linkedin: '', twitter: '', instagram: '' },
-    follows_company_page: false,
-    reports_to_directory_id: null,
-  });
+  const [form, setForm] = useState<Row>(EMPTY_FORM);
+
+  // Detail / edit dialog state
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailForm, setDetailForm] = useState<Row | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [detailDeleting, setDetailDeleting] = useState(false);
+
 
   async function load() {
     setLoading(true);
