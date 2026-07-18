@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Search, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { Layout } from '@/components/Layout';
 
 const ROLES = ['plumber', 'painter', 'electrician', 'civil_contractor', 'architect', 'mason'];
 const ROLE_LABEL: Record<string, string> = {
