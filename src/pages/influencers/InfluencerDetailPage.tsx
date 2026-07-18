@@ -102,6 +102,28 @@ export default function InfluencerDetailPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Influencer Portal</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-2 text-sm">
+            <Input readOnly value={portalUrl} className="text-xs font-mono" />
+            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(portalUrl); toast.success('Link copied'); }}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button size="sm" onClick={() => window.open(portalUrl, '_blank')}>
+              <ExternalLink className="h-4 w-4 mr-1" /> Open Portal (Admin Preview)
+            </Button>
+            {!inf.portal_enabled && (
+              <span className="text-xs text-muted-foreground self-center">
+                Portal login (OTP) is not yet enabled for this influencer. Admin preview bypasses login.
+              </span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="orders">
         <TabsList>
           <TabsTrigger value="orders">Influenced Orders ({orders.length})</TabsTrigger>
