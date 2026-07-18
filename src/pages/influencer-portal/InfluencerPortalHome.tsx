@@ -62,7 +62,7 @@ export default function InfluencerPortalHome() {
     })();
   }, [session]);
 
-  function logout() { clearInfluencerSession(); nav('/influencer-portal/login'); }
+  function logout() { if (session?.__preview) { window.close(); nav('/influencers'); return; } clearInfluencerSession(); nav('/influencer-portal/login'); }
 
   async function submitReferral() {
     if (!refForm.retailer_name.trim()) { toast.error('Retailer name required'); return; }
