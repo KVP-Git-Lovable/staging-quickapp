@@ -67,6 +67,8 @@ import {
   FolderKanban,
   HelpCircle,
   CalendarDays,
+  Contact,
+  Megaphone,
 } from "lucide-react";
 
 // Memoized Navbar component for better performance
