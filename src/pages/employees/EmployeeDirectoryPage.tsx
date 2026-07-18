@@ -16,6 +16,15 @@ import { useAuth } from '@/hooks/useAuth';
 
 type Row = any;
 
+const EMPTY_FORM: Row = {
+  full_name: '', employee_code: '', email: '', phone: '',
+  department: '', location: '', joining_date: '',
+  previous_experience: '', bio: '',
+  social_links: { linkedin: '', twitter: '', instagram: '' },
+  follows_company_page: false,
+  reports_to_directory_id: null,
+};
+
 export default function EmployeeDirectoryPage() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
