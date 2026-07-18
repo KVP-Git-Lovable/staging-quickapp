@@ -304,13 +304,34 @@ function ReferList({ session, onAdd, refreshKey }: { session: any; onAdd: () => 
                 </div>
               )}
             </div>
-            <Badge variant="secondary" className="capitalize shrink-0">{r.status}</Badge>
+            <div className="shrink-0">
+              <Select
+                value={r.status}
+                onValueChange={async (v) => {
+                  const { error } = await (supabase as any)
+                    .from('influencer_referrals').update({ status: v }).eq('id', r.id);
+                  if (error) { toast.error(error.message); return; }
+                  setRows(rs => rs.map(x => x.id === r.id ? { ...x, status: v } : x));
+                  toast.success('Status updated');
+                }}
+              >
+                <SelectTrigger className="h-8 w-[140px] text-xs capitalize">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REFERRAL_STATUSES.map(s => (
+                    <SelectItem key={s.value} value={s.value} className="text-xs">{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent></Card>
       ))}
     </div>
   );
 }
+
 
 /* -------------------- REFER FORM -------------------- */
 function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => void; onSaved: () => void }) {
