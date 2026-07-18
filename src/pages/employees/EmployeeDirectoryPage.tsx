@@ -73,6 +73,39 @@ export default function EmployeeDirectoryPage() {
     load();
   }
 
+  function openDetail(r: Row) {
+    setDetailForm({ ...r, social_links: r.social_links || { linkedin: '', twitter: '', instagram: '' } });
+    setEditMode(false);
+    setDetailOpen(true);
+  }
+
+  async function saveDetail() {
+    if (!detailForm) return;
+    if (!detailForm.full_name?.trim()) { toast.error('Name required'); return; }
+    setDetailSaving(true);
+    const { id, created_at, updated_at, created_by, ...rest } = detailForm;
+    const payload = { ...rest, joining_date: rest.joining_date || null };
+    const { error } = await (supabase as any).from('employee_directory').update(payload).eq('id', id);
+    setDetailSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Employee updated');
+    setEditMode(false);
+    setDetailOpen(false);
+    load();
+  }
+
+  async function deleteDetail() {
+    if (!detailForm?.id) return;
+    if (!confirm(`Delete ${detailForm.full_name}? This cannot be undone.`)) return;
+    setDetailDeleting(true);
+    const { error } = await (supabase as any).from('employee_directory').delete().eq('id', detailForm.id);
+    setDetailDeleting(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Employee deleted');
+    setDetailOpen(false);
+    load();
+  }
+
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
