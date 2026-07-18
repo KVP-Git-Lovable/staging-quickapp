@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Search, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { Layout } from '@/components/Layout';
 
 const ROLES = ['plumber', 'painter', 'electrician', 'civil_contractor', 'architect', 'mason'];
 const ROLE_LABEL: Record<string, string> = {
@@ -69,6 +70,7 @@ export default function InfluencersPage() {
   }
 
   return (
+    <Layout>
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -129,7 +131,7 @@ export default function InfluencersPage() {
               <TableBody>
                 {filtered.map(r => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.name}{r.company ? <div className="text-xs text-muted-foreground">{r.company}</div> : null}</TableCell>
+                    <TableCell className="font-medium"><button className="text-primary hover:underline text-left" onClick={() => navigate(`/influencers/${r.id}`)}>{r.name}</button>{r.company ? <div className="text-xs text-muted-foreground">{r.company}</div> : null}</TableCell>
                     <TableCell><Badge variant="secondary">{ROLE_LABEL[r.role] || r.role}</Badge></TableCell>
                     <TableCell>{r.phone}</TableCell>
                     <TableCell>{r.region || '—'}</TableCell>
@@ -144,5 +146,6 @@ export default function InfluencersPage() {
         </CardContent>
       </Card>
     </div>
+    </Layout>
   );
 }

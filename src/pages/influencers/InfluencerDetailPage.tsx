@@ -9,9 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, ExternalLink, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { Layout } from '@/components/Layout';
 
 const ROLE_LABEL: Record<string, string> = {
   plumber: 'Plumber', painter: 'Painter', electrician: 'Electrician',
@@ -66,10 +67,13 @@ export default function InfluencerDetailPage() {
     setMapOpen(false); setMapRetailer(''); load();
   }
 
-  if (loading) return <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin inline" /></div>;
-  if (!inf) return <div className="p-8">Not found</div>;
+  if (loading) return <Layout><div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin inline" /></div></Layout>;
+  if (!inf) return <Layout><div className="p-8">Not found</div></Layout>;
+
+  const portalUrl = `${window.location.origin}/influencer-portal?preview=${inf.id}`;
 
   return (
+    <Layout>
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
       <Button variant="ghost" size="sm" onClick={() => nav('/influencers')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
       <Card>
@@ -95,6 +99,28 @@ export default function InfluencerDetailPage() {
           <div><div className="text-xs text-muted-foreground">Email</div>{inf.email || '—'}</div>
           <div><div className="text-xs text-muted-foreground">Region</div>{inf.region || '—'}</div>
           <div><div className="text-xs text-muted-foreground">Pincode</div>{inf.pincode || '—'}</div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-base">Influencer Portal</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center gap-2 text-sm">
+            <Input readOnly value={portalUrl} className="text-xs font-mono" />
+            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(portalUrl); toast.success('Link copied'); }}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button size="sm" onClick={() => window.open(portalUrl, '_blank')}>
+              <ExternalLink className="h-4 w-4 mr-1" /> Open Portal (Admin Preview)
+            </Button>
+            {!inf.portal_enabled && (
+              <span className="text-xs text-muted-foreground self-center">
+                Portal login (OTP) is not yet enabled for this influencer. Admin preview bypasses login.
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -189,5 +215,6 @@ export default function InfluencerDetailPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </Layout>
   );
 }

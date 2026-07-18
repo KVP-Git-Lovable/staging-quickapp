@@ -25,6 +25,19 @@ export default function InfluencerPortalHome() {
   const [ticketForm, setTicketForm] = useState({ subject: '', description: '' });
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const previewId = params.get('preview');
+    if (previewId) {
+      (async () => {
+        const { data, error } = await (supabase as any)
+          .from('influencers')
+          .select('id, name, phone, role, region, pincode, portal_enabled')
+          .eq('id', previewId).maybeSingle();
+        if (error || !data) { toast.error('Influencer not found'); nav('/influencers'); return; }
+        setSession({ ...data, __preview: true });
+      })();
+      return;
+    }
     const s = getInfluencerSession();
     if (!s) { nav('/influencer-portal/login'); return; }
     setSession(s);
@@ -49,7 +62,7 @@ export default function InfluencerPortalHome() {
     })();
   }, [session]);
 
-  function logout() { clearInfluencerSession(); nav('/influencer-portal/login'); }
+  function logout() { if (session?.__preview) { window.close(); nav('/influencers'); return; } clearInfluencerSession(); nav('/influencer-portal/login'); }
 
   async function submitReferral() {
     if (!refForm.retailer_name.trim()) { toast.error('Retailer name required'); return; }
@@ -88,6 +101,11 @@ export default function InfluencerPortalHome() {
           <Button variant="ghost" size="sm" onClick={logout}><LogOut className="h-4 w-4 mr-1" />Logout</Button>
         </div>
       </header>
+      {session.__preview && (
+        <div className="bg-amber-100 text-amber-900 text-xs text-center py-1 border-b border-amber-200">
+          Admin preview mode — viewing as {session.name}. No OTP required.
+        </div>
+      )}
 
       <main className="max-w-4xl mx-auto p-4">
         <Tabs defaultValue="schemes">
