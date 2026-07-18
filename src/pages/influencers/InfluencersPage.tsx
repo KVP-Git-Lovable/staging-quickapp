@@ -131,7 +131,7 @@ export default function InfluencersPage() {
               <TableBody>
                 {filtered.map(r => (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.name}{r.company ? <div className="text-xs text-muted-foreground">{r.company}</div> : null}</TableCell>
+                    <TableCell className="font-medium"><button className="text-primary hover:underline text-left" onClick={() => navigate(`/influencers/${r.id}`)}>{r.name}</button>{r.company ? <div className="text-xs text-muted-foreground">{r.company}</div> : null}</TableCell>
                     <TableCell><Badge variant="secondary">{ROLE_LABEL[r.role] || r.role}</Badge></TableCell>
                     <TableCell>{r.phone}</TableCell>
                     <TableCell>{r.region || '—'}</TableCell>
