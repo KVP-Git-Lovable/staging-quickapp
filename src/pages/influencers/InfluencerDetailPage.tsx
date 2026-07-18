@@ -67,10 +67,13 @@ export default function InfluencerDetailPage() {
     setMapOpen(false); setMapRetailer(''); load();
   }
 
-  if (loading) return <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin inline" /></div>;
-  if (!inf) return <div className="p-8">Not found</div>;
+  if (loading) return <Layout><div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin inline" /></div></Layout>;
+  if (!inf) return <Layout><div className="p-8">Not found</div></Layout>;
+
+  const portalUrl = `${window.location.origin}/influencer-portal?preview=${inf.id}`;
 
   return (
+    <Layout>
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-4">
       <Button variant="ghost" size="sm" onClick={() => nav('/influencers')}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
       <Card>
