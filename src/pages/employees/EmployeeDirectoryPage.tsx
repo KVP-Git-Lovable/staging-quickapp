@@ -215,6 +215,51 @@ export default function EmployeeDirectoryPage() {
             </Table>}
         </CardContent>
       </Card>
+
+      {/* Detail / Edit dialog */}
+      <Dialog open={detailOpen} onOpenChange={(o) => { setDetailOpen(o); if (!o) setEditMode(false); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editMode ? 'Edit Employee' : 'Employee Details'}</DialogTitle>
+          </DialogHeader>
+          {detailForm && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
+                <Label>Full name *</Label>
+                <Input disabled={!editMode} value={detailForm.full_name || ''} onChange={e => setDetailForm({ ...detailForm, full_name: e.target.value })} />
+              </div>
+              <div><Label>Employee code</Label><Input disabled={!editMode} value={detailForm.employee_code || ''} onChange={e => setDetailForm({ ...detailForm, employee_code: e.target.value })} /></div>
+              <div><Label>Department</Label><Input disabled={!editMode} value={detailForm.department || ''} onChange={e => setDetailForm({ ...detailForm, department: e.target.value })} /></div>
+              <div><Label>Email</Label><Input disabled={!editMode} value={detailForm.email || ''} onChange={e => setDetailForm({ ...detailForm, email: e.target.value })} /></div>
+              <div><Label>Phone</Label><Input disabled={!editMode} value={detailForm.phone || ''} onChange={e => setDetailForm({ ...detailForm, phone: e.target.value })} /></div>
+              <div><Label>Location</Label><Input disabled={!editMode} value={detailForm.location || ''} onChange={e => setDetailForm({ ...detailForm, location: e.target.value })} /></div>
+              <div><Label>Joining date</Label><Input type="date" disabled={!editMode} value={detailForm.joining_date || ''} onChange={e => setDetailForm({ ...detailForm, joining_date: e.target.value })} /></div>
+              <div className="md:col-span-2"><Label>Previous experience</Label><Textarea disabled={!editMode} value={detailForm.previous_experience || ''} onChange={e => setDetailForm({ ...detailForm, previous_experience: e.target.value })} /></div>
+              <div className="md:col-span-2"><Label>Bio</Label><Textarea disabled={!editMode} value={detailForm.bio || ''} onChange={e => setDetailForm({ ...detailForm, bio: e.target.value })} /></div>
+              <div><Label>LinkedIn</Label><Input disabled={!editMode} value={detailForm.social_links?.linkedin || ''} onChange={e => setDetailForm({ ...detailForm, social_links: { ...detailForm.social_links, linkedin: e.target.value } })} /></div>
+              <div><Label>Twitter</Label><Input disabled={!editMode} value={detailForm.social_links?.twitter || ''} onChange={e => setDetailForm({ ...detailForm, social_links: { ...detailForm.social_links, twitter: e.target.value } })} /></div>
+              <div><Label>Instagram</Label><Input disabled={!editMode} value={detailForm.social_links?.instagram || ''} onChange={e => setDetailForm({ ...detailForm, social_links: { ...detailForm.social_links, instagram: e.target.value } })} /></div>
+              <div className="flex items-center gap-2 mt-6">
+                <Checkbox disabled={!editMode} checked={!!detailForm.follows_company_page} onCheckedChange={(v) => setDetailForm({ ...detailForm, follows_company_page: !!v })} />
+                <Label>Follows company page</Label>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setDetailOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={deleteDetail} disabled={detailDeleting}>
+              {detailDeleting && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Delete
+            </Button>
+            {editMode ? (
+              <Button onClick={saveDetail} disabled={detailSaving}>
+                {detailSaving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Save
+              </Button>
+            ) : (
+              <Button onClick={() => setEditMode(true)}>Edit</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
