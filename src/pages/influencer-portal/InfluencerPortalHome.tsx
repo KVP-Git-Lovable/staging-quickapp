@@ -470,17 +470,36 @@ function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => v
         <CardContent className="p-4 space-y-3">
           <div className="text-sm font-semibold">Interested products</div>
           {products.map((line, i) => (
-            <div key={i} className="grid grid-cols-[1fr_72px_84px_36px] gap-2 items-center">
-              <Input placeholder="Product" value={line.name} onChange={e => updateLine(i, 'name', e.target.value)} className="h-10" />
-              <Input placeholder="Qty" inputMode="decimal" value={line.qty} onChange={e => updateLine(i, 'qty', e.target.value)} className="h-10" />
-              <select value={line.unit} onChange={e => updateLine(i, 'unit', e.target.value)} className="h-10 border rounded-md text-sm bg-background px-1">
-                <option value="kg">kg</option><option value="g">g</option>
-                <option value="ltr">ltr</option><option value="ml">ml</option>
-                <option value="pcs">pcs</option><option value="box">box</option><option value="pack">pack</option>
-              </select>
-              <Button size="icon" variant="ghost" onClick={() => removeLine(i)} disabled={products.length === 1}>
-                <Trash2 className="h-4 w-4 text-muted-foreground" />
-              </Button>
+            <div key={i} className="space-y-2 rounded-lg border p-2">
+              <button
+                type="button"
+                onClick={() => setProductSearchIdx(i)}
+                className="w-full flex items-center gap-2 rounded-md border bg-background px-3 h-10 text-left text-sm hover:bg-muted"
+              >
+                <Package className="h-4 w-4 text-muted-foreground shrink-0" />
+                {line.product_id ? (
+                  <span className="min-w-0 flex-1 truncate">
+                    <span className="font-medium">{line.name}</span>
+                    {line.sku && <span className="text-[11px] text-muted-foreground ml-1">· {line.sku}</span>}
+                  </span>
+                ) : line.name ? (
+                  <span className="min-w-0 flex-1 truncate italic text-muted-foreground">{line.name} <span className="text-[10px]">(tap to link from catalog)</span></span>
+                ) : (
+                  <span className="min-w-0 flex-1 text-muted-foreground">Pick product from catalog</span>
+                )}
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </button>
+              <div className="grid grid-cols-[1fr_1fr_36px] gap-2 items-center">
+                <Input placeholder="Qty" inputMode="decimal" value={line.qty} onChange={e => updateLine(i, 'qty', e.target.value)} className="h-10" />
+                <select value={line.unit} onChange={e => updateLine(i, 'unit', e.target.value)} className="h-10 border rounded-md text-sm bg-background px-2">
+                  <option value="kg">kg</option><option value="g">g</option>
+                  <option value="ltr">ltr</option><option value="ml">ml</option>
+                  <option value="pcs">pcs</option><option value="box">box</option><option value="pack">pack</option>
+                </select>
+                <Button size="icon" variant="ghost" onClick={() => removeLine(i)} disabled={products.length === 1}>
+                  <Trash2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </div>
             </div>
           ))}
           <Button variant="outline" size="sm" onClick={addLine} className="w-full"><Plus className="h-4 w-4 mr-1" /> Add product</Button>
@@ -507,6 +526,22 @@ function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => v
         </CardContent>
       </Card>
 
+      {/* Status */}
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <div className="text-sm font-semibold">Status</div>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {REFERRAL_STATUSES.map(s => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="text-[11px] text-muted-foreground">Update this later as the referral progresses.</div>
+        </CardContent>
+      </Card>
+
       <Textarea rows={3} placeholder="Extra notes (optional)" value={notes} onChange={e => setNotes(e.target.value)} />
 
       <Button onClick={submit} disabled={saving} className="w-full h-12 text-base">
@@ -519,9 +554,15 @@ function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => v
         influencerId={session.id}
         onPick={(r) => { setTagged(r); setRetailerSearchOpen(false); }}
       />
+      <ProductSearchSheet
+        open={productSearchIdx !== null}
+        onClose={() => setProductSearchIdx(null)}
+        onPick={(p) => { if (productSearchIdx !== null) attachProduct(productSearchIdx, p); setProductSearchIdx(null); }}
+      />
     </div>
   );
 }
+
 
 /* --------------------------- Retailer search sheet --------------------------- */
 function RetailerSearchSheet({ open, onClose, influencerId, onPick }: {
