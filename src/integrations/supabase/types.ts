@@ -7229,6 +7229,77 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_directory: {
+        Row: {
+          bio: string | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          department: string | null
+          email: string | null
+          employee_code: string | null
+          follows_company_page: boolean
+          full_name: string
+          id: string
+          joining_date: string | null
+          location: string | null
+          phone: string | null
+          previous_experience: string | null
+          reports_to_directory_id: string | null
+          reports_to_profile_id: string | null
+          social_links: Json
+          updated_at: string
+        }
+        Insert: {
+          bio?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          department?: string | null
+          email?: string | null
+          employee_code?: string | null
+          follows_company_page?: boolean
+          full_name: string
+          id?: string
+          joining_date?: string | null
+          location?: string | null
+          phone?: string | null
+          previous_experience?: string | null
+          reports_to_directory_id?: string | null
+          reports_to_profile_id?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Update: {
+          bio?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          department?: string | null
+          email?: string | null
+          employee_code?: string | null
+          follows_company_page?: boolean
+          full_name?: string
+          id?: string
+          joining_date?: string | null
+          location?: string | null
+          phone?: string | null
+          previous_experience?: string | null
+          reports_to_directory_id?: string | null
+          reports_to_profile_id?: string | null
+          social_links?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_directory_reports_to_directory_id_fkey"
+            columns: ["reports_to_directory_id"]
+            isOneToOne: false
+            referencedRelation: "employee_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_documents: {
         Row: {
           content_type: string | null
@@ -9261,6 +9332,163 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      influencer_referrals: {
+        Row: {
+          area: string | null
+          converted_retailer_id: string | null
+          created_at: string
+          id: string
+          influencer_id: string
+          notes: string | null
+          phone: string | null
+          retailer_name: string
+          status: Database["public"]["Enums"]["influencer_referral_status"]
+          updated_at: string
+        }
+        Insert: {
+          area?: string | null
+          converted_retailer_id?: string | null
+          created_at?: string
+          id?: string
+          influencer_id: string
+          notes?: string | null
+          phone?: string | null
+          retailer_name: string
+          status?: Database["public"]["Enums"]["influencer_referral_status"]
+          updated_at?: string
+        }
+        Update: {
+          area?: string | null
+          converted_retailer_id?: string | null
+          created_at?: string
+          id?: string
+          influencer_id?: string
+          notes?: string | null
+          phone?: string | null
+          retailer_name?: string
+          status?: Database["public"]["Enums"]["influencer_referral_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "influencer_referrals_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      influencer_retailer_map: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          influencer_id: string
+          notes: string | null
+          retailer_id: string
+          since: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          influencer_id: string
+          notes?: string | null
+          retailer_id: string
+          since?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          influencer_id?: string
+          notes?: string | null
+          retailer_id?: string
+          since?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "influencer_retailer_map_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      influencers: {
+        Row: {
+          company: string | null
+          company_id: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          influenced_orders_count: number
+          influenced_orders_value: number
+          name: string
+          notes: string | null
+          phone: string
+          pincode: string | null
+          portal_enabled: boolean
+          portal_last_login_at: string | null
+          region: string | null
+          role: Database["public"]["Enums"]["influencer_role"]
+          territory_id: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          company?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          influenced_orders_count?: number
+          influenced_orders_value?: number
+          name: string
+          notes?: string | null
+          phone: string
+          pincode?: string | null
+          portal_enabled?: boolean
+          portal_last_login_at?: string | null
+          region?: string | null
+          role: Database["public"]["Enums"]["influencer_role"]
+          territory_id?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          company?: string | null
+          company_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          influenced_orders_count?: number
+          influenced_orders_value?: number
+          name?: string
+          notes?: string | null
+          phone?: string
+          pincode?: string | null
+          portal_enabled?: boolean
+          portal_last_login_at?: string | null
+          region?: string | null
+          role?: Database["public"]["Enums"]["influencer_role"]
+          territory_id?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
       }
       inst_accounts: {
         Row: {
@@ -12052,6 +12280,7 @@ export type Database = {
           event_id: string | null
           id: string
           idempotency_key: string
+          influencer_id: string | null
           invoice_generated_at: string | null
           invoice_number: string | null
           is_backdated: boolean
@@ -12117,6 +12346,7 @@ export type Database = {
           event_id?: string | null
           id?: string
           idempotency_key: string
+          influencer_id?: string | null
           invoice_generated_at?: string | null
           invoice_number?: string | null
           is_backdated?: boolean
@@ -12182,6 +12412,7 @@ export type Database = {
           event_id?: string | null
           id?: string
           idempotency_key?: string
+          influencer_id?: string | null
           invoice_generated_at?: string | null
           invoice_number?: string | null
           is_backdated?: boolean
@@ -12238,6 +12469,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
             referencedColumns: ["id"]
           },
           {
@@ -15034,6 +15272,7 @@ export type Database = {
           distributor_id: string
           expected_delivery_date: string | null
           id: string
+          influencer_id: string | null
           is_backorder: boolean | null
           notes: string | null
           order_date: string
@@ -15083,6 +15322,7 @@ export type Database = {
           distributor_id: string
           expected_delivery_date?: string | null
           id?: string
+          influencer_id?: string | null
           is_backorder?: boolean | null
           notes?: string | null
           order_date?: string
@@ -15132,6 +15372,7 @@ export type Database = {
           distributor_id?: string
           expected_delivery_date?: string | null
           id?: string
+          influencer_id?: string | null
           is_backorder?: boolean | null
           notes?: string | null
           order_date?: string
@@ -15163,6 +15404,13 @@ export type Database = {
           vehicle_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "primary_orders_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "primary_orders_packing_list_id_fkey"
             columns: ["packing_list_id"]
@@ -23365,6 +23613,7 @@ export type Database = {
           created_date: string
           description: string | null
           id: string
+          influencer_id: string | null
           resolution_notes: string | null
           resolved_by: string | null
           resolved_date: string | null
@@ -23380,6 +23629,7 @@ export type Database = {
           created_date?: string
           description?: string | null
           id?: string
+          influencer_id?: string | null
           resolution_notes?: string | null
           resolved_by?: string | null
           resolved_date?: string | null
@@ -23395,6 +23645,7 @@ export type Database = {
           created_date?: string
           description?: string | null
           id?: string
+          influencer_id?: string | null
           resolution_notes?: string | null
           resolved_by?: string | null
           resolved_date?: string | null
@@ -23405,7 +23656,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "support_requests_influencer_id_fkey"
+            columns: ["influencer_id"]
+            isOneToOne: false
+            referencedRelation: "influencers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sync_audit_log: {
         Row: {
@@ -28574,6 +28833,14 @@ export type Database = {
         | "executed"
         | "verified"
       employee_doc_type: "address_proof" | "id_proof" | "other"
+      influencer_referral_status: "new" | "contacted" | "converted" | "dropped"
+      influencer_role:
+        | "plumber"
+        | "painter"
+        | "electrician"
+        | "civil_contractor"
+        | "architect"
+        | "mason"
       pm_member_role:
         | "owner"
         | "manager"
@@ -28744,6 +29011,15 @@ export const Constants = {
         "verified",
       ],
       employee_doc_type: ["address_proof", "id_proof", "other"],
+      influencer_referral_status: ["new", "contacted", "converted", "dropped"],
+      influencer_role: [
+        "plumber",
+        "painter",
+        "electrician",
+        "civil_contractor",
+        "architect",
+        "mason",
+      ],
       pm_member_role: [
         "owner",
         "manager",
