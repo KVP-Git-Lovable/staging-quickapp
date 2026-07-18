@@ -146,5 +146,6 @@ export default function InfluencersPage() {
         </CardContent>
       </Card>
     </div>
+    </Layout>
   );
 }
