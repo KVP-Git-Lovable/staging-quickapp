@@ -494,6 +494,8 @@ const AppContent = () => {
         <Route path="/influencers/:id" element={<ProtectedRoute><InfluencerDetailPage /></ProtectedRoute>} />
         <Route path="/influencer-portal/login" element={<InfluencerPortalLogin />} />
         <Route path="/influencer-portal" element={<InfluencerPortalHome />} />
+        <Route path="/employee-portal/login" element={<EmployeePortalLogin />} />
+        <Route path="/employee-portal" element={<EmployeePortalHome />} />
         <Route path="/copilot" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
         <Route path="/copilot/:threadId" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
         
