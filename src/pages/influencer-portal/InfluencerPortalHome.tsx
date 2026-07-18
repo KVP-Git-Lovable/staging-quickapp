@@ -25,6 +25,19 @@ export default function InfluencerPortalHome() {
   const [ticketForm, setTicketForm] = useState({ subject: '', description: '' });
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const previewId = params.get('preview');
+    if (previewId) {
+      (async () => {
+        const { data, error } = await (supabase as any)
+          .from('influencers')
+          .select('id, name, phone, role, region, pincode, portal_enabled')
+          .eq('id', previewId).maybeSingle();
+        if (error || !data) { toast.error('Influencer not found'); nav('/influencers'); return; }
+        setSession({ ...data, __preview: true });
+      })();
+      return;
+    }
     const s = getInfluencerSession();
     if (!s) { nav('/influencer-portal/login'); return; }
     setSession(s);
