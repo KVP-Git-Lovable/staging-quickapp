@@ -487,6 +487,11 @@ const AppContent = () => {
         <Route path="/ai-features-export" element={<AIFeaturesExport />} />
         <Route path="/auth/complete-profile" element={<CompleteProfile />} />
         <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+        <Route path="/employees" element={<ProtectedRoute><EmployeeDirectoryPage /></ProtectedRoute>} />
+        <Route path="/influencers" element={<ProtectedRoute><InfluencersPage /></ProtectedRoute>} />
+        <Route path="/influencers/:id" element={<ProtectedRoute><InfluencerDetailPage /></ProtectedRoute>} />
+        <Route path="/influencer-portal/login" element={<InfluencerPortalLogin />} />
+        <Route path="/influencer-portal" element={<InfluencerPortalHome />} />
         <Route path="/copilot" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
         <Route path="/copilot/:threadId" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
         
