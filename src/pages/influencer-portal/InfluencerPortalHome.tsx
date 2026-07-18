@@ -101,6 +101,11 @@ export default function InfluencerPortalHome() {
           <Button variant="ghost" size="sm" onClick={logout}><LogOut className="h-4 w-4 mr-1" />Logout</Button>
         </div>
       </header>
+      {session.__preview && (
+        <div className="bg-amber-100 text-amber-900 text-xs text-center py-1 border-b border-amber-200">
+          Admin preview mode — viewing as {session.name}. No OTP required.
+        </div>
+      )}
 
       <main className="max-w-4xl mx-auto p-4">
         <Tabs defaultValue="schemes">
