@@ -215,5 +215,6 @@ export default function InfluencerDetailPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </Layout>
   );
 }
