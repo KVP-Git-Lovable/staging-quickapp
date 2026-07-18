@@ -336,14 +336,17 @@ function ReferList({ session, onAdd, refreshKey }: { session: any; onAdd: () => 
 /* -------------------- REFER FORM -------------------- */
 function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => void; onSaved: () => void }) {
   const [consumer, setConsumer] = useState({ name: '', phone: '', address: '' });
-  const [products, setProducts] = useState<ProductLine[]>([{ name: '', qty: '', unit: 'kg' }]);
+  const [products, setProducts] = useState<ProductLine[]>([{ product_id: null, name: '', qty: '', unit: 'kg' }]);
   const [notes, setNotes] = useState('');
+  const [status, setStatus] = useState<string>('consumer_added');
   const [tagged, setTagged] = useState<RetailerLite | null>(null);
   const [retailerSearchOpen, setRetailerSearchOpen] = useState(false);
+  const [productSearchIdx, setProductSearchIdx] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
 
   const voice = useWebSpeech('en-IN');
   const lastProcessedRef = useRef('');
+
 
   // Merge parsed voice → consumer + product qty/unit/name
   useEffect(() => {
