@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Menu, LogOut, Mic, MicOff, Send, Plus, Trash2, Search, Store,
   UserPlus, Sparkles, LifeBuoy, Users, ChevronRight, CheckCircle2, X,
-  MapPin, Star, ArrowLeft, Phone,
+  MapPin, Star, ArrowLeft, Phone, Package,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -18,12 +19,23 @@ import { clearInfluencerSession, getInfluencerSession } from './InfluencerPortal
 
 type Tab = 'refer' | 'retailers' | 'schemes' | 'support';
 
-interface ProductLine { name: string; qty: string; unit: string; }
+interface ProductLine { product_id?: string | null; name: string; sku?: string | null; brand?: string | null; qty: string; unit: string; }
 interface RetailerLite {
   id: string; name: string; phone?: string | null; address?: string | null;
   pincode?: string | null; latitude?: number | null; longitude?: number | null;
   __favourite?: boolean; __distanceKm?: number;
 }
+interface ProductLite { id: string; name: string; sku?: string | null; brand?: string | null; }
+
+const REFERRAL_STATUSES: { value: string; label: string }[] = [
+  { value: 'consumer_added', label: 'Consumer added' },
+  { value: 'intent_recorded', label: 'Intent recorded' },
+  { value: 'accepted', label: 'Accepted' },
+  { value: 'serviced', label: 'Serviced' },
+  { value: 'drop', label: 'Drop' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
 
 /* ------------------- Web Speech helper ------------------- */
 function useWebSpeech(lang = 'en-IN') {
