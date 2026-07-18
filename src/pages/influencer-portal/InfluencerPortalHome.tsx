@@ -678,6 +678,63 @@ function RetailerSearchSheet({ open, onClose, influencerId, onPick }: {
   );
 }
 
+/* --------------------------- Product search sheet --------------------------- */
+function ProductSearchSheet({ open, onClose, onPick }: {
+  open: boolean; onClose: () => void; onPick: (p: ProductLite) => void;
+}) {
+  const [q, setQ] = useState('');
+  const [rows, setRows] = useState<ProductLite[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      setLoading(true);
+      let qb: any = (supabase as any).from('products').select('id, name, sku, brand');
+      const term = q.trim();
+      if (term) qb = qb.or(`name.ilike.%${term}%,sku.ilike.%${term}%,brand.ilike.%${term}%`).limit(50);
+      else qb = qb.order('name').limit(100);
+      const { data } = await qb;
+      setRows(data || []); setLoading(false);
+    })();
+  }, [q, open]);
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <SheetContent side="bottom" className="h-[90vh] p-0 flex flex-col">
+        <SheetHeader className="p-4 border-b">
+          <SheetTitle>Pick product</SheetTitle>
+        </SheetHeader>
+        <div className="p-3 border-b">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input autoFocus placeholder="Search products by name, SKU or brand…" value={q} onChange={e => setQ(e.target.value)} className="pl-9 h-11" />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {loading && <div className="text-center text-sm text-muted-foreground py-4">Loading…</div>}
+          {!loading && rows.length === 0 && <div className="text-center text-sm text-muted-foreground py-8">No products found</div>}
+          {rows.map(p => (
+            <button key={p.id} onClick={() => onPick(p)}
+              className="w-full text-left rounded-lg border p-3 hover:bg-muted active:bg-muted/70 flex items-center gap-3">
+              <Package className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-sm truncate">{p.name}</div>
+                <div className="text-[11px] text-muted-foreground truncate">
+                  {p.sku ? `SKU ${p.sku}` : ''}{p.sku && p.brand ? ' · ' : ''}{p.brand || ''}
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+          ))}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+
+
 function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
