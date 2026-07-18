@@ -361,15 +361,14 @@ function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => v
       setProducts(existing => {
         const next = existing.filter(l => l.name.trim() || l.qty.trim());
         for (const p of parsed.products) {
-          // update empty row first
           const emptyIdx = next.findIndex(l => !l.name.trim() && !l.qty.trim());
           if (emptyIdx >= 0) {
-            next[emptyIdx] = { name: p.name || next[emptyIdx].name, qty: p.qty || next[emptyIdx].qty, unit: p.unit || next[emptyIdx].unit };
+            next[emptyIdx] = { ...next[emptyIdx], name: p.name || next[emptyIdx].name, qty: p.qty || next[emptyIdx].qty, unit: p.unit || next[emptyIdx].unit };
           } else {
-            next.push({ name: p.name, qty: p.qty, unit: p.unit || 'kg' });
+            next.push({ product_id: null, name: p.name, qty: p.qty, unit: p.unit || 'kg' });
           }
         }
-        return next.length ? next : [{ name: '', qty: '', unit: 'kg' }];
+        return next.length ? next : [{ product_id: null, name: '', qty: '', unit: 'kg' }];
       });
     }
   }, [voice.text]);
@@ -379,15 +378,18 @@ function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => v
     toast.success('Voice applied to form');
   };
 
-  const addLine = () => setProducts(p => [...p, { name: '', qty: '', unit: 'kg' }]);
+  const addLine = () => setProducts(p => [...p, { product_id: null, name: '', qty: '', unit: 'kg' }]);
   const removeLine = (i: number) => setProducts(p => p.filter((_, idx) => idx !== i));
   const updateLine = (i: number, k: keyof ProductLine, v: string) =>
     setProducts(p => p.map((l, idx) => idx === i ? { ...l, [k]: v } : l));
+  const attachProduct = (i: number, prod: ProductLite) =>
+    setProducts(p => p.map((l, idx) => idx === i ? { ...l, product_id: prod.id, name: prod.name, sku: prod.sku, brand: prod.brand } : l));
 
   const submit = async () => {
     if (!consumer.name.trim()) { toast.error('Consumer name is required'); return; }
     const cleanProducts = products.filter(p => p.name.trim() || p.qty.trim()).map(p => ({
-      name: p.name.trim(), qty: p.qty || null, unit: p.unit || null,
+      product_id: p.product_id || null, name: p.name.trim(), sku: p.sku || null, brand: p.brand || null,
+      qty: p.qty || null, unit: p.unit || null,
     }));
     setSaving(true);
     const { error } = await (supabase as any).from('influencer_referrals').insert({
@@ -396,6 +398,7 @@ function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => v
       phone: consumer.phone || null,
       area: consumer.address || null,
       notes: notes || null,
+      status,
       consumer_name: consumer.name,
       consumer_phone: consumer.phone || null,
       consumer_address: consumer.address || null,
@@ -408,6 +411,7 @@ function ReferForm({ session, onBack, onSaved }: { session: any; onBack: () => v
     toast.success('Referral saved 🎉');
     onSaved();
   };
+
 
   return (
     <div className="p-4 space-y-4">
