@@ -1,0 +1,146 @@
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Search, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+
+type Row = any;
+
+export default function EmployeeDirectoryPage() {
+  const { user } = useAuth();
+  const [rows, setRows] = useState<Row[]>([]);
+  const [q, setQ] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Row>({
+    full_name: '', employee_code: '', email: '', phone: '',
+    department: '', location: '', joining_date: '',
+    previous_experience: '', bio: '',
+    social_links: { linkedin: '', twitter: '', instagram: '' },
+    follows_company_page: false,
+    reports_to_directory_id: null,
+  });
+
+  async function load() {
+    setLoading(true);
+    const { data, error } = await (supabase as any)
+      .from('employee_directory').select('*').order('created_at', { ascending: false }).limit(500);
+    if (error) toast.error(error.message); else setRows(data || []);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  const filtered = useMemo(() => {
+    if (!q) return rows;
+    const t = q.toLowerCase();
+    return rows.filter(r =>
+      [r.full_name, r.employee_code, r.email, r.phone, r.department, r.location]
+        .filter(Boolean).some((v: string) => v.toLowerCase().includes(t))
+    );
+  }, [q, rows]);
+
+  async function save() {
+    if (!form.full_name?.trim()) { toast.error('Name required'); return; }
+    setSaving(true);
+    const payload = { ...form, created_by: user?.id, joining_date: form.joining_date || null };
+    const { error } = await (supabase as any).from('employee_directory').insert(payload);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Employee added');
+    setOpen(false);
+    setForm({ ...form, full_name: '', employee_code: '', email: '', phone: '', department: '', location: '', joining_date: '', previous_experience: '', bio: '' });
+    load();
+  }
+
+  return (
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold">Employees</h1>
+          <p className="text-sm text-muted-foreground">Company staff directory including non-user records</p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="h-4 w-4 mr-1" /> Add Employee</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Add Employee</DialogTitle></DialogHeader>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Full Name *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div>
+              <div><Label>Employee ID</Label><Input value={form.employee_code} onChange={e => setForm({ ...form, employee_code: e.target.value })} /></div>
+              <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
+              <div><Label>Phone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+              <div><Label>Department</Label><Input value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} /></div>
+              <div><Label>Location</Label><Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} /></div>
+              <div><Label>Reports To</Label>
+                <select className="w-full border rounded-md h-10 px-2 bg-background"
+                  value={form.reports_to_directory_id || ''}
+                  onChange={e => setForm({ ...form, reports_to_directory_id: e.target.value || null })}>
+                  <option value="">—</option>
+                  {rows.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+                </select>
+              </div>
+              <div><Label>Joining Date</Label><Input type="date" value={form.joining_date} onChange={e => setForm({ ...form, joining_date: e.target.value })} /></div>
+              <div className="col-span-2"><Label>LinkedIn</Label><Input value={form.social_links.linkedin} onChange={e => setForm({ ...form, social_links: { ...form.social_links, linkedin: e.target.value } })} /></div>
+              <div><Label>Twitter</Label><Input value={form.social_links.twitter} onChange={e => setForm({ ...form, social_links: { ...form.social_links, twitter: e.target.value } })} /></div>
+              <div><Label>Instagram</Label><Input value={form.social_links.instagram} onChange={e => setForm({ ...form, social_links: { ...form.social_links, instagram: e.target.value } })} /></div>
+              <div className="col-span-2 flex items-center gap-2">
+                <Checkbox id="follow" checked={form.follows_company_page} onCheckedChange={v => setForm({ ...form, follows_company_page: !!v })} />
+                <Label htmlFor="follow" className="cursor-pointer">Following the company page</Label>
+              </div>
+              <div className="col-span-2"><Label>Previous Experience</Label><Textarea rows={3} value={form.previous_experience} onChange={e => setForm({ ...form, previous_experience: e.target.value })} /></div>
+              <div className="col-span-2"><Label>Brief / Bio</Label><Textarea rows={3} value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} /></div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button onClick={save} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-8" placeholder="Search name, email, department…" value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? <div className="py-12 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading…</div>
+            : filtered.length === 0 ? <div className="py-12 text-center text-muted-foreground">No employees yet</div>
+            : <Table>
+              <TableHeader><TableRow>
+                <TableHead>Name</TableHead><TableHead>Emp ID</TableHead><TableHead>Department</TableHead>
+                <TableHead>Location</TableHead><TableHead>Email</TableHead><TableHead>Phone</TableHead>
+                <TableHead>Follows</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {filtered.map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">{r.full_name}</TableCell>
+                    <TableCell>{r.employee_code || '—'}</TableCell>
+                    <TableCell>{r.department || '—'}</TableCell>
+                    <TableCell>{r.location || '—'}</TableCell>
+                    <TableCell>{r.email || '—'}</TableCell>
+                    <TableCell>{r.phone || '—'}</TableCell>
+                    <TableCell>{r.follows_company_page ? <Badge>Yes</Badge> : <Badge variant="outline">No</Badge>}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
