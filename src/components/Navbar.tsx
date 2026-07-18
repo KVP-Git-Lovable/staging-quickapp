@@ -114,6 +114,8 @@ export const Navbar = memo(() => {
       { id: 'competition-master', icon: Trophy, label: t('nav.competitionMaster'), href: "/competition-master", color: "from-slate-500 to-slate-600" },
       { id: 'schemes', icon: Gift, label: t('nav.schemes'), href: "/schemes", color: "from-pink-500 to-pink-600" },
       { id: 'expenses', icon: CreditCard, label: t('nav.expenses'), href: "/expenses", color: "from-indigo-500 to-indigo-600" },
+      { id: 'employees', icon: Contact, label: 'Employees', href: "/employees", color: "from-blue-500 to-indigo-600" },
+      { id: 'influencers', icon: Megaphone, label: 'Influencers', href: "/influencers", color: "from-fuchsia-500 to-pink-600" },
     ];
 
     // Add Leaderboard only if gamification is active
