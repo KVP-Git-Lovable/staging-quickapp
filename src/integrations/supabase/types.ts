@@ -28851,7 +28851,17 @@ export type Database = {
         | "executed"
         | "verified"
       employee_doc_type: "address_proof" | "id_proof" | "other"
-      influencer_referral_status: "new" | "contacted" | "converted" | "dropped"
+      influencer_referral_status:
+        | "new"
+        | "contacted"
+        | "converted"
+        | "dropped"
+        | "consumer_added"
+        | "intent_recorded"
+        | "accepted"
+        | "serviced"
+        | "drop"
+        | "cancelled"
       influencer_role:
         | "plumber"
         | "painter"
@@ -29029,7 +29039,18 @@ export const Constants = {
         "verified",
       ],
       employee_doc_type: ["address_proof", "id_proof", "other"],
-      influencer_referral_status: ["new", "contacted", "converted", "dropped"],
+      influencer_referral_status: [
+        "new",
+        "contacted",
+        "converted",
+        "dropped",
+        "consumer_added",
+        "intent_recorded",
+        "accepted",
+        "serviced",
+        "drop",
+        "cancelled",
+      ],
       influencer_role: [
         "plumber",
         "painter",
