@@ -38,8 +38,12 @@ Deno.serve(async (req) => {
       .eq('id', subscription_id)
       .maybeSingle();
 
-    const isAdmin = !!(await admin.from('user_roles').select('role').eq('user_id', userId).eq('role', 'admin').maybeSingle()).data;
-    const allowed = isAdmin || !!sub && (sub.created_by === userId || (sub.recipient_user_ids ?? []).includes(userId));
+    // Use is_admin_or_manager() for parity with the write path (RLS on report_subscriptions).
+    const userClientForRpc = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: isAdminOrMgr } = await userClientForRpc.rpc('is_admin_or_manager');
+    const allowed = !!isAdminOrMgr || (!!sub && (sub.created_by === userId || (sub.recipient_user_ids ?? []).includes(userId)));
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
