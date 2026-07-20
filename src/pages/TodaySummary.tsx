@@ -2094,25 +2094,31 @@ export const TodaySummary = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background">
+      <div className="today-summary min-h-screen">
         <div className="container mx-auto p-4 space-y-4 max-w-5xl">
 
         {/* Header */}
-        <Card className="shadow-card bg-gradient-primary text-primary-foreground">
-          <CardHeader className="pb-3 space-y-3">
-            <div className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl font-bold">
-                  {filterType === 'today' ? "Today's Summary" : 
+        <Card className="shadow-card ts-hero">
+          <CardHeader className="pb-4 pl-6 space-y-3">
+            <div className="flex flex-row items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+                  Daily overview
+                </div>
+                <CardTitle className="text-2xl sm:text-[26px] font-bold text-foreground mt-1.5 leading-tight">
+                  {filterType === 'today' ? "Today's Summary" :
                    filterType === 'week' ? "This Week's Summary" :
                    filterType === 'lastWeek' ? "Last Week's Summary" :
                    filterType === 'month' ? "Monthly Summary" :
                    filterType === 'dateRange' ? "Date Range Summary" :
                    "Visit Summary"}
                 </CardTitle>
-                <p className="text-primary-foreground/80">{summaryData.date}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{summaryData.date}</p>
               </div>
-              <FileText size={24} />
+              <div className="h-10 w-10 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center text-primary shrink-0">
+                <FileText size={18} />
+              </div>
             </div>
             {/* User Selector for managers - placed below the heading */}
             {isManager && (
@@ -2121,12 +2127,12 @@ export const TodaySummary = () => {
                 onUserChange={setManagerSelectedUserId}
                 showAllOption={true}
                 allOptionLabel="All Team"
-                variant="onDark"
                 className="w-fit"
               />
             )}
           </CardHeader>
         </Card>
+
 
         {/* Date Filter + Actions */}
         <Card className="shadow-card">
