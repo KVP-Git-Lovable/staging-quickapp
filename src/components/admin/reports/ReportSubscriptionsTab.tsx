@@ -18,6 +18,8 @@ import { toast } from 'sonner';
 interface Dataset {
   key: string;
   label: string;
+  description?: string;
+  source?: string;
   dimensions: Array<{ key: string; label: string }>;
   measures: Array<{ key: string; label: string; agg?: string }>;
   supports_matrix: boolean;
