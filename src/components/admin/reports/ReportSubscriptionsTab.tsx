@@ -801,10 +801,12 @@ function Step1Body(p: Step1Props) {
         error={preview.error as any}
         rows={preview.data ?? []}
         layout={layout}
-        rowKey={rows}
+        rowKey={rows[0] ?? ''}
+        selectedColumns={rows}
         columnKey={columns}
         values={values}
       />
+
 
 
       <DialogFooter className="pt-2">
