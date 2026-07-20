@@ -330,91 +330,34 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? 'Edit subscription' : 'New report subscription'} — Step {step} of 3</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto p-0 gap-0">
+        <div className="px-6 pt-5 pb-4 border-b border-border/60">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-base font-semibold">
+              {editing ? 'Edit subscription' : 'New report subscription'}
+            </DialogTitle>
+          </DialogHeader>
+          <StepBar current={step} />
+        </div>
+
+        <div className="p-6">
 
         {step === 1 && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Name *</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Daily attendance snapshot" />
-              </div>
-              <div className="space-y-2">
-                <Label>Dataset *</Label>
-                <Select value={datasetKey} onValueChange={setDatasetKey}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {datasets.map(d => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Layout</Label>
-                <Select value={layout} onValueChange={setLayout}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tabular">Tabular</SelectItem>
-                    <SelectItem value="grouped">Grouped</SelectItem>
-                    {dataset?.supports_matrix && <SelectItem value="matrix">Matrix</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {dataset && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Rows (group by)</Label>
-                  <Select value={rows || '__none__'} onValueChange={v => setRows(v === '__none__' ? '' : v)}>
-                    <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">None</SelectItem>
-                      {dataset.dimensions.map(d => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {layout === 'matrix' && (
-                  <div className="space-y-2">
-                    <Label>Columns</Label>
-                    <Select value={columns || '__none__'} onValueChange={v => setColumns(v === '__none__' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {dataset.dimensions.map(d => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Measures *</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {dataset.measures.map(m => {
-                      const on = values.includes(m.key);
-                      return (
-                        <Badge
-                          key={m.key}
-                          variant={on ? 'default' : 'outline'}
-                          className="cursor-pointer"
-                          onClick={() => setValues(v => on ? v.filter(x => x !== m.key) : [...v, m.key])}
-                        >
-                          {m.label}{m.agg ? ` (${m.agg})` : ''}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button onClick={() => setStep(2)} disabled={!canNext1}>Next</Button>
-            </DialogFooter>
-          </div>
+          <Step1Body
+            name={name} setName={setName}
+            datasets={datasets}
+            datasetKey={datasetKey} setDatasetKey={setDatasetKey}
+            layout={layout} setLayout={setLayout}
+            rows={rows} setRows={setRows}
+            columns={columns} setColumns={setColumns}
+            values={values} setValues={setValues}
+            dataset={dataset}
+            onCancel={onClose}
+            onNext={() => setStep(2)}
+            canNext={!!canNext1}
+          />
         )}
+
 
         {step === 2 && (
           <div className="space-y-4">
