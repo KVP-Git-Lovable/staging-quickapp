@@ -232,11 +232,14 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [name, setName] = useState(editing?.sub.name ?? '');
   const [datasetKey, setDatasetKey] = useState(editing?.def.dataset_key ?? datasets[0]?.key ?? '');
   const [layout, setLayout] = useState(editing?.def.layout ?? 'tabular');
-  const [rows, setRows] = useState<string>(editing?.def.config?.rows?.[0] ?? '');
+  const [rows, setRows] = useState<string[]>(
+    Array.isArray(editing?.def.config?.rows) ? editing!.def.config!.rows : (editing?.def.config?.rows ? [editing.def.config.rows] : []),
+  );
   const [columns, setColumns] = useState<string>(editing?.def.config?.columns?.[0] ?? '');
   const [values, setValues] = useState<string[]>(
     (editing?.def.config?.values ?? []).map((v: any) => (typeof v === 'string' ? v : v.key)),
   );
+
 
   // Step 2 — schedule + delivery
   const [cadence, setCadence] = useState(editing?.sub.cadence ?? 'daily');
