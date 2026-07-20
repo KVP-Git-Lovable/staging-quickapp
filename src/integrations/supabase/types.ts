@@ -20933,6 +20933,198 @@ export type Database = {
         }
         Relationships: []
       }
+      report_definitions: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          dataset_key: string
+          id: string
+          layout: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          dataset_key: string
+          id?: string
+          layout: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          dataset_key?: string
+          id?: string
+          layout?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_definitions_dataset_key_fkey"
+            columns: ["dataset_key"]
+            isOneToOne: false
+            referencedRelation: "reportable_datasets"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      report_delivery_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          in_app_status: string | null
+          notification_id: string | null
+          period: string
+          push_status: string | null
+          recipient_user_id: string
+          storage_path: string | null
+          subscription_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          in_app_status?: string | null
+          notification_id?: string | null
+          period: string
+          push_status?: string | null
+          recipient_user_id: string
+          storage_path?: string | null
+          subscription_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          in_app_status?: string | null
+          notification_id?: string | null
+          period?: string
+          push_status?: string | null
+          recipient_user_id?: string
+          storage_path?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_delivery_log_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "report_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_subscriptions: {
+        Row: {
+          attachment_format: string
+          cadence: string
+          created_at: string
+          created_by: string | null
+          fire_day: string | null
+          fire_time: string
+          id: string
+          last_fired_at: string | null
+          name: string
+          push_to_phone: boolean
+          recipient_user_ids: string[]
+          report_definition_id: string
+          scope: string
+          status: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          attachment_format?: string
+          cadence: string
+          created_at?: string
+          created_by?: string | null
+          fire_day?: string | null
+          fire_time?: string
+          id?: string
+          last_fired_at?: string | null
+          name: string
+          push_to_phone?: boolean
+          recipient_user_ids?: string[]
+          report_definition_id: string
+          scope?: string
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          attachment_format?: string
+          cadence?: string
+          created_at?: string
+          created_by?: string | null
+          fire_day?: string | null
+          fire_time?: string
+          id?: string
+          last_fired_at?: string | null
+          name?: string
+          push_to_phone?: boolean
+          recipient_user_ids?: string[]
+          report_definition_id?: string
+          scope?: string
+          status?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_subscriptions_report_definition_id_fkey"
+            columns: ["report_definition_id"]
+            isOneToOne: false
+            referencedRelation: "report_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reportable_datasets: {
+        Row: {
+          created_at: string
+          description: string | null
+          dimensions: Json
+          is_active: boolean
+          key: string
+          label: string
+          measures: Json
+          source: string
+          supports_matrix: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          dimensions?: Json
+          is_active?: boolean
+          key: string
+          label: string
+          measures?: Json
+          source: string
+          supports_matrix?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          dimensions?: Json
+          is_active?: boolean
+          key?: string
+          label?: string
+          measures?: Json
+          source?: string
+          supports_matrix?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       retailer_audit_log: {
         Row: {
           changed_at: string
@@ -27718,6 +27910,10 @@ export type Database = {
         Args: { p_price_overrides?: Json; p_product: Json; p_uoms?: Json }
         Returns: string
       }
+      create_report_subscription: {
+        Args: { p_definition: Json; p_subscription: Json }
+        Returns: string
+      }
       create_user_delegation: {
         Args: {
           p_beat_ids: string[]
@@ -27925,6 +28121,16 @@ export type Database = {
           user_id: string
           user_name: string
         }[]
+      }
+      get_attendance_report: {
+        Args: {
+          p_columns: string
+          p_filters: Json
+          p_layout: string
+          p_rows: string
+          p_values: string[]
+        }
+        Returns: Json[]
       }
       get_auth_user_id_by_email: {
         Args: { lookup_email: string }
