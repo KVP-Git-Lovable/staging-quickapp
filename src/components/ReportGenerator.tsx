@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,9 +42,10 @@ interface ReportGeneratorProps {
   dateRange: string;
   generalReportData?: GeneralReportData[];
   selectedUserName?: string; // Add selected user name for export filename
+  trigger?: ReactNode;
 }
 
-export const ReportGenerator = ({ data, dateRange, generalReportData = [], selectedUserName }: ReportGeneratorProps) => {
+export const ReportGenerator = ({ data, dateRange, generalReportData = [], selectedUserName, trigger }: ReportGeneratorProps) => {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
   
@@ -311,11 +312,13 @@ export const ReportGenerator = ({ data, dateRange, generalReportData = [], selec
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 text-xs sm:text-sm w-full">
-          <Download className="h-4 w-4" />
-          <span className="hidden sm:inline">Generate Report</span>
-          <span className="sm:hidden">Report</span>
-        </Button>
+        {trigger ?? (
+          <Button variant="outline" className="gap-2 text-xs sm:text-sm w-full">
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Generate Report</span>
+            <span className="sm:hidden">Report</span>
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>

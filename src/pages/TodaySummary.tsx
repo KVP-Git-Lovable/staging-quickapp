@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layout } from "@/components/Layout";
 import { useManagedInterval } from "@/utils/intervalManager";
-import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X, CreditCard, Wallet, Banknote } from "lucide-react";
+import { Download, Share, FileText, Clock, MapPin, CalendarIcon, ExternalLink, Users, X, CreditCard, Wallet, Banknote, ChevronLeft, ChevronRight, FileSpreadsheet, FileDown, BarChart3 } from "lucide-react";
+import { Tooltip as UITooltip, TooltipContent as UITooltipContent, TooltipProvider as UITooltipProvider, TooltipTrigger as UITooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -2126,48 +2128,46 @@ export const TodaySummary = () => {
           </CardHeader>
         </Card>
 
-        {/* Date Filter Controls */}
+        {/* Date Filter + Actions */}
         <Card className="shadow-card">
-          <CardContent className="p-4">
-            <div className="space-y-3">
-              {/* Quick Filter Buttons */}
-              <div className="grid grid-cols-4 gap-2">
-                <Button
-                  variant={filterType === 'today' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleDateFilterChange('today')}
-                  className="text-xs"
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              {/* Period dropdown */}
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <Select
+                  value={filterType === 'custom' ? 'today' : filterType === 'lastWeek' ? 'week' : filterType}
+                  onValueChange={(v) => {
+                    if (v === 'dateRange') {
+                      setCalendarOpen(true);
+                    } else {
+                      handleDateFilterChange(v as DateFilterType);
+                    }
+                  }}
                 >
-                  Today
-                </Button>
-                <Button
-                  variant={filterType === 'week' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleDateFilterChange('week')}
-                  className="text-xs"
-                >
-                  Week
-                </Button>
-                <Button
-                  variant={filterType === 'month' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleDateFilterChange('month')}
-                  className="text-xs"
-                >
-                  Month
-                </Button>
+                  <SelectTrigger className="h-9 w-[140px] shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                    <SelectItem value="dateRange">Custom Range…</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Range calendar (hidden trigger, controlled by Select) */}
                 <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                   <PopoverTrigger asChild>
                     <Button
-                      variant={filterType === 'dateRange' || filterType === 'custom' ? 'default' : 'outline'}
-                      size="sm"
-                      className="text-xs"
+                      variant="outline"
+                      size="icon"
+                      className={cn("h-9 w-9 shrink-0", filterType !== 'dateRange' && "hidden")}
+                      aria-label="Choose range"
                     >
-                      <CalendarIcon className="mr-1 h-3 w-3" />
-                      Range
+                      <CalendarIcon className="h-4 w-4" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
+                  <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="range"
                       selected={dateRange}
@@ -2177,7 +2177,6 @@ export const TodaySummary = () => {
                             handleDateFilterChange('dateRange', range.from, range.to);
                             setCalendarOpen(false);
                           } else {
-                            // Single date selected - treat as custom single day
                             handleDateFilterChange('custom', range.from);
                           }
                         }
@@ -2187,135 +2186,161 @@ export const TodaySummary = () => {
                     />
                   </PopoverContent>
                 </Popover>
-              </div>
-              
-              {/* Date Display with Navigation */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => {
-                    const newDate = new Date(selectedDate);
-                    if (filterType === 'today' || filterType === 'custom') {
-                      newDate.setDate(newDate.getDate() - 1);
-                      handleDateFilterChange('custom', newDate);
-                    } else if (filterType === 'week') {
-                      newDate.setDate(newDate.getDate() - 7);
-                      handleDateFilterChange('week', newDate);
-                    } else if (filterType === 'month') {
-                      newDate.setMonth(newDate.getMonth() - 1);
-                      handleDateFilterChange('month', newDate);
-                    }
-                  }}
-                >
-                  ←
-                </Button>
-                <div className="flex-1 text-center font-medium text-sm">
-                  {filterType === 'today' ? format(selectedDate, 'EEEE, d MMMM yyyy') :
-                   filterType === 'custom' ? format(selectedDate, 'EEEE, d MMMM yyyy') :
-                   filterType === 'week' ? `${format(dateRange.from, 'd MMM')} - ${format(dateRange.to, 'd MMM yyyy')}` :
-                   filterType === 'month' ? format(selectedDate, 'MMMM yyyy') :
-                   filterType === 'dateRange' ? `${format(dateRange.from, 'd MMM')} - ${format(dateRange.to, 'd MMM yyyy')}` :
-                   format(selectedDate, 'd MMM yyyy')}
+
+                {/* Date nav */}
+                <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => {
+                      const newDate = new Date(selectedDate);
+                      if (filterType === 'today' || filterType === 'custom') {
+                        newDate.setDate(newDate.getDate() - 1);
+                        handleDateFilterChange('custom', newDate);
+                      } else if (filterType === 'week') {
+                        newDate.setDate(newDate.getDate() - 7);
+                        handleDateFilterChange('week', newDate);
+                      } else if (filterType === 'month') {
+                        newDate.setMonth(newDate.getMonth() - 1);
+                        handleDateFilterChange('month', newDate);
+                      }
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-sm font-medium truncate text-center px-1">
+                    {filterType === 'today' ? format(selectedDate, 'EEE, d MMM yyyy') :
+                     filterType === 'custom' ? format(selectedDate, 'EEE, d MMM yyyy') :
+                     filterType === 'week' ? `${format(dateRange.from, 'd MMM')} – ${format(dateRange.to, 'd MMM yyyy')}` :
+                     filterType === 'month' ? format(selectedDate, 'MMMM yyyy') :
+                     filterType === 'dateRange' ? `${format(dateRange.from, 'd MMM')} – ${format(dateRange.to, 'd MMM yyyy')}` :
+                     format(selectedDate, 'd MMM yyyy')}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => {
+                      const newDate = new Date(selectedDate);
+                      if (filterType === 'today' || filterType === 'custom') {
+                        newDate.setDate(newDate.getDate() + 1);
+                        handleDateFilterChange('custom', newDate);
+                      } else if (filterType === 'week') {
+                        newDate.setDate(newDate.getDate() + 7);
+                        handleDateFilterChange('week', newDate);
+                      } else if (filterType === 'month') {
+                        newDate.setMonth(newDate.getMonth() + 1);
+                        handleDateFilterChange('month', newDate);
+                      }
+                    }}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => {
-                    const newDate = new Date(selectedDate);
-                    if (filterType === 'today' || filterType === 'custom') {
-                      newDate.setDate(newDate.getDate() + 1);
-                      handleDateFilterChange('custom', newDate);
-                    } else if (filterType === 'week') {
-                      newDate.setDate(newDate.getDate() + 7);
-                      handleDateFilterChange('week', newDate);
-                    } else if (filterType === 'month') {
-                      newDate.setMonth(newDate.getMonth() + 1);
-                      handleDateFilterChange('month', newDate);
-                    }
-                  }}
-                >
-                  →
-                </Button>
               </div>
+
+              {/* Action icons */}
+              <UITooltipProvider delayDuration={200}>
+                <div className="flex items-center gap-1.5 justify-end shrink-0 border-l sm:pl-3">
+                  <UITooltip>
+                    <UITooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9"
+                        onClick={handleDownloadPDF}
+                        aria-label="Download PDF"
+                      >
+                        <FileText className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </UITooltipTrigger>
+                    <UITooltipContent>Download PDF</UITooltipContent>
+                  </UITooltip>
+                  <UITooltip>
+                    <UITooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9"
+                        aria-label="Export CSV"
+                        onClick={() => {
+                          const dateISO = format(selectedDate, "yyyy-MM-dd");
+                          const esc = (v: any) => {
+                            const s = String(v ?? "");
+                            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+                          };
+                          const rows: string[] = [
+                            ["Retailer", "Beat", "Payment", "Item", "Qty", "Unit", "Rate", "Amount"].join(","),
+                          ];
+                          const active = (rawOrders || []).filter(
+                            (o) => (o.status || "").toLowerCase() !== "replaced" && !o.replaced_by_order_id,
+                          );
+                          const byRetailer = new Map<string, { name: string; beat: string; payment: string; items: Map<string, { p: string; u: string; q: number; r: number; a: number }> }>();
+                          for (const o of active) {
+                            const key = o.retailer_id || o.retailer_name || "unknown";
+                            const name = o.retailer_name || "Unknown";
+                            const beat = o.beat_name || (o.retailer_id && retailerBeatMap.get(o.retailer_id)) || "—";
+                            const pm = (o.payment_method || "").toLowerCase();
+                            const payment = o.is_credit_order || pm === "credit" ? "Credit" : "Cash";
+                            let agg = byRetailer.get(key);
+                            if (!agg) { agg = { name, beat, payment, items: new Map() }; byRetailer.set(key, agg); }
+                            for (const it of o.order_items || []) {
+                              const p = (it.product_name || "").trim() || "Unknown";
+                              const u = (it.unit || "").trim() || "Pcs";
+                              const k = `${p}|${u.toLowerCase()}`;
+                              const cur = agg.items.get(k) || { p, u, q: 0, r: 0, a: 0 };
+                              cur.q += Number(it.quantity) || 0;
+                              cur.a += Number(it.total) || 0;
+                              cur.r = Number(it.rate) || cur.r;
+                              agg.items.set(k, cur);
+                            }
+                          }
+                          for (const r of byRetailer.values()) {
+                            for (const it of r.items.values()) {
+                              const qty = Number.isInteger(it.q) ? String(it.q) : it.q.toFixed(2).replace(/\.?0+$/, "");
+                              rows.push([r.name, r.beat, r.payment, it.p, qty, it.u, Math.round(it.r), Math.round(it.a)].map(esc).join(","));
+                            }
+                          }
+                          import("@/utils/fileDownloader").then((m) => m.downloadCSV(rows.join("\n"), `today-summary-${dateISO}.csv`));
+                        }}
+                      >
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                      </Button>
+                    </UITooltipTrigger>
+                    <UITooltipContent>Export CSV</UITooltipContent>
+                  </UITooltip>
+                  <UITooltip>
+                    <UITooltipTrigger asChild>
+                      <div>
+                        <ReportGenerator
+                          data={retailerReportData}
+                          generalReportData={generalReportData}
+                          selectedUserName={isManager ? selectedUserName : undefined}
+                          dateRange={
+                            filterType === 'today' ? format(selectedDate, 'MMM dd, yyyy') :
+                            filterType === 'week' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+                            filterType === 'lastWeek' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+                            filterType === 'month' ? format(selectedDate, 'MMMM yyyy') :
+                            filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
+                            format(selectedDate, 'MMM dd, yyyy')
+                          }
+                          trigger={
+                            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Generate Report">
+                              <BarChart3 className="h-4 w-4 text-primary" />
+                            </Button>
+                          }
+                        />
+                      </div>
+                    </UITooltipTrigger>
+                    <UITooltipContent>Generate Report</UITooltipContent>
+                  </UITooltip>
+                </div>
+              </UITooltipProvider>
             </div>
           </CardContent>
         </Card>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            onClick={handleDownloadPDF}
-            className="flex items-center gap-2 text-xs sm:text-sm"
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">Download PDF</span>
-            <span className="sm:hidden">PDF</span>
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              const dateISO = format(selectedDate, "yyyy-MM-dd");
-              const esc = (v: any) => {
-                const s = String(v ?? "");
-                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-              };
-              const rows: string[] = [
-                ["Retailer", "Beat", "Payment", "Item", "Qty", "Unit", "Rate", "Amount"].join(","),
-              ];
-              const active = (rawOrders || []).filter(
-                (o) => (o.status || "").toLowerCase() !== "replaced" && !o.replaced_by_order_id,
-              );
-              const byRetailer = new Map<string, { name: string; beat: string; payment: string; items: Map<string, { p: string; u: string; q: number; r: number; a: number }> }>();
-              for (const o of active) {
-                const key = o.retailer_id || o.retailer_name || "unknown";
-                const name = o.retailer_name || "Unknown";
-                const beat = o.beat_name || (o.retailer_id && retailerBeatMap.get(o.retailer_id)) || "—";
-                const pm = (o.payment_method || "").toLowerCase();
-                const payment = o.is_credit_order || pm === "credit" ? "Credit" : "Cash";
-                let agg = byRetailer.get(key);
-                if (!agg) { agg = { name, beat, payment, items: new Map() }; byRetailer.set(key, agg); }
-                for (const it of o.order_items || []) {
-                  const p = (it.product_name || "").trim() || "Unknown";
-                  const u = (it.unit || "").trim() || "Pcs";
-                  const k = `${p}|${u.toLowerCase()}`;
-                  const cur = agg.items.get(k) || { p, u, q: 0, r: 0, a: 0 };
-                  cur.q += Number(it.quantity) || 0;
-                  cur.a += Number(it.total) || 0;
-                  cur.r = Number(it.rate) || cur.r;
-                  agg.items.set(k, cur);
-                }
-              }
-              for (const r of byRetailer.values()) {
-                for (const it of r.items.values()) {
-                  const qty = Number.isInteger(it.q) ? String(it.q) : it.q.toFixed(2).replace(/\.?0+$/, "");
-                  rows.push([r.name, r.beat, r.payment, it.p, qty, it.u, Math.round(it.r), Math.round(it.a)].map(esc).join(","));
-                }
-              }
-              import("@/utils/fileDownloader").then((m) => m.downloadCSV(rows.join("\n"), `today-summary-${dateISO}.csv`));
-            }}
-            className="flex items-center gap-2 text-xs sm:text-sm"
-          >
-            <Download size={16} />
-            <span className="hidden sm:inline">Export CSV</span>
-            <span className="sm:hidden">CSV</span>
-          </Button>
-          <ReportGenerator
-            data={retailerReportData}
-            generalReportData={generalReportData}
-            selectedUserName={isManager ? selectedUserName : undefined}
-            dateRange={
-              filterType === 'today' ? format(selectedDate, 'MMM dd, yyyy') :
-              filterType === 'week' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
-              filterType === 'lastWeek' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
-              filterType === 'month' ? format(selectedDate, 'MMMM yyyy') :
-              filterType === 'dateRange' ? `${format(dateRange.from, 'MMM dd')} - ${format(dateRange.to, 'MMM dd, yyyy')}` :
-              format(selectedDate, 'MMM dd, yyyy')
-            }
-          />
-        </div>
 
 
         {/* Selected Period Information - Beat on top, times below */}
