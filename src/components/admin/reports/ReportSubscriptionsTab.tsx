@@ -848,6 +848,31 @@ function FieldRow({ label, kind, fieldKey }: { label: string; kind: 'dim' | 'msr
   );
 }
 
+function useGlobalDragActive() {
+  const [active, setActive] = React.useState(false);
+  React.useEffect(() => {
+    const onStart = (e: DragEvent) => {
+      // Only treat our field drags as active (avoid text selection drags)
+      try {
+        const types = e.dataTransfer?.types;
+        if (types && Array.from(types).includes('application/x-report-field')) {
+          setActive(true);
+        }
+      } catch { /* noop */ }
+    };
+    const onEnd = () => setActive(false);
+    document.addEventListener('dragstart', onStart);
+    document.addEventListener('dragend', onEnd);
+    document.addEventListener('drop', onEnd);
+    return () => {
+      document.removeEventListener('dragstart', onStart);
+      document.removeEventListener('dragend', onEnd);
+      document.removeEventListener('drop', onEnd);
+    };
+  }, []);
+  return active;
+}
+
 function ZoneCard({
   title, tone, children, accept, onDropKey,
 }: {
@@ -858,35 +883,51 @@ function ZoneCard({
   onDropKey?: (key: string) => void;
 }) {
   const [over, setOver] = React.useState(false);
+  const dragActive = useGlobalDragActive();
+  const handleDrop = (e: React.DragEvent) => {
+    if (!onDropKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setOver(false);
+    try {
+      const raw = e.dataTransfer.getData('application/x-report-field');
+      if (!raw) return;
+      const { key, kind } = JSON.parse(raw) as { key: string; kind: 'dim' | 'msr' };
+      if (accept && kind !== accept) return;
+      onDropKey(key);
+    } catch { /* ignore */ }
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!onDropKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch { /* noop */ }
+    if (!over) setOver(true);
+  };
   return (
     <div
-      onDragOver={(e) => {
-        if (!onDropKey) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-        if (!over) setOver(true);
+      onDragEnter={handleDragOver}
+      onDragOver={handleDragOver}
+      onDragLeave={(e) => {
+        // Only clear if leaving the zone entirely
+        const related = e.relatedTarget as Node | null;
+        if (!related || !(e.currentTarget as Node).contains(related)) {
+          setOver(false);
+        }
       }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        if (!onDropKey) return;
-        e.preventDefault();
-        setOver(false);
-        try {
-          const raw = e.dataTransfer.getData('application/x-report-field');
-          if (!raw) return;
-          const { key, kind } = JSON.parse(raw) as { key: string; kind: 'dim' | 'msr' };
-          if (accept && kind !== accept) return;
-          onDropKey(key);
-        } catch { /* ignore */ }
-      }}
+      onDrop={handleDrop}
       className={cn(
-        'rounded-xl border border-dashed p-3 transition-colors',
+        'relative rounded-xl border border-dashed p-3 transition-colors',
         tone === 'purple' ? 'border-[#534ab7]/40 bg-[#eeedfe]/50 dark:bg-[#534ab7]/10' : 'border-border/60',
         over && 'border-solid border-[#534ab7] bg-[#eeedfe]/70 dark:bg-[#534ab7]/20',
       )}
     >
       <div className="text-xs text-muted-foreground pb-2">{title}</div>
-      {children}
+      {/* While a field drag is in progress, disable pointer events on children
+          so the zone (not inner buttons) is the drop target. */}
+      <div style={{ pointerEvents: dragActive && onDropKey ? 'none' : 'auto' }}>
+        {children}
+      </div>
     </div>
   );
 }
