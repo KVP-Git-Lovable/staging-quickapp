@@ -572,7 +572,7 @@ function Step1Body(p: Step1Props) {
       debounced.columns,
       debounced.values.join(','),
     ],
-    enabled: !!dataset && !!dataset.source && debounced.values.length > 0,
+    enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
     queryFn: async () => {
       const today = new Date();
