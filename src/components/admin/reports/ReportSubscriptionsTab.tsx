@@ -232,11 +232,14 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [name, setName] = useState(editing?.sub.name ?? '');
   const [datasetKey, setDatasetKey] = useState(editing?.def.dataset_key ?? datasets[0]?.key ?? '');
   const [layout, setLayout] = useState(editing?.def.layout ?? 'tabular');
-  const [rows, setRows] = useState<string>(editing?.def.config?.rows?.[0] ?? '');
+  const [rows, setRows] = useState<string[]>(
+    Array.isArray(editing?.def.config?.rows) ? editing!.def.config!.rows : (editing?.def.config?.rows ? [editing.def.config.rows] : []),
+  );
   const [columns, setColumns] = useState<string>(editing?.def.config?.columns?.[0] ?? '');
   const [values, setValues] = useState<string[]>(
     (editing?.def.config?.values ?? []).map((v: any) => (typeof v === 'string' ? v : v.key)),
   );
+
 
   // Step 2 — schedule + delivery
   const [cadence, setCadence] = useState(editing?.sub.cadence ?? 'daily');
@@ -268,14 +271,15 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
       if (!name.trim()) throw new Error('Name is required');
       if (!datasetKey) throw new Error('Dataset is required');
       if (recipientIds.length === 0) throw new Error('Add at least one recipient');
-      if (values.length === 0) throw new Error('Pick at least one measure');
+      if (values.length === 0 && !(layout === 'tabular' && rows.length > 0)) throw new Error('Pick at least one field for the report');
 
       const config = {
-        rows: rows ? [rows] : [],
+        rows,
         columns: columns ? [columns] : [],
         values,
         filters: {},
       };
+
 
       if (editing) {
         const { error: dErr } = await supabase
@@ -327,7 +331,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
     onError: (e: any) => toast.error(e.message || 'Failed to save'),
   });
 
-  const canNext1 = name.trim() && datasetKey && values.length > 0;
+  const canNext1 = !!(name.trim() && datasetKey && (values.length > 0 || (layout === 'tabular' && rows.length > 0)));
   const canNext2 = fireTime && timezone && format && recipientIds.length > 0;
 
   return (
@@ -454,7 +458,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             <div className="bg-muted/40 rounded p-4 space-y-2 text-sm">
               <div><span className="font-medium">Name:</span> {name}</div>
               <div><span className="font-medium">Dataset:</span> {dataset?.label} ({layout})</div>
-              <div><span className="font-medium">Rows:</span> {rows || '—'}{layout === 'matrix' && ` · Columns: ${columns || '—'}`}</div>
+              <div><span className="font-medium">Rows:</span> {rows.join(', ') || '—'}{layout === 'matrix' && ` · Columns: ${columns || '—'}`}</div>
               <div><span className="font-medium">Measures:</span> {values.join(', ')}</div>
               <div><span className="font-medium">Schedule:</span> {cadence}{['weekly','monthly'].includes(cadence) ? ` · ${fireDay}` : ''} · {fireTime} ({timezone})</div>
               <div><span className="font-medium">Format:</span> {format} {pushToPhone ? '· + phone push' : ''}</div>
@@ -523,8 +527,9 @@ interface Step1Props {
   datasets: Dataset[];
   datasetKey: string; setDatasetKey: (v: string) => void;
   layout: string; setLayout: (v: string) => void;
-  rows: string; setRows: (v: string) => void;
+  rows: string[]; setRows: React.Dispatch<React.SetStateAction<string[]>>;
   columns: string; setColumns: (v: string) => void;
+
   values: string[]; setValues: React.Dispatch<React.SetStateAction<string[]>>;
   dataset: Dataset | undefined;
   onCancel: () => void;
@@ -567,7 +572,7 @@ function Step1Body(p: Step1Props) {
       debounced.columns,
       debounced.values.join(','),
     ],
-    enabled: !!dataset && !!dataset.source && debounced.values.length > 0,
+    enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
     queryFn: async () => {
       const today = new Date();
@@ -576,11 +581,12 @@ function Step1Body(p: Step1Props) {
       const iso = (d: Date) => d.toISOString().slice(0, 10);
       const payload = {
         p_layout: debounced.layout,
-        p_rows: debounced.rows || null,
+        p_rows: debounced.layout === 'tabular' ? null : (debounced.rows[0] || null),
         p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
         p_values: debounced.values,
         p_filters: { date_from: iso(from), date_to: iso(today) },
       };
+
       // eslint-disable-next-line no-console
       console.debug('[ReportPreview] rpc', dataset!.source, payload);
       const { data, error } = await supabase.rpc(dataset!.source as any, payload as any);
@@ -597,7 +603,7 @@ function Step1Body(p: Step1Props) {
 
   const previewState: 'idle' | 'loading' | 'error' | 'empty' | 'data' =
     !dataset ? 'idle'
-    : values.length === 0 ? 'idle'
+    : (values.length === 0 && !(layout === 'tabular' && rows.length > 0)) ? 'idle'
     : preview.isLoading || preview.isFetching ? 'loading'
     : preview.error ? 'error'
     : (preview.data ?? []).length === 0 ? 'empty'
@@ -692,10 +698,10 @@ function Step1Body(p: Step1Props) {
           <div className="space-y-3">
             {layout === 'matrix' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ZoneCard title="Rows" accept="dim" onDropKey={p.setRows}>
+                <ZoneCard title="Rows" accept="dim" onDropKey={(k) => p.setRows([k])}>
                   <ZonePicker
-                    value={rows}
-                    onChange={p.setRows}
+                    value={rows[0] ?? ''}
+                    onChange={(v) => p.setRows(v ? [v] : [])}
                     options={dims}
                     placeholder="Drop a dimension"
                     tone="dim"
@@ -713,10 +719,10 @@ function Step1Body(p: Step1Props) {
               </div>
             )}
             {layout === 'grouped' && (
-              <ZoneCard title="Group rows by" accept="dim" onDropKey={p.setRows}>
+              <ZoneCard title="Group rows by" accept="dim" onDropKey={(k) => p.setRows([k])}>
                 <ZonePicker
-                  value={rows}
-                  onChange={p.setRows}
+                  value={rows[0] ?? ''}
+                  onChange={(v) => p.setRows(v ? [v] : [])}
                   options={dims}
                   placeholder="Drop a dimension"
                   tone="dim"
@@ -724,16 +730,19 @@ function Step1Body(p: Step1Props) {
               </ZoneCard>
             )}
             {layout === 'tabular' && (
-              <ZoneCard title="Columns" accept="dim" onDropKey={p.setRows}>
-                <ZonePicker
+              <ZoneCard
+                title="Columns"
+                onDropKey={(k) => p.setRows(prev => prev.includes(k) ? prev : [...prev, k])}
+              >
+                <ZoneMulti
                   value={rows}
                   onChange={p.setRows}
-                  options={dims}
-                  placeholder="Drop dimensions"
-                  tone="dim"
+                  dims={dims}
+                  measures={measures}
                 />
               </ZoneCard>
             )}
+
 
             {layout !== 'tabular' && (
               <ZoneCard
@@ -792,10 +801,12 @@ function Step1Body(p: Step1Props) {
         error={preview.error as any}
         rows={preview.data ?? []}
         layout={layout}
-        rowKey={rows}
+        rowKey={rows[0] ?? ''}
+        selectedColumns={rows}
         columnKey={columns}
         values={values}
       />
+
 
 
       <DialogFooter className="pt-2">
@@ -934,8 +945,55 @@ function MeasurePill({ label, onRemove }: { label: string; onRemove: () => void 
   );
 }
 
+function ZoneMulti({
+  value, onChange, dims, measures,
+}: {
+  value: string[];
+  onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  dims: Array<{ key: string; label: string }>;
+  measures: Array<{ key: string; label: string }>;
+}) {
+  const all = [...dims.map(d => ({ ...d, kind: 'dim' as const })), ...measures.map(m => ({ ...m, kind: 'msr' as const }))];
+  const labelOf = (k: string) => all.find(o => o.key === k)?.label ?? k;
+  const kindOf = (k: string) => all.find(o => o.key === k)?.kind ?? 'dim';
+  const remaining = all.filter(o => !value.includes(o.key));
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {value.length === 0 && (
+        <span className="text-xs text-muted-foreground italic px-1 py-1">Drop dimensions or measures — they become the preview columns.</span>
+      )}
+      {value.map(k => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => onChange(prev => prev.filter(x => x !== k))}
+          className={cn(
+            'text-xs rounded-full px-2.5 py-1 border border-transparent',
+            kindOf(k) === 'dim'
+              ? 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400'
+              : 'bg-[#eeedfe] text-[#534ab7] hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white',
+          )}
+          title="Click to remove"
+        >
+          {labelOf(k)}
+        </button>
+      ))}
+      {remaining.map(o => (
+        <button
+          key={o.key}
+          type="button"
+          onClick={() => onChange(prev => [...prev, o.key])}
+          className="text-xs rounded-full border border-dashed border-border px-2.5 py-1 text-muted-foreground hover:text-foreground hover:border-solid"
+        >
+          + {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function LivePreviewCard({
-  state, error, rows, layout, rowKey, columnKey, values,
+  state, error, rows, layout, rowKey, columnKey, values, selectedColumns,
 }: {
   state: 'idle' | 'loading' | 'error' | 'empty' | 'data';
   error: Error | null;
@@ -944,10 +1002,12 @@ function LivePreviewCard({
   rowKey: string;
   columnKey: string;
   values: string[];
+  selectedColumns?: string[];
 }) {
   const sample = rows.slice(0, 8);
 
-  // Build columns from returned keys. For matrix, prefer row/column dims first then measures.
+  // Build columns from returned keys. Tabular respects the user's ordered picks;
+  // matrix prioritises row/column dims then measures; grouped shows what came back.
   let columns: string[] = [];
   if (sample.length > 0) {
     const keys = Array.from(new Set(sample.flatMap(r => Object.keys(r ?? {}))));
@@ -955,10 +1015,14 @@ function LivePreviewCard({
       const priority = [rowKey, columnKey, ...values].filter(Boolean);
       const rest = keys.filter(k => !priority.includes(k));
       columns = [...priority.filter(k => keys.includes(k)), ...rest].slice(0, 8);
+    } else if (layout === 'tabular' && selectedColumns && selectedColumns.length > 0) {
+      columns = selectedColumns.filter(k => keys.includes(k)).slice(0, 12);
+      if (columns.length === 0) columns = keys.slice(0, 8);
     } else {
       columns = keys.slice(0, 8);
     }
   }
+
 
   return (
     <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
