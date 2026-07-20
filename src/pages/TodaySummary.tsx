@@ -2244,8 +2244,8 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button 
+        <div className="grid grid-cols-3 gap-2">
+          <Button
             onClick={handleDownloadPDF}
             className="flex items-center gap-2 text-xs sm:text-sm"
           >
@@ -2253,7 +2253,55 @@ export const TodaySummary = () => {
             <span className="hidden sm:inline">Download PDF</span>
             <span className="sm:hidden">PDF</span>
           </Button>
-          <ReportGenerator 
+          <Button
+            variant="outline"
+            onClick={() => {
+              const dateISO = format(selectedDate, "yyyy-MM-dd");
+              const esc = (v: any) => {
+                const s = String(v ?? "");
+                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+              };
+              const rows: string[] = [
+                ["Retailer", "Beat", "Payment", "Item", "Qty", "Unit", "Rate", "Amount"].join(","),
+              ];
+              const active = (rawOrders || []).filter(
+                (o) => (o.status || "").toLowerCase() !== "replaced" && !o.replaced_by_order_id,
+              );
+              const byRetailer = new Map<string, { name: string; beat: string; payment: string; items: Map<string, { p: string; u: string; q: number; r: number; a: number }> }>();
+              for (const o of active) {
+                const key = o.retailer_id || o.retailer_name || "unknown";
+                const name = o.retailer_name || "Unknown";
+                const beat = o.beat_name || (o.retailer_id && retailerBeatMap.get(o.retailer_id)) || "—";
+                const pm = (o.payment_method || "").toLowerCase();
+                const payment = o.is_credit_order || pm === "credit" ? "Credit" : "Cash";
+                let agg = byRetailer.get(key);
+                if (!agg) { agg = { name, beat, payment, items: new Map() }; byRetailer.set(key, agg); }
+                for (const it of o.order_items || []) {
+                  const p = (it.product_name || "").trim() || "Unknown";
+                  const u = (it.unit || "").trim() || "Pcs";
+                  const k = `${p}|${u.toLowerCase()}`;
+                  const cur = agg.items.get(k) || { p, u, q: 0, r: 0, a: 0 };
+                  cur.q += Number(it.quantity) || 0;
+                  cur.a += Number(it.total) || 0;
+                  cur.r = Number(it.rate) || cur.r;
+                  agg.items.set(k, cur);
+                }
+              }
+              for (const r of byRetailer.values()) {
+                for (const it of r.items.values()) {
+                  const qty = Number.isInteger(it.q) ? String(it.q) : it.q.toFixed(2).replace(/\.?0+$/, "");
+                  rows.push([r.name, r.beat, r.payment, it.p, qty, it.u, Math.round(it.r), Math.round(it.a)].map(esc).join(","));
+                }
+              }
+              import("@/utils/fileDownloader").then((m) => m.downloadCSV(rows.join("\n"), `today-summary-${dateISO}.csv`));
+            }}
+            className="flex items-center gap-2 text-xs sm:text-sm"
+          >
+            <Download size={16} />
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">CSV</span>
+          </Button>
+          <ReportGenerator
             data={retailerReportData}
             generalReportData={generalReportData}
             selectedUserName={isManager ? selectedUserName : undefined}
@@ -2267,6 +2315,7 @@ export const TodaySummary = () => {
             }
           />
         </div>
+
 
         {/* Selected Period Information - Beat on top, times below */}
         <Card className="shadow-card">
