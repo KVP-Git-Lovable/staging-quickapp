@@ -32,6 +32,7 @@ import { useSubordinates } from "@/hooks/useSubordinates";
 import { useActivityTypes } from "@/hooks/useActivityTypes";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { RetailersDrilldown, type RawOrder } from "@/components/today-summary/RetailersDrilldown";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
