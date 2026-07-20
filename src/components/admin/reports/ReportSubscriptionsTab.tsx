@@ -550,26 +550,58 @@ function Step1Body(p: Step1Props) {
     p.setValues(v => v.includes(k) ? v.filter(x => x !== k) : [...v, k]);
   };
 
+  // Debounce config changes so we don't spam the RPC on every keystroke/drop
+  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values });
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values }), 250);
+    return () => clearTimeout(t);
+  }, [datasetKey, layout, rows, columns, values]);
+
   // Live preview — real RPC call (last 30 days window)
   const preview = useQuery({
-    queryKey: ['report-preview', datasetKey, layout, rows, columns, values.join(',')],
-    enabled: !!dataset && values.length > 0,
+    queryKey: [
+      'report-preview',
+      debounced.datasetKey,
+      debounced.layout,
+      debounced.rows,
+      debounced.columns,
+      debounced.values.join(','),
+    ],
+    enabled: !!dataset && !!dataset.source && debounced.values.length > 0,
+    retry: false,
     queryFn: async () => {
       const today = new Date();
       const from = new Date(today);
       from.setDate(from.getDate() - 30);
       const iso = (d: Date) => d.toISOString().slice(0, 10);
-      const { data, error } = await supabase.rpc(dataset!.source as any, {
-        p_layout: layout,
-        p_rows: rows || null,
-        p_columns: layout === 'matrix' ? (columns || null) : null,
-        p_values: values,
+      const payload = {
+        p_layout: debounced.layout,
+        p_rows: debounced.rows || null,
+        p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
+        p_values: debounced.values,
         p_filters: { date_from: iso(from), date_to: iso(today) },
-      } as any);
-      if (error) throw error;
+      };
+      // eslint-disable-next-line no-console
+      console.debug('[ReportPreview] rpc', dataset!.source, payload);
+      const { data, error } = await supabase.rpc(dataset!.source as any, payload as any);
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[ReportPreview] error', error);
+        throw error;
+      }
+      // eslint-disable-next-line no-console
+      console.debug('[ReportPreview] rows', Array.isArray(data) ? data.length : data);
       return (data ?? []) as any[];
     },
   });
+
+  const previewState: 'idle' | 'loading' | 'error' | 'empty' | 'data' =
+    !dataset ? 'idle'
+    : values.length === 0 ? 'idle'
+    : preview.isLoading || preview.isFetching ? 'loading'
+    : preview.error ? 'error'
+    : (preview.data ?? []).length === 0 ? 'empty'
+    : 'data';
 
   return (
     <div className="space-y-6">
