@@ -166,6 +166,39 @@
   .copilot-question-card:hover {
     background: hsl(var(--copilot-card-hover));
   }
+
+  /* Today Summary — light, modern polish */
+  .today-summary {
+    background:
+      radial-gradient(1200px 500px at 10% -10%, hsl(220 90% 96%) 0%, transparent 60%),
+      radial-gradient(900px 400px at 100% 0%, hsl(35 90% 95%) 0%, transparent 55%),
+      linear-gradient(180deg, hsl(210 40% 99%), hsl(0 0% 100%));
+  }
+  .today-summary .shadow-card {
+    box-shadow:
+      0 1px 2px hsl(220 39% 11% / 0.04),
+      0 8px 24px -12px hsl(220 39% 11% / 0.10);
+    border-color: hsl(220 20% 92%);
+    border-radius: 14px;
+    background: hsl(0 0% 100%);
+  }
+  .today-summary .ts-hero {
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(210 40% 99%) 100%);
+    border: 1px solid hsl(220 20% 92%);
+  }
+  .today-summary .ts-hero::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: linear-gradient(180deg, hsl(220 39% 25%), hsl(35 80% 55%));
+  }
+  .today-summary h3, .today-summary h2 {
+    font-family: 'Sora', sans-serif;
+  }
 }
 
 
