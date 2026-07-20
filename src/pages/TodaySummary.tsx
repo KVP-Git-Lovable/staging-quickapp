@@ -32,6 +32,7 @@ import { useSubordinates } from "@/hooks/useSubordinates";
 import { useActivityTypes } from "@/hooks/useActivityTypes";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { RetailersDrilldown, type RawOrder } from "@/components/today-summary/RetailersDrilldown";
 
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
@@ -109,6 +110,8 @@ export const TodaySummary = () => {
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; qty: number; unit: string; qtyFormatted: string; revenue: number; kgSold: number; kgFormatted: string }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
+  const [rawOrders, setRawOrders] = useState<RawOrder[]>([]);
+  const [retailerBeatMap, setRetailerBeatMap] = useState<Map<string, string>>(new Map());
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number; beatName?: string; address?: string; planDate?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
   const [showAllProducts, setShowAllProducts] = useState(false);
@@ -1241,6 +1244,15 @@ export const TodaySummary = () => {
       }) || [];
 
       setOrders(ordersData);
+      setRawOrders((todayOrders || []) as RawOrder[]);
+      // Build retailer→beat map from beat plan data already loaded
+      const rbMap = new Map<string, string>();
+      beatPlanRetailersByDate.forEach((row: any) => {
+        if (row.retailerId && row.beatName && !rbMap.has(row.retailerId)) {
+          rbMap.set(row.retailerId, row.beatName);
+        }
+      });
+      setRetailerBeatMap(rbMap);
 
       // Calculate payment method breakdown for pie chart
       const paymentMethodMap = new Map<string, { amount: number; count: number }>();
@@ -2080,8 +2092,9 @@ export const TodaySummary = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen">
-        <div className="container mx-auto p-4 space-y-4">
+      <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background">
+        <div className="container mx-auto p-4 space-y-4 max-w-5xl">
+
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-3 space-y-3">
@@ -2232,8 +2245,8 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-2">
-          <Button 
+        <div className="grid grid-cols-3 gap-2">
+          <Button
             onClick={handleDownloadPDF}
             className="flex items-center gap-2 text-xs sm:text-sm"
           >
@@ -2241,7 +2254,55 @@ export const TodaySummary = () => {
             <span className="hidden sm:inline">Download PDF</span>
             <span className="sm:hidden">PDF</span>
           </Button>
-          <ReportGenerator 
+          <Button
+            variant="outline"
+            onClick={() => {
+              const dateISO = format(selectedDate, "yyyy-MM-dd");
+              const esc = (v: any) => {
+                const s = String(v ?? "");
+                return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+              };
+              const rows: string[] = [
+                ["Retailer", "Beat", "Payment", "Item", "Qty", "Unit", "Rate", "Amount"].join(","),
+              ];
+              const active = (rawOrders || []).filter(
+                (o) => (o.status || "").toLowerCase() !== "replaced" && !o.replaced_by_order_id,
+              );
+              const byRetailer = new Map<string, { name: string; beat: string; payment: string; items: Map<string, { p: string; u: string; q: number; r: number; a: number }> }>();
+              for (const o of active) {
+                const key = o.retailer_id || o.retailer_name || "unknown";
+                const name = o.retailer_name || "Unknown";
+                const beat = o.beat_name || (o.retailer_id && retailerBeatMap.get(o.retailer_id)) || "—";
+                const pm = (o.payment_method || "").toLowerCase();
+                const payment = o.is_credit_order || pm === "credit" ? "Credit" : "Cash";
+                let agg = byRetailer.get(key);
+                if (!agg) { agg = { name, beat, payment, items: new Map() }; byRetailer.set(key, agg); }
+                for (const it of o.order_items || []) {
+                  const p = (it.product_name || "").trim() || "Unknown";
+                  const u = (it.unit || "").trim() || "Pcs";
+                  const k = `${p}|${u.toLowerCase()}`;
+                  const cur = agg.items.get(k) || { p, u, q: 0, r: 0, a: 0 };
+                  cur.q += Number(it.quantity) || 0;
+                  cur.a += Number(it.total) || 0;
+                  cur.r = Number(it.rate) || cur.r;
+                  agg.items.set(k, cur);
+                }
+              }
+              for (const r of byRetailer.values()) {
+                for (const it of r.items.values()) {
+                  const qty = Number.isInteger(it.q) ? String(it.q) : it.q.toFixed(2).replace(/\.?0+$/, "");
+                  rows.push([r.name, r.beat, r.payment, it.p, qty, it.u, Math.round(it.r), Math.round(it.a)].map(esc).join(","));
+                }
+              }
+              import("@/utils/fileDownloader").then((m) => m.downloadCSV(rows.join("\n"), `today-summary-${dateISO}.csv`));
+            }}
+            className="flex items-center gap-2 text-xs sm:text-sm"
+          >
+            <Download size={16} />
+            <span className="hidden sm:inline">Export CSV</span>
+            <span className="sm:hidden">CSV</span>
+          </Button>
+          <ReportGenerator
             data={retailerReportData}
             generalReportData={generalReportData}
             selectedUserName={isManager ? selectedUserName : undefined}
@@ -2255,6 +2316,7 @@ export const TodaySummary = () => {
             }
           />
         </div>
+
 
         {/* Selected Period Information - Beat on top, times below */}
         <Card className="shadow-card">
@@ -2584,6 +2646,16 @@ export const TodaySummary = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Retailers Drill-down */}
+        <RetailersDrilldown
+          orders={rawOrders}
+          loading={loading}
+          dateISO={format(selectedDate, "yyyy-MM-dd")}
+          retailerBeatMap={retailerBeatMap}
+        />
+
+
 
         {/* Joint Sales Highlight Section */}
         {jointSalesData && (
