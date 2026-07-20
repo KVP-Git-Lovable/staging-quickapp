@@ -550,26 +550,58 @@ function Step1Body(p: Step1Props) {
     p.setValues(v => v.includes(k) ? v.filter(x => x !== k) : [...v, k]);
   };
 
+  // Debounce config changes so we don't spam the RPC on every keystroke/drop
+  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values });
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values }), 250);
+    return () => clearTimeout(t);
+  }, [datasetKey, layout, rows, columns, values]);
+
   // Live preview — real RPC call (last 30 days window)
   const preview = useQuery({
-    queryKey: ['report-preview', datasetKey, layout, rows, columns, values.join(',')],
-    enabled: !!dataset && values.length > 0,
+    queryKey: [
+      'report-preview',
+      debounced.datasetKey,
+      debounced.layout,
+      debounced.rows,
+      debounced.columns,
+      debounced.values.join(','),
+    ],
+    enabled: !!dataset && !!dataset.source && debounced.values.length > 0,
+    retry: false,
     queryFn: async () => {
       const today = new Date();
       const from = new Date(today);
       from.setDate(from.getDate() - 30);
       const iso = (d: Date) => d.toISOString().slice(0, 10);
-      const { data, error } = await supabase.rpc(dataset!.source as any, {
-        p_layout: layout,
-        p_rows: rows || null,
-        p_columns: layout === 'matrix' ? (columns || null) : null,
-        p_values: values,
+      const payload = {
+        p_layout: debounced.layout,
+        p_rows: debounced.rows || null,
+        p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
+        p_values: debounced.values,
         p_filters: { date_from: iso(from), date_to: iso(today) },
-      } as any);
-      if (error) throw error;
+      };
+      // eslint-disable-next-line no-console
+      console.debug('[ReportPreview] rpc', dataset!.source, payload);
+      const { data, error } = await supabase.rpc(dataset!.source as any, payload as any);
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[ReportPreview] error', error);
+        throw error;
+      }
+      // eslint-disable-next-line no-console
+      console.debug('[ReportPreview] rows', Array.isArray(data) ? data.length : data);
       return (data ?? []) as any[];
     },
   });
+
+  const previewState: 'idle' | 'loading' | 'error' | 'empty' | 'data' =
+    !dataset ? 'idle'
+    : values.length === 0 ? 'idle'
+    : preview.isLoading || preview.isFetching ? 'loading'
+    : preview.error ? 'error'
+    : (preview.data ?? []).length === 0 ? 'empty'
+    : 'data';
 
   return (
     <div className="space-y-6">
@@ -756,11 +788,15 @@ function Step1Body(p: Step1Props) {
 
       {/* Live preview */}
       <LivePreviewCard
-        loading={preview.isLoading}
+        state={previewState}
         error={preview.error as any}
         rows={preview.data ?? []}
         layout={layout}
+        rowKey={rows}
+        columnKey={columns}
+        values={values}
       />
+
 
       <DialogFooter className="pt-2">
         <Button variant="ghost" onClick={p.onCancel}>Cancel</Button>
@@ -899,26 +935,55 @@ function MeasurePill({ label, onRemove }: { label: string; onRemove: () => void 
 }
 
 function LivePreviewCard({
-  loading, error, rows, layout,
-}: { loading: boolean; error: Error | null; rows: any[]; layout: string }) {
-  const sample = rows.slice(0, 6);
-  const columns = sample.length > 0 ? Object.keys(sample[0]).slice(0, 6) : [];
+  state, error, rows, layout, rowKey, columnKey, values,
+}: {
+  state: 'idle' | 'loading' | 'error' | 'empty' | 'data';
+  error: Error | null;
+  rows: any[];
+  layout: string;
+  rowKey: string;
+  columnKey: string;
+  values: string[];
+}) {
+  const sample = rows.slice(0, 8);
+
+  // Build columns from returned keys. For matrix, prefer row/column dims first then measures.
+  let columns: string[] = [];
+  if (sample.length > 0) {
+    const keys = Array.from(new Set(sample.flatMap(r => Object.keys(r ?? {}))));
+    if (layout === 'matrix') {
+      const priority = [rowKey, columnKey, ...values].filter(Boolean);
+      const rest = keys.filter(k => !priority.includes(k));
+      columns = [...priority.filter(k => keys.includes(k)), ...rest].slice(0, 8);
+    } else {
+      columns = keys.slice(0, 8);
+    }
+  }
 
   return (
     <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-border/60 text-xs font-medium text-muted-foreground">
-        Live preview
+      <div className="px-4 py-2.5 border-b border-border/60 text-xs font-medium text-muted-foreground flex items-center justify-between">
+        <span>Live preview</span>
+        {state === 'data' && (
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
+            {rows.length} row{rows.length === 1 ? '' : 's'} · showing {sample.length}
+          </span>
+        )}
       </div>
       <div className="p-3 min-h-[80px]">
-        {loading ? (
+        {state === 'idle' ? (
+          <div className="text-xs text-muted-foreground py-4 text-center">
+            Add at least one measure to see a live preview from the last 30 days.
+          </div>
+        ) : state === 'loading' ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching preview…
           </div>
-        ) : error ? (
-          <div className="text-xs text-muted-foreground py-4 text-center">
-            Preview unavailable — {(error as any)?.message || 'RPC error'}. Live data will populate on delivery.
+        ) : state === 'error' ? (
+          <div className="text-xs text-destructive py-4 text-center">
+            Preview error — {error?.message || 'RPC failed'}
           </div>
-        ) : sample.length === 0 ? (
+        ) : state === 'empty' ? (
           <div className="text-xs text-muted-foreground py-4 text-center">
             No rows in the last 30 days for this configuration.
           </div>
@@ -927,38 +992,41 @@ function LivePreviewCard({
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-muted-foreground border-b border-border/60">
-                  {columns.map((c, i) => (
-                    <th
-                      key={c}
-                      className={cn(
-                        'text-left font-medium px-2 py-1.5 capitalize',
-                        i === columns.length - 1 && layout === 'matrix' && 'bg-[#eeedfe]/50 text-[#534ab7]',
-                      )}
-                    >
-                      {c.replace(/_/g, ' ')}
-                    </th>
-                  ))}
+                  {columns.map((c) => {
+                    const isMeasure = values.includes(c);
+                    return (
+                      <th
+                        key={c}
+                        className={cn(
+                          'text-left font-medium px-2 py-1.5 capitalize whitespace-nowrap',
+                          isMeasure && layout === 'matrix' && 'bg-[#eeedfe]/50 text-[#534ab7]',
+                        )}
+                      >
+                        {c.replace(/_/g, ' ')}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {sample.map((r, i) => {
-                  const isLastRow = layout === 'matrix' && i === sample.length - 1;
-                  return (
-                    <tr key={i} className={cn('border-b border-border/40 last:border-0', isLastRow && 'bg-[#eeedfe]/40')}>
-                      {columns.map((c, ci) => (
+                {sample.map((r, i) => (
+                  <tr key={i} className="border-b border-border/40 last:border-0">
+                    {columns.map((c) => {
+                      const isMeasure = values.includes(c);
+                      return (
                         <td
                           key={c}
                           className={cn(
-                            'px-2 py-1.5 text-foreground',
-                            ci === columns.length - 1 && layout === 'matrix' && 'bg-[#eeedfe]/40 font-medium',
+                            'px-2 py-1.5 text-foreground whitespace-nowrap',
+                            isMeasure && layout === 'matrix' && 'bg-[#eeedfe]/40 font-medium',
                           )}
                         >
-                          {formatCell(r[c])}
+                          {formatCell(r?.[c])}
                         </td>
-                      ))}
-                    </tr>
-                  );
-                })}
+                      );
+                    })}
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -967,6 +1035,7 @@ function LivePreviewCard({
     </div>
   );
 }
+
 
 function formatCell(v: any): string {
   if (v == null) return '—';
