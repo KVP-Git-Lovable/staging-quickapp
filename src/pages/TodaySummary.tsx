@@ -2092,8 +2092,9 @@ export const TodaySummary = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen">
-        <div className="container mx-auto p-4 space-y-4">
+      <div className="min-h-screen bg-gradient-to-b from-muted/30 via-background to-background">
+        <div className="container mx-auto p-4 space-y-4 max-w-5xl">
+
         {/* Header */}
         <Card className="shadow-card bg-gradient-primary text-primary-foreground">
           <CardHeader className="pb-3 space-y-3">
