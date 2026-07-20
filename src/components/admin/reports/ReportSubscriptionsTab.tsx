@@ -297,18 +297,24 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
         if (sErr) throw sErr;
       } else {
         const { data, error } = await supabase.rpc('create_report_subscription', {
-          p_name: name,
-          p_dataset_key: datasetKey,
-          p_layout: layout,
-          p_config: config,
-          p_cadence: cadence,
-          p_fire_day: cadence === 'weekly' || cadence === 'monthly' ? fireDay : null,
-          p_fire_time: fireTime,
-          p_timezone: timezone,
-          p_recipient_user_ids: recipientIds,
-          p_attachment_format: format,
-          p_push_to_phone: pushToPhone,
-          p_scope: scope,
+          p_definition: {
+            name,
+            dataset_key: datasetKey,
+            layout,
+            config,
+          },
+          p_subscription: {
+            name,
+            cadence,
+            fire_day: cadence === 'weekly' || cadence === 'monthly' ? fireDay : null,
+            fire_time: fireTime,
+            timezone,
+            recipient_user_ids: recipientIds,
+            attachment_format: format,
+            push_to_phone: pushToPhone,
+            scope,
+            status: 'active',
+          },
         });
         if (error) throw error;
         return data;
