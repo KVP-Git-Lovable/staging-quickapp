@@ -788,11 +788,15 @@ function Step1Body(p: Step1Props) {
 
       {/* Live preview */}
       <LivePreviewCard
-        loading={preview.isLoading}
+        state={previewState}
         error={preview.error as any}
         rows={preview.data ?? []}
         layout={layout}
+        rowKey={rows}
+        columnKey={columns}
+        values={values}
       />
+
 
       <DialogFooter className="pt-2">
         <Button variant="ghost" onClick={p.onCancel}>Cancel</Button>
