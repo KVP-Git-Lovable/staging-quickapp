@@ -527,8 +527,9 @@ interface Step1Props {
   datasets: Dataset[];
   datasetKey: string; setDatasetKey: (v: string) => void;
   layout: string; setLayout: (v: string) => void;
-  rows: string; setRows: (v: string) => void;
+  rows: string[]; setRows: React.Dispatch<React.SetStateAction<string[]>>;
   columns: string; setColumns: (v: string) => void;
+
   values: string[]; setValues: React.Dispatch<React.SetStateAction<string[]>>;
   dataset: Dataset | undefined;
   onCancel: () => void;
