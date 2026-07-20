@@ -648,10 +648,10 @@ function Step1Body(p: Step1Props) {
             <div className="text-xs font-medium text-muted-foreground px-1 pb-2">Fields</div>
             <div className="space-y-1">
               {dims.map(d => (
-                <FieldRow key={d.key} label={d.label} kind="dim" />
+                <FieldRow key={d.key} fieldKey={d.key} label={d.label} kind="dim" />
               ))}
               {measures.map(m => (
-                <FieldRow key={m.key} label={m.label} kind="msr" />
+                <FieldRow key={m.key} fieldKey={m.key} label={m.label} kind="msr" />
               ))}
             </div>
           </div>
