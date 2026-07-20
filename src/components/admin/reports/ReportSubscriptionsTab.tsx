@@ -271,7 +271,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
       if (!name.trim()) throw new Error('Name is required');
       if (!datasetKey) throw new Error('Dataset is required');
       if (recipientIds.length === 0) throw new Error('Add at least one recipient');
-      if (values.length === 0) throw new Error('Pick at least one measure');
+      if (values.length === 0 && !(layout === 'tabular' && rows.length > 0)) throw new Error('Pick at least one field for the report');
 
       const config = {
         rows,
