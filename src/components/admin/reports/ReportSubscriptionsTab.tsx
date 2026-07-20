@@ -467,6 +467,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             </DialogFooter>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
