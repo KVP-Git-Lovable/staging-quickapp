@@ -2646,6 +2646,16 @@ export const TodaySummary = () => {
           </CardContent>
         </Card>
 
+        {/* Retailers Drill-down */}
+        <RetailersDrilldown
+          orders={rawOrders}
+          loading={loading}
+          dateISO={format(selectedDate, "yyyy-MM-dd")}
+          retailerBeatMap={retailerBeatMap}
+        />
+
+
+
         {/* Joint Sales Highlight Section */}
         {jointSalesData && (
           <Card className="shadow-card border-purple-200 bg-purple-50/50">
