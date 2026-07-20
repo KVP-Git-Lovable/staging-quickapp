@@ -12,6 +12,8 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { NotificationRuleForm } from '@/components/admin/NotificationRuleForm';
 import { BannerHistorySection } from '@/components/admin/BannerHistorySection';
+import { ReportSubscriptionsTab } from '@/components/admin/reports/ReportSubscriptionsTab';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 
 interface NotificationRule {
@@ -149,104 +151,120 @@ const NotificationRulesAdmin = () => {
         <div className="w-full space-y-6">
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-foreground">Notification Rules</h1>
-              <p className="text-muted-foreground text-sm">Configure event-based notification rules</p>
+              <h1 className="text-2xl font-bold text-foreground">Notifications & Reports</h1>
+              <p className="text-muted-foreground text-sm">Manage automated notification rules and scheduled report subscriptions</p>
             </div>
-            <Button onClick={() => { setEditingRule(null); setShowForm(true); }} className="gap-2">
-              <Plus size={16} /> Add Rule
-            </Button>
           </div>
 
-          {showForm && (
-            <NotificationRuleForm
-              rule={editingRule}
-              userId={user?.id || ''}
-              onClose={handleClose}
-              onSaved={() => {
-                queryClient.invalidateQueries({ queryKey: ['notification-rules'] });
-                handleClose();
-              }}
-            />
-          )}
+          <Tabs defaultValue="rules" className="w-full">
+            <TabsList>
+              <TabsTrigger value="rules">Notification Rules</TabsTrigger>
+              <TabsTrigger value="reports">Report Subscriptions</TabsTrigger>
+            </TabsList>
 
-          <BannerHistorySection />
+            <TabsContent value="rules" className="space-y-6">
+              <div className="flex justify-end">
+                <Button onClick={() => { setEditingRule(null); setShowForm(true); }} className="gap-2">
+                  <Plus size={16} /> Add Rule
+                </Button>
+              </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Bell size={18} /> Active Rules ({rules.filter(r => r.is_active).length} / {rules.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                </div>
-              ) : rules.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Bell className="mx-auto h-12 w-12 mb-3 opacity-30" />
-                  <p>No notification rules configured yet</p>
-                  <p className="text-xs mt-1">Create your first rule to start sending automated notifications</p>
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Event</TableHead>
-                      <TableHead>Source</TableHead>
-                      <TableHead>Receiver</TableHead>
-                      <TableHead>Channel</TableHead>
-                      <TableHead>Active</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rules.map((rule) => (
-                      <TableRow key={rule.id}>
-                        <TableCell className="font-medium">{rule.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">{rule.event_code}</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{rule.source_table}</TableCell>
-                        <TableCell className="text-sm">{receiverLabel(rule)}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="text-xs">{rule.notification_channel}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={rule.is_active}
-                            onCheckedChange={(checked) => toggleMutation.mutate({ id: rule.id, is_active: checked })}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right space-x-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Fire now (send test notification to receivers)"
-                            disabled={fireMutation.isPending}
-                            onClick={() => {
-                              if (window.confirm(`Fire "${rule.name}" now? A [TEST] notification will be sent to its configured receivers.`)) {
-                                fireMutation.mutate(rule);
-                              }
-                            }}
-                          >
-                            <Zap size={14} className="text-amber-500" />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
-                            <Pencil size={14} />
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(rule.id)}>
-                            <Trash2 size={14} className="text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              {showForm && (
+                <NotificationRuleForm
+                  rule={editingRule}
+                  userId={user?.id || ''}
+                  onClose={handleClose}
+                  onSaved={() => {
+                    queryClient.invalidateQueries({ queryKey: ['notification-rules'] });
+                    handleClose();
+                  }}
+                />
               )}
-            </CardContent>
-          </Card>
+
+              <BannerHistorySection />
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Bell size={18} /> Active Rules ({rules.filter(r => r.is_active).length} / {rules.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                    </div>
+                  ) : rules.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Bell className="mx-auto h-12 w-12 mb-3 opacity-30" />
+                      <p>No notification rules configured yet</p>
+                      <p className="text-xs mt-1">Create your first rule to start sending automated notifications</p>
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Event</TableHead>
+                          <TableHead>Source</TableHead>
+                          <TableHead>Receiver</TableHead>
+                          <TableHead>Channel</TableHead>
+                          <TableHead>Active</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rules.map((rule) => (
+                          <TableRow key={rule.id}>
+                            <TableCell className="font-medium">{rule.name}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs">{rule.event_code}</Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{rule.source_table}</TableCell>
+                            <TableCell className="text-sm">{receiverLabel(rule)}</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-xs">{rule.notification_channel}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Switch
+                                checked={rule.is_active}
+                                onCheckedChange={(checked) => toggleMutation.mutate({ id: rule.id, is_active: checked })}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Fire now (send test notification to receivers)"
+                                disabled={fireMutation.isPending}
+                                onClick={() => {
+                                  if (window.confirm(`Fire "${rule.name}" now? A [TEST] notification will be sent to its configured receivers.`)) {
+                                    fireMutation.mutate(rule);
+                                  }
+                                }}
+                              >
+                                <Zap size={14} className="text-amber-500" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleEdit(rule)}>
+                                <Pencil size={14} />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => deleteMutation.mutate(rule.id)}>
+                                <Trash2 size={14} className="text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="reports">
+              <ReportSubscriptionsTab />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </Layout>
