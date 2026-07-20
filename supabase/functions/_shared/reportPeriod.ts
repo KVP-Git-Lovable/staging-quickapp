@@ -25,40 +25,42 @@ function isoWeek(d: Date): { year: number; week: number } {
 }
 
 /**
- * Compute reporting period for a cadence. The period is "the last completed slice"
- * relative to `now` — e.g. daily = yesterday, weekly = previous ISO week, monthly = previous month.
+ * Compute reporting period for a cadence.
+ *
+ * Same-day cadences (daily / weekday / weekly) are CURRENT-DAY-TO-DATE — e.g. the
+ * 11:00 attendance summary or the 19:00 EOD run should report today up to `now`,
+ * NOT yesterday. This matches the real-world use of "morning attendance" and
+ * "end-of-day" digests. Only Monthly looks back a full completed period.
  */
 export function computePeriod(cadence: string, now: Date = new Date()): Period {
-  const y = new Date(now);
-  y.setUTCDate(y.getUTCDate() - 1);
+  const today = new Date(now);
+  const todayStr = fmt(today);
 
   if (cadence === 'daily' || cadence === 'weekday') {
     return {
-      key: fmt(y),
-      label: y.toISOString().slice(0, 10),
-      date_from: fmt(y),
-      date_to: fmt(y),
+      key: todayStr,
+      label: todayStr,
+      date_from: todayStr,
+      date_to: todayStr,
     };
   }
 
   if (cadence === 'weekly') {
-    // Previous ISO week: Monday .. Sunday
+    // Current ISO week — Monday..today (week-to-date)
     const w = new Date(now);
     const dayNr = (w.getUTCDay() + 6) % 7;
-    w.setUTCDate(w.getUTCDate() - dayNr - 7); // Monday of previous week
+    w.setUTCDate(w.getUTCDate() - dayNr); // Monday of current week
     const from = new Date(w);
-    const to = new Date(w);
-    to.setUTCDate(to.getUTCDate() + 6);
     const iw = isoWeek(from);
     return {
       key: `${iw.year}-W${String(iw.week).padStart(2, '0')}`,
-      label: `Week ${iw.week}, ${iw.year}`,
+      label: `Week ${iw.week}, ${iw.year} (to date)`,
       date_from: fmt(from),
-      date_to: fmt(to),
+      date_to: todayStr,
     };
   }
 
-  // monthly: previous calendar month
+  // monthly: previous calendar month (only cadence that looks back a full period)
   const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const prevLast = new Date(first.valueOf() - 86400000);
   const prevFirst = new Date(Date.UTC(prevLast.getUTCFullYear(), prevLast.getUTCMonth(), 1));
