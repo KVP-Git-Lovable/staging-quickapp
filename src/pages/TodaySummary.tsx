@@ -2373,67 +2373,61 @@ export const TodaySummary = () => {
         </Card>
 
         {/* Key Metrics */}
-        <Card className="shadow-card">
-          <CardHeader>
-            <CardTitle className="text-lg">Key Metrics</CardTitle>
+        <Card className="shadow-card border-slate-200/70">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Key Metrics</CardTitle>
+              <span className="text-[11px] text-muted-foreground">Tap any tile for details</span>
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div
-                role="button"
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+              <MetricTile
+                tone="indigo"
+                icon={<Wallet size={16} />}
+                label="Total Order Value"
+                value={`₹${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`}
+                loading={loading}
                 onClick={openRetailerValueDialog}
-                className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition overflow-hidden"
-              >
-                <div className="text-xl font-bold text-primary break-words">
-                  {loading ? "Loading..." : `₹${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Total Order Value</div>
-              </div>
-              <div
-                role="button"
+                seed={summaryData.totalOrderValue || 1}
+              />
+              <MetricTile
+                tone="emerald"
+                icon={<FileText size={16} />}
+                label="Orders Placed"
+                value={summaryData.totalOrders}
+                loading={loading}
                 onClick={() => openOrdersDialog("Orders Placed")}
-                className="text-center p-4 bg-success/10 rounded-lg cursor-pointer hover:bg-success/20 transition"
-              >
-                <div className="text-2xl font-bold text-success">
-                  {loading ? "Loading..." : summaryData.totalOrders}
-                </div>
-                <div className="text-sm text-muted-foreground">Orders Placed</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div
-                role="button"
+                seed={summaryData.totalOrders + 3}
+              />
+              <MetricTile
+                tone="amber"
+                icon={<BarChart3 size={16} />}
+                label="Total Qty Sold"
+                value={summaryData.totalKgSoldFormatted}
+                loading={loading}
                 onClick={openKgBreakdownDialog}
-                className="text-center p-3 bg-warning/10 rounded-lg cursor-pointer hover:bg-warning/20 transition"
-              >
-                <div className="text-lg font-bold text-warning">
-                  {loading ? "Loading..." : summaryData.totalKgSoldFormatted}
-                </div>
-                <div className="text-sm text-muted-foreground">Total Qty Sold</div>
-              </div>
-              <div className="text-center p-3 bg-muted rounded-lg">
-                <div className="text-lg font-bold">
-                  {loading ? "Loading..." : `₹${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`}
-                </div>
-                <div className="text-sm text-muted-foreground">Avg Order Value</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              <div
-                role="button"
+                seed={summaryData.totalKgSold + 7}
+              />
+              <MetricTile
+                tone="rose"
+                icon={<CreditCard size={16} />}
+                label="Avg Order Value"
+                value={`₹${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`}
+                loading={loading}
+                seed={summaryData.avgOrderValue + 11}
+              />
+              <MetricTile
+                tone="slate"
+                icon={<Users size={16} />}
+                label="Points Earned"
+                value={pointsEarnedToday}
+                hint="Tap to view Leaderboard"
+                loading={loading}
                 onClick={() => navigate('/leaderboard')}
-                className="text-center p-4 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 rounded-lg cursor-pointer hover:from-amber-500/15 hover:to-yellow-500/15 transition border border-amber-500/20"
-              >
-                <div className="text-2xl font-bold text-amber-600">
-                  {loading ? "Loading..." : pointsEarnedToday}
-                </div>
-                <div className="text-sm text-amber-600/80 font-medium">Points Earned</div>
-                <div className="text-xs text-muted-foreground mt-1">Tap to view Leaderboard</div>
-              </div>
+                seed={pointsEarnedToday + 13}
+              />
             </div>
-
           </CardContent>
         </Card>
 
