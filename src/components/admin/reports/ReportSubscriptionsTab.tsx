@@ -603,7 +603,7 @@ function Step1Body(p: Step1Props) {
 
   const previewState: 'idle' | 'loading' | 'error' | 'empty' | 'data' =
     !dataset ? 'idle'
-    : values.length === 0 ? 'idle'
+    : (values.length === 0 && !(layout === 'tabular' && rows.length > 0)) ? 'idle'
     : preview.isLoading || preview.isFetching ? 'loading'
     : preview.error ? 'error'
     : (preview.data ?? []).length === 0 ? 'empty'
