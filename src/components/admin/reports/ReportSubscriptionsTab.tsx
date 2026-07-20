@@ -945,8 +945,55 @@ function MeasurePill({ label, onRemove }: { label: string; onRemove: () => void 
   );
 }
 
+function ZoneMulti({
+  value, onChange, dims, measures,
+}: {
+  value: string[];
+  onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  dims: Array<{ key: string; label: string }>;
+  measures: Array<{ key: string; label: string }>;
+}) {
+  const all = [...dims.map(d => ({ ...d, kind: 'dim' as const })), ...measures.map(m => ({ ...m, kind: 'msr' as const }))];
+  const labelOf = (k: string) => all.find(o => o.key === k)?.label ?? k;
+  const kindOf = (k: string) => all.find(o => o.key === k)?.kind ?? 'dim';
+  const remaining = all.filter(o => !value.includes(o.key));
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {value.length === 0 && (
+        <span className="text-xs text-muted-foreground italic px-1 py-1">Drop dimensions or measures — they become the preview columns.</span>
+      )}
+      {value.map(k => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => onChange(prev => prev.filter(x => x !== k))}
+          className={cn(
+            'text-xs rounded-full px-2.5 py-1 border border-transparent',
+            kindOf(k) === 'dim'
+              ? 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400'
+              : 'bg-[#eeedfe] text-[#534ab7] hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white',
+          )}
+          title="Click to remove"
+        >
+          {labelOf(k)}
+        </button>
+      ))}
+      {remaining.map(o => (
+        <button
+          key={o.key}
+          type="button"
+          onClick={() => onChange(prev => [...prev, o.key])}
+          className="text-xs rounded-full border border-dashed border-border px-2.5 py-1 text-muted-foreground hover:text-foreground hover:border-solid"
+        >
+          + {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function LivePreviewCard({
-  state, error, rows, layout, rowKey, columnKey, values,
+  state, error, rows, layout, rowKey, columnKey, values, selectedColumns,
 }: {
   state: 'idle' | 'loading' | 'error' | 'empty' | 'data';
   error: Error | null;
@@ -955,10 +1002,12 @@ function LivePreviewCard({
   rowKey: string;
   columnKey: string;
   values: string[];
+  selectedColumns?: string[];
 }) {
   const sample = rows.slice(0, 8);
 
-  // Build columns from returned keys. For matrix, prefer row/column dims first then measures.
+  // Build columns from returned keys. Tabular respects the user's ordered picks;
+  // matrix prioritises row/column dims then measures; grouped shows what came back.
   let columns: string[] = [];
   if (sample.length > 0) {
     const keys = Array.from(new Set(sample.flatMap(r => Object.keys(r ?? {}))));
@@ -966,10 +1015,14 @@ function LivePreviewCard({
       const priority = [rowKey, columnKey, ...values].filter(Boolean);
       const rest = keys.filter(k => !priority.includes(k));
       columns = [...priority.filter(k => keys.includes(k)), ...rest].slice(0, 8);
+    } else if (layout === 'tabular' && selectedColumns && selectedColumns.length > 0) {
+      columns = selectedColumns.filter(k => keys.includes(k)).slice(0, 12);
+      if (columns.length === 0) columns = keys.slice(0, 8);
     } else {
       columns = keys.slice(0, 8);
     }
   }
+
 
   return (
     <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
