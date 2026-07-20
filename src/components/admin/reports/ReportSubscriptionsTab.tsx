@@ -331,7 +331,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
     onError: (e: any) => toast.error(e.message || 'Failed to save'),
   });
 
-  const canNext1 = name.trim() && datasetKey && values.length > 0;
+  const canNext1 = !!(name.trim() && datasetKey && (values.length > 0 || (layout === 'tabular' && rows.length > 0)));
   const canNext2 = fireTime && timezone && format && recipientIds.length > 0;
 
   return (
