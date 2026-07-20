@@ -2241,10 +2241,10 @@ export const TodaySummary = () => {
               </div>
 
               {/* Action icons */}
-              <TooltipProvider delayDuration={200}>
+              <UITooltipProvider delayDuration={200}>
                 <div className="flex items-center gap-1.5 justify-end shrink-0 border-l sm:pl-3">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                  <UITooltip>
+                    <UITooltipTrigger asChild>
                       <Button
                         variant="outline"
                         size="icon"
@@ -2254,11 +2254,11 @@ export const TodaySummary = () => {
                       >
                         <FileText className="h-4 w-4 text-red-600" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Download PDF</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                    </UITooltipTrigger>
+                    <UITooltipContent>Download PDF</UITooltipContent>
+                  </UITooltip>
+                  <UITooltip>
+                    <UITooltipTrigger asChild>
                       <Button
                         variant="outline"
                         size="icon"
@@ -2307,11 +2307,11 @@ export const TodaySummary = () => {
                       >
                         <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Export CSV</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                    </UITooltipTrigger>
+                    <UITooltipContent>Export CSV</UITooltipContent>
+                  </UITooltip>
+                  <UITooltip>
+                    <UITooltipTrigger asChild>
                       <div>
                         <ReportGenerator
                           data={retailerReportData}
@@ -2332,11 +2332,11 @@ export const TodaySummary = () => {
                           }
                         />
                       </div>
-                    </TooltipTrigger>
-                    <TooltipContent>Generate Report</TooltipContent>
-                  </Tooltip>
+                    </UITooltipTrigger>
+                    <UITooltipContent>Generate Report</UITooltipContent>
+                  </UITooltip>
                 </div>
-              </TooltipProvider>
+              </UITooltipProvider>
             </div>
           </CardContent>
         </Card>
