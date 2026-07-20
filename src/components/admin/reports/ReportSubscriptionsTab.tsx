@@ -274,11 +274,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
       if (values.length === 0) throw new Error('Pick at least one measure');
 
       const config = {
-        rows: rows ? [rows] : [],
+        rows,
         columns: columns ? [columns] : [],
         values,
         filters: {},
       };
+
 
       if (editing) {
         const { error: dErr } = await supabase
