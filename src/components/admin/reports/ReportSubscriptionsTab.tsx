@@ -11,12 +11,15 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Zap, FileText, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface Dataset {
   key: string;
   label: string;
+  description?: string;
+  source?: string;
   dimensions: Array<{ key: string; label: string }>;
   measures: Array<{ key: string; label: string; agg?: string }>;
   supports_matrix: boolean;
@@ -329,91 +332,34 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editing ? 'Edit subscription' : 'New report subscription'} — Step {step} of 3</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto p-0 gap-0">
+        <div className="px-6 pt-5 pb-4 border-b border-border/60">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-base font-semibold">
+              {editing ? 'Edit subscription' : 'New report subscription'}
+            </DialogTitle>
+          </DialogHeader>
+          <StepBar current={step} />
+        </div>
+
+        <div className="p-6">
 
         {step === 1 && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Name *</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Daily attendance snapshot" />
-              </div>
-              <div className="space-y-2">
-                <Label>Dataset *</Label>
-                <Select value={datasetKey} onValueChange={setDatasetKey}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {datasets.map(d => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Layout</Label>
-                <Select value={layout} onValueChange={setLayout}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tabular">Tabular</SelectItem>
-                    <SelectItem value="grouped">Grouped</SelectItem>
-                    {dataset?.supports_matrix && <SelectItem value="matrix">Matrix</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {dataset && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Rows (group by)</Label>
-                  <Select value={rows || '__none__'} onValueChange={v => setRows(v === '__none__' ? '' : v)}>
-                    <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">None</SelectItem>
-                      {dataset.dimensions.map(d => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {layout === 'matrix' && (
-                  <div className="space-y-2">
-                    <Label>Columns</Label>
-                    <Select value={columns || '__none__'} onValueChange={v => setColumns(v === '__none__' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {dataset.dimensions.map(d => <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Measures *</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {dataset.measures.map(m => {
-                      const on = values.includes(m.key);
-                      return (
-                        <Badge
-                          key={m.key}
-                          variant={on ? 'default' : 'outline'}
-                          className="cursor-pointer"
-                          onClick={() => setValues(v => on ? v.filter(x => x !== m.key) : [...v, m.key])}
-                        >
-                          {m.label}{m.agg ? ` (${m.agg})` : ''}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button variant="ghost" onClick={onClose}>Cancel</Button>
-              <Button onClick={() => setStep(2)} disabled={!canNext1}>Next</Button>
-            </DialogFooter>
-          </div>
+          <Step1Body
+            name={name} setName={setName}
+            datasets={datasets}
+            datasetKey={datasetKey} setDatasetKey={setDatasetKey}
+            layout={layout} setLayout={setLayout}
+            rows={rows} setRows={setRows}
+            columns={columns} setColumns={setColumns}
+            values={values} setValues={setValues}
+            dataset={dataset}
+            onCancel={onClose}
+            onNext={() => setStep(2)}
+            canNext={!!canNext1}
+          />
         )}
+
 
         {step === 2 && (
           <div className="space-y-4">
@@ -523,7 +469,469 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             </DialogFooter>
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
+
+// ------- Step 1 (redesigned) -------
+
+const STEP_LABELS = ['Build report', 'Schedule', 'Review'];
+
+function StepBar({ current }: { current: number }) {
+  return (
+    <div className="flex items-center gap-3">
+      {STEP_LABELS.map((label, i) => {
+        const stepNum = i + 1;
+        const isDone = current > stepNum;
+        const isActive = current === stepNum;
+        return (
+          <React.Fragment key={label}>
+            <div className="flex items-center gap-2 min-w-0">
+              <div
+                className={cn(
+                  'h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-medium border transition-colors shrink-0',
+                  isDone && 'bg-[#534ab7] border-[#534ab7] text-white',
+                  isActive && 'bg-[#534ab7] border-[#534ab7] text-white',
+                  !isDone && !isActive && 'bg-muted border-border text-muted-foreground',
+                )}
+              >
+                {isDone ? <Check className="h-3.5 w-3.5" /> : stepNum}
+              </div>
+              <span
+                className={cn(
+                  'text-sm truncate',
+                  (isActive || isDone) ? 'text-foreground font-medium' : 'text-muted-foreground',
+                )}
+              >
+                {label}
+              </span>
+            </div>
+            {i < STEP_LABELS.length - 1 && (
+              <div className={cn('flex-1 h-px', current > stepNum ? 'bg-[#534ab7]' : 'bg-border')} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+interface Step1Props {
+  name: string; setName: (v: string) => void;
+  datasets: Dataset[];
+  datasetKey: string; setDatasetKey: (v: string) => void;
+  layout: string; setLayout: (v: string) => void;
+  rows: string; setRows: (v: string) => void;
+  columns: string; setColumns: (v: string) => void;
+  values: string[]; setValues: React.Dispatch<React.SetStateAction<string[]>>;
+  dataset: Dataset | undefined;
+  onCancel: () => void;
+  onNext: () => void;
+  canNext: boolean;
+}
+
+function Step1Body(p: Step1Props) {
+  const { dataset, layout, rows, columns, values, datasetKey } = p;
+
+  const layoutHint =
+    layout === 'tabular' ? 'Flat table — one row per record, columns for every field you pick.'
+    : layout === 'grouped' ? 'Group rows by one dimension and total the measures.'
+    : 'Pivot rows against columns, measures fill the cells with row/column totals.';
+
+  const dims = dataset?.dimensions ?? [];
+  const measures = dataset?.measures ?? [];
+
+  const dimLabel = (key: string) => dims.find(d => d.key === key)?.label ?? key;
+  const msrLabel = (key: string) => measures.find(m => m.key === key)?.label ?? key;
+
+  const toggleValue = (k: string) => {
+    p.setValues(v => v.includes(k) ? v.filter(x => x !== k) : [...v, k]);
+  };
+
+  // Live preview — real RPC call (last 30 days window)
+  const preview = useQuery({
+    queryKey: ['report-preview', datasetKey, layout, rows, columns, values.join(',')],
+    enabled: !!dataset && values.length > 0,
+    queryFn: async () => {
+      const today = new Date();
+      const from = new Date(today);
+      from.setDate(from.getDate() - 30);
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const { data, error } = await supabase.rpc(dataset!.source as any, {
+        p_layout: layout,
+        p_rows: rows || null,
+        p_columns: layout === 'matrix' ? (columns || null) : null,
+        p_values: values,
+        p_filters: { date_from: iso(from), date_to: iso(today) },
+      } as any);
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</Label>
+        <Input
+          value={p.name}
+          onChange={e => p.setName(e.target.value)}
+          placeholder="e.g. Daily attendance snapshot"
+          className="max-w-md"
+        />
+      </div>
+
+      {/* Dataset cards */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dataset</Label>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {p.datasets.map(d => {
+            const selected = d.key === datasetKey;
+            return (
+              <button
+                key={d.key}
+                type="button"
+                onClick={() => p.setDatasetKey(d.key)}
+                className={cn(
+                  'text-left rounded-xl border p-4 transition-all',
+                  selected
+                    ? 'border-2 border-[#534ab7] bg-[#eeedfe] dark:bg-[#534ab7]/15'
+                    : 'border-border/60 hover:border-border bg-card',
+                )}
+              >
+                <div className="font-semibold text-sm text-foreground">{d.label}</div>
+                <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                  {(d as any).description || d.dimensions.slice(0, 2).map(x => x.label).join(', ').toLowerCase()}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Layout segmented */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Layout</Label>
+        <div className="inline-flex w-full rounded-xl border border-border/60 p-1 bg-muted/30">
+          {(['tabular', 'grouped', 'matrix'] as const).map(l => {
+            const disabled = l === 'matrix' && !dataset?.supports_matrix;
+            const active = layout === l;
+            return (
+              <button
+                key={l}
+                type="button"
+                disabled={disabled}
+                onClick={() => p.setLayout(l)}
+                className={cn(
+                  'flex-1 text-sm font-medium rounded-lg py-2 transition-colors capitalize',
+                  active
+                    ? 'bg-[#eeedfe] text-[#534ab7] shadow-sm dark:bg-[#534ab7]/25 dark:text-white'
+                    : 'text-muted-foreground hover:text-foreground',
+                  disabled && 'opacity-40 cursor-not-allowed',
+                )}
+              >
+                {l}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">{layoutHint}</p>
+      </div>
+
+      {/* Builder body */}
+      {dataset && (
+        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
+          {/* Fields palette */}
+          <div className="rounded-xl border border-border/60 bg-card p-3">
+            <div className="text-xs font-medium text-muted-foreground px-1 pb-2">Fields</div>
+            <div className="space-y-1">
+              {dims.map(d => (
+                <FieldRow key={d.key} label={d.label} kind="dim" />
+              ))}
+              {measures.map(m => (
+                <FieldRow key={m.key} label={m.label} kind="msr" />
+              ))}
+            </div>
+          </div>
+
+          {/* Config zones */}
+          <div className="space-y-3">
+            {layout === 'matrix' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <ZoneCard title="Rows">
+                  <ZonePicker
+                    value={rows}
+                    onChange={p.setRows}
+                    options={dims}
+                    placeholder="Drop a dimension"
+                    tone="dim"
+                  />
+                </ZoneCard>
+                <ZoneCard title="Columns · pivot by" tone="purple">
+                  <ZonePicker
+                    value={columns}
+                    onChange={p.setColumns}
+                    options={dims}
+                    placeholder="Drop a dimension"
+                    tone="dim"
+                  />
+                </ZoneCard>
+              </div>
+            )}
+            {layout === 'grouped' && (
+              <ZoneCard title="Group rows by">
+                <ZonePicker
+                  value={rows}
+                  onChange={p.setRows}
+                  options={dims}
+                  placeholder="Drop a dimension"
+                  tone="dim"
+                />
+              </ZoneCard>
+            )}
+            {layout === 'tabular' && (
+              <ZoneCard title="Columns">
+                <ZonePicker
+                  value={rows}
+                  onChange={p.setRows}
+                  options={dims}
+                  placeholder="Drop dimensions"
+                  tone="dim"
+                />
+              </ZoneCard>
+            )}
+
+            {layout !== 'tabular' && (
+              <ZoneCard title="Values">
+                <div className="flex flex-wrap gap-1.5">
+                  {values.length === 0 && (
+                    <span className="text-xs text-muted-foreground italic px-1 py-1">Drop measures</span>
+                  )}
+                  {values.map(k => (
+                    <MeasurePill key={k} label={msrLabel(k)} onRemove={() => toggleValue(k)} />
+                  ))}
+                  {measures.filter(m => !values.includes(m.key)).map(m => (
+                    <button
+                      key={m.key}
+                      type="button"
+                      onClick={() => toggleValue(m.key)}
+                      className="text-xs rounded-full border border-dashed border-border px-2.5 py-1 text-muted-foreground hover:text-foreground hover:border-solid"
+                    >
+                      + {m.label}
+                    </button>
+                  ))}
+                </div>
+              </ZoneCard>
+            )}
+
+            <ZoneCard title="Filters">
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-xs rounded-full bg-muted px-2.5 py-1 text-foreground/80">Last 30 days</span>
+              </div>
+            </ZoneCard>
+
+            {layout === 'matrix' && (
+              <div className="flex flex-wrap items-center gap-5 pt-1">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox defaultChecked /> <span>Row totals</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox defaultChecked /> <span>Column totals</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox /> <span>Mark Sundays off</span>
+                </label>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Live preview */}
+      <LivePreviewCard
+        loading={preview.isLoading}
+        error={preview.error as any}
+        rows={preview.data ?? []}
+        layout={layout}
+      />
+
+      <DialogFooter className="pt-2">
+        <Button variant="ghost" onClick={p.onCancel}>Cancel</Button>
+        <Button onClick={p.onNext} disabled={!p.canNext} className="bg-[#534ab7] hover:bg-[#4740a0] text-white">
+          Continue
+        </Button>
+      </DialogFooter>
+    </div>
+  );
+}
+
+function FieldRow({ label, kind }: { label: string; kind: 'dim' | 'msr' }) {
+  return (
+    <div
+      draggable
+      className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-grab active:cursor-grabbing group"
+    >
+      <div className="flex items-center gap-1.5 min-w-0">
+        <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+        <span className="text-sm text-foreground truncate">{label}</span>
+      </div>
+      <span
+        className={cn(
+          'text-[10px] font-medium rounded-full px-1.5 py-0.5',
+          kind === 'dim'
+            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+            : 'bg-[#eeedfe] text-[#534ab7] dark:bg-[#534ab7]/25 dark:text-white',
+        )}
+      >
+        {kind}
+      </span>
+    </div>
+  );
+}
+
+function ZoneCard({ title, tone, children }: { title: string; tone?: 'purple'; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        'rounded-xl border border-dashed p-3',
+        tone === 'purple' ? 'border-[#534ab7]/40 bg-[#eeedfe]/50 dark:bg-[#534ab7]/10' : 'border-border/60',
+      )}
+    >
+      <div className="text-xs text-muted-foreground pb-2">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function ZonePicker({
+  value, onChange, options, placeholder, tone,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<{ key: string; label: string }>;
+  placeholder: string;
+  tone: 'dim' | 'msr';
+}) {
+  if (!value) {
+    return (
+      <Select onValueChange={onChange}>
+        <SelectTrigger className="h-8 border-dashed text-xs text-muted-foreground bg-transparent">
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map(o => <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    );
+  }
+  const label = options.find(o => o.key === value)?.label ?? value;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <button
+        type="button"
+        onClick={() => onChange('')}
+        className={cn(
+          'text-xs rounded-full px-2.5 py-1 border',
+          tone === 'dim'
+            ? 'bg-blue-500/10 text-blue-600 border-transparent hover:bg-blue-500/20 dark:text-blue-400'
+            : 'bg-[#eeedfe] text-[#534ab7] border-transparent hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white',
+        )}
+        title="Click to remove"
+      >
+        {label}
+      </button>
+    </div>
+  );
+}
+
+function MeasurePill({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="text-xs rounded-full bg-[#eeedfe] text-[#534ab7] px-2.5 py-1 hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white"
+    >
+      {label}
+    </button>
+  );
+}
+
+function LivePreviewCard({
+  loading, error, rows, layout,
+}: { loading: boolean; error: Error | null; rows: any[]; layout: string }) {
+  const sample = rows.slice(0, 6);
+  const columns = sample.length > 0 ? Object.keys(sample[0]).slice(0, 6) : [];
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-border/60 text-xs font-medium text-muted-foreground">
+        Live preview
+      </div>
+      <div className="p-3 min-h-[80px]">
+        {loading ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching preview…
+          </div>
+        ) : error ? (
+          <div className="text-xs text-muted-foreground py-4 text-center">
+            Preview unavailable — {(error as any)?.message || 'RPC error'}. Live data will populate on delivery.
+          </div>
+        ) : sample.length === 0 ? (
+          <div className="text-xs text-muted-foreground py-4 text-center">
+            No rows in the last 30 days for this configuration.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-muted-foreground border-b border-border/60">
+                  {columns.map((c, i) => (
+                    <th
+                      key={c}
+                      className={cn(
+                        'text-left font-medium px-2 py-1.5 capitalize',
+                        i === columns.length - 1 && layout === 'matrix' && 'bg-[#eeedfe]/50 text-[#534ab7]',
+                      )}
+                    >
+                      {c.replace(/_/g, ' ')}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sample.map((r, i) => {
+                  const isLastRow = layout === 'matrix' && i === sample.length - 1;
+                  return (
+                    <tr key={i} className={cn('border-b border-border/40 last:border-0', isLastRow && 'bg-[#eeedfe]/40')}>
+                      {columns.map((c, ci) => (
+                        <td
+                          key={c}
+                          className={cn(
+                            'px-2 py-1.5 text-foreground',
+                            ci === columns.length - 1 && layout === 'matrix' && 'bg-[#eeedfe]/40 font-medium',
+                          )}
+                        >
+                          {formatCell(r[c])}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatCell(v: any): string {
+  if (v == null) return '—';
+  if (typeof v === 'number') return v.toLocaleString();
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
