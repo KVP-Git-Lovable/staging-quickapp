@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Bell, Check, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications, type Notification } from '@/hooks/useNotifications';
 import {
   Popover,
   PopoverContent,
@@ -8,9 +9,11 @@ import {
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ReportNotificationDialog } from '@/components/notifications/ReportNotificationDialog';
 
 export function NotificationBell() {
   const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useNotifications();
+  const [openReport, setOpenReport] = useState<Notification | null>(null);
 
   const formatTime = (dateString: string) => {
     try {
@@ -70,7 +73,10 @@ export function NotificationBell() {
               {notifications.map((notification) => (
                 <button
                   key={notification.id}
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => {
+                    if (notification.type === 'report_delivery') setOpenReport(notification);
+                    markAsRead(notification.id);
+                  }}
                   className={cn(
                     "w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors bg-primary/5"
                   )}
@@ -105,6 +111,7 @@ export function NotificationBell() {
           </div>
         )}
       </PopoverContent>
+      <ReportNotificationDialog notification={openReport} onClose={() => setOpenReport(null)} />
     </Popover>
   );
 }
