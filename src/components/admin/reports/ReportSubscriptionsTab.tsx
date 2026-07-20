@@ -767,10 +767,15 @@ function Step1Body(p: Step1Props) {
   );
 }
 
-function FieldRow({ label, kind }: { label: string; kind: 'dim' | 'msr' }) {
+function FieldRow({ label, kind, fieldKey }: { label: string; kind: 'dim' | 'msr'; fieldKey: string }) {
   return (
     <div
       draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('application/x-report-field', JSON.stringify({ key: fieldKey, kind }));
+        e.dataTransfer.setData('text/plain', fieldKey);
+        e.dataTransfer.effectAllowed = 'copy';
+      }}
       className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-grab active:cursor-grabbing group"
     >
       <div className="flex items-center gap-1.5 min-w-0">
@@ -791,12 +796,41 @@ function FieldRow({ label, kind }: { label: string; kind: 'dim' | 'msr' }) {
   );
 }
 
-function ZoneCard({ title, tone, children }: { title: string; tone?: 'purple'; children: React.ReactNode }) {
+function ZoneCard({
+  title, tone, children, accept, onDropKey,
+}: {
+  title: string;
+  tone?: 'purple';
+  children: React.ReactNode;
+  accept?: 'dim' | 'msr';
+  onDropKey?: (key: string) => void;
+}) {
+  const [over, setOver] = React.useState(false);
   return (
     <div
+      onDragOver={(e) => {
+        if (!onDropKey) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        if (!over) setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        if (!onDropKey) return;
+        e.preventDefault();
+        setOver(false);
+        try {
+          const raw = e.dataTransfer.getData('application/x-report-field');
+          if (!raw) return;
+          const { key, kind } = JSON.parse(raw) as { key: string; kind: 'dim' | 'msr' };
+          if (accept && kind !== accept) return;
+          onDropKey(key);
+        } catch { /* ignore */ }
+      }}
       className={cn(
-        'rounded-xl border border-dashed p-3',
+        'rounded-xl border border-dashed p-3 transition-colors',
         tone === 'purple' ? 'border-[#534ab7]/40 bg-[#eeedfe]/50 dark:bg-[#534ab7]/10' : 'border-border/60',
+        over && 'border-solid border-[#534ab7] bg-[#eeedfe]/70 dark:bg-[#534ab7]/20',
       )}
     >
       <div className="text-xs text-muted-foreground pb-2">{title}</div>
@@ -804,6 +838,7 @@ function ZoneCard({ title, tone, children }: { title: string; tone?: 'purple'; c
     </div>
   );
 }
+
 
 function ZonePicker({
   value, onChange, options, placeholder, tone,
