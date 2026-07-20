@@ -458,7 +458,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             <div className="bg-muted/40 rounded p-4 space-y-2 text-sm">
               <div><span className="font-medium">Name:</span> {name}</div>
               <div><span className="font-medium">Dataset:</span> {dataset?.label} ({layout})</div>
-              <div><span className="font-medium">Rows:</span> {rows || '—'}{layout === 'matrix' && ` · Columns: ${columns || '—'}`}</div>
+              <div><span className="font-medium">Rows:</span> {rows.join(', ') || '—'}{layout === 'matrix' && ` · Columns: ${columns || '—'}`}</div>
               <div><span className="font-medium">Measures:</span> {values.join(', ')}</div>
               <div><span className="font-medium">Schedule:</span> {cadence}{['weekly','monthly'].includes(cadence) ? ` · ${fireDay}` : ''} · {fireTime} ({timezone})</div>
               <div><span className="font-medium">Format:</span> {format} {pushToPhone ? '· + phone push' : ''}</div>
