@@ -698,10 +698,10 @@ function Step1Body(p: Step1Props) {
           <div className="space-y-3">
             {layout === 'matrix' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ZoneCard title="Rows" accept="dim" onDropKey={p.setRows}>
+                <ZoneCard title="Rows" accept="dim" onDropKey={(k) => p.setRows([k])}>
                   <ZonePicker
-                    value={rows}
-                    onChange={p.setRows}
+                    value={rows[0] ?? ''}
+                    onChange={(v) => p.setRows(v ? [v] : [])}
                     options={dims}
                     placeholder="Drop a dimension"
                     tone="dim"
@@ -719,10 +719,10 @@ function Step1Body(p: Step1Props) {
               </div>
             )}
             {layout === 'grouped' && (
-              <ZoneCard title="Group rows by" accept="dim" onDropKey={p.setRows}>
+              <ZoneCard title="Group rows by" accept="dim" onDropKey={(k) => p.setRows([k])}>
                 <ZonePicker
-                  value={rows}
-                  onChange={p.setRows}
+                  value={rows[0] ?? ''}
+                  onChange={(v) => p.setRows(v ? [v] : [])}
                   options={dims}
                   placeholder="Drop a dimension"
                   tone="dim"
@@ -730,16 +730,19 @@ function Step1Body(p: Step1Props) {
               </ZoneCard>
             )}
             {layout === 'tabular' && (
-              <ZoneCard title="Columns" accept="dim" onDropKey={p.setRows}>
-                <ZonePicker
+              <ZoneCard
+                title="Columns"
+                onDropKey={(k) => p.setRows(prev => prev.includes(k) ? prev : [...prev, k])}
+              >
+                <ZoneMulti
                   value={rows}
                   onChange={p.setRows}
-                  options={dims}
-                  placeholder="Drop dimensions"
-                  tone="dim"
+                  dims={dims}
+                  measures={measures}
                 />
               </ZoneCard>
             )}
+
 
             {layout !== 'tabular' && (
               <ZoneCard
