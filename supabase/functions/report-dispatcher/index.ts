@@ -15,7 +15,14 @@ Deno.serve(async (req) => {
     let body: any = {};
     try { body = await req.json(); } catch { body = {}; }
 
-    const isCron = req.headers.get('x-cron-secret') === Deno.env.get('CRON_SECRET');
+    const providedSecret = req.headers.get('x-cron-secret');
+    let isCron = !!providedSecret && providedSecret === Deno.env.get('CRON_SECRET');
+    if (!isCron && providedSecret) {
+      // Also allow the push_config trigger_secret (used by the DB cron job)
+      const admin0 = createClient(SUPABASE_URL, SERVICE_ROLE);
+      const { data: cfg } = await admin0.from('push_config').select('trigger_secret').eq('id', true).maybeSingle();
+      if (cfg?.trigger_secret && providedSecret === cfg.trigger_secret) isCron = true;
+    }
     const authHeader = req.headers.get('Authorization');
     const isManual = body?.mode === 'manual' && !!body?.subscription_id;
 
