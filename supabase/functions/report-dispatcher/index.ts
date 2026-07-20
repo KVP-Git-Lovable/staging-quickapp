@@ -47,13 +47,8 @@ Deno.serve(async (req) => {
       if (cErr || !claims?.claims?.sub) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
       }
-      const { data: role } = await admin
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', claims.claims.sub)
-        .eq('role', 'admin')
-        .maybeSingle();
-      if (!role) {
+      const { data: allowed } = await userClient.rpc('is_admin_or_manager');
+      if (!allowed) {
         return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders });
       }
 
