@@ -28330,6 +28330,16 @@ export type Database = {
           total_amount: number
         }[]
       }
+      get_orders_report: {
+        Args: {
+          p_columns: string
+          p_filters: Json
+          p_layout: string
+          p_rows: string
+          p_values: string[]
+        }
+        Returns: Json[]
+      }
       get_org_beat_names: {
         Args: { p_distributor_id?: string }
         Returns: {
@@ -28521,6 +28531,16 @@ export type Database = {
           total_value: number
         }[]
       }
+      get_sales_report: {
+        Args: {
+          p_columns: string
+          p_filters: Json
+          p_layout: string
+          p_rows: string
+          p_values: string[]
+        }
+        Returns: Json[]
+      }
       get_state_analytics: {
         Args: never
         Returns: {
@@ -28660,6 +28680,16 @@ export type Database = {
           skills: string[]
           state: string
         }[]
+      }
+      get_visits_report: {
+        Args: {
+          p_columns: string
+          p_filters: Json
+          p_layout: string
+          p_rows: string
+          p_values: string[]
+        }
+        Returns: Json[]
       }
       has_role: {
         Args: {
