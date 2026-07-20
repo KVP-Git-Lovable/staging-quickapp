@@ -110,6 +110,8 @@ export const TodaySummary = () => {
   const [topRetailers, setTopRetailers] = useState<Array<{ name: string; orderValue: number; location: string }>>([]);
   const [productSales, setProductSales] = useState<Array<{ name: string; qty: number; unit: string; qtyFormatted: string; revenue: number; kgSold: number; kgFormatted: string }>>([]);
   const [orders, setOrders] = useState<Array<{ retailer: string; amount: number; kgSold: number; kgFormatted: string; creditAmount: number; cashInHand: number; paymentMethod: string }>>([]);
+  const [rawOrders, setRawOrders] = useState<RawOrder[]>([]);
+  const [retailerBeatMap, setRetailerBeatMap] = useState<Map<string, string>>(new Map());
   const [visitsByStatus, setVisitsByStatus] = useState<Record<string, Array<{ retailer: string; note?: string; totalValue?: number; beatName?: string; address?: string; planDate?: string }>>>({});
   const [productGroupedOrders, setProductGroupedOrders] = useState<Array<{ product: string; kgSold: number; kgFormatted: string; value: number; orders: number }>>([]);
   const [showAllProducts, setShowAllProducts] = useState(false);
@@ -1242,6 +1244,15 @@ export const TodaySummary = () => {
       }) || [];
 
       setOrders(ordersData);
+      setRawOrders((todayOrders || []) as RawOrder[]);
+      // Build retailer→beat map from beat plan data already loaded
+      const rbMap = new Map<string, string>();
+      beatPlanRetailersByDate.forEach((row: any) => {
+        if (row.retailerId && row.beatName && !rbMap.has(row.retailerId)) {
+          rbMap.set(row.retailerId, row.beatName);
+        }
+      });
+      setRetailerBeatMap(rbMap);
 
       // Calculate payment method breakdown for pie chart
       const paymentMethodMap = new Map<string, { amount: number; count: number }>();
