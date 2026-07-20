@@ -581,11 +581,12 @@ function Step1Body(p: Step1Props) {
       const iso = (d: Date) => d.toISOString().slice(0, 10);
       const payload = {
         p_layout: debounced.layout,
-        p_rows: debounced.rows || null,
+        p_rows: debounced.layout === 'tabular' ? null : (debounced.rows[0] || null),
         p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
         p_values: debounced.values,
         p_filters: { date_from: iso(from), date_to: iso(today) },
       };
+
       // eslint-disable-next-line no-console
       console.debug('[ReportPreview] rpc', dataset!.source, payload);
       const { data, error } = await supabase.rpc(dataset!.source as any, payload as any);
