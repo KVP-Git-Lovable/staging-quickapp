@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge';
 import {
   Radar, MapPin, Camera, Plus, Search, LogOut, ArrowLeft, Loader2, Sparkles,
-  Store, ChevronRight, User, ClipboardList, Star,
+  Store, ChevronRight, User, ClipboardList, Star, Trash2, ImageIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { clearEmployeeSession, getEmployeeSession } from './EmployeePortalLogin';
@@ -230,6 +230,26 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
   const [q, setQ] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [nearMe, setNearMe] = useState(false);
+  const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+
+  const activeCoords = liveCoords || coords;
+
+  function useMyLocation() {
+    if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setLiveCoords({ lat: p.coords.latitude, lng: p.coords.longitude });
+        setNearMe(true);
+        setLocating(false);
+        toast.success('Location updated — showing nearest retailers');
+      },
+      (err) => { setLocating(false); toast.error(err.message || 'Could not get your location'); },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -239,8 +259,8 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
         body: {
           action: 'search_retailers',
           q: q.trim(),
-          lat: coords?.lat,
-          lng: coords?.lng,
+          lat: activeCoords?.lat,
+          lng: activeCoords?.lng,
           limit: 200,
         },
       });
@@ -249,9 +269,13 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
       setLoading(false);
     }, 250);
     return () => clearTimeout(handle);
-  }, [open, q, coords?.lat, coords?.lng]);
+  }, [open, q, activeCoords?.lat, activeCoords?.lng]);
 
-  const filtered = useMemo(() => rows.slice(0, 60), [rows]);
+  const filtered = useMemo(() => {
+    let list = rows;
+    if (nearMe && activeCoords) list = list.filter(r => isFinite(r._dist));
+    return list.slice(0, 60);
+  }, [rows, nearMe, activeCoords]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -264,12 +288,31 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input className="pl-8" placeholder="Search name, phone, address…" value={q} onChange={e => setQ(e.target.value)} />
           </div>
-          <Button variant="outline" className="w-full" onClick={onAddNew}>
-            <Plus className="h-4 w-4 mr-1" /> Retailer not listed — add new
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant={nearMe ? 'default' : 'outline'}
+              className={nearMe ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+              onClick={useMyLocation}
+              disabled={locating}
+            >
+              {locating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MapPin className="h-4 w-4 mr-1" />}
+              Near me
+            </Button>
+            <Button variant="outline" onClick={onAddNew}>
+              <Plus className="h-4 w-4 mr-1" /> Add new
+            </Button>
+          </div>
+          {activeCoords && (
+            <p className="text-[11px] text-muted-foreground">
+              {nearMe ? 'Sorted by distance from your current location.' : 'Tap "Near me" to sort by proximity.'}
+            </p>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-4">
           {loading && <div className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline" /></div>}
+          {!loading && filtered.length === 0 && (
+            <p className="text-center py-8 text-sm text-muted-foreground">No retailers found.</p>
+          )}
           {!loading && filtered.map(r => (
             <button key={r.id} onClick={() => onPick(r)}
               className="w-full text-left p-3 rounded-lg hover:bg-slate-50 border-b flex items-start gap-3">
@@ -281,7 +324,11 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
                 <p className="text-xs text-muted-foreground truncate">{r.address || '—'}</p>
                 <p className="text-[11px] text-slate-500">{r.phone || ''}</p>
               </div>
-              {isFinite(r._dist) && <span className="text-[10px] text-slate-500 whitespace-nowrap">{r._dist.toFixed(1)} km</span>}
+              {isFinite(r._dist) && (
+                <span className="text-[10px] font-medium text-indigo-600 whitespace-nowrap">
+                  {r._dist < 1 ? `${Math.round(r._dist * 1000)} m` : `${r._dist.toFixed(1)} km`}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -388,39 +435,52 @@ function AddRetailerSheet({ open, onOpenChange, coords, onCreated }: {
 
 // ---- Joint Sales aligned config (mirrors JointSalesFeedbackModal) ----
 const STAR_PARAMS: { key: string; label: string; hint: string }[] = [
-  { key: 'product_packaging_feedback', label: 'Product Packaging', hint: 'Packaging quality & appeal' },
-  { key: 'product_sku_range_feedback', label: 'Product SKU Range', hint: 'Variety of products stocked' },
-  { key: 'product_quality_feedback', label: 'Product Quality', hint: 'Customer satisfaction with quality' },
-  { key: 'service_feedback', label: 'Service Quality', hint: 'Overall service & support' },
-  { key: 'consumer_feedback', label: 'Consumer Satisfaction', hint: 'End consumer feedback' },
+  { key: 'product_packaging_feedback', label: 'Product Packaging', hint: 'Ask: "Is the packaging attractive and easy to display / carry?" Rate on look, sturdiness and shelf appeal.' },
+  { key: 'product_sku_range_feedback', label: 'Product SKU Range', hint: 'Ask: "Do we have all the sizes and variants your customers ask for?" Rate width and depth of the range stocked.' },
+  { key: 'product_quality_feedback', label: 'Product Quality', hint: 'Ask: "Are customers happy with the product? Any complaints or returns?" Rate consumer-perceived quality.' },
+  { key: 'service_feedback', label: 'Service Quality', hint: 'Ask: "Are deliveries on time, invoices correct, and issues resolved quickly?" Rate our sales & service support.' },
+  { key: 'consumer_feedback', label: 'Consumer Satisfaction', hint: 'Ask: "What are end-consumers saying — repeat buyers, praise or complaints?" Rate consumer sentiment.' },
 ];
 
-const DROPDOWN_PARAMS: { key: string; label: string; options: string[] }[] = [
-  { key: 'placement_feedback', label: 'Product Placement', options: [
+const DROPDOWN_PARAMS: { key: string; label: string; hint: string; options: string[] }[] = [
+  { key: 'placement_feedback', label: 'Product Placement',
+    hint: 'Where are our products kept in the shop? Prime eye-level shelf, side rack, or hidden away?',
+    options: [
       'Excellent - Prime shelf space', 'Good - Visible location',
       'Average - Needs improvement', 'Poor - Not visible',
   ]},
-  { key: 'promotion_vs_competition', label: 'Promotes Us vs Competition', options: [
+  { key: 'promotion_vs_competition', label: 'Promotes Us vs Competition',
+    hint: 'When a customer walks in undecided, does the retailer recommend us first, or push competitor brands?',
+    options: [
       'Actively promotes us over competition', 'Promotes equally with competition',
       'Prefers competition slightly', 'Heavily promotes competition',
   ]},
-  { key: 'product_usp_feedback', label: 'Product USP Awareness', options: [
+  { key: 'product_usp_feedback', label: 'Product USP Awareness',
+    hint: 'Does the retailer know our unique selling points (quality, warranty, price advantage) and share them with customers?',
+    options: [
       'Clearly understands and promotes USP', 'Aware of key USPs',
       'Limited awareness', 'No awareness of USP',
   ]},
-  { key: 'schemes_feedback', label: 'Schemes Effectiveness', options: [
+  { key: 'schemes_feedback', label: 'Schemes Effectiveness',
+    hint: 'Are our current trade schemes / offers actually helping the retailer sell more? Or do they feel unattractive?',
+    options: [
       'Highly effective - Driving sales', 'Moderately effective',
       'Not very effective', 'Needs better schemes',
   ]},
-  { key: 'pricing_feedback', label: 'Pricing Competitiveness', options: [
+  { key: 'pricing_feedback', label: 'Pricing Competitiveness',
+    hint: 'How does our price compare with similar competing products in this shop / area?',
+    options: [
       'Very competitive', 'Competitive',
       'Slightly higher than competitors', 'Too expensive',
   ]},
-  { key: 'willingness_to_grow_range', label: 'Willingness to Grow Range', options: [
+  { key: 'willingness_to_grow_range', label: 'Willingness to Grow Range',
+    hint: 'Would the retailer be open to stocking more SKUs / new launches from us in the next few months?',
+    options: [
       'Highly willing - Ready to expand', 'Willing - Open to new products',
       'Hesitant - Needs convincing', 'Not willing - Satisfied with current',
   ]},
 ];
+
 
 const DROPDOWN_SCORES: Record<string, number> = {
   'Excellent - Prime shelf space': 5, 'Good - Visible location': 4, 'Average - Needs improvement': 2, 'Poor - Not visible': 1,
@@ -470,15 +530,22 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
   const [orderIncrease, setOrderIncrease] = useState('');
   const [monthlyPotential, setMonthlyPotential] = useState('');
 
-  // "No" branch fields
+  // Non-selling gate
   const [interestedToKnowMore, setInterestedToKnowMore] = useState<'yes' | 'no' | ''>('');
-  const [competitionBrand, setCompetitionBrand] = useState('');
-  const [competitionSkus, setCompetitionSkus] = useState('');
-  const [competitionMonthlyValue, setCompetitionMonthlyValue] = useState('');
-  const [competitionPricing, setCompetitionPricing] = useState('');
+
+  // Competition (shared for both Yes and No) — multiple entries supported
+  type CompetitionRow = { brand: string; skus: string; monthly_value: string };
+  const emptyCompetition = (): CompetitionRow => ({ brand: '', skus: '', monthly_value: '' });
+  const [competitions, setCompetitions] = useState<CompetitionRow[]>([emptyCompetition()]);
+
+  // Retailer profile (shared for both Yes and No)
   const [retailerSize, setRetailerSize] = useState('');
   const [retailerMonthlyTurnover, setRetailerMonthlyTurnover] = useState('');
   const [retailerNotes, setRetailerNotes] = useState('');
+
+  // Multiple visit photos
+  const [visitPhotos, setVisitPhotos] = useState<File[]>([]);
+  const photosRef = useRef<HTMLInputElement>(null);
 
   const [exec, setExec] = useState<{ id?: string; name?: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -488,9 +555,10 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
     setSellsOurProducts('');
     setFeedback({});
     setActionItems(''); setOrderIncrease(''); setMonthlyPotential('');
-    setInterestedToKnowMore(''); setCompetitionBrand(''); setCompetitionSkus('');
-    setCompetitionMonthlyValue(''); setCompetitionPricing('');
+    setInterestedToKnowMore('');
+    setCompetitions([emptyCompetition()]);
     setRetailerSize(''); setRetailerMonthlyTurnover(''); setRetailerNotes('');
+    setVisitPhotos([]);
     (async () => {
       if (retailer?.territory_id) {
         const { data: t } = await (supabase as any).from('territories')
@@ -523,28 +591,40 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
     }
 
     setSaving(true);
+
+    // Upload additional feedback photos (if any)
+    const uploadedPhotos: string[] = [];
+    for (const f of visitPhotos) {
+      const url = await uploadPhoto(f, `visit-feedback/${session.id}`);
+      if (url) uploadedPhotos.push(url);
+    }
+
+    const cleanCompetitions = competitions
+      .map(c => ({
+        brand: c.brand.trim() || null,
+        skus: c.skus.trim() || null,
+        monthly_value: parseFloat(c.monthly_value) || null,
+      }))
+      .filter(c => c.brand || c.skus || c.monthly_value);
+
     const jointBlob: any = {
       sells_our_products: sellsOurProducts,
       score: sellsOurProducts === 'yes' ? score : null,
       ...feedback,
       order_increase_amount: parseFloat(orderIncrease) || 0,
       monthly_potential_6months: parseFloat(monthlyPotential) || 0,
-      joint_sales_impact: actionItems || null,
+      joint_sales_impact: sellsOurProducts === 'yes' ? (actionItems || null) : null,
+      competitions: cleanCompetitions,
+      retailer_profile: {
+        size: retailerSize || null,
+        monthly_turnover: parseFloat(retailerMonthlyTurnover) || null,
+        notes: retailerNotes || null,
+      },
+      photos: uploadedPhotos,
     };
     if (sellsOurProducts === 'no') {
       jointBlob.non_selling = {
         interested_to_know_more: interestedToKnowMore,
-        competition: {
-          brand: competitionBrand || null,
-          skus: competitionSkus || null,
-          monthly_value: parseFloat(competitionMonthlyValue) || null,
-          pricing: competitionPricing || null,
-        },
-        retailer_profile: {
-          size: retailerSize || null,
-          monthly_turnover: parseFloat(retailerMonthlyTurnover) || null,
-          notes: retailerNotes || null,
-        },
       };
     }
 
@@ -650,6 +730,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
                   {DROPDOWN_PARAMS.map(p => (
                     <div key={p.key} className="rounded-lg bg-slate-50 p-3">
                       <Label className="font-medium text-sm">{p.label}</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">{p.hint}</p>
                       <select
                         className="mt-2 w-full h-11 border rounded-lg px-3 bg-white text-sm"
                         value={feedback[p.key] || ''}
@@ -686,95 +767,165 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
           )}
 
           {sellsOurProducts === 'no' && (
-            <>
-              <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-                <Label className="text-amber-800 font-medium">Interested to know more about our products?</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {(['yes','no'] as const).map(opt => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setInterestedToKnowMore(opt)}
-                      className={`h-11 rounded-lg border font-medium text-sm ${
-                        interestedToKnowMore === opt
-                          ? 'bg-amber-600 text-white border-amber-600'
-                          : 'bg-white text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {opt === 'yes' ? 'Yes, interested' : 'Not interested'}
-                    </button>
-                  ))}
-                </div>
+            <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+              <Label className="text-amber-800 font-medium">Interested to know more about our products?</Label>
+              <p className="text-xs text-amber-700/80 mt-1">
+                Ask: "Would you like our team to visit and share our range, pricing and schemes?"
+              </p>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {(['yes','no'] as const).map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setInterestedToKnowMore(opt)}
+                    className={`h-11 rounded-lg border font-medium text-sm ${
+                      interestedToKnowMore === opt
+                        ? 'bg-amber-600 text-white border-amber-600'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {opt === 'yes' ? 'Yes, interested' : 'Not interested'}
+                  </button>
+                ))}
               </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Store className="h-5 w-5 text-red-600" />
-                  <h3 className="text-base font-semibold text-red-700">Competition Details</h3>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <Label>Competitor brand(s) sold</Label>
-                    <Input value={competitionBrand} onChange={e => setCompetitionBrand(e.target.value)} placeholder="e.g. Brand X, Brand Y" />
-                  </div>
-                  <div>
-                    <Label>SKUs / product range</Label>
-                    <Textarea rows={2} value={competitionSkus} onChange={e => setCompetitionSkus(e.target.value)} placeholder="Key SKUs stocked" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Monthly value (₹)</Label>
-                      <Input type="number" inputMode="decimal" value={competitionMonthlyValue}
-                        onChange={e => setCompetitionMonthlyValue(e.target.value)} placeholder="Est. off-take" />
-                    </div>
-                    <div>
-                      <Label>Pricing position</Label>
-                      <select className="w-full h-11 border rounded-lg px-3 bg-white text-sm"
-                        value={competitionPricing} onChange={e => setCompetitionPricing(e.target.value)}>
-                        <option value="">Select</option>
-                        <option>Lower than us</option>
-                        <option>Similar to us</option>
-                        <option>Higher than us</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ClipboardList className="h-5 w-5 text-slate-600" />
-                  <h3 className="text-base font-semibold text-slate-700">Retailer Profile</h3>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <Label>Retailer size</Label>
-                    <select className="w-full h-11 border rounded-lg px-3 bg-white text-sm"
-                      value={retailerSize} onChange={e => setRetailerSize(e.target.value)}>
-                      <option value="">Select size</option>
-                      {RETAILER_SIZE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <Label>Est. monthly turnover (₹)</Label>
-                    <Input type="number" inputMode="decimal" value={retailerMonthlyTurnover}
-                      onChange={e => setRetailerMonthlyTurnover(e.target.value)} placeholder="Overall shop turnover" />
-                  </div>
-                  <div>
-                    <Label>Additional details</Label>
-                    <Textarea rows={2} value={retailerNotes} onChange={e => setRetailerNotes(e.target.value)} placeholder="Segment, footfall, chain type…" />
-                  </div>
-                </div>
-              </div>
-            </>
+            </div>
           )}
 
-          {/* Notes */}
-          <div>
-            <Label>Action items / notes</Label>
-            <Textarea rows={3} value={actionItems} onChange={(e) => setActionItems(e.target.value)}
-              placeholder="Agreed next steps, follow-ups…" />
-          </div>
+          {/* Competition — shown for BOTH Yes and No */}
+          {sellsOurProducts && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Store className="h-5 w-5 text-red-600" />
+                  <h3 className="text-base font-semibold text-red-700">Competition</h3>
+                </div>
+                <Button size="sm" variant="outline"
+                  onClick={() => setCompetitions([...competitions, emptyCompetition()])}>
+                  <Plus className="h-4 w-4 mr-1" /> Add
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                List each competitor brand the retailer stocks along with the SKU / range and rough monthly off-take value.
+              </p>
+              <div className="space-y-3">
+                {competitions.map((c, idx) => (
+                  <div key={idx} className="rounded-lg border bg-slate-50 p-3 space-y-2 relative">
+                    {competitions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCompetitions(competitions.filter((_, i) => i !== idx))}
+                        className="absolute top-2 right-2 text-slate-400 hover:text-red-600"
+                        aria-label="Remove competition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                    <div>
+                      <Label>Competition (brand)</Label>
+                      <Input value={c.brand}
+                        onChange={e => setCompetitions(competitions.map((r, i) => i === idx ? { ...r, brand: e.target.value } : r))}
+                        placeholder="e.g. Brand X" />
+                    </div>
+                    <div>
+                      <Label>SKU</Label>
+                      <Textarea rows={2} value={c.skus}
+                        onChange={e => setCompetitions(competitions.map((r, i) => i === idx ? { ...r, skus: e.target.value } : r))}
+                        placeholder="Key SKUs stocked (sizes / variants)" />
+                    </div>
+                    <div>
+                      <Label>Value (monthly ₹)</Label>
+                      <Input type="number" inputMode="decimal" value={c.monthly_value}
+                        onChange={e => setCompetitions(competitions.map((r, i) => i === idx ? { ...r, monthly_value: e.target.value } : r))}
+                        placeholder="Est. monthly off-take value" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Retailer Profile — shown for BOTH Yes and No */}
+          {sellsOurProducts && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <ClipboardList className="h-5 w-5 text-slate-600" />
+                <h3 className="text-base font-semibold text-slate-700">Retailer Profile</h3>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <Label>Retailer size</Label>
+                  <p className="text-xs text-muted-foreground mb-1">Rough shop floor area — helps gauge stocking capacity.</p>
+                  <select className="w-full h-11 border rounded-lg px-3 bg-white text-sm"
+                    value={retailerSize} onChange={e => setRetailerSize(e.target.value)}>
+                    <option value="">Select size</option>
+                    {RETAILER_SIZE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label>Est. monthly turnover (₹)</Label>
+                  <p className="text-xs text-muted-foreground mb-1">Overall shop turnover across all categories, not just ours.</p>
+                  <Input type="number" inputMode="decimal" value={retailerMonthlyTurnover}
+                    onChange={e => setRetailerMonthlyTurnover(e.target.value)} placeholder="Overall shop turnover" />
+                </div>
+                <div>
+                  <Label>Additional details</Label>
+                  <p className="text-xs text-muted-foreground mb-1">Customer type, footfall pattern, chain / standalone, key observations.</p>
+                  <Textarea rows={2} value={retailerNotes} onChange={e => setRetailerNotes(e.target.value)} placeholder="Segment, footfall, chain type…" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Multiple photos */}
+          {sellsOurProducts && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-indigo-600" />
+                  <h3 className="text-base font-semibold text-indigo-700">Photos</h3>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => photosRef.current?.click()}>
+                  <Camera className="h-4 w-4 mr-1" /> Add photo
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Shelf, competition, board, discussion — attach as many photos as helpful.
+              </p>
+              <input ref={photosRef} type="file" accept="image/*" capture="environment" multiple hidden
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length) setVisitPhotos([...visitPhotos, ...files]);
+                  if (photosRef.current) photosRef.current.value = '';
+                }} />
+              {visitPhotos.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {visitPhotos.map((f, idx) => (
+                    <div key={idx} className="relative">
+                      <img src={URL.createObjectURL(f)} className="w-full h-24 object-cover rounded-lg border" />
+                      <button
+                        type="button"
+                        onClick={() => setVisitPhotos(visitPhotos.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 text-red-600"
+                        aria-label="Remove photo"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action items — Yes branch only */}
+          {sellsOurProducts === 'yes' && (
+            <div>
+              <Label>Action items / notes</Label>
+              <p className="text-xs text-muted-foreground mb-1">Agreed next steps, follow-ups or commitments made during this visit.</p>
+              <Textarea rows={3} value={actionItems} onChange={(e) => setActionItems(e.target.value)}
+                placeholder="Agreed next steps, follow-ups…" />
+            </div>
+          )}
 
           <div className="text-[11px] text-muted-foreground flex items-center gap-1">
             <MapPin className="h-3 w-3" />
