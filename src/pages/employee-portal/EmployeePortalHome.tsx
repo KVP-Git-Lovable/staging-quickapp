@@ -1094,3 +1094,161 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
   );
 }
 
+
+function VisitDetailsSheet({ open, onOpenChange, visit, onEdit, onDeleted }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  visit: any | null;
+  onEdit: (v: any) => void;
+  onDeleted: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  if (!visit) return null;
+  const jb = visit.joint_sales_feedback || {};
+  const comps: any[] = Array.isArray(jb.competitions) ? jb.competitions : [];
+  const photos: string[] = Array.isArray(jb.photos) ? jb.photos : [];
+  const profile = jb.retailer_profile || {};
+
+  async function doDelete() {
+    setDeleting(true);
+    const { data, error } = await (supabase as any).functions.invoke('employee-portal-api', {
+      body: { action: 'delete_visit', visit_id: visit.id },
+    });
+    setDeleting(false);
+    if (error || !data?.success) {
+      toast.error(error?.message || data?.error || 'Failed to delete');
+      return;
+    }
+    toast.success('Visit deleted');
+    onDeleted();
+  }
+
+  const Row = ({ label, value }: { label: string; value: any }) => (
+    <div className="flex justify-between gap-3 text-sm py-1 border-b border-slate-100 last:border-0">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-medium text-slate-800 text-right break-words">{value ?? '—'}</span>
+    </div>
+  );
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[95vh] p-0 flex flex-col">
+        <SheetHeader className="px-4 pt-4 pb-2 border-b">
+          <SheetTitle className="flex items-center gap-2 text-lg">
+            <Store className="h-5 w-5 text-indigo-600" />
+            {visit.retailer_name || 'Retailer'}
+          </SheetTitle>
+          <p className="text-xs text-muted-foreground">
+            {new Date(visit.created_at).toLocaleString()}
+            {visit.territory_executive_name ? ` • ${visit.territory_executive_name}` : ''}
+          </p>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <Card><CardContent className="p-3 space-y-1">
+            <Row label="Sells our products" value={jb.sells_our_products || '—'} />
+            {jb.score != null && <Row label="Score" value={`${jb.score}/10`} />}
+            <Row label="Overall sentiment" value={visit.overall_sentiment} />
+            <Row label="New retailer" value={visit.is_new_retailer ? 'Yes' : 'No'} />
+          </CardContent></Card>
+
+          {(STAR_PARAMS.some(p => jb[p.key]) || DROPDOWN_PARAMS.some(p => jb[p.key])) && (
+            <div>
+              <h4 className="text-sm font-semibold text-indigo-700 mb-2">Feedback</h4>
+              <Card><CardContent className="p-3 space-y-1">
+                {STAR_PARAMS.map(p => jb[p.key] ? (
+                  <Row key={p.key} label={p.label} value={`${jb[p.key]} ★`} />
+                ) : null)}
+                {DROPDOWN_PARAMS.map(p => jb[p.key] ? (
+                  <Row key={p.key} label={p.label} value={jb[p.key]} />
+                ) : null)}
+              </CardContent></Card>
+            </div>
+          )}
+
+          {(jb.order_increase_amount || jb.monthly_potential_6months) ? (
+            <div>
+              <h4 className="text-sm font-semibold text-green-700 mb-2">Sales outcome</h4>
+              <Card><CardContent className="p-3 space-y-1">
+                {jb.monthly_potential_6months
+                  ? <Row label="6-month potential" value={`₹${jb.monthly_potential_6months}`} />
+                  : null}
+              </CardContent></Card>
+            </div>
+          ) : null}
+
+          {comps.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-red-700 mb-2">Competition</h4>
+              <div className="space-y-2">
+                {comps.map((c, i) => (
+                  <Card key={i}><CardContent className="p-3 space-y-1">
+                    <Row label="Brand" value={c.brand} />
+                    <Row label="SKUs" value={c.skus} />
+                    <Row label="Monthly value" value={c.monthly_value != null ? `₹${c.monthly_value}` : '—'} />
+                  </CardContent></Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <h4 className="text-sm font-semibold text-slate-700 mb-2">Retailer profile</h4>
+            <Card><CardContent className="p-3 space-y-1">
+              <Row label="Size" value={profile.size} />
+              <Row label="Monthly turnover" value={profile.monthly_turnover != null ? `₹${profile.monthly_turnover}` : '—'} />
+              <Row label="Notes" value={profile.notes} />
+            </CardContent></Card>
+          </div>
+
+          {photos.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-indigo-700 mb-2">Photos</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer">
+                    <img src={url} className="w-full h-24 object-cover rounded-lg border" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {visit.latitude != null && visit.longitude != null && (
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {Number(visit.latitude).toFixed(5)}, {Number(visit.longitude).toFixed(5)}
+            </p>
+          )}
+
+          {confirmDelete && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              Delete this visit permanently? This cannot be undone.
+              <div className="flex gap-2 mt-2">
+                <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+                  Keep
+                </Button>
+                <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={doDelete} disabled={deleting}>
+                  {deleting && <Loader2 className="h-3 w-3 mr-1 animate-spin" />} Confirm delete
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t bg-white px-4 py-3 flex items-center gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="outline" className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+            onClick={() => setConfirmDelete(true)} disabled={deleting}>
+            <Trash2 className="h-4 w-4 mr-1" /> Delete
+          </Button>
+          <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => onEdit(visit)}>
+            Edit
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
