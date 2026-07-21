@@ -287,7 +287,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
         rows,
         columns: columns ? [columns] : [],
         values,
-        filters: { date_from: dateFrom, date_to: dateTo },
+        filters: { date_from: dateFrom, date_to: dateTo, scope_user_id: scopeUserId || null },
       };
 
 
