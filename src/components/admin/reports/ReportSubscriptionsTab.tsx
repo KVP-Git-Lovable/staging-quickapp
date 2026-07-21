@@ -91,6 +91,33 @@ export function ReportSubscriptionsTab() {
     },
   });
 
+  const recipientIds = useMemo(() => {
+    const set = new Set<string>();
+    subs.forEach((s: any) => (s.recipient_user_ids || []).forEach((id: string) => id && set.add(id)));
+    return Array.from(set);
+  }, [subs]);
+
+  const { data: recipientProfiles = [] } = useQuery({
+    queryKey: ['report-recipient-profiles', recipientIds.sort().join(',')],
+    enabled: recipientIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, username, profile_picture_url')
+        .in('id', recipientIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const profileMap = useMemo(() => {
+    const map = new Map<string, { name: string; avatar: string | null }>();
+    recipientProfiles.forEach((p: any) => {
+      map.set(p.id, { name: p.full_name || p.username || 'User', avatar: p.profile_picture_url });
+    });
+    return map;
+  }, [recipientProfiles]);
+
   const runNow = useMutation({
     mutationFn: async (id: string) => {
       const { data, error } = await supabase.functions.invoke('report-dispatcher', {
