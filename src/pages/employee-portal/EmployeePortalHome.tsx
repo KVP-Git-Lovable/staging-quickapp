@@ -435,39 +435,52 @@ function AddRetailerSheet({ open, onOpenChange, coords, onCreated }: {
 
 // ---- Joint Sales aligned config (mirrors JointSalesFeedbackModal) ----
 const STAR_PARAMS: { key: string; label: string; hint: string }[] = [
-  { key: 'product_packaging_feedback', label: 'Product Packaging', hint: 'Packaging quality & appeal' },
-  { key: 'product_sku_range_feedback', label: 'Product SKU Range', hint: 'Variety of products stocked' },
-  { key: 'product_quality_feedback', label: 'Product Quality', hint: 'Customer satisfaction with quality' },
-  { key: 'service_feedback', label: 'Service Quality', hint: 'Overall service & support' },
-  { key: 'consumer_feedback', label: 'Consumer Satisfaction', hint: 'End consumer feedback' },
+  { key: 'product_packaging_feedback', label: 'Product Packaging', hint: 'Ask: "Is the packaging attractive and easy to display / carry?" Rate on look, sturdiness and shelf appeal.' },
+  { key: 'product_sku_range_feedback', label: 'Product SKU Range', hint: 'Ask: "Do we have all the sizes and variants your customers ask for?" Rate width and depth of the range stocked.' },
+  { key: 'product_quality_feedback', label: 'Product Quality', hint: 'Ask: "Are customers happy with the product? Any complaints or returns?" Rate consumer-perceived quality.' },
+  { key: 'service_feedback', label: 'Service Quality', hint: 'Ask: "Are deliveries on time, invoices correct, and issues resolved quickly?" Rate our sales & service support.' },
+  { key: 'consumer_feedback', label: 'Consumer Satisfaction', hint: 'Ask: "What are end-consumers saying — repeat buyers, praise or complaints?" Rate consumer sentiment.' },
 ];
 
-const DROPDOWN_PARAMS: { key: string; label: string; options: string[] }[] = [
-  { key: 'placement_feedback', label: 'Product Placement', options: [
+const DROPDOWN_PARAMS: { key: string; label: string; hint: string; options: string[] }[] = [
+  { key: 'placement_feedback', label: 'Product Placement',
+    hint: 'Where are our products kept in the shop? Prime eye-level shelf, side rack, or hidden away?',
+    options: [
       'Excellent - Prime shelf space', 'Good - Visible location',
       'Average - Needs improvement', 'Poor - Not visible',
   ]},
-  { key: 'promotion_vs_competition', label: 'Promotes Us vs Competition', options: [
+  { key: 'promotion_vs_competition', label: 'Promotes Us vs Competition',
+    hint: 'When a customer walks in undecided, does the retailer recommend us first, or push competitor brands?',
+    options: [
       'Actively promotes us over competition', 'Promotes equally with competition',
       'Prefers competition slightly', 'Heavily promotes competition',
   ]},
-  { key: 'product_usp_feedback', label: 'Product USP Awareness', options: [
+  { key: 'product_usp_feedback', label: 'Product USP Awareness',
+    hint: 'Does the retailer know our unique selling points (quality, warranty, price advantage) and share them with customers?',
+    options: [
       'Clearly understands and promotes USP', 'Aware of key USPs',
       'Limited awareness', 'No awareness of USP',
   ]},
-  { key: 'schemes_feedback', label: 'Schemes Effectiveness', options: [
+  { key: 'schemes_feedback', label: 'Schemes Effectiveness',
+    hint: 'Are our current trade schemes / offers actually helping the retailer sell more? Or do they feel unattractive?',
+    options: [
       'Highly effective - Driving sales', 'Moderately effective',
       'Not very effective', 'Needs better schemes',
   ]},
-  { key: 'pricing_feedback', label: 'Pricing Competitiveness', options: [
+  { key: 'pricing_feedback', label: 'Pricing Competitiveness',
+    hint: 'How does our price compare with similar competing products in this shop / area?',
+    options: [
       'Very competitive', 'Competitive',
       'Slightly higher than competitors', 'Too expensive',
   ]},
-  { key: 'willingness_to_grow_range', label: 'Willingness to Grow Range', options: [
+  { key: 'willingness_to_grow_range', label: 'Willingness to Grow Range',
+    hint: 'Would the retailer be open to stocking more SKUs / new launches from us in the next few months?',
+    options: [
       'Highly willing - Ready to expand', 'Willing - Open to new products',
       'Hesitant - Needs convincing', 'Not willing - Satisfied with current',
   ]},
 ];
+
 
 const DROPDOWN_SCORES: Record<string, number> = {
   'Excellent - Prime shelf space': 5, 'Good - Visible location': 4, 'Average - Needs improvement': 2, 'Poor - Not visible': 1,
