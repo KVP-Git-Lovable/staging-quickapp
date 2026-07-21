@@ -91,6 +91,33 @@ export function ReportSubscriptionsTab() {
     },
   });
 
+  const recipientIds = useMemo(() => {
+    const set = new Set<string>();
+    subs.forEach((s: any) => (s.recipient_user_ids || []).forEach((id: string) => id && set.add(id)));
+    return Array.from(set);
+  }, [subs]);
+
+  const { data: recipientProfiles = [] } = useQuery({
+    queryKey: ['report-recipient-profiles', recipientIds.sort().join(',')],
+    enabled: recipientIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, username, profile_picture_url')
+        .in('id', recipientIds);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const profileMap = useMemo(() => {
+    const map = new Map<string, { name: string; avatar: string | null }>();
+    recipientProfiles.forEach((p: any) => {
+      map.set(p.id, { name: p.full_name || p.username || 'User', avatar: p.profile_picture_url });
+    });
+    return map;
+  }, [recipientProfiles]);
+
   const runNow = useMutation({
     mutationFn: async (id: string) => {
       const { data, error } = await supabase.functions.invoke('report-dispatcher', {
@@ -359,15 +386,23 @@ export function ReportSubscriptionsTab() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
-                            {recipients.slice(0, 3).map((uid: string, i: number) => (
-                              <div
-                                key={uid + i}
-                                className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center', avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
-                                title={uid}
-                              >
-                                {initials(uid.replace(/-/g, ' '))}
-                              </div>
-                            ))}
+                            {recipients.slice(0, 3).map((uid: string, i: number) => {
+                              const p = profileMap.get(uid);
+                              const name = p?.name || 'Unknown';
+                              return (
+                                <div
+                                  key={uid + i}
+                                  className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center overflow-hidden', !p?.avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
+                                  title={name}
+                                >
+                                  {p?.avatar ? (
+                                    <img src={p.avatar} alt={name} className="h-full w-full object-cover" />
+                                  ) : (
+                                    initials(name)
+                                  )}
+                                </div>
+                              );
+                            })}
                             {recipients.length > 3 && (
                               <div className="h-7 w-7 -ml-2 rounded-full ring-2 ring-background bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
                                 +{recipients.length - 3}
@@ -448,11 +483,15 @@ export function ReportSubscriptionsTab() {
                     </div>
                     <div className="mt-3 flex items-center justify-between">
                       <div className="flex items-center">
-                        {recipients.slice(0, 4).map((uid: string, i: number) => (
-                          <div key={uid + i} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center', avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
-                            {initials(uid.replace(/-/g, ' '))}
-                          </div>
-                        ))}
+                        {recipients.slice(0, 4).map((uid: string, i: number) => {
+                          const p = profileMap.get(uid);
+                          const name = p?.name || 'Unknown';
+                          return (
+                            <div key={uid + i} title={name} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center overflow-hidden', !p?.avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
+                              {p?.avatar ? <img src={p.avatar} alt={name} className="h-full w-full object-cover" /> : initials(name)}
+                            </div>
+                          );
+                        })}
                         {recipients.length > 4 && (
                           <div className="h-6 w-6 -ml-2 rounded-full ring-2 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">+{recipients.length - 4}</div>
                         )}
