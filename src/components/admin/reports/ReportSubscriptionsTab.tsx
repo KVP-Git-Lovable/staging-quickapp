@@ -589,6 +589,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [dateFrom, setDateFrom] = useState<string>(editing?.def.config?.filters?.date_from ?? iso30);
   const [dateTo, setDateTo] = useState<string>(editing?.def.config?.filters?.date_to ?? isoToday);
   const [scopeUserId, setScopeUserId] = useState<string>(editing?.def.config?.filters?.scope_user_id ?? '');
+  const [distributorId, setDistributorId] = useState<string>(editing?.def.config?.filters?.distributor_id ?? '');
 
 
 
