@@ -1203,22 +1203,28 @@ function FieldSection({ title, fields, kind, onAdd }: { title: string; fields: A
   );
 }
 
-function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemove, onDrop, filtersContent }: {
+function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemove, onDrop, onReorderRows, onReorderValues, filtersContent }: {
   layout: string;
   rows: string[]; columns: string; values: string[];
   labelOf: (k: string) => string;
   isMeasure: (k: string) => boolean;
   onRemove: (zone: 'cols' | 'gr' | 'gc' | 'val' | 'vals', k?: string) => void;
   onDrop: (k: string, kind: 'dim' | 'msr') => void;
+  onReorderRows?: (from: number, to: number) => void;
+  onReorderValues?: (from: number, to: number) => void;
   filtersContent: React.ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-3 flex flex-wrap gap-4 items-start">
       {layout === 'tabular' && (
         <OutlineZone title="Columns" onDropKey={(k, kind) => onDrop(k, kind)}>
-          {rows.length ? rows.map(k => (
-            <Chip key={k} label={labelOf(k)} measure={isMeasure(k)} onRemove={() => onRemove('cols', k)} />
-          )) : <EmptyChip text="add fields" />}
+          {rows.length ? (
+            <ReorderableChipList
+              items={rows}
+              onReorder={(f, t) => onReorderRows?.(f, t)}
+              renderChip={(k) => <Chip label={labelOf(k)} measure={isMeasure(k)} onRemove={() => onRemove('cols', k)} />}
+            />
+          ) : <EmptyChip text="add fields" />}
         </OutlineZone>
       )}
       {layout === 'grouped' && (
@@ -1227,9 +1233,13 @@ function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemov
             {rows[0] ? <Chip label={labelOf(rows[0])} onRemove={() => onRemove('gr')} /> : <EmptyChip text="drop field" />}
           </OutlineZone>
           <OutlineZone title="Columns (values)" onDropKey={(k, kind) => { if (kind === 'msr') onDrop(k, kind); }}>
-            {values.length ? values.map(k => (
-              <Chip key={k} label={labelOf(k)} measure onRemove={() => onRemove('vals', k)} />
-            )) : <EmptyChip text="add measures" />}
+            {values.length ? (
+              <ReorderableChipList
+                items={values}
+                onReorder={(f, t) => onReorderValues?.(f, t)}
+                renderChip={(k) => <Chip label={labelOf(k)} measure onRemove={() => onRemove('vals', k)} />}
+              />
+            ) : <EmptyChip text="add measures" />}
           </OutlineZone>
         </>
       )}
@@ -1257,6 +1267,57 @@ function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemov
     </div>
   );
 }
+
+function ReorderableChipList({ items, onReorder, renderChip }: {
+  items: string[];
+  onReorder: (from: number, to: number) => void;
+  renderChip: (key: string, index: number) => React.ReactNode;
+}) {
+  const [dragIndex, setDragIndex] = React.useState<number | null>(null);
+  const [overIndex, setOverIndex] = React.useState<number | null>(null);
+  return (
+    <>
+      {items.map((k, i) => (
+        <span
+          key={k}
+          draggable
+          onDragStart={(e) => {
+            setDragIndex(i);
+            e.dataTransfer.setData('application/x-report-reorder', String(i));
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragOver={(e) => {
+            if (Array.from(e.dataTransfer.types).includes('application/x-report-reorder')) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = 'move';
+              if (overIndex !== i) setOverIndex(i);
+            }
+          }}
+          onDragLeave={() => setOverIndex(prev => (prev === i ? null : prev))}
+          onDrop={(e) => {
+            const raw = e.dataTransfer.getData('application/x-report-reorder');
+            if (!raw) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const from = Number(raw);
+            setDragIndex(null); setOverIndex(null);
+            if (Number.isFinite(from) && from !== i) onReorder(from, i);
+          }}
+          onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+          className={cn(
+            'inline-flex cursor-grab active:cursor-grabbing rounded-full',
+            overIndex === i && dragIndex !== i && 'ring-2 ring-[#534ab7]',
+            dragIndex === i && 'opacity-40',
+          )}
+        >
+          {renderChip(k, i)}
+        </span>
+      ))}
+    </>
+  );
+}
+
 
 function OutlineZone({ title, children, onDropKey }: { title: string; children: React.ReactNode; onDropKey: (k: string, kind: 'dim' | 'msr') => void }) {
   const [over, setOver] = React.useState(false);
