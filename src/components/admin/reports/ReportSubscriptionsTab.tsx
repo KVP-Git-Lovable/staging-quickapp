@@ -891,6 +891,7 @@ interface Step1Props {
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
   scopeUserId: string; setScopeUserId: (v: string) => void;
+  distributorId: string; setDistributorId: (v: string) => void;
   onCancel: () => void;
   onNext: () => void;
   canNext: boolean;
