@@ -1448,6 +1448,20 @@ function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, s
           </SelectContent>
         </Select>
       </div>
+      {showDistributor && setDistributorId && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Distributor</div>
+          <Select value={distributorId || '__all__'} onValueChange={(v) => setDistributorId(v === '__all__' ? '' : v)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All distributors" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="__all__" className="text-xs">All distributors</SelectItem>
+              {(distributors ?? []).map(d => (
+                <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </div>
   );
 }
