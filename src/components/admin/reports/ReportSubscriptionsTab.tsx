@@ -779,7 +779,9 @@ function Step1Body(p: Step1Props) {
               <ZoneCard
                 title="Values"
                 accept="msr"
-                onDropKey={(k) => { if (!values.includes(k)) toggleValue(k); }}
+                acceptedKeys={measures.map(m => m.key)}
+                rejectedDropMessage="Values accepts measures only. Drag a field marked ‘msr’ from Fields."
+                onDropKey={(k) => p.setValues(prev => prev.includes(k) ? prev : [...prev, k])}
               >
                 <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                   {values.length === 0 ? (
@@ -926,8 +928,12 @@ function FieldRow({ label, kind, fieldKey }: { label: string; kind: 'dim' | 'msr
   return (
     <div
       draggable
+      data-report-field-key={fieldKey}
+      data-report-field-kind={kind}
       onDragStart={(e) => {
-        e.dataTransfer.setData('application/x-report-field', JSON.stringify({ key: fieldKey, kind }));
+        const payload = JSON.stringify({ key: fieldKey, kind });
+        e.dataTransfer.setData('application/x-report-field', payload);
+        e.dataTransfer.setData('application/json', payload);
         e.dataTransfer.setData('text/plain', fieldKey);
         e.dataTransfer.effectAllowed = 'copy';
       }}
@@ -951,41 +957,19 @@ function FieldRow({ label, kind, fieldKey }: { label: string; kind: 'dim' | 'msr
   );
 }
 
-function useGlobalDragActive() {
-  const [active, setActive] = React.useState(false);
-  React.useEffect(() => {
-    const onStart = (e: DragEvent) => {
-      // Only treat our field drags as active (avoid text selection drags)
-      try {
-        const types = e.dataTransfer?.types;
-        if (types && Array.from(types).includes('application/x-report-field')) {
-          setActive(true);
-        }
-      } catch { /* noop */ }
-    };
-    const onEnd = () => setActive(false);
-    document.addEventListener('dragstart', onStart);
-    document.addEventListener('dragend', onEnd);
-    document.addEventListener('drop', onEnd);
-    return () => {
-      document.removeEventListener('dragstart', onStart);
-      document.removeEventListener('dragend', onEnd);
-      document.removeEventListener('drop', onEnd);
-    };
-  }, []);
-  return active;
-}
-
 function ZoneCard({
-  title, tone, children, accept, onDropKey,
+  title, tone, children, accept, acceptedKeys, rejectedDropMessage, onDropKey,
 }: {
   title: string;
   tone?: 'purple';
   children: React.ReactNode;
   accept?: 'dim' | 'msr';
+  acceptedKeys?: string[];
+  rejectedDropMessage?: string;
   onDropKey?: (key: string) => void;
 }) {
   const [over, setOver] = React.useState(false);
+  const [dropError, setDropError] = React.useState('');
   const handleDrop = (e: React.DragEvent) => {
     if (!onDropKey) return;
     e.preventDefault();
@@ -994,6 +978,7 @@ function ZoneCard({
     try {
       const raw =
         e.dataTransfer.getData('application/x-report-field') ||
+        e.dataTransfer.getData('application/json') ||
         e.dataTransfer.getData('text/plain');
       if (!raw) return;
       let key: string;
@@ -1006,7 +991,13 @@ function ZoneCard({
         key = raw;
       }
       if (!key) return;
-      if (accept && kind && kind !== accept) return;
+      const isAcceptedKey = !acceptedKeys || acceptedKeys.includes(key);
+      if ((accept && kind && kind !== accept) || !isAcceptedKey) {
+        setDropError(rejectedDropMessage ?? `Drop a ${accept === 'msr' ? 'measure' : 'dimension'} here.`);
+        window.setTimeout(() => setDropError(''), 2600);
+        return;
+      }
+      setDropError('');
       onDropKey(key);
     } catch { /* ignore */ }
   };
@@ -1020,15 +1011,15 @@ function ZoneCard({
   };
   return (
     <div
-      onDragEnter={handleDragOver}
-      onDragOver={handleDragOver}
+      onDragEnterCapture={handleDragOver}
+      onDragOverCapture={handleDragOver}
       onDragLeave={(e) => {
         const related = e.relatedTarget as Node | null;
         if (!related || !(e.currentTarget as Node).contains(related)) {
           setOver(false);
         }
       }}
-      onDrop={handleDrop}
+      onDropCapture={handleDrop}
       className={cn(
         'relative rounded-xl border border-dashed p-3 transition-colors',
         tone === 'purple' ? 'border-[#534ab7]/40 bg-[#eeedfe]/50 dark:bg-[#534ab7]/10' : 'border-border/60',
@@ -1041,6 +1032,11 @@ function ZoneCard({
       <div>
         {children}
       </div>
+      {dropError && (
+        <p role="alert" className="pt-2 text-[11px] font-medium text-destructive">
+          {dropError}
+        </p>
+      )}
     </div>
   );
 }
