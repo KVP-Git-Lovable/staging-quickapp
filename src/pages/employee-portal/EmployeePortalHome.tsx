@@ -230,6 +230,26 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
   const [q, setQ] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [nearMe, setNearMe] = useState(false);
+  const [liveCoords, setLiveCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+
+  const activeCoords = liveCoords || coords;
+
+  function useMyLocation() {
+    if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setLiveCoords({ lat: p.coords.latitude, lng: p.coords.longitude });
+        setNearMe(true);
+        setLocating(false);
+        toast.success('Location updated — showing nearest retailers');
+      },
+      (err) => { setLocating(false); toast.error(err.message || 'Could not get your location'); },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -239,8 +259,8 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
         body: {
           action: 'search_retailers',
           q: q.trim(),
-          lat: coords?.lat,
-          lng: coords?.lng,
+          lat: activeCoords?.lat,
+          lng: activeCoords?.lng,
           limit: 200,
         },
       });
@@ -249,9 +269,13 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
       setLoading(false);
     }, 250);
     return () => clearTimeout(handle);
-  }, [open, q, coords?.lat, coords?.lng]);
+  }, [open, q, activeCoords?.lat, activeCoords?.lng]);
 
-  const filtered = useMemo(() => rows.slice(0, 60), [rows]);
+  const filtered = useMemo(() => {
+    let list = rows;
+    if (nearMe && activeCoords) list = list.filter(r => isFinite(r._dist));
+    return list.slice(0, 60);
+  }, [rows, nearMe, activeCoords]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -264,12 +288,31 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input className="pl-8" placeholder="Search name, phone, address…" value={q} onChange={e => setQ(e.target.value)} />
           </div>
-          <Button variant="outline" className="w-full" onClick={onAddNew}>
-            <Plus className="h-4 w-4 mr-1" /> Retailer not listed — add new
-          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant={nearMe ? 'default' : 'outline'}
+              className={nearMe ? 'bg-indigo-600 hover:bg-indigo-700' : ''}
+              onClick={useMyLocation}
+              disabled={locating}
+            >
+              {locating ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MapPin className="h-4 w-4 mr-1" />}
+              Near me
+            </Button>
+            <Button variant="outline" onClick={onAddNew}>
+              <Plus className="h-4 w-4 mr-1" /> Add new
+            </Button>
+          </div>
+          {activeCoords && (
+            <p className="text-[11px] text-muted-foreground">
+              {nearMe ? 'Sorted by distance from your current location.' : 'Tap "Near me" to sort by proximity.'}
+            </p>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto px-2 pb-4">
           {loading && <div className="text-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline" /></div>}
+          {!loading && filtered.length === 0 && (
+            <p className="text-center py-8 text-sm text-muted-foreground">No retailers found.</p>
+          )}
           {!loading && filtered.map(r => (
             <button key={r.id} onClick={() => onPick(r)}
               className="w-full text-left p-3 rounded-lg hover:bg-slate-50 border-b flex items-start gap-3">
@@ -281,7 +324,11 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
                 <p className="text-xs text-muted-foreground truncate">{r.address || '—'}</p>
                 <p className="text-[11px] text-slate-500">{r.phone || ''}</p>
               </div>
-              {isFinite(r._dist) && <span className="text-[10px] text-slate-500 whitespace-nowrap">{r._dist.toFixed(1)} km</span>}
+              {isFinite(r._dist) && (
+                <span className="text-[10px] font-medium text-indigo-600 whitespace-nowrap">
+                  {r._dist < 1 ? `${Math.round(r._dist * 1000)} m` : `${r._dist.toFixed(1)} km`}
+                </span>
+              )}
             </button>
           ))}
         </div>
