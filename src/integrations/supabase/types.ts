@@ -7349,6 +7349,9 @@ export type Database = {
           employee_name: string | null
           id: string
           is_new_retailer: boolean
+          joint_sales_feedback: Json
+          joint_visit_partner_id: string | null
+          joint_visit_partner_name: string | null
           latitude: number | null
           longitude: number | null
           next_action: string | null
@@ -7375,6 +7378,9 @@ export type Database = {
           employee_name?: string | null
           id?: string
           is_new_retailer?: boolean
+          joint_sales_feedback?: Json
+          joint_visit_partner_id?: string | null
+          joint_visit_partner_name?: string | null
           latitude?: number | null
           longitude?: number | null
           next_action?: string | null
@@ -7401,6 +7407,9 @@ export type Database = {
           employee_name?: string | null
           id?: string
           is_new_retailer?: boolean
+          joint_sales_feedback?: Json
+          joint_visit_partner_id?: string | null
+          joint_visit_partner_name?: string | null
           latitude?: number | null
           longitude?: number | null
           next_action?: string | null
