@@ -1156,7 +1156,7 @@ function LivePreviewCard({
   selectedColumns?: string[];
   onReorderTabular?: (next: string[]) => void;
 }) {
-  const sample = rows.slice(0, 8);
+  const sample = rows; // show all fetched rows — the container scrolls when tall
 
   // Build columns from returned keys. Tabular respects the user's ordered picks;
   // matrix prioritises row/column dims then measures; grouped shows what came back.
