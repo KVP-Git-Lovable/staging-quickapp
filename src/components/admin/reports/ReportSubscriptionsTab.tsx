@@ -851,6 +851,40 @@ function Step1Body(p: Step1Props) {
               </div>
             </ZoneCard>
 
+            <ZoneCard title="Team / User filter">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1 min-w-[240px]">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Show data for
+                  </Label>
+                  <Select
+                    value={scopeUserId || '__all__'}
+                    onValueChange={(v) => p.setScopeUserId(v === '__all__' ? '' : v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue>{scopeLabel}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="__all__" className="text-xs">Everyone I can see</SelectItem>
+                      {scopeOptions.length > 0 && <div className="border-t my-1" />}
+                      {scopeOptions.map(o => (
+                        <SelectItem key={o.id} value={o.id} className="text-xs">
+                          <span style={{ paddingLeft: `${Math.max(0, o.level - 1) * 10}px` }}>
+                            {o.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[11px] text-muted-foreground pb-1 max-w-sm">
+                  Pick any user in your hierarchy — the report includes that person and their full team, respecting your access.
+                </p>
+              </div>
+            </ZoneCard>
+
+
+
 
             {layout === 'matrix' && (
               <div className="flex flex-wrap items-center gap-5 pt-1">
