@@ -49,6 +49,12 @@ export default function EmployeePortalHome() {
   const [visitOpen, setVisitOpen] = useState(false);
   const [selectedRetailer, setSelectedRetailer] = useState<any>(null);
   const [visits, setVisits] = useState<any[]>([]);
+  const [detailsVisit, setDetailsVisit] = useState<any>(null);
+  const [editingVisit, setEditingVisit] = useState<any>(null);
+  const [visitSearch, setVisitSearch] = useState('');
+  const [visitRange, setVisitRange] = useState<string>('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   useEffect(() => {
     if (!session) { nav('/employee-portal/login', { replace: true }); return; }
@@ -137,7 +143,7 @@ export default function EmployeePortalHome() {
                   <p className="text-sm text-muted-foreground">No visits yet — tap "Find retailer" to start.</p>
                 ) : (
                   <div className="space-y-2">
-                    {visits.slice(0, 3).map(v => <VisitRow key={v.id} v={v} />)}
+                    {visits.slice(0, 3).map(v => <VisitRow key={v.id} v={v} onClick={() => setDetailsVisit(v)} />)}
                   </div>
                 )}
               </CardContent>
@@ -150,8 +156,48 @@ export default function EmployeePortalHome() {
               <h2 className="font-semibold">My visits</h2>
             </div>
             <div className="space-y-2">
-              {visits.length === 0 && <p className="text-sm text-muted-foreground">No visits yet.</p>}
-              {visits.map(v => <VisitRow key={v.id} v={v} />)}
+              <div className="relative">
+                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  className="pl-9 h-10 bg-white"
+                  placeholder="Search retailer name…"
+                  value={visitSearch}
+                  onChange={(e) => setVisitSearch(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 items-center">
+                <select
+                  className="flex-1 h-10 border rounded-lg px-3 bg-white text-sm"
+                  value={visitRange}
+                  onChange={(e) => setVisitRange(e.target.value)}
+                >
+                  <option value="all">All time</option>
+                  <option value="today">Today</option>
+                  <option value="this_week">This week</option>
+                  <option value="last_week">Last week</option>
+                  <option value="this_month">This month</option>
+                  <option value="last_month">Last month</option>
+                  <option value="this_quarter">This quarter</option>
+                  <option value="last_quarter">Last quarter</option>
+                  <option value="this_fy">This FY</option>
+                  <option value="custom">Custom range…</option>
+                </select>
+              </div>
+              {visitRange === 'custom' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+                  <Input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              {(() => {
+                const filtered = filterVisits(visits, visitSearch, visitRange, customFrom, customTo);
+                if (filtered.length === 0) {
+                  return <p className="text-sm text-muted-foreground">No visits match your filters.</p>;
+                }
+                return filtered.map(v => <VisitRow key={v.id} v={v} onClick={() => setDetailsVisit(v)} />);
+              })()}
             </div>
           </>
         )}
@@ -183,12 +229,93 @@ export default function EmployeePortalHome() {
       />
 
       <VisitFormSheet
-        open={visitOpen} onOpenChange={setVisitOpen}
+        open={visitOpen} onOpenChange={(v) => { setVisitOpen(v); if (!v) setEditingVisit(null); }}
         session={session} retailer={selectedRetailer} coords={coords}
-        onSaved={() => { setVisitOpen(false); setSelectedRetailer(null); loadVisits(); }}
+        existingVisit={editingVisit}
+        onSaved={() => { setVisitOpen(false); setSelectedRetailer(null); setEditingVisit(null); loadVisits(); }}
+      />
+
+      <VisitDetailsSheet
+        open={!!detailsVisit}
+        onOpenChange={(v) => { if (!v) setDetailsVisit(null); }}
+        visit={detailsVisit}
+        onEdit={(v) => {
+          setDetailsVisit(null);
+          setEditingVisit(v);
+          setSelectedRetailer({
+            id: v.retailer_id,
+            name: v.retailer_name,
+            territory_id: v.territory_id,
+            photo_url: v.retailer_photo_url,
+          });
+          setVisitOpen(true);
+        }}
+        onDeleted={() => { setDetailsVisit(null); loadVisits(); }}
       />
     </div>
   );
+}
+
+function filterVisits(
+  visits: any[], q: string, range: string, from: string, to: string,
+): any[] {
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+  let start: Date | null = null; let end: Date | null = null;
+  const dow = now.getDay(); // 0=Sun
+  const mondayOffset = (dow + 6) % 7;
+  const thisWeekStart = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset));
+
+  switch (range) {
+    case 'today': start = startOfDay(now); end = endOfDay(now); break;
+    case 'this_week': start = thisWeekStart; end = endOfDay(now); break;
+    case 'last_week': {
+      end = new Date(thisWeekStart.getTime() - 1);
+      start = new Date(thisWeekStart.getTime() - 7 * 86400000);
+      break;
+    }
+    case 'this_month': start = new Date(now.getFullYear(), now.getMonth(), 1); end = endOfDay(now); break;
+    case 'last_month': {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      break;
+    }
+    case 'this_quarter': {
+      const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      start = new Date(now.getFullYear(), qStartMonth, 1); end = endOfDay(now); break;
+    }
+    case 'last_quarter': {
+      const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      start = new Date(now.getFullYear(), qStartMonth - 3, 1);
+      end = new Date(now.getFullYear(), qStartMonth, 0, 23, 59, 59, 999);
+      break;
+    }
+    case 'this_fy': {
+      // India FY: Apr-Mar
+      const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      start = new Date(y, 3, 1); end = endOfDay(now); break;
+    }
+    case 'custom': {
+      if (from) start = startOfDay(new Date(from));
+      if (to) end = endOfDay(new Date(to));
+      break;
+    }
+    default: break;
+  }
+
+  const term = q.trim().toLowerCase();
+  return visits.filter((v) => {
+    if (term && !(v.retailer_name || '').toLowerCase().includes(term)) return false;
+    if (start || end) {
+      const d = v.created_at ? new Date(v.created_at) : null;
+      if (!d) return false;
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+    }
+    return true;
+  });
 }
 
 function StatChip({ label, value }: { label: string; value: number }) {
@@ -200,9 +327,9 @@ function StatChip({ label, value }: { label: string; value: number }) {
   );
 }
 
-function VisitRow({ v }: { v: any }) {
+function VisitRow({ v, onClick }: { v: any; onClick?: () => void }) {
   return (
-    <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50">
+    <button type="button" onClick={onClick} className="w-full text-left flex items-start gap-3 p-2 rounded-lg hover:bg-slate-100 active:bg-slate-200">
       {v.retailer_photo_url
         ? <img src={v.retailer_photo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
         : <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center"><Store className="h-5 w-5 text-slate-400" /></div>}
@@ -219,7 +346,7 @@ function VisitRow({ v }: { v: any }) {
       <div className="text-[10px] text-slate-400 whitespace-nowrap">
         {new Date(v.created_at).toLocaleDateString()}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -435,8 +562,6 @@ function AddRetailerSheet({ open, onOpenChange, coords, onCreated }: {
 
 // ---- Joint Sales aligned config (mirrors JointSalesFeedbackModal) ----
 const STAR_PARAMS: { key: string; label: string; hint: string }[] = [
-  { key: 'product_packaging_feedback', label: 'Product Packaging', hint: 'Ask: "Is the packaging attractive and easy to display / carry?" Rate on look, sturdiness and shelf appeal.' },
-  { key: 'product_sku_range_feedback', label: 'Product SKU Range', hint: 'Ask: "Do we have all the sizes and variants your customers ask for?" Rate width and depth of the range stocked.' },
   { key: 'product_quality_feedback', label: 'Product Quality', hint: 'Ask: "Are customers happy with the product? Any complaints or returns?" Rate consumer-perceived quality.' },
   { key: 'service_feedback', label: 'Service Quality', hint: 'Ask: "Are deliveries on time, invoices correct, and issues resolved quickly?" Rate our sales & service support.' },
   { key: 'consumer_feedback', label: 'Consumer Satisfaction', hint: 'Ask: "What are end-consumers saying — repeat buyers, praise or complaints?" Rate consumer sentiment.' },
@@ -448,18 +573,6 @@ const DROPDOWN_PARAMS: { key: string; label: string; hint: string; options: stri
     options: [
       'Excellent - Prime shelf space', 'Good - Visible location',
       'Average - Needs improvement', 'Poor - Not visible',
-  ]},
-  { key: 'promotion_vs_competition', label: 'Promotes Us vs Competition',
-    hint: 'When a customer walks in undecided, does the retailer recommend us first, or push competitor brands?',
-    options: [
-      'Actively promotes us over competition', 'Promotes equally with competition',
-      'Prefers competition slightly', 'Heavily promotes competition',
-  ]},
-  { key: 'product_usp_feedback', label: 'Product USP Awareness',
-    hint: 'Does the retailer know our unique selling points (quality, warranty, price advantage) and share them with customers?',
-    options: [
-      'Clearly understands and promotes USP', 'Aware of key USPs',
-      'Limited awareness', 'No awareness of USP',
   ]},
   { key: 'schemes_feedback', label: 'Schemes Effectiveness',
     hint: 'Are our current trade schemes / offers actually helping the retailer sell more? Or do they feel unattractive?',
@@ -487,13 +600,11 @@ const DROPDOWN_SCORES: Record<string, number> = {
   'Highly willing - Ready to expand': 5, 'Willing - Open to new products': 4, 'Hesitant - Needs convincing': 2, 'Not willing - Satisfied with current': 1,
   'Highly effective - Driving sales': 5, 'Moderately effective': 4, 'Not very effective': 2, 'Needs better schemes': 1,
   'Very competitive': 5, 'Competitive': 4, 'Slightly higher than competitors': 2, 'Too expensive': 1,
-  'Actively promotes us over competition': 5, 'Promotes equally with competition': 4, 'Prefers competition slightly': 2, 'Heavily promotes competition': 1,
-  'Clearly understands and promotes USP': 5, 'Aware of key USPs': 4, 'Limited awareness': 2, 'No awareness of USP': 1,
 };
 
 function calcJointScore(feedback: Record<string, any>): number {
   let total = 0;
-  const MAX = 55; // 5 star × 5 + 6 dd × 5
+  const MAX = STAR_PARAMS.length * 5 + DROPDOWN_PARAMS.length * 5;
   STAR_PARAMS.forEach(p => { total += parseInt(feedback[p.key]) || 0; });
   DROPDOWN_PARAMS.forEach(p => { const v = feedback[p.key]; if (v && DROPDOWN_SCORES[v]) total += DROPDOWN_SCORES[v]; });
   if (!total) return 0;
@@ -520,10 +631,12 @@ function StarRow({ value, onChange }: { value: number; onChange: (n: number) => 
   );
 }
 
-function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved }: {
+function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved, existingVisit }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   session: any; retailer: any; coords: any; onSaved: () => void;
+  existingVisit?: any;
 }) {
+  const isEdit = !!existingVisit;
   const [sellsOurProducts, setSellsOurProducts] = useState<'yes' | 'no' | ''>('');
   const [feedback, setFeedback] = useState<Record<string, any>>({});
   const [actionItems, setActionItems] = useState('');
@@ -552,12 +665,36 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
 
   useEffect(() => {
     if (!open) return;
-    setSellsOurProducts('');
-    setFeedback({});
-    setActionItems(''); setOrderIncrease(''); setMonthlyPotential('');
-    setInterestedToKnowMore('');
-    setCompetitions([emptyCompetition()]);
-    setRetailerSize(''); setRetailerMonthlyTurnover(''); setRetailerNotes('');
+    const jb = existingVisit?.joint_sales_feedback || null;
+    if (jb) {
+      setSellsOurProducts((jb.sells_our_products as any) || '');
+      const fb: Record<string, any> = {};
+      [...STAR_PARAMS, ...DROPDOWN_PARAMS].forEach(p => { if (jb[p.key] != null) fb[p.key] = jb[p.key]; });
+      setFeedback(fb);
+      setActionItems(existingVisit.additional_notes || jb.joint_sales_impact || '');
+      setOrderIncrease(jb.order_increase_amount ? String(jb.order_increase_amount) : '');
+      setMonthlyPotential(jb.monthly_potential_6months ? String(jb.monthly_potential_6months) : '');
+      setInterestedToKnowMore((jb.non_selling?.interested_to_know_more as any) || '');
+      const comps = Array.isArray(jb.competitions) && jb.competitions.length
+        ? jb.competitions.map((c: any) => ({
+            brand: c.brand || '', skus: c.skus || '',
+            monthly_value: c.monthly_value != null ? String(c.monthly_value) : '',
+          }))
+        : [emptyCompetition()];
+      setCompetitions(comps);
+      setRetailerSize(jb.retailer_profile?.size || '');
+      setRetailerMonthlyTurnover(
+        jb.retailer_profile?.monthly_turnover != null ? String(jb.retailer_profile.monthly_turnover) : '',
+      );
+      setRetailerNotes(jb.retailer_profile?.notes || '');
+    } else {
+      setSellsOurProducts('');
+      setFeedback({});
+      setActionItems(''); setOrderIncrease(''); setMonthlyPotential('');
+      setInterestedToKnowMore('');
+      setCompetitions([emptyCompetition()]);
+      setRetailerSize(''); setRetailerMonthlyTurnover(''); setRetailerNotes('');
+    }
     setVisitPhotos([]);
     (async () => {
       if (retailer?.territory_id) {
@@ -569,9 +706,11 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
             .select('full_name').eq('id', uid).maybeSingle();
           setExec({ id: uid, name: p?.full_name || 'Executive' });
         } else setExec(null);
+      } else if (existingVisit?.territory_executive_id) {
+        setExec({ id: existingVisit.territory_executive_id, name: existingVisit.territory_executive_name });
       } else setExec(null);
     })();
-  }, [open, retailer, session.id]);
+  }, [open, retailer, session.id, existingVisit]);
 
   const score = useMemo(() => calcJointScore(feedback), [feedback]);
   const scoreColor = score >= 8 ? 'bg-green-100 text-green-700'
@@ -607,6 +746,9 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
       }))
       .filter(c => c.brand || c.skus || c.monthly_value);
 
+    const priorPhotos: string[] = Array.isArray(existingVisit?.joint_sales_feedback?.photos)
+      ? existingVisit.joint_sales_feedback.photos : [];
+
     const jointBlob: any = {
       sells_our_products: sellsOurProducts,
       score: sellsOurProducts === 'yes' ? score : null,
@@ -620,7 +762,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
         monthly_turnover: parseFloat(retailerMonthlyTurnover) || null,
         notes: retailerNotes || null,
       },
-      photos: uploadedPhotos,
+      photos: [...priorPhotos, ...uploadedPhotos],
     };
     if (sellsOurProducts === 'no') {
       jointBlob.non_selling = {
@@ -628,33 +770,49 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
       };
     }
 
-    const payload = {
-      employee_id: session.id,
-      employee_name: session.full_name,
-      retailer_id: retailer.id,
-      retailer_name: retailer.name,
-      is_new_retailer: !!retailer.__isNew,
-      territory_id: retailer.territory_id || null,
-      territory_executive_id: exec?.id || null,
-      territory_executive_name: exec?.name || null,
-      retailer_photo_url: retailer.__isNew ? retailer.photo_url || null : null,
-      latitude: coords?.lat ?? null,
-      longitude: coords?.lng ?? null,
-      joint_sales_feedback: jointBlob,
-      additional_notes: actionItems || null,
-      overall_sentiment: sellsOurProducts === 'yes'
-        ? (score ? `Score ${score}/10` : null)
-        : `Non-selling • ${interestedToKnowMore === 'yes' ? 'interested' : 'not interested'}`,
-    };
-    const { data, error } = await (supabase as any).functions.invoke('employee-portal-api', {
-      body: { action: 'save_visit', visit: payload },
-    });
+    let data: any, error: any;
+    if (isEdit) {
+      const patch = {
+        joint_sales_feedback: jointBlob,
+        additional_notes: actionItems || null,
+        overall_sentiment: sellsOurProducts === 'yes'
+          ? (score ? `Score ${score}/10` : null)
+          : `Non-selling • ${interestedToKnowMore === 'yes' ? 'interested' : 'not interested'}`,
+      };
+      const res = await (supabase as any).functions.invoke('employee-portal-api', {
+        body: { action: 'update_visit', visit_id: existingVisit.id, patch },
+      });
+      data = res.data; error = res.error;
+    } else {
+      const payload = {
+        employee_id: session.id,
+        employee_name: session.full_name,
+        retailer_id: retailer.id,
+        retailer_name: retailer.name,
+        is_new_retailer: !!retailer.__isNew,
+        territory_id: retailer.territory_id || null,
+        territory_executive_id: exec?.id || null,
+        territory_executive_name: exec?.name || null,
+        retailer_photo_url: retailer.__isNew ? retailer.photo_url || null : null,
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
+        joint_sales_feedback: jointBlob,
+        additional_notes: actionItems || null,
+        overall_sentiment: sellsOurProducts === 'yes'
+          ? (score ? `Score ${score}/10` : null)
+          : `Non-selling • ${interestedToKnowMore === 'yes' ? 'interested' : 'not interested'}`,
+      };
+      const res = await (supabase as any).functions.invoke('employee-portal-api', {
+        body: { action: 'save_visit', visit: payload },
+      });
+      data = res.data; error = res.error;
+    }
     setSaving(false);
     if (error || !data?.success) {
       toast.error(error?.message || data?.error || 'Failed to publish');
       return;
     }
-    toast.success('Feedback published');
+    toast.success(isEdit ? 'Visit updated' : 'Feedback published');
     onSaved();
   }
 
@@ -665,7 +823,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-2 text-lg">
               <User className="h-5 w-5 text-indigo-600" />
-              Retailer Feedback
+              {isEdit ? 'Edit Visit' : 'Retailer Feedback'}
             </SheetTitle>
             {sellsOurProducts === 'yes' && score > 0 && (
               <Badge className={`text-sm px-2 py-1 ${scoreColor}`}>Score: {score}/10</Badge>
@@ -751,11 +909,6 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
                   <h3 className="text-base font-semibold text-green-700">Sales Outcome</h3>
                 </div>
                 <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <Label>Order Increase (₹)</Label>
-                    <Input type="number" inputMode="decimal" value={orderIncrease}
-                      onChange={e => setOrderIncrease(e.target.value)} placeholder="Additional order value" />
-                  </div>
                   <div>
                     <Label>6-Month Growth Potential (₹)</Label>
                     <Input type="number" inputMode="decimal" value={monthlyPotential}
@@ -917,15 +1070,8 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
             </div>
           )}
 
-          {/* Action items — Yes branch only */}
-          {sellsOurProducts === 'yes' && (
-            <div>
-              <Label>Action items / notes</Label>
-              <p className="text-xs text-muted-foreground mb-1">Agreed next steps, follow-ups or commitments made during this visit.</p>
-              <Textarea rows={3} value={actionItems} onChange={(e) => setActionItems(e.target.value)}
-                placeholder="Agreed next steps, follow-ups…" />
-            </div>
-          )}
+
+
 
           <div className="text-[11px] text-muted-foreground flex items-center gap-1">
             <MapPin className="h-3 w-3" />
@@ -940,7 +1086,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
             Cancel
           </Button>
           <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={publish} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Publish
+            {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} {isEdit ? 'Save changes' : 'Publish'}
           </Button>
         </div>
       </SheetContent>
@@ -948,3 +1094,161 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
   );
 }
 
+
+function VisitDetailsSheet({ open, onOpenChange, visit, onEdit, onDeleted }: {
+  open: boolean; onOpenChange: (v: boolean) => void;
+  visit: any | null;
+  onEdit: (v: any) => void;
+  onDeleted: () => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  if (!visit) return null;
+  const jb = visit.joint_sales_feedback || {};
+  const comps: any[] = Array.isArray(jb.competitions) ? jb.competitions : [];
+  const photos: string[] = Array.isArray(jb.photos) ? jb.photos : [];
+  const profile = jb.retailer_profile || {};
+
+  async function doDelete() {
+    setDeleting(true);
+    const { data, error } = await (supabase as any).functions.invoke('employee-portal-api', {
+      body: { action: 'delete_visit', visit_id: visit.id },
+    });
+    setDeleting(false);
+    if (error || !data?.success) {
+      toast.error(error?.message || data?.error || 'Failed to delete');
+      return;
+    }
+    toast.success('Visit deleted');
+    onDeleted();
+  }
+
+  const Row = ({ label, value }: { label: string; value: any }) => (
+    <div className="flex justify-between gap-3 text-sm py-1 border-b border-slate-100 last:border-0">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-medium text-slate-800 text-right break-words">{value ?? '—'}</span>
+    </div>
+  );
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="h-[95vh] p-0 flex flex-col">
+        <SheetHeader className="px-4 pt-4 pb-2 border-b">
+          <SheetTitle className="flex items-center gap-2 text-lg">
+            <Store className="h-5 w-5 text-indigo-600" />
+            {visit.retailer_name || 'Retailer'}
+          </SheetTitle>
+          <p className="text-xs text-muted-foreground">
+            {new Date(visit.created_at).toLocaleString()}
+            {visit.territory_executive_name ? ` • ${visit.territory_executive_name}` : ''}
+          </p>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <Card><CardContent className="p-3 space-y-1">
+            <Row label="Sells our products" value={jb.sells_our_products || '—'} />
+            {jb.score != null && <Row label="Score" value={`${jb.score}/10`} />}
+            <Row label="Overall sentiment" value={visit.overall_sentiment} />
+            <Row label="New retailer" value={visit.is_new_retailer ? 'Yes' : 'No'} />
+          </CardContent></Card>
+
+          {(STAR_PARAMS.some(p => jb[p.key]) || DROPDOWN_PARAMS.some(p => jb[p.key])) && (
+            <div>
+              <h4 className="text-sm font-semibold text-indigo-700 mb-2">Feedback</h4>
+              <Card><CardContent className="p-3 space-y-1">
+                {STAR_PARAMS.map(p => jb[p.key] ? (
+                  <Row key={p.key} label={p.label} value={`${jb[p.key]} ★`} />
+                ) : null)}
+                {DROPDOWN_PARAMS.map(p => jb[p.key] ? (
+                  <Row key={p.key} label={p.label} value={jb[p.key]} />
+                ) : null)}
+              </CardContent></Card>
+            </div>
+          )}
+
+          {(jb.order_increase_amount || jb.monthly_potential_6months) ? (
+            <div>
+              <h4 className="text-sm font-semibold text-green-700 mb-2">Sales outcome</h4>
+              <Card><CardContent className="p-3 space-y-1">
+                {jb.monthly_potential_6months
+                  ? <Row label="6-month potential" value={`₹${jb.monthly_potential_6months}`} />
+                  : null}
+              </CardContent></Card>
+            </div>
+          ) : null}
+
+          {comps.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-red-700 mb-2">Competition</h4>
+              <div className="space-y-2">
+                {comps.map((c, i) => (
+                  <Card key={i}><CardContent className="p-3 space-y-1">
+                    <Row label="Brand" value={c.brand} />
+                    <Row label="SKUs" value={c.skus} />
+                    <Row label="Monthly value" value={c.monthly_value != null ? `₹${c.monthly_value}` : '—'} />
+                  </CardContent></Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <h4 className="text-sm font-semibold text-slate-700 mb-2">Retailer profile</h4>
+            <Card><CardContent className="p-3 space-y-1">
+              <Row label="Size" value={profile.size} />
+              <Row label="Monthly turnover" value={profile.monthly_turnover != null ? `₹${profile.monthly_turnover}` : '—'} />
+              <Row label="Notes" value={profile.notes} />
+            </CardContent></Card>
+          </div>
+
+          {photos.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-indigo-700 mb-2">Photos</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer">
+                    <img src={url} className="w-full h-24 object-cover rounded-lg border" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {visit.latitude != null && visit.longitude != null && (
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {Number(visit.latitude).toFixed(5)}, {Number(visit.longitude).toFixed(5)}
+            </p>
+          )}
+
+          {confirmDelete && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              Delete this visit permanently? This cannot be undone.
+              <div className="flex gap-2 mt-2">
+                <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)} disabled={deleting}>
+                  Keep
+                </Button>
+                <Button size="sm" className="bg-red-600 hover:bg-red-700" onClick={doDelete} disabled={deleting}>
+                  {deleting && <Loader2 className="h-3 w-3 mr-1 animate-spin" />} Confirm delete
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t bg-white px-4 py-3 flex items-center gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="outline" className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+            onClick={() => setConfirmDelete(true)} disabled={deleting}>
+            <Trash2 className="h-4 w-4 mr-1" /> Delete
+          </Button>
+          <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => onEdit(visit)}>
+            Edit
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
