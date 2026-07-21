@@ -159,7 +159,7 @@ const NotificationRulesAdmin = () => {
 
           <Tabs defaultValue="rules" className="w-full">
             <TabsList>
-              <TabsTrigger value="rules">Notification Rules</TabsTrigger>
+              <TabsTrigger value="rules">Notification Center</TabsTrigger>
               <TabsTrigger value="reports">Report Subscriptions</TabsTrigger>
             </TabsList>
 
