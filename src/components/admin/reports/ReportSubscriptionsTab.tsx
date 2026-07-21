@@ -1629,8 +1629,9 @@ function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, set
   );
 }
 
-function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue }: {
+function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue, onReorderValue }: {
   rowsData: any[]; rowKey: string; values: string[]; labelOf: (k: string) => string; onRemoveValue: (k: string) => void;
+  onReorderValue?: (fromKey: string, toKey: string) => void;
 }) {
   const keys = Object.keys(rowsData[0] ?? {});
   const groupCol = rowKey && keys.includes(rowKey) ? rowKey : keys[0];
@@ -1649,6 +1650,8 @@ function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue }: {
               align="right"
               onSummarize="Sum"
               onRemove={values.includes(k) ? () => onRemoveValue(k) : undefined}
+              draggableKey={values.includes(k) ? k : undefined}
+              onReorder={onReorderValue}
             />
           ))}
         </tr>
