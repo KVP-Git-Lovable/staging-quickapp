@@ -90,6 +90,9 @@ Deno.serve(async (req) => {
       try {
         const r = await invokeGenerate(s.id, period, 'scheduled');
         results.push({ subscription_id: s.id, period: period.key, ...r });
+        if (s.cadence === 'today') {
+          await admin.from('report_subscriptions').update({ status: 'paused' }).eq('id', s.id);
+        }
       } catch (e) {
         results.push({ subscription_id: s.id, error: String(e) });
       }
