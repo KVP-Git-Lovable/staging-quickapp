@@ -591,28 +591,40 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
     }
 
     setSaving(true);
+
+    // Upload additional feedback photos (if any)
+    const uploadedPhotos: string[] = [];
+    for (const f of visitPhotos) {
+      const url = await uploadPhoto(f, `visit-feedback/${session.id}`);
+      if (url) uploadedPhotos.push(url);
+    }
+
+    const cleanCompetitions = competitions
+      .map(c => ({
+        brand: c.brand.trim() || null,
+        skus: c.skus.trim() || null,
+        monthly_value: parseFloat(c.monthly_value) || null,
+      }))
+      .filter(c => c.brand || c.skus || c.monthly_value);
+
     const jointBlob: any = {
       sells_our_products: sellsOurProducts,
       score: sellsOurProducts === 'yes' ? score : null,
       ...feedback,
       order_increase_amount: parseFloat(orderIncrease) || 0,
       monthly_potential_6months: parseFloat(monthlyPotential) || 0,
-      joint_sales_impact: actionItems || null,
+      joint_sales_impact: sellsOurProducts === 'yes' ? (actionItems || null) : null,
+      competitions: cleanCompetitions,
+      retailer_profile: {
+        size: retailerSize || null,
+        monthly_turnover: parseFloat(retailerMonthlyTurnover) || null,
+        notes: retailerNotes || null,
+      },
+      photos: uploadedPhotos,
     };
     if (sellsOurProducts === 'no') {
       jointBlob.non_selling = {
         interested_to_know_more: interestedToKnowMore,
-        competition: {
-          brand: competitionBrand || null,
-          skus: competitionSkus || null,
-          monthly_value: parseFloat(competitionMonthlyValue) || null,
-          pricing: competitionPricing || null,
-        },
-        retailer_profile: {
-          size: retailerSize || null,
-          monthly_turnover: parseFloat(retailerMonthlyTurnover) || null,
-          notes: retailerNotes || null,
-        },
       };
     }
 
