@@ -240,6 +240,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
     (editing?.def.config?.values ?? []).map((v: any) => (typeof v === 'string' ? v : v.key)),
   );
 
+  // Date range filter (defaults to last 30 days)
+  const isoToday = new Date().toISOString().slice(0, 10);
+  const iso30 = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); })();
+  const [dateFrom, setDateFrom] = useState<string>(editing?.def.config?.filters?.date_from ?? iso30);
+  const [dateTo, setDateTo] = useState<string>(editing?.def.config?.filters?.date_to ?? isoToday);
+
 
   // Step 2 — schedule + delivery
   const [cadence, setCadence] = useState(editing?.sub.cadence ?? 'daily');
@@ -277,7 +283,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
         rows,
         columns: columns ? [columns] : [],
         values,
-        filters: {},
+        filters: { date_from: dateFrom, date_to: dateTo },
       };
 
 
