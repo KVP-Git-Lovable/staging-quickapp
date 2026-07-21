@@ -1608,6 +1608,8 @@ function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, set
               onSortAsc={() => setSort({ col: k, dir: 'asc' })}
               onSortDesc={() => setSort({ col: k, dir: 'desc' })}
               onRemove={selectedColumns.includes(k) ? () => onRemoveColumn(k) : undefined}
+              draggableKey={selectedColumns.includes(k) ? k : undefined}
+              onReorder={onReorderColumn}
             />
           ))}
         </tr>
