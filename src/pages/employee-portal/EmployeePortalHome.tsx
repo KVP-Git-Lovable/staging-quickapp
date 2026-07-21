@@ -49,6 +49,12 @@ export default function EmployeePortalHome() {
   const [visitOpen, setVisitOpen] = useState(false);
   const [selectedRetailer, setSelectedRetailer] = useState<any>(null);
   const [visits, setVisits] = useState<any[]>([]);
+  const [detailsVisit, setDetailsVisit] = useState<any>(null);
+  const [editingVisit, setEditingVisit] = useState<any>(null);
+  const [visitSearch, setVisitSearch] = useState('');
+  const [visitRange, setVisitRange] = useState<string>('all');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   useEffect(() => {
     if (!session) { nav('/employee-portal/login', { replace: true }); return; }
