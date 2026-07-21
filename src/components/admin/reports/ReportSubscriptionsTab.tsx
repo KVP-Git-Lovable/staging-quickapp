@@ -979,11 +979,26 @@ function Step1Body(p: Step1Props) {
     ? (scopeOptions.find(o => o.id === scopeUserId)?.label ?? 'Selected user')
     : 'Everyone I can see';
 
-  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId });
+  const hasDistributorDim = dims.some(d => d.key === 'distributor');
+  const { data: distributors = [] } = useQuery({
+    queryKey: ['report-distributors'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('distributors')
+        .select('id, name')
+        .order('name', { ascending: true })
+        .limit(1000);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string }>;
+    },
+    enabled: hasDistributorDim,
+  });
+
+  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId });
   React.useEffect(() => {
-    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId }), 250);
+    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId }), 250);
     return () => clearTimeout(t);
-  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId]);
+  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId]);
 
   const preview = useQuery({
     queryKey: [
@@ -991,7 +1006,7 @@ function Step1Body(p: Step1Props) {
       debounced.datasetKey, debounced.layout,
       debounced.rows.join(','), debounced.columns,
       debounced.values.join(','),
-      debounced.dateFrom, debounced.dateTo, debounced.scopeUserId,
+      debounced.dateFrom, debounced.dateTo, debounced.scopeUserId, debounced.distributorId,
     ],
     enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
@@ -1005,6 +1020,7 @@ function Step1Body(p: Step1Props) {
           date_from: debounced.dateFrom,
           date_to: debounced.dateTo,
           scope_user_id: debounced.scopeUserId || null,
+          distributor_id: debounced.distributorId || null,
         },
       };
       // eslint-disable-next-line no-console
