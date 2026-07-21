@@ -781,23 +781,16 @@ function Step1Body(p: Step1Props) {
                 accept="msr"
                 onDropKey={(k) => { if (!values.includes(k)) toggleValue(k); }}
               >
-                <div className="flex flex-wrap gap-1.5">
-                  {values.length === 0 && (
-                    <span className="text-xs text-muted-foreground italic px-1 py-1">Drop measures</span>
+                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                  {values.length === 0 ? (
+                    <span className="text-xs text-muted-foreground/60 italic px-1 py-1">
+                      Drop measures — drag any measure from the Fields palette here.
+                    </span>
+                  ) : (
+                    values.map(k => (
+                      <MeasurePill key={k} label={msrLabel(k)} onRemove={() => toggleValue(k)} />
+                    ))
                   )}
-                  {values.map(k => (
-                    <MeasurePill key={k} label={msrLabel(k)} onRemove={() => toggleValue(k)} />
-                  ))}
-                  {measures.filter(m => !values.includes(m.key)).map(m => (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => toggleValue(m.key)}
-                      className="text-xs rounded-full border border-dashed border-border px-2.5 py-1 text-muted-foreground hover:text-foreground hover:border-solid"
-                    >
-                      + {m.label}
-                    </button>
-                  ))}
                 </div>
               </ZoneCard>
             )}
