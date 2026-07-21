@@ -63,10 +63,10 @@ export default function EmployeePortalHome() {
 
   async function loadVisits() {
     if (!session) return;
-    const { data } = await (supabase as any)
-      .from('employee_market_visits').select('*')
-      .eq('employee_id', session.id).order('created_at', { ascending: false }).limit(50);
-    setVisits(data || []);
+    const { data } = await (supabase as any).functions.invoke('employee-portal-api', {
+      body: { action: 'list_visits', employee_id: session.id },
+    });
+    setVisits(data?.visits || []);
   }
 
   if (!session) return null;
