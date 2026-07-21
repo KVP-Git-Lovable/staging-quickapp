@@ -986,22 +986,33 @@ function ZoneCard({
   onDropKey?: (key: string) => void;
 }) {
   const [over, setOver] = React.useState(false);
-  const dragActive = useGlobalDragActive();
   const handleDrop = (e: React.DragEvent) => {
     if (!onDropKey) return;
     e.preventDefault();
     e.stopPropagation();
     setOver(false);
     try {
-      const raw = e.dataTransfer.getData('application/x-report-field');
+      const raw =
+        e.dataTransfer.getData('application/x-report-field') ||
+        e.dataTransfer.getData('text/plain');
       if (!raw) return;
-      const { key, kind } = JSON.parse(raw) as { key: string; kind: 'dim' | 'msr' };
-      if (accept && kind !== accept) return;
+      let key: string;
+      let kind: 'dim' | 'msr' | undefined;
+      try {
+        const parsed = JSON.parse(raw);
+        key = parsed.key;
+        kind = parsed.kind;
+      } catch {
+        key = raw;
+      }
+      if (!key) return;
+      if (accept && kind && kind !== accept) return;
       onDropKey(key);
     } catch { /* ignore */ }
   };
   const handleDragOver = (e: React.DragEvent) => {
     if (!onDropKey) return;
+    // Required to allow a drop.
     e.preventDefault();
     e.stopPropagation();
     try { e.dataTransfer.dropEffect = 'copy'; } catch { /* noop */ }
@@ -1012,7 +1023,6 @@ function ZoneCard({
       onDragEnter={handleDragOver}
       onDragOver={handleDragOver}
       onDragLeave={(e) => {
-        // Only clear if leaving the zone entirely
         const related = e.relatedTarget as Node | null;
         if (!related || !(e.currentTarget as Node).contains(related)) {
           setOver(false);
@@ -1025,10 +1035,10 @@ function ZoneCard({
         over && 'border-solid border-[#534ab7] bg-[#eeedfe]/70 dark:bg-[#534ab7]/20',
       )}
     >
-      <div className="text-xs text-muted-foreground pb-2">{title}</div>
-      {/* While a field drag is in progress, disable pointer events on children
-          so the zone (not inner buttons) is the drop target. */}
-      <div style={{ pointerEvents: dragActive && onDropKey ? 'none' : 'auto' }}>
+      <div className="text-xs text-muted-foreground pb-2 pointer-events-none">{title}</div>
+      {/* Children keep pointer-events so pills/buttons stay clickable.
+          Drops bubble up to this outer div's onDrop. */}
+      <div>
         {children}
       </div>
     </div>
