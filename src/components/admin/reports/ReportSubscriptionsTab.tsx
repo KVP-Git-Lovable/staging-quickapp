@@ -1207,11 +1207,12 @@ function LivePreviewCard({
         <span>Live preview</span>
         {state === 'data' && (
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-            {rows.length} row{rows.length === 1 ? '' : 's'} · showing {sample.length} · drag column headers to reorder
+            {rows.length} row{rows.length === 1 ? '' : 's'} · drag column headers to reorder
           </span>
         )}
       </div>
-      <div className="p-3 min-h-[80px]">
+      <div className="p-3 min-h-[80px] max-h-[520px] overflow-y-auto">
+
         {state === 'idle' ? (
           <div className="text-xs text-muted-foreground py-4 text-center">
             Add at least one measure to see a live preview for the selected date range.
