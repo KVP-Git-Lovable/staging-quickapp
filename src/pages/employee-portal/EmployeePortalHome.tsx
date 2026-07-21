@@ -631,10 +631,12 @@ function StarRow({ value, onChange }: { value: number; onChange: (n: number) => 
   );
 }
 
-function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved }: {
+function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved, existingVisit }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   session: any; retailer: any; coords: any; onSaved: () => void;
+  existingVisit?: any;
 }) {
+  const isEdit = !!existingVisit;
   const [sellsOurProducts, setSellsOurProducts] = useState<'yes' | 'no' | ''>('');
   const [feedback, setFeedback] = useState<Record<string, any>>({});
   const [actionItems, setActionItems] = useState('');
