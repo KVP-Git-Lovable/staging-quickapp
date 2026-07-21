@@ -102,6 +102,44 @@ serve(async (req) => {
       return json(200, { success: true, retailers: rows });
     }
 
+    if (action === "list_partners") {
+      const excludeId = String(body.exclude_id || "");
+      let q = supabase
+        .from("employee_directory")
+        .select("id,full_name,employee_code,department")
+        .order("full_name", { ascending: true })
+        .limit(500);
+      if (excludeId) q = q.neq("id", excludeId);
+      const { data, error } = await q;
+      if (error) return json(200, { success: false, error: error.message });
+      return json(200, { success: true, partners: data || [] });
+    }
+
+    if (action === "save_visit") {
+      const v = body.visit || {};
+      if (!v.employee_id) return json(200, { success: false, error: "employee_id required" });
+      const { data, error } = await supabase
+        .from("employee_market_visits")
+        .insert(v)
+        .select("*")
+        .single();
+      if (error) return json(200, { success: false, error: error.message });
+      return json(200, { success: true, visit: data });
+    }
+
+    if (action === "list_visits") {
+      const employeeId = String(body.employee_id || "");
+      if (!employeeId) return json(200, { success: false, error: "employee_id required" });
+      const { data, error } = await supabase
+        .from("employee_market_visits")
+        .select("*")
+        .eq("employee_id", employeeId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) return json(200, { success: false, error: error.message });
+      return json(200, { success: true, visits: data || [] });
+    }
+
     return json(200, { success: false, error: `Unknown action: ${action}` });
   } catch (err) {
     console.error("employee-portal-api error:", err);

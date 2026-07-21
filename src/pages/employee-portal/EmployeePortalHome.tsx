@@ -63,10 +63,10 @@ export default function EmployeePortalHome() {
 
   async function loadVisits() {
     if (!session) return;
-    const { data } = await (supabase as any)
-      .from('employee_market_visits').select('*')
-      .eq('employee_id', session.id).order('created_at', { ascending: false }).limit(50);
-    setVisits(data || []);
+    const { data } = await (supabase as any).functions.invoke('employee-portal-api', {
+      body: { action: 'list_visits', employee_id: session.id },
+    });
+    setVisits(data?.visits || []);
   }
 
   if (!session) return null;
@@ -386,152 +386,189 @@ function AddRetailerSheet({ open, onOpenChange, coords, onCreated }: {
   );
 }
 
-const SENTIMENTS = ['Very positive', 'Positive', 'Neutral', 'Concerned', 'Negative'];
+const RATING_PARAMS: { key: string; label: string; hint: string }[] = [
+  { key: 'product_packaging', label: 'Product Packaging', hint: 'Packaging quality & appeal' },
+  { key: 'product_sku_range', label: 'Product SKU Range', hint: 'Variety of products stocked' },
+  { key: 'product_quality', label: 'Product Quality', hint: 'Customer satisfaction with quality' },
+  { key: 'service_quality', label: 'Service Quality', hint: 'Overall service & responsiveness' },
+  { key: 'pricing', label: 'Pricing', hint: 'Competitiveness of pricing' },
+  { key: 'schemes_offers', label: 'Schemes & Offers', hint: 'Attractiveness of trade schemes' },
+  { key: 'brand_visibility', label: 'Brand Visibility', hint: 'Branding, POSM, shelf share' },
+  { key: 'future_growth', label: 'Future Growth Potential', hint: 'Outlook for the account' },
+];
+
+function StarRow({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(n === value ? 0 : n)}
+          className="p-0.5"
+          aria-label={`${n} star`}
+        >
+          <Sparkles
+            className={`h-6 w-6 ${n <= value ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
+            style={{ fill: n <= value ? '#fbbf24' : 'transparent' }}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved }: {
   open: boolean; onOpenChange: (v: boolean) => void;
   session: any; retailer: any; coords: any; onSaved: () => void;
 }) {
-  const [form, setForm] = useState<any>({
-    visit_purpose: '', retailer_response: '', product_interest: '',
-    competitor_notes: '', pricing_feedback: '', supply_issues: '',
-    overall_sentiment: '', next_action: '', additional_notes: '',
-  });
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [partners, setPartners] = useState<any[]>([]);
+  const [partnerId, setPartnerId] = useState<string>('');
+  const [ratings, setRatings] = useState<Record<string, number>>({});
+  const [actionItems, setActionItems] = useState('');
   const [exec, setExec] = useState<{ id?: string; name?: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    setForm({
-      visit_purpose: '', retailer_response: '', product_interest: '',
-      competitor_notes: '', pricing_feedback: '', supply_issues: '',
-      overall_sentiment: '', next_action: '', additional_notes: '',
-    });
-    setPhoto(null); setPreview(null);
-    // Auto-resolve executive from retailer.territory_id
+    setRatings({});
+    setPartnerId('');
+    setActionItems('');
     (async () => {
-      if (!retailer?.territory_id) { setExec(null); return; }
-      const { data: t } = await (supabase as any).from('territories')
-        .select('assigned_user_id').eq('id', retailer.territory_id).maybeSingle();
-      const uid = t?.assigned_user_id;
-      if (!uid) { setExec(null); return; }
-      const { data: p } = await (supabase as any).from('profiles')
-        .select('full_name').eq('id', uid).maybeSingle();
-      setExec({ id: uid, name: p?.full_name || 'Executive' });
+      const { data } = await (supabase as any).functions.invoke('employee-portal-api', {
+        body: { action: 'list_partners', exclude_id: session.id },
+      });
+      setPartners(data?.partners || []);
+      if (retailer?.territory_id) {
+        const { data: t } = await (supabase as any).from('territories')
+          .select('assigned_user_id').eq('id', retailer.territory_id).maybeSingle();
+        const uid = t?.assigned_user_id;
+        if (uid) {
+          const { data: p } = await (supabase as any).from('profiles')
+            .select('full_name').eq('id', uid).maybeSingle();
+          setExec({ id: uid, name: p?.full_name || 'Executive' });
+        } else setExec(null);
+      } else setExec(null);
     })();
-  }, [open, retailer]);
+  }, [open, retailer, session.id]);
 
-  function onFile(f: File | null) {
-    setPhoto(f); setPreview(f ? URL.createObjectURL(f) : null);
-  }
+  const avg = useMemo(() => {
+    const vals = Object.values(ratings).filter((v) => v > 0);
+    if (!vals.length) return null;
+    return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+  }, [ratings]);
 
-  async function save() {
+  async function publish() {
     if (!retailer) return;
-    if (!form.retailer_response.trim()) { toast.error('Please note the retailer response'); return; }
+    if (!partnerId) { toast.error('Please select the joint visit partner'); return; }
+    const rated = Object.values(ratings).filter((v) => v > 0).length;
+    if (rated < 1) { toast.error('Please rate at least one parameter'); return; }
     setSaving(true);
-    let photo_url: string | null = retailer.__isNew ? retailer.photo_url || null : null;
-    if (photo) photo_url = await uploadPhoto(photo, 'employee-visits');
+    const partner = partners.find((p) => p.id === partnerId);
     const payload = {
-      employee_id: session.id, employee_name: session.full_name,
-      retailer_id: retailer.id, retailer_name: retailer.name,
+      employee_id: session.id,
+      employee_name: session.full_name,
+      retailer_id: retailer.id,
+      retailer_name: retailer.name,
       is_new_retailer: !!retailer.__isNew,
       territory_id: retailer.territory_id || null,
       territory_executive_id: exec?.id || null,
       territory_executive_name: exec?.name || null,
-      retailer_photo_url: photo_url,
-      latitude: coords?.lat ?? null, longitude: coords?.lng ?? null,
-      ...form,
+      retailer_photo_url: retailer.__isNew ? retailer.photo_url || null : null,
+      latitude: coords?.lat ?? null,
+      longitude: coords?.lng ?? null,
+      joint_visit_partner_id: partnerId,
+      joint_visit_partner_name: partner?.full_name || null,
+      joint_sales_feedback: { ratings, avg: avg ? Number(avg) : null },
+      additional_notes: actionItems || null,
+      overall_sentiment: avg ? `Avg ${avg}/5` : null,
     };
-    const { error } = await (supabase as any).from('employee_market_visits').insert(payload);
+    const { data, error } = await (supabase as any).functions.invoke('employee-portal-api', {
+      body: { action: 'save_visit', visit: payload },
+    });
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Visit saved');
+    if (error || !data?.success) {
+      toast.error(error?.message || data?.error || 'Failed to publish');
+      return;
+    }
+    toast.success('Joint sales feedback published');
     onSaved();
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[95vh] overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Visit — {retailer?.name}</SheetTitle>
+      <SheetContent side="bottom" className="h-[95vh] p-0 flex flex-col">
+        <SheetHeader className="px-4 pt-4 pb-2 border-b">
+          <SheetTitle className="flex items-center gap-2 text-lg">
+            <User className="h-5 w-5 text-indigo-600" />
+            Joint Sales Feedback
+          </SheetTitle>
+          <p className="text-xs text-muted-foreground">{retailer?.name}</p>
         </SheetHeader>
 
-        <div className="mt-3 space-y-3">
-          <Card className="bg-indigo-50/60 border-indigo-100">
-            <CardContent className="p-3 text-sm space-y-1">
-              <div className="flex items-center gap-2"><User className="h-3.5 w-3.5" /> <strong>Manager (you):</strong> {session.full_name}</div>
-              <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" />
-                {coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'GPS pending'}
-              </div>
-              <div className="flex items-center gap-2"><Sparkles className="h-3.5 w-3.5" />
-                <strong>Territory executive:</strong> {exec?.name || 'Not mapped'}
-              </div>
-            </CardContent>
-          </Card>
-
-          <div>
-            <Label>Retailer photo</Label>
-            <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden
-              onChange={e => onFile(e.target.files?.[0] || null)} />
-            {preview ? (
-              <div className="relative mt-1">
-                <img src={preview} className="w-full h-40 object-cover rounded-lg" />
-                <Button size="sm" variant="secondary" className="absolute top-2 right-2"
-                  onClick={() => fileRef.current?.click()}>Retake</Button>
-              </div>
-            ) : (
-              <Button variant="outline" className="w-full h-20 mt-1" onClick={() => fileRef.current?.click()}>
-                <Camera className="h-4 w-4 mr-2" /> Capture retailer / shop photo
-              </Button>
-            )}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+          {/* Joint Visit Partner */}
+          <div className="rounded-xl bg-indigo-50/60 border border-indigo-100 p-3">
+            <Label className="text-indigo-700 font-medium">Joint Visit Partner *</Label>
+            <select
+              className="mt-2 w-full h-11 border rounded-lg px-3 bg-white"
+              value={partnerId}
+              onChange={(e) => setPartnerId(e.target.value)}
+            >
+              <option value="">Select who joined the visit</option>
+              {partners.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.full_name}{p.department ? ` — ${p.department}` : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div><Label>Purpose of visit</Label>
-            <Input value={form.visit_purpose} onChange={e => setForm({ ...form, visit_purpose: e.target.value })}
-              placeholder="Market check, new launch, competition scan…" /></div>
-
-          <div><Label>Retailer response *</Label>
-            <Textarea rows={3} value={form.retailer_response} onChange={e => setForm({ ...form, retailer_response: e.target.value })}
-              placeholder="What did the retailer say?" /></div>
-
-          <div><Label>Products of interest</Label>
-            <Textarea rows={2} value={form.product_interest} onChange={e => setForm({ ...form, product_interest: e.target.value })} /></div>
-
-          <div><Label>Competitor observations</Label>
-            <Textarea rows={2} value={form.competitor_notes} onChange={e => setForm({ ...form, competitor_notes: e.target.value })}
-              placeholder="Brands seen, promotions, shelf share…" /></div>
-
-          <div><Label>Pricing feedback</Label>
-            <Textarea rows={2} value={form.pricing_feedback} onChange={e => setForm({ ...form, pricing_feedback: e.target.value })} /></div>
-
-          <div><Label>Supply / stock issues</Label>
-            <Textarea rows={2} value={form.supply_issues} onChange={e => setForm({ ...form, supply_issues: e.target.value })} /></div>
-
+          {/* Performance Ratings */}
           <div>
-            <Label>Overall sentiment</Label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {SENTIMENTS.map(s => (
-                <button key={s} type="button"
-                  onClick={() => setForm({ ...form, overall_sentiment: s })}
-                  className={`px-3 py-1.5 rounded-full text-xs border ${form.overall_sentiment===s ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-700'}`}>
-                  {s}
-                </button>
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="h-5 w-5 text-indigo-600" />
+              <h3 className="text-base font-semibold text-indigo-700">Performance Ratings</h3>
+              {avg && <Badge className="ml-auto bg-amber-100 text-amber-700 hover:bg-amber-100">Avg {avg}/5</Badge>}
+            </div>
+            <div className="space-y-3">
+              {RATING_PARAMS.map((p) => (
+                <div key={p.key} className="rounded-lg bg-slate-50 p-3 flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm">{p.label}</p>
+                    <p className="text-xs text-muted-foreground">{p.hint}</p>
+                  </div>
+                  <StarRow value={ratings[p.key] || 0} onChange={(n) => setRatings({ ...ratings, [p.key]: n })} />
+                </div>
               ))}
             </div>
           </div>
 
-          <div><Label>Next action</Label>
-            <Input value={form.next_action} onChange={e => setForm({ ...form, next_action: e.target.value })}
-              placeholder="e.g. Sample drop, executive follow-up" /></div>
+          {/* Action items */}
+          <div>
+            <Label>Action items / notes</Label>
+            <Textarea
+              rows={3}
+              value={actionItems}
+              onChange={(e) => setActionItems(e.target.value)}
+              placeholder="Agreed next steps, follow-ups…"
+            />
+          </div>
 
-          <div><Label>Additional notes</Label>
-            <Textarea rows={2} value={form.additional_notes} onChange={e => setForm({ ...form, additional_notes: e.target.value })} /></div>
+          <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <MapPin className="h-3 w-3" />
+            {coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'GPS pending'}
+            {exec?.name && <span className="ml-2">• Executive: {exec.name}</span>}
+          </div>
+        </div>
 
-          <Button className="w-full bg-gradient-to-r from-indigo-600 to-cyan-500" onClick={save} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Save visit
+        {/* Sticky footer */}
+        <div className="border-t bg-white px-4 py-3 flex items-center gap-2">
+          <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={publish} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Publish
           </Button>
         </div>
       </SheetContent>
