@@ -78,6 +78,7 @@ const NotificationRulesAdmin = () => {
   const handleEdit = (rule: NotificationRule) => {
     setEditingRule(rule);
     setShowForm(true);
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 50);
   };
 
   const handleClose = () => {
@@ -171,6 +172,7 @@ const NotificationRulesAdmin = () => {
 
               {showForm && (
                 <NotificationRuleForm
+                  key={editingRule?.id || 'new'}
                   rule={editingRule}
                   userId={user?.id || ''}
                   onClose={handleClose}
