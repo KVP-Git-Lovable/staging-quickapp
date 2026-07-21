@@ -42,16 +42,14 @@ export default function EmployeePortalLogin() {
   async function login() {
     if (!phone.trim()) return;
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from('employee_directory').select('*')
-      .eq('phone', phone.trim()).maybeSingle();
+    const { data, error } = await (supabase as any).functions.invoke('employee-portal-api', {
+      body: { action: 'login', phone: phone.trim(), pin: pin.trim() },
+    });
     setLoading(false);
     if (error) { toast.error(error.message); return; }
-    if (!data) { toast.error('No employee found with this phone'); return; }
-    if (!data.portal_enabled) { toast.error('Market intelligence portal is not enabled for you.'); return; }
-    if (data.portal_pin && data.portal_pin !== pin) { toast.error('Invalid PIN'); return; }
-    localStorage.setItem(SESSION_KEY, JSON.stringify(data));
-    toast.success(`Welcome ${data.full_name}`);
+    if (!data?.success) { toast.error(data?.error || 'Login failed'); return; }
+    localStorage.setItem(SESSION_KEY, JSON.stringify(data.employee));
+    toast.success(`Welcome ${data.employee.full_name}`);
     nav('/employee-portal');
   }
 
