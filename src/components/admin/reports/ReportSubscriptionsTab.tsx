@@ -483,11 +483,15 @@ export function ReportSubscriptionsTab() {
                     </div>
                     <div className="mt-3 flex items-center justify-between">
                       <div className="flex items-center">
-                        {recipients.slice(0, 4).map((uid: string, i: number) => (
-                          <div key={uid + i} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center', avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
-                            {initials(uid.replace(/-/g, ' '))}
-                          </div>
-                        ))}
+                        {recipients.slice(0, 4).map((uid: string, i: number) => {
+                          const p = profileMap.get(uid);
+                          const name = p?.name || 'Unknown';
+                          return (
+                            <div key={uid + i} title={name} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center overflow-hidden', !p?.avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
+                              {p?.avatar ? <img src={p.avatar} alt={name} className="h-full w-full object-cover" /> : initials(name)}
+                            </div>
+                          );
+                        })}
                         {recipients.length > 4 && (
                           <div className="h-6 w-6 -ml-2 rounded-full ring-2 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">+{recipients.length - 4}</div>
                         )}
