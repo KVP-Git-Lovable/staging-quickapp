@@ -1087,7 +1087,7 @@ function ZoneMulti({
 }
 
 function LivePreviewCard({
-  state, error, rows, layout, rowKey, columnKey, values, selectedColumns,
+  state, error, rows, layout, rowKey, columnKey, values, selectedColumns, onReorderTabular,
 }: {
   state: 'idle' | 'loading' | 'error' | 'empty' | 'data';
   error: Error | null;
@@ -1097,26 +1097,52 @@ function LivePreviewCard({
   columnKey: string;
   values: string[];
   selectedColumns?: string[];
+  onReorderTabular?: (next: string[]) => void;
 }) {
   const sample = rows.slice(0, 8);
 
   // Build columns from returned keys. Tabular respects the user's ordered picks;
   // matrix prioritises row/column dims then measures; grouped shows what came back.
-  let columns: string[] = [];
-  if (sample.length > 0) {
+  const computedColumns = React.useMemo<string[]>(() => {
+    if (sample.length === 0) return [];
     const keys = Array.from(new Set(sample.flatMap(r => Object.keys(r ?? {}))));
     if (layout === 'matrix') {
       const priority = [rowKey, columnKey, ...values].filter(Boolean);
       const rest = keys.filter(k => !priority.includes(k));
-      columns = [...priority.filter(k => keys.includes(k)), ...rest].slice(0, 8);
-    } else if (layout === 'tabular' && selectedColumns && selectedColumns.length > 0) {
-      columns = selectedColumns.filter(k => keys.includes(k)).slice(0, 12);
-      if (columns.length === 0) columns = keys.slice(0, 8);
-    } else {
-      columns = keys.slice(0, 8);
+      return [...priority.filter(k => keys.includes(k)), ...rest].slice(0, 8);
     }
-  }
+    if (layout === 'tabular' && selectedColumns && selectedColumns.length > 0) {
+      const filtered = selectedColumns.filter(k => keys.includes(k)).slice(0, 12);
+      return filtered.length ? filtered : keys.slice(0, 8);
+    }
+    return keys.slice(0, 8);
+  }, [sample, layout, rowKey, columnKey, values, selectedColumns]);
 
+  // Local order (allows drag-reorder for non-tabular layouts too). Kept in sync
+  // with the computed order when the underlying config changes.
+  const [order, setOrder] = React.useState<string[]>(computedColumns);
+  React.useEffect(() => { setOrder(computedColumns); }, [computedColumns.join(',')]);
+
+  const [dragCol, setDragCol] = React.useState<string | null>(null);
+  const [overCol, setOverCol] = React.useState<string | null>(null);
+
+  const reorderColumns = (from: string, to: string) => {
+    if (from === to) return;
+    const next = order.slice();
+    const fromIdx = next.indexOf(from);
+    const toIdx = next.indexOf(to);
+    if (fromIdx < 0 || toIdx < 0) return;
+    next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, from);
+    setOrder(next);
+    if (layout === 'tabular' && onReorderTabular) {
+      // Persist reorder into the parent so the saved report + generated file
+      // reflect the new column order.
+      onReorderTabular(next);
+    }
+  };
+
+  const columns = order;
 
   return (
     <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
@@ -1124,14 +1150,14 @@ function LivePreviewCard({
         <span>Live preview</span>
         {state === 'data' && (
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-            {rows.length} row{rows.length === 1 ? '' : 's'} · showing {sample.length}
+            {rows.length} row{rows.length === 1 ? '' : 's'} · showing {sample.length} · drag column headers to reorder
           </span>
         )}
       </div>
       <div className="p-3 min-h-[80px]">
         {state === 'idle' ? (
           <div className="text-xs text-muted-foreground py-4 text-center">
-            Add at least one measure to see a live preview from the last 30 days.
+            Add at least one measure to see a live preview for the selected date range.
           </div>
         ) : state === 'loading' ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
@@ -1143,7 +1169,7 @@ function LivePreviewCard({
           </div>
         ) : state === 'empty' ? (
           <div className="text-xs text-muted-foreground py-4 text-center">
-            No rows in the last 30 days for this configuration.
+            No rows for this configuration in the selected date range.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -1152,15 +1178,43 @@ function LivePreviewCard({
                 <tr className="text-muted-foreground border-b border-border/60">
                   {columns.map((c) => {
                     const isMeasure = values.includes(c);
+                    const isOver = overCol === c && dragCol && dragCol !== c;
                     return (
                       <th
                         key={c}
+                        draggable
+                        onDragStart={(e) => {
+                          setDragCol(c);
+                          e.dataTransfer.setData('application/x-report-col', c);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          if (!dragCol) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                          if (overCol !== c) setOverCol(c);
+                        }}
+                        onDragLeave={() => { if (overCol === c) setOverCol(null); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const from = e.dataTransfer.getData('application/x-report-col') || dragCol;
+                          if (from) reorderColumns(from, c);
+                          setDragCol(null);
+                          setOverCol(null);
+                        }}
+                        onDragEnd={() => { setDragCol(null); setOverCol(null); }}
                         className={cn(
-                          'text-left font-medium px-2 py-1.5 capitalize whitespace-nowrap',
+                          'text-left font-medium px-2 py-1.5 capitalize whitespace-nowrap select-none cursor-grab active:cursor-grabbing',
                           isMeasure && layout === 'matrix' && 'bg-[#eeedfe]/50 text-[#534ab7]',
+                          isOver && 'border-l-2 border-[#534ab7]',
+                          dragCol === c && 'opacity-50',
                         )}
+                        title="Drag to reorder"
                       >
-                        {c.replace(/_/g, ' ')}
+                        <span className="inline-flex items-center gap-1">
+                          <GripVertical className="h-3 w-3 text-muted-foreground/40" />
+                          {c.replace(/_/g, ' ')}
+                        </span>
                       </th>
                     );
                   })}
