@@ -247,6 +247,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const iso30 = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); })();
   const [dateFrom, setDateFrom] = useState<string>(editing?.def.config?.filters?.date_from ?? iso30);
   const [dateTo, setDateTo] = useState<string>(editing?.def.config?.filters?.date_to ?? isoToday);
+  const [scopeUserId, setScopeUserId] = useState<string>(editing?.def.config?.filters?.scope_user_id ?? '');
+
 
 
   // Step 2 — schedule + delivery
