@@ -171,6 +171,7 @@ const NotificationRulesAdmin = () => {
 
               {showForm && (
                 <NotificationRuleForm
+                  key={editingRule?.id || 'new'}
                   rule={editingRule}
                   userId={user?.id || ''}
                   onClose={handleClose}
