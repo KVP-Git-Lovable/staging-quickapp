@@ -1115,6 +1115,8 @@ function Step1Body(p: Step1Props) {
               isMeasure={isMeasureKey}
               onRemove={removeChip}
               onDrop={addField}
+              onReorderRows={reorderRows}
+              onReorderValues={reorderValues}
               filtersContent={
                 <FiltersPanel
                   dateFrom={dateFrom} setDateFrom={p.setDateFrom}
@@ -1139,7 +1141,10 @@ function Step1Body(p: Step1Props) {
               setSort={setSort}
               onRemoveColumn={(k) => p.setRows(prev => prev.filter(x => x !== k))}
               onRemoveValue={(k) => p.setValues(prev => prev.filter(x => x !== k))}
+              onReorderColumn={reorderByKey(rows, reorderRows)}
+              onReorderValue={reorderByKey(values, reorderValues)}
             />
+
           </div>
         </div>
       ) : (
