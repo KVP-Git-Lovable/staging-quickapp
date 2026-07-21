@@ -2455,7 +2455,7 @@ export const Cart = () => {
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       clearOnBehalfContext();
       clearOutOfBeatContext();
-      navigate('/visits/retailers');
+      navigate(isEditMode && isAdminEdit ? '/operations/edited-orders' : '/visits/retailers');
 
     } catch (error: any) {
       console.error('Error submitting D-1 order:', error);
