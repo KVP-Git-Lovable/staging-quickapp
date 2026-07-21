@@ -229,12 +229,93 @@ export default function EmployeePortalHome() {
       />
 
       <VisitFormSheet
-        open={visitOpen} onOpenChange={setVisitOpen}
+        open={visitOpen} onOpenChange={(v) => { setVisitOpen(v); if (!v) setEditingVisit(null); }}
         session={session} retailer={selectedRetailer} coords={coords}
-        onSaved={() => { setVisitOpen(false); setSelectedRetailer(null); loadVisits(); }}
+        existingVisit={editingVisit}
+        onSaved={() => { setVisitOpen(false); setSelectedRetailer(null); setEditingVisit(null); loadVisits(); }}
+      />
+
+      <VisitDetailsSheet
+        open={!!detailsVisit}
+        onOpenChange={(v) => { if (!v) setDetailsVisit(null); }}
+        visit={detailsVisit}
+        onEdit={(v) => {
+          setDetailsVisit(null);
+          setEditingVisit(v);
+          setSelectedRetailer({
+            id: v.retailer_id,
+            name: v.retailer_name,
+            territory_id: v.territory_id,
+            photo_url: v.retailer_photo_url,
+          });
+          setVisitOpen(true);
+        }}
+        onDeleted={() => { setDetailsVisit(null); loadVisits(); }}
       />
     </div>
   );
+}
+
+function filterVisits(
+  visits: any[], q: string, range: string, from: string, to: string,
+): any[] {
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+  let start: Date | null = null; let end: Date | null = null;
+  const dow = now.getDay(); // 0=Sun
+  const mondayOffset = (dow + 6) % 7;
+  const thisWeekStart = startOfDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset));
+
+  switch (range) {
+    case 'today': start = startOfDay(now); end = endOfDay(now); break;
+    case 'this_week': start = thisWeekStart; end = endOfDay(now); break;
+    case 'last_week': {
+      end = new Date(thisWeekStart.getTime() - 1);
+      start = new Date(thisWeekStart.getTime() - 7 * 86400000);
+      break;
+    }
+    case 'this_month': start = new Date(now.getFullYear(), now.getMonth(), 1); end = endOfDay(now); break;
+    case 'last_month': {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      break;
+    }
+    case 'this_quarter': {
+      const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      start = new Date(now.getFullYear(), qStartMonth, 1); end = endOfDay(now); break;
+    }
+    case 'last_quarter': {
+      const qStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      start = new Date(now.getFullYear(), qStartMonth - 3, 1);
+      end = new Date(now.getFullYear(), qStartMonth, 0, 23, 59, 59, 999);
+      break;
+    }
+    case 'this_fy': {
+      // India FY: Apr-Mar
+      const y = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      start = new Date(y, 3, 1); end = endOfDay(now); break;
+    }
+    case 'custom': {
+      if (from) start = startOfDay(new Date(from));
+      if (to) end = endOfDay(new Date(to));
+      break;
+    }
+    default: break;
+  }
+
+  const term = q.trim().toLowerCase();
+  return visits.filter((v) => {
+    if (term && !(v.retailer_name || '').toLowerCase().includes(term)) return false;
+    if (start || end) {
+      const d = v.created_at ? new Date(v.created_at) : null;
+      if (!d) return false;
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+    }
+    return true;
+  });
 }
 
 function StatChip({ label, value }: { label: string; value: number }) {
