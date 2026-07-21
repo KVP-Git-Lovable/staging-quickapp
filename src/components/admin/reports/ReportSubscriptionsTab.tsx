@@ -370,6 +370,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             dataset={dataset}
             dateFrom={dateFrom} setDateFrom={setDateFrom}
             dateTo={dateTo} setDateTo={setDateTo}
+            scopeUserId={scopeUserId} setScopeUserId={setScopeUserId}
             onCancel={onClose}
             onNext={() => setStep(2)}
             canNext={!!canNext1}
