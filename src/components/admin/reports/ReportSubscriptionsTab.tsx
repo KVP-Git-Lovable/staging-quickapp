@@ -118,6 +118,37 @@ export function ReportSubscriptionsTab() {
     return map;
   }, [recipientProfiles]);
 
+  const avatarPaths = useMemo(() => {
+    const paths: string[] = [];
+    recipientProfiles.forEach((p: any) => {
+      const url: string = p.profile_picture_url || '';
+      const m = url.match(/\/employee-photos\/(.+)$/);
+      if (m) paths.push(m[1]);
+    });
+    return paths;
+  }, [recipientProfiles]);
+
+  const { data: signedAvatarMap = {} } = useQuery({
+    queryKey: ['recipient-avatar-signed', avatarPaths.sort().join(',')],
+    enabled: avatarPaths.length > 0,
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from('employee-photos').createSignedUrls(avatarPaths, 3600);
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data || []).forEach((d: any) => { if (d.path && d.signedUrl) map[d.path] = d.signedUrl; });
+      return map;
+    },
+  });
+
+  const avatarFor = (uid: string): string | null => {
+    const raw = profileMap.get(uid)?.avatar;
+    if (!raw) return null;
+    const m = raw.match(/\/employee-photos\/(.+)$/);
+    if (m && signedAvatarMap[m[1]]) return signedAvatarMap[m[1]];
+    return raw;
+  };
+
   const runNow = useMutation({
     mutationFn: async (id: string) => {
       const { data, error } = await supabase.functions.invoke('report-dispatcher', {
