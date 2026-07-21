@@ -156,8 +156,48 @@ export default function EmployeePortalHome() {
               <h2 className="font-semibold">My visits</h2>
             </div>
             <div className="space-y-2">
-              {visits.length === 0 && <p className="text-sm text-muted-foreground">No visits yet.</p>}
-              {visits.map(v => <VisitRow key={v.id} v={v} />)}
+              <div className="relative">
+                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input
+                  className="pl-9 h-10 bg-white"
+                  placeholder="Search retailer name…"
+                  value={visitSearch}
+                  onChange={(e) => setVisitSearch(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 items-center">
+                <select
+                  className="flex-1 h-10 border rounded-lg px-3 bg-white text-sm"
+                  value={visitRange}
+                  onChange={(e) => setVisitRange(e.target.value)}
+                >
+                  <option value="all">All time</option>
+                  <option value="today">Today</option>
+                  <option value="this_week">This week</option>
+                  <option value="last_week">Last week</option>
+                  <option value="this_month">This month</option>
+                  <option value="last_month">Last month</option>
+                  <option value="this_quarter">This quarter</option>
+                  <option value="last_quarter">Last quarter</option>
+                  <option value="this_fy">This FY</option>
+                  <option value="custom">Custom range…</option>
+                </select>
+              </div>
+              {visitRange === 'custom' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} />
+                  <Input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} />
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+              {(() => {
+                const filtered = filterVisits(visits, visitSearch, visitRange, customFrom, customTo);
+                if (filtered.length === 0) {
+                  return <p className="text-sm text-muted-foreground">No visits match your filters.</p>;
+                }
+                return filtered.map(v => <VisitRow key={v.id} v={v} onClick={() => setDetailsVisit(v)} />);
+              })()}
             </div>
           </>
         )}
