@@ -1504,11 +1504,15 @@ function sumNumeric(rows: any[], key: string): number | null {
   return has ? sum : null;
 }
 
-function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSummarize, onRemove }: {
+function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSummarize, onRemove, draggableKey, onReorder }: {
   label: string; keyName: string; align?: 'left' | 'right'; sortDir?: 'asc' | 'desc' | null;
   onSortAsc?: () => void; onSortDesc?: () => void; onSummarize?: string; onRemove?: () => void;
+  draggableKey?: string;
+  onReorder?: (fromKey: string, toKey: string) => void;
 }) {
   const canOpen = onSortAsc || onSortDesc || onRemove || onSummarize;
+  const [over, setOver] = React.useState(false);
+  const dragEnabled = !!draggableKey && !!onReorder;
   const header = (
     <span className="inline-flex items-center gap-1">
       <span>{label}</span>
@@ -1518,7 +1522,34 @@ function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSumm
     </span>
   );
   return (
-    <th className={cn('px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap select-none', align === 'right' ? 'text-right' : 'text-left')}>
+    <th
+      draggable={dragEnabled}
+      onDragStart={dragEnabled ? (e) => {
+        e.dataTransfer.setData('application/x-report-col-reorder', draggableKey!);
+        e.dataTransfer.effectAllowed = 'move';
+      } : undefined}
+      onDragOver={dragEnabled ? (e) => {
+        if (Array.from(e.dataTransfer.types).includes('application/x-report-col-reorder')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!over) setOver(true);
+        }
+      } : undefined}
+      onDragLeave={dragEnabled ? () => setOver(false) : undefined}
+      onDrop={dragEnabled ? (e) => {
+        const from = e.dataTransfer.getData('application/x-report-col-reorder');
+        setOver(false);
+        if (!from || from === draggableKey) return;
+        e.preventDefault();
+        onReorder!(from, draggableKey!);
+      } : undefined}
+      className={cn(
+        'px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap select-none',
+        align === 'right' ? 'text-right' : 'text-left',
+        dragEnabled && 'cursor-grab active:cursor-grabbing',
+        over && 'bg-[#eeedfe] dark:bg-[#2a2560]/40',
+      )}
+    >
       {canOpen ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1537,9 +1568,10 @@ function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSumm
   );
 }
 
-function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, setSort, onRemoveColumn }: {
+function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, setSort, onRemoveColumn, onReorderColumn }: {
   rowsData: any[]; selectedColumns: string[]; labelOf: (k: string) => string; isMeasure: (k: string) => boolean;
   sort: SortState; setSort: (s: SortState) => void; onRemoveColumn: (k: string) => void;
+  onReorderColumn?: (fromKey: string, toKey: string) => void;
 }) {
   const keys = React.useMemo(() => {
     const available = new Set(Object.keys(rowsData[0] ?? {}));
