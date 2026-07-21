@@ -1,0 +1,2 @@
+ALTER TABLE public.report_subscriptions DROP CONSTRAINT IF EXISTS report_subscriptions_cadence_check;
+ALTER TABLE public.report_subscriptions ADD CONSTRAINT report_subscriptions_cadence_check CHECK (cadence IN ('today','daily','weekday','weekly','monthly'));
