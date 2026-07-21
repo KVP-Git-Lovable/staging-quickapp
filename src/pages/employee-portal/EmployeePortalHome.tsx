@@ -766,95 +766,165 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
           )}
 
           {sellsOurProducts === 'no' && (
-            <>
-              <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
-                <Label className="text-amber-800 font-medium">Interested to know more about our products?</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {(['yes','no'] as const).map(opt => (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setInterestedToKnowMore(opt)}
-                      className={`h-11 rounded-lg border font-medium text-sm ${
-                        interestedToKnowMore === opt
-                          ? 'bg-amber-600 text-white border-amber-600'
-                          : 'bg-white text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {opt === 'yes' ? 'Yes, interested' : 'Not interested'}
-                    </button>
-                  ))}
-                </div>
+            <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+              <Label className="text-amber-800 font-medium">Interested to know more about our products?</Label>
+              <p className="text-xs text-amber-700/80 mt-1">
+                Ask: "Would you like our team to visit and share our range, pricing and schemes?"
+              </p>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {(['yes','no'] as const).map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setInterestedToKnowMore(opt)}
+                    className={`h-11 rounded-lg border font-medium text-sm ${
+                      interestedToKnowMore === opt
+                        ? 'bg-amber-600 text-white border-amber-600'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {opt === 'yes' ? 'Yes, interested' : 'Not interested'}
+                  </button>
+                ))}
               </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Store className="h-5 w-5 text-red-600" />
-                  <h3 className="text-base font-semibold text-red-700">Competition Details</h3>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <Label>Competitor brand(s) sold</Label>
-                    <Input value={competitionBrand} onChange={e => setCompetitionBrand(e.target.value)} placeholder="e.g. Brand X, Brand Y" />
-                  </div>
-                  <div>
-                    <Label>SKUs / product range</Label>
-                    <Textarea rows={2} value={competitionSkus} onChange={e => setCompetitionSkus(e.target.value)} placeholder="Key SKUs stocked" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label>Monthly value (₹)</Label>
-                      <Input type="number" inputMode="decimal" value={competitionMonthlyValue}
-                        onChange={e => setCompetitionMonthlyValue(e.target.value)} placeholder="Est. off-take" />
-                    </div>
-                    <div>
-                      <Label>Pricing position</Label>
-                      <select className="w-full h-11 border rounded-lg px-3 bg-white text-sm"
-                        value={competitionPricing} onChange={e => setCompetitionPricing(e.target.value)}>
-                        <option value="">Select</option>
-                        <option>Lower than us</option>
-                        <option>Similar to us</option>
-                        <option>Higher than us</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ClipboardList className="h-5 w-5 text-slate-600" />
-                  <h3 className="text-base font-semibold text-slate-700">Retailer Profile</h3>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <Label>Retailer size</Label>
-                    <select className="w-full h-11 border rounded-lg px-3 bg-white text-sm"
-                      value={retailerSize} onChange={e => setRetailerSize(e.target.value)}>
-                      <option value="">Select size</option>
-                      {RETAILER_SIZE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <Label>Est. monthly turnover (₹)</Label>
-                    <Input type="number" inputMode="decimal" value={retailerMonthlyTurnover}
-                      onChange={e => setRetailerMonthlyTurnover(e.target.value)} placeholder="Overall shop turnover" />
-                  </div>
-                  <div>
-                    <Label>Additional details</Label>
-                    <Textarea rows={2} value={retailerNotes} onChange={e => setRetailerNotes(e.target.value)} placeholder="Segment, footfall, chain type…" />
-                  </div>
-                </div>
-              </div>
-            </>
+            </div>
           )}
 
-          {/* Notes */}
-          <div>
-            <Label>Action items / notes</Label>
-            <Textarea rows={3} value={actionItems} onChange={(e) => setActionItems(e.target.value)}
-              placeholder="Agreed next steps, follow-ups…" />
-          </div>
+          {/* Competition — shown for BOTH Yes and No */}
+          {sellsOurProducts && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Store className="h-5 w-5 text-red-600" />
+                  <h3 className="text-base font-semibold text-red-700">Competition</h3>
+                </div>
+                <Button size="sm" variant="outline"
+                  onClick={() => setCompetitions([...competitions, emptyCompetition()])}>
+                  <Plus className="h-4 w-4 mr-1" /> Add
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                List each competitor brand the retailer stocks along with the SKU / range and rough monthly off-take value.
+              </p>
+              <div className="space-y-3">
+                {competitions.map((c, idx) => (
+                  <div key={idx} className="rounded-lg border bg-slate-50 p-3 space-y-2 relative">
+                    {competitions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCompetitions(competitions.filter((_, i) => i !== idx))}
+                        className="absolute top-2 right-2 text-slate-400 hover:text-red-600"
+                        aria-label="Remove competition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                    <div>
+                      <Label>Competition (brand)</Label>
+                      <Input value={c.brand}
+                        onChange={e => setCompetitions(competitions.map((r, i) => i === idx ? { ...r, brand: e.target.value } : r))}
+                        placeholder="e.g. Brand X" />
+                    </div>
+                    <div>
+                      <Label>SKU</Label>
+                      <Textarea rows={2} value={c.skus}
+                        onChange={e => setCompetitions(competitions.map((r, i) => i === idx ? { ...r, skus: e.target.value } : r))}
+                        placeholder="Key SKUs stocked (sizes / variants)" />
+                    </div>
+                    <div>
+                      <Label>Value (monthly ₹)</Label>
+                      <Input type="number" inputMode="decimal" value={c.monthly_value}
+                        onChange={e => setCompetitions(competitions.map((r, i) => i === idx ? { ...r, monthly_value: e.target.value } : r))}
+                        placeholder="Est. monthly off-take value" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Retailer Profile — shown for BOTH Yes and No */}
+          {sellsOurProducts && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <ClipboardList className="h-5 w-5 text-slate-600" />
+                <h3 className="text-base font-semibold text-slate-700">Retailer Profile</h3>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <Label>Retailer size</Label>
+                  <p className="text-xs text-muted-foreground mb-1">Rough shop floor area — helps gauge stocking capacity.</p>
+                  <select className="w-full h-11 border rounded-lg px-3 bg-white text-sm"
+                    value={retailerSize} onChange={e => setRetailerSize(e.target.value)}>
+                    <option value="">Select size</option>
+                    {RETAILER_SIZE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Label>Est. monthly turnover (₹)</Label>
+                  <p className="text-xs text-muted-foreground mb-1">Overall shop turnover across all categories, not just ours.</p>
+                  <Input type="number" inputMode="decimal" value={retailerMonthlyTurnover}
+                    onChange={e => setRetailerMonthlyTurnover(e.target.value)} placeholder="Overall shop turnover" />
+                </div>
+                <div>
+                  <Label>Additional details</Label>
+                  <p className="text-xs text-muted-foreground mb-1">Customer type, footfall pattern, chain / standalone, key observations.</p>
+                  <Textarea rows={2} value={retailerNotes} onChange={e => setRetailerNotes(e.target.value)} placeholder="Segment, footfall, chain type…" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Multiple photos */}
+          {sellsOurProducts && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-5 w-5 text-indigo-600" />
+                  <h3 className="text-base font-semibold text-indigo-700">Photos</h3>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => photosRef.current?.click()}>
+                  <Camera className="h-4 w-4 mr-1" /> Add photo
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mb-2">
+                Shelf, competition, board, discussion — attach as many photos as helpful.
+              </p>
+              <input ref={photosRef} type="file" accept="image/*" capture="environment" multiple hidden
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  if (files.length) setVisitPhotos([...visitPhotos, ...files]);
+                  if (photosRef.current) photosRef.current.value = '';
+                }} />
+              {visitPhotos.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {visitPhotos.map((f, idx) => (
+                    <div key={idx} className="relative">
+                      <img src={URL.createObjectURL(f)} className="w-full h-24 object-cover rounded-lg border" />
+                      <button
+                        type="button"
+                        onClick={() => setVisitPhotos(visitPhotos.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 text-red-600"
+                        aria-label="Remove photo"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action items — Yes branch only */}
+          {sellsOurProducts === 'yes' && (
+            <div>
+              <Label>Action items / notes</Label>
+              <p className="text-xs text-muted-foreground mb-1">Agreed next steps, follow-ups or commitments made during this visit.</p>
+              <Textarea rows={3} value={actionItems} onChange={(e) => setActionItems(e.target.value)}
+                placeholder="Agreed next steps, follow-ups…" />
+            </div>
+          )}
 
           <div className="text-[11px] text-muted-foreground flex items-center gap-1">
             <MapPin className="h-3 w-3" />
