@@ -729,7 +729,7 @@ function Step1Body(p: Step1Props) {
           <div className="space-y-3">
             {layout === 'matrix' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ZoneCard title="Rows" accept="dim" onDropKey={(k) => p.setRows([k])}>
+                <ZoneCard title="Group rows by" accept="dim" onDropKey={(k) => p.setRows([k])}>
                   <ZonePicker
                     value={rows[0] ?? ''}
                     onChange={(v) => p.setRows(v ? [v] : [])}
@@ -738,7 +738,7 @@ function Step1Body(p: Step1Props) {
                     tone="dim"
                   />
                 </ZoneCard>
-                <ZoneCard title="Columns · pivot by" tone="purple" accept="dim" onDropKey={p.setColumns}>
+                <ZoneCard title="Column groups" tone="purple" accept="dim" onDropKey={p.setColumns}>
                   <ZonePicker
                     value={columns}
                     onChange={p.setColumns}
@@ -781,23 +781,16 @@ function Step1Body(p: Step1Props) {
                 accept="msr"
                 onDropKey={(k) => { if (!values.includes(k)) toggleValue(k); }}
               >
-                <div className="flex flex-wrap gap-1.5">
-                  {values.length === 0 && (
-                    <span className="text-xs text-muted-foreground italic px-1 py-1">Drop measures</span>
+                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+                  {values.length === 0 ? (
+                    <span className="text-xs text-muted-foreground/60 italic px-1 py-1">
+                      Drop measures — drag any measure from the Fields palette here.
+                    </span>
+                  ) : (
+                    values.map(k => (
+                      <MeasurePill key={k} label={msrLabel(k)} onRemove={() => toggleValue(k)} />
+                    ))
                   )}
-                  {values.map(k => (
-                    <MeasurePill key={k} label={msrLabel(k)} onRemove={() => toggleValue(k)} />
-                  ))}
-                  {measures.filter(m => !values.includes(m.key)).map(m => (
-                    <button
-                      key={m.key}
-                      type="button"
-                      onClick={() => toggleValue(m.key)}
-                      className="text-xs rounded-full border border-dashed border-border px-2.5 py-1 text-muted-foreground hover:text-foreground hover:border-solid"
-                    >
-                      + {m.label}
-                    </button>
-                  ))}
                 </div>
               </ZoneCard>
             )}
@@ -1109,36 +1102,29 @@ function ZoneMulti({
   const kindOf = (k: string) => all.find(o => o.key === k)?.kind ?? 'dim';
   const remaining = all.filter(o => !value.includes(o.key));
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {value.length === 0 && (
-        <span className="text-xs text-muted-foreground italic px-1 py-1">Drop dimensions or measures — they become the preview columns.</span>
+    <div className="flex flex-wrap gap-1.5 min-h-[28px] items-center">
+      {value.length === 0 ? (
+        <span className="text-xs text-muted-foreground/60 italic px-1 py-1">
+          Drop dimensions or measures — they become the preview columns.
+        </span>
+      ) : (
+        value.map(k => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => onChange(prev => prev.filter(x => x !== k))}
+            className={cn(
+              'text-xs rounded-full px-2.5 py-1 border border-transparent',
+              kindOf(k) === 'dim'
+                ? 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400'
+                : 'bg-[#eeedfe] text-[#534ab7] hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white',
+            )}
+            title="Click to remove"
+          >
+            {labelOf(k)}
+          </button>
+        ))
       )}
-      {value.map(k => (
-        <button
-          key={k}
-          type="button"
-          onClick={() => onChange(prev => prev.filter(x => x !== k))}
-          className={cn(
-            'text-xs rounded-full px-2.5 py-1 border border-transparent',
-            kindOf(k) === 'dim'
-              ? 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400'
-              : 'bg-[#eeedfe] text-[#534ab7] hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white',
-          )}
-          title="Click to remove"
-        >
-          {labelOf(k)}
-        </button>
-      ))}
-      {remaining.map(o => (
-        <button
-          key={o.key}
-          type="button"
-          onClick={() => onChange(prev => [...prev, o.key])}
-          className="text-xs rounded-full border border-dashed border-border px-2.5 py-1 text-muted-foreground hover:text-foreground hover:border-solid"
-        >
-          + {o.label}
-        </button>
-      ))}
     </div>
   );
 }
