@@ -665,12 +665,36 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
 
   useEffect(() => {
     if (!open) return;
-    setSellsOurProducts('');
-    setFeedback({});
-    setActionItems(''); setOrderIncrease(''); setMonthlyPotential('');
-    setInterestedToKnowMore('');
-    setCompetitions([emptyCompetition()]);
-    setRetailerSize(''); setRetailerMonthlyTurnover(''); setRetailerNotes('');
+    const jb = existingVisit?.joint_sales_feedback || null;
+    if (jb) {
+      setSellsOurProducts((jb.sells_our_products as any) || '');
+      const fb: Record<string, any> = {};
+      [...STAR_PARAMS, ...DROPDOWN_PARAMS].forEach(p => { if (jb[p.key] != null) fb[p.key] = jb[p.key]; });
+      setFeedback(fb);
+      setActionItems(existingVisit.additional_notes || jb.joint_sales_impact || '');
+      setOrderIncrease(jb.order_increase_amount ? String(jb.order_increase_amount) : '');
+      setMonthlyPotential(jb.monthly_potential_6months ? String(jb.monthly_potential_6months) : '');
+      setInterestedToKnowMore((jb.non_selling?.interested_to_know_more as any) || '');
+      const comps = Array.isArray(jb.competitions) && jb.competitions.length
+        ? jb.competitions.map((c: any) => ({
+            brand: c.brand || '', skus: c.skus || '',
+            monthly_value: c.monthly_value != null ? String(c.monthly_value) : '',
+          }))
+        : [emptyCompetition()];
+      setCompetitions(comps);
+      setRetailerSize(jb.retailer_profile?.size || '');
+      setRetailerMonthlyTurnover(
+        jb.retailer_profile?.monthly_turnover != null ? String(jb.retailer_profile.monthly_turnover) : '',
+      );
+      setRetailerNotes(jb.retailer_profile?.notes || '');
+    } else {
+      setSellsOurProducts('');
+      setFeedback({});
+      setActionItems(''); setOrderIncrease(''); setMonthlyPotential('');
+      setInterestedToKnowMore('');
+      setCompetitions([emptyCompetition()]);
+      setRetailerSize(''); setRetailerMonthlyTurnover(''); setRetailerNotes('');
+    }
     setVisitPhotos([]);
     (async () => {
       if (retailer?.territory_id) {
@@ -682,9 +706,11 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
             .select('full_name').eq('id', uid).maybeSingle();
           setExec({ id: uid, name: p?.full_name || 'Executive' });
         } else setExec(null);
+      } else if (existingVisit?.territory_executive_id) {
+        setExec({ id: existingVisit.territory_executive_id, name: existingVisit.territory_executive_name });
       } else setExec(null);
     })();
-  }, [open, retailer, session.id]);
+  }, [open, retailer, session.id, existingVisit]);
 
   const score = useMemo(() => calcJointScore(feedback), [feedback]);
   const scoreColor = score >= 8 ? 'bg-green-100 text-green-700'
