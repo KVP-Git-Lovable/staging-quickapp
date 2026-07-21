@@ -918,15 +918,26 @@ function Step1Body(p: Step1Props) {
   const filteredMsrs = measures.filter(m => m.label.toLowerCase().includes(q));
 
   const addField = React.useCallback((k: string, kind: 'dim' | 'msr') => {
+    if (!k) return;
     if (layout === 'tabular') {
-      p.setRows(prev => prev.includes(k) ? prev : [...prev, k]);
+      // Multi-column: append, ignore duplicates. Accepts dims and measures.
+      p.setRows(prev => (prev.includes(k) ? prev : [...prev, k]));
     } else if (layout === 'grouped') {
-      if (kind === 'msr') p.setValues(prev => prev.includes(k) ? prev : [...prev, k]);
-      else p.setRows([k]);
+      // Summary: Group Rows is single-slot (replace); Values is multi (append, dedupe).
+      if (kind === 'msr') {
+        p.setValues(prev => (prev.includes(k) ? prev : [...prev, k]));
+      } else {
+        p.setRows([k]);
+      }
     } else {
-      if (kind === 'msr') p.setValues([k]);
-      else if (!rows[0]) p.setRows([k]);
-      else p.setColumns(k);
+      // Matrix: all three zones are single-slot (replace).
+      if (kind === 'msr') {
+        p.setValues([k]);
+      } else if (!rows[0]) {
+        p.setRows([k]);
+      } else {
+        p.setColumns(k);
+      }
     }
   }, [layout, rows, p]);
 
