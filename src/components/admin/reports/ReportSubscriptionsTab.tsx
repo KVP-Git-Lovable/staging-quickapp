@@ -364,6 +364,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             columns={columns} setColumns={setColumns}
             values={values} setValues={setValues}
             dataset={dataset}
+            dateFrom={dateFrom} setDateFrom={setDateFrom}
+            dateTo={dateTo} setDateTo={setDateTo}
             onCancel={onClose}
             onNext={() => setStep(2)}
             canNext={!!canNext1}
