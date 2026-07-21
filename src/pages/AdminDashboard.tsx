@@ -778,19 +778,40 @@ export const AdminDashboard = () => {
                             )}
                             {visibleColumns.includes('active') && (
                               <TableCell className="text-xs py-1.5">
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={user.profile?.user_status !== 'inactive'}
-                                    onCheckedChange={() => toggleUserActiveStatus(
-                                      user.id, 
-                                      user.profile?.user_status || 'active'
-                                    )}
-                                    className="scale-75"
-                                  />
-                                  <span className={user.profile?.user_status === 'inactive' ? 'text-destructive' : 'text-green-600'}>
-                                    {user.profile?.user_status === 'inactive' ? 'Inactive' : 'Active'}
-                                  </span>
-                                </div>
+                                {(() => {
+                                  const isActive = (user.profile as any)?.is_active !== false && user.profile?.user_status !== 'inactive';
+                                  const busy = statusBusyId === user.id;
+                                  return (
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant={isActive ? 'default' : 'destructive'} className="text-[10px]">
+                                        {isActive ? 'Active' : 'Inactive'}
+                                      </Badge>
+                                      {canActivateDeactivate && (
+                                        isActive ? (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-6 px-2 text-[11px]"
+                                            disabled={busy}
+                                            onClick={() => { setDeactivateTarget(user); setDeactivateReason(''); }}
+                                          >
+                                            <PowerOff className="h-3 w-3 mr-1" /> Deactivate
+                                          </Button>
+                                        ) : (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-6 px-2 text-[11px]"
+                                            disabled={busy}
+                                            onClick={() => handleReactivateUser(user.id)}
+                                          >
+                                            <Power className="h-3 w-3 mr-1" /> Reactivate
+                                          </Button>
+                                        )
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </TableCell>
                             )}
                             {visibleColumns.includes('joined') && (
