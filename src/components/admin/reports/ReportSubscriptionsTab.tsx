@@ -420,14 +420,15 @@ export function ReportSubscriptionsTab() {
                             {recipients.slice(0, 3).map((uid: string, i: number) => {
                               const p = profileMap.get(uid);
                               const name = p?.name || 'Unknown';
+                              const avatar = avatarFor(uid);
                               return (
                                 <div
                                   key={uid + i}
-                                  className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center overflow-hidden', !p?.avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
+                                  className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
                                   title={name}
                                 >
-                                  {p?.avatar ? (
-                                    <img src={p.avatar} alt={name} className="h-full w-full object-cover" />
+                                  {avatar ? (
+                                    <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                                   ) : (
                                     initials(name)
                                   )}
