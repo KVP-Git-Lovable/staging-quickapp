@@ -554,7 +554,18 @@ interface Step1Props {
 }
 
 function Step1Body(p: Step1Props) {
-  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo } = p;
+  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId } = p;
+  const { user } = useAuth();
+  const { subordinates } = useSubordinates();
+  const scopeOptions = React.useMemo(() => {
+    const opts: Array<{ id: string; label: string; level: number }> = [];
+    if (user?.id) opts.push({ id: user.id, label: 'Me (and my full hierarchy)', level: 0 });
+    subordinates.forEach(s => opts.push({ id: s.subordinate_user_id, label: s.full_name, level: s.level }));
+    return opts;
+  }, [subordinates, user?.id]);
+  const scopeLabel = scopeUserId
+    ? (scopeOptions.find(o => o.id === scopeUserId)?.label ?? 'Selected user')
+    : 'Everyone I can see';
 
   const layoutHint =
     layout === 'tabular' ? 'Flat table — one row per record, columns for every field you pick.'
