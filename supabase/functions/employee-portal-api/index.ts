@@ -140,6 +140,31 @@ serve(async (req) => {
       return json(200, { success: true, visits: data || [] });
     }
 
+    if (action === "update_visit") {
+      const id = String(body.visit_id || "");
+      const patch = body.patch || {};
+      if (!id) return json(200, { success: false, error: "visit_id required" });
+      const { data, error } = await supabase
+        .from("employee_market_visits")
+        .update(patch)
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) return json(200, { success: false, error: error.message });
+      return json(200, { success: true, visit: data });
+    }
+
+    if (action === "delete_visit") {
+      const id = String(body.visit_id || "");
+      if (!id) return json(200, { success: false, error: "visit_id required" });
+      const { error } = await supabase
+        .from("employee_market_visits")
+        .delete()
+        .eq("id", id);
+      if (error) return json(200, { success: false, error: error.message });
+      return json(200, { success: true });
+    }
+
     return json(200, { success: false, error: `Unknown action: ${action}` });
   } catch (err) {
     console.error("employee-portal-api error:", err);
