@@ -101,7 +101,7 @@ export function isDue(
   // 15-min tick window: fire if we're within [fire, fire + 14min]
   if (nowMin < fireMin || nowMin >= fireMin + 15) return false;
 
-  if (cadence === 'daily') return true;
+  if (cadence === 'daily' || cadence === 'today') return true;
   if (cadence === 'weekday') return !['Sat', 'Sun'].includes(weekday);
   if (cadence === 'weekly') return weekday.toLowerCase().startsWith((fireDay ?? 'mon').slice(0, 3).toLowerCase());
   if (cadence === 'monthly') {
