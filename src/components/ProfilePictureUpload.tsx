@@ -133,15 +133,18 @@ export const ProfilePictureUpload = ({
 
   return (
     <div className="relative group">
-      <Avatar className={`${sizeClasses[size]} border-4 border-white shadow-elegant cursor-pointer`}>
-        <AvatarImage src={signedPhotoUrl || undefined} />
+      <Avatar
+        className={`${sizeClasses[size]} border-4 border-white shadow-elegant cursor-pointer`}
+        onClick={() => setShowViewer(true)}
+      >
+        <AvatarImage src={signedPhotoUrl || undefined} className="object-cover" />
         <AvatarFallback className="text-4xl">{fullName.charAt(0)}</AvatarFallback>
       </Avatar>
       <Button
         size="icon"
         variant="secondary"
-        className="absolute bottom-0 right-0 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={() => setShowOptions(true)}
+        className="absolute bottom-0 right-0 rounded-full shadow-lg opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+        onClick={(e) => { e.stopPropagation(); setShowOptions(true); }}
         disabled={isUploading}
       >
         {isUploading ? (
@@ -150,6 +153,37 @@ export const ProfilePictureUpload = ({
           <Camera className="w-4 h-4" />
         )}
       </Button>
+
+      {/* Viewer Dialog */}
+      <Dialog open={showViewer} onOpenChange={setShowViewer}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{fullName}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-full aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+              {signedPhotoUrl ? (
+                <img
+                  src={signedPhotoUrl}
+                  alt={fullName}
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="text-6xl text-muted-foreground font-semibold">
+                  {fullName.charAt(0)}
+                </div>
+              )}
+            </div>
+            <Button
+              onClick={() => { setShowViewer(false); setShowOptions(true); }}
+              className="w-full gap-2"
+            >
+              <Camera className="h-4 w-4" />
+              {signedPhotoUrl ? "Change Photo" : "Add Photo"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Options Dialog */}
       <Dialog open={showOptions} onOpenChange={setShowOptions}>
