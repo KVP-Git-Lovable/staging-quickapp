@@ -36,7 +36,7 @@ export function computePeriod(cadence: string, now: Date = new Date()): Period {
   const today = new Date(now);
   const todayStr = fmt(today);
 
-  if (cadence === 'daily' || cadence === 'weekday') {
+  if (cadence === 'daily' || cadence === 'weekday' || cadence === 'today') {
     return {
       key: todayStr,
       label: todayStr,
