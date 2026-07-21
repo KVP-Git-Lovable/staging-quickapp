@@ -898,7 +898,7 @@ interface Step1Props {
 }
 
 function Step1Body(p: Step1Props) {
-  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId } = p;
+  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId, distributorId } = p;
   const { user } = useAuth();
   const { subordinates } = useSubordinates();
 
