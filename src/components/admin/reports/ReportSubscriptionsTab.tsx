@@ -540,13 +540,15 @@ interface Step1Props {
 
   values: string[]; setValues: React.Dispatch<React.SetStateAction<string[]>>;
   dataset: Dataset | undefined;
+  dateFrom: string; setDateFrom: (v: string) => void;
+  dateTo: string; setDateTo: (v: string) => void;
   onCancel: () => void;
   onNext: () => void;
   canNext: boolean;
 }
 
 function Step1Body(p: Step1Props) {
-  const { dataset, layout, rows, columns, values, datasetKey } = p;
+  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo } = p;
 
   const layoutHint =
     layout === 'tabular' ? 'Flat table — one row per record, columns for every field you pick.'
