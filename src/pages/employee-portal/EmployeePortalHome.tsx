@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge';
 import {
   Radar, MapPin, Camera, Plus, Search, LogOut, ArrowLeft, Loader2, Sparkles,
-  Store, ChevronRight, User, ClipboardList,
+  Store, ChevronRight, User, ClipboardList, Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { clearEmployeeSession, getEmployeeSession } from './EmployeePortalLogin';
@@ -386,16 +386,61 @@ function AddRetailerSheet({ open, onOpenChange, coords, onCreated }: {
   );
 }
 
-const RATING_PARAMS: { key: string; label: string; hint: string }[] = [
-  { key: 'product_packaging', label: 'Product Packaging', hint: 'Packaging quality & appeal' },
-  { key: 'product_sku_range', label: 'Product SKU Range', hint: 'Variety of products stocked' },
-  { key: 'product_quality', label: 'Product Quality', hint: 'Customer satisfaction with quality' },
-  { key: 'service_quality', label: 'Service Quality', hint: 'Overall service & responsiveness' },
-  { key: 'pricing', label: 'Pricing', hint: 'Competitiveness of pricing' },
-  { key: 'schemes_offers', label: 'Schemes & Offers', hint: 'Attractiveness of trade schemes' },
-  { key: 'brand_visibility', label: 'Brand Visibility', hint: 'Branding, POSM, shelf share' },
-  { key: 'future_growth', label: 'Future Growth Potential', hint: 'Outlook for the account' },
+// ---- Joint Sales aligned config (mirrors JointSalesFeedbackModal) ----
+const STAR_PARAMS: { key: string; label: string; hint: string }[] = [
+  { key: 'product_packaging_feedback', label: 'Product Packaging', hint: 'Packaging quality & appeal' },
+  { key: 'product_sku_range_feedback', label: 'Product SKU Range', hint: 'Variety of products stocked' },
+  { key: 'product_quality_feedback', label: 'Product Quality', hint: 'Customer satisfaction with quality' },
+  { key: 'service_feedback', label: 'Service Quality', hint: 'Overall service & support' },
+  { key: 'consumer_feedback', label: 'Consumer Satisfaction', hint: 'End consumer feedback' },
 ];
+
+const DROPDOWN_PARAMS: { key: string; label: string; options: string[] }[] = [
+  { key: 'placement_feedback', label: 'Product Placement', options: [
+      'Excellent - Prime shelf space', 'Good - Visible location',
+      'Average - Needs improvement', 'Poor - Not visible',
+  ]},
+  { key: 'promotion_vs_competition', label: 'Promotes Us vs Competition', options: [
+      'Actively promotes us over competition', 'Promotes equally with competition',
+      'Prefers competition slightly', 'Heavily promotes competition',
+  ]},
+  { key: 'product_usp_feedback', label: 'Product USP Awareness', options: [
+      'Clearly understands and promotes USP', 'Aware of key USPs',
+      'Limited awareness', 'No awareness of USP',
+  ]},
+  { key: 'schemes_feedback', label: 'Schemes Effectiveness', options: [
+      'Highly effective - Driving sales', 'Moderately effective',
+      'Not very effective', 'Needs better schemes',
+  ]},
+  { key: 'pricing_feedback', label: 'Pricing Competitiveness', options: [
+      'Very competitive', 'Competitive',
+      'Slightly higher than competitors', 'Too expensive',
+  ]},
+  { key: 'willingness_to_grow_range', label: 'Willingness to Grow Range', options: [
+      'Highly willing - Ready to expand', 'Willing - Open to new products',
+      'Hesitant - Needs convincing', 'Not willing - Satisfied with current',
+  ]},
+];
+
+const DROPDOWN_SCORES: Record<string, number> = {
+  'Excellent - Prime shelf space': 5, 'Good - Visible location': 4, 'Average - Needs improvement': 2, 'Poor - Not visible': 1,
+  'Highly willing - Ready to expand': 5, 'Willing - Open to new products': 4, 'Hesitant - Needs convincing': 2, 'Not willing - Satisfied with current': 1,
+  'Highly effective - Driving sales': 5, 'Moderately effective': 4, 'Not very effective': 2, 'Needs better schemes': 1,
+  'Very competitive': 5, 'Competitive': 4, 'Slightly higher than competitors': 2, 'Too expensive': 1,
+  'Actively promotes us over competition': 5, 'Promotes equally with competition': 4, 'Prefers competition slightly': 2, 'Heavily promotes competition': 1,
+  'Clearly understands and promotes USP': 5, 'Aware of key USPs': 4, 'Limited awareness': 2, 'No awareness of USP': 1,
+};
+
+function calcJointScore(feedback: Record<string, any>): number {
+  let total = 0;
+  const MAX = 55; // 5 star × 5 + 6 dd × 5
+  STAR_PARAMS.forEach(p => { total += parseInt(feedback[p.key]) || 0; });
+  DROPDOWN_PARAMS.forEach(p => { const v = feedback[p.key]; if (v && DROPDOWN_SCORES[v]) total += DROPDOWN_SCORES[v]; });
+  if (!total) return 0;
+  return Math.round((total / MAX) * 100) / 10;
+}
+
+const RETAILER_SIZE_OPTIONS = ['Small (< 200 sq ft)', 'Medium (200-500 sq ft)', 'Large (500-1000 sq ft)', 'Very Large (> 1000 sq ft)'];
 
 function StarRow({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
@@ -405,13 +450,10 @@ function StarRow({ value, onChange }: { value: number; onChange: (n: number) => 
           key={n}
           type="button"
           onClick={() => onChange(n === value ? 0 : n)}
-          className="p-0.5"
+          className="p-0.5 focus:outline-none transition-transform active:scale-95"
           aria-label={`${n} star`}
         >
-          <Sparkles
-            className={`h-6 w-6 ${n <= value ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`}
-            style={{ fill: n <= value ? '#fbbf24' : 'transparent' }}
-          />
+          <Star className={`h-7 w-7 ${n <= value ? 'fill-amber-400 text-amber-400' : 'text-slate-300'}`} />
         </button>
       ))}
     </div>
@@ -422,23 +464,34 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
   open: boolean; onOpenChange: (v: boolean) => void;
   session: any; retailer: any; coords: any; onSaved: () => void;
 }) {
-  const [partners, setPartners] = useState<any[]>([]);
-  const [partnerId, setPartnerId] = useState<string>('');
-  const [ratings, setRatings] = useState<Record<string, number>>({});
+  const [sellsOurProducts, setSellsOurProducts] = useState<'yes' | 'no' | ''>('');
+  const [feedback, setFeedback] = useState<Record<string, any>>({});
   const [actionItems, setActionItems] = useState('');
+  const [orderIncrease, setOrderIncrease] = useState('');
+  const [monthlyPotential, setMonthlyPotential] = useState('');
+
+  // "No" branch fields
+  const [interestedToKnowMore, setInterestedToKnowMore] = useState<'yes' | 'no' | ''>('');
+  const [competitionBrand, setCompetitionBrand] = useState('');
+  const [competitionSkus, setCompetitionSkus] = useState('');
+  const [competitionMonthlyValue, setCompetitionMonthlyValue] = useState('');
+  const [competitionPricing, setCompetitionPricing] = useState('');
+  const [retailerSize, setRetailerSize] = useState('');
+  const [retailerMonthlyTurnover, setRetailerMonthlyTurnover] = useState('');
+  const [retailerNotes, setRetailerNotes] = useState('');
+
   const [exec, setExec] = useState<{ id?: string; name?: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setRatings({});
-    setPartnerId('');
-    setActionItems('');
+    setSellsOurProducts('');
+    setFeedback({});
+    setActionItems(''); setOrderIncrease(''); setMonthlyPotential('');
+    setInterestedToKnowMore(''); setCompetitionBrand(''); setCompetitionSkus('');
+    setCompetitionMonthlyValue(''); setCompetitionPricing('');
+    setRetailerSize(''); setRetailerMonthlyTurnover(''); setRetailerNotes('');
     (async () => {
-      const { data } = await (supabase as any).functions.invoke('employee-portal-api', {
-        body: { action: 'list_partners', exclude_id: session.id },
-      });
-      setPartners(data?.partners || []);
       if (retailer?.territory_id) {
         const { data: t } = await (supabase as any).from('territories')
           .select('assigned_user_id').eq('id', retailer.territory_id).maybeSingle();
@@ -452,19 +505,49 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
     })();
   }, [open, retailer, session.id]);
 
-  const avg = useMemo(() => {
-    const vals = Object.values(ratings).filter((v) => v > 0);
-    if (!vals.length) return null;
-    return (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
-  }, [ratings]);
+  const score = useMemo(() => calcJointScore(feedback), [feedback]);
+  const scoreColor = score >= 8 ? 'bg-green-100 text-green-700'
+    : score >= 6 ? 'bg-yellow-100 text-yellow-700'
+    : score >= 4 ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700';
 
   async function publish() {
     if (!retailer) return;
-    if (!partnerId) { toast.error('Please select the joint visit partner'); return; }
-    const rated = Object.values(ratings).filter((v) => v > 0).length;
-    if (rated < 1) { toast.error('Please rate at least one parameter'); return; }
+    if (!sellsOurProducts) { toast.error('Please indicate whether the retailer sells our products'); return; }
+
+    if (sellsOurProducts === 'yes') {
+      const rated = STAR_PARAMS.filter(p => (parseInt(feedback[p.key]) || 0) > 0).length
+        + DROPDOWN_PARAMS.filter(p => !!feedback[p.key]).length;
+      if (rated < 1) { toast.error('Please fill at least one feedback field'); return; }
+    } else {
+      if (!interestedToKnowMore) { toast.error('Please indicate if the retailer is interested to know more'); return; }
+    }
+
     setSaving(true);
-    const partner = partners.find((p) => p.id === partnerId);
+    const jointBlob: any = {
+      sells_our_products: sellsOurProducts,
+      score: sellsOurProducts === 'yes' ? score : null,
+      ...feedback,
+      order_increase_amount: parseFloat(orderIncrease) || 0,
+      monthly_potential_6months: parseFloat(monthlyPotential) || 0,
+      joint_sales_impact: actionItems || null,
+    };
+    if (sellsOurProducts === 'no') {
+      jointBlob.non_selling = {
+        interested_to_know_more: interestedToKnowMore,
+        competition: {
+          brand: competitionBrand || null,
+          skus: competitionSkus || null,
+          monthly_value: parseFloat(competitionMonthlyValue) || null,
+          pricing: competitionPricing || null,
+        },
+        retailer_profile: {
+          size: retailerSize || null,
+          monthly_turnover: parseFloat(retailerMonthlyTurnover) || null,
+          notes: retailerNotes || null,
+        },
+      };
+    }
+
     const payload = {
       employee_id: session.id,
       employee_name: session.full_name,
@@ -477,11 +560,11 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
       retailer_photo_url: retailer.__isNew ? retailer.photo_url || null : null,
       latitude: coords?.lat ?? null,
       longitude: coords?.lng ?? null,
-      joint_visit_partner_id: partnerId,
-      joint_visit_partner_name: partner?.full_name || null,
-      joint_sales_feedback: { ratings, avg: avg ? Number(avg) : null },
+      joint_sales_feedback: jointBlob,
       additional_notes: actionItems || null,
-      overall_sentiment: avg ? `Avg ${avg}/5` : null,
+      overall_sentiment: sellsOurProducts === 'yes'
+        ? (score ? `Score ${score}/10` : null)
+        : `Non-selling • ${interestedToKnowMore === 'yes' ? 'interested' : 'not interested'}`,
     };
     const { data, error } = await (supabase as any).functions.invoke('employee-portal-api', {
       body: { action: 'save_visit', visit: payload },
@@ -491,7 +574,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
       toast.error(error?.message || data?.error || 'Failed to publish');
       return;
     }
-    toast.success('Joint sales feedback published');
+    toast.success('Feedback published');
     onSaved();
   }
 
@@ -499,60 +582,198 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-[95vh] p-0 flex flex-col">
         <SheetHeader className="px-4 pt-4 pb-2 border-b">
-          <SheetTitle className="flex items-center gap-2 text-lg">
-            <User className="h-5 w-5 text-indigo-600" />
-            Joint Sales Feedback
-          </SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="flex items-center gap-2 text-lg">
+              <User className="h-5 w-5 text-indigo-600" />
+              Retailer Feedback
+            </SheetTitle>
+            {sellsOurProducts === 'yes' && score > 0 && (
+              <Badge className={`text-sm px-2 py-1 ${scoreColor}`}>Score: {score}/10</Badge>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">{retailer?.name}</p>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
-          {/* Joint Visit Partner */}
-          <div className="rounded-xl bg-indigo-50/60 border border-indigo-100 p-3">
-            <Label className="text-indigo-700 font-medium">Joint Visit Partner *</Label>
-            <select
-              className="mt-2 w-full h-11 border rounded-lg px-3 bg-white"
-              value={partnerId}
-              onChange={(e) => setPartnerId(e.target.value)}
-            >
-              <option value="">Select who joined the visit</option>
-              {partners.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.full_name}{p.department ? ` — ${p.department}` : ''}
-                </option>
+          {/* Gate: Sells our products? */}
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+            <Label className="text-indigo-800 font-medium">Currently selling our products?</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {(['yes','no'] as const).map(opt => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setSellsOurProducts(opt)}
+                  className={`h-11 rounded-lg border font-medium text-sm ${
+                    sellsOurProducts === opt
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'bg-white text-slate-700 border-slate-200'
+                  }`}
+                >
+                  {opt === 'yes' ? 'Yes' : 'No'}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
-          {/* Performance Ratings */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-5 w-5 text-indigo-600" />
-              <h3 className="text-base font-semibold text-indigo-700">Performance Ratings</h3>
-              {avg && <Badge className="ml-auto bg-amber-100 text-amber-700 hover:bg-amber-100">Avg {avg}/5</Badge>}
-            </div>
-            <div className="space-y-3">
-              {RATING_PARAMS.map((p) => (
-                <div key={p.key} className="rounded-lg bg-slate-50 p-3 flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{p.label}</p>
-                    <p className="text-xs text-muted-foreground">{p.hint}</p>
-                  </div>
-                  <StarRow value={ratings[p.key] || 0} onChange={(n) => setRatings({ ...ratings, [p.key]: n })} />
+          {sellsOurProducts === 'yes' && (
+            <>
+              {/* Star ratings */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Star className="h-5 w-5 text-amber-500" />
+                  <h3 className="text-base font-semibold text-indigo-700">Performance Ratings</h3>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="space-y-3">
+                  {STAR_PARAMS.map(p => (
+                    <div key={p.key} className="rounded-lg bg-slate-50 p-3 flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{p.label}</p>
+                        <p className="text-xs text-muted-foreground">{p.hint}</p>
+                      </div>
+                      <StarRow
+                        value={parseInt(feedback[p.key]) || 0}
+                        onChange={(n) => setFeedback({ ...feedback, [p.key]: n ? n.toString() : '' })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          {/* Action items */}
+              {/* Store assessment dropdowns */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Store className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-base font-semibold text-blue-700">Store Assessment</h3>
+                </div>
+                <div className="space-y-3">
+                  {DROPDOWN_PARAMS.map(p => (
+                    <div key={p.key} className="rounded-lg bg-slate-50 p-3">
+                      <Label className="font-medium text-sm">{p.label}</Label>
+                      <select
+                        className="mt-2 w-full h-11 border rounded-lg px-3 bg-white text-sm"
+                        value={feedback[p.key] || ''}
+                        onChange={(e) => setFeedback({ ...feedback, [p.key]: e.target.value })}
+                      >
+                        <option value="">Select</option>
+                        {p.options.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sales outcome */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-5 w-5 text-green-600" />
+                  <h3 className="text-base font-semibold text-green-700">Sales Outcome</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <Label>Order Increase (₹)</Label>
+                    <Input type="number" inputMode="decimal" value={orderIncrease}
+                      onChange={e => setOrderIncrease(e.target.value)} placeholder="Additional order value" />
+                  </div>
+                  <div>
+                    <Label>6-Month Growth Potential (₹)</Label>
+                    <Input type="number" inputMode="decimal" value={monthlyPotential}
+                      onChange={e => setMonthlyPotential(e.target.value)} placeholder="Expected monthly value" />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {sellsOurProducts === 'no' && (
+            <>
+              <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                <Label className="text-amber-800 font-medium">Interested to know more about our products?</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {(['yes','no'] as const).map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setInterestedToKnowMore(opt)}
+                      className={`h-11 rounded-lg border font-medium text-sm ${
+                        interestedToKnowMore === opt
+                          ? 'bg-amber-600 text-white border-amber-600'
+                          : 'bg-white text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {opt === 'yes' ? 'Yes, interested' : 'Not interested'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Store className="h-5 w-5 text-red-600" />
+                  <h3 className="text-base font-semibold text-red-700">Competition Details</h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <Label>Competitor brand(s) sold</Label>
+                    <Input value={competitionBrand} onChange={e => setCompetitionBrand(e.target.value)} placeholder="e.g. Brand X, Brand Y" />
+                  </div>
+                  <div>
+                    <Label>SKUs / product range</Label>
+                    <Textarea rows={2} value={competitionSkus} onChange={e => setCompetitionSkus(e.target.value)} placeholder="Key SKUs stocked" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Monthly value (₹)</Label>
+                      <Input type="number" inputMode="decimal" value={competitionMonthlyValue}
+                        onChange={e => setCompetitionMonthlyValue(e.target.value)} placeholder="Est. off-take" />
+                    </div>
+                    <div>
+                      <Label>Pricing position</Label>
+                      <select className="w-full h-11 border rounded-lg px-3 bg-white text-sm"
+                        value={competitionPricing} onChange={e => setCompetitionPricing(e.target.value)}>
+                        <option value="">Select</option>
+                        <option>Lower than us</option>
+                        <option>Similar to us</option>
+                        <option>Higher than us</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <ClipboardList className="h-5 w-5 text-slate-600" />
+                  <h3 className="text-base font-semibold text-slate-700">Retailer Profile</h3>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <Label>Retailer size</Label>
+                    <select className="w-full h-11 border rounded-lg px-3 bg-white text-sm"
+                      value={retailerSize} onChange={e => setRetailerSize(e.target.value)}>
+                      <option value="">Select size</option>
+                      {RETAILER_SIZE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Est. monthly turnover (₹)</Label>
+                    <Input type="number" inputMode="decimal" value={retailerMonthlyTurnover}
+                      onChange={e => setRetailerMonthlyTurnover(e.target.value)} placeholder="Overall shop turnover" />
+                  </div>
+                  <div>
+                    <Label>Additional details</Label>
+                    <Textarea rows={2} value={retailerNotes} onChange={e => setRetailerNotes(e.target.value)} placeholder="Segment, footfall, chain type…" />
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Notes */}
           <div>
             <Label>Action items / notes</Label>
-            <Textarea
-              rows={3}
-              value={actionItems}
-              onChange={(e) => setActionItems(e.target.value)}
-              placeholder="Agreed next steps, follow-ups…"
-            />
+            <Textarea rows={3} value={actionItems} onChange={(e) => setActionItems(e.target.value)}
+              placeholder="Agreed next steps, follow-ups…" />
           </div>
 
           <div className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -575,3 +796,4 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
     </Sheet>
   );
 }
+
