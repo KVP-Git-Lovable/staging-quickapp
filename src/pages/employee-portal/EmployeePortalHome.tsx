@@ -143,7 +143,7 @@ export default function EmployeePortalHome() {
                   <p className="text-sm text-muted-foreground">No visits yet — tap "Find retailer" to start.</p>
                 ) : (
                   <div className="space-y-2">
-                    {visits.slice(0, 3).map(v => <VisitRow key={v.id} v={v} />)}
+                    {visits.slice(0, 3).map(v => <VisitRow key={v.id} v={v} onClick={() => setDetailsVisit(v)} />)}
                   </div>
                 )}
               </CardContent>
