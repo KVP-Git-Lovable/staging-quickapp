@@ -530,15 +530,22 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
   const [orderIncrease, setOrderIncrease] = useState('');
   const [monthlyPotential, setMonthlyPotential] = useState('');
 
-  // "No" branch fields
+  // Non-selling gate
   const [interestedToKnowMore, setInterestedToKnowMore] = useState<'yes' | 'no' | ''>('');
-  const [competitionBrand, setCompetitionBrand] = useState('');
-  const [competitionSkus, setCompetitionSkus] = useState('');
-  const [competitionMonthlyValue, setCompetitionMonthlyValue] = useState('');
-  const [competitionPricing, setCompetitionPricing] = useState('');
+
+  // Competition (shared for both Yes and No) — multiple entries supported
+  type CompetitionRow = { brand: string; skus: string; monthly_value: string };
+  const emptyCompetition = (): CompetitionRow => ({ brand: '', skus: '', monthly_value: '' });
+  const [competitions, setCompetitions] = useState<CompetitionRow[]>([emptyCompetition()]);
+
+  // Retailer profile (shared for both Yes and No)
   const [retailerSize, setRetailerSize] = useState('');
   const [retailerMonthlyTurnover, setRetailerMonthlyTurnover] = useState('');
   const [retailerNotes, setRetailerNotes] = useState('');
+
+  // Multiple visit photos
+  const [visitPhotos, setVisitPhotos] = useState<File[]>([]);
+  const photosRef = useRef<HTMLInputElement>(null);
 
   const [exec, setExec] = useState<{ id?: string; name?: string } | null>(null);
   const [saving, setSaving] = useState(false);
@@ -548,9 +555,10 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
     setSellsOurProducts('');
     setFeedback({});
     setActionItems(''); setOrderIncrease(''); setMonthlyPotential('');
-    setInterestedToKnowMore(''); setCompetitionBrand(''); setCompetitionSkus('');
-    setCompetitionMonthlyValue(''); setCompetitionPricing('');
+    setInterestedToKnowMore('');
+    setCompetitions([emptyCompetition()]);
     setRetailerSize(''); setRetailerMonthlyTurnover(''); setRetailerNotes('');
+    setVisitPhotos([]);
     (async () => {
       if (retailer?.territory_id) {
         const { data: t } = await (supabase as any).from('territories')
