@@ -589,6 +589,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [dateFrom, setDateFrom] = useState<string>(editing?.def.config?.filters?.date_from ?? iso30);
   const [dateTo, setDateTo] = useState<string>(editing?.def.config?.filters?.date_to ?? isoToday);
   const [scopeUserId, setScopeUserId] = useState<string>(editing?.def.config?.filters?.scope_user_id ?? '');
+  const [distributorId, setDistributorId] = useState<string>(editing?.def.config?.filters?.distributor_id ?? '');
 
 
 
@@ -629,7 +630,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
         rows,
         columns: columns ? [columns] : [],
         values,
-        filters: { date_from: dateFrom, date_to: dateTo, scope_user_id: scopeUserId || null },
+        filters: { date_from: dateFrom, date_to: dateTo, scope_user_id: scopeUserId || null, distributor_id: distributorId || null },
       };
 
 
@@ -713,6 +714,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             dateFrom={dateFrom} setDateFrom={setDateFrom}
             dateTo={dateTo} setDateTo={setDateTo}
             scopeUserId={scopeUserId} setScopeUserId={setScopeUserId}
+            distributorId={distributorId} setDistributorId={setDistributorId}
             onCancel={onClose}
             onNext={() => setStep(2)}
             canNext={!!canNext1}
@@ -889,13 +891,14 @@ interface Step1Props {
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
   scopeUserId: string; setScopeUserId: (v: string) => void;
+  distributorId: string; setDistributorId: (v: string) => void;
   onCancel: () => void;
   onNext: () => void;
   canNext: boolean;
 }
 
 function Step1Body(p: Step1Props) {
-  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId } = p;
+  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId, distributorId } = p;
   const { user } = useAuth();
   const { subordinates } = useSubordinates();
 
@@ -976,11 +979,26 @@ function Step1Body(p: Step1Props) {
     ? (scopeOptions.find(o => o.id === scopeUserId)?.label ?? 'Selected user')
     : 'Everyone I can see';
 
-  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId });
+  const hasDistributorDim = dims.some(d => d.key === 'distributor');
+  const { data: distributors = [] } = useQuery({
+    queryKey: ['report-distributors'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('distributors')
+        .select('id, name')
+        .order('name', { ascending: true })
+        .limit(1000);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string }>;
+    },
+    enabled: hasDistributorDim,
+  });
+
+  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId });
   React.useEffect(() => {
-    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId }), 250);
+    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId }), 250);
     return () => clearTimeout(t);
-  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId]);
+  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId]);
 
   const preview = useQuery({
     queryKey: [
@@ -988,7 +1006,7 @@ function Step1Body(p: Step1Props) {
       debounced.datasetKey, debounced.layout,
       debounced.rows.join(','), debounced.columns,
       debounced.values.join(','),
-      debounced.dateFrom, debounced.dateTo, debounced.scopeUserId,
+      debounced.dateFrom, debounced.dateTo, debounced.scopeUserId, debounced.distributorId,
     ],
     enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
@@ -1002,6 +1020,7 @@ function Step1Body(p: Step1Props) {
           date_from: debounced.dateFrom,
           date_to: debounced.dateTo,
           scope_user_id: debounced.scopeUserId || null,
+          distributor_id: debounced.distributorId || null,
         },
       };
       // eslint-disable-next-line no-console
@@ -1123,6 +1142,9 @@ function Step1Body(p: Step1Props) {
                   dateTo={dateTo} setDateTo={p.setDateTo}
                   scopeUserId={scopeUserId} setScopeUserId={p.setScopeUserId}
                   scopeOptions={scopeOptions} scopeLabel={scopeLabel}
+                  distributorId={distributorId} setDistributorId={p.setDistributorId}
+                  distributors={distributors}
+                  showDistributor={hasDistributorDim}
                 />
               }
             />
@@ -1366,12 +1388,15 @@ function EmptyChip({ text }: { text: string }) {
   return <span className="text-[11px] text-muted-foreground/60 italic px-2 py-1">{text}</span>;
 }
 
-function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel }: {
+function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel, distributorId, setDistributorId, distributors, showDistributor }: {
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
   scopeUserId: string; setScopeUserId: (v: string) => void;
   scopeOptions: Array<{ id: string; label: string; level: number }>;
   scopeLabel: string;
+  distributorId?: string; setDistributorId?: (v: string) => void;
+  distributors?: Array<{ id: string; name: string }>;
+  showDistributor?: boolean;
 }) {
   return (
     <div className="space-y-3 text-xs">
@@ -1423,6 +1448,20 @@ function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, s
           </SelectContent>
         </Select>
       </div>
+      {showDistributor && setDistributorId && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Distributor</div>
+          <Select value={distributorId || '__all__'} onValueChange={(v) => setDistributorId(v === '__all__' ? '' : v)}>
+            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All distributors" /></SelectTrigger>
+            <SelectContent className="max-h-72">
+              <SelectItem value="__all__" className="text-xs">All distributors</SelectItem>
+              {(distributors ?? []).map(d => (
+                <SelectItem key={d.id} value={d.id} className="text-xs">{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </div>
   );
 }
