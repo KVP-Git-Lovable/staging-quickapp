@@ -736,11 +736,6 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
                 </div>
                 <div className="grid grid-cols-1 gap-3">
                   <div>
-                    <Label>Order Increase (₹)</Label>
-                    <Input type="number" inputMode="decimal" value={orderIncrease}
-                      onChange={e => setOrderIncrease(e.target.value)} placeholder="Additional order value" />
-                  </div>
-                  <div>
                     <Label>6-Month Growth Potential (₹)</Label>
                     <Input type="number" inputMode="decimal" value={monthlyPotential}
                       onChange={e => setMonthlyPotential(e.target.value)} placeholder="Expected monthly value" />
