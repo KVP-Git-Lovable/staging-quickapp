@@ -834,7 +834,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   );
 }
 
-// ------- Step 1 (redesigned) -------
+// ------- Step 1 (Salesforce-style report builder) -------
 
 const STEP_LABELS = ['Build report', 'Schedule', 'Review'];
 
@@ -851,19 +851,13 @@ function StepBar({ current }: { current: number }) {
               <div
                 className={cn(
                   'h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-medium border transition-colors shrink-0',
-                  isDone && 'bg-[#534ab7] border-[#534ab7] text-white',
-                  isActive && 'bg-[#534ab7] border-[#534ab7] text-white',
+                  (isDone || isActive) && 'bg-[#534ab7] border-[#534ab7] text-white',
                   !isDone && !isActive && 'bg-muted border-border text-muted-foreground',
                 )}
               >
                 {isDone ? <Check className="h-3.5 w-3.5" /> : stepNum}
               </div>
-              <span
-                className={cn(
-                  'text-sm truncate',
-                  (isActive || isDone) ? 'text-foreground font-medium' : 'text-muted-foreground',
-                )}
-              >
+              <span className={cn('text-sm truncate', (isActive || isDone) ? 'text-foreground font-medium' : 'text-muted-foreground')}>
                 {label}
               </span>
             </div>
@@ -877,6 +871,12 @@ function StepBar({ current }: { current: number }) {
   );
 }
 
+const LAYOUT_OPTIONS = [
+  { value: 'tabular', label: 'Tabular', icon: ListIcon, hint: 'Flat list — one row per record, columns for the fields you pick.' },
+  { value: 'grouped', label: 'Summary', icon: Rows3, hint: 'Group rows by a field and total the measures, with subtotals.' },
+  { value: 'matrix', label: 'Matrix', icon: LayoutGrid, hint: 'Pivot two fields — rows × columns with a value in each cell.' },
+] as const;
+
 interface Step1Props {
   name: string; setName: (v: string) => void;
   datasets: Dataset[];
@@ -884,7 +884,6 @@ interface Step1Props {
   layout: string; setLayout: (v: string) => void;
   rows: string[]; setRows: React.Dispatch<React.SetStateAction<string[]>>;
   columns: string; setColumns: (v: string) => void;
-
   values: string[]; setValues: React.Dispatch<React.SetStateAction<string[]>>;
   dataset: Dataset | undefined;
   dateFrom: string; setDateFrom: (v: string) => void;
@@ -899,6 +898,46 @@ function Step1Body(p: Step1Props) {
   const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId } = p;
   const { user } = useAuth();
   const { subordinates } = useSubordinates();
+
+  const dims = dataset?.dimensions ?? [];
+  const measures = dataset?.measures ?? [];
+  const dimLabel = (k: string) => dims.find(d => d.key === k)?.label ?? k;
+  const msrLabel = (k: string) => measures.find(m => m.key === k)?.label ?? k;
+  const anyLabel = (k: string) => {
+    const d = dims.find(x => x.key === k);
+    if (d) return d.label;
+    const m = measures.find(x => x.key === k);
+    if (m) return m.label;
+    return k.replace(/_/g, ' ');
+  };
+  const isMeasureKey = (k: string) => measures.some(m => m.key === k);
+
+  const [fieldSearch, setFieldSearch] = React.useState('');
+  const q = fieldSearch.toLowerCase();
+  const filteredDims = dims.filter(d => d.label.toLowerCase().includes(q));
+  const filteredMsrs = measures.filter(m => m.label.toLowerCase().includes(q));
+
+  const addField = React.useCallback((k: string, kind: 'dim' | 'msr') => {
+    if (layout === 'tabular') {
+      p.setRows(prev => prev.includes(k) ? prev : [...prev, k]);
+    } else if (layout === 'grouped') {
+      if (kind === 'msr') p.setValues(prev => prev.includes(k) ? prev : [...prev, k]);
+      else p.setRows([k]);
+    } else {
+      if (kind === 'msr') p.setValues([k]);
+      else if (!rows[0]) p.setRows([k]);
+      else p.setColumns(k);
+    }
+  }, [layout, rows, p]);
+
+  const removeChip = (zone: 'cols' | 'gr' | 'gc' | 'val' | 'vals', k?: string) => {
+    if (zone === 'cols' && k) p.setRows(prev => prev.filter(x => x !== k));
+    else if (zone === 'vals' && k) p.setValues(prev => prev.filter(x => x !== k));
+    else if (zone === 'gr') p.setRows([]);
+    else if (zone === 'gc') p.setColumns('');
+    else if (zone === 'val') p.setValues([]);
+  };
+
   const scopeOptions = React.useMemo(() => {
     const opts: Array<{ id: string; label: string; level: number }> = [];
     if (user?.id) opts.push({ id: user.id, label: 'Me (and my full hierarchy)', level: 0 });
@@ -909,40 +948,19 @@ function Step1Body(p: Step1Props) {
     ? (scopeOptions.find(o => o.id === scopeUserId)?.label ?? 'Selected user')
     : 'Everyone I can see';
 
-  const layoutHint =
-    layout === 'tabular' ? 'Flat table — one row per record, columns for every field you pick.'
-    : layout === 'grouped' ? 'Group rows by one dimension and total the measures.'
-    : 'Pivot rows against columns, measures fill the cells with row/column totals.';
-
-  const dims = dataset?.dimensions ?? [];
-  const measures = dataset?.measures ?? [];
-
-  const dimLabel = (key: string) => dims.find(d => d.key === key)?.label ?? key;
-  const msrLabel = (key: string) => measures.find(m => m.key === key)?.label ?? key;
-
-  const toggleValue = (k: string) => {
-    p.setValues(v => v.includes(k) ? v.filter(x => x !== k) : [...v, k]);
-  };
-
-  // Debounce config changes so we don't spam the RPC on every keystroke/drop
   const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId });
   React.useEffect(() => {
     const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId }), 250);
     return () => clearTimeout(t);
   }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId]);
 
-  // Live preview — real RPC call for the selected date range
   const preview = useQuery({
     queryKey: [
       'report-preview',
-      debounced.datasetKey,
-      debounced.layout,
-      debounced.rows,
-      debounced.columns,
+      debounced.datasetKey, debounced.layout,
+      debounced.rows.join(','), debounced.columns,
       debounced.values.join(','),
-      debounced.dateFrom,
-      debounced.dateTo,
-      debounced.scopeUserId,
+      debounced.dateFrom, debounced.dateTo, debounced.scopeUserId,
     ],
     enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
@@ -958,18 +976,10 @@ function Step1Body(p: Step1Props) {
           scope_user_id: debounced.scopeUserId || null,
         },
       };
-
-
       // eslint-disable-next-line no-console
       console.debug('[ReportPreview] rpc', dataset!.source, payload);
       const { data, error } = await supabase.rpc(dataset!.source as any, payload as any);
-      if (error) {
-        // eslint-disable-next-line no-console
-        console.error('[ReportPreview] error', error);
-        throw error;
-      }
-      // eslint-disable-next-line no-console
-      console.debug('[ReportPreview] rows', Array.isArray(data) ? data.length : data);
+      if (error) throw error;
       return (data ?? []) as any[];
     },
   });
@@ -982,279 +992,133 @@ function Step1Body(p: Step1Props) {
     : (preview.data ?? []).length === 0 ? 'empty'
     : 'data';
 
+  const layoutHint = LAYOUT_OPTIONS.find(l => l.value === layout)?.hint ?? '';
+
+  const [sort, setSort] = React.useState<{ col: string; dir: 'asc' | 'desc' } | null>(null);
+  React.useEffect(() => { setSort(null); }, [layout, datasetKey]);
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</Label>
-        <Input
+    <div className="space-y-4">
+      {/* Top bar: name · dataset · Run */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <input
           value={p.name}
           onChange={e => p.setName(e.target.value)}
-          placeholder="e.g. Daily attendance snapshot"
-          className="max-w-md"
+          placeholder={dataset ? `${dataset.label} report` : 'Untitled report'}
+          className="flex-1 min-w-[200px] text-base font-semibold bg-transparent border-0 border-b border-dashed border-transparent hover:border-border/60 focus:border-border outline-none py-1 px-1 text-foreground placeholder:text-muted-foreground/50"
         />
+        <Select value={datasetKey} onValueChange={p.setDatasetKey}>
+          <SelectTrigger className="w-auto gap-2 h-9 bg-[#eeedfe] border-[#afa9ec] text-[#534ab7] font-semibold text-sm rounded-lg hover:bg-[#e4e2fb] dark:bg-[#2a2560] dark:text-[#afa9ec] dark:border-[#4a4290]">
+            <Database className="h-3.5 w-3.5" />
+            <SelectValue placeholder="Choose dataset" />
+          </SelectTrigger>
+          <SelectContent>
+            {p.datasets.map(d => (
+              <SelectItem key={d.key} value={d.key}>{d.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={() => preview.refetch()}
+          size="sm"
+          disabled={previewState === 'idle'}
+          className="h-9 bg-[#20201d] text-white hover:bg-[#20201d]/90 dark:bg-[#ecebe3] dark:text-[#20201d] dark:hover:bg-[#ecebe3]/90"
+        >
+          <PlayCircle className="h-3.5 w-3.5 mr-1.5" /> Run
+        </Button>
       </div>
 
-      {/* Dataset cards */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dataset</Label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {p.datasets.map(d => {
-            const selected = d.key === datasetKey;
+      {/* Format segmented + hint */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="inline-flex rounded-lg border border-border overflow-hidden">
+          {LAYOUT_OPTIONS.map(l => {
+            const active = layout === l.value;
+            const disabled = l.value === 'matrix' && !dataset?.supports_matrix;
+            const Icon = l.icon;
             return (
               <button
-                key={d.key}
-                type="button"
-                onClick={() => p.setDatasetKey(d.key)}
-                className={cn(
-                  'text-left rounded-xl border p-4 transition-all',
-                  selected
-                    ? 'border-2 border-[#534ab7] bg-[#eeedfe] dark:bg-[#534ab7]/15'
-                    : 'border-border/60 hover:border-border bg-card',
-                )}
-              >
-                <div className="font-semibold text-sm text-foreground">{d.label}</div>
-                <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                  {(d as any).description || d.dimensions.slice(0, 2).map(x => x.label).join(', ').toLowerCase()}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Layout segmented */}
-      <div className="space-y-2">
-        <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Layout</Label>
-        <div className="inline-flex w-full rounded-xl border border-border/60 p-1 bg-muted/30">
-          {(['tabular', 'grouped', 'matrix'] as const).map(l => {
-            const disabled = l === 'matrix' && !dataset?.supports_matrix;
-            const active = layout === l;
-            return (
-              <button
-                key={l}
+                key={l.value}
                 type="button"
                 disabled={disabled}
-                onClick={() => p.setLayout(l)}
+                onClick={() => p.setLayout(l.value)}
                 className={cn(
-                  'flex-1 text-sm font-medium rounded-lg py-2 transition-colors capitalize',
+                  'inline-flex items-center gap-1.5 px-4 py-1.5 text-sm border-r border-border last:border-r-0 transition-colors',
                   active
-                    ? 'bg-[#eeedfe] text-[#534ab7] shadow-sm dark:bg-[#534ab7]/25 dark:text-white'
-                    : 'text-muted-foreground hover:text-foreground',
+                    ? 'bg-[#eeedfe] text-[#534ab7] font-semibold dark:bg-[#2a2560] dark:text-[#afa9ec]'
+                    : 'bg-transparent text-muted-foreground hover:bg-muted/50',
                   disabled && 'opacity-40 cursor-not-allowed',
                 )}
               >
-                {l}
+                <Icon className="h-3.5 w-3.5" />
+                {l.label}
               </button>
             );
           })}
         </div>
-        <p className="text-xs text-muted-foreground">{layoutHint}</p>
+        <span className="text-xs text-muted-foreground">{layoutHint}</span>
       </div>
 
-      {/* Builder body */}
-      {dataset && (
-        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
-          {/* Fields palette */}
-          <div className="rounded-xl border border-border/60 bg-card p-3">
-            <div className="text-xs font-medium text-muted-foreground px-1 pb-2">Fields</div>
-            <div className="space-y-1">
-              {dims.map(d => (
-                <FieldRow key={d.key} fieldKey={d.key} label={d.label} kind="dim" />
-              ))}
-              {measures.map(m => (
-                <FieldRow key={m.key} fieldKey={m.key} label={m.label} kind="msr" />
-              ))}
+      {/* Main: fields rail + right column */}
+      {dataset ? (
+        <div className="grid grid-cols-1 md:grid-cols-[230px_1fr] gap-3 items-start">
+          {/* Fields rail */}
+          <div className="rounded-xl border border-border/60 bg-muted/20 dark:bg-muted/10 p-3">
+            <div className="relative mb-3">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={fieldSearch}
+                onChange={e => setFieldSearch(e.target.value)}
+                placeholder="Search fields..."
+                className="h-8 pl-8 text-xs bg-card"
+              />
             </div>
+            <FieldSection title="Dimensions" fields={filteredDims} kind="dim" onAdd={(k) => addField(k, 'dim')} />
+            <FieldSection title="Measures" fields={filteredMsrs} kind="msr" onAdd={(k) => addField(k, 'msr')} />
           </div>
 
-          {/* Config zones */}
-          <div className="space-y-3">
-            {layout === 'matrix' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ZoneCard title="Group rows by" accept="dim" onDropKey={(k) => p.setRows([k])}>
-                  <ZonePicker
-                    value={rows[0] ?? ''}
-                    onChange={(v) => p.setRows(v ? [v] : [])}
-                    options={dims}
-                    placeholder="Drop a dimension"
-                    tone="dim"
-                  />
-                </ZoneCard>
-                <ZoneCard title="Column groups" tone="purple" accept="dim" onDropKey={p.setColumns}>
-                  <ZonePicker
-                    value={columns}
-                    onChange={p.setColumns}
-                    options={dims}
-                    placeholder="Drop a dimension"
-                    tone="dim"
-                  />
-                </ZoneCard>
-              </div>
-            )}
-            {layout === 'grouped' && (
-              <ZoneCard title="Group rows by" accept="dim" onDropKey={(k) => p.setRows([k])}>
-                <ZonePicker
-                  value={rows[0] ?? ''}
-                  onChange={(v) => p.setRows(v ? [v] : [])}
-                  options={dims}
-                  placeholder="Drop a dimension"
-                  tone="dim"
+          {/* Outline + Preview */}
+          <div className="space-y-3 min-w-0">
+            <OutlineBar
+              layout={layout}
+              rows={rows}
+              columns={columns}
+              values={values}
+              labelOf={anyLabel}
+              isMeasure={isMeasureKey}
+              onRemove={removeChip}
+              onDrop={addField}
+              filtersContent={
+                <FiltersPanel
+                  dateFrom={dateFrom} setDateFrom={p.setDateFrom}
+                  dateTo={dateTo} setDateTo={p.setDateTo}
+                  scopeUserId={scopeUserId} setScopeUserId={p.setScopeUserId}
+                  scopeOptions={scopeOptions} scopeLabel={scopeLabel}
                 />
-              </ZoneCard>
-            )}
-            {layout === 'tabular' && (
-              <ZoneCard
-                title="Columns"
-                onDropKey={(k) => p.setRows(prev => prev.includes(k) ? prev : [...prev, k])}
-              >
-                <ZoneMulti
-                  value={rows}
-                  onChange={p.setRows}
-                  dims={dims}
-                  measures={measures}
-                />
-              </ZoneCard>
-            )}
-
-
-            {layout !== 'tabular' && (
-              <ZoneCard
-                title="Values"
-                accept="msr"
-                acceptedKeys={measures.map(m => m.key)}
-                rejectedDropMessage="Values accepts measures only. Drag a field marked ‘msr’ from Fields."
-                onDropKey={(k) => p.setValues(prev => prev.includes(k) ? prev : [...prev, k])}
-              >
-                <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-                  {values.length === 0 ? (
-                    <span className="text-xs text-muted-foreground/60 italic px-1 py-1">
-                      Drop measures — drag any measure from the Fields palette here.
-                    </span>
-                  ) : (
-                    values.map(k => (
-                      <MeasurePill key={k} label={msrLabel(k)} onRemove={() => toggleValue(k)} />
-                    ))
-                  )}
-                </div>
-              </ZoneCard>
-            )}
-
-            <ZoneCard title="Date range">
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">From</Label>
-                  <Input
-                    type="date"
-                    value={dateFrom}
-                    max={dateTo || undefined}
-                    onChange={(e) => p.setDateFrom(e.target.value)}
-                    className="h-8 text-xs w-[150px]"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">To</Label>
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    min={dateFrom || undefined}
-                    onChange={(e) => p.setDateTo(e.target.value)}
-                    className="h-8 text-xs w-[150px]"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-1.5 pb-1">
-                  {[
-                    { label: 'Last 7d', days: 7 },
-                    { label: 'Last 30d', days: 30 },
-                    { label: 'Last 90d', days: 90 },
-                    { label: 'This month', days: -1 },
-                  ].map(preset => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => {
-                        const to = new Date();
-                        const from = new Date();
-                        if (preset.days === -1) from.setDate(1);
-                        else from.setDate(to.getDate() - preset.days);
-                        p.setDateFrom(from.toISOString().slice(0, 10));
-                        p.setDateTo(to.toISOString().slice(0, 10));
-                      }}
-                      className="text-[11px] rounded-full border border-dashed border-border px-2 py-0.5 text-muted-foreground hover:text-foreground hover:border-solid"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </ZoneCard>
-
-            <ZoneCard title="Team / User filter">
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="space-y-1 min-w-[240px]">
-                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
-                    <Users className="h-3 w-3" /> Show data for
-                  </Label>
-                  <Select
-                    value={scopeUserId || '__all__'}
-                    onValueChange={(v) => p.setScopeUserId(v === '__all__' ? '' : v)}
-                  >
-                    <SelectTrigger className="h-8 text-xs">
-                      <SelectValue>{scopeLabel}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      <SelectItem value="__all__" className="text-xs">Everyone I can see</SelectItem>
-                      {scopeOptions.length > 0 && <div className="border-t my-1" />}
-                      {scopeOptions.map(o => (
-                        <SelectItem key={o.id} value={o.id} className="text-xs">
-                          <span style={{ paddingLeft: `${Math.max(0, o.level - 1) * 10}px` }}>
-                            {o.label}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-[11px] text-muted-foreground pb-1 max-w-sm">
-                  Pick any user in your hierarchy — the report includes that person and their full team, respecting your access.
-                </p>
-              </div>
-            </ZoneCard>
-
-
-
-
-            {layout === 'matrix' && (
-              <div className="flex flex-wrap items-center gap-5 pt-1">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox defaultChecked /> <span>Row totals</span>
-                </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox defaultChecked /> <span>Column totals</span>
-                </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <Checkbox /> <span>Mark Sundays off</span>
-                </label>
-              </div>
-            )}
+              }
+            />
+            <PreviewHero
+              state={previewState}
+              error={preview.error as any}
+              rowsData={preview.data ?? []}
+              layout={layout}
+              rowKey={rows[0] ?? ''}
+              selectedColumns={rows}
+              columnKey={columns}
+              values={values}
+              labelOf={anyLabel}
+              isMeasure={isMeasureKey}
+              sort={sort}
+              setSort={setSort}
+              onRemoveColumn={(k) => p.setRows(prev => prev.filter(x => x !== k))}
+              onRemoveValue={(k) => p.setValues(prev => prev.filter(x => x !== k))}
+            />
           </div>
         </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          Pick a dataset above to start.
+        </div>
       )}
-
-      {/* Live preview */}
-      <LivePreviewCard
-        state={previewState}
-        error={preview.error as any}
-        rows={preview.data ?? []}
-        layout={layout}
-        rowKey={rows[0] ?? ''}
-        selectedColumns={rows}
-        columnKey={columns}
-        values={values}
-        onReorderTabular={(next) => p.setRows(next)}
-      />
-
-
-
 
       <DialogFooter className="pt-2">
         <Button variant="ghost" onClick={p.onCancel}>Cancel</Button>
@@ -1266,385 +1130,512 @@ function Step1Body(p: Step1Props) {
   );
 }
 
-function FieldRow({ label, kind, fieldKey }: { label: string; kind: 'dim' | 'msr'; fieldKey: string }) {
+function FieldSection({ title, fields, kind, onAdd }: { title: string; fields: Array<{ key: string; label: string }>; kind: 'dim' | 'msr'; onAdd: (k: string) => void }) {
   return (
-    <div
-      draggable
-      data-report-field-key={fieldKey}
-      data-report-field-kind={kind}
-      onDragStart={(e) => {
-        const payload = JSON.stringify({ key: fieldKey, kind });
-        e.dataTransfer.setData('application/x-report-field', payload);
-        e.dataTransfer.setData('application/json', payload);
-        e.dataTransfer.setData('text/plain', fieldKey);
-        e.dataTransfer.effectAllowed = 'copy';
-      }}
-      className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-grab active:cursor-grabbing group"
-    >
-      <div className="flex items-center gap-1.5 min-w-0">
-        <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
-        <span className="text-sm text-foreground truncate">{label}</span>
-      </div>
-      <span
-        className={cn(
-          'text-[10px] font-medium rounded-full px-1.5 py-0.5',
-          kind === 'dim'
-            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-            : 'bg-[#eeedfe] text-[#534ab7] dark:bg-[#534ab7]/25 dark:text-white',
-        )}
-      >
-        {kind}
-      </span>
+    <div className="mb-1">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mt-2 mb-1 px-1">{title}</div>
+      {fields.length === 0 ? (
+        <div className="text-[11px] text-muted-foreground/60 px-2 py-1">No match</div>
+      ) : fields.map(f => (
+        <div
+          key={f.key}
+          role="button"
+          tabIndex={0}
+          draggable
+          onClick={() => onAdd(f.key)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAdd(f.key); } }}
+          onDragStart={(e) => {
+            const payload = JSON.stringify({ key: f.key, kind });
+            e.dataTransfer.setData('application/x-report-field', payload);
+            e.dataTransfer.setData('application/json', payload);
+            e.dataTransfer.setData('text/plain', f.key);
+            e.dataTransfer.effectAllowed = 'copy';
+          }}
+          className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-pointer text-xs group"
+          title={`Add ${f.label}`}
+        >
+          <GripVertical className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+          <span className="text-foreground truncate flex-1">{f.label}</span>
+          <span className={cn(
+            'text-[9px] font-medium rounded px-1 py-0.5',
+            kind === 'dim'
+              ? 'bg-[#e6f1fb] text-[#185fa5] dark:bg-[#12314a] dark:text-[#85b7eb]'
+              : 'bg-[#eeedfe] text-[#534ab7] dark:bg-[#2a2560] dark:text-[#afa9ec]',
+          )}>
+            {kind}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-function ZoneCard({
-  title, tone, children, accept, acceptedKeys, rejectedDropMessage, onDropKey,
-}: {
-  title: string;
-  tone?: 'purple';
-  children: React.ReactNode;
-  accept?: 'dim' | 'msr';
-  acceptedKeys?: string[];
-  rejectedDropMessage?: string;
-  onDropKey?: (key: string) => void;
+function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemove, onDrop, filtersContent }: {
+  layout: string;
+  rows: string[]; columns: string; values: string[];
+  labelOf: (k: string) => string;
+  isMeasure: (k: string) => boolean;
+  onRemove: (zone: 'cols' | 'gr' | 'gc' | 'val' | 'vals', k?: string) => void;
+  onDrop: (k: string, kind: 'dim' | 'msr') => void;
+  filtersContent: React.ReactNode;
 }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3 flex flex-wrap gap-4 items-start">
+      {layout === 'tabular' && (
+        <OutlineZone title="Columns" onDropKey={(k, kind) => onDrop(k, kind)}>
+          {rows.length ? rows.map(k => (
+            <Chip key={k} label={labelOf(k)} measure={isMeasure(k)} onRemove={() => onRemove('cols', k)} />
+          )) : <EmptyChip text="add fields" />}
+        </OutlineZone>
+      )}
+      {layout === 'grouped' && (
+        <>
+          <OutlineZone title="Group Rows" onDropKey={(k, kind) => { if (kind === 'dim') onDrop(k, kind); }}>
+            {rows[0] ? <Chip label={labelOf(rows[0])} onRemove={() => onRemove('gr')} /> : <EmptyChip text="drop field" />}
+          </OutlineZone>
+          <OutlineZone title="Columns (values)" onDropKey={(k, kind) => { if (kind === 'msr') onDrop(k, kind); }}>
+            {values.length ? values.map(k => (
+              <Chip key={k} label={labelOf(k)} measure onRemove={() => onRemove('vals', k)} />
+            )) : <EmptyChip text="add measures" />}
+          </OutlineZone>
+        </>
+      )}
+      {layout === 'matrix' && (
+        <>
+          <OutlineZone title="Group Rows" onDropKey={(k, kind) => { if (kind === 'dim') onDrop(k, kind); }}>
+            {rows[0] ? <Chip label={labelOf(rows[0])} onRemove={() => onRemove('gr')} /> : <EmptyChip text="drop field" />}
+          </OutlineZone>
+          <OutlineZone title="Group Columns" onDropKey={(k, kind) => { if (kind === 'dim') onDrop(k, kind); }}>
+            {columns ? <Chip label={labelOf(columns)} onRemove={() => onRemove('gc')} /> : <EmptyChip text="drop field" />}
+          </OutlineZone>
+          <OutlineZone title="Value" onDropKey={(k, kind) => { if (kind === 'msr') onDrop(k, kind); }}>
+            {values[0] ? <Chip label={labelOf(values[0])} measure onRemove={() => onRemove('val')} /> : <EmptyChip text="drop measure" />}
+          </OutlineZone>
+        </>
+      )}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="ml-auto self-center h-8">
+            <Filter className="h-3.5 w-3.5 mr-1.5" /> Filters
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[380px]" align="end">{filtersContent}</PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+function OutlineZone({ title, children, onDropKey }: { title: string; children: React.ReactNode; onDropKey: (k: string, kind: 'dim' | 'msr') => void }) {
   const [over, setOver] = React.useState(false);
-  const [dropError, setDropError] = React.useState('');
-  const handleDrop = (e: React.DragEvent) => {
-    if (!onDropKey) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setOver(false);
-    try {
-      const raw =
-        e.dataTransfer.getData('application/x-report-field') ||
-        e.dataTransfer.getData('application/json') ||
-        e.dataTransfer.getData('text/plain');
-      if (!raw) return;
-      let key: string;
-      let kind: 'dim' | 'msr' | undefined;
-      try {
-        const parsed = JSON.parse(raw);
-        key = parsed.key;
-        kind = parsed.kind;
-      } catch {
-        key = raw;
-      }
-      if (!key) return;
-      const isAcceptedKey = !acceptedKeys || acceptedKeys.includes(key);
-      if ((accept && kind && kind !== accept) || !isAcceptedKey) {
-        setDropError(rejectedDropMessage ?? `Drop a ${accept === 'msr' ? 'measure' : 'dimension'} here.`);
-        window.setTimeout(() => setDropError(''), 2600);
-        return;
-      }
-      setDropError('');
-      onDropKey(key);
-    } catch { /* ignore */ }
-  };
-  const handleDragOver = (e: React.DragEvent) => {
-    if (!onDropKey) return;
-    // Required to allow a drop.
-    e.preventDefault();
-    e.stopPropagation();
-    try { e.dataTransfer.dropEffect = 'copy'; } catch { /* noop */ }
-    if (!over) setOver(true);
-  };
   return (
     <div
-      onDragEnterCapture={handleDragOver}
-      onDragOverCapture={handleDragOver}
-      onDragLeave={(e) => {
-        const related = e.relatedTarget as Node | null;
-        if (!related || !(e.currentTarget as Node).contains(related)) {
-          setOver(false);
-        }
+      className="min-w-[130px]"
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; if (!over) setOver(true); }}
+      onDragLeave={(e) => { const rel = e.relatedTarget as Node | null; if (!rel || !(e.currentTarget as Node).contains(rel)) setOver(false); }}
+      onDrop={(e) => {
+        e.preventDefault(); e.stopPropagation(); setOver(false);
+        const raw = e.dataTransfer.getData('application/x-report-field') || e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
+        if (!raw) return;
+        let key = raw; let kind: 'dim' | 'msr' = 'dim';
+        try { const parsed = JSON.parse(raw); key = parsed.key; kind = parsed.kind; } catch { /* plain string */ }
+        if (key) onDropKey(key, kind);
       }}
-      onDropCapture={handleDrop}
-      className={cn(
-        'relative rounded-xl border border-dashed p-3 transition-colors',
-        tone === 'purple' ? 'border-[#534ab7]/40 bg-[#eeedfe]/50 dark:bg-[#534ab7]/10' : 'border-border/60',
-        over && 'border-solid border-[#534ab7] bg-[#eeedfe]/70 dark:bg-[#534ab7]/20',
-      )}
     >
-      <div className="text-xs text-muted-foreground pb-2 pointer-events-none">{title}</div>
-      {/* Children keep pointer-events so pills/buttons stay clickable.
-          Drops bubble up to this outer div's onDrop. */}
-      <div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1">{title}</div>
+      <div className={cn(
+        'flex flex-wrap gap-1 min-h-[30px] p-1 border border-dashed rounded-lg transition-colors',
+        over ? 'border-[#534ab7] bg-[#eeedfe]/60 dark:border-[#7f77dd] dark:bg-[#2a2560]/40' : 'border-border/70',
+      )}>
         {children}
       </div>
-      {dropError && (
-        <p role="alert" className="pt-2 text-[11px] font-medium text-destructive">
-          {dropError}
-        </p>
-      )}
     </div>
   );
 }
 
-
-function ZonePicker({
-  value, onChange, options, placeholder, tone,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: Array<{ key: string; label: string }>;
-  placeholder: string;
-  tone: 'dim' | 'msr';
-}) {
-  if (!value) {
-    return (
-      <Select onValueChange={onChange}>
-        <SelectTrigger className="h-8 border-dashed text-xs text-muted-foreground bg-transparent">
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map(o => <SelectItem key={o.key} value={o.key}>{o.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    );
-  }
-  const label = options.find(o => o.key === value)?.label ?? value;
+function Chip({ label, measure, onRemove }: { label: string; measure?: boolean; onRemove: () => void }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      <button
-        type="button"
-        onClick={() => onChange('')}
-        className={cn(
-          'text-xs rounded-full px-2.5 py-1 border',
-          tone === 'dim'
-            ? 'bg-blue-500/10 text-blue-600 border-transparent hover:bg-blue-500/20 dark:text-blue-400'
-            : 'bg-[#eeedfe] text-[#534ab7] border-transparent hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white',
-        )}
-        title="Click to remove"
-      >
-        {label}
-      </button>
-    </div>
-  );
-}
-
-function MeasurePill({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onRemove}
-      className="text-xs rounded-full bg-[#eeedfe] text-[#534ab7] px-2.5 py-1 hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white"
-    >
+    <span className={cn(
+      'inline-flex items-center gap-1 rounded-full pl-2.5 pr-1.5 py-0.5 text-[11px] font-medium',
+      measure
+        ? 'bg-[#eeedfe] text-[#534ab7] dark:bg-[#2a2560] dark:text-[#afa9ec]'
+        : 'bg-[#e6f1fb] text-[#185fa5] dark:bg-[#12314a] dark:text-[#85b7eb]',
+    )}>
       {label}
-    </button>
+      <button type="button" onClick={onRemove} className="opacity-70 hover:opacity-100">
+        <X className="h-3 w-3" />
+      </button>
+    </span>
   );
 }
 
-function ZoneMulti({
-  value, onChange, dims, measures,
-}: {
-  value: string[];
-  onChange: React.Dispatch<React.SetStateAction<string[]>>;
-  dims: Array<{ key: string; label: string }>;
-  measures: Array<{ key: string; label: string }>;
+function EmptyChip({ text }: { text: string }) {
+  return <span className="text-[11px] text-muted-foreground/60 italic px-2 py-1">{text}</span>;
+}
+
+function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel }: {
+  dateFrom: string; setDateFrom: (v: string) => void;
+  dateTo: string; setDateTo: (v: string) => void;
+  scopeUserId: string; setScopeUserId: (v: string) => void;
+  scopeOptions: Array<{ id: string; label: string; level: number }>;
+  scopeLabel: string;
 }) {
-  const all = [...dims.map(d => ({ ...d, kind: 'dim' as const })), ...measures.map(m => ({ ...m, kind: 'msr' as const }))];
-  const labelOf = (k: string) => all.find(o => o.key === k)?.label ?? k;
-  const kindOf = (k: string) => all.find(o => o.key === k)?.kind ?? 'dim';
-  const remaining = all.filter(o => !value.includes(o.key));
   return (
-    <div className="flex flex-wrap gap-1.5 min-h-[28px] items-center">
-      {value.length === 0 ? (
-        <span className="text-xs text-muted-foreground/60 italic px-1 py-1">
-          Drop dimensions or measures — they become the preview columns.
-        </span>
-      ) : (
-        value.map(k => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => onChange(prev => prev.filter(x => x !== k))}
-            className={cn(
-              'text-xs rounded-full px-2.5 py-1 border border-transparent',
-              kindOf(k) === 'dim'
-                ? 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400'
-                : 'bg-[#eeedfe] text-[#534ab7] hover:bg-[#e4e2fb] dark:bg-[#534ab7]/25 dark:text-white',
-            )}
-            title="Click to remove"
-          >
-            {labelOf(k)}
-          </button>
-        ))
-      )}
+    <div className="space-y-3 text-xs">
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Date range</div>
+        <div className="flex gap-2 items-center">
+          <Input type="date" value={dateFrom} max={dateTo || undefined} onChange={e => setDateFrom(e.target.value)} className="h-8 text-xs" />
+          <span className="text-muted-foreground">→</span>
+          <Input type="date" value={dateTo} min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)} className="h-8 text-xs" />
+        </div>
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {[
+            { label: 'Last 7d', days: 7 },
+            { label: 'Last 30d', days: 30 },
+            { label: 'Last 90d', days: 90 },
+            { label: 'This month', days: -1 },
+          ].map(preset => (
+            <button
+              key={preset.label}
+              type="button"
+              onClick={() => {
+                const to = new Date();
+                const from = new Date();
+                if (preset.days === -1) from.setDate(1);
+                else from.setDate(to.getDate() - preset.days);
+                setDateFrom(from.toISOString().slice(0, 10));
+                setDateTo(to.toISOString().slice(0, 10));
+              }}
+              className="text-[11px] rounded-full border border-dashed border-border px-2 py-0.5 text-muted-foreground hover:text-foreground hover:border-solid"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
+          <Users className="h-3 w-3" /> Team / User
+        </div>
+        <Select value={scopeUserId || '__all__'} onValueChange={(v) => setScopeUserId(v === '__all__' ? '' : v)}>
+          <SelectTrigger className="h-8 text-xs"><SelectValue>{scopeLabel}</SelectValue></SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value="__all__" className="text-xs">Everyone I can see</SelectItem>
+            {scopeOptions.map(o => (
+              <SelectItem key={o.id} value={o.id} className="text-xs">
+                <span style={{ paddingLeft: `${Math.max(0, o.level - 1) * 10}px` }}>{o.label}</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }
 
-function LivePreviewCard({
-  state, error, rows, layout, rowKey, columnKey, values, selectedColumns, onReorderTabular,
-}: {
+type SortState = { col: string; dir: 'asc' | 'desc' } | null;
+
+function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, columnKey, values, labelOf, isMeasure, sort, setSort, onRemoveColumn, onRemoveValue }: {
   state: 'idle' | 'loading' | 'error' | 'empty' | 'data';
   error: Error | null;
-  rows: any[];
+  rowsData: any[];
   layout: string;
   rowKey: string;
+  selectedColumns?: string[];
   columnKey: string;
   values: string[];
-  selectedColumns?: string[];
-  onReorderTabular?: (next: string[]) => void;
+  labelOf: (k: string) => string;
+  isMeasure: (k: string) => boolean;
+  sort: SortState;
+  setSort: (s: SortState) => void;
+  onRemoveColumn: (k: string) => void;
+  onRemoveValue: (k: string) => void;
 }) {
-  const sample = rows; // show all fetched rows — the container scrolls when tall
-
-  // Build columns from returned keys. Tabular respects the user's ordered picks;
-  // matrix prioritises row/column dims then measures; grouped shows what came back.
-  const computedColumns = React.useMemo<string[]>(() => {
-    if (sample.length === 0) return [];
-    const keys = Array.from(new Set(sample.flatMap(r => Object.keys(r ?? {}))));
-    if (layout === 'matrix') {
-      const priority = [rowKey, columnKey, ...values].filter(Boolean);
-      const rest = keys.filter(k => !priority.includes(k));
-      return [...priority.filter(k => keys.includes(k)), ...rest].slice(0, 8);
-    }
-    if (layout === 'tabular' && selectedColumns && selectedColumns.length > 0) {
-      const filtered = selectedColumns.filter(k => keys.includes(k)).slice(0, 12);
-      return filtered.length ? filtered : keys.slice(0, 8);
-    }
-    return keys.slice(0, 8);
-  }, [sample, layout, rowKey, columnKey, values, selectedColumns]);
-
-  // Local order (allows drag-reorder for non-tabular layouts too). Kept in sync
-  // with the computed order when the underlying config changes.
-  const [order, setOrder] = React.useState<string[]>(computedColumns);
-  React.useEffect(() => { setOrder(computedColumns); }, [computedColumns.join(',')]);
-
-  const [dragCol, setDragCol] = React.useState<string | null>(null);
-  const [overCol, setOverCol] = React.useState<string | null>(null);
-
-  const reorderColumns = (from: string, to: string) => {
-    if (from === to) return;
-    const next = order.slice();
-    const fromIdx = next.indexOf(from);
-    const toIdx = next.indexOf(to);
-    if (fromIdx < 0 || toIdx < 0) return;
-    next.splice(fromIdx, 1);
-    next.splice(toIdx, 0, from);
-    setOrder(next);
-    if (layout === 'tabular' && onReorderTabular) {
-      // Persist reorder into the parent so the saved report + generated file
-      // reflect the new column order.
-      onReorderTabular(next);
-    }
-  };
-
-  const columns = order;
+  const caption = state === 'data'
+    ? layout === 'tabular' ? `${rowsData.length} row${rowsData.length === 1 ? '' : 's'}`
+    : layout === 'grouped' ? `${rowsData.length} group${rowsData.length === 1 ? '' : 's'}`
+    : `${rowsData.length} row${rowsData.length === 1 ? '' : 's'}`
+    : '';
 
   return (
     <div className="rounded-xl border border-border/60 bg-card overflow-hidden">
-      <div className="px-4 py-2.5 border-b border-border/60 text-xs font-medium text-muted-foreground flex items-center justify-between">
-        <span>Live preview</span>
-        {state === 'data' && (
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-            {rows.length} row{rows.length === 1 ? '' : 's'} · drag column headers to reorder
-          </span>
-        )}
+      <div className="px-4 py-2.5 border-b border-border/60 text-xs text-muted-foreground flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5">
+          <PlayCircle className="h-3.5 w-3.5" /> Preview
+        </span>
+        <span className="text-[11px]">{caption}</span>
       </div>
-      <div className="p-3 min-h-[80px] max-h-[520px] overflow-y-auto">
-
+      <div className="min-h-[260px] max-h-[560px] overflow-auto">
         {state === 'idle' ? (
-          <div className="text-xs text-muted-foreground py-4 text-center">
-            Add at least one measure to see a live preview for the selected date range.
-          </div>
+          <div className="text-xs text-muted-foreground py-12 text-center">Add fields to see a live preview.</div>
         ) : state === 'loading' ? (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground py-4 justify-center">
+          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground py-12">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Fetching preview…
           </div>
         ) : state === 'error' ? (
-          <div className="text-xs text-destructive py-4 text-center">
-            Preview error — {error?.message || 'RPC failed'}
-          </div>
+          <div className="text-xs text-destructive py-12 text-center px-4">Preview error: {error?.message || 'RPC failed'}</div>
         ) : state === 'empty' ? (
-          <div className="text-xs text-muted-foreground py-4 text-center">
-            No rows for this configuration in the selected date range.
-          </div>
+          <div className="text-xs text-muted-foreground py-12 text-center">No rows for this configuration.</div>
+        ) : layout === 'tabular' ? (
+          <TabularTable rowsData={rowsData} selectedColumns={selectedColumns || []} labelOf={labelOf} isMeasure={isMeasure} sort={sort} setSort={setSort} onRemoveColumn={onRemoveColumn} />
+        ) : layout === 'grouped' ? (
+          <SummaryTable rowsData={rowsData} rowKey={rowKey} values={values} labelOf={labelOf} onRemoveValue={onRemoveValue} />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-muted-foreground border-b border-border/60">
-                  {columns.map((c) => {
-                    const isMeasure = values.includes(c);
-                    const isOver = overCol === c && dragCol && dragCol !== c;
-                    return (
-                      <th
-                        key={c}
-                        draggable
-                        onDragStart={(e) => {
-                          setDragCol(c);
-                          e.dataTransfer.setData('application/x-report-col', c);
-                          e.dataTransfer.effectAllowed = 'move';
-                        }}
-                        onDragOver={(e) => {
-                          if (!dragCol) return;
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = 'move';
-                          if (overCol !== c) setOverCol(c);
-                        }}
-                        onDragLeave={() => { if (overCol === c) setOverCol(null); }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          const from = e.dataTransfer.getData('application/x-report-col') || dragCol;
-                          if (from) reorderColumns(from, c);
-                          setDragCol(null);
-                          setOverCol(null);
-                        }}
-                        onDragEnd={() => { setDragCol(null); setOverCol(null); }}
-                        className={cn(
-                          'text-left font-medium px-2 py-1.5 capitalize whitespace-nowrap select-none cursor-grab active:cursor-grabbing',
-                          isMeasure && layout === 'matrix' && 'bg-[#eeedfe]/50 text-[#534ab7]',
-                          isOver && 'border-l-2 border-[#534ab7]',
-                          dragCol === c && 'opacity-50',
-                        )}
-                        title="Drag to reorder"
-                      >
-                        <span className="inline-flex items-center gap-1">
-                          <GripVertical className="h-3 w-3 text-muted-foreground/40" />
-                          {c.replace(/_/g, ' ')}
-                        </span>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {sample.map((r, i) => (
-                  <tr key={i} className="border-b border-border/40 last:border-0">
-                    {columns.map((c) => {
-                      const isMeasure = values.includes(c);
-                      return (
-                        <td
-                          key={c}
-                          className={cn(
-                            'px-2 py-1.5 text-foreground whitespace-nowrap',
-                            isMeasure && layout === 'matrix' && 'bg-[#eeedfe]/40 font-medium',
-                          )}
-                        >
-                          {formatCell(r?.[c])}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <MatrixTable rowsData={rowsData} rowKey={rowKey} columnKey={columnKey} valueKey={values[0] || ''} labelOf={labelOf} onRemoveValue={onRemoveValue} />
         )}
       </div>
     </div>
   );
 }
 
-
-function formatCell(v: any): string {
-  if (v == null) return '—';
-  if (typeof v === 'number') return v.toLocaleString();
+function fmtCell(v: any): string {
+  if (v == null || v === '') return '—';
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v)) return '—';
+    return Number.isInteger(v) ? v.toLocaleString() : v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
   if (typeof v === 'object') return JSON.stringify(v);
   return String(v);
 }
+
+function sumNumeric(rows: any[], key: string): number | null {
+  let has = false, sum = 0;
+  for (const r of rows) {
+    const v = r?.[key];
+    if (typeof v === 'number' && Number.isFinite(v)) { sum += v; has = true; }
+  }
+  return has ? sum : null;
+}
+
+function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSummarize, onRemove }: {
+  label: string; keyName: string; align?: 'left' | 'right'; sortDir?: 'asc' | 'desc' | null;
+  onSortAsc?: () => void; onSortDesc?: () => void; onSummarize?: string; onRemove?: () => void;
+}) {
+  const canOpen = onSortAsc || onSortDesc || onRemove || onSummarize;
+  const header = (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      {sortDir === 'asc' && <ArrowUp className="h-3 w-3 text-[#534ab7]" />}
+      {sortDir === 'desc' && <ArrowDown className="h-3 w-3 text-[#534ab7]" />}
+      {canOpen && <ChevronDown className="h-3 w-3 opacity-40" />}
+    </span>
+  );
+  return (
+    <th className={cn('px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap select-none', align === 'right' ? 'text-right' : 'text-left')}>
+      {canOpen ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="inline-flex items-center gap-1 hover:text-foreground">{header}</button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align={align === 'right' ? 'end' : 'start'} className="w-48">
+            {onSortAsc && <DropdownMenuItem onClick={onSortAsc}><ArrowUp className="h-3.5 w-3.5 mr-2" />Sort ascending</DropdownMenuItem>}
+            {onSortDesc && <DropdownMenuItem onClick={onSortDesc}><ArrowDown className="h-3.5 w-3.5 mr-2" />Sort descending</DropdownMenuItem>}
+            {onSummarize && <DropdownMenuItem disabled><Sigma className="h-3.5 w-3.5 mr-2" />Summarize: {onSummarize}</DropdownMenuItem>}
+            {(onSortAsc || onSortDesc || onSummarize) && onRemove && <DropdownMenuSeparator />}
+            {onRemove && <DropdownMenuItem onClick={onRemove} className="text-destructive"><Trash2 className="h-3.5 w-3.5 mr-2" />Remove</DropdownMenuItem>}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : header}
+    </th>
+  );
+}
+
+function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, setSort, onRemoveColumn }: {
+  rowsData: any[]; selectedColumns: string[]; labelOf: (k: string) => string; isMeasure: (k: string) => boolean;
+  sort: SortState; setSort: (s: SortState) => void; onRemoveColumn: (k: string) => void;
+}) {
+  const keys = React.useMemo(() => {
+    const available = new Set(Object.keys(rowsData[0] ?? {}));
+    if (selectedColumns.length > 0) {
+      const chosen = selectedColumns.filter(k => available.has(k));
+      return chosen.length ? chosen : Array.from(available);
+    }
+    return Array.from(available);
+  }, [rowsData, selectedColumns]);
+
+  const sorted = React.useMemo(() => {
+    if (!sort) return rowsData;
+    return [...rowsData].sort((a, b) => {
+      const av = a?.[sort.col], bv = b?.[sort.col];
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (av < bv) return sort.dir === 'asc' ? -1 : 1;
+      if (av > bv) return sort.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [rowsData, sort]);
+
+  return (
+    <table className="w-full text-xs">
+      <thead className="bg-muted/30 sticky top-0">
+        <tr>
+          {keys.map(k => (
+            <ColMenu
+              key={k}
+              label={labelOf(k)}
+              keyName={k}
+              align={isMeasure(k) ? 'right' : 'left'}
+              sortDir={sort?.col === k ? sort.dir : null}
+              onSortAsc={() => setSort({ col: k, dir: 'asc' })}
+              onSortDesc={() => setSort({ col: k, dir: 'desc' })}
+              onRemove={selectedColumns.includes(k) ? () => onRemoveColumn(k) : undefined}
+            />
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((r, i) => (
+          <tr key={i} className="border-t border-border/40 hover:bg-muted/20">
+            {keys.map(k => (
+              <td key={k} className={cn('px-3 py-1.5 whitespace-nowrap text-foreground', isMeasure(k) && 'text-right tabular-nums')}>
+                {fmtCell(r?.[k])}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue }: {
+  rowsData: any[]; rowKey: string; values: string[]; labelOf: (k: string) => string; onRemoveValue: (k: string) => void;
+}) {
+  const keys = Object.keys(rowsData[0] ?? {});
+  const groupCol = rowKey && keys.includes(rowKey) ? rowKey : keys[0];
+  const valueCols = values.length ? values.filter(v => keys.includes(v)) : keys.filter(k => k !== groupCol);
+
+  return (
+    <table className="w-full text-xs">
+      <thead className="bg-muted/30 sticky top-0">
+        <tr>
+          <ColMenu label={labelOf(groupCol)} keyName={groupCol} />
+          {valueCols.map(k => (
+            <ColMenu
+              key={k}
+              label={labelOf(k)}
+              keyName={k}
+              align="right"
+              onSummarize="Sum"
+              onRemove={values.includes(k) ? () => onRemoveValue(k) : undefined}
+            />
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rowsData.map((r, i) => (
+          <tr key={i} className="bg-muted/25 border-t border-border/50">
+            <td className="px-3 py-2 font-semibold text-foreground">{fmtCell(r?.[groupCol])}</td>
+            {valueCols.map(k => (
+              <td key={k} className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{fmtCell(r?.[k])}</td>
+            ))}
+          </tr>
+        ))}
+        <tr className="bg-[#eaf3de] dark:bg-[#22350f] border-t-2 border-[#639922]/50">
+          <td className="px-3 py-2 font-bold text-[#3b6d11] dark:text-[#97c459]">Grand total</td>
+          {valueCols.map(k => {
+            const total = sumNumeric(rowsData, k);
+            return (
+              <td key={k} className="px-3 py-2 text-right tabular-nums font-bold text-[#3b6d11] dark:text-[#97c459]">
+                {total == null ? '—' : fmtCell(total)}
+              </td>
+            );
+          })}
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
+function MatrixTable({ rowsData, rowKey, columnKey, valueKey, labelOf, onRemoveValue }: {
+  rowsData: any[]; rowKey: string; columnKey: string; valueKey: string; labelOf: (k: string) => string; onRemoveValue: (k: string) => void;
+}) {
+  const keys = Object.keys(rowsData[0] ?? {});
+  // Long shape: rowKey + columnKey + valueKey present
+  const isLong = !!(rowKey && columnKey && valueKey && keys.includes(rowKey) && keys.includes(columnKey) && keys.includes(valueKey));
+
+  const rowLabels: string[] = [];
+  const colLabels: string[] = [];
+  const cellMap: Record<string, Record<string, number>> = {};
+
+  if (isLong) {
+    for (const r of rowsData) {
+      const rv = String(r[rowKey] ?? '');
+      const cv = String(r[columnKey] ?? '');
+      const val = Number(r[valueKey]);
+      if (!rowLabels.includes(rv)) rowLabels.push(rv);
+      if (!colLabels.includes(cv)) colLabels.push(cv);
+      cellMap[rv] = cellMap[rv] || {};
+      cellMap[rv][cv] = (cellMap[rv][cv] || 0) + (Number.isFinite(val) ? val : 0);
+    }
+  } else {
+    // Wide shape: one row per rowKey; every other numeric column is a pivot column
+    const rk = rowKey && keys.includes(rowKey) ? rowKey : keys[0];
+    for (const r of rowsData) {
+      const rv = String(r?.[rk] ?? '');
+      if (!rowLabels.includes(rv)) rowLabels.push(rv);
+      cellMap[rv] = cellMap[rv] || {};
+      keys.forEach(k => {
+        if (k === rk) return;
+        const v = Number(r?.[k]);
+        if (Number.isFinite(v)) {
+          cellMap[rv][k] = v;
+          if (!colLabels.includes(k)) colLabels.push(k);
+        }
+      });
+    }
+  }
+
+  const rowTot = (rv: string) => colLabels.reduce((s, c) => s + (cellMap[rv]?.[c] || 0), 0);
+  const colTot = (cv: string) => rowLabels.reduce((s, rv) => s + (cellMap[rv]?.[cv] || 0), 0);
+  const grand = rowLabels.reduce((s, rv) => s + rowTot(rv), 0);
+
+  const rowHeader = rowKey ? labelOf(rowKey) : (keys[0] ? labelOf(keys[0]) : 'Row');
+  const valueHeader = valueKey ? labelOf(valueKey) : 'Total';
+
+  return (
+    <table className="w-full text-xs">
+      <thead className="bg-muted/30 sticky top-0">
+        <tr>
+          <ColMenu label={rowHeader} keyName={rowKey || '__row__'} />
+          {colLabels.map(c => (
+            <th key={c} className="px-3 py-2 text-right text-[11px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap">
+              {isLong ? c : labelOf(c)}
+            </th>
+          ))}
+          <ColMenu
+            label={`${valueHeader} total`}
+            keyName="__row_total__"
+            align="right"
+            onSummarize="Sum"
+            onRemove={valueKey ? () => onRemoveValue(valueKey) : undefined}
+          />
+        </tr>
+      </thead>
+      <tbody>
+        {rowLabels.map(rv => (
+          <tr key={rv} className="border-t border-border/40">
+            <td className="px-3 py-1.5 font-medium text-foreground">{rv || '—'}</td>
+            {colLabels.map(c => (
+              <td key={c} className="px-3 py-1.5 text-right tabular-nums text-foreground">
+                {cellMap[rv]?.[c] == null ? '—' : fmtCell(cellMap[rv][c])}
+              </td>
+            ))}
+            <td className="px-3 py-1.5 text-right tabular-nums font-semibold bg-[#e6f1fb] text-[#185fa5] dark:bg-[#12314a] dark:text-[#85b7eb]">
+              {fmtCell(rowTot(rv))}
+            </td>
+          </tr>
+        ))}
+        <tr className="bg-[#eaf3de] dark:bg-[#22350f] border-t-2 border-[#639922]/50">
+          <td className="px-3 py-2 font-bold text-[#3b6d11] dark:text-[#97c459]">Total</td>
+          {colLabels.map(c => (
+            <td key={c} className="px-3 py-2 text-right tabular-nums font-bold text-[#3b6d11] dark:text-[#97c459]">{fmtCell(colTot(c))}</td>
+          ))}
+          <td className="px-3 py-2 text-right tabular-nums font-bold text-[#3b6d11] dark:text-[#97c459]">{fmtCell(grand)}</td>
+        </tr>
+      </tbody>
+    </table>
+  );
+}
+
 
