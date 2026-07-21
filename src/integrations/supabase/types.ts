@@ -28815,9 +28815,26 @@ export type Database = {
         Returns: string
       }
       nextval_text: { Args: { seq_name: string }; Returns: string }
+      notif_fill: {
+        Args: {
+          p_actor_name: string
+          p_meta: Json
+          p_module: string
+          p_tmpl: string
+        }
+        Returns: string
+      }
+      notif_managers_up_chain: {
+        Args: { p_user_id: string }
+        Returns: string[]
+      }
       notify_admins: {
         Args: { p_message: string; p_title: string; p_type: string }
         Returns: undefined
+      }
+      notify_send_test: {
+        Args: { p_actor?: string; p_event_code: string; p_source_table: string }
+        Returns: Json
       }
       owns_completed_invitation: {
         Args: { _email: string; _user_id: string }
