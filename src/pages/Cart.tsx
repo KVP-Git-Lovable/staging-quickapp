@@ -1538,7 +1538,7 @@ export const Cart = () => {
             localStorage.removeItem(tableFormStorageKey);
             clearSchemes();
             setCartItems([]);
-            navigate('/visits/retailers');
+            navigate(isAdminEdit ? '/operations/edited-orders' : '/visits/retailers');
             return;
           }
 
@@ -1689,7 +1689,7 @@ export const Cart = () => {
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
       clearOnBehalfContext();
       clearOutOfBeatContext();
-      navigate('/visits/retailers');
+      navigate(isAdminEdit ? '/operations/edited-orders' : '/visits/retailers');
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
       // Gamification, retailer sequences, and invoice DB records run in background
