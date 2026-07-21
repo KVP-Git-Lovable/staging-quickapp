@@ -2338,7 +2338,7 @@ export const Cart = () => {
             localStorage.removeItem(tableFormStorageKey);
             clearSchemes();
             setCartItems([]);
-            navigate('/visits/retailers');
+            navigate(isAdminEdit ? '/operations/edited-orders' : '/visits/retailers');
             return;
           }
 
