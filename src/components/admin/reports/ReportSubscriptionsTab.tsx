@@ -52,6 +52,7 @@ interface Subscription {
 }
 
 const CADENCES = [
+  { value: 'today', label: 'Today only (one-time)' },
   { value: 'daily', label: 'Daily' },
   { value: 'weekday', label: 'Weekdays only' },
   { value: 'weekly', label: 'Weekly' },
