@@ -191,10 +191,10 @@ export function BeatAssignmentTab({ initialRepId, initialDate }: Props) {
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, designation, user_status")
+        .select("id, full_name, designation, user_status, is_active")
         .in("id", subIds)
         .order("full_name");
-      return (data || []).filter((p: any) => (p.user_status ?? "active") === "active");
+      return (data || []).filter((p: any) => (p.user_status ?? "active") === "active" && p.is_active !== false);
     },
   });
 

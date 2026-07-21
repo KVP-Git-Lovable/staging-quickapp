@@ -7,12 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Eye, EyeOff, Copy, Key, Check, AlertTriangle, Database, ChevronsUpDown, Search } from 'lucide-react';
+import { Loader2, Eye, EyeOff, Copy, Key, Check, AlertTriangle, ChevronsUpDown, Search } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserDeleteDialog } from './UserDeleteDialog';
-import { UserDeleteDataDialog } from './UserDeleteDataDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 interface User {
@@ -57,8 +55,6 @@ interface EditUserDialogProps {
 
 const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChange, onSuccess }) => {
   const [loading, setLoading] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [showDeleteDataDialog, setShowDeleteDataDialog] = useState(false);
   const [securityProfiles, setSecurityProfiles] = useState<SecurityProfile[]>([]);
   const [managers, setManagers] = useState<Manager[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
@@ -334,12 +330,6 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
     }
   };
 
-  const handleDeleteSuccess = () => {
-    setShowDeleteConfirm(false);
-    onSuccess();
-    onOpenChange(false);
-  };
-
   if (!user) return null;
 
   return (
@@ -610,26 +600,7 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="mt-6 flex justify-between">
-          <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              onClick={() => setShowDeleteDataDialog(true)}
-              disabled={loading}
-              className="border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
-            >
-              <Database className="h-4 w-4 mr-2" />
-              Delete Data
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={loading}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete User
-            </Button>
-          </div>
+        <DialogFooter className="mt-6 flex justify-end">
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
@@ -641,23 +612,6 @@ const EditUserDialog: React.FC<EditUserDialogProps> = ({ user, open, onOpenChang
           </div>
         </DialogFooter>
       </DialogContent>
-
-      <UserDeleteDialog
-        user={user}
-        open={showDeleteConfirm}
-        onOpenChange={setShowDeleteConfirm}
-        onSuccess={handleDeleteSuccess}
-      />
-
-      <UserDeleteDataDialog
-        user={user}
-        open={showDeleteDataDialog}
-        onOpenChange={setShowDeleteDataDialog}
-        onSuccess={() => {
-          setShowDeleteDataDialog(false);
-          onSuccess();
-        }}
-      />
     </Dialog>
   );
 };

@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
+import { useProfilePermissions } from '@/hooks/useProfilePermissions';
+import { Power, PowerOff } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +55,7 @@ interface User {
     created_at: string;
     profile_picture_url?: string;
     user_status?: string;
+    is_active?: boolean;
   };
   securityProfile?: {
     id: string;
@@ -135,6 +139,11 @@ const getSortValue = (
 
 export const AdminDashboard = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
+  const { hasPermission } = useProfilePermissions();
+  const canActivateDeactivate = hasPermission('admin_user_activate_deactivate', 'can_edit') || hasPermission('admin_user_activate_deactivate', 'can_read');
+  const [deactivateTarget, setDeactivateTarget] = useState<User | null>(null);
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
@@ -341,78 +350,57 @@ export const AdminDashboard = () => {
     }
   };
 
-  const toggleUserActiveStatus = async (userId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'inactive' ? 'active' : 'inactive';
-    const newIsActive = newStatus === 'active';
-
-    // Optimistically update local state for immediate UI feedback
+  const applyLocalStatus = (userId: string, isActive: boolean) => {
     setUsers(prev => prev.map(u =>
       u.id === userId
-        ? { ...u, profile: { ...u.profile, user_status: newStatus, is_active: newIsActive } as any }
+        ? { ...u, profile: { ...u.profile, user_status: isActive ? 'active' : 'inactive', is_active: isActive } as any }
         : u
     ));
+  };
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ user_status: newStatus, is_active: newIsActive })
-      .eq('id', userId)
-      .select('user_status')
-      .single();
-
-    if (error || !data) {
-      // Revert optimistic update on failure
-      setUsers(prev => prev.map(u =>
-        u.id === userId
-          ? { ...u, profile: { ...u.profile, user_status: currentStatus, is_active: currentStatus !== 'inactive' } as any }
-          : u
-      ));
-      toast.error('Failed to update user status: ' + (error?.message || 'Update failed'));
+  const handleReactivateUser = async (userId: string) => {
+    if (!canActivateDeactivate) {
+      toast.error('You do not have permission to activate users');
       return;
     }
-
-    // Verify the update actually happened
-    if (data.user_status !== newStatus) {
-      // Revert if DB didn't update
-      setUsers(prev => prev.map(u =>
-        u.id === userId
-          ? { ...u, profile: { ...u.profile, user_status: currentStatus, is_active: currentStatus !== 'inactive' } as any }
-          : u
-      ));
-      toast.error('Failed to update user status - permission denied');
-      return;
-    }
-
-    // Best-effort sync to distributor_users (if linked)
+    setStatusBusyId(userId);
     try {
-      await supabase
-        .from('distributor_users')
-        .update({ is_active: newIsActive, user_status: newStatus as any })
-        .eq('auth_user_id', userId);
-    } catch (e) {
-      console.warn('distributor_users sync skipped:', e);
-    }
-
-    // On deactivation — revoke beat access (best-effort)
-    if (!newIsActive) {
-      const today = new Date().toISOString().slice(0, 10);
-      try {
-        await supabase
-          .from('beat_user_access')
-          .update({ is_active: false })
-          .eq('user_id', userId);
-        await supabase
-          .from('beat_coverage_assignments')
-          .update({ is_active: false })
-          .eq('coverage_user_id', userId)
-          .gte('end_date', today);
-      } catch (e) {
-        console.warn('beat access revoke skipped:', e);
-      }
-      toast.success('User deactivated and beat access revoked');
-    } else {
-      toast.success('User activated successfully');
+      const { error } = await supabase.rpc('reactivate_user', { p_user_id: userId });
+      if (error) throw error;
+      applyLocalStatus(userId, true);
+      toast.success('User reactivated');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to reactivate user');
+    } finally {
+      setStatusBusyId(null);
     }
   };
+
+  const handleConfirmDeactivate = async () => {
+    if (!deactivateTarget) return;
+    const reason = deactivateReason.trim();
+    if (!reason) {
+      toast.error('Please provide a reason');
+      return;
+    }
+    setStatusBusyId(deactivateTarget.id);
+    try {
+      const { error } = await supabase.rpc('deactivate_user', {
+        p_user_id: deactivateTarget.id,
+        p_reason: reason,
+      });
+      if (error) throw error;
+      applyLocalStatus(deactivateTarget.id, false);
+      toast.success('User deactivated');
+      setDeactivateTarget(null);
+      setDeactivateReason('');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to deactivate user');
+    } finally {
+      setStatusBusyId(null);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -790,19 +778,40 @@ export const AdminDashboard = () => {
                             )}
                             {visibleColumns.includes('active') && (
                               <TableCell className="text-xs py-1.5">
-                                <div className="flex items-center gap-2">
-                                  <Switch
-                                    checked={user.profile?.user_status !== 'inactive'}
-                                    onCheckedChange={() => toggleUserActiveStatus(
-                                      user.id, 
-                                      user.profile?.user_status || 'active'
-                                    )}
-                                    className="scale-75"
-                                  />
-                                  <span className={user.profile?.user_status === 'inactive' ? 'text-destructive' : 'text-green-600'}>
-                                    {user.profile?.user_status === 'inactive' ? 'Inactive' : 'Active'}
-                                  </span>
-                                </div>
+                                {(() => {
+                                  const isActive = (user.profile as any)?.is_active !== false && user.profile?.user_status !== 'inactive';
+                                  const busy = statusBusyId === user.id;
+                                  return (
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant={isActive ? 'default' : 'destructive'} className="text-[10px]">
+                                        {isActive ? 'Active' : 'Inactive'}
+                                      </Badge>
+                                      {canActivateDeactivate && (
+                                        isActive ? (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-6 px-2 text-[11px]"
+                                            disabled={busy}
+                                            onClick={() => { setDeactivateTarget(user); setDeactivateReason(''); }}
+                                          >
+                                            <PowerOff className="h-3 w-3 mr-1" /> Deactivate
+                                          </Button>
+                                        ) : (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-6 px-2 text-[11px]"
+                                            disabled={busy}
+                                            onClick={() => handleReactivateUser(user.id)}
+                                          >
+                                            <Power className="h-3 w-3 mr-1" /> Reactivate
+                                          </Button>
+                                        )
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </TableCell>
                             )}
                             {visibleColumns.includes('joined') && (
@@ -988,6 +997,37 @@ export const AdminDashboard = () => {
           photoUrl={selectedPhotoUser?.photoUrl}
           userName={selectedPhotoUser?.name}
         />
+
+        <Dialog open={!!deactivateTarget} onOpenChange={(o) => { if (!o) { setDeactivateTarget(null); setDeactivateReason(''); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Deactivate user</DialogTitle>
+              <DialogDescription>
+                {deactivateTarget?.profile?.full_name || deactivateTarget?.username} will lose sign-in access. Historical data is preserved.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="deactivate-reason">Reason <span className="text-destructive">*</span></Label>
+              <Textarea
+                id="deactivate-reason"
+                value={deactivateReason}
+                onChange={(e) => setDeactivateReason(e.target.value)}
+                placeholder="e.g. Resigned, transferred, no longer with company..."
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setDeactivateTarget(null); setDeactivateReason(''); }}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDeactivate}
+                disabled={!deactivateReason.trim() || statusBusyId === deactivateTarget?.id}
+              >
+                Deactivate
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
     </Layout>
