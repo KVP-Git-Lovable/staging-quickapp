@@ -823,7 +823,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
           <div className="flex items-center justify-between">
             <SheetTitle className="flex items-center gap-2 text-lg">
               <User className="h-5 w-5 text-indigo-600" />
-              Retailer Feedback
+              {isEdit ? 'Edit Visit' : 'Retailer Feedback'}
             </SheetTitle>
             {sellsOurProducts === 'yes' && score > 0 && (
               <Badge className={`text-sm px-2 py-1 ${scoreColor}`}>Score: {score}/10</Badge>
