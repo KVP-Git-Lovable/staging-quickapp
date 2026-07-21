@@ -346,7 +346,7 @@ function VisitRow({ v, onClick }: { v: any; onClick?: () => void }) {
       <div className="text-[10px] text-slate-400 whitespace-nowrap">
         {new Date(v.created_at).toLocaleDateString()}
       </div>
-    </div>
+    </button>
   );
 }
 
