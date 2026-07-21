@@ -13,6 +13,7 @@ import { Plus, Search, Loader2, Radar, ExternalLink } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { Layout } from '@/components/Layout';
 
 type Row = any;
 
