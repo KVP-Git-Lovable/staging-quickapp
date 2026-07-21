@@ -79,6 +79,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const [sourceTable, setSourceTable] = useState(rule?.source_table || '');
   const [receiverType, setReceiverType] = useState(rule?.receiver_type || 'employee');
   const [receiverRole, setReceiverRole] = useState(rule?.receiver_role || '');
+  const [receiverUserId, setReceiverUserId] = useState(rule?.receiver_user_id || '');
   const [notification_channel, setChannel] = useState(rule?.notification_channel || 'in_app');
   const [titleTemplate, setTitleTemplate] = useState(rule?.title_template || '{user_name} – {record_name}');
   const [messageTemplate, setMessageTemplate] = useState(
@@ -86,6 +87,16 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   );
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+
+  const { data: pickUsers = [], isLoading: pickUsersLoading } = useQuery({
+    queryKey: ['notif-pick-users'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('notif_pick_users' as any);
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; name: string; role: string | null }>;
+    },
+    enabled: receiverType === 'specific_user',
+  });
 
   const { data: eventTypes = [] } = useQuery({
     queryKey: ['notification-event-types'],
