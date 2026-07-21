@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useSubordinates } from '@/hooks/useSubordinates';
@@ -132,77 +132,342 @@ export function ReportSubscriptionsTab() {
     setWizardOpen(true);
   };
 
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'last_fired' | 'name' | 'cadence'>('last_fired');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+
+  const filteredSubs = useMemo(() => {
+    let list = [...subs];
+    if (statusFilter !== 'all') list = list.filter((s: any) => s.status === statusFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((s: any) => s.name?.toLowerCase().includes(q) || s.report_definitions?.dataset_key?.toLowerCase().includes(q));
+    }
+    list.sort((a: any, b: any) => {
+      if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+      if (sortBy === 'cadence') return (a.cadence || '').localeCompare(b.cadence || '');
+      const av = a.last_fired_at ? new Date(a.last_fired_at).getTime() : 0;
+      const bv = b.last_fired_at ? new Date(b.last_fired_at).getTime() : 0;
+      return bv - av;
+    });
+    return list;
+  }, [subs, search, statusFilter, sortBy]);
+
+  const stats = useMemo(() => {
+    const total = subs.length;
+    const active = subs.filter((s: any) => s.status === 'active').length;
+    const today = new Date().toDateString();
+    const scheduledToday = subs.filter((s: any) => s.status === 'active').length; // heuristic
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const delivered7 = subs.filter((s: any) => s.last_fired_at && new Date(s.last_fired_at).getTime() >= sevenDaysAgo).length;
+    return { total, active, scheduledToday, delivered7 };
+  }, [subs]);
+
+  const cadenceIcon = (cadence: string) => {
+    if (cadence === 'today' || cadence === 'daily') return <Clock size={13} className="text-muted-foreground" />;
+    if (cadence === 'weekly' || cadence === 'weekday') return <CalendarClock size={13} className="text-muted-foreground" />;
+    return <Calendar size={13} className="text-muted-foreground" />;
+  };
+  const cadenceLabel = (s: any) => {
+    const map: Record<string, string> = { today: 'Today only', daily: 'Daily', weekday: 'Weekdays', weekly: 'Weekly', monthly: 'Monthly' };
+    const base = map[s.cadence] || s.cadence;
+    const day = s.fire_day ? ` · ${s.fire_day}` : '';
+    const time = s.fire_time ? ` · ${String(s.fire_time).slice(0, 5)}` : '';
+    return `${base}${day}${time}`;
+  };
+  const formatBadge = (fmt: string) => {
+    if (fmt === 'excel') return { icon: <FileSpreadsheet size={13} className="text-emerald-600" />, label: 'Excel', tint: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    if (fmt === 'pdf') return { icon: <FileType2 size={13} className="text-rose-600" />, label: 'PDF', tint: 'bg-rose-50 text-rose-700 border-rose-200' };
+    return { icon: <FileText size={13} className="text-slate-600" />, label: 'In-app', tint: 'bg-slate-50 text-slate-700 border-slate-200' };
+  };
+  const nextRunLabel = (s: any) => {
+    if (s.status !== 'active') return '—';
+    if (s.cadence === 'today') return 'Today';
+    if (s.cadence === 'daily') return `Today · ${String(s.fire_time || '').slice(0, 5)}`;
+    if (s.cadence === 'weekly') return `${s.fire_day || 'Mon'} · ${String(s.fire_time || '').slice(0, 5)}`;
+    if (s.cadence === 'monthly') return `${s.fire_day || '1st'} · ${String(s.fire_time || '').slice(0, 5)}`;
+    return 'Scheduled';
+  };
+  const initials = (str = '') => str.split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+  const avatarColors = ['bg-indigo-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500', 'bg-violet-500'];
+
+  const statCards = [
+    { label: 'Total Subscriptions', value: stats.total, hint: 'Active subscriptions', icon: <FileText size={18} />, iconBg: 'bg-violet-100 text-violet-600', accent: 'stroke-violet-500' },
+    { label: 'Active', value: stats.active, hint: 'Currently running', icon: <PlayCircle size={18} />, iconBg: 'bg-emerald-100 text-emerald-600', accent: 'stroke-emerald-500' },
+    { label: 'Scheduled Today', value: stats.scheduledToday, hint: 'Next run', icon: <Clock size={18} />, iconBg: 'bg-amber-100 text-amber-600', accent: 'stroke-amber-500' },
+    { label: 'Delivered (7 Days)', value: stats.delivered7, hint: 'Reports delivered', icon: <MailCheck size={18} />, iconBg: 'bg-sky-100 text-sky-600', accent: 'stroke-sky-500' },
+  ];
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      {/* Header row with new subscription button */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold">Report Subscriptions</h2>
           <p className="text-sm text-muted-foreground">Build a report, schedule it, and deliver as in-app + optional push.</p>
         </div>
-        <Button onClick={() => { setEditing(null); setWizardOpen(true); }} className="gap-2">
+        <Button
+          onClick={() => { setEditing(null); setWizardOpen(true); }}
+          className="gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md"
+        >
           <Plus size={16} /> New Subscription
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <FileText size={16} /> Subscriptions ({subs.length})
-          </CardTitle>
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((c) => (
+          <div
+            key={c.label}
+            className="relative overflow-hidden rounded-2xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-start justify-between">
+              <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center', c.iconBg)}>
+                {c.icon}
+              </div>
+              <svg viewBox="0 0 80 30" className="h-8 w-20 opacity-70" fill="none">
+                <path d="M0 22 L15 14 L30 20 L45 8 L60 16 L80 4" className={c.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div className="mt-3">
+              <p className="text-xs font-medium text-muted-foreground">{c.label}</p>
+              <p className="text-2xl font-bold tracking-tight mt-0.5">{c.value}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{c.hint}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Subscriptions panel */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText size={16} className="text-muted-foreground" /> Subscriptions
+              <span className="text-xs font-normal text-muted-foreground">({filteredSubs.length})</span>
+            </CardTitle>
+          </div>
+          {/* Toolbar */}
+          <div className="flex items-center gap-2 flex-wrap pt-2">
+            <div className="relative flex-1 min-w-[220px] max-w-md">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search subscriptions..."
+                className="pl-9 h-9 bg-muted/40 border-transparent focus-visible:bg-background"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] h-9 gap-1">
+                <Filter size={13} className="text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="paused">Paused</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+              <SelectTrigger className="w-[170px] h-9 gap-1">
+                <ArrowUpDown size={13} className="text-muted-foreground" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="last_fired">Sort by: Last fired</SelectItem>
+                <SelectItem value="name">Sort by: Name</SelectItem>
+                <SelectItem value="cadence">Sort by: Cadence</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center rounded-md border bg-background p-0.5">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={cn('h-8 w-8 flex items-center justify-center rounded transition-colors', viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'text-muted-foreground hover:bg-muted')}
+                aria-label="Grid view"
+              >
+                <LayoutGrid size={14} />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={cn('h-8 w-8 flex items-center justify-center rounded transition-colors', viewMode === 'table' ? 'bg-indigo-600 text-white' : 'text-muted-foreground hover:bg-muted')}
+                aria-label="Table view"
+              >
+                <ListIcon size={14} />
+              </button>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           {isLoading ? (
-            <div className="flex justify-center py-8"><Loader2 className="animate-spin" /></div>
-          ) : subs.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground text-sm">
-              No subscriptions yet. Create your first one to schedule a recurring report.
+            <div className="flex justify-center py-10"><Loader2 className="animate-spin" /></div>
+          ) : filteredSubs.length === 0 ? (
+            <div className="text-center py-14 text-muted-foreground text-sm">
+              <FileText className="h-10 w-10 mx-auto opacity-30 mb-2" />
+              No subscriptions match your filters.
+            </div>
+          ) : viewMode === 'table' ? (
+            <div className="overflow-x-auto -mx-6 px-6">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-b">
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Name</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Dataset</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Cadence</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Format</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Recipients</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Next Run</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Last Fired</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold">Status</TableHead>
+                    <TableHead className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredSubs.map((s: any) => {
+                    const fmt = formatBadge(s.attachment_format);
+                    const dsKey = s.report_definitions?.dataset_key || '—';
+                    const recipients = s.recipient_user_ids ?? [];
+                    return (
+                      <TableRow key={s.id} className="group border-b last:border-0">
+                        <TableCell className="py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500/10 to-violet-500/10 flex items-center justify-center text-indigo-600">
+                              <FileText size={15} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{s.name}</p>
+                              <p className="text-[11px] text-muted-foreground truncate">{s.report_definitions?.name || 'Report'}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[11px] font-medium border border-indigo-100">
+                            {dsKey}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1.5 text-xs">
+                            {cadenceIcon(s.cadence)}
+                            {cadenceLabel(s)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border', fmt.tint)}>
+                            {fmt.icon} {fmt.label}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            {recipients.slice(0, 3).map((uid: string, i: number) => (
+                              <div
+                                key={uid + i}
+                                className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center', avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
+                                title={uid}
+                              >
+                                {initials(uid.replace(/-/g, ' '))}
+                              </div>
+                            ))}
+                            {recipients.length > 3 && (
+                              <div className="h-7 w-7 -ml-2 rounded-full ring-2 ring-background bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
+                                +{recipients.length - 3}
+                              </div>
+                            )}
+                            {recipients.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <span className="text-indigo-600 font-medium">{nextRunLabel(s)}</span>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {s.last_fired_at ? (
+                            <div className="leading-tight">
+                              <div>{new Date(s.last_fired_at).toLocaleDateString()}</div>
+                              <div className="text-[10px]">{new Date(s.last_fired_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                          ) : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <button
+                            onClick={() => toggleStatus.mutate({ id: s.id, status: s.status === 'active' ? 'paused' : 'active' })}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border transition-colors',
+                              s.status === 'active'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                            )}
+                          >
+                            <span className={cn('h-1.5 w-1.5 rounded-full', s.status === 'active' ? 'bg-emerald-500' : 'bg-slate-400')} />
+                            {s.status === 'active' ? 'Active' : 'Paused'}
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Run now" disabled={runNow.isPending} onClick={() => runNow.mutate(s.id)}>
+                              <Zap size={14} className="text-amber-500" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)} title="Edit">
+                              <Pencil size={14} />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (confirm(`Delete "${s.name}"?`)) del.mutate(s.id); }} title="Delete">
+                              <MoreVertical size={14} className="text-muted-foreground" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Dataset</TableHead>
-                  <TableHead>Cadence</TableHead>
-                  <TableHead>Format</TableHead>
-                  <TableHead>Recipients</TableHead>
-                  <TableHead>Last fired</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {subs.map((s: any) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.name}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{s.report_definitions?.dataset_key}</TableCell>
-                    <TableCell className="text-sm">
-                      {s.cadence}{s.fire_day ? ` · ${s.fire_day}` : ''} · {String(s.fire_time).slice(0, 5)}
-                    </TableCell>
-                    <TableCell><Badge variant="outline">{s.attachment_format}</Badge></TableCell>
-                    <TableCell className="text-sm">{(s.recipient_user_ids ?? []).length}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {s.last_fired_at ? new Date(s.last_fired_at).toLocaleString() : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={s.status === 'active'}
-                        onCheckedChange={(c) => toggleStatus.mutate({ id: s.id, status: c ? 'active' : 'paused' })}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button variant="ghost" size="sm" title="Run now" disabled={runNow.isPending} onClick={() => runNow.mutate(s.id)}>
-                        <Zap size={14} className="text-amber-500" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => openEdit(s)}><Pencil size={14} /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => { if (confirm(`Delete "${s.name}"?`)) del.mutate(s.id); }}>
-                        <Trash2 size={14} className="text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {filteredSubs.map((s: any) => {
+                const fmt = formatBadge(s.attachment_format);
+                const recipients = s.recipient_user_ids ?? [];
+                return (
+                  <div key={s.id} className="rounded-xl border bg-card p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-indigo-500/10 to-violet-500/10 flex items-center justify-center text-indigo-600">
+                          <FileText size={16} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm truncate">{s.name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{s.report_definitions?.dataset_key}</p>
+                        </div>
+                      </div>
+                      <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold border',
+                        s.status === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200')}>
+                        {s.status === 'active' ? 'Active' : 'Paused'}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">{cadenceIcon(s.cadence)} {cadenceLabel(s)}</span>
+                      <span className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] border', fmt.tint)}>{fmt.icon} {fmt.label}</span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <div className="flex items-center">
+                        {recipients.slice(0, 4).map((uid: string, i: number) => (
+                          <div key={uid + i} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center', avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
+                            {initials(uid.replace(/-/g, ' '))}
+                          </div>
+                        ))}
+                        {recipients.length > 4 && (
+                          <div className="h-6 w-6 -ml-2 rounded-full ring-2 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">+{recipients.length - 4}</div>
+                        )}
+                        {recipients.length === 0 && <span className="text-[11px] text-muted-foreground">No recipients</span>}
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => runNow.mutate(s.id)}><Zap size={13} className="text-amber-500" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil size={13} /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { if (confirm(`Delete "${s.name}"?`)) del.mutate(s.id); }}><Trash2 size={13} className="text-destructive" /></Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -218,6 +483,7 @@ export function ReportSubscriptionsTab() {
     </div>
   );
 }
+
 
 // ------- Wizard -------
 
