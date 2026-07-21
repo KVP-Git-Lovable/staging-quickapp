@@ -1086,7 +1086,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
             Cancel
           </Button>
           <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={publish} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Publish
+            {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} {isEdit ? 'Save changes' : 'Publish'}
           </Button>
         </div>
       </SheetContent>
