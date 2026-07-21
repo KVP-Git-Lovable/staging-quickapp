@@ -133,6 +133,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         source_table: sourceTable,
         receiver_type: receiverType,
         receiver_role: receiverType === 'role' ? receiverRole : null,
+        receiver_user_id: receiverType === 'specific_user' ? (receiverUserId || null) : null,
         notification_channel,
         title_template: titleTemplate,
         message_template: messageTemplate,
