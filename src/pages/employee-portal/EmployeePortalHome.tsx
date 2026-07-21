@@ -746,6 +746,9 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
       }))
       .filter(c => c.brand || c.skus || c.monthly_value);
 
+    const priorPhotos: string[] = Array.isArray(existingVisit?.joint_sales_feedback?.photos)
+      ? existingVisit.joint_sales_feedback.photos : [];
+
     const jointBlob: any = {
       sells_our_products: sellsOurProducts,
       score: sellsOurProducts === 'yes' ? score : null,
@@ -759,7 +762,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
         monthly_turnover: parseFloat(retailerMonthlyTurnover) || null,
         notes: retailerNotes || null,
       },
-      photos: uploadedPhotos,
+      photos: [...priorPhotos, ...uploadedPhotos],
     };
     if (sellsOurProducts === 'no') {
       jointBlob.non_selling = {
@@ -767,33 +770,49 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
       };
     }
 
-    const payload = {
-      employee_id: session.id,
-      employee_name: session.full_name,
-      retailer_id: retailer.id,
-      retailer_name: retailer.name,
-      is_new_retailer: !!retailer.__isNew,
-      territory_id: retailer.territory_id || null,
-      territory_executive_id: exec?.id || null,
-      territory_executive_name: exec?.name || null,
-      retailer_photo_url: retailer.__isNew ? retailer.photo_url || null : null,
-      latitude: coords?.lat ?? null,
-      longitude: coords?.lng ?? null,
-      joint_sales_feedback: jointBlob,
-      additional_notes: actionItems || null,
-      overall_sentiment: sellsOurProducts === 'yes'
-        ? (score ? `Score ${score}/10` : null)
-        : `Non-selling • ${interestedToKnowMore === 'yes' ? 'interested' : 'not interested'}`,
-    };
-    const { data, error } = await (supabase as any).functions.invoke('employee-portal-api', {
-      body: { action: 'save_visit', visit: payload },
-    });
+    let data: any, error: any;
+    if (isEdit) {
+      const patch = {
+        joint_sales_feedback: jointBlob,
+        additional_notes: actionItems || null,
+        overall_sentiment: sellsOurProducts === 'yes'
+          ? (score ? `Score ${score}/10` : null)
+          : `Non-selling • ${interestedToKnowMore === 'yes' ? 'interested' : 'not interested'}`,
+      };
+      const res = await (supabase as any).functions.invoke('employee-portal-api', {
+        body: { action: 'update_visit', visit_id: existingVisit.id, patch },
+      });
+      data = res.data; error = res.error;
+    } else {
+      const payload = {
+        employee_id: session.id,
+        employee_name: session.full_name,
+        retailer_id: retailer.id,
+        retailer_name: retailer.name,
+        is_new_retailer: !!retailer.__isNew,
+        territory_id: retailer.territory_id || null,
+        territory_executive_id: exec?.id || null,
+        territory_executive_name: exec?.name || null,
+        retailer_photo_url: retailer.__isNew ? retailer.photo_url || null : null,
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
+        joint_sales_feedback: jointBlob,
+        additional_notes: actionItems || null,
+        overall_sentiment: sellsOurProducts === 'yes'
+          ? (score ? `Score ${score}/10` : null)
+          : `Non-selling • ${interestedToKnowMore === 'yes' ? 'interested' : 'not interested'}`,
+      };
+      const res = await (supabase as any).functions.invoke('employee-portal-api', {
+        body: { action: 'save_visit', visit: payload },
+      });
+      data = res.data; error = res.error;
+    }
     setSaving(false);
     if (error || !data?.success) {
       toast.error(error?.message || data?.error || 'Failed to publish');
       return;
     }
-    toast.success('Feedback published');
+    toast.success(isEdit ? 'Visit updated' : 'Feedback published');
     onSaved();
   }
 
