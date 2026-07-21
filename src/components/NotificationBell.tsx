@@ -84,9 +84,16 @@ export function NotificationBell() {
                   <div className="flex items-start gap-3">
                     <div className="mt-1.5 h-2 w-2 rounded-full flex-shrink-0 bg-primary" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm leading-tight font-medium">
-                        {notification.title}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm leading-tight font-medium truncate">
+                          {notification.title}
+                        </p>
+                        {(notification.metadata as any)?.is_test && (
+                          <span className="text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
+                            Test
+                          </span>
+                        )}
+                      </div>
                       {notification.message && (
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
                           {notification.message}
