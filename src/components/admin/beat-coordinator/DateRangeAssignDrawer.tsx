@@ -92,10 +92,10 @@ export function DateRangeAssignDrawer({
       const ids = subordinates.map((s) => s.subordinate_user_id);
       const { data } = await supabase
         .from("profiles")
-        .select("id, full_name, designation")
+        .select("id, full_name, designation, is_active, user_status")
         .in("id", ids)
         .order("full_name");
-      return data || [];
+      return (data || []).filter((p: any) => p.is_active !== false && (p.user_status ?? "active") !== "inactive");
     },
   });
 

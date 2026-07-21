@@ -127,8 +127,14 @@ export default function Leaderboard() {
 
     const { data: profilesData } = await supabase
       .from("profiles")
-      .select("id, full_name, profile_picture_url")
+      .select("id, full_name, profile_picture_url, is_active, user_status")
       .in("id", userIds);
+
+    const profilesById = new Map(
+      (profilesData || [])
+        .filter((p: any) => p.is_active !== false && (p.user_status ?? "active") !== "inactive")
+        .map(p => [p.id, p] as const)
+    );
 
     // Drop users whose profile didn't come back (avoids "Unknown User" ghost rows
     // when a profile was deleted or RLS hides it from the current viewer).
