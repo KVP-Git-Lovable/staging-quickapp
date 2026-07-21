@@ -233,30 +233,25 @@ function RetailerSearchSheet({ open, onOpenChange, coords, onPick, onAddNew }: {
 
   useEffect(() => {
     if (!open) return;
-    (async () => {
+    const handle = setTimeout(async () => {
       setLoading(true);
-      const { data } = await (supabase as any).from('retailers')
-        .select('id,name,address,phone,latitude,longitude,territory_id')
-        .order('updated_at', { ascending: false }).limit(500);
-      setRows(data || []);
+      const { data, error } = await (supabase as any).functions.invoke('employee-portal-api', {
+        body: {
+          action: 'search_retailers',
+          q: q.trim(),
+          lat: coords?.lat,
+          lng: coords?.lng,
+          limit: 200,
+        },
+      });
+      if (error) toast.error(error.message);
+      setRows(data?.retailers || []);
       setLoading(false);
-    })();
-  }, [open]);
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [open, q, coords?.lat, coords?.lng]);
 
-  const filtered = useMemo(() => {
-    let list = rows;
-    if (q.trim()) {
-      const t = q.toLowerCase();
-      list = list.filter(r => (r.name||'').toLowerCase().includes(t) || (r.phone||'').includes(t) || (r.address||'').toLowerCase().includes(t));
-    }
-    if (coords) {
-      list = list.map(r => ({
-        ...r,
-        _dist: (r.latitude && r.longitude) ? haversine(coords.lat, coords.lng, +r.latitude, +r.longitude) : Infinity,
-      })).sort((a,b) => a._dist - b._dist);
-    }
-    return list.slice(0, 60);
-  }, [rows, q, coords]);
+  const filtered = useMemo(() => rows.slice(0, 60), [rows]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
