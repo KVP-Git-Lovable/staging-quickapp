@@ -11,9 +11,11 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useSubordinates } from '@/hooks/useSubordinates';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Dataset {
   key: string;
@@ -245,6 +247,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const iso30 = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); })();
   const [dateFrom, setDateFrom] = useState<string>(editing?.def.config?.filters?.date_from ?? iso30);
   const [dateTo, setDateTo] = useState<string>(editing?.def.config?.filters?.date_to ?? isoToday);
+  const [scopeUserId, setScopeUserId] = useState<string>(editing?.def.config?.filters?.scope_user_id ?? '');
+
 
 
   // Step 2 — schedule + delivery
@@ -283,7 +287,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
         rows,
         columns: columns ? [columns] : [],
         values,
-        filters: { date_from: dateFrom, date_to: dateTo },
+        filters: { date_from: dateFrom, date_to: dateTo, scope_user_id: scopeUserId || null },
       };
 
 
@@ -366,6 +370,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             dataset={dataset}
             dateFrom={dateFrom} setDateFrom={setDateFrom}
             dateTo={dateTo} setDateTo={setDateTo}
+            scopeUserId={scopeUserId} setScopeUserId={setScopeUserId}
             onCancel={onClose}
             onNext={() => setStep(2)}
             canNext={!!canNext1}
@@ -542,13 +547,25 @@ interface Step1Props {
   dataset: Dataset | undefined;
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
+  scopeUserId: string; setScopeUserId: (v: string) => void;
   onCancel: () => void;
   onNext: () => void;
   canNext: boolean;
 }
 
 function Step1Body(p: Step1Props) {
-  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo } = p;
+  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId } = p;
+  const { user } = useAuth();
+  const { subordinates } = useSubordinates();
+  const scopeOptions = React.useMemo(() => {
+    const opts: Array<{ id: string; label: string; level: number }> = [];
+    if (user?.id) opts.push({ id: user.id, label: 'Me (and my full hierarchy)', level: 0 });
+    subordinates.forEach(s => opts.push({ id: s.subordinate_user_id, label: s.full_name, level: s.level }));
+    return opts;
+  }, [subordinates, user?.id]);
+  const scopeLabel = scopeUserId
+    ? (scopeOptions.find(o => o.id === scopeUserId)?.label ?? 'Selected user')
+    : 'Everyone I can see';
 
   const layoutHint =
     layout === 'tabular' ? 'Flat table — one row per record, columns for every field you pick.'
@@ -566,11 +583,11 @@ function Step1Body(p: Step1Props) {
   };
 
   // Debounce config changes so we don't spam the RPC on every keystroke/drop
-  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo });
+  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId });
   React.useEffect(() => {
-    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo }), 250);
+    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId }), 250);
     return () => clearTimeout(t);
-  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo]);
+  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId]);
 
   // Live preview — real RPC call for the selected date range
   const preview = useQuery({
@@ -583,6 +600,7 @@ function Step1Body(p: Step1Props) {
       debounced.values.join(','),
       debounced.dateFrom,
       debounced.dateTo,
+      debounced.scopeUserId,
     ],
     enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
@@ -592,8 +610,13 @@ function Step1Body(p: Step1Props) {
         p_rows: debounced.layout === 'tabular' ? null : (debounced.rows[0] || null),
         p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
         p_values: debounced.values,
-        p_filters: { date_from: debounced.dateFrom, date_to: debounced.dateTo },
+        p_filters: {
+          date_from: debounced.dateFrom,
+          date_to: debounced.dateTo,
+          scope_user_id: debounced.scopeUserId || null,
+        },
       };
+
 
       // eslint-disable-next-line no-console
       console.debug('[ReportPreview] rpc', dataset!.source, payload);
@@ -827,6 +850,40 @@ function Step1Body(p: Step1Props) {
                 </div>
               </div>
             </ZoneCard>
+
+            <ZoneCard title="Team / User filter">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1 min-w-[240px]">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                    <Users className="h-3 w-3" /> Show data for
+                  </Label>
+                  <Select
+                    value={scopeUserId || '__all__'}
+                    onValueChange={(v) => p.setScopeUserId(v === '__all__' ? '' : v)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue>{scopeLabel}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectItem value="__all__" className="text-xs">Everyone I can see</SelectItem>
+                      {scopeOptions.length > 0 && <div className="border-t my-1" />}
+                      {scopeOptions.map(o => (
+                        <SelectItem key={o.id} value={o.id} className="text-xs">
+                          <span style={{ paddingLeft: `${Math.max(0, o.level - 1) * 10}px` }}>
+                            {o.label}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-[11px] text-muted-foreground pb-1 max-w-sm">
+                  Pick any user in your hierarchy — the report includes that person and their full team, respecting your access.
+                </p>
+              </div>
+            </ZoneCard>
+
+
 
 
             {layout === 'matrix' && (
@@ -1099,7 +1156,7 @@ function LivePreviewCard({
   selectedColumns?: string[];
   onReorderTabular?: (next: string[]) => void;
 }) {
-  const sample = rows.slice(0, 8);
+  const sample = rows; // show all fetched rows — the container scrolls when tall
 
   // Build columns from returned keys. Tabular respects the user's ordered picks;
   // matrix prioritises row/column dims then measures; grouped shows what came back.
@@ -1150,11 +1207,12 @@ function LivePreviewCard({
         <span>Live preview</span>
         {state === 'data' && (
           <span className="text-[10px] uppercase tracking-wide text-muted-foreground/70">
-            {rows.length} row{rows.length === 1 ? '' : 's'} · showing {sample.length} · drag column headers to reorder
+            {rows.length} row{rows.length === 1 ? '' : 's'} · drag column headers to reorder
           </span>
         )}
       </div>
-      <div className="p-3 min-h-[80px]">
+      <div className="p-3 min-h-[80px] max-h-[520px] overflow-y-auto">
+
         {state === 'idle' ? (
           <div className="text-xs text-muted-foreground py-4 text-center">
             Add at least one measure to see a live preview for the selected date range.
