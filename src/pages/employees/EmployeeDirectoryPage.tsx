@@ -166,30 +166,23 @@ export default function EmployeeDirectoryPage() {
         <CardContent>
           {loading ? <div className="py-12 text-center text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin inline mr-2" />Loading…</div>
             : filtered.length === 0 ? <div className="py-12 text-center text-muted-foreground">No employees yet</div>
-            : <Table>
-              <TableHeader><TableRow>
-                <TableHead>Name</TableHead><TableHead>Emp ID</TableHead><TableHead>Department</TableHead>
-                <TableHead>Location</TableHead><TableHead>Email</TableHead><TableHead>Phone</TableHead>
-                <TableHead>Follows</TableHead><TableHead>Market Portal</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
+            : <>
+              {/* Mobile: card list */}
+              <div className="md:hidden space-y-2">
                 {filtered.map(r => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">
-                      <button
-                        onClick={() => openDetail(r)}
-                        className="text-indigo-600 hover:underline text-left"
-                      >
-                        {r.full_name}
+                  <div key={r.id} className="rounded-lg border p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <button onClick={() => openDetail(r)} className="text-left flex-1 min-w-0">
+                        <p className="font-medium text-indigo-600 truncate">{r.full_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[r.employee_code, r.department].filter(Boolean).join(' · ') || '—'}
+                        </p>
                       </button>
-                    </TableCell>
-                    <TableCell>{r.employee_code || '—'}</TableCell>
-                    <TableCell>{r.department || '—'}</TableCell>
-                    <TableCell>{r.location || '—'}</TableCell>
-                    <TableCell>{r.email || '—'}</TableCell>
-                    <TableCell>{r.phone || '—'}</TableCell>
-                    <TableCell>{r.follows_company_page ? <Badge>Yes</Badge> : <Badge variant="outline">No</Badge>}</TableCell>
-                    <TableCell>
+                      {r.follows_company_page ? <Badge>Follows</Badge> : <Badge variant="outline">—</Badge>}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{r.email || '—'} · {r.phone || '—'}</div>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                      <span className="text-xs">Market Portal</span>
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={!!r.portal_enabled}
@@ -202,20 +195,65 @@ export default function EmployeeDirectoryPage() {
                           }}
                         />
                         {r.portal_enabled && (
-                          <a
-                            href={`/employee-portal/login?preview=${r.id}`}
-                            target="_blank" rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
-                          >
+                          <a href={`/employee-portal/login?preview=${r.id}`} target="_blank" rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
                             <Radar className="h-3.5 w-3.5" /> Open <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden md:block overflow-x-auto">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Name</TableHead><TableHead>Emp ID</TableHead><TableHead>Department</TableHead>
+                  <TableHead>Location</TableHead><TableHead>Email</TableHead><TableHead>Phone</TableHead>
+                  <TableHead>Follows</TableHead><TableHead>Market Portal</TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {filtered.map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">
+                        <button onClick={() => openDetail(r)} className="text-indigo-600 hover:underline text-left">
+                          {r.full_name}
+                        </button>
+                      </TableCell>
+                      <TableCell>{r.employee_code || '—'}</TableCell>
+                      <TableCell>{r.department || '—'}</TableCell>
+                      <TableCell>{r.location || '—'}</TableCell>
+                      <TableCell>{r.email || '—'}</TableCell>
+                      <TableCell>{r.phone || '—'}</TableCell>
+                      <TableCell>{r.follows_company_page ? <Badge>Yes</Badge> : <Badge variant="outline">No</Badge>}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={!!r.portal_enabled}
+                            onCheckedChange={async (v) => {
+                              const { error } = await (supabase as any).from('employee_directory')
+                                .update({ portal_enabled: v }).eq('id', r.id);
+                              if (error) { toast.error(error.message); return; }
+                              toast.success(v ? 'Portal enabled' : 'Portal disabled');
+                              load();
+                            }}
+                          />
+                          {r.portal_enabled && (
+                            <a href={`/employee-portal/login?preview=${r.id}`} target="_blank" rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
+                              <Radar className="h-3.5 w-3.5" /> Open <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              </div>
+            </>}
         </CardContent>
       </Card>
 
