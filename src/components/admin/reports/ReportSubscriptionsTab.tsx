@@ -729,7 +729,7 @@ function Step1Body(p: Step1Props) {
           <div className="space-y-3">
             {layout === 'matrix' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <ZoneCard title="Rows" accept="dim" onDropKey={(k) => p.setRows([k])}>
+                <ZoneCard title="Group rows by" accept="dim" onDropKey={(k) => p.setRows([k])}>
                   <ZonePicker
                     value={rows[0] ?? ''}
                     onChange={(v) => p.setRows(v ? [v] : [])}
@@ -738,7 +738,7 @@ function Step1Body(p: Step1Props) {
                     tone="dim"
                   />
                 </ZoneCard>
-                <ZoneCard title="Columns · pivot by" tone="purple" accept="dim" onDropKey={p.setColumns}>
+                <ZoneCard title="Column groups" tone="purple" accept="dim" onDropKey={p.setColumns}>
                   <ZonePicker
                     value={columns}
                     onChange={p.setColumns}
