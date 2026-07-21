@@ -327,7 +327,7 @@ function StatChip({ label, value }: { label: string; value: number }) {
   );
 }
 
-function VisitRow({ v }: { v: any }) {
+function VisitRow({ v, onClick }: { v: any; onClick?: () => void }) {
   return (
     <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50">
       {v.retailer_photo_url
