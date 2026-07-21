@@ -997,6 +997,37 @@ export const AdminDashboard = () => {
           photoUrl={selectedPhotoUser?.photoUrl}
           userName={selectedPhotoUser?.name}
         />
+
+        <Dialog open={!!deactivateTarget} onOpenChange={(o) => { if (!o) { setDeactivateTarget(null); setDeactivateReason(''); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Deactivate user</DialogTitle>
+              <DialogDescription>
+                {deactivateTarget?.profile?.full_name || deactivateTarget?.username} will lose sign-in access. Historical data is preserved.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="deactivate-reason">Reason <span className="text-destructive">*</span></Label>
+              <Textarea
+                id="deactivate-reason"
+                value={deactivateReason}
+                onChange={(e) => setDeactivateReason(e.target.value)}
+                placeholder="e.g. Resigned, transferred, no longer with company..."
+                rows={3}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setDeactivateTarget(null); setDeactivateReason(''); }}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDeactivate}
+                disabled={!deactivateReason.trim() || statusBusyId === deactivateTarget?.id}
+              >
+                Deactivate
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
     </Layout>
