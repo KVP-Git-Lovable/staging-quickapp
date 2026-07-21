@@ -1388,12 +1388,15 @@ function EmptyChip({ text }: { text: string }) {
   return <span className="text-[11px] text-muted-foreground/60 italic px-2 py-1">{text}</span>;
 }
 
-function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel }: {
+function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel, distributorId, setDistributorId, distributors, showDistributor }: {
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
   scopeUserId: string; setScopeUserId: (v: string) => void;
   scopeOptions: Array<{ id: string; label: string; level: number }>;
   scopeLabel: string;
+  distributorId?: string; setDistributorId?: (v: string) => void;
+  distributors?: Array<{ id: string; name: string }>;
+  showDistributor?: boolean;
 }) {
   return (
     <div className="space-y-3 text-xs">
