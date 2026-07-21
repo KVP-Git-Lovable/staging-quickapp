@@ -949,6 +949,23 @@ function Step1Body(p: Step1Props) {
     else if (zone === 'val') p.setValues([]);
   };
 
+  const reorderRows = React.useCallback((from: number, to: number) => {
+    p.setRows(prev => {
+      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length || from === to) return prev;
+      const c = [...prev]; const [m] = c.splice(from, 1); c.splice(to, 0, m); return c;
+    });
+  }, [p]);
+  const reorderValues = React.useCallback((from: number, to: number) => {
+    p.setValues(prev => {
+      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length || from === to) return prev;
+      const c = [...prev]; const [m] = c.splice(from, 1); c.splice(to, 0, m); return c;
+    });
+  }, [p]);
+  const reorderByKey = React.useCallback((list: string[], reorder: (f: number, t: number) => void) => (fromKey: string, toKey: string) => {
+    const f = list.indexOf(fromKey), t = list.indexOf(toKey);
+    if (f >= 0 && t >= 0) reorder(f, t);
+  }, []);
+
   const scopeOptions = React.useMemo(() => {
     const opts: Array<{ id: string; label: string; level: number }> = [];
     if (user?.id) opts.push({ id: user.id, label: 'Me (and my full hierarchy)', level: 0 });
@@ -1098,6 +1115,8 @@ function Step1Body(p: Step1Props) {
               isMeasure={isMeasureKey}
               onRemove={removeChip}
               onDrop={addField}
+              onReorderRows={reorderRows}
+              onReorderValues={reorderValues}
               filtersContent={
                 <FiltersPanel
                   dateFrom={dateFrom} setDateFrom={p.setDateFrom}
@@ -1122,7 +1141,10 @@ function Step1Body(p: Step1Props) {
               setSort={setSort}
               onRemoveColumn={(k) => p.setRows(prev => prev.filter(x => x !== k))}
               onRemoveValue={(k) => p.setValues(prev => prev.filter(x => x !== k))}
+              onReorderColumn={reorderByKey(rows, reorderRows)}
+              onReorderValue={reorderByKey(values, reorderValues)}
             />
+
           </div>
         </div>
       ) : (
@@ -1181,22 +1203,28 @@ function FieldSection({ title, fields, kind, onAdd }: { title: string; fields: A
   );
 }
 
-function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemove, onDrop, filtersContent }: {
+function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemove, onDrop, onReorderRows, onReorderValues, filtersContent }: {
   layout: string;
   rows: string[]; columns: string; values: string[];
   labelOf: (k: string) => string;
   isMeasure: (k: string) => boolean;
   onRemove: (zone: 'cols' | 'gr' | 'gc' | 'val' | 'vals', k?: string) => void;
   onDrop: (k: string, kind: 'dim' | 'msr') => void;
+  onReorderRows?: (from: number, to: number) => void;
+  onReorderValues?: (from: number, to: number) => void;
   filtersContent: React.ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-border bg-card p-3 flex flex-wrap gap-4 items-start">
       {layout === 'tabular' && (
         <OutlineZone title="Columns" onDropKey={(k, kind) => onDrop(k, kind)}>
-          {rows.length ? rows.map(k => (
-            <Chip key={k} label={labelOf(k)} measure={isMeasure(k)} onRemove={() => onRemove('cols', k)} />
-          )) : <EmptyChip text="add fields" />}
+          {rows.length ? (
+            <ReorderableChipList
+              items={rows}
+              onReorder={(f, t) => onReorderRows?.(f, t)}
+              renderChip={(k) => <Chip label={labelOf(k)} measure={isMeasure(k)} onRemove={() => onRemove('cols', k)} />}
+            />
+          ) : <EmptyChip text="add fields" />}
         </OutlineZone>
       )}
       {layout === 'grouped' && (
@@ -1205,9 +1233,13 @@ function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemov
             {rows[0] ? <Chip label={labelOf(rows[0])} onRemove={() => onRemove('gr')} /> : <EmptyChip text="drop field" />}
           </OutlineZone>
           <OutlineZone title="Columns (values)" onDropKey={(k, kind) => { if (kind === 'msr') onDrop(k, kind); }}>
-            {values.length ? values.map(k => (
-              <Chip key={k} label={labelOf(k)} measure onRemove={() => onRemove('vals', k)} />
-            )) : <EmptyChip text="add measures" />}
+            {values.length ? (
+              <ReorderableChipList
+                items={values}
+                onReorder={(f, t) => onReorderValues?.(f, t)}
+                renderChip={(k) => <Chip label={labelOf(k)} measure onRemove={() => onRemove('vals', k)} />}
+              />
+            ) : <EmptyChip text="add measures" />}
           </OutlineZone>
         </>
       )}
@@ -1235,6 +1267,57 @@ function OutlineBar({ layout, rows, columns, values, labelOf, isMeasure, onRemov
     </div>
   );
 }
+
+function ReorderableChipList({ items, onReorder, renderChip }: {
+  items: string[];
+  onReorder: (from: number, to: number) => void;
+  renderChip: (key: string, index: number) => React.ReactNode;
+}) {
+  const [dragIndex, setDragIndex] = React.useState<number | null>(null);
+  const [overIndex, setOverIndex] = React.useState<number | null>(null);
+  return (
+    <>
+      {items.map((k, i) => (
+        <span
+          key={k}
+          draggable
+          onDragStart={(e) => {
+            setDragIndex(i);
+            e.dataTransfer.setData('application/x-report-reorder', String(i));
+            e.dataTransfer.effectAllowed = 'move';
+          }}
+          onDragOver={(e) => {
+            if (Array.from(e.dataTransfer.types).includes('application/x-report-reorder')) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.dataTransfer.dropEffect = 'move';
+              if (overIndex !== i) setOverIndex(i);
+            }
+          }}
+          onDragLeave={() => setOverIndex(prev => (prev === i ? null : prev))}
+          onDrop={(e) => {
+            const raw = e.dataTransfer.getData('application/x-report-reorder');
+            if (!raw) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const from = Number(raw);
+            setDragIndex(null); setOverIndex(null);
+            if (Number.isFinite(from) && from !== i) onReorder(from, i);
+          }}
+          onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+          className={cn(
+            'inline-flex cursor-grab active:cursor-grabbing rounded-full',
+            overIndex === i && dragIndex !== i && 'ring-2 ring-[#534ab7]',
+            dragIndex === i && 'opacity-40',
+          )}
+        >
+          {renderChip(k, i)}
+        </span>
+      ))}
+    </>
+  );
+}
+
 
 function OutlineZone({ title, children, onDropKey }: { title: string; children: React.ReactNode; onDropKey: (k: string, kind: 'dim' | 'msr') => void }) {
   const [over, setOver] = React.useState(false);
@@ -1346,7 +1429,7 @@ function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, s
 
 type SortState = { col: string; dir: 'asc' | 'desc' } | null;
 
-function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, columnKey, values, labelOf, isMeasure, sort, setSort, onRemoveColumn, onRemoveValue }: {
+function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, columnKey, values, labelOf, isMeasure, sort, setSort, onRemoveColumn, onRemoveValue, onReorderColumn, onReorderValue }: {
   state: 'idle' | 'loading' | 'error' | 'empty' | 'data';
   error: Error | null;
   rowsData: any[];
@@ -1361,6 +1444,8 @@ function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, 
   setSort: (s: SortState) => void;
   onRemoveColumn: (k: string) => void;
   onRemoveValue: (k: string) => void;
+  onReorderColumn?: (fromKey: string, toKey: string) => void;
+  onReorderValue?: (fromKey: string, toKey: string) => void;
 }) {
   const caption = state === 'data'
     ? layout === 'tabular' ? `${rowsData.length} row${rowsData.length === 1 ? '' : 's'}`
@@ -1388,9 +1473,9 @@ function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, 
         ) : state === 'empty' ? (
           <div className="text-xs text-muted-foreground py-12 text-center">No rows for this configuration.</div>
         ) : layout === 'tabular' ? (
-          <TabularTable rowsData={rowsData} selectedColumns={selectedColumns || []} labelOf={labelOf} isMeasure={isMeasure} sort={sort} setSort={setSort} onRemoveColumn={onRemoveColumn} />
+          <TabularTable rowsData={rowsData} selectedColumns={selectedColumns || []} labelOf={labelOf} isMeasure={isMeasure} sort={sort} setSort={setSort} onRemoveColumn={onRemoveColumn} onReorderColumn={onReorderColumn} />
         ) : layout === 'grouped' ? (
-          <SummaryTable rowsData={rowsData} rowKey={rowKey} values={values} labelOf={labelOf} onRemoveValue={onRemoveValue} />
+          <SummaryTable rowsData={rowsData} rowKey={rowKey} values={values} labelOf={labelOf} onRemoveValue={onRemoveValue} onReorderValue={onReorderValue} />
         ) : (
           <MatrixTable rowsData={rowsData} rowKey={rowKey} columnKey={columnKey} valueKey={values[0] || ''} labelOf={labelOf} onRemoveValue={onRemoveValue} />
         )}
@@ -1398,6 +1483,7 @@ function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, 
     </div>
   );
 }
+
 
 function fmtCell(v: any): string {
   if (v == null || v === '') return '—';
@@ -1418,11 +1504,15 @@ function sumNumeric(rows: any[], key: string): number | null {
   return has ? sum : null;
 }
 
-function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSummarize, onRemove }: {
+function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSummarize, onRemove, draggableKey, onReorder }: {
   label: string; keyName: string; align?: 'left' | 'right'; sortDir?: 'asc' | 'desc' | null;
   onSortAsc?: () => void; onSortDesc?: () => void; onSummarize?: string; onRemove?: () => void;
+  draggableKey?: string;
+  onReorder?: (fromKey: string, toKey: string) => void;
 }) {
   const canOpen = onSortAsc || onSortDesc || onRemove || onSummarize;
+  const [over, setOver] = React.useState(false);
+  const dragEnabled = !!draggableKey && !!onReorder;
   const header = (
     <span className="inline-flex items-center gap-1">
       <span>{label}</span>
@@ -1432,7 +1522,34 @@ function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSumm
     </span>
   );
   return (
-    <th className={cn('px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap select-none', align === 'right' ? 'text-right' : 'text-left')}>
+    <th
+      draggable={dragEnabled}
+      onDragStart={dragEnabled ? (e) => {
+        e.dataTransfer.setData('application/x-report-col-reorder', draggableKey!);
+        e.dataTransfer.effectAllowed = 'move';
+      } : undefined}
+      onDragOver={dragEnabled ? (e) => {
+        if (Array.from(e.dataTransfer.types).includes('application/x-report-col-reorder')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!over) setOver(true);
+        }
+      } : undefined}
+      onDragLeave={dragEnabled ? () => setOver(false) : undefined}
+      onDrop={dragEnabled ? (e) => {
+        const from = e.dataTransfer.getData('application/x-report-col-reorder');
+        setOver(false);
+        if (!from || from === draggableKey) return;
+        e.preventDefault();
+        onReorder!(from, draggableKey!);
+      } : undefined}
+      className={cn(
+        'px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap select-none',
+        align === 'right' ? 'text-right' : 'text-left',
+        dragEnabled && 'cursor-grab active:cursor-grabbing',
+        over && 'bg-[#eeedfe] dark:bg-[#2a2560]/40',
+      )}
+    >
       {canOpen ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1451,9 +1568,10 @@ function ColMenu({ label, keyName, align, sortDir, onSortAsc, onSortDesc, onSumm
   );
 }
 
-function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, setSort, onRemoveColumn }: {
+function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, setSort, onRemoveColumn, onReorderColumn }: {
   rowsData: any[]; selectedColumns: string[]; labelOf: (k: string) => string; isMeasure: (k: string) => boolean;
   sort: SortState; setSort: (s: SortState) => void; onRemoveColumn: (k: string) => void;
+  onReorderColumn?: (fromKey: string, toKey: string) => void;
 }) {
   const keys = React.useMemo(() => {
     const available = new Set(Object.keys(rowsData[0] ?? {}));
@@ -1490,6 +1608,8 @@ function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, set
               onSortAsc={() => setSort({ col: k, dir: 'asc' })}
               onSortDesc={() => setSort({ col: k, dir: 'desc' })}
               onRemove={selectedColumns.includes(k) ? () => onRemoveColumn(k) : undefined}
+              draggableKey={selectedColumns.includes(k) ? k : undefined}
+              onReorder={onReorderColumn}
             />
           ))}
         </tr>
@@ -1509,8 +1629,9 @@ function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, set
   );
 }
 
-function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue }: {
+function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue, onReorderValue }: {
   rowsData: any[]; rowKey: string; values: string[]; labelOf: (k: string) => string; onRemoveValue: (k: string) => void;
+  onReorderValue?: (fromKey: string, toKey: string) => void;
 }) {
   const keys = Object.keys(rowsData[0] ?? {});
   const groupCol = rowKey && keys.includes(rowKey) ? rowKey : keys[0];
@@ -1529,6 +1650,8 @@ function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue }: {
               align="right"
               onSummarize="Sum"
               onRemove={values.includes(k) ? () => onRemoveValue(k) : undefined}
+              draggableKey={values.includes(k) ? k : undefined}
+              onReorder={onReorderValue}
             />
           ))}
         </tr>
