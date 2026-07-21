@@ -79,6 +79,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const [sourceTable, setSourceTable] = useState(rule?.source_table || '');
   const [receiverType, setReceiverType] = useState(rule?.receiver_type || 'employee');
   const [receiverRole, setReceiverRole] = useState(rule?.receiver_role || '');
+  const [receiverUserId, setReceiverUserId] = useState(rule?.receiver_user_id || '');
   const [notification_channel, setChannel] = useState(rule?.notification_channel || 'in_app');
   const [titleTemplate, setTitleTemplate] = useState(rule?.title_template || '{user_name} – {record_name}');
   const [messageTemplate, setMessageTemplate] = useState(
@@ -86,6 +87,16 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   );
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+
+  const { data: pickUsers = [], isLoading: pickUsersLoading } = useQuery({
+    queryKey: ['notif-pick-users'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('notif_pick_users' as any);
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; name: string; role: string | null }>;
+    },
+    enabled: receiverType === 'specific_user',
+  });
 
   const { data: eventTypes = [] } = useQuery({
     queryKey: ['notification-event-types'],
@@ -122,6 +133,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         source_table: sourceTable,
         receiver_type: receiverType,
         receiver_role: receiverType === 'role' ? receiverRole : null,
+        receiver_user_id: receiverType === 'specific_user' ? (receiverUserId || null) : null,
         notification_channel,
         title_template: titleTemplate,
         message_template: messageTemplate,
@@ -227,6 +239,29 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                 placeholder="role name (e.g. admin)"
                 className="h-8 w-auto min-w-[140px] inline-flex"
               />
+            )}
+            {receiverType === 'specific_user' && (
+              <Select value={receiverUserId} onValueChange={setReceiverUserId} disabled={pickUsersLoading}>
+                <SelectTrigger className="h-8 w-auto min-w-[200px] inline-flex">
+                  <SelectValue placeholder={pickUsersLoading ? 'Loading users…' : 'pick a person'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {pickUsersLoading ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</div>
+                  ) : pickUsers.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No active users found</div>
+                  ) : (
+                    pickUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <div className="flex flex-col">
+                          <span>{u.name}</span>
+                          {u.role && <span className="text-xs text-muted-foreground">{u.role}</span>}
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
             )}
             <span>via</span>
             <Select value={notification_channel} onValueChange={setChannel}>
