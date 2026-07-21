@@ -896,15 +896,8 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
             </div>
           )}
 
-          {/* Action items — Yes branch only */}
-          {sellsOurProducts === 'yes' && (
-            <div>
-              <Label>Action items / notes</Label>
-              <p className="text-xs text-muted-foreground mb-1">Agreed next steps, follow-ups or commitments made during this visit.</p>
-              <Textarea rows={3} value={actionItems} onChange={(e) => setActionItems(e.target.value)}
-                placeholder="Agreed next steps, follow-ups…" />
-            </div>
-          )}
+
+
 
           <div className="text-[11px] text-muted-foreground flex items-center gap-1">
             <MapPin className="h-3 w-3" />
