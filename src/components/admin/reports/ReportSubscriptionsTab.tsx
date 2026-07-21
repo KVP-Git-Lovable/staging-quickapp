@@ -386,15 +386,23 @@ export function ReportSubscriptionsTab() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center">
-                            {recipients.slice(0, 3).map((uid: string, i: number) => (
-                              <div
-                                key={uid + i}
-                                className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center', avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
-                                title={uid}
-                              >
-                                {initials(uid.replace(/-/g, ' '))}
-                              </div>
-                            ))}
+                            {recipients.slice(0, 3).map((uid: string, i: number) => {
+                              const p = profileMap.get(uid);
+                              const name = p?.name || 'Unknown';
+                              return (
+                                <div
+                                  key={uid + i}
+                                  className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center overflow-hidden', !p?.avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
+                                  title={name}
+                                >
+                                  {p?.avatar ? (
+                                    <img src={p.avatar} alt={name} className="h-full w-full object-cover" />
+                                  ) : (
+                                    initials(name)
+                                  )}
+                                </div>
+                              );
+                            })}
                             {recipients.length > 3 && (
                               <div className="h-7 w-7 -ml-2 rounded-full ring-2 ring-background bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
                                 +{recipients.length - 3}
