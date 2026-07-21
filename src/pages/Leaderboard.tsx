@@ -136,9 +136,8 @@ export default function Leaderboard() {
         .map(p => [p.id, p] as const)
     );
 
-    // Drop users whose profile didn't come back (avoids "Unknown User" ghost rows
-    // when a profile was deleted or RLS hides it from the current viewer).
-    const profilesById = new Map((profilesData || []).map(p => [p.id, p] as const));
+    // Drop users whose profile didn't come back or who are inactive.
+
     const missingProfiles = userIds.filter(id => !profilesById.has(id));
     if (missingProfiles.length > 0) {
       console.warn('[Leaderboard] Skipping points rows with no matching profile:', missingProfiles);
