@@ -302,5 +302,6 @@ export default function EmployeeDirectoryPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </Layout>
   );
 }
