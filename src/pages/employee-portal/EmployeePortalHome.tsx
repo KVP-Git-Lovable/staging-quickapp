@@ -10,7 +10,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Badge } from '@/components/ui/badge';
 import {
   Radar, MapPin, Camera, Plus, Search, LogOut, ArrowLeft, Loader2, Sparkles,
-  Store, ChevronRight, User, ClipboardList,
+  Store, ChevronRight, User, ClipboardList, Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { clearEmployeeSession, getEmployeeSession } from './EmployeePortalLogin';
