@@ -24,6 +24,7 @@ export const ProfilePictureUpload = ({
 }: ProfilePictureUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [showViewer, setShowViewer] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
