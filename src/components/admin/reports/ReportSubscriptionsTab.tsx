@@ -268,11 +268,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, username, email')
+        .select('id, full_name, username, recovery_email, phone_number, is_active')
+        .eq('is_active', true)
         .order('full_name', { ascending: true })
-        .limit(500);
+        .limit(1000);
       if (error) throw error;
-      return data as any[];
+      return (data ?? []).map((u: any) => ({ ...u, email: u.recovery_email })) as any[];
     },
   });
 
