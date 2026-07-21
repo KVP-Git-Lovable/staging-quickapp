@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
+import { useProfilePermissions } from '@/hooks/useProfilePermissions';
+import { Power, PowerOff } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +55,7 @@ interface User {
     created_at: string;
     profile_picture_url?: string;
     user_status?: string;
+    is_active?: boolean;
   };
   securityProfile?: {
     id: string;
