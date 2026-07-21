@@ -730,6 +730,7 @@ function VisitFormSheet({ open, onOpenChange, session, retailer, coords, onSaved
                   {DROPDOWN_PARAMS.map(p => (
                     <div key={p.key} className="rounded-lg bg-slate-50 p-3">
                       <Label className="font-medium text-sm">{p.label}</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">{p.hint}</p>
                       <select
                         className="mt-2 w-full h-11 border rounded-lg px-3 bg-white text-sm"
                         value={feedback[p.key] || ''}
