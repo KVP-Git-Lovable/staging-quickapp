@@ -240,6 +240,29 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                 className="h-8 w-auto min-w-[140px] inline-flex"
               />
             )}
+            {receiverType === 'specific_user' && (
+              <Select value={receiverUserId} onValueChange={setReceiverUserId} disabled={pickUsersLoading}>
+                <SelectTrigger className="h-8 w-auto min-w-[200px] inline-flex">
+                  <SelectValue placeholder={pickUsersLoading ? 'Loading users…' : 'pick a person'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {pickUsersLoading ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</div>
+                  ) : pickUsers.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No active users found</div>
+                  ) : (
+                    pickUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        <div className="flex flex-col">
+                          <span>{u.name}</span>
+                          {u.role && <span className="text-xs text-muted-foreground">{u.role}</span>}
+                        </div>
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            )}
             <span>via</span>
             <Select value={notification_channel} onValueChange={setChannel}>
               <SelectTrigger className="h-8 w-auto min-w-[140px] inline-flex">
