@@ -566,13 +566,13 @@ function Step1Body(p: Step1Props) {
   };
 
   // Debounce config changes so we don't spam the RPC on every keystroke/drop
-  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values });
+  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo });
   React.useEffect(() => {
-    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values }), 250);
+    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo }), 250);
     return () => clearTimeout(t);
-  }, [datasetKey, layout, rows, columns, values]);
+  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo]);
 
-  // Live preview — real RPC call (last 30 days window)
+  // Live preview — real RPC call for the selected date range
   const preview = useQuery({
     queryKey: [
       'report-preview',
@@ -581,20 +581,18 @@ function Step1Body(p: Step1Props) {
       debounced.rows,
       debounced.columns,
       debounced.values.join(','),
+      debounced.dateFrom,
+      debounced.dateTo,
     ],
     enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
     queryFn: async () => {
-      const today = new Date();
-      const from = new Date(today);
-      from.setDate(from.getDate() - 30);
-      const iso = (d: Date) => d.toISOString().slice(0, 10);
       const payload = {
         p_layout: debounced.layout,
         p_rows: debounced.layout === 'tabular' ? null : (debounced.rows[0] || null),
         p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
         p_values: debounced.values,
-        p_filters: { date_from: iso(from), date_to: iso(today) },
+        p_filters: { date_from: debounced.dateFrom, date_to: debounced.dateTo },
       };
 
       // eslint-disable-next-line no-console
