@@ -329,7 +329,7 @@ function StatChip({ label, value }: { label: string; value: number }) {
 
 function VisitRow({ v, onClick }: { v: any; onClick?: () => void }) {
   return (
-    <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50">
+    <button type="button" onClick={onClick} className="w-full text-left flex items-start gap-3 p-2 rounded-lg hover:bg-slate-100 active:bg-slate-200">
       {v.retailer_photo_url
         ? <img src={v.retailer_photo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
         : <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center"><Store className="h-5 w-5 text-slate-400" /></div>}
