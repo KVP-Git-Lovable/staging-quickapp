@@ -583,11 +583,11 @@ function Step1Body(p: Step1Props) {
   };
 
   // Debounce config changes so we don't spam the RPC on every keystroke/drop
-  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo });
+  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId });
   React.useEffect(() => {
-    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo }), 250);
+    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId }), 250);
     return () => clearTimeout(t);
-  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo]);
+  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId]);
 
   // Live preview — real RPC call for the selected date range
   const preview = useQuery({
@@ -600,6 +600,7 @@ function Step1Body(p: Step1Props) {
       debounced.values.join(','),
       debounced.dateFrom,
       debounced.dateTo,
+      debounced.scopeUserId,
     ],
     enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
@@ -609,8 +610,13 @@ function Step1Body(p: Step1Props) {
         p_rows: debounced.layout === 'tabular' ? null : (debounced.rows[0] || null),
         p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
         p_values: debounced.values,
-        p_filters: { date_from: debounced.dateFrom, date_to: debounced.dateTo },
+        p_filters: {
+          date_from: debounced.dateFrom,
+          date_to: debounced.dateTo,
+          scope_user_id: debounced.scopeUserId || null,
+        },
       };
+
 
       // eslint-disable-next-line no-console
       console.debug('[ReportPreview] rpc', dataset!.source, payload);
