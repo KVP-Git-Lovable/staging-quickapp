@@ -1142,6 +1142,9 @@ function Step1Body(p: Step1Props) {
                   dateTo={dateTo} setDateTo={p.setDateTo}
                   scopeUserId={scopeUserId} setScopeUserId={p.setScopeUserId}
                   scopeOptions={scopeOptions} scopeLabel={scopeLabel}
+                  distributorId={distributorId} setDistributorId={p.setDistributorId}
+                  distributors={distributors}
+                  showDistributor={hasDistributorDim}
                 />
               }
             />
