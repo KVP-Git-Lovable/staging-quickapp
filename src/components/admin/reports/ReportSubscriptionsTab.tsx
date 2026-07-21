@@ -779,9 +779,52 @@ function Step1Body(p: Step1Props) {
               </ZoneCard>
             )}
 
-            <ZoneCard title="Filters">
-              <div className="flex flex-wrap gap-1.5">
-                <span className="text-xs rounded-full bg-muted px-2.5 py-1 text-foreground/80">Last 30 days</span>
+            <ZoneCard title="Date range">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">From</Label>
+                  <Input
+                    type="date"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={(e) => p.setDateFrom(e.target.value)}
+                    className="h-8 text-xs w-[150px]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">To</Label>
+                  <Input
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(e) => p.setDateTo(e.target.value)}
+                    className="h-8 text-xs w-[150px]"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5 pb-1">
+                  {[
+                    { label: 'Last 7d', days: 7 },
+                    { label: 'Last 30d', days: 30 },
+                    { label: 'Last 90d', days: 90 },
+                    { label: 'This month', days: -1 },
+                  ].map(preset => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        const to = new Date();
+                        const from = new Date();
+                        if (preset.days === -1) from.setDate(1);
+                        else from.setDate(to.getDate() - preset.days);
+                        p.setDateFrom(from.toISOString().slice(0, 10));
+                        p.setDateTo(to.toISOString().slice(0, 10));
+                      }}
+                      className="text-[11px] rounded-full border border-dashed border-border px-2 py-0.5 text-muted-foreground hover:text-foreground hover:border-solid"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </ZoneCard>
 
@@ -813,7 +856,9 @@ function Step1Body(p: Step1Props) {
         selectedColumns={rows}
         columnKey={columns}
         values={values}
+        onReorderTabular={(next) => p.setRows(next)}
       />
+
 
 
 
