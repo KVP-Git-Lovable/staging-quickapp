@@ -949,6 +949,23 @@ function Step1Body(p: Step1Props) {
     else if (zone === 'val') p.setValues([]);
   };
 
+  const reorderRows = React.useCallback((from: number, to: number) => {
+    p.setRows(prev => {
+      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length || from === to) return prev;
+      const c = [...prev]; const [m] = c.splice(from, 1); c.splice(to, 0, m); return c;
+    });
+  }, [p]);
+  const reorderValues = React.useCallback((from: number, to: number) => {
+    p.setValues(prev => {
+      if (from < 0 || to < 0 || from >= prev.length || to >= prev.length || from === to) return prev;
+      const c = [...prev]; const [m] = c.splice(from, 1); c.splice(to, 0, m); return c;
+    });
+  }, [p]);
+  const reorderByKey = React.useCallback((list: string[], reorder: (f: number, t: number) => void) => (fromKey: string, toKey: string) => {
+    const f = list.indexOf(fromKey), t = list.indexOf(toKey);
+    if (f >= 0 && t >= 0) reorder(f, t);
+  }, []);
+
   const scopeOptions = React.useMemo(() => {
     const opts: Array<{ id: string; label: string; level: number }> = [];
     if (user?.id) opts.push({ id: user.id, label: 'Me (and my full hierarchy)', level: 0 });
