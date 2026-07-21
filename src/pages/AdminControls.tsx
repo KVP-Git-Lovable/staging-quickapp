@@ -58,7 +58,7 @@ const AdminControls = () => {
     { title: "Company Profile", description: "Manage company details, bank information, and header branding", icon: Building2, color: "blue", path: "/company-profile" },
     { title: "Invoice Management", description: "Create and manage GST invoices with templates", icon: FileText, color: "cyan", path: "/invoice-management" },
     { title: "Credit Management", description: "Configure retailer credit scoring and limit management system", icon: CreditCard, color: "emerald", path: "/credit-management" },
-    { title: "Notification Rules", description: "Configure event-based notification rules and triggers", icon: Bell, color: "rose", path: "/admin/notification-rules" },
+    { title: "Notification Center", description: "Configure event-based notification rules and triggers", icon: Bell, color: "rose", path: "/admin/notification-rules" },
     { title: "Recycle Bin Master", description: "Configure recycle bin settings and view permanent deletion logs", icon: Trash2, color: "rose", path: "/admin/recycle-bin" },
     { title: "Distributor Portal Admin", description: "Manage distributor portal users, orders, claims, support, and ideas", icon: Building2, color: "cyan", path: "/admin/distributor-portal" },
     { title: "Target Management", description: "Configure, assign, and track team targets with hierarchy cascade", icon: Target, color: "blue", path: "/admin/target-vs-actual" },
