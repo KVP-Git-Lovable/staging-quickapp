@@ -28828,6 +28828,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string[]
       }
+      notif_pick_users: {
+        Args: never
+        Returns: {
+          id: string
+          name: string
+          role: string
+        }[]
+      }
       notify_admins: {
         Args: { p_message: string; p_title: string; p_type: string }
         Returns: undefined
