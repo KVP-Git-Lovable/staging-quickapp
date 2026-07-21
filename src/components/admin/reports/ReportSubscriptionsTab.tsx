@@ -547,6 +547,7 @@ interface Step1Props {
   dataset: Dataset | undefined;
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
+  scopeUserId: string; setScopeUserId: (v: string) => void;
   onCancel: () => void;
   onNext: () => void;
   canNext: boolean;
