@@ -1429,7 +1429,7 @@ function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, s
 
 type SortState = { col: string; dir: 'asc' | 'desc' } | null;
 
-function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, columnKey, values, labelOf, isMeasure, sort, setSort, onRemoveColumn, onRemoveValue }: {
+function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, columnKey, values, labelOf, isMeasure, sort, setSort, onRemoveColumn, onRemoveValue, onReorderColumn, onReorderValue }: {
   state: 'idle' | 'loading' | 'error' | 'empty' | 'data';
   error: Error | null;
   rowsData: any[];
@@ -1444,6 +1444,8 @@ function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, 
   setSort: (s: SortState) => void;
   onRemoveColumn: (k: string) => void;
   onRemoveValue: (k: string) => void;
+  onReorderColumn?: (fromKey: string, toKey: string) => void;
+  onReorderValue?: (fromKey: string, toKey: string) => void;
 }) {
   const caption = state === 'data'
     ? layout === 'tabular' ? `${rowsData.length} row${rowsData.length === 1 ? '' : 's'}`
@@ -1471,9 +1473,9 @@ function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, 
         ) : state === 'empty' ? (
           <div className="text-xs text-muted-foreground py-12 text-center">No rows for this configuration.</div>
         ) : layout === 'tabular' ? (
-          <TabularTable rowsData={rowsData} selectedColumns={selectedColumns || []} labelOf={labelOf} isMeasure={isMeasure} sort={sort} setSort={setSort} onRemoveColumn={onRemoveColumn} />
+          <TabularTable rowsData={rowsData} selectedColumns={selectedColumns || []} labelOf={labelOf} isMeasure={isMeasure} sort={sort} setSort={setSort} onRemoveColumn={onRemoveColumn} onReorderColumn={onReorderColumn} />
         ) : layout === 'grouped' ? (
-          <SummaryTable rowsData={rowsData} rowKey={rowKey} values={values} labelOf={labelOf} onRemoveValue={onRemoveValue} />
+          <SummaryTable rowsData={rowsData} rowKey={rowKey} values={values} labelOf={labelOf} onRemoveValue={onRemoveValue} onReorderValue={onReorderValue} />
         ) : (
           <MatrixTable rowsData={rowsData} rowKey={rowKey} columnKey={columnKey} valueKey={values[0] || ''} labelOf={labelOf} onRemoveValue={onRemoveValue} />
         )}
@@ -1481,6 +1483,7 @@ function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, 
     </div>
   );
 }
+
 
 function fmtCell(v: any): string {
   if (v == null || v === '') return '—';
