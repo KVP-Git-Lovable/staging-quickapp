@@ -139,6 +139,11 @@ const getSortValue = (
 
 export const AdminDashboard = () => {
   const { hasAdminAccess, loading } = useAdminAccess();
+  const { hasPermission } = useProfilePermissions();
+  const canActivateDeactivate = hasPermission('admin_user_activate_deactivate', 'can_edit') || hasPermission('admin_user_activate_deactivate', 'can_read');
+  const [deactivateTarget, setDeactivateTarget] = useState<User | null>(null);
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
