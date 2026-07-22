@@ -28875,6 +28875,10 @@ export type Database = {
         Args: { p_actor?: string; p_event_code: string; p_source_table: string }
         Returns: Json
       }
+      notify_send_test_push: {
+        Args: { p_body?: string; p_title?: string; p_user_id: string }
+        Returns: Json
+      }
       owns_completed_invitation: {
         Args: { _email: string; _user_id: string }
         Returns: boolean
