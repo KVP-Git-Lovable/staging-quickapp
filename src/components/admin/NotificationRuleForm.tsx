@@ -25,11 +25,37 @@ interface NotificationRuleFormProps {
     notification_channel: string;
     title_template: string;
     message_template: string;
+    timezone?: string | null;
   } | null;
   userId: string;
   onClose: () => void;
   onSaved: () => void;
 }
+
+const TIMEZONES: { value: string; label: string }[] = [
+  { value: 'Asia/Kolkata', label: 'IST — Asia/Kolkata' },
+  { value: 'Asia/Dubai', label: 'GST — Asia/Dubai' },
+  { value: 'Asia/Singapore', label: 'SGT — Asia/Singapore' },
+  { value: 'Asia/Bangkok', label: 'ICT — Asia/Bangkok' },
+  { value: 'Asia/Dhaka', label: 'BST — Asia/Dhaka' },
+  { value: 'Asia/Karachi', label: 'PKT — Asia/Karachi' },
+  { value: 'Asia/Colombo', label: 'SLT — Asia/Colombo' },
+  { value: 'Europe/London', label: 'GMT/BST — Europe/London' },
+  { value: 'America/New_York', label: 'ET — America/New_York' },
+  { value: 'America/Los_Angeles', label: 'PT — America/Los_Angeles' },
+  { value: 'UTC', label: 'UTC' },
+];
+
+const formatInTz = (tz: string) => {
+  const d = new Date();
+  const dateFmt = new Intl.DateTimeFormat('en-GB', { timeZone: tz, day: '2-digit', month: 'short', year: 'numeric' });
+  const time12 = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true });
+  const time24 = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+  const dateStr = dateFmt.format(d).replace(/ /g, '-');
+  const timeStr = time12.format(d);
+  const time24Str = time24.format(d);
+  return { dateStr, timeStr, time24Str, timestampStr: `${dateStr} ${timeStr}` };
+};
 
 const SOURCE_TABLES = [
   { value: 'orders', label: 'Orders' },
