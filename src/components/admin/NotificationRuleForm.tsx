@@ -307,7 +307,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
 
   // Reusable pill classnames for the inline sentence-builder selects.
   const pillTrigger =
-    'h-8 min-w-[160px] w-auto inline-flex bg-white border-slate-200 rounded-lg text-sm font-semibold text-indigo-600 hover:border-indigo-300 focus:ring-2 focus:ring-indigo-500/20';
+    'h-8 min-w-[160px] w-auto inline-flex bg-white border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:border-slate-400 focus:ring-2 focus:ring-slate-400/30';
 
   return (
     <div className="w-full bg-white rounded-2xl shadow-lg shadow-slate-200/40 border border-slate-100 overflow-hidden flex flex-col">
@@ -328,7 +328,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         {/* Logic Builder */}
         <section className="space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic Builder</div>
-          <div className="p-4 md:p-5 bg-indigo-50/40 rounded-xl border border-indigo-100/70 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
+          <div className="p-4 md:p-5 bg-slate-50/60 rounded-xl border border-slate-200 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
             <span className="font-medium">When</span>
             <Select value={eventCode} onValueChange={setEventCode}>
               <SelectTrigger className={pillTrigger}>
@@ -347,7 +347,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 min-w-[180px] justify-between font-semibold text-indigo-600 bg-white border-slate-200 rounded-lg hover:border-indigo-300"
+                  className="h-8 min-w-[180px] justify-between font-semibold text-slate-700 bg-white border-slate-200 rounded-lg hover:border-slate-400"
                   disabled={isEdit}
                   title={isEdit ? 'Editing an existing rule — change modules by creating new rules' : ''}
                 >
@@ -381,7 +381,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                     <Badge
                       key={mod}
                       variant={isPreview ? 'default' : 'outline'}
-                      className={`cursor-pointer gap-1 text-xs ${isPreview ? 'bg-indigo-600 hover:bg-indigo-700' : ''}`}
+                      className={`cursor-pointer gap-1 text-xs ${isPreview ? 'bg-slate-800 hover:bg-slate-900' : ''}`}
                       onClick={() => setSourceTables((prev) => [mod, ...prev.filter((m) => m !== mod)])}
                       title="Click to preview this module"
                     >
@@ -473,7 +473,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Auto-generated from the sentence above"
-                className="bg-white border-slate-200 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-400"
+                className="bg-white border-slate-200 focus-visible:ring-slate-400/30 focus-visible:border-slate-400"
               />
               <p className="text-[11px] text-slate-500 flex items-start gap-1">
                 <Info size={11} className="mt-0.5 flex-shrink-0 text-slate-400" />
@@ -482,19 +482,19 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
             </div>
 
             {/* Module-aware banner */}
-            <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2 text-[12px] text-indigo-900/80 flex items-start gap-2">
-              <Info size={13} className="mt-0.5 flex-shrink-0 text-indigo-500" />
+            <div className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-[12px] text-slate-700 flex items-start gap-2">
+              <Info size={13} className="mt-0.5 flex-shrink-0 text-slate-500" />
               {previewModule ? (
                 <span>
                   Showing suggested defaults for <span className="font-semibold">{previewModuleLabel}</span>.
-                  Anything in <code className="px-1 py-0.5 rounded bg-white border border-indigo-100 text-indigo-700">{'{curly}'}</code> is replaced with real data at send time — click a token chip below or type your own text.
+                  Anything in <code className="px-1 py-0.5 rounded bg-white border border-slate-200 text-slate-800">{'{curly}'}</code> is replaced with real data at send time — click a token chip below or type your own text.
                 </span>
               ) : (
                 <span>Pick a module above to load recommended Title/Message defaults for that record type.</span>
               )}
               {(titleTouched.current || messageTouched.current) && previewModule && (
                 <button
-                  className="ml-auto text-indigo-600 font-medium hover:underline flex-shrink-0"
+                  className="ml-auto text-slate-700 font-medium hover:underline flex-shrink-0"
                   onClick={() => {
                     titleTouched.current = false;
                     messageTouched.current = false;
@@ -516,7 +516,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               <Input
                 value={titleTemplate}
                 onChange={(e) => { titleTouched.current = true; setTitleTemplate(e.target.value); }}
-                className="font-medium text-slate-900 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                className="font-medium text-slate-900 focus-visible:ring-slate-400/30 focus-visible:border-slate-500"
               />
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
@@ -525,7 +525,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                     key={`t-${t}`}
                     type="button"
                     onClick={() => insertToken(t, 'title')}
-                    className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[11px] font-bold cursor-pointer hover:bg-indigo-100 transition-colors"
+                    className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
                   >
                     {t}
                   </button>
@@ -543,7 +543,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                 value={messageTemplate}
                 onChange={(e) => { messageTouched.current = true; setMessageTemplate(e.target.value); }}
                 rows={4}
-                className="resize-none leading-relaxed focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                className="resize-none leading-relaxed focus-visible:ring-slate-400/30 focus-visible:border-slate-500"
               />
               <div className="flex flex-wrap gap-1.5 pt-1">
                 <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
@@ -552,7 +552,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                     key={`m-${t}`}
                     type="button"
                     onClick={() => insertToken(t, 'message')}
-                    className="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-[11px] font-bold cursor-pointer hover:bg-indigo-100 transition-colors"
+                    className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
                   >
                     {t}
                   </button>
@@ -573,7 +573,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               </div>
               <div className="relative bg-white shadow-2xl shadow-slate-300/40 border border-slate-100 rounded-xl p-4 w-full max-w-[340px]">
                 <div className="flex gap-3">
-                  <div className="shrink-0 w-10 h-10 bg-indigo-400 rounded-lg flex items-center justify-center text-white">
+                  <div className="shrink-0 w-10 h-10 bg-slate-400 rounded-lg flex items-center justify-center text-white">
                     <Bell size={18} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -612,7 +612,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm shadow-indigo-200/60"
+            className="bg-slate-1000 hover:bg-indigo-600 text-white shadow-sm shadow-slate-300/50"
           >
             {saving
               ? 'Saving…'
@@ -687,7 +687,7 @@ function RecipientPreview({
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-slate-500">preview as</span>
           <Select value={sampleActor} onValueChange={setSampleActor}>
-            <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs bg-white border-indigo-200">
+            <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs bg-white border-slate-300">
               <SelectValue placeholder="pick a rep" />
             </SelectTrigger>
             <SelectContent>
@@ -709,7 +709,7 @@ function RecipientPreview({
         </span>
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge className="bg-indigo-600 hover:bg-indigo-700 text-xs">
+          <Badge className="bg-slate-800 hover:bg-slate-900 text-xs">
             {count} {count === 1 ? 'person' : 'people'}
           </Badge>
           <span className="text-slate-700 text-xs">
