@@ -592,8 +592,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
 
   const tzNow = useMemo(() => formatInTz(timezone), [timezone]);
   const sampleCtx: Record<string, string> = { ...preset.sample, timestamp: tzNow.timestampStr, datetime: tzNow.timestampStr, time_24: tzNow.time24Str, date: tzNow.dateStr, time: tzNow.timeStr };
-  const previewTitle = renderTemplate(titleTemplate, sampleCtx);
-  const previewMessage = renderTemplate(messageTemplate, sampleCtx);
+  const previewTitle = renderTemplate(effectiveTitle, sampleCtx);
+  const previewMessage = renderTemplate(effectiveMessage, sampleCtx);
 
   // Reusable pill classnames for the inline sentence-builder selects.
   const pillTrigger =
