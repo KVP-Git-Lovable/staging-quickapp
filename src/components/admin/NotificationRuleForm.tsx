@@ -501,7 +501,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               value={moduleValue}
               onValueChange={(v) => {
                 setModuleValue(v);
-                setSubEventValue('');
+                setSubEventValues([]);
                 if (!MODULE_SUB_EVENTS[v]) {
                   // Legacy path: seed sourceTables so downstream save still works.
                   setSourceTables([v]);
