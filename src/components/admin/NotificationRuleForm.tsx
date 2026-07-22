@@ -855,6 +855,7 @@ interface RecipientPreviewProps {
   receiverType: string;
   receiverRole: string;
   receiverUserId: string;
+  receiverUserIds?: string[];
   pickUsers: Array<{ id: string; name: string; role: string | null }>;
   currentUserId: string;
 }
