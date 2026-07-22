@@ -67,10 +67,25 @@ type ModulePreset = {
 };
 
 const now = new Date();
+const pad = (n: number) => String(n).padStart(2, '0');
 const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+const dateLongStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+const dateNumericStr = now.toLocaleDateString('en-GB');
+const dateIsoStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 const time24Str = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+const timeSecondsStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+const timeHmStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+const weekdayStr = now.toLocaleDateString('en-GB', { weekday: 'long' });
+const weekdayShortStr = now.toLocaleDateString('en-GB', { weekday: 'short' });
+const monthStr = now.toLocaleDateString('en-GB', { month: 'long' });
+const monthShortStr = now.toLocaleDateString('en-GB', { month: 'short' });
+const yearStr = String(now.getFullYear());
 const timestampStr = `${dateStr} ${timeStr}`;
+const datetimeStr = `${weekdayShortStr}, ${dateStr} ${timeStr}`;
+const datetimeLongStr = `${dateLongStr} at ${timeStr} IST`;
+const datetimeIsoStr = `${dateIsoStr}T${timeHmStr}:${pad(now.getSeconds())}+05:30`;
+const relativeTimeStr = 'just now';
 
 const TIMESTAMP_FORMATS: { token: string; label: string; hint: string; group: string }[] = [
   // Time
