@@ -28818,15 +28818,17 @@ export type Database = {
         Returns: string
       }
       nextval_text: { Args: { seq_name: string }; Returns: string }
-      notif_fill: {
-        Args: {
-          p_actor_name: string
-          p_meta: Json
-          p_module: string
-          p_tmpl: string
-        }
-        Returns: string
-      }
+      notif_fill:
+        | { Args: { p_ctx: Json; p_template: string }; Returns: string }
+        | {
+            Args: {
+              p_actor_name: string
+              p_meta: Json
+              p_module: string
+              p_tmpl: string
+            }
+            Returns: string
+          }
       notif_managers_up_chain: {
         Args: { p_user_id: string }
         Returns: string[]
