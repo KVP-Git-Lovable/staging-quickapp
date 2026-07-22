@@ -328,7 +328,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         {/* Logic Builder */}
         <section className="space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic Builder</div>
-          <div className="p-4 md:p-5 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
+          <div className="p-4 md:p-5 bg-indigo-50/40 rounded-xl border border-indigo-100/70 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
             <span className="font-medium">When</span>
             <Select value={eventCode} onValueChange={setEventCode}>
               <SelectTrigger className={pillTrigger}>
