@@ -1,5 +1,7 @@
 // Generates a report file (Excel/PDF/summary_only), uploads to Storage,
-// creates in-app notifications for recipients, and optionally pushes to their devices.
+// and creates in-app notifications for recipients. Push delivery is handled
+// exclusively by the notifications_push_dispatch DB trigger — this function
+// does NOT call send-push directly (prevents duplicate pushes).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
@@ -18,7 +20,6 @@ interface GenerateRequest {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
-  // Service-role only (invoked by dispatcher)
   const auth = req.headers.get('Authorization') ?? '';
   if (auth !== `Bearer ${SERVICE_ROLE}`) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
@@ -55,8 +56,6 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Dataset not found' }), { status: 404, headers: corsHeaders });
   }
 
-  // Resolve recipients — hierarchy-aware.
-  // all_managers: recompute every run so hierarchy changes are reflected without config edits.
   const recipientMode: string = sub.recipient_mode ?? 'named_users';
   let recipients: string[] = [];
   let scope: string = sub.scope ?? 'shared';
@@ -64,40 +63,69 @@ Deno.serve(async (req) => {
     const { data: mgrs, error: mErr } = await admin.rpc('report_all_managers');
     if (mErr) console.error('report_all_managers error', mErr);
     recipients = (mgrs ?? []).map((m: any) => m.user_id).filter(Boolean);
-    scope = 'per_recipient'; // each manager sees only their own reporting tree
+    scope = 'per_recipient';
   } else {
     recipients = sub.recipient_user_ids ?? [];
   }
+  // Deduplicate the recipient list itself so a user listed twice doesn't
+  // create two notifications for the same period.
+  recipients = Array.from(new Set(recipients));
+
   const outcomes: Array<Record<string, unknown>> = [];
 
-  // Shared: single RPC call + single file
+  // Pre-fetch any existing delivery-log rows for this run so we can skip
+  // recipients that were already delivered (idempotency across retries).
+  const { data: existingLog } = await admin
+    .from('report_delivery_log')
+    .select('recipient_user_id, in_app_status')
+    .eq('subscription_id', sub.id)
+    .eq('period', period.key);
+  const alreadyProcessed = new Set(
+    (existingLog ?? [])
+      .filter((r: any) => r.in_app_status && r.in_app_status !== 'failed')
+      .map((r: any) => r.recipient_user_id),
+  );
+
+  // Shared: single RPC + single file. Skip empty entirely.
   let sharedPath: string | null = null;
   let sharedDigest = '';
   let sharedRows: any[] = [];
-  if (scope === 'shared' || recipients.length === 0) {
-    const rows = await callRpc(admin, dataset.source, def, {
+  let sharedIsEmpty = false;
+  if (scope === 'shared' && recipients.length > 0) {
+    sharedRows = await callRpc(admin, dataset.source, def, {
       date_from: period.date_from,
       date_to: period.date_to,
     });
-    sharedRows = rows;
-    sharedDigest = buildDigest(sub.name, period, rows);
-    if (sub.attachment_format !== 'summary_only') {
-      const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);
-      const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
-      const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
-        contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        upsert: true,
-      });
-      if (upErr) console.error('upload err', upErr);
-      else sharedPath = path;
+    if (sharedRows.length === 0) {
+      sharedIsEmpty = true;
+    } else {
+      sharedDigest = buildDigest(sub.name, period, sharedRows);
+      if (sub.attachment_format !== 'summary_only') {
+        const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows);
+        const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
+        const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
+          contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          upsert: true,
+        });
+        if (upErr) console.error('upload err', upErr);
+        else sharedPath = path;
+      }
     }
   }
 
   for (const rid of recipients) {
     try {
+      // Idempotency: never insert a second notification for the same
+      // (subscription, recipient, period). Enforced BEFORE the insert.
+      if (alreadyProcessed.has(rid)) {
+        outcomes.push({ recipient: rid, skipped: 'already_delivered' });
+        continue;
+      }
+
       let path = sharedPath;
       let digest = sharedDigest;
       let rows = sharedRows;
+      let isEmpty = sharedIsEmpty;
 
       if (scope === 'per_recipient') {
         rows = await callRpc(admin, dataset.source, def, {
@@ -105,30 +133,34 @@ Deno.serve(async (req) => {
           date_to: period.date_to,
           scope_user_id: rid,
         });
-        // For all_managers mode, skip managers whose subtree returned no data.
-        if (recipientMode === 'all_managers' && rows.length === 0) {
-          await admin.from('report_delivery_log').upsert({
-            subscription_id: sub.id,
-            recipient_user_id: rid,
-            period: period.key,
-            notification_id: null,
-            storage_path: null,
-            in_app_status: 'skipped_empty',
-            push_status: null,
-            error: null,
-          }, { onConflict: 'subscription_id,recipient_user_id,period' });
-          outcomes.push({ recipient: rid, skipped: 'empty' });
-          continue;
+        isEmpty = rows.length === 0;
+        if (!isEmpty) {
+          digest = buildDigest(sub.name, period, rows);
+          if (sub.attachment_format !== 'summary_only') {
+            const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);
+            path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
+            await admin.storage.from('report-files').upload(path, bytes, {
+              contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              upsert: true,
+            });
+          }
         }
-        digest = buildDigest(sub.name, period, rows);
-        if (sub.attachment_format !== 'summary_only') {
-          const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);
-          path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
-          await admin.storage.from('report-files').upload(path, bytes, {
-            contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            upsert: true,
-          });
-        }
+      }
+
+      // Skip empty reports — never notify or push.
+      if (isEmpty) {
+        await admin.from('report_delivery_log').upsert({
+          subscription_id: sub.id,
+          recipient_user_id: rid,
+          period: period.key,
+          notification_id: null,
+          storage_path: null,
+          in_app_status: 'skipped_empty',
+          push_status: null,
+          error: null,
+        }, { onConflict: 'subscription_id,recipient_user_id,period' });
+        outcomes.push({ recipient: rid, skipped: 'empty' });
+        continue;
       }
 
       const metadata: Record<string, unknown> = {
@@ -138,11 +170,12 @@ Deno.serve(async (req) => {
         period: period.label,
         period_key: period.key,
         attachment_format: sub.attachment_format,
+        // The trigger reads this to decide whether to dispatch a phone push.
+        push_to_phone: sub.push_to_phone === true,
       };
       if (path) metadata.storage_path = path;
       if (sub.attachment_format === 'summary_only') metadata.body_md = digest;
 
-      // Insert notification
       const { data: notif, error: nErr } = await admin
         .from('notifications')
         .insert({
@@ -157,36 +190,12 @@ Deno.serve(async (req) => {
         .select('id')
         .single();
 
-      let pushStatus: string | null = null;
-      if (sub.push_to_phone && notif) {
-        try {
-          const { data: cfg } = await admin.from('push_config').select('trigger_secret').eq('id', true).maybeSingle();
-          if (cfg?.trigger_secret) {
-            const r = await fetch(`${SUPABASE_URL}/functions/v1/send-push`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-push-secret': cfg.trigger_secret,
-              },
-              body: JSON.stringify({
-                user_id: rid,
-                title: sub.name,
-                body: `${period.label} report is ready`,
-                data: {
-                  route: `/notifications/${notif.id}`,
-                  notification_id: notif.id,
-                  type: 'report_delivery',
-                },
-              }),
-            });
-            pushStatus = r.ok ? 'sent' : `failed_${r.status}`;
-          } else {
-            pushStatus = 'skipped_no_secret';
-          }
-        } catch (pErr) {
-          pushStatus = `error_${String(pErr).slice(0, 60)}`;
-        }
-      }
+      // Push is now dispatched exclusively by the DB trigger
+      // (dispatch_push_for_notification), which honours metadata.push_to_phone
+      // and builds the /notifications/<id> deep-link for report_delivery.
+      const pushStatus: string | null = notif
+        ? (sub.push_to_phone ? 'dispatched_by_trigger' : 'skipped_push_off')
+        : null;
 
       await admin.from('report_delivery_log').upsert({
         subscription_id: sub.id,
@@ -202,6 +211,19 @@ Deno.serve(async (req) => {
       outcomes.push({ recipient: rid, notification_id: notif?.id, push: pushStatus });
     } catch (e) {
       console.error('per-recipient error', rid, e);
+      // Log the failure so all_managers fan-out records every recipient.
+      try {
+        await admin.from('report_delivery_log').upsert({
+          subscription_id: sub.id,
+          recipient_user_id: rid,
+          period: period.key,
+          notification_id: null,
+          storage_path: null,
+          in_app_status: `failed_${String(e).slice(0, 80)}`,
+          push_status: null,
+          error: String(e),
+        }, { onConflict: 'subscription_id,recipient_user_id,period' });
+      } catch (_) { /* swallow */ }
       outcomes.push({ recipient: rid, error: String(e) });
     }
   }
