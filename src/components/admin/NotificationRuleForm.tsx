@@ -1001,7 +1001,12 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           {/* RIGHT — live preview */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Preview</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Live Preview
+                {isCuratedModule && activeSubEventObj && (
+                  <span className="ml-2 text-sky-600">· {activeSubEventObj.label}</span>
+                )}
+              </span>
               <span className="text-[10px] bg-sky-100 px-1.5 py-0.5 rounded text-slate-500 uppercase">In-app toast</span>
             </div>
             <div className="relative bg-sky-50/50 rounded-2xl p-6 border border-sky-100 flex items-center justify-center min-h-[240px]">
