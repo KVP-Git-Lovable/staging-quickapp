@@ -449,6 +449,15 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
             </Select>
             <span>.</span>
           </div>
+
+          {/* Who will receive this — live resolver */}
+          <RecipientPreview
+            receiverType={receiverType}
+            receiverRole={receiverRole}
+            receiverUserId={receiverUserId}
+            pickUsers={pickUsers}
+            currentUserId={userId}
+          />
         </section>
 
         {/* Two-column: form (left) + live preview (right) */}
