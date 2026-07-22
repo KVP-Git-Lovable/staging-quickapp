@@ -2,6 +2,8 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported, deleteToken } from 'firebase/messaging';
 import { supabase } from '@/integrations/supabase/client';
 import { devLog, devError } from '@/utils/devLog';
+import { toast } from 'sonner';
+
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
