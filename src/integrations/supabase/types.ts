@@ -21054,6 +21054,7 @@ export type Database = {
           last_fired_at: string | null
           name: string
           push_to_phone: boolean
+          recipient_mode: string
           recipient_user_ids: string[]
           report_definition_id: string
           scope: string
@@ -21072,6 +21073,7 @@ export type Database = {
           last_fired_at?: string | null
           name: string
           push_to_phone?: boolean
+          recipient_mode?: string
           recipient_user_ids?: string[]
           report_definition_id: string
           scope?: string
@@ -21090,6 +21092,7 @@ export type Database = {
           last_fired_at?: string | null
           name?: string
           push_to_phone?: boolean
+          recipient_mode?: string
           recipient_user_ids?: string[]
           report_definition_id?: string
           scope?: string
@@ -28968,6 +28971,13 @@ export type Database = {
       release_shortfall_on_packed: {
         Args: { p_packing_list_id: string }
         Returns: Json
+      }
+      report_all_managers: {
+        Args: never
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
       }
       request_backdate: {
         Args: { p_date: string; p_reason: string }
