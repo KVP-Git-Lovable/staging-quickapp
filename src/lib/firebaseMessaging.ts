@@ -77,16 +77,13 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (!token) return null;
 
-    const { error: tokenError } = await supabase.from('push_device_tokens').upsert(
-      {
-        user_id: userId,
-        token,
-        platform: 'web',
-        device_info: { userAgent: navigator.userAgent },
-        last_seen_at: new Date().toISOString(),
-      },
-      { onConflict: 'token' },
-    );
+    // Claim through the SECURITY DEFINER RPC so a token previously associated
+    // with another signed-in user on this device can be reassigned safely.
+    const { error: tokenError } = await supabase.rpc('claim_push_token', {
+      p_token: token,
+      p_platform: 'web',
+      p_device_info: { userAgent: navigator.userAgent },
+    });
     if (tokenError) {
       throw new Error(`Could not save this device for push notifications: ${tokenError.message}`);
     }

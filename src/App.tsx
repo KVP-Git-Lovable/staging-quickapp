@@ -28,6 +28,8 @@ import { SlowConnectionBanner } from "@/components/SlowConnectionBanner";
 import ForcedPasswordChangeDialog from "@/components/auth/ForcedPasswordChangeDialog";
 import { useActivityTracker } from "@/hooks/useActivityTracker";
 import { useModuleUsageTracker } from "@/hooks/useModuleUsageTracker";
+import { Capacitor } from '@capacitor/core';
+import { initWebPush } from '@/lib/firebaseMessaging';
 
 // Initialize visit status cache early to avoid flicker
 visitStatusCache.init();
@@ -366,6 +368,28 @@ const MasterDataCacheInitializer = () => {
   return null;
 };
 
+// Refresh an already-authorized browser's FCM token after authentication.
+// Permission is never prompted here; the Profile toggle remains the only
+// user-initiated permission request.
+const WebPushInitializer = () => {
+  const { user } = useAuth();
+  const initializedForRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id || Capacitor.isNativePlatform()) return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (initializedForRef.current === user.id) return;
+    initializedForRef.current = user.id;
+
+    void initWebPush(user.id).catch((error) => {
+      initializedForRef.current = null;
+      console.error('[Push] automatic web token refresh failed:', error);
+    });
+  }, [user?.id]);
+
+  return null;
+};
+
 const App = () => {
   useEffect(() => {
     // Only genuinely harmless browser noise is downgraded. Everything else is LOGGED
@@ -447,6 +471,7 @@ const AppContent = () => {
   return (
     <>
       <MasterDataCacheInitializer />
+      <WebPushInitializer />
       <Toaster />
       <Sonner />
       
