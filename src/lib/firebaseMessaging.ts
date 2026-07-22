@@ -139,10 +139,10 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
             icon: '/icons/app-icon.png',
             badge: '/icons/app-icon.png',
             tag,
-            renotify: true,
             requireInteraction: true,
             data,
-          });
+            ...({ renotify: true } as any),
+          } as NotificationOptions);
         }
       } catch (err) {
         devError('[Push] foreground showNotification failed', err);
