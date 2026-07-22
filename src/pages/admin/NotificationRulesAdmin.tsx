@@ -133,7 +133,6 @@ const NotificationRulesAdmin = () => {
         type: 'info',
         metadata: {
           route: '/notifications',
-          actor_id: user?.id || null,
           manual_fire: true,
           requested_channel: rule.notification_channel,
         },
