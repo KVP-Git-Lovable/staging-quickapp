@@ -339,7 +339,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
   };
 
-  const sampleCtx = { timestamp: timestampStr, datetime: timestampStr, time_24: time24Str, date: dateStr, time: timeStr, ...preset.sample };
+  const tzNow = useMemo(() => formatInTz(timezone), [timezone]);
+  const sampleCtx = { timestamp: tzNow.timestampStr, datetime: tzNow.timestampStr, time_24: tzNow.time24Str, date: tzNow.dateStr, time: tzNow.timeStr, ...preset.sample, date: tzNow.dateStr, time: tzNow.timeStr } as Record<string, string>;
   const previewTitle = renderTemplate(titleTemplate, sampleCtx);
   const previewMessage = renderTemplate(messageTemplate, sampleCtx);
 
