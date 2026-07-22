@@ -602,6 +602,26 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [pushToPhone, setPushToPhone] = useState(editing?.sub.push_to_phone ?? false);
   const [scope, setScope] = useState(editing?.sub.scope ?? 'shared');
   const [recipientIds, setRecipientIds] = useState<string[]>(editing?.sub.recipient_user_ids ?? []);
+  const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
+    ((editing?.sub as any)?.recipient_mode as any) ?? 'named_users'
+  );
+
+  // Live manager count for all_managers mode
+  const { data: managerList = [] } = useQuery({
+    queryKey: ['report-all-managers'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('report_all_managers');
+      if (error) throw error;
+      return (data ?? []) as Array<{ user_id: string; full_name: string }>;
+    },
+  });
+
+  // Force per_recipient scope whenever mode = all_managers
+  React.useEffect(() => {
+    if (recipientMode === 'all_managers' && scope !== 'per_recipient') {
+      setScope('per_recipient');
+    }
+  }, [recipientMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dataset = useMemo(() => datasets.find(d => d.key === datasetKey), [datasets, datasetKey]);
 
