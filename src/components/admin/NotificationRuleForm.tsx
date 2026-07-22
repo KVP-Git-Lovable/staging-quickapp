@@ -295,29 +295,123 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     const v = inferInitialSubEvent(rule, inferInitialModule(rule));
     return v ? [v] : [];
   });
+  // Per-sub-event editable templates (curated modules only). Keyed by sub-event value.
+  type TplState = { title: string; message: string; titleTouched: boolean; messageTouched: boolean };
+  const [subEventTemplates, setSubEventTemplates] = useState<Record<string, TplState>>(() => {
+    const initMod = inferInitialModule(rule);
+    const initSub = inferInitialSubEvent(rule, initMod);
+    if (rule && initSub) {
+      return {
+        [initSub]: {
+          title: rule.title_template || DEFAULT_PRESET.title,
+          message: rule.message_template || DEFAULT_PRESET.message,
+          titleTouched: true,
+          messageTouched: true,
+        },
+      };
+    }
+    return {};
+  });
+  const [activeSubEvent, setActiveSubEvent] = useState<string>(() => {
+    const initMod = inferInitialModule(rule);
+    return inferInitialSubEvent(rule, initMod) || '';
+  });
 
   const isEdit = !!rule;
   const isCuratedModule = !!MODULE_SUB_EVENTS[moduleValue];
   const currentSubEvents = MODULE_SUB_EVENTS[moduleValue] || [];
-  // First selected sub-event drives template defaults + single-value preview.
-  const primarySubEventValue = subEventValues[0] || '';
-  const currentSubEvent = currentSubEvents.find((s) => s.value === primarySubEventValue);
+  const activeSubEventObj = currentSubEvents.find((s) => s.value === activeSubEvent);
   const previewModule = isCuratedModule
-    ? (currentSubEvent?.source_table || moduleValue)
+    ? (activeSubEventObj?.source_table || moduleValue)
     : sourceTables[0] || '';
   const preset = useMemo(() => presetFor(previewModule), [previewModule]);
   const previewModuleLabel = SOURCE_TABLES.find((t) => t.value === previewModule)?.label
     || MODULE_OPTIONS.find((m) => m.value === previewModule)?.label;
 
-  // When user picks a curated sub-event, sync eventCode + sourceTables and default templates.
-  // With multi-select we only auto-fill templates from the FIRST sub-event; save fans out per sub-event.
+  // Keep subEventTemplates in sync with the selected sub-events; seed defaults on add, prune on remove.
   useEffect(() => {
-    if (!isCuratedModule || !currentSubEvent) return;
-    setEventCode(currentSubEvent.event_code);
-    setSourceTables([currentSubEvent.source_table]);
-    if (!titleTouched.current && currentSubEvent.title) setTitleTemplate(currentSubEvent.title);
-    if (!messageTouched.current && currentSubEvent.message) setMessageTemplate(currentSubEvent.message);
-  }, [isCuratedModule, currentSubEvent?.value]);
+    if (!isCuratedModule) return;
+    setSubEventTemplates((prev) => {
+      const next: Record<string, TplState> = {};
+      for (const sv of subEventValues) {
+        if (prev[sv]) {
+          next[sv] = prev[sv];
+        } else {
+          const s = currentSubEvents.find((x) => x.value === sv);
+          next[sv] = {
+            title: s?.title || DEFAULT_PRESET.title,
+            message: s?.message || DEFAULT_PRESET.message,
+            titleTouched: false,
+            messageTouched: false,
+          };
+        }
+      }
+      return next;
+    });
+    setActiveSubEvent((cur) => (subEventValues.includes(cur) ? cur : subEventValues[0] || ''));
+  }, [isCuratedModule, moduleValue, subEventValues.join('|')]);
+
+  // Mirror the active sub-event into the legacy eventCode/sourceTables state so
+  // the "Send test" action and downstream save reflect the tab currently in view.
+  useEffect(() => {
+    if (!isCuratedModule || !activeSubEventObj) return;
+    setEventCode(activeSubEventObj.event_code);
+    setSourceTables([activeSubEventObj.source_table]);
+  }, [isCuratedModule, activeSubEventObj?.value]);
+
+  // Effective template values shown in the editor + preview.
+  const activeTpl = isCuratedModule ? subEventTemplates[activeSubEvent] : undefined;
+  const effectiveTitle = isCuratedModule ? (activeTpl?.title ?? '') : titleTemplate;
+  const effectiveMessage = isCuratedModule ? (activeTpl?.message ?? '') : messageTemplate;
+  const editingDisabled = isCuratedModule && !activeSubEvent;
+
+  const updateActiveTitle = (val: string) => {
+    if (isCuratedModule) {
+      if (!activeSubEvent) return;
+      setSubEventTemplates((prev) => ({
+        ...prev,
+        [activeSubEvent]: { ...prev[activeSubEvent], title: val, titleTouched: true },
+      }));
+    } else {
+      titleTouched.current = true;
+      setTitleTemplate(val);
+    }
+  };
+  const updateActiveMessage = (val: string) => {
+    if (isCuratedModule) {
+      if (!activeSubEvent) return;
+      setSubEventTemplates((prev) => ({
+        ...prev,
+        [activeSubEvent]: { ...prev[activeSubEvent], message: val, messageTouched: true },
+      }));
+    } else {
+      messageTouched.current = true;
+      setMessageTemplate(val);
+    }
+  };
+  const appendToActiveTitle = (token: string) => updateActiveTitle(effectiveTitle + token);
+  const appendToActiveMessage = (token: string) => updateActiveMessage(effectiveMessage + token);
+  const resetActiveTemplates = () => {
+    if (isCuratedModule && activeSubEventObj) {
+      setSubEventTemplates((prev) => ({
+        ...prev,
+        [activeSubEvent]: {
+          title: activeSubEventObj.title || DEFAULT_PRESET.title,
+          message: activeSubEventObj.message || DEFAULT_PRESET.message,
+          titleTouched: false,
+          messageTouched: false,
+        },
+      }));
+    } else {
+      titleTouched.current = false;
+      messageTouched.current = false;
+      setTitleTemplate(preset.title);
+      setMessageTemplate(preset.message);
+    }
+  };
+  const activeTouched = isCuratedModule
+    ? !!(activeTpl?.titleTouched || activeTpl?.messageTouched)
+    : (titleTouched.current || messageTouched.current);
 
   const { data: pickUsers = [], isLoading: pickUsersLoading } = useQuery({
     queryKey: ['notif-pick-users'],
@@ -369,20 +463,27 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     // Build the list of (event_code, source_table, label) variants to fan out over.
     // Curated modules with multi-select sub-events produce one variant per sub-event;
     // legacy modules produce one variant per selected source_table using the single eventCode.
-    const variants: Array<{ event_code: string; source_table: string; label: string }> =
+    const variants: Array<{ event_code: string; source_table: string; label: string; title: string; message: string }> =
       isCuratedModule
         ? subEventValues
             .map((sv) => currentSubEvents.find((s) => s.value === sv))
             .filter(Boolean)
-            .map((s) => ({
-              event_code: s!.event_code,
-              source_table: s!.source_table,
-              label: s!.label,
-            }))
+            .map((s) => {
+              const tpl = subEventTemplates[s!.value];
+              return {
+                event_code: s!.event_code,
+                source_table: s!.source_table,
+                label: s!.label,
+                title: tpl?.title || s!.title || DEFAULT_PRESET.title,
+                message: tpl?.message || s!.message || DEFAULT_PRESET.message,
+              };
+            })
         : sourceTables.map((mod) => ({
             event_code: eventCode,
             source_table: mod,
             label: SOURCE_TABLES.find((t) => t.value === mod)?.label || mod,
+            title: titleTemplate,
+            message: messageTemplate,
           }));
 
     if (variants.length === 0) {
@@ -401,8 +502,6 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         receiver_type: receiverType,
         receiver_role: receiverType === 'role' ? receiverRole : null,
         notification_channel,
-        title_template: titleTemplate,
-        message_template: messageTemplate,
         timezone,
         updated_at: new Date().toISOString(),
       };
@@ -418,6 +517,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           ...commonPayload,
           event_code: v.event_code,
           source_table: v.source_table,
+          title_template: v.title,
+          message_template: v.message,
           receiver_user_id: receiverType === 'specific_user' ? (receiverUserIds[0] || null) : null,
           name: name || `When ${v.label} → notify ${receiverLabel}`,
         };
@@ -436,6 +537,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               ...commonPayload,
               event_code: v.event_code,
               source_table: v.source_table,
+              title_template: v.title,
+              message_template: v.message,
               receiver_user_id: uid,
               name: name
                 ? multi
@@ -489,8 +592,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
 
   const tzNow = useMemo(() => formatInTz(timezone), [timezone]);
   const sampleCtx: Record<string, string> = { ...preset.sample, timestamp: tzNow.timestampStr, datetime: tzNow.timestampStr, time_24: tzNow.time24Str, date: tzNow.dateStr, time: tzNow.timeStr };
-  const previewTitle = renderTemplate(titleTemplate, sampleCtx);
-  const previewMessage = renderTemplate(messageTemplate, sampleCtx);
+  const previewTitle = renderTemplate(effectiveTitle, sampleCtx);
+  const previewMessage = renderTemplate(effectiveMessage, sampleCtx);
 
   // Reusable pill classnames for the inline sentence-builder selects.
   const pillTrigger =
@@ -760,92 +863,150 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               </p>
             </div>
 
+            {/* Sub-event tabs — one per selected "happens on" event, each with its own Title/Message */}
+            {isCuratedModule && subEventValues.length > 0 && (
+              <div className="border-b border-sky-100">
+                <div className="flex flex-wrap items-end gap-1 -mb-px">
+                  {subEventValues.map((sv) => {
+                    const s = currentSubEvents.find((x) => x.value === sv);
+                    const label = s?.label || sv;
+                    const active = activeSubEvent === sv;
+                    const edited = subEventTemplates[sv]?.titleTouched || subEventTemplates[sv]?.messageTouched;
+                    return (
+                      <button
+                        key={sv}
+                        type="button"
+                        onClick={() => setActiveSubEvent(sv)}
+                        className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+                          active
+                            ? 'border-sky-500 text-slate-900'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {label}
+                        {edited && <span className="w-1.5 h-1.5 rounded-full bg-sky-400" title="Edited" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-2">
+                  Each sub-event has its own Title and Message. Switch tabs to configure each one — one rule is created per sub-event on save.
+                </p>
+              </div>
+            )}
+
             {/* Module-aware banner */}
             <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-[12px] text-slate-700 flex items-start gap-2">
               <Info size={13} className="mt-0.5 flex-shrink-0 text-slate-500" />
               {previewModule ? (
                 <span>
-                  Showing suggested defaults for <span className="font-semibold">{previewModuleLabel}</span>.
+                  {isCuratedModule && activeSubEventObj ? (
+                    <>Editing <span className="font-semibold">{activeSubEventObj.label}</span> — defaults tuned for <span className="font-semibold">{previewModuleLabel}</span>. </>
+                  ) : (
+                    <>Showing suggested defaults for <span className="font-semibold">{previewModuleLabel}</span>. </>
+                  )}
                   Anything in <code className="px-1 py-0.5 rounded bg-white border border-sky-200 text-slate-800">{'{curly}'}</code> is replaced with real data at send time — click a token chip below or type your own text.
                 </span>
               ) : (
                 <span>Pick a module above to load recommended Title/Message defaults for that record type.</span>
               )}
-              {(titleTouched.current || messageTouched.current) && previewModule && (
+              {activeTouched && previewModule && (
                 <button
                   className="ml-auto text-slate-700 font-medium hover:underline flex-shrink-0"
-                  onClick={() => {
-                    titleTouched.current = false;
-                    messageTouched.current = false;
-                    setTitleTemplate(preset.title);
-                    setMessageTemplate(preset.message);
-                  }}
+                  onClick={resetActiveTemplates}
                 >
                   Reset
                 </button>
               )}
             </div>
 
-            {/* Title */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-slate-700">Title</Label>
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Headline shown to recipient</span>
+            {editingDisabled ? (
+              <div className="rounded-lg border border-dashed border-sky-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                Pick at least one sub-event above to configure its Title and Message.
               </div>
-              <Input
-                value={titleTemplate}
-                onChange={(e) => { titleTouched.current = true; setTitleTemplate(e.target.value); }}
-                className="font-medium text-slate-900 focus-visible:ring-sky-400/30 focus-visible:border-sky-500"
-              />
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
-                {preset.tokens.map((t) => (
-                  <button
-                    key={`t-${t}`}
-                    type="button"
-                    onClick={() => insertToken(t, 'title')}
-                    className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
-                  >
-                    {t}
-                  </button>
-                ))}
-                <TimestampPicker onPick={(tok) => insertToken(tok, 'title')} />
-              </div>
-            </div>
+            ) : (
+              <>
+                {/* Title */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-slate-700">
+                      Title
+                      {isCuratedModule && activeSubEventObj && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wider text-sky-600 font-bold">
+                          {activeSubEventObj.label}
+                        </span>
+                      )}
+                    </Label>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Headline shown to recipient</span>
+                  </div>
+                  <Input
+                    value={effectiveTitle}
+                    onChange={(e) => updateActiveTitle(e.target.value)}
+                    className="font-medium text-slate-900 focus-visible:ring-sky-400/30 focus-visible:border-sky-500"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
+                    {preset.tokens.map((t) => (
+                      <button
+                        key={`t-${t}`}
+                        type="button"
+                        onClick={() => appendToActiveTitle(t)}
+                        className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
+                      >
+                        {t}
+                      </button>
+                    ))}
+                    <TimestampPicker onPick={(tok) => appendToActiveTitle(tok)} />
+                  </div>
+                </div>
 
-            {/* Message */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-slate-700">Message</Label>
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Body of the notification</span>
-              </div>
-              <Textarea
-                value={messageTemplate}
-                onChange={(e) => { messageTouched.current = true; setMessageTemplate(e.target.value); }}
-                rows={4}
-                className="resize-none leading-relaxed focus-visible:ring-sky-400/30 focus-visible:border-sky-500"
-              />
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
-                {preset.tokens.map((t) => (
-                  <button
-                    key={`m-${t}`}
-                    type="button"
-                    onClick={() => insertToken(t, 'message')}
-                    className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
-                  >
-                    {t}
-                  </button>
-                ))}
-                <TimestampPicker onPick={(tok) => insertToken(tok, 'message')} />
-              </div>
-            </div>
+                {/* Message */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-slate-700">
+                      Message
+                      {isCuratedModule && activeSubEventObj && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wider text-sky-600 font-bold">
+                          {activeSubEventObj.label}
+                        </span>
+                      )}
+                    </Label>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Body of the notification</span>
+                  </div>
+                  <Textarea
+                    value={effectiveMessage}
+                    onChange={(e) => updateActiveMessage(e.target.value)}
+                    rows={4}
+                    className="resize-none leading-relaxed focus-visible:ring-sky-400/30 focus-visible:border-sky-500"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
+                    {preset.tokens.map((t) => (
+                      <button
+                        key={`m-${t}`}
+                        type="button"
+                        onClick={() => appendToActiveMessage(t)}
+                        className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
+                      >
+                        {t}
+                      </button>
+                    ))}
+                    <TimestampPicker onPick={(tok) => appendToActiveMessage(tok)} />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* RIGHT — live preview */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Preview</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Live Preview
+                {isCuratedModule && activeSubEventObj && (
+                  <span className="ml-2 text-sky-600">· {activeSubEventObj.label}</span>
+                )}
+              </span>
               <span className="text-[10px] bg-sky-100 px-1.5 py-0.5 rounded text-slate-500 uppercase">In-app toast</span>
             </div>
             <div className="relative bg-sky-50/50 rounded-2xl p-6 border border-sky-100 flex items-center justify-center min-h-[240px]">
@@ -895,13 +1056,14 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
             disabled={saving}
             className="bg-sky-500 hover:bg-sky-600 text-white shadow-sm shadow-sky-200/60"
           >
-            {saving
-              ? 'Saving…'
-              : isEdit
-                ? 'Update rule'
-                : sourceTables.length > 1
-                  ? `Create ${sourceTables.length} rules`
-                  : 'Create rule'}
+            {(() => {
+              if (saving) return 'Saving…';
+              if (isEdit) return 'Update rule';
+              const variantCount = isCuratedModule ? subEventValues.length : sourceTables.length;
+              const userCount = receiverType === 'specific_user' ? Math.max(receiverUserIds.length, 1) : 1;
+              const total = variantCount * userCount;
+              return total > 1 ? `Create ${total} rules` : 'Create rule';
+            })()}
           </Button>
         </div>
       </div>
