@@ -291,12 +291,17 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [moduleValue, setModuleValue] = useState(() => inferInitialModule(rule));
-  const [subEventValue, setSubEventValue] = useState(() => inferInitialSubEvent(rule, inferInitialModule(rule)));
+  const [subEventValues, setSubEventValues] = useState<string[]>(() => {
+    const v = inferInitialSubEvent(rule, inferInitialModule(rule));
+    return v ? [v] : [];
+  });
 
   const isEdit = !!rule;
   const isCuratedModule = !!MODULE_SUB_EVENTS[moduleValue];
   const currentSubEvents = MODULE_SUB_EVENTS[moduleValue] || [];
-  const currentSubEvent = currentSubEvents.find((s) => s.value === subEventValue);
+  // First selected sub-event drives template defaults + single-value preview.
+  const primarySubEventValue = subEventValues[0] || '';
+  const currentSubEvent = currentSubEvents.find((s) => s.value === primarySubEventValue);
   const previewModule = isCuratedModule
     ? (currentSubEvent?.source_table || moduleValue)
     : sourceTables[0] || '';
@@ -305,6 +310,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     || MODULE_OPTIONS.find((m) => m.value === previewModule)?.label;
 
   // When user picks a curated sub-event, sync eventCode + sourceTables and default templates.
+  // With multi-select we only auto-fill templates from the FIRST sub-event; save fans out per sub-event.
   useEffect(() => {
     if (!isCuratedModule || !currentSubEvent) return;
     setEventCode(currentSubEvent.event_code);
