@@ -559,6 +559,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                     {t}
                   </button>
                 ))}
+                <TimestampPicker onPick={(tok) => insertToken(tok, 'title')} />
               </div>
             </div>
 
