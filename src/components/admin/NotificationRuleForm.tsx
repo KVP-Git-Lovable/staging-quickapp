@@ -366,8 +366,27 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         : `${sourceTables.length} modules`;
 
   const handleSave = async () => {
-    if (!eventCode || sourceTables.length === 0) {
-      toast.error('Please pick an event and at least one module');
+    // Build the list of (event_code, source_table, label) variants to fan out over.
+    // Curated modules with multi-select sub-events produce one variant per sub-event;
+    // legacy modules produce one variant per selected source_table using the single eventCode.
+    const variants: Array<{ event_code: string; source_table: string; label: string }> =
+      isCuratedModule
+        ? subEventValues
+            .map((sv) => currentSubEvents.find((s) => s.value === sv))
+            .filter(Boolean)
+            .map((s) => ({
+              event_code: s!.event_code,
+              source_table: s!.source_table,
+              label: s!.label,
+            }))
+        : sourceTables.map((mod) => ({
+            event_code: eventCode,
+            source_table: mod,
+            label: SOURCE_TABLES.find((t) => t.value === mod)?.label || mod,
+          }));
+
+    if (variants.length === 0) {
+      toast.error(isCuratedModule ? 'Please pick at least one sub-event' : 'Please pick an event and at least one module');
       return;
     }
     if (receiverType === 'specific_user' && receiverUserIds.length === 0) {
@@ -376,11 +395,9 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
     setSaving(true);
     try {
-      const eventLabel = eventTypes.find((e) => e.event_code === eventCode)?.label || eventCode;
       const receiverLabel = RECEIVER_OPTIONS.find((r) => r.value === receiverType)?.label || receiverType;
 
       const commonPayload = {
-        event_code: eventCode,
         receiver_type: receiverType,
         receiver_role: receiverType === 'role' ? receiverRole : null,
         notification_channel,
@@ -395,33 +412,36 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         receiverType === 'specific_user' && receiverUserIds.length > 0 ? receiverUserIds : [null];
 
       if (isEdit && rule) {
-        // Edit only updates the first user (keeps behaviour predictable).
+        // Edit only updates the first variant + first user (keeps behaviour predictable).
+        const v = variants[0];
         const payload = {
           ...commonPayload,
+          event_code: v.event_code,
+          source_table: v.source_table,
           receiver_user_id: receiverType === 'specific_user' ? (receiverUserIds[0] || null) : null,
-          name: name || `When ${eventLabel} → notify ${receiverLabel}`,
-          source_table: sourceTables[0],
+          name: name || `When ${v.label} → notify ${receiverLabel}`,
         };
         const { error } = await supabase.from('notification_rules').update(payload).eq('id', rule.id);
         if (error) throw error;
         toast.success('Rule updated');
       } else {
-        const rows = sourceTables.flatMap((mod) =>
+        const rows = variants.flatMap((v) =>
           targetUserIds.map((uid) => {
-            const modLabel = SOURCE_TABLES.find((t) => t.value === mod)?.label || mod;
             const userLabel =
               uid && receiverType === 'specific_user'
                 ? pickUsers.find((u) => u.id === uid)?.name || 'user'
                 : receiverLabel;
+            const multi = variants.length > 1 || targetUserIds.length > 1;
             return {
               ...commonPayload,
+              event_code: v.event_code,
+              source_table: v.source_table,
               receiver_user_id: uid,
               name: name
-                ? sourceTables.length > 1 || targetUserIds.length > 1
-                  ? `${name} — ${modLabel}${uid ? ` — ${userLabel}` : ''}`
+                ? multi
+                  ? `${name} — ${v.label}${uid ? ` — ${userLabel}` : ''}`
                   : name
-                : `When ${eventLabel} on ${modLabel} → notify ${uid ? userLabel : receiverLabel}`,
-              source_table: mod,
+                : `When ${v.label} → notify ${uid ? userLabel : receiverLabel}`,
               created_by: userId,
             };
           }),
