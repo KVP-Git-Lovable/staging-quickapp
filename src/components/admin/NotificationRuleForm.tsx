@@ -310,7 +310,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     'h-8 min-w-[160px] w-auto inline-flex bg-white border-slate-200 rounded-lg text-sm font-semibold text-indigo-600 hover:border-indigo-300 focus:ring-2 focus:ring-indigo-500/20';
 
   return (
-    <div className="w-full bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden flex flex-col">
+    <div className="w-full bg-white rounded-2xl shadow-lg shadow-slate-200/40 border border-slate-100 overflow-hidden flex flex-col">
       {/* Header */}
       <div className="px-6 md:px-8 py-5 border-b border-slate-100 flex items-start justify-between bg-white">
         <div>
@@ -328,7 +328,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         {/* Logic Builder */}
         <section className="space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic Builder</div>
-          <div className="p-4 md:p-5 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
+          <div className="p-4 md:p-5 bg-indigo-50/40 rounded-xl border border-indigo-100/70 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
             <span className="font-medium">When</span>
             <Select value={eventCode} onValueChange={setEventCode}>
               <SelectTrigger className={pillTrigger}>
@@ -473,7 +473,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Auto-generated from the sentence above"
-                className="bg-slate-50 border-slate-200 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                className="bg-white border-slate-200 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-400"
               />
               <p className="text-[11px] text-slate-500 flex items-start gap-1">
                 <Info size={11} className="mt-0.5 flex-shrink-0 text-slate-400" />
@@ -567,13 +567,13 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Preview</span>
               <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 uppercase">In-app toast</span>
             </div>
-            <div className="relative bg-slate-100/60 rounded-2xl p-6 border border-slate-200/60 flex items-center justify-center min-h-[240px]">
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
+            <div className="relative bg-slate-50/50 rounded-2xl p-6 border border-slate-100 flex items-center justify-center min-h-[240px]">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.02]">
                 <div className="w-32 h-32 border-4 border-slate-900 rounded-full" />
               </div>
               <div className="relative bg-white shadow-2xl shadow-slate-300/40 border border-slate-100 rounded-xl p-4 w-full max-w-[340px]">
                 <div className="flex gap-3">
-                  <div className="shrink-0 w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center text-white">
+                  <div className="shrink-0 w-10 h-10 bg-indigo-400 rounded-lg flex items-center justify-center text-white">
                     <Bell size={18} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -596,7 +596,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
       </div>
 
       {/* Footer actions */}
-      <div className="px-6 md:px-8 py-5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+      <div className="px-6 md:px-8 py-5 bg-white border-t border-slate-100 flex items-center justify-between">
         <Button variant="ghost" onClick={onClose} className="text-slate-500 hover:text-slate-800">
           Cancel
         </Button>
@@ -612,7 +612,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200/60"
+            className="bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm shadow-indigo-200/60"
           >
             {saving
               ? 'Saving…'
