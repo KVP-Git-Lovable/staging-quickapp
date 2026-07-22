@@ -85,6 +85,101 @@ const CHANNELS = [
   { value: 'email', label: 'Email (coming soon)', disabled: true },
 ];
 
+// Module -> Sub-event tree. Each sub-event maps to (source_table, event_code)
+// + optional default templates. Only fully-wired modules appear here today;
+// other modules fall back to the legacy event picker.
+type SubEvent = {
+  value: string;
+  label: string;
+  source_table: string;
+  event_code: string;
+  title?: string;
+  message?: string;
+};
+
+const MODULE_SUB_EVENTS: Record<string, SubEvent[]> = {
+  attendance: [
+    {
+      value: 'checked_in',
+      label: 'Check-in',
+      source_table: 'attendance',
+      event_code: 'RECORD_CREATED',
+      title: '{user_name} — checked in',
+      message: '{user_name} checked in at {time} on {date}.',
+    },
+    {
+      value: 'checked_out',
+      label: 'Check-out',
+      source_table: 'attendance',
+      event_code: 'RECORD_UPDATED',
+      title: '{user_name} — checked out',
+      message: '{user_name} checked out at {time} on {date}.',
+    },
+    {
+      value: 'leave_applied',
+      label: 'Leave applied',
+      source_table: 'leave_applications',
+      event_code: 'RECORD_CREATED',
+      title: 'Leave request — {user_name}',
+      message: '{user_name} applied for leave on {date}.',
+    },
+    {
+      value: 'regularization_applied',
+      label: 'Regularization applied',
+      source_table: 'regularization_requests',
+      event_code: 'RECORD_CREATED',
+      title: 'Regularization — {user_name}',
+      message: '{user_name} raised a regularization for {date}.',
+    },
+    {
+      value: 'approval_requested',
+      label: 'Approval requested',
+      source_table: 'leave_applications',
+      event_code: 'RECORD_UPDATED',
+      title: 'Approval needed — {user_name}',
+      message: '{user_name} requested approval on {date}.',
+    },
+    {
+      value: 'approval_approved',
+      label: 'Approval approved',
+      source_table: 'leave_applications',
+      event_code: 'RECORD_UPDATED',
+      title: 'Approval granted — {user_name}',
+      message: 'Approval granted for {user_name} on {date}.',
+    },
+  ],
+};
+
+const MODULE_OPTIONS = [
+  { value: 'attendance', label: 'Attendance' },
+  { value: 'orders', label: 'Orders' },
+  { value: 'visits', label: 'Visits' },
+  { value: 'leave_applications', label: 'Leaves' },
+  { value: 'regularization_requests', label: 'Regularization' },
+  { value: 'approval_requests', label: 'Approvals' },
+  { value: 'activity_events', label: 'Activity Events' },
+  { value: 'pm_tasks', label: 'Tasks' },
+  { value: 'retailers', label: 'Retailers' },
+  { value: 'branding_requests', label: 'Branding Requests' },
+];
+
+const inferInitialModule = (rule: NotificationRuleFormProps['rule']): string => {
+  if (!rule) return '';
+  // If source_table maps to a curated module, use that; else fall back to raw source_table.
+  const found = Object.entries(MODULE_SUB_EVENTS).find(([, subs]) =>
+    subs.some((s) => s.source_table === rule.source_table && s.event_code === rule.event_code),
+  );
+  return found ? found[0] : rule.source_table || '';
+};
+
+const inferInitialSubEvent = (rule: NotificationRuleFormProps['rule'], moduleValue: string): string => {
+  if (!rule || !moduleValue) return '';
+  const subs = MODULE_SUB_EVENTS[moduleValue];
+  if (!subs) return '';
+  const match = subs.find((s) => s.source_table === rule.source_table && s.event_code === rule.event_code);
+  return match?.value || '';
+};
+
 type ModulePreset = {
   title: string;
   message: string;
@@ -195,17 +290,28 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const messageTouched = useRef(!!rule?.message_template);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [moduleValue, setModuleValue] = useState(() => inferInitialModule(rule));
+  const [subEventValue, setSubEventValue] = useState(() => inferInitialSubEvent(rule, inferInitialModule(rule)));
 
   const isEdit = !!rule;
-  const previewModule = sourceTables[0] || '';
+  const isCuratedModule = !!MODULE_SUB_EVENTS[moduleValue];
+  const currentSubEvents = MODULE_SUB_EVENTS[moduleValue] || [];
+  const currentSubEvent = currentSubEvents.find((s) => s.value === subEventValue);
+  const previewModule = isCuratedModule
+    ? (currentSubEvent?.source_table || moduleValue)
+    : sourceTables[0] || '';
   const preset = useMemo(() => presetFor(previewModule), [previewModule]);
-  const previewModuleLabel = SOURCE_TABLES.find((t) => t.value === previewModule)?.label;
+  const previewModuleLabel = SOURCE_TABLES.find((t) => t.value === previewModule)?.label
+    || MODULE_OPTIONS.find((m) => m.value === previewModule)?.label;
 
+  // When user picks a curated sub-event, sync eventCode + sourceTables and default templates.
   useEffect(() => {
-    if (!previewModule) return;
-    if (!titleTouched.current) setTitleTemplate(preset.title);
-    if (!messageTouched.current) setMessageTemplate(preset.message);
-  }, [previewModule, preset]);
+    if (!isCuratedModule || !currentSubEvent) return;
+    setEventCode(currentSubEvent.event_code);
+    setSourceTables([currentSubEvent.source_table]);
+    if (!titleTouched.current && currentSubEvent.title) setTitleTemplate(currentSubEvent.title);
+    if (!messageTouched.current && currentSubEvent.message) setMessageTemplate(currentSubEvent.message);
+  }, [isCuratedModule, currentSubEvent?.value]);
 
   const { data: pickUsers = [], isLoading: pickUsersLoading } = useQuery({
     queryKey: ['notif-pick-users'],
@@ -368,69 +474,62 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         <section className="space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic Builder</div>
           <div className="p-4 md:p-5 bg-sky-50/60 rounded-xl border border-sky-200 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
-            <span className="font-medium">When</span>
-            <Select value={eventCode} onValueChange={setEventCode}>
+            <span className="font-medium">Which module</span>
+            <Select
+              value={moduleValue}
+              onValueChange={(v) => {
+                setModuleValue(v);
+                setSubEventValue('');
+                if (!MODULE_SUB_EVENTS[v]) {
+                  // Legacy path: seed sourceTables so downstream save still works.
+                  setSourceTables([v]);
+                } else {
+                  setSourceTables([]);
+                  setEventCode('');
+                }
+              }}
+              disabled={isEdit}
+            >
               <SelectTrigger className={pillTrigger}>
-                <SelectValue placeholder="pick an event" />
+                <SelectValue placeholder="pick a module" />
               </SelectTrigger>
               <SelectContent>
-                {eventTypes.map((et: any) => (
-                  <SelectItem key={et.event_code} value={et.event_code}>{et.label}</SelectItem>
+                {MODULE_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <span className="font-medium">happens on</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 min-w-[180px] justify-between font-semibold text-slate-700 bg-white border-sky-200 rounded-lg hover:border-sky-400"
-                  disabled={isEdit}
-                  title={isEdit ? 'Editing an existing rule — change modules by creating new rules' : ''}
-                >
-                  <span className="truncate">{modulesLabel}</span>
-                  <ChevronDown size={14} className="opacity-60 ml-2" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 p-2">
-                <div className="text-xs text-muted-foreground px-2 pb-2">
-                  Pick one or more modules — one rule per module.
-                </div>
-                <div className="max-h-64 overflow-y-auto space-y-1">
-                  {SOURCE_TABLES.map((t) => {
-                    const checked = sourceTables.includes(t.value);
-                    return (
-                      <label key={t.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
-                        <Checkbox checked={checked} onCheckedChange={() => toggleModule(t.value)} />
-                        <span>{t.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-            {sourceTables.length > 1 && (
-              <div className="w-full flex flex-wrap gap-1 mt-1">
-                {sourceTables.map((mod) => {
-                  const lbl = SOURCE_TABLES.find((t) => t.value === mod)?.label || mod;
-                  const isPreview = mod === previewModule;
-                  return (
-                    <Badge
-                      key={mod}
-                      variant={isPreview ? 'default' : 'outline'}
-                      className={`cursor-pointer gap-1 text-xs ${isPreview ? 'bg-sky-500 hover:bg-sky-600' : ''}`}
-                      onClick={() => setSourceTables((prev) => [mod, ...prev.filter((m) => m !== mod)])}
-                      title="Click to preview this module"
-                    >
-                      {lbl}
-                      <X size={10} className="opacity-70 hover:opacity-100" onClick={(e) => { e.stopPropagation(); toggleModule(mod); }} />
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
+            {isCuratedModule ? (
+              <>
+                <span className="font-medium">happens on</span>
+                <Select value={subEventValue} onValueChange={setSubEventValue}>
+                  <SelectTrigger className={pillTrigger}>
+                    <SelectValue placeholder="pick a sub-event" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentSubEvents.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            ) : moduleValue ? (
+              <>
+                <span className="font-medium">when</span>
+                <Select value={eventCode} onValueChange={setEventCode}>
+                  <SelectTrigger className={pillTrigger}>
+                    <SelectValue placeholder="pick an event" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventTypes.map((et: any) => (
+                      <SelectItem key={et.event_code} value={et.event_code}>{et.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            ) : null}
+
 
             <span className="font-medium">, notify</span>
             <Select value={receiverType} onValueChange={setReceiverType}>
