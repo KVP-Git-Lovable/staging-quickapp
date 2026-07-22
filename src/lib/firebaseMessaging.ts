@@ -77,7 +77,7 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (!token) return null;
 
-    await supabase.from('push_device_tokens').upsert(
+    const { error: tokenError } = await supabase.from('push_device_tokens').upsert(
       {
         user_id: userId,
         token,
@@ -87,6 +87,9 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
       },
       { onConflict: 'token' },
     );
+    if (tokenError) {
+      throw new Error(`Could not save this device for push notifications: ${tokenError.message}`);
+    }
     currentToken = token;
 
     onMessage(messaging, () => {
@@ -96,7 +99,7 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
     return token;
   } catch (e) {
     devError('[Push] web init failed', e);
-    return null;
+    throw e instanceof Error ? e : new Error('Web push registration failed');
   }
 }
 
