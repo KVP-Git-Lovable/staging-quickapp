@@ -295,29 +295,123 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     const v = inferInitialSubEvent(rule, inferInitialModule(rule));
     return v ? [v] : [];
   });
+  // Per-sub-event editable templates (curated modules only). Keyed by sub-event value.
+  type TplState = { title: string; message: string; titleTouched: boolean; messageTouched: boolean };
+  const [subEventTemplates, setSubEventTemplates] = useState<Record<string, TplState>>(() => {
+    const initMod = inferInitialModule(rule);
+    const initSub = inferInitialSubEvent(rule, initMod);
+    if (rule && initSub) {
+      return {
+        [initSub]: {
+          title: rule.title_template || DEFAULT_PRESET.title,
+          message: rule.message_template || DEFAULT_PRESET.message,
+          titleTouched: true,
+          messageTouched: true,
+        },
+      };
+    }
+    return {};
+  });
+  const [activeSubEvent, setActiveSubEvent] = useState<string>(() => {
+    const initMod = inferInitialModule(rule);
+    return inferInitialSubEvent(rule, initMod) || '';
+  });
 
   const isEdit = !!rule;
   const isCuratedModule = !!MODULE_SUB_EVENTS[moduleValue];
   const currentSubEvents = MODULE_SUB_EVENTS[moduleValue] || [];
-  // First selected sub-event drives template defaults + single-value preview.
-  const primarySubEventValue = subEventValues[0] || '';
-  const currentSubEvent = currentSubEvents.find((s) => s.value === primarySubEventValue);
+  const activeSubEventObj = currentSubEvents.find((s) => s.value === activeSubEvent);
   const previewModule = isCuratedModule
-    ? (currentSubEvent?.source_table || moduleValue)
+    ? (activeSubEventObj?.source_table || moduleValue)
     : sourceTables[0] || '';
   const preset = useMemo(() => presetFor(previewModule), [previewModule]);
   const previewModuleLabel = SOURCE_TABLES.find((t) => t.value === previewModule)?.label
     || MODULE_OPTIONS.find((m) => m.value === previewModule)?.label;
 
-  // When user picks a curated sub-event, sync eventCode + sourceTables and default templates.
-  // With multi-select we only auto-fill templates from the FIRST sub-event; save fans out per sub-event.
+  // Keep subEventTemplates in sync with the selected sub-events; seed defaults on add, prune on remove.
   useEffect(() => {
-    if (!isCuratedModule || !currentSubEvent) return;
-    setEventCode(currentSubEvent.event_code);
-    setSourceTables([currentSubEvent.source_table]);
-    if (!titleTouched.current && currentSubEvent.title) setTitleTemplate(currentSubEvent.title);
-    if (!messageTouched.current && currentSubEvent.message) setMessageTemplate(currentSubEvent.message);
-  }, [isCuratedModule, currentSubEvent?.value]);
+    if (!isCuratedModule) return;
+    setSubEventTemplates((prev) => {
+      const next: Record<string, TplState> = {};
+      for (const sv of subEventValues) {
+        if (prev[sv]) {
+          next[sv] = prev[sv];
+        } else {
+          const s = currentSubEvents.find((x) => x.value === sv);
+          next[sv] = {
+            title: s?.title || DEFAULT_PRESET.title,
+            message: s?.message || DEFAULT_PRESET.message,
+            titleTouched: false,
+            messageTouched: false,
+          };
+        }
+      }
+      return next;
+    });
+    setActiveSubEvent((cur) => (subEventValues.includes(cur) ? cur : subEventValues[0] || ''));
+  }, [isCuratedModule, moduleValue, subEventValues.join('|')]);
+
+  // Mirror the active sub-event into the legacy eventCode/sourceTables state so
+  // the "Send test" action and downstream save reflect the tab currently in view.
+  useEffect(() => {
+    if (!isCuratedModule || !activeSubEventObj) return;
+    setEventCode(activeSubEventObj.event_code);
+    setSourceTables([activeSubEventObj.source_table]);
+  }, [isCuratedModule, activeSubEventObj?.value]);
+
+  // Effective template values shown in the editor + preview.
+  const activeTpl = isCuratedModule ? subEventTemplates[activeSubEvent] : undefined;
+  const effectiveTitle = isCuratedModule ? (activeTpl?.title ?? '') : titleTemplate;
+  const effectiveMessage = isCuratedModule ? (activeTpl?.message ?? '') : messageTemplate;
+  const editingDisabled = isCuratedModule && !activeSubEvent;
+
+  const updateActiveTitle = (val: string) => {
+    if (isCuratedModule) {
+      if (!activeSubEvent) return;
+      setSubEventTemplates((prev) => ({
+        ...prev,
+        [activeSubEvent]: { ...prev[activeSubEvent], title: val, titleTouched: true },
+      }));
+    } else {
+      titleTouched.current = true;
+      setTitleTemplate(val);
+    }
+  };
+  const updateActiveMessage = (val: string) => {
+    if (isCuratedModule) {
+      if (!activeSubEvent) return;
+      setSubEventTemplates((prev) => ({
+        ...prev,
+        [activeSubEvent]: { ...prev[activeSubEvent], message: val, messageTouched: true },
+      }));
+    } else {
+      messageTouched.current = true;
+      setMessageTemplate(val);
+    }
+  };
+  const appendToActiveTitle = (token: string) => updateActiveTitle(effectiveTitle + token);
+  const appendToActiveMessage = (token: string) => updateActiveMessage(effectiveMessage + token);
+  const resetActiveTemplates = () => {
+    if (isCuratedModule && activeSubEventObj) {
+      setSubEventTemplates((prev) => ({
+        ...prev,
+        [activeSubEvent]: {
+          title: activeSubEventObj.title || DEFAULT_PRESET.title,
+          message: activeSubEventObj.message || DEFAULT_PRESET.message,
+          titleTouched: false,
+          messageTouched: false,
+        },
+      }));
+    } else {
+      titleTouched.current = false;
+      messageTouched.current = false;
+      setTitleTemplate(preset.title);
+      setMessageTemplate(preset.message);
+    }
+  };
+  const activeTouched = isCuratedModule
+    ? !!(activeTpl?.titleTouched || activeTpl?.messageTouched)
+    : (titleTouched.current || messageTouched.current);
 
   const { data: pickUsers = [], isLoading: pickUsersLoading } = useQuery({
     queryKey: ['notif-pick-users'],
