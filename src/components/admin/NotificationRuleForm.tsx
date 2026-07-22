@@ -344,7 +344,27 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
   };
 
-  const sampleCtx = { timestamp: timestampStr, datetime: timestampStr, time_24: time24Str, date: dateStr, time: timeStr, ...preset.sample };
+  const sampleCtx = {
+    timestamp: timestampStr,
+    datetime: datetimeStr,
+    datetime_iso: datetimeIsoStr,
+    datetime_long: datetimeLongStr,
+    time: timeStr,
+    time_24: time24Str,
+    time_seconds: timeSecondsStr,
+    time_hm: timeHmStr,
+    date: dateStr,
+    date_long: dateLongStr,
+    date_numeric: dateNumericStr,
+    date_iso: dateIsoStr,
+    weekday: weekdayStr,
+    weekday_short: weekdayShortStr,
+    month: monthStr,
+    month_short: monthShortStr,
+    year: yearStr,
+    relative_time: relativeTimeStr,
+    ...preset.sample,
+  };
   const previewTitle = renderTemplate(titleTemplate, sampleCtx);
   const previewMessage = renderTemplate(messageTemplate, sampleCtx);
 
