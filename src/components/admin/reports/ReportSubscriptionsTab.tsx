@@ -794,14 +794,22 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Scope</Label>
-                <Select value={scope} onValueChange={setScope}>
+                <Label className="flex items-center gap-1.5">
+                  Scope
+                  {recipientMode === 'all_managers' && <Lock size={12} className="text-muted-foreground" />}
+                </Label>
+                <Select value={scope} onValueChange={setScope} disabled={recipientMode === 'all_managers'}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="shared">Shared — one report for everyone</SelectItem>
                     <SelectItem value="per_recipient">Per recipient — filtered by their scope</SelectItem>
                   </SelectContent>
                 </Select>
+                {recipientMode === 'all_managers' && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Per recipient is required so each manager sees only their own team.
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3 md:col-span-2 pt-2">
                 <Switch checked={pushToPhone} onCheckedChange={setPushToPhone} id="push" />
@@ -809,24 +817,67 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               </div>
             </div>
 
+            {/* Recipients mode selector */}
             <div className="space-y-2">
-              <Label>Recipients * ({recipientIds.length} selected)</Label>
-              <div className="max-h-56 overflow-y-auto border rounded-md p-2 space-y-1">
-                {users.map(u => {
-                  const on = recipientIds.includes(u.id);
-                  return (
-                    <label key={u.id} className="flex items-center gap-2 text-sm py-1 hover:bg-muted/40 rounded px-1 cursor-pointer">
-                      <Checkbox
-                        checked={on}
-                        onCheckedChange={(c) => setRecipientIds(prev => c ? [...prev, u.id] : prev.filter(x => x !== u.id))}
-                      />
-                      <span className="flex-1">{u.full_name || u.username || u.email || u.id}</span>
-                      {u.email && <span className="text-xs text-muted-foreground">{u.email}</span>}
-                    </label>
-                  );
-                })}
+              <Label>Recipients mode</Label>
+              <div className="inline-flex rounded-md border bg-muted/30 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setRecipientMode('named_users')}
+                  className={cn(
+                    'px-3 py-1.5 text-xs rounded transition-colors',
+                    recipientMode === 'named_users' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Specific users
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientMode('all_managers')}
+                  className={cn(
+                    'px-3 py-1.5 text-xs rounded transition-colors inline-flex items-center gap-1.5',
+                    recipientMode === 'all_managers' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Network size={12} /> All managers
+                </button>
               </div>
             </div>
+
+            {recipientMode === 'named_users' ? (
+              <div className="space-y-2">
+                <Label>Recipients * ({recipientIds.length} selected)</Label>
+                <div className="max-h-56 overflow-y-auto border rounded-md p-2 space-y-1">
+                  {users.map(u => {
+                    const on = recipientIds.includes(u.id);
+                    return (
+                      <label key={u.id} className="flex items-center gap-2 text-sm py-1 hover:bg-muted/40 rounded px-1 cursor-pointer">
+                        <Checkbox
+                          checked={on}
+                          onCheckedChange={(c) => setRecipientIds(prev => c ? [...prev, u.id] : prev.filter(x => x !== u.id))}
+                        />
+                        <span className="flex-1">{u.full_name || u.username || u.email || u.id}</span>
+                        {u.email && <span className="text-xs text-muted-foreground">{u.email}</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-md border border-indigo-100 bg-indigo-50/40 p-4 flex items-start gap-3">
+                <Network size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium">
+                    Resolves to {managerList.length} manager{managerList.length === 1 ? '' : 's'}
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">Recalculated at every run — hierarchy changes are picked up automatically.</p>
+                  <p className="text-[12px] text-muted-foreground">Each manager receives one report covering their own reporting tree.</p>
+                  {managerList.length === 0 && (
+                    <p className="text-[12px] text-amber-600 mt-1">No managers found — no one will receive this report until an employee is assigned a manager.</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <DialogFooter>
               <Button variant="ghost" onClick={() => setStep(1)}>Back</Button>
