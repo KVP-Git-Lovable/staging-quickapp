@@ -133,21 +133,27 @@ Deno.serve(async (req) => {
     const errors: string[] = [];
     await Promise.all(
       tokens.map(async (t) => {
-        const message = {
+        // Data-only payload for web so the service worker displays exactly
+        // one notification (a top-level `notification` block would make the
+        // browser auto-display AND the SW's onBackgroundMessage fire -> dup).
+        const isWebToken = (t as any).platform ? String((t as any).platform).toLowerCase() === 'web' : true;
+        const message: any = {
           message: {
             token: t.token,
-            notification: { title, body: messageBody },
-            data: stringData,
+            data: { ...stringData, title, body: messageBody, icon: '/icons/app-icon.png', route },
             android: {
               priority: 'HIGH',
               notification: { channel_id: 'default', click_action: 'FLUTTER_NOTIFICATION_CLICK' },
             },
             webpush: {
-              notification: { title, body: messageBody, icon: '/icons/app-icon.png' },
               fcm_options: { link: route },
             },
           },
         };
+        if (!isWebToken) {
+          // Native platforms still use the notification block for OS display.
+          message.message.notification = { title, body: messageBody };
+        }
         const r = await fetch(url, {
           method: 'POST',
           headers: {
