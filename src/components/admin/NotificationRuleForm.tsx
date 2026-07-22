@@ -178,7 +178,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
       if (error) throw error;
       return (data || []) as Array<{ id: string; name: string; role: string | null }>;
     },
-    enabled: receiverType === 'specific_user',
+    enabled: true,
   });
 
   const { data: eventTypes = [] } = useQuery({
@@ -449,6 +449,15 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
             </Select>
             <span>.</span>
           </div>
+
+          {/* Who will receive this — live resolver */}
+          <RecipientPreview
+            receiverType={receiverType}
+            receiverRole={receiverRole}
+            receiverUserId={receiverUserId}
+            pickUsers={pickUsers}
+            currentUserId={userId}
+          />
         </section>
 
         {/* Two-column: form (left) + live preview (right) */}
@@ -618,3 +627,97 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     </div>
   );
 }
+
+// ============================================================
+// RecipientPreview — resolves who will actually receive the notification
+// ============================================================
+interface RecipientPreviewProps {
+  receiverType: string;
+  receiverRole: string;
+  receiverUserId: string;
+  pickUsers: Array<{ id: string; name: string; role: string | null }>;
+  currentUserId: string;
+}
+
+function RecipientPreview({
+  receiverType,
+  receiverRole,
+  receiverUserId,
+  pickUsers,
+  currentUserId,
+}: RecipientPreviewProps) {
+  const actorDependent = ['employee', 'manager', 'hierarchy_up'].includes(receiverType);
+  const [sampleActor, setSampleActor] = useState<string>(currentUserId);
+
+  useEffect(() => {
+    if (!sampleActor && currentUserId) setSampleActor(currentUserId);
+  }, [currentUserId, sampleActor]);
+
+  const { data, isLoading } = useQuery({
+    queryKey: [
+      'notif-preview-recipients',
+      receiverType,
+      receiverRole,
+      receiverUserId,
+      actorDependent ? sampleActor : null,
+    ],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('notif_preview_recipients' as any, {
+        p_receiver_type: receiverType,
+        p_receiver_role: receiverRole || null,
+        p_receiver_user_id: receiverUserId || null,
+        p_sample_actor: actorDependent ? sampleActor || null : null,
+      });
+      if (error) throw error;
+      return (data || []) as Array<{ id: string; name: string; role: string | null }>;
+    },
+    enabled: !!receiverType && (!actorDependent || !!sampleActor),
+  });
+
+  const recipients = data || [];
+  const count = recipients.length;
+  const shown = recipients.slice(0, 3).map((r) => r.name).join(', ');
+  const extra = count > 3 ? `, +${count - 3} more` : '';
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-slate-600 font-medium">Who will receive this:</span>
+
+      {actorDependent && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-slate-500">preview as</span>
+          <Select value={sampleActor} onValueChange={setSampleActor}>
+            <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs bg-white border-indigo-200">
+              <SelectValue placeholder="pick a rep" />
+            </SelectTrigger>
+            <SelectContent>
+              {pickUsers.map((u) => (
+                <SelectItem key={u.id} value={u.id} className="text-xs">
+                  {u.name}{u.role ? ` · ${u.role}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {isLoading ? (
+        <span className="text-xs text-slate-400">resolving…</span>
+      ) : count === 0 ? (
+        <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">
+          No one matches yet — pick a role or person.
+        </span>
+      ) : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge className="bg-indigo-600 hover:bg-indigo-700 text-xs">
+            {count} {count === 1 ? 'person' : 'people'}
+          </Badge>
+          <span className="text-slate-700 text-xs">
+            {shown}{extra}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+

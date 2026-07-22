@@ -28836,6 +28836,19 @@ export type Database = {
           role: string
         }[]
       }
+      notif_preview_recipients: {
+        Args: {
+          p_receiver_role?: string
+          p_receiver_type: string
+          p_receiver_user_id?: string
+          p_sample_actor?: string
+        }
+        Returns: {
+          id: string
+          name: string
+          role: string
+        }[]
+      }
       notify_admins: {
         Args: { p_message: string; p_title: string; p_type: string }
         Returns: undefined
