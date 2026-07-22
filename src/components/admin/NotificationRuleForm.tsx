@@ -612,7 +612,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200/60"
+            className="bg-indigo-500 hover:bg-indigo-600 text-white shadow-sm shadow-indigo-200/60"
           >
             {saving
               ? 'Saving…'
