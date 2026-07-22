@@ -752,3 +752,40 @@ function RecipientPreview({
   );
 }
 
+
+// ============================================================
+// TimestampPicker — chip that inserts a chosen timestamp token
+// ============================================================
+function TimestampPicker({ onPick }: { onPick: (token: string) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors inline-flex items-center gap-1"
+          title="Insert a timestamp in your preferred format"
+        >
+          🕒 Timestamp <ChevronDown size={10} className="opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-2 pt-1 pb-1.5">
+          Pick a format (IST)
+        </div>
+        {TIMESTAMP_FORMATS.map((f) => (
+          <button
+            key={f.token}
+            type="button"
+            onClick={() => onPick(f.token)}
+            className="w-full text-left px-2 py-1.5 rounded hover:bg-sky-50 flex flex-col"
+          >
+            <span className="text-sm font-medium text-slate-800">{f.label}</span>
+            <span className="text-[11px] text-slate-500">
+              <code className="text-slate-600">{f.token}</code> — {f.hint}
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
