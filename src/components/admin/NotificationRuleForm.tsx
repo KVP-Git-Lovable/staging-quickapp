@@ -473,7 +473,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Auto-generated from the sentence above"
-                className="bg-slate-50 border-slate-200 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-500"
+                className="bg-white border-slate-200 focus-visible:ring-indigo-500/20 focus-visible:border-indigo-400"
               />
               <p className="text-[11px] text-slate-500 flex items-start gap-1">
                 <Info size={11} className="mt-0.5 flex-shrink-0 text-slate-400" />
