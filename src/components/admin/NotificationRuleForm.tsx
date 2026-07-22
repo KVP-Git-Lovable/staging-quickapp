@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { X, Send, Bell } from 'lucide-react';
+import { X, Send, Bell, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -58,35 +60,130 @@ const CHANNELS = [
   { value: 'email', label: 'Email (coming soon)', disabled: true },
 ];
 
-const TOKENS = ['{user_name}', '{date}', '{time}', '{beat}', '{record_name}'];
-
-const SAMPLE_CTX: Record<string, string> = {
-  user_name: 'Ajay Kumar',
-  date: new Date().toLocaleDateString(),
-  time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-  beat: 'Beat 3 – MG Road',
-  record_name: 'Order #1284',
-  module_name: 'orders',
-  points: '50',
+/**
+ * Module-specific defaults: title template, message template, sample tokens
+ * for the preview, and the token chips shown to the admin. Each module
+ * documents its own record_name shape so the preview reflects what the
+ * recipient will actually see.
+ */
+type ModulePreset = {
+  title: string;
+  message: string;
+  tokens: string[];
+  sample: Record<string, string>;
 };
 
-const renderTemplate = (tpl: string, ctx: Record<string, string> = SAMPLE_CTX) =>
+const now = new Date();
+const dateStr = now.toLocaleDateString();
+const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+const MODULE_PRESETS: Record<string, ModulePreset> = {
+  orders: {
+    title: 'New order — {record_name}',
+    message: '{user_name} placed {record_name} worth {amount} for {retailer} on {date}.',
+    tokens: ['{user_name}', '{record_name}', '{retailer}', '{amount}', '{date}', '{time}'],
+    sample: { user_name: 'Ajay Kumar', record_name: 'Order #1284', retailer: 'Sri Krishna Stores', amount: '₹4,250', date: dateStr, time: timeStr },
+  },
+  attendance: {
+    title: '{user_name} — attendance {status}',
+    message: '{user_name} marked attendance as {status} at {time} on {date}. Beat: {beat}.',
+    tokens: ['{user_name}', '{status}', '{beat}', '{date}', '{time}'],
+    sample: { user_name: 'Ajay Kumar', status: 'Present', beat: 'Beat 3 — MG Road', date: dateStr, time: timeStr },
+  },
+  leave_applications: {
+    title: 'Leave request — {user_name}',
+    message: '{user_name} requested {leave_type} leave from {from_date} to {to_date} ({days} day(s)).',
+    tokens: ['{user_name}', '{leave_type}', '{from_date}', '{to_date}', '{days}'],
+    sample: { user_name: 'Ajay Kumar', leave_type: 'Casual', from_date: dateStr, to_date: dateStr, days: '1' },
+  },
+  regularization_requests: {
+    title: 'Regularization — {user_name}',
+    message: '{user_name} raised a regularization for {date}. Reason: {reason}.',
+    tokens: ['{user_name}', '{date}', '{reason}'],
+    sample: { user_name: 'Ajay Kumar', date: dateStr, reason: 'Missed check-in' },
+  },
+  approval_requests: {
+    title: 'Approval needed — {record_name}',
+    message: '{user_name} raised {record_name} needing your approval on {date}.',
+    tokens: ['{user_name}', '{record_name}', '{date}'],
+    sample: { user_name: 'Ajay Kumar', record_name: 'Discount request', date: dateStr },
+  },
+  visits: {
+    title: 'Visit logged — {retailer}',
+    message: '{user_name} visited {retailer} on {beat} at {time}.',
+    tokens: ['{user_name}', '{retailer}', '{beat}', '{date}', '{time}'],
+    sample: { user_name: 'Ajay Kumar', retailer: 'Sri Krishna Stores', beat: 'Beat 3 — MG Road', date: dateStr, time: timeStr },
+  },
+  activity_events: {
+    title: 'Activity — {record_name}',
+    message: '{user_name} completed {record_name} on {date} at {time}.',
+    tokens: ['{user_name}', '{record_name}', '{date}', '{time}'],
+    sample: { user_name: 'Ajay Kumar', record_name: 'Merchandising Check', date: dateStr, time: timeStr },
+  },
+  pm_tasks: {
+    title: 'Task — {record_name}',
+    message: '{user_name} was assigned {record_name}, due {due_date}.',
+    tokens: ['{user_name}', '{record_name}', '{due_date}'],
+    sample: { user_name: 'Ajay Kumar', record_name: 'Follow up Sri Krishna Stores', due_date: dateStr },
+  },
+  retailers: {
+    title: 'Retailer — {record_name}',
+    message: '{user_name} added {record_name} on {date}.',
+    tokens: ['{user_name}', '{record_name}', '{date}'],
+    sample: { user_name: 'Ajay Kumar', record_name: 'Sri Krishna Stores', date: dateStr },
+  },
+  branding_requests: {
+    title: 'Branding request — {record_name}',
+    message: '{user_name} raised a branding request for {retailer} on {date}.',
+    tokens: ['{user_name}', '{retailer}', '{record_name}', '{date}'],
+    sample: { user_name: 'Ajay Kumar', retailer: 'Sri Krishna Stores', record_name: 'Poster set', date: dateStr },
+  },
+};
+
+const DEFAULT_PRESET: ModulePreset = {
+  title: '{user_name} — {record_name}',
+  message: '{user_name} updated {record_name} on {date} at {time}.',
+  tokens: ['{user_name}', '{record_name}', '{date}', '{time}'],
+  sample: { user_name: 'Ajay Kumar', record_name: 'Record #1', date: dateStr, time: timeStr },
+};
+
+const presetFor = (mod: string): ModulePreset => MODULE_PRESETS[mod] || DEFAULT_PRESET;
+
+const renderTemplate = (tpl: string, ctx: Record<string, string>) =>
   tpl.replace(/\{(\w+)\}/g, (_, k) => ctx[k] ?? `{${k}}`);
 
 export function NotificationRuleForm({ rule, userId, onClose, onSaved }: NotificationRuleFormProps) {
   const [name, setName] = useState(rule?.name || '');
   const [eventCode, setEventCode] = useState(rule?.event_code || '');
-  const [sourceTable, setSourceTable] = useState(rule?.source_table || '');
+  // Multi-select modules (create-mode allows fan-out; edit-mode locks to the rule's single source)
+  const [sourceTables, setSourceTables] = useState<string[]>(rule?.source_table ? [rule.source_table] : []);
   const [receiverType, setReceiverType] = useState(rule?.receiver_type || 'employee');
   const [receiverRole, setReceiverRole] = useState(rule?.receiver_role || '');
   const [receiverUserId, setReceiverUserId] = useState(rule?.receiver_user_id || '');
   const [notification_channel, setChannel] = useState(rule?.notification_channel || 'in_app');
-  const [titleTemplate, setTitleTemplate] = useState(rule?.title_template || '{user_name} – {record_name}');
-  const [messageTemplate, setMessageTemplate] = useState(
-    rule?.message_template || '{user_name} updated {record_name} on {date} at {time}.'
-  );
+  const [titleTemplate, setTitleTemplate] = useState(rule?.title_template || DEFAULT_PRESET.title);
+  const [messageTemplate, setMessageTemplate] = useState(rule?.message_template || DEFAULT_PRESET.message);
+  // Track whether the admin has manually edited templates so we don't clobber their work
+  // when they switch modules.
+  const titleTouched = useRef(!!rule?.title_template);
+  const messageTouched = useRef(!!rule?.message_template);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+
+  const isEdit = !!rule;
+  // Preview always uses the first selected module so admins immediately see how it
+  // will render for that module.
+  const previewModule = sourceTables[0] || '';
+  const preset = useMemo(() => presetFor(previewModule), [previewModule]);
+
+  // When admin picks their first module (create mode) or switches the preview module
+  // and hasn't customised templates, auto-apply that module's preset so the message
+  // and preview stay meaningful.
+  useEffect(() => {
+    if (!previewModule) return;
+    if (!titleTouched.current) setTitleTemplate(preset.title);
+    if (!messageTouched.current) setMessageTemplate(preset.message);
+  }, [previewModule, preset]);
 
   const { data: pickUsers = [], isLoading: pickUsersLoading } = useQuery({
     queryKey: ['notif-pick-users'],
@@ -111,26 +208,41 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     },
   });
 
-  const insertToken = (token: string, target: 'title' | 'message') => {
-    if (target === 'title') setTitleTemplate((p) => p + token);
-    else setMessageTemplate((p) => p + token);
+  const toggleModule = (val: string) => {
+    setSourceTables((prev) =>
+      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val],
+    );
   };
 
+  const insertToken = (token: string, target: 'title' | 'message') => {
+    if (target === 'title') {
+      titleTouched.current = true;
+      setTitleTemplate((p) => p + token);
+    } else {
+      messageTouched.current = true;
+      setMessageTemplate((p) => p + token);
+    }
+  };
+
+  const modulesLabel =
+    sourceTables.length === 0
+      ? 'pick module(s)'
+      : sourceTables.length === 1
+        ? SOURCE_TABLES.find((t) => t.value === sourceTables[0])?.label || sourceTables[0]
+        : `${sourceTables.length} modules`;
+
   const handleSave = async () => {
-    if (!eventCode || !sourceTable) {
-      toast.error('Please pick an event and a module');
+    if (!eventCode || sourceTables.length === 0) {
+      toast.error('Please pick an event and at least one module');
       return;
     }
     setSaving(true);
     try {
       const eventLabel = eventTypes.find((e) => e.event_code === eventCode)?.label || eventCode;
       const receiverLabel = RECEIVER_OPTIONS.find((r) => r.value === receiverType)?.label || receiverType;
-      const autoName = name || `When ${eventLabel} → notify ${receiverLabel}`;
 
-      const payload = {
-        name: autoName,
+      const commonPayload = {
         event_code: eventCode,
-        source_table: sourceTable,
         receiver_type: receiverType,
         receiver_role: receiverType === 'role' ? receiverRole : null,
         receiver_user_id: receiverType === 'specific_user' ? (receiverUserId || null) : null,
@@ -138,17 +250,36 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         title_template: titleTemplate,
         message_template: messageTemplate,
         updated_at: new Date().toISOString(),
-        ...(rule ? {} : { created_by: userId }),
       };
 
-      if (rule) {
+      if (isEdit && rule) {
+        // Edit mode: keep it to a single module (the one being edited).
+        const payload = {
+          ...commonPayload,
+          name: name || `When ${eventLabel} → notify ${receiverLabel}`,
+          source_table: sourceTables[0],
+        };
         const { error } = await supabase.from('notification_rules').update(payload).eq('id', rule.id);
         if (error) throw error;
         toast.success('Rule updated');
       } else {
-        const { error } = await supabase.from('notification_rules').insert(payload);
+        // Create mode: fan out to one row per selected module.
+        const rows = sourceTables.map((mod) => {
+          const modLabel = SOURCE_TABLES.find((t) => t.value === mod)?.label || mod;
+          return {
+            ...commonPayload,
+            name: name
+              ? sourceTables.length > 1
+                ? `${name} — ${modLabel}`
+                : name
+              : `When ${eventLabel} on ${modLabel} → notify ${receiverLabel}`,
+            source_table: mod,
+            created_by: userId,
+          };
+        });
+        const { error } = await supabase.from('notification_rules').insert(rows);
         if (error) throw error;
-        toast.success('Rule created');
+        toast.success(rows.length > 1 ? `Created ${rows.length} rules` : 'Rule created');
       }
       onSaved();
     } catch (err: any) {
@@ -159,7 +290,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   };
 
   const handleSendTest = async () => {
-    if (!eventCode || !sourceTable) {
+    if (!eventCode || sourceTables.length === 0) {
       toast.error('Pick an event and module first');
       return;
     }
@@ -167,7 +298,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     try {
       const { data, error } = await supabase.rpc('notify_send_test' as any, {
         p_event_code: eventCode,
-        p_source_table: sourceTable,
+        p_source_table: sourceTables[0],
       });
       if (error) throw error;
       const result: any = Array.isArray(data) ? data[0] : data;
@@ -176,7 +307,9 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
       if (count === 0) {
         toast.warning('Test sent — but no recipients resolved for this rule');
       } else {
-        toast.success(`Test sent to ${count} ${count === 1 ? 'person' : 'people'}: ${names.slice(0, 5).join(', ')}${names.length > 5 ? '…' : ''}`);
+        toast.success(
+          `Test sent to ${count} ${count === 1 ? 'person' : 'people'}: ${names.slice(0, 5).join(', ')}${names.length > 5 ? '…' : ''}`,
+        );
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to send test');
@@ -185,13 +318,13 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
   };
 
-  const previewTitle = renderTemplate(titleTemplate);
-  const previewMessage = renderTemplate(messageTemplate);
+  const previewTitle = renderTemplate(titleTemplate, preset.sample);
+  const previewMessage = renderTemplate(messageTemplate, preset.sample);
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">{rule ? 'Edit notification rule' : 'New notification rule'}</CardTitle>
+        <CardTitle className="text-lg">{isEdit ? 'Edit notification rule' : 'New notification rule'}</CardTitle>
         <Button variant="ghost" size="sm" onClick={onClose}><X size={16} /></Button>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -211,16 +344,66 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               </SelectContent>
             </Select>
             <span>happens on</span>
-            <Select value={sourceTable} onValueChange={setSourceTable}>
-              <SelectTrigger className="h-8 w-auto min-w-[160px] inline-flex">
-                <SelectValue placeholder="pick a module" />
-              </SelectTrigger>
-              <SelectContent>
-                {SOURCE_TABLES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 min-w-[180px] justify-between font-normal"
+                  disabled={isEdit}
+                  title={isEdit ? 'Editing an existing rule — change modules by creating new rules' : ''}
+                >
+                  <span className="truncate">{modulesLabel}</span>
+                  <ChevronDown size={14} className="opacity-60 ml-2" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 p-2">
+                <div className="text-xs text-muted-foreground px-2 pb-2">
+                  Pick one or more modules — one rule will be created per module.
+                </div>
+                <div className="max-h-64 overflow-y-auto space-y-1">
+                  {SOURCE_TABLES.map((t) => {
+                    const checked = sourceTables.includes(t.value);
+                    return (
+                      <label
+                        key={t.value}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleModule(t.value)}
+                        />
+                        <span>{t.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+            {sourceTables.length > 1 && (
+              <div className="w-full flex flex-wrap gap-1 mt-1">
+                {sourceTables.map((mod) => {
+                  const lbl = SOURCE_TABLES.find((t) => t.value === mod)?.label || mod;
+                  const isPreview = mod === previewModule;
+                  return (
+                    <Badge
+                      key={mod}
+                      variant={isPreview ? 'default' : 'outline'}
+                      className="cursor-pointer gap-1 text-xs"
+                      onClick={() => setSourceTables((prev) => [mod, ...prev.filter((m) => m !== mod)])}
+                      title="Click to preview this module"
+                    >
+                      {lbl}
+                      <X
+                        size={10}
+                        className="opacity-70 hover:opacity-100"
+                        onClick={(e) => { e.stopPropagation(); toggleModule(mod); }}
+                      />
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
             <span>, notify</span>
             <Select value={receiverType} onValueChange={setReceiverType}>
               <SelectTrigger className="h-8 w-auto min-w-[180px] inline-flex">
@@ -284,20 +467,69 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Auto-generated from the sentence above" />
         </div>
 
-        {/* Message */}
+        {/* Message — templates auto-adapt to the selected module (until you edit them) */}
         <div className="space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="text-xs text-muted-foreground">
+              {previewModule ? (
+                <>
+                  Showing defaults for <span className="font-medium text-foreground">
+                    {SOURCE_TABLES.find((t) => t.value === previewModule)?.label}
+                  </span>. Edit the Title/Message to customise — tokens in <code>{'{curly}'}</code> get replaced at send time.
+                </>
+              ) : (
+                <>Pick a module above to load recommended defaults.</>
+              )}
+            </div>
+            {(titleTouched.current || messageTouched.current) && previewModule && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  titleTouched.current = false;
+                  messageTouched.current = false;
+                  setTitleTemplate(preset.title);
+                  setMessageTemplate(preset.message);
+                }}
+              >
+                Reset to defaults
+              </Button>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label>Title</Label>
-            <Input value={titleTemplate} onChange={(e) => setTitleTemplate(e.target.value)} />
+            <Input
+              value={titleTemplate}
+              onChange={(e) => { titleTouched.current = true; setTitleTemplate(e.target.value); }}
+            />
+            <div className="flex flex-wrap gap-1.5">
+              <span className="text-xs text-muted-foreground mr-1">Insert:</span>
+              {preset.tokens.map((t) => (
+                <Badge
+                  key={`t-${t}`}
+                  variant="outline"
+                  className="cursor-pointer hover:bg-primary/10 text-xs"
+                  onClick={() => insertToken(t, 'title')}
+                >
+                  {t}
+                </Badge>
+              ))}
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Message</Label>
-            <Textarea value={messageTemplate} onChange={(e) => setMessageTemplate(e.target.value)} rows={3} />
+            <Textarea
+              value={messageTemplate}
+              onChange={(e) => { messageTouched.current = true; setMessageTemplate(e.target.value); }}
+              rows={3}
+            />
             <div className="flex flex-wrap gap-1.5 pt-1">
               <span className="text-xs text-muted-foreground mr-1">Insert:</span>
-              {TOKENS.map((t) => (
+              {preset.tokens.map((t) => (
                 <Badge
-                  key={t}
+                  key={`m-${t}`}
                   variant="outline"
                   className="cursor-pointer hover:bg-primary/10 text-xs"
                   onClick={() => insertToken(t, 'message')}
@@ -309,9 +541,11 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           </div>
         </div>
 
-        {/* Live preview */}
+        {/* Live preview — uses the sample values for the currently-selected preview module */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">Preview — what the recipient sees</Label>
+          <Label className="text-xs text-muted-foreground">
+            Preview — what the recipient sees{previewModule ? ` (${SOURCE_TABLES.find((t) => t.value === previewModule)?.label})` : ''}
+          </Label>
           <div className="rounded-lg border bg-background p-3 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="mt-1 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -334,7 +568,13 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         {/* Actions */}
         <div className="flex flex-wrap items-center gap-2 pt-2">
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : rule ? 'Update rule' : 'Create rule'}
+            {saving
+              ? 'Saving…'
+              : isEdit
+                ? 'Update rule'
+                : sourceTables.length > 1
+                  ? `Create ${sourceTables.length} rules`
+                  : 'Create rule'}
           </Button>
           <Button variant="outline" onClick={handleSendTest} disabled={testing} className="gap-1.5">
             <Send size={14} /> {testing ? 'Sending…' : 'Send test to me'}
