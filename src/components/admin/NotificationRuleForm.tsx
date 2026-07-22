@@ -190,6 +190,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const [notification_channel, setChannel] = useState(rule?.notification_channel || 'in_app');
   const [titleTemplate, setTitleTemplate] = useState(rule?.title_template || DEFAULT_PRESET.title);
   const [messageTemplate, setMessageTemplate] = useState(rule?.message_template || DEFAULT_PRESET.message);
+  const [timezone, setTimezone] = useState(rule?.timezone || 'Asia/Kolkata');
   const titleTouched = useRef(!!rule?.title_template);
   const messageTouched = useRef(!!rule?.message_template);
   const [saving, setSaving] = useState(false);
