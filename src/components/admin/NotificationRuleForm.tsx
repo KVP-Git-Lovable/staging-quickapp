@@ -505,6 +505,18 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                 ))}
               </SelectContent>
             </Select>
+
+            <span className="font-medium">in</span>
+            <Select value={timezone} onValueChange={setTimezone}>
+              <SelectTrigger className={`${pillTrigger} min-w-[220px]`} title="Timezone used for {date}, {time}, {timestamp} tokens">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIMEZONES.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <span>.</span>
           </div>
 
