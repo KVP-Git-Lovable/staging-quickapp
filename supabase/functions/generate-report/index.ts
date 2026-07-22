@@ -105,6 +105,21 @@ Deno.serve(async (req) => {
           date_to: period.date_to,
           scope_user_id: rid,
         });
+        // For all_managers mode, skip managers whose subtree returned no data.
+        if (recipientMode === 'all_managers' && rows.length === 0) {
+          await admin.from('report_delivery_log').upsert({
+            subscription_id: sub.id,
+            recipient_user_id: rid,
+            period: period.key,
+            notification_id: null,
+            storage_path: null,
+            in_app_status: 'skipped_empty',
+            push_status: null,
+            error: null,
+          }, { onConflict: 'subscription_id,recipient_user_id,period' });
+          outcomes.push({ recipient: rid, skipped: 'empty' });
+          continue;
+        }
         digest = buildDigest(sub.name, period, rows);
         if (sub.attachment_format !== 'summary_only') {
           const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);
