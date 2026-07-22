@@ -160,7 +160,12 @@ Deno.serve(async (req) => {
           sent++;
         } else {
           const txt = await r.text();
-          if (r.status === 404 || r.status === 410 || txt.includes('UNREGISTERED')) {
+          if (
+            r.status === 404 ||
+            r.status === 410 ||
+            txt.includes('UNREGISTERED') ||
+            txt.includes('SENDER_ID_MISMATCH')
+          ) {
             stale.push(t.id);
           }
           errors.push(`${r.status}:${txt.slice(0, 200)}`);

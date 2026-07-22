@@ -31,7 +31,7 @@ const isStandaloneApp =
   (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
 const isNativeApp = Capacitor.isNativePlatform();
-const shouldDisableServiceWorker = isPreviewHost || isInIframe || isNativeApp || isStandaloneApp;
+const shouldDisableServiceWorker = isPreviewHost || isInIframe || isNativeApp;
 
 const cleanupServiceWorkersAndCaches = async () => {
   try {
@@ -116,8 +116,8 @@ console.log('✅ App rendered successfully');
 // Initialize background services after render
 (async () => {
   try {
-    // Do not keep a PWA service worker in preview, iframe, installed app, or native wrapper contexts.
-    // Those contexts were the source of stale order-sync code on already-installed mobile apps.
+    // Service workers stay active in an installed PWA: background push and offline
+    // support both depend on them. Only preview/iframe and native contexts disable them.
     if (shouldDisableServiceWorker) {
       console.log('🛑 Skipping service worker registration for current runtime:', {
         isPreviewHost,
