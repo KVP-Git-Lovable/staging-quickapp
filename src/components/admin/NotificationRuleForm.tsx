@@ -85,6 +85,101 @@ const CHANNELS = [
   { value: 'email', label: 'Email (coming soon)', disabled: true },
 ];
 
+// Module -> Sub-event tree. Each sub-event maps to (source_table, event_code)
+// + optional default templates. Only fully-wired modules appear here today;
+// other modules fall back to the legacy event picker.
+type SubEvent = {
+  value: string;
+  label: string;
+  source_table: string;
+  event_code: string;
+  title?: string;
+  message?: string;
+};
+
+const MODULE_SUB_EVENTS: Record<string, SubEvent[]> = {
+  attendance: [
+    {
+      value: 'checked_in',
+      label: 'Check-in',
+      source_table: 'attendance',
+      event_code: 'RECORD_CREATED',
+      title: '{user_name} — checked in',
+      message: '{user_name} checked in at {time} on {date}.',
+    },
+    {
+      value: 'checked_out',
+      label: 'Check-out',
+      source_table: 'attendance',
+      event_code: 'RECORD_UPDATED',
+      title: '{user_name} — checked out',
+      message: '{user_name} checked out at {time} on {date}.',
+    },
+    {
+      value: 'leave_applied',
+      label: 'Leave applied',
+      source_table: 'leave_applications',
+      event_code: 'RECORD_CREATED',
+      title: 'Leave request — {user_name}',
+      message: '{user_name} applied for leave on {date}.',
+    },
+    {
+      value: 'regularization_applied',
+      label: 'Regularization applied',
+      source_table: 'regularization_requests',
+      event_code: 'RECORD_CREATED',
+      title: 'Regularization — {user_name}',
+      message: '{user_name} raised a regularization for {date}.',
+    },
+    {
+      value: 'approval_requested',
+      label: 'Approval requested',
+      source_table: 'leave_applications',
+      event_code: 'RECORD_UPDATED',
+      title: 'Approval needed — {user_name}',
+      message: '{user_name} requested approval on {date}.',
+    },
+    {
+      value: 'approval_approved',
+      label: 'Approval approved',
+      source_table: 'leave_applications',
+      event_code: 'RECORD_UPDATED',
+      title: 'Approval granted — {user_name}',
+      message: 'Approval granted for {user_name} on {date}.',
+    },
+  ],
+};
+
+const MODULE_OPTIONS = [
+  { value: 'attendance', label: 'Attendance' },
+  { value: 'orders', label: 'Orders' },
+  { value: 'visits', label: 'Visits' },
+  { value: 'leave_applications', label: 'Leaves' },
+  { value: 'regularization_requests', label: 'Regularization' },
+  { value: 'approval_requests', label: 'Approvals' },
+  { value: 'activity_events', label: 'Activity Events' },
+  { value: 'pm_tasks', label: 'Tasks' },
+  { value: 'retailers', label: 'Retailers' },
+  { value: 'branding_requests', label: 'Branding Requests' },
+];
+
+const inferInitialModule = (rule: NotificationRuleFormProps['rule']): string => {
+  if (!rule) return '';
+  // If source_table maps to a curated module, use that; else fall back to raw source_table.
+  const found = Object.entries(MODULE_SUB_EVENTS).find(([, subs]) =>
+    subs.some((s) => s.source_table === rule.source_table && s.event_code === rule.event_code),
+  );
+  return found ? found[0] : rule.source_table || '';
+};
+
+const inferInitialSubEvent = (rule: NotificationRuleFormProps['rule'], moduleValue: string): string => {
+  if (!rule || !moduleValue) return '';
+  const subs = MODULE_SUB_EVENTS[moduleValue];
+  if (!subs) return '';
+  const match = subs.find((s) => s.source_table === rule.source_table && s.event_code === rule.event_code);
+  return match?.value || '';
+};
+
 type ModulePreset = {
   title: string;
   message: string;
