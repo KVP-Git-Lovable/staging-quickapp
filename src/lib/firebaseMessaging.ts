@@ -130,11 +130,19 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
       }
       try {
         if (reg && 'showNotification' in reg) {
+          const data = (payload.data as any) || {};
+          const tag =
+            data.notification_id ||
+            `${data.type || 'notif'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
           reg.showNotification(title, {
             body,
             icon: '/icons/app-icon.png',
-            data: payload.data || {},
-          });
+            badge: '/icons/app-icon.png',
+            tag,
+            requireInteraction: true,
+            data,
+            ...({ renotify: true } as any),
+          } as NotificationOptions);
         }
       } catch (err) {
         devError('[Push] foreground showNotification failed', err);
