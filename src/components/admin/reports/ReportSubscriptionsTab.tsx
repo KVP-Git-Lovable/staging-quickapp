@@ -418,32 +418,38 @@ export function ReportSubscriptionsTab() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
-                            {recipients.slice(0, 3).map((uid: string, i: number) => {
-                              const p = profileMap.get(uid);
-                              const name = p?.name || 'Unknown';
-                              const avatar = avatarFor(uid);
-                              return (
-                                <div
-                                  key={uid + i}
-                                  className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
-                                  title={name}
-                                >
-                                  {avatar ? (
-                                    <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                                  ) : (
-                                    initials(name)
-                                  )}
+                          {s.recipient_mode === 'all_managers' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[11px] font-medium border border-indigo-100">
+                              <NetworkIcon size={11} /> All managers · per recipient
+                            </span>
+                          ) : (
+                            <div className="flex items-center">
+                              {recipients.slice(0, 3).map((uid: string, i: number) => {
+                                const p = profileMap.get(uid);
+                                const name = p?.name || 'Unknown';
+                                const avatar = avatarFor(uid);
+                                return (
+                                  <div
+                                    key={uid + i}
+                                    className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
+                                    title={name}
+                                  >
+                                    {avatar ? (
+                                      <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                                    ) : (
+                                      initials(name)
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              {recipients.length > 3 && (
+                                <div className="h-7 w-7 -ml-2 rounded-full ring-2 ring-background bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
+                                  +{recipients.length - 3}
                                 </div>
-                              );
-                            })}
-                            {recipients.length > 3 && (
-                              <div className="h-7 w-7 -ml-2 rounded-full ring-2 ring-background bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
-                                +{recipients.length - 3}
-                              </div>
-                            )}
-                            {recipients.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                          </div>
+                              )}
+                              {recipients.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs">
                           <span className="text-indigo-600 font-medium">{nextRunLabel(s)}</span>
