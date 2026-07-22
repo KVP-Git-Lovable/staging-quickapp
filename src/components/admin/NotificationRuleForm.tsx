@@ -463,20 +463,27 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     // Build the list of (event_code, source_table, label) variants to fan out over.
     // Curated modules with multi-select sub-events produce one variant per sub-event;
     // legacy modules produce one variant per selected source_table using the single eventCode.
-    const variants: Array<{ event_code: string; source_table: string; label: string }> =
+    const variants: Array<{ event_code: string; source_table: string; label: string; title: string; message: string }> =
       isCuratedModule
         ? subEventValues
             .map((sv) => currentSubEvents.find((s) => s.value === sv))
             .filter(Boolean)
-            .map((s) => ({
-              event_code: s!.event_code,
-              source_table: s!.source_table,
-              label: s!.label,
-            }))
+            .map((s) => {
+              const tpl = subEventTemplates[s!.value];
+              return {
+                event_code: s!.event_code,
+                source_table: s!.source_table,
+                label: s!.label,
+                title: tpl?.title || s!.title || DEFAULT_PRESET.title,
+                message: tpl?.message || s!.message || DEFAULT_PRESET.message,
+              };
+            })
         : sourceTables.map((mod) => ({
             event_code: eventCode,
             source_table: mod,
             label: SOURCE_TABLES.find((t) => t.value === mod)?.label || mod,
+            title: titleTemplate,
+            message: messageTemplate,
           }));
 
     if (variants.length === 0) {
@@ -495,8 +502,6 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         receiver_type: receiverType,
         receiver_role: receiverType === 'role' ? receiverRole : null,
         notification_channel,
-        title_template: titleTemplate,
-        message_template: messageTemplate,
         timezone,
         updated_at: new Date().toISOString(),
       };
@@ -512,6 +517,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           ...commonPayload,
           event_code: v.event_code,
           source_table: v.source_table,
+          title_template: v.title,
+          message_template: v.message,
           receiver_user_id: receiverType === 'specific_user' ? (receiverUserIds[0] || null) : null,
           name: name || `When ${v.label} → notify ${receiverLabel}`,
         };
@@ -530,6 +537,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               ...commonPayload,
               event_code: v.event_code,
               source_table: v.source_table,
+              title_template: v.title,
+              message_template: v.message,
               receiver_user_id: uid,
               name: name
                 ? multi
