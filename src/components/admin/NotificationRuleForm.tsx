@@ -291,12 +291,17 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [moduleValue, setModuleValue] = useState(() => inferInitialModule(rule));
-  const [subEventValue, setSubEventValue] = useState(() => inferInitialSubEvent(rule, inferInitialModule(rule)));
+  const [subEventValues, setSubEventValues] = useState<string[]>(() => {
+    const v = inferInitialSubEvent(rule, inferInitialModule(rule));
+    return v ? [v] : [];
+  });
 
   const isEdit = !!rule;
   const isCuratedModule = !!MODULE_SUB_EVENTS[moduleValue];
   const currentSubEvents = MODULE_SUB_EVENTS[moduleValue] || [];
-  const currentSubEvent = currentSubEvents.find((s) => s.value === subEventValue);
+  // First selected sub-event drives template defaults + single-value preview.
+  const primarySubEventValue = subEventValues[0] || '';
+  const currentSubEvent = currentSubEvents.find((s) => s.value === primarySubEventValue);
   const previewModule = isCuratedModule
     ? (currentSubEvent?.source_table || moduleValue)
     : sourceTables[0] || '';
@@ -305,6 +310,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     || MODULE_OPTIONS.find((m) => m.value === previewModule)?.label;
 
   // When user picks a curated sub-event, sync eventCode + sourceTables and default templates.
+  // With multi-select we only auto-fill templates from the FIRST sub-event; save fans out per sub-event.
   useEffect(() => {
     if (!isCuratedModule || !currentSubEvent) return;
     setEventCode(currentSubEvent.event_code);
@@ -360,8 +366,27 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         : `${sourceTables.length} modules`;
 
   const handleSave = async () => {
-    if (!eventCode || sourceTables.length === 0) {
-      toast.error('Please pick an event and at least one module');
+    // Build the list of (event_code, source_table, label) variants to fan out over.
+    // Curated modules with multi-select sub-events produce one variant per sub-event;
+    // legacy modules produce one variant per selected source_table using the single eventCode.
+    const variants: Array<{ event_code: string; source_table: string; label: string }> =
+      isCuratedModule
+        ? subEventValues
+            .map((sv) => currentSubEvents.find((s) => s.value === sv))
+            .filter(Boolean)
+            .map((s) => ({
+              event_code: s!.event_code,
+              source_table: s!.source_table,
+              label: s!.label,
+            }))
+        : sourceTables.map((mod) => ({
+            event_code: eventCode,
+            source_table: mod,
+            label: SOURCE_TABLES.find((t) => t.value === mod)?.label || mod,
+          }));
+
+    if (variants.length === 0) {
+      toast.error(isCuratedModule ? 'Please pick at least one sub-event' : 'Please pick an event and at least one module');
       return;
     }
     if (receiverType === 'specific_user' && receiverUserIds.length === 0) {
@@ -370,11 +395,9 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
     setSaving(true);
     try {
-      const eventLabel = eventTypes.find((e) => e.event_code === eventCode)?.label || eventCode;
       const receiverLabel = RECEIVER_OPTIONS.find((r) => r.value === receiverType)?.label || receiverType;
 
       const commonPayload = {
-        event_code: eventCode,
         receiver_type: receiverType,
         receiver_role: receiverType === 'role' ? receiverRole : null,
         notification_channel,
@@ -389,33 +412,36 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         receiverType === 'specific_user' && receiverUserIds.length > 0 ? receiverUserIds : [null];
 
       if (isEdit && rule) {
-        // Edit only updates the first user (keeps behaviour predictable).
+        // Edit only updates the first variant + first user (keeps behaviour predictable).
+        const v = variants[0];
         const payload = {
           ...commonPayload,
+          event_code: v.event_code,
+          source_table: v.source_table,
           receiver_user_id: receiverType === 'specific_user' ? (receiverUserIds[0] || null) : null,
-          name: name || `When ${eventLabel} → notify ${receiverLabel}`,
-          source_table: sourceTables[0],
+          name: name || `When ${v.label} → notify ${receiverLabel}`,
         };
         const { error } = await supabase.from('notification_rules').update(payload).eq('id', rule.id);
         if (error) throw error;
         toast.success('Rule updated');
       } else {
-        const rows = sourceTables.flatMap((mod) =>
+        const rows = variants.flatMap((v) =>
           targetUserIds.map((uid) => {
-            const modLabel = SOURCE_TABLES.find((t) => t.value === mod)?.label || mod;
             const userLabel =
               uid && receiverType === 'specific_user'
                 ? pickUsers.find((u) => u.id === uid)?.name || 'user'
                 : receiverLabel;
+            const multi = variants.length > 1 || targetUserIds.length > 1;
             return {
               ...commonPayload,
+              event_code: v.event_code,
+              source_table: v.source_table,
               receiver_user_id: uid,
               name: name
-                ? sourceTables.length > 1 || targetUserIds.length > 1
-                  ? `${name} — ${modLabel}${uid ? ` — ${userLabel}` : ''}`
+                ? multi
+                  ? `${name} — ${v.label}${uid ? ` — ${userLabel}` : ''}`
                   : name
-                : `When ${eventLabel} on ${modLabel} → notify ${uid ? userLabel : receiverLabel}`,
-              source_table: mod,
+                : `When ${v.label} → notify ${uid ? userLabel : receiverLabel}`,
               created_by: userId,
             };
           }),
@@ -495,7 +521,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               value={moduleValue}
               onValueChange={(v) => {
                 setModuleValue(v);
-                setSubEventValue('');
+                setSubEventValues([]);
                 if (!MODULE_SUB_EVENTS[v]) {
                   // Legacy path: seed sourceTables so downstream save still works.
                   setSourceTables([v]);
@@ -519,16 +545,50 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
             {isCuratedModule ? (
               <>
                 <span className="font-medium">happens on</span>
-                <Select value={subEventValue} onValueChange={setSubEventValue}>
-                  <SelectTrigger className={pillTrigger}>
-                    <SelectValue placeholder="pick a sub-event" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentSubEvents.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`${pillTrigger} justify-between`}
+                    >
+                      <span className="truncate">
+                        {subEventValues.length === 0
+                          ? 'pick sub-event(s)'
+                          : subEventValues.length === 1
+                            ? currentSubEvents.find((s) => s.value === subEventValues[0])?.label || '1 sub-event'
+                            : `${subEventValues.length} sub-events`}
+                      </span>
+                      <ChevronDown size={14} className="opacity-60 ml-2" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-72 p-2">
+                    <div className="text-xs text-muted-foreground px-2 pb-2">
+                      Select one or more triggers
+                    </div>
+                    <div className="max-h-64 overflow-y-auto space-y-1">
+                      {currentSubEvents.map((s) => {
+                        const checked = subEventValues.includes(s.value);
+                        return (
+                          <label
+                            key={s.value}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-sky-50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setSubEventValues((prev) =>
+                                  v ? [...prev, s.value] : prev.filter((x) => x !== s.value),
+                                );
+                              }}
+                            />
+                            <span className="text-sm text-slate-700">{s.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </>
             ) : moduleValue ? (
               <>
