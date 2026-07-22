@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
-    .select('id, name, report_definition_id, recipient_user_ids, attachment_format, push_to_phone, scope, cadence')
+    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence')
     .eq('id', subscription_id)
     .maybeSingle();
   if (sErr || !sub) {
@@ -55,9 +55,20 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: 'Dataset not found' }), { status: 404, headers: corsHeaders });
   }
 
-  const recipients: string[] = sub.recipient_user_ids ?? [];
+  // Resolve recipients — hierarchy-aware.
+  // all_managers: recompute every run so hierarchy changes are reflected without config edits.
+  const recipientMode: string = sub.recipient_mode ?? 'named_users';
+  let recipients: string[] = [];
+  let scope: string = sub.scope ?? 'shared';
+  if (recipientMode === 'all_managers') {
+    const { data: mgrs, error: mErr } = await admin.rpc('report_all_managers');
+    if (mErr) console.error('report_all_managers error', mErr);
+    recipients = (mgrs ?? []).map((m: any) => m.user_id).filter(Boolean);
+    scope = 'per_recipient'; // each manager sees only their own reporting tree
+  } else {
+    recipients = sub.recipient_user_ids ?? [];
+  }
   const outcomes: Array<Record<string, unknown>> = [];
-  const scope = sub.scope ?? 'shared';
 
   // Shared: single RPC call + single file
   let sharedPath: string | null = null;
@@ -94,6 +105,21 @@ Deno.serve(async (req) => {
           date_to: period.date_to,
           scope_user_id: rid,
         });
+        // For all_managers mode, skip managers whose subtree returned no data.
+        if (recipientMode === 'all_managers' && rows.length === 0) {
+          await admin.from('report_delivery_log').upsert({
+            subscription_id: sub.id,
+            recipient_user_id: rid,
+            period: period.key,
+            notification_id: null,
+            storage_path: null,
+            in_app_status: 'skipped_empty',
+            push_status: null,
+            error: null,
+          }, { onConflict: 'subscription_id,recipient_user_id,period' });
+          outcomes.push({ recipient: rid, skipped: 'empty' });
+          continue;
+        }
         digest = buildDigest(sub.name, period, rows);
         if (sub.attachment_format !== 'summary_only') {
           const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);

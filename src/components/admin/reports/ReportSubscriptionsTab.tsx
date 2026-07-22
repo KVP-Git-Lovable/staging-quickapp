@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -418,32 +418,38 @@ export function ReportSubscriptionsTab() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center">
-                            {recipients.slice(0, 3).map((uid: string, i: number) => {
-                              const p = profileMap.get(uid);
-                              const name = p?.name || 'Unknown';
-                              const avatar = avatarFor(uid);
-                              return (
-                                <div
-                                  key={uid + i}
-                                  className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
-                                  title={name}
-                                >
-                                  {avatar ? (
-                                    <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-                                  ) : (
-                                    initials(name)
-                                  )}
+                          {s.recipient_mode === 'all_managers' ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[11px] font-medium border border-indigo-100">
+                              <NetworkIcon size={11} /> All managers · per recipient
+                            </span>
+                          ) : (
+                            <div className="flex items-center">
+                              {recipients.slice(0, 3).map((uid: string, i: number) => {
+                                const p = profileMap.get(uid);
+                                const name = p?.name || 'Unknown';
+                                const avatar = avatarFor(uid);
+                                return (
+                                  <div
+                                    key={uid + i}
+                                    className={cn('h-7 w-7 rounded-full ring-2 ring-background text-[10px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}
+                                    title={name}
+                                  >
+                                    {avatar ? (
+                                      <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                                    ) : (
+                                      initials(name)
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              {recipients.length > 3 && (
+                                <div className="h-7 w-7 -ml-2 rounded-full ring-2 ring-background bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
+                                  +{recipients.length - 3}
                                 </div>
-                              );
-                            })}
-                            {recipients.length > 3 && (
-                              <div className="h-7 w-7 -ml-2 rounded-full ring-2 ring-background bg-muted text-[10px] font-semibold text-muted-foreground flex items-center justify-center">
-                                +{recipients.length - 3}
-                              </div>
-                            )}
-                            {recipients.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
-                          </div>
+                              )}
+                              {recipients.length === 0 && <span className="text-xs text-muted-foreground">—</span>}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs">
                           <span className="text-indigo-600 font-medium">{nextRunLabel(s)}</span>
@@ -516,22 +522,28 @@ export function ReportSubscriptionsTab() {
                       <span className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] border', fmt.tint)}>{fmt.icon} {fmt.label}</span>
                     </div>
                     <div className="mt-3 flex items-center justify-between">
-                      <div className="flex items-center">
-                        {recipients.slice(0, 4).map((uid: string, i: number) => {
-                          const p = profileMap.get(uid);
-                          const name = p?.name || 'Unknown';
-                          const avatar = avatarFor(uid);
-                          return (
-                            <div key={uid + i} title={name} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
-                              {avatar ? <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /> : initials(name)}
-                            </div>
-                          );
-                        })}
-                        {recipients.length > 4 && (
-                          <div className="h-6 w-6 -ml-2 rounded-full ring-2 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">+{recipients.length - 4}</div>
-                        )}
-                        {recipients.length === 0 && <span className="text-[11px] text-muted-foreground">No recipients</span>}
-                      </div>
+                      {s.recipient_mode === 'all_managers' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[11px] font-medium border border-indigo-100">
+                          <NetworkIcon size={11} /> All managers · per recipient
+                        </span>
+                      ) : (
+                        <div className="flex items-center">
+                          {recipients.slice(0, 4).map((uid: string, i: number) => {
+                            const p = profileMap.get(uid);
+                            const name = p?.name || 'Unknown';
+                            const avatar = avatarFor(uid);
+                            return (
+                              <div key={uid + i} title={name} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
+                                {avatar ? <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /> : initials(name)}
+                              </div>
+                            );
+                          })}
+                          {recipients.length > 4 && (
+                            <div className="h-6 w-6 -ml-2 rounded-full ring-2 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">+{recipients.length - 4}</div>
+                          )}
+                          {recipients.length === 0 && <span className="text-[11px] text-muted-foreground">No recipients</span>}
+                        </div>
+                      )}
                       <div className="flex items-center gap-0.5">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => runNow.mutate(s.id)}><Zap size={13} className="text-amber-500" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil size={13} /></Button>
@@ -602,6 +614,26 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [pushToPhone, setPushToPhone] = useState(editing?.sub.push_to_phone ?? false);
   const [scope, setScope] = useState(editing?.sub.scope ?? 'shared');
   const [recipientIds, setRecipientIds] = useState<string[]>(editing?.sub.recipient_user_ids ?? []);
+  const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
+    ((editing?.sub as any)?.recipient_mode as any) ?? 'named_users'
+  );
+
+  // Live manager count for all_managers mode
+  const { data: managerList = [] } = useQuery({
+    queryKey: ['report-all-managers'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('report_all_managers');
+      if (error) throw error;
+      return (data ?? []) as Array<{ user_id: string; full_name: string }>;
+    },
+  });
+
+  // Force per_recipient scope whenever mode = all_managers
+  React.useEffect(() => {
+    if (recipientMode === 'all_managers' && scope !== 'per_recipient') {
+      setScope('per_recipient');
+    }
+  }, [recipientMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const dataset = useMemo(() => datasets.find(d => d.key === datasetKey), [datasets, datasetKey]);
 
@@ -623,8 +655,11 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
     mutationFn: async () => {
       if (!name.trim()) throw new Error('Name is required');
       if (!datasetKey) throw new Error('Dataset is required');
-      if (recipientIds.length === 0) throw new Error('Add at least one recipient');
+      if (recipientMode === 'named_users' && recipientIds.length === 0) throw new Error('Add at least one recipient');
       if (values.length === 0 && !(layout === 'tabular' && rows.length > 0)) throw new Error('Pick at least one field for the report');
+
+      const effectiveScope = recipientMode === 'all_managers' ? 'per_recipient' : scope;
+      const effectiveRecipients = recipientMode === 'all_managers' ? [] : recipientIds;
 
       const config = {
         rows,
@@ -648,11 +683,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             fire_day: cadence === 'weekly' || cadence === 'monthly' ? fireDay : null,
             fire_time: fireTime,
             timezone,
-            recipient_user_ids: recipientIds,
+            recipient_user_ids: effectiveRecipients,
+            recipient_mode: recipientMode,
             attachment_format: format,
             push_to_phone: pushToPhone,
-            scope,
-          })
+            scope: effectiveScope,
+          } as any)
           .eq('id', editing.sub.id);
         if (sErr) throw sErr;
       } else {
@@ -669,10 +705,11 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             fire_day: cadence === 'weekly' || cadence === 'monthly' ? fireDay : null,
             fire_time: fireTime,
             timezone,
-            recipient_user_ids: recipientIds,
+            recipient_user_ids: effectiveRecipients,
+            recipient_mode: recipientMode,
             attachment_format: format,
             push_to_phone: pushToPhone,
-            scope,
+            scope: effectiveScope,
             status: 'active',
           },
         });
@@ -685,7 +722,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   });
 
   const canNext1 = !!(name.trim() && datasetKey && (values.length > 0 || (layout === 'tabular' && rows.length > 0)));
-  const canNext2 = fireTime && timezone && format && recipientIds.length > 0;
+  const canNext2 = !!(fireTime && timezone && format && (recipientMode === 'all_managers' || recipientIds.length > 0));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -769,14 +806,22 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Scope</Label>
-                <Select value={scope} onValueChange={setScope}>
+                <Label className="flex items-center gap-1.5">
+                  Scope
+                  {recipientMode === 'all_managers' && <LockIcon size={12} className="text-muted-foreground" />}
+                </Label>
+                <Select value={scope} onValueChange={setScope} disabled={recipientMode === 'all_managers'}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="shared">Shared — one report for everyone</SelectItem>
                     <SelectItem value="per_recipient">Per recipient — filtered by their scope</SelectItem>
                   </SelectContent>
                 </Select>
+                {recipientMode === 'all_managers' && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Per recipient is required so each manager sees only their own team.
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3 md:col-span-2 pt-2">
                 <Switch checked={pushToPhone} onCheckedChange={setPushToPhone} id="push" />
@@ -784,24 +829,67 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               </div>
             </div>
 
+            {/* Recipients mode selector */}
             <div className="space-y-2">
-              <Label>Recipients * ({recipientIds.length} selected)</Label>
-              <div className="max-h-56 overflow-y-auto border rounded-md p-2 space-y-1">
-                {users.map(u => {
-                  const on = recipientIds.includes(u.id);
-                  return (
-                    <label key={u.id} className="flex items-center gap-2 text-sm py-1 hover:bg-muted/40 rounded px-1 cursor-pointer">
-                      <Checkbox
-                        checked={on}
-                        onCheckedChange={(c) => setRecipientIds(prev => c ? [...prev, u.id] : prev.filter(x => x !== u.id))}
-                      />
-                      <span className="flex-1">{u.full_name || u.username || u.email || u.id}</span>
-                      {u.email && <span className="text-xs text-muted-foreground">{u.email}</span>}
-                    </label>
-                  );
-                })}
+              <Label>Recipients mode</Label>
+              <div className="inline-flex rounded-md border bg-muted/30 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setRecipientMode('named_users')}
+                  className={cn(
+                    'px-3 py-1.5 text-xs rounded transition-colors',
+                    recipientMode === 'named_users' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Specific users
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRecipientMode('all_managers')}
+                  className={cn(
+                    'px-3 py-1.5 text-xs rounded transition-colors inline-flex items-center gap-1.5',
+                    recipientMode === 'all_managers' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <NetworkIcon size={12} /> All managers
+                </button>
               </div>
             </div>
+
+            {recipientMode === 'named_users' ? (
+              <div className="space-y-2">
+                <Label>Recipients * ({recipientIds.length} selected)</Label>
+                <div className="max-h-56 overflow-y-auto border rounded-md p-2 space-y-1">
+                  {users.map(u => {
+                    const on = recipientIds.includes(u.id);
+                    return (
+                      <label key={u.id} className="flex items-center gap-2 text-sm py-1 hover:bg-muted/40 rounded px-1 cursor-pointer">
+                        <Checkbox
+                          checked={on}
+                          onCheckedChange={(c) => setRecipientIds(prev => c ? [...prev, u.id] : prev.filter(x => x !== u.id))}
+                        />
+                        <span className="flex-1">{u.full_name || u.username || u.email || u.id}</span>
+                        {u.email && <span className="text-xs text-muted-foreground">{u.email}</span>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-md border border-indigo-100 bg-indigo-50/40 p-4 flex items-start gap-3">
+                <NetworkIcon size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium">
+                    Resolves to {managerList.length} manager{managerList.length === 1 ? '' : 's'}
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">Recalculated at every run — hierarchy changes are picked up automatically.</p>
+                  <p className="text-[12px] text-muted-foreground">Each manager receives one report covering their own reporting tree.</p>
+                  {managerList.length === 0 && (
+                    <p className="text-[12px] text-amber-600 mt-1">No managers found — no one will receive this report until an employee is assigned a manager.</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             <DialogFooter>
               <Button variant="ghost" onClick={() => setStep(1)}>Back</Button>
@@ -819,8 +907,13 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               <div><span className="font-medium">Measures:</span> {values.join(', ')}</div>
               <div><span className="font-medium">Schedule:</span> {cadence}{['weekly','monthly'].includes(cadence) ? ` · ${fireDay}` : ''} · {fireTime} ({timezone})</div>
               <div><span className="font-medium">Format:</span> {format} {pushToPhone ? '· + phone push' : ''}</div>
-              <div><span className="font-medium">Scope:</span> {scope}</div>
-              <div><span className="font-medium">Recipients:</span> {recipientIds.length}</div>
+              <div><span className="font-medium">Scope:</span> {recipientMode === 'all_managers' ? 'per_recipient (locked)' : scope}</div>
+              <div>
+                <span className="font-medium">Recipients:</span>{' '}
+                {recipientMode === 'all_managers'
+                  ? `all managers (${managerList.length} today) · one report per reporting tree`
+                  : recipientIds.length}
+              </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setStep(2)}>Back</Button>
