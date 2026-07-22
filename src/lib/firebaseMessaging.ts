@@ -33,6 +33,32 @@ function isPreviewOrIframe(): boolean {
 let currentToken: string | null = null;
 const FIREBASE_PUSH_SCOPE = '/firebase-cloud-messaging-push-scope/';
 
+async function waitForServiceWorkerActivation(registration: ServiceWorkerRegistration): Promise<void> {
+  const worker = registration.active || registration.waiting || registration.installing;
+  if (!worker || worker.state === 'activated') return;
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      worker.removeEventListener('statechange', onStateChange);
+      reject(new Error('Firebase messaging service worker activation timed out.'));
+    }, 10_000);
+
+    const onStateChange = () => {
+      if (worker.state === 'activated') {
+        window.clearTimeout(timeout);
+        worker.removeEventListener('statechange', onStateChange);
+        resolve();
+      } else if (worker.state === 'redundant') {
+        window.clearTimeout(timeout);
+        worker.removeEventListener('statechange', onStateChange);
+        reject(new Error('Firebase messaging service worker became redundant.'));
+      }
+    };
+
+    worker.addEventListener('statechange', onStateChange);
+  });
+}
+
 export async function initWebPush(userId: string, onNotification?: () => void): Promise<string | null> {
   try {
     if (isPreviewOrIframe()) return null;
@@ -72,7 +98,10 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
     );
 
     const reg = await navigator.serviceWorker.register(swUrl, { scope: FIREBASE_PUSH_SCOPE });
-    await navigator.serviceWorker.ready;
+    // navigator.serviceWorker.ready only resolves for a registration whose scope
+    // controls the current page. Firebase intentionally uses a narrow scope here,
+    // so wait for this specific registration instead of the root document.
+    await waitForServiceWorkerActivation(reg);
     const messaging = getMessaging();
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (!token) return null;
