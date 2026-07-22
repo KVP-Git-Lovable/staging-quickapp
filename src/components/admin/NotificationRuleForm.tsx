@@ -474,69 +474,62 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         <section className="space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic Builder</div>
           <div className="p-4 md:p-5 bg-sky-50/60 rounded-xl border border-sky-200 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
-            <span className="font-medium">When</span>
-            <Select value={eventCode} onValueChange={setEventCode}>
+            <span className="font-medium">Which module</span>
+            <Select
+              value={moduleValue}
+              onValueChange={(v) => {
+                setModuleValue(v);
+                setSubEventValue('');
+                if (!MODULE_SUB_EVENTS[v]) {
+                  // Legacy path: seed sourceTables so downstream save still works.
+                  setSourceTables([v]);
+                } else {
+                  setSourceTables([]);
+                  setEventCode('');
+                }
+              }}
+              disabled={isEdit}
+            >
               <SelectTrigger className={pillTrigger}>
-                <SelectValue placeholder="pick an event" />
+                <SelectValue placeholder="pick a module" />
               </SelectTrigger>
               <SelectContent>
-                {eventTypes.map((et: any) => (
-                  <SelectItem key={et.event_code} value={et.event_code}>{et.label}</SelectItem>
+                {MODULE_OPTIONS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <span className="font-medium">happens on</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 min-w-[180px] justify-between font-semibold text-slate-700 bg-white border-sky-200 rounded-lg hover:border-sky-400"
-                  disabled={isEdit}
-                  title={isEdit ? 'Editing an existing rule — change modules by creating new rules' : ''}
-                >
-                  <span className="truncate">{modulesLabel}</span>
-                  <ChevronDown size={14} className="opacity-60 ml-2" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 p-2">
-                <div className="text-xs text-muted-foreground px-2 pb-2">
-                  Pick one or more modules — one rule per module.
-                </div>
-                <div className="max-h-64 overflow-y-auto space-y-1">
-                  {SOURCE_TABLES.map((t) => {
-                    const checked = sourceTables.includes(t.value);
-                    return (
-                      <label key={t.value} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm">
-                        <Checkbox checked={checked} onCheckedChange={() => toggleModule(t.value)} />
-                        <span>{t.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-            {sourceTables.length > 1 && (
-              <div className="w-full flex flex-wrap gap-1 mt-1">
-                {sourceTables.map((mod) => {
-                  const lbl = SOURCE_TABLES.find((t) => t.value === mod)?.label || mod;
-                  const isPreview = mod === previewModule;
-                  return (
-                    <Badge
-                      key={mod}
-                      variant={isPreview ? 'default' : 'outline'}
-                      className={`cursor-pointer gap-1 text-xs ${isPreview ? 'bg-sky-500 hover:bg-sky-600' : ''}`}
-                      onClick={() => setSourceTables((prev) => [mod, ...prev.filter((m) => m !== mod)])}
-                      title="Click to preview this module"
-                    >
-                      {lbl}
-                      <X size={10} className="opacity-70 hover:opacity-100" onClick={(e) => { e.stopPropagation(); toggleModule(mod); }} />
-                    </Badge>
-                  );
-                })}
-              </div>
-            )}
+            {isCuratedModule ? (
+              <>
+                <span className="font-medium">happens on</span>
+                <Select value={subEventValue} onValueChange={setSubEventValue}>
+                  <SelectTrigger className={pillTrigger}>
+                    <SelectValue placeholder="pick a sub-event" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentSubEvents.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            ) : moduleValue ? (
+              <>
+                <span className="font-medium">when</span>
+                <Select value={eventCode} onValueChange={setEventCode}>
+                  <SelectTrigger className={pillTrigger}>
+                    <SelectValue placeholder="pick an event" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventTypes.map((et: any) => (
+                      <SelectItem key={et.event_code} value={et.event_code}>{et.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            ) : null}
+
 
             <span className="font-medium">, notify</span>
             <Select value={receiverType} onValueChange={setReceiverType}>
