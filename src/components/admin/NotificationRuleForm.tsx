@@ -310,7 +310,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     'h-8 min-w-[160px] w-auto inline-flex bg-white border-slate-200 rounded-lg text-sm font-semibold text-indigo-600 hover:border-indigo-300 focus:ring-2 focus:ring-indigo-500/20';
 
   return (
-    <div className="w-full bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden flex flex-col">
+    <div className="w-full bg-white rounded-2xl shadow-lg shadow-slate-200/40 border border-slate-100 overflow-hidden flex flex-col">
       {/* Header */}
       <div className="px-6 md:px-8 py-5 border-b border-slate-100 flex items-start justify-between bg-white">
         <div>
