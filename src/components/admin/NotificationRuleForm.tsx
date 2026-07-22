@@ -525,16 +525,50 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
             {isCuratedModule ? (
               <>
                 <span className="font-medium">happens on</span>
-                <Select value={subEventValue} onValueChange={setSubEventValue}>
-                  <SelectTrigger className={pillTrigger}>
-                    <SelectValue placeholder="pick a sub-event" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentSubEvents.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`${pillTrigger} justify-between`}
+                    >
+                      <span className="truncate">
+                        {subEventValues.length === 0
+                          ? 'pick sub-event(s)'
+                          : subEventValues.length === 1
+                            ? currentSubEvents.find((s) => s.value === subEventValues[0])?.label || '1 sub-event'
+                            : `${subEventValues.length} sub-events`}
+                      </span>
+                      <ChevronDown size={14} className="opacity-60 ml-2" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-72 p-2">
+                    <div className="text-xs text-muted-foreground px-2 pb-2">
+                      Select one or more triggers
+                    </div>
+                    <div className="max-h-64 overflow-y-auto space-y-1">
+                      {currentSubEvents.map((s) => {
+                        const checked = subEventValues.includes(s.value);
+                        return (
+                          <label
+                            key={s.value}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-sky-50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                setSubEventValues((prev) =>
+                                  v ? [...prev, s.value] : prev.filter((x) => x !== s.value),
+                                );
+                              }}
+                            />
+                            <span className="text-sm text-slate-700">{s.label}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </>
             ) : moduleValue ? (
               <>
