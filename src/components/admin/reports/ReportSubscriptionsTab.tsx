@@ -796,7 +796,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
                   Scope
-                  {recipientMode === 'all_managers' && <Lock size={12} className="text-muted-foreground" />}
+                  {recipientMode === 'all_managers' && <LockIcon size={12} className="text-muted-foreground" />}
                 </Label>
                 <Select value={scope} onValueChange={setScope} disabled={recipientMode === 'all_managers'}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -839,7 +839,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                     recipientMode === 'all_managers' ? 'bg-background shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  <Network size={12} /> All managers
+                  <NetworkIcon size={12} /> All managers
                 </button>
               </div>
             </div>
@@ -865,7 +865,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               </div>
             ) : (
               <div className="rounded-md border border-indigo-100 bg-indigo-50/40 p-4 flex items-start gap-3">
-                <Network size={18} className="text-indigo-600 shrink-0 mt-0.5" />
+                <NetworkIcon size={18} className="text-indigo-600 shrink-0 mt-0.5" />
                 <div className="space-y-1 text-sm">
                   <p className="font-medium">
                     Resolves to {managerList.length} manager{managerList.length === 1 ? '' : 's'}
