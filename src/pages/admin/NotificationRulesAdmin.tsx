@@ -38,6 +38,8 @@ const NotificationRulesAdmin = () => {
   const { user } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<NotificationRule | null>(null);
+  const [bannerOpen, setBannerOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(true);
 
   const { data: rules = [], isLoading } = useQuery({
     queryKey: ['notification-rules'],
