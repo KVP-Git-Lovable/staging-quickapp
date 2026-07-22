@@ -25,11 +25,37 @@ interface NotificationRuleFormProps {
     notification_channel: string;
     title_template: string;
     message_template: string;
+    timezone?: string | null;
   } | null;
   userId: string;
   onClose: () => void;
   onSaved: () => void;
 }
+
+const TIMEZONES: { value: string; label: string }[] = [
+  { value: 'Asia/Kolkata', label: 'IST — Asia/Kolkata' },
+  { value: 'Asia/Dubai', label: 'GST — Asia/Dubai' },
+  { value: 'Asia/Singapore', label: 'SGT — Asia/Singapore' },
+  { value: 'Asia/Bangkok', label: 'ICT — Asia/Bangkok' },
+  { value: 'Asia/Dhaka', label: 'BST — Asia/Dhaka' },
+  { value: 'Asia/Karachi', label: 'PKT — Asia/Karachi' },
+  { value: 'Asia/Colombo', label: 'SLT — Asia/Colombo' },
+  { value: 'Europe/London', label: 'GMT/BST — Europe/London' },
+  { value: 'America/New_York', label: 'ET — America/New_York' },
+  { value: 'America/Los_Angeles', label: 'PT — America/Los_Angeles' },
+  { value: 'UTC', label: 'UTC' },
+];
+
+const formatInTz = (tz: string) => {
+  const d = new Date();
+  const dateFmt = new Intl.DateTimeFormat('en-GB', { timeZone: tz, day: '2-digit', month: 'short', year: 'numeric' });
+  const time12 = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: true });
+  const time24 = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
+  const dateStr = dateFmt.format(d).replace(/ /g, '-');
+  const timeStr = time12.format(d);
+  const time24Str = time24.format(d);
+  return { dateStr, timeStr, time24Str, timestampStr: `${dateStr} ${timeStr}` };
+};
 
 const SOURCE_TABLES = [
   { value: 'orders', label: 'Orders' },
@@ -164,6 +190,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const [notification_channel, setChannel] = useState(rule?.notification_channel || 'in_app');
   const [titleTemplate, setTitleTemplate] = useState(rule?.title_template || DEFAULT_PRESET.title);
   const [messageTemplate, setMessageTemplate] = useState(rule?.message_template || DEFAULT_PRESET.message);
+  const [timezone, setTimezone] = useState(rule?.timezone || 'Asia/Kolkata');
   const titleTouched = useRef(!!rule?.title_template);
   const messageTouched = useRef(!!rule?.message_template);
   const [saving, setSaving] = useState(false);
@@ -244,6 +271,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         notification_channel,
         title_template: titleTemplate,
         message_template: messageTemplate,
+        timezone,
         updated_at: new Date().toISOString(),
       };
 
@@ -311,7 +339,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
   };
 
-  const sampleCtx = { timestamp: timestampStr, datetime: timestampStr, time_24: time24Str, date: dateStr, time: timeStr, ...preset.sample };
+  const tzNow = useMemo(() => formatInTz(timezone), [timezone]);
+  const sampleCtx: Record<string, string> = { ...preset.sample, timestamp: tzNow.timestampStr, datetime: tzNow.timestampStr, time_24: tzNow.time24Str, date: tzNow.dateStr, time: tzNow.timeStr };
   const previewTitle = renderTemplate(titleTemplate, sampleCtx);
   const previewMessage = renderTemplate(messageTemplate, sampleCtx);
 
@@ -473,6 +502,18 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               <SelectContent>
                 {CHANNELS.map((c) => (
                   <SelectItem key={c.value} value={c.value} disabled={c.disabled}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <span className="font-medium">in</span>
+            <Select value={timezone} onValueChange={setTimezone}>
+              <SelectTrigger className={`${pillTrigger} min-w-[220px]`} title="Timezone used for {date}, {time}, {timestamp} tokens">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIMEZONES.map((tz) => (
+                  <SelectItem key={tz.value} value={tz.value}>{tz.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
