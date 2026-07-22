@@ -672,7 +672,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
           <RecipientPreview
             receiverType={receiverType}
             receiverRole={receiverRole}
-            receiverUserId={receiverUserId}
+            receiverUserId={receiverUserIds[0] || ''}
             pickUsers={pickUsers}
             currentUserId={userId}
           />
