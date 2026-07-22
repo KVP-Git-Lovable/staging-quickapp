@@ -895,8 +895,13 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               <div><span className="font-medium">Measures:</span> {values.join(', ')}</div>
               <div><span className="font-medium">Schedule:</span> {cadence}{['weekly','monthly'].includes(cadence) ? ` · ${fireDay}` : ''} · {fireTime} ({timezone})</div>
               <div><span className="font-medium">Format:</span> {format} {pushToPhone ? '· + phone push' : ''}</div>
-              <div><span className="font-medium">Scope:</span> {scope}</div>
-              <div><span className="font-medium">Recipients:</span> {recipientIds.length}</div>
+              <div><span className="font-medium">Scope:</span> {recipientMode === 'all_managers' ? 'per_recipient (locked)' : scope}</div>
+              <div>
+                <span className="font-medium">Recipients:</span>{' '}
+                {recipientMode === 'all_managers'
+                  ? `all managers (${managerList.length} today) · one report per reporting tree`
+                  : recipientIds.length}
+              </div>
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setStep(2)}>Back</Button>
