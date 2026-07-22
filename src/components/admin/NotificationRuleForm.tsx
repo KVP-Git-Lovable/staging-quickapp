@@ -863,86 +863,139 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               </p>
             </div>
 
+            {/* Sub-event tabs — one per selected "happens on" event, each with its own Title/Message */}
+            {isCuratedModule && subEventValues.length > 0 && (
+              <div className="border-b border-sky-100">
+                <div className="flex flex-wrap items-end gap-1 -mb-px">
+                  {subEventValues.map((sv) => {
+                    const s = currentSubEvents.find((x) => x.value === sv);
+                    const label = s?.label || sv;
+                    const active = activeSubEvent === sv;
+                    const edited = subEventTemplates[sv]?.titleTouched || subEventTemplates[sv]?.messageTouched;
+                    return (
+                      <button
+                        key={sv}
+                        type="button"
+                        onClick={() => setActiveSubEvent(sv)}
+                        className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+                          active
+                            ? 'border-sky-500 text-slate-900'
+                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {label}
+                        {edited && <span className="w-1.5 h-1.5 rounded-full bg-sky-400" title="Edited" />}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-2">
+                  Each sub-event has its own Title and Message. Switch tabs to configure each one — one rule is created per sub-event on save.
+                </p>
+              </div>
+            )}
+
             {/* Module-aware banner */}
             <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-[12px] text-slate-700 flex items-start gap-2">
               <Info size={13} className="mt-0.5 flex-shrink-0 text-slate-500" />
               {previewModule ? (
                 <span>
-                  Showing suggested defaults for <span className="font-semibold">{previewModuleLabel}</span>.
+                  {isCuratedModule && activeSubEventObj ? (
+                    <>Editing <span className="font-semibold">{activeSubEventObj.label}</span> — defaults tuned for <span className="font-semibold">{previewModuleLabel}</span>. </>
+                  ) : (
+                    <>Showing suggested defaults for <span className="font-semibold">{previewModuleLabel}</span>. </>
+                  )}
                   Anything in <code className="px-1 py-0.5 rounded bg-white border border-sky-200 text-slate-800">{'{curly}'}</code> is replaced with real data at send time — click a token chip below or type your own text.
                 </span>
               ) : (
                 <span>Pick a module above to load recommended Title/Message defaults for that record type.</span>
               )}
-              {(titleTouched.current || messageTouched.current) && previewModule && (
+              {activeTouched && previewModule && (
                 <button
                   className="ml-auto text-slate-700 font-medium hover:underline flex-shrink-0"
-                  onClick={() => {
-                    titleTouched.current = false;
-                    messageTouched.current = false;
-                    setTitleTemplate(preset.title);
-                    setMessageTemplate(preset.message);
-                  }}
+                  onClick={resetActiveTemplates}
                 >
                   Reset
                 </button>
               )}
             </div>
 
-            {/* Title */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-slate-700">Title</Label>
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Headline shown to recipient</span>
+            {editingDisabled ? (
+              <div className="rounded-lg border border-dashed border-sky-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                Pick at least one sub-event above to configure its Title and Message.
               </div>
-              <Input
-                value={titleTemplate}
-                onChange={(e) => { titleTouched.current = true; setTitleTemplate(e.target.value); }}
-                className="font-medium text-slate-900 focus-visible:ring-sky-400/30 focus-visible:border-sky-500"
-              />
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
-                {preset.tokens.map((t) => (
-                  <button
-                    key={`t-${t}`}
-                    type="button"
-                    onClick={() => insertToken(t, 'title')}
-                    className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
-                  >
-                    {t}
-                  </button>
-                ))}
-                <TimestampPicker onPick={(tok) => insertToken(tok, 'title')} />
-              </div>
-            </div>
+            ) : (
+              <>
+                {/* Title */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-slate-700">
+                      Title
+                      {isCuratedModule && activeSubEventObj && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wider text-sky-600 font-bold">
+                          {activeSubEventObj.label}
+                        </span>
+                      )}
+                    </Label>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Headline shown to recipient</span>
+                  </div>
+                  <Input
+                    value={effectiveTitle}
+                    onChange={(e) => updateActiveTitle(e.target.value)}
+                    className="font-medium text-slate-900 focus-visible:ring-sky-400/30 focus-visible:border-sky-500"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
+                    {preset.tokens.map((t) => (
+                      <button
+                        key={`t-${t}`}
+                        type="button"
+                        onClick={() => appendToActiveTitle(t)}
+                        className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
+                      >
+                        {t}
+                      </button>
+                    ))}
+                    <TimestampPicker onPick={(tok) => appendToActiveTitle(tok)} />
+                  </div>
+                </div>
 
-            {/* Message */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-slate-700">Message</Label>
-                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Body of the notification</span>
-              </div>
-              <Textarea
-                value={messageTemplate}
-                onChange={(e) => { messageTouched.current = true; setMessageTemplate(e.target.value); }}
-                rows={4}
-                className="resize-none leading-relaxed focus-visible:ring-sky-400/30 focus-visible:border-sky-500"
-              />
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
-                {preset.tokens.map((t) => (
-                  <button
-                    key={`m-${t}`}
-                    type="button"
-                    onClick={() => insertToken(t, 'message')}
-                    className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
-                  >
-                    {t}
-                  </button>
-                ))}
-                <TimestampPicker onPick={(tok) => insertToken(tok, 'message')} />
-              </div>
-            </div>
+                {/* Message */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-slate-700">
+                      Message
+                      {isCuratedModule && activeSubEventObj && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wider text-sky-600 font-bold">
+                          {activeSubEventObj.label}
+                        </span>
+                      )}
+                    </Label>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Body of the notification</span>
+                  </div>
+                  <Textarea
+                    value={effectiveMessage}
+                    onChange={(e) => updateActiveMessage(e.target.value)}
+                    rows={4}
+                    className="resize-none leading-relaxed focus-visible:ring-sky-400/30 focus-visible:border-sky-500"
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    <span className="text-[11px] text-slate-400 self-center mr-1">Insert:</span>
+                    {preset.tokens.map((t) => (
+                      <button
+                        key={`m-${t}`}
+                        type="button"
+                        onClick={() => appendToActiveMessage(t)}
+                        className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors"
+                      >
+                        {t}
+                      </button>
+                    ))}
+                    <TimestampPicker onPick={(tok) => appendToActiveMessage(tok)} />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* RIGHT — live preview */}
