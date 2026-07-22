@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
