@@ -567,8 +567,8 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Live Preview</span>
               <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 uppercase">In-app toast</span>
             </div>
-            <div className="relative bg-slate-100/60 rounded-2xl p-6 border border-slate-200/60 flex items-center justify-center min-h-[240px]">
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
+            <div className="relative bg-slate-50/50 rounded-2xl p-6 border border-slate-100 flex items-center justify-center min-h-[240px]">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.02]">
                 <div className="w-32 h-32 border-4 border-slate-900 rounded-full" />
               </div>
               <div className="relative bg-white shadow-2xl shadow-slate-300/40 border border-slate-100 rounded-xl p-4 w-full max-w-[340px]">
