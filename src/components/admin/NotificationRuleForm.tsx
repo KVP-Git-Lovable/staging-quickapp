@@ -178,7 +178,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
       if (error) throw error;
       return (data || []) as Array<{ id: string; name: string; role: string | null }>;
     },
-    enabled: receiverType === 'specific_user',
+    enabled: true,
   });
 
   const { data: eventTypes = [] } = useQuery({
