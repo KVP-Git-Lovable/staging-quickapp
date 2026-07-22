@@ -821,22 +821,27 @@ function TimestampPicker({ onPick }: { onPick: (token: string) => void }) {
           🕒 Timestamp <ChevronDown size={10} className="opacity-60" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-1.5">
-        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-2 pt-1 pb-1.5">
+      <PopoverContent align="start" className="w-72 p-1.5 max-h-[420px] overflow-y-auto">
+        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-2 pt-1 pb-1.5 sticky top-0 bg-white">
           Pick a format (IST)
         </div>
-        {TIMESTAMP_FORMATS.map((f) => (
-          <button
-            key={f.token}
-            type="button"
-            onClick={() => onPick(f.token)}
-            className="w-full text-left px-2 py-1.5 rounded hover:bg-sky-50 flex flex-col"
-          >
-            <span className="text-sm font-medium text-slate-800">{f.label}</span>
-            <span className="text-[11px] text-slate-500">
-              <code className="text-slate-600">{f.token}</code> — {f.hint}
-            </span>
-          </button>
+        {['Time', 'Date', 'Combined', 'Relative'].map((grp) => (
+          <div key={grp} className="pb-1">
+            <div className="text-[9px] uppercase tracking-wider text-sky-600 font-bold px-2 pt-1.5 pb-0.5">{grp}</div>
+            {TIMESTAMP_FORMATS.filter((f) => f.group === grp).map((f) => (
+              <button
+                key={f.token}
+                type="button"
+                onClick={() => onPick(f.token)}
+                className="w-full text-left px-2 py-1.5 rounded hover:bg-sky-50 flex flex-col"
+              >
+                <span className="text-sm font-medium text-slate-800">{f.label}</span>
+                <span className="text-[11px] text-slate-500">
+                  <code className="text-slate-600">{f.token}</code> — {f.hint}
+                </span>
+              </button>
+            ))}
+          </div>
         ))}
       </PopoverContent>
     </Popover>
