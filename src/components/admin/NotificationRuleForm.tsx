@@ -596,7 +596,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
       </div>
 
       {/* Footer actions */}
-      <div className="px-6 md:px-8 py-5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+      <div className="px-6 md:px-8 py-5 bg-white border-t border-slate-100 flex items-center justify-between">
         <Button variant="ghost" onClick={onClose} className="text-slate-500 hover:text-slate-800">
           Cancel
         </Button>
