@@ -311,8 +311,9 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
   };
 
-  const previewTitle = renderTemplate(titleTemplate, preset.sample);
-  const previewMessage = renderTemplate(messageTemplate, preset.sample);
+  const sampleCtx = { timestamp: timestampStr, datetime: timestampStr, time_24: time24Str, date: dateStr, time: timeStr, ...preset.sample };
+  const previewTitle = renderTemplate(titleTemplate, sampleCtx);
+  const previewMessage = renderTemplate(messageTemplate, sampleCtx);
 
   // Reusable pill classnames for the inline sentence-builder selects.
   const pillTrigger =
