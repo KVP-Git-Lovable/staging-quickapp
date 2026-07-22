@@ -490,7 +490,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         <section className="space-y-3">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Logic Builder</div>
           <div className="p-4 md:p-5 bg-sky-50/60 rounded-xl border border-sky-200 flex flex-wrap items-center gap-x-3 gap-y-3 text-slate-700 leading-relaxed">
-            <span className="font-medium">Which module</span>
+            <span className="font-medium">When something happens in module</span>
             <Select
               value={moduleValue}
               onValueChange={(v) => {
