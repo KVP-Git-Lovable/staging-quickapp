@@ -586,27 +586,60 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               </Select>
             )}
             {receiverType === 'specific_user' && (
-              <Select value={receiverUserId} onValueChange={setReceiverUserId} disabled={pickUsersLoading}>
-                <SelectTrigger className={`${pillTrigger} min-w-[200px]`}>
-                  <SelectValue placeholder={pickUsersLoading ? 'Loading users…' : 'pick a person'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {pickUsersLoading ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</div>
-                  ) : pickUsers.length === 0 ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">No active users found</div>
-                  ) : (
-                    pickUsers.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        <div className="flex flex-col">
-                          <span>{u.name}</span>
-                          {u.role && <span className="text-xs text-muted-foreground">{u.role}</span>}
-                        </div>
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 min-w-[200px] justify-between font-semibold text-slate-700 bg-white border-sky-200 rounded-lg hover:border-sky-400"
+                    disabled={pickUsersLoading}
+                  >
+                    <span className="truncate">
+                      {pickUsersLoading
+                        ? 'Loading users…'
+                        : receiverUserIds.length === 0
+                          ? 'pick people'
+                          : receiverUserIds.length === 1
+                            ? pickUsers.find((u) => u.id === receiverUserIds[0])?.name || '1 person'
+                            : `${receiverUserIds.length} people`}
+                    </span>
+                    <ChevronDown size={14} className="opacity-60 ml-2" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72 p-2">
+                  <div className="text-xs text-muted-foreground px-2 pb-2">
+                    Select one or more people — one rule per person will be created.
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-1">
+                    {pickUsers.length === 0 ? (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No active users found</div>
+                    ) : (
+                      pickUsers.map((u) => {
+                        const checked = receiverUserIds.includes(u.id);
+                        return (
+                          <label
+                            key={u.id}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer text-sm"
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() =>
+                                setReceiverUserIds((prev) =>
+                                  prev.includes(u.id) ? prev.filter((x) => x !== u.id) : [...prev, u.id],
+                                )
+                              }
+                            />
+                            <div className="flex flex-col">
+                              <span>{u.name}</span>
+                              {u.role && <span className="text-xs text-muted-foreground">{u.role}</span>}
+                            </div>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
 
             <span className="font-medium">via</span>
