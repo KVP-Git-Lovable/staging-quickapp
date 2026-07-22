@@ -665,7 +665,7 @@ function RecipientPreview({
   pickUsers,
   currentUserId,
 }: RecipientPreviewProps) {
-  const actorDependent = ['employee', 'manager', 'hierarchy_up'].includes(receiverType);
+  const actorDependent = ['employee', 'manager', 'hierarchy'].includes(receiverType);
   const [sampleActor, setSampleActor] = useState<string>(currentUserId);
 
   useEffect(() => {
