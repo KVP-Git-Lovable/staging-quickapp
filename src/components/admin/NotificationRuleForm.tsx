@@ -281,7 +281,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const [sourceTables, setSourceTables] = useState<string[]>(rule?.source_table ? [rule.source_table] : []);
   const [receiverType, setReceiverType] = useState(rule?.receiver_type || 'employee');
   const [receiverRole, setReceiverRole] = useState(rule?.receiver_role || '');
-  const [receiverUserId, setReceiverUserId] = useState(rule?.receiver_user_id || '');
+  const [receiverUserIds, setReceiverUserIds] = useState<string[]>(rule?.receiver_user_id ? [rule.receiver_user_id] : []);
   const [notification_channel, setChannel] = useState(rule?.notification_channel || 'in_app');
   const [titleTemplate, setTitleTemplate] = useState(rule?.title_template || DEFAULT_PRESET.title);
   const [messageTemplate, setMessageTemplate] = useState(rule?.message_template || DEFAULT_PRESET.message);
