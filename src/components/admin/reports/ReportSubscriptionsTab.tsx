@@ -643,8 +643,11 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
     mutationFn: async () => {
       if (!name.trim()) throw new Error('Name is required');
       if (!datasetKey) throw new Error('Dataset is required');
-      if (recipientIds.length === 0) throw new Error('Add at least one recipient');
+      if (recipientMode === 'named_users' && recipientIds.length === 0) throw new Error('Add at least one recipient');
       if (values.length === 0 && !(layout === 'tabular' && rows.length > 0)) throw new Error('Pick at least one field for the report');
+
+      const effectiveScope = recipientMode === 'all_managers' ? 'per_recipient' : scope;
+      const effectiveRecipients = recipientMode === 'all_managers' ? [] : recipientIds;
 
       const config = {
         rows,
@@ -668,11 +671,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             fire_day: cadence === 'weekly' || cadence === 'monthly' ? fireDay : null,
             fire_time: fireTime,
             timezone,
-            recipient_user_ids: recipientIds,
+            recipient_user_ids: effectiveRecipients,
+            recipient_mode: recipientMode,
             attachment_format: format,
             push_to_phone: pushToPhone,
-            scope,
-          })
+            scope: effectiveScope,
+          } as any)
           .eq('id', editing.sub.id);
         if (sErr) throw sErr;
       } else {
@@ -689,10 +693,11 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             fire_day: cadence === 'weekly' || cadence === 'monthly' ? fireDay : null,
             fire_time: fireTime,
             timezone,
-            recipient_user_ids: recipientIds,
+            recipient_user_ids: effectiveRecipients,
+            recipient_mode: recipientMode,
             attachment_format: format,
             push_to_phone: pushToPhone,
-            scope,
+            scope: effectiveScope,
             status: 'active',
           },
         });
@@ -705,7 +710,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   });
 
   const canNext1 = !!(name.trim() && datasetKey && (values.length > 0 || (layout === 'tabular' && rows.length > 0)));
-  const canNext2 = fireTime && timezone && format && recipientIds.length > 0;
+  const canNext2 = !!(fireTime && timezone && format && (recipientMode === 'all_managers' || recipientIds.length > 0));
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
