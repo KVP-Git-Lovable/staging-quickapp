@@ -290,17 +290,28 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
   const messageTouched = useRef(!!rule?.message_template);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [moduleValue, setModuleValue] = useState(() => inferInitialModule(rule));
+  const [subEventValue, setSubEventValue] = useState(() => inferInitialSubEvent(rule, inferInitialModule(rule)));
 
   const isEdit = !!rule;
-  const previewModule = sourceTables[0] || '';
+  const isCuratedModule = !!MODULE_SUB_EVENTS[moduleValue];
+  const currentSubEvents = MODULE_SUB_EVENTS[moduleValue] || [];
+  const currentSubEvent = currentSubEvents.find((s) => s.value === subEventValue);
+  const previewModule = isCuratedModule
+    ? (currentSubEvent?.source_table || moduleValue)
+    : sourceTables[0] || '';
   const preset = useMemo(() => presetFor(previewModule), [previewModule]);
-  const previewModuleLabel = SOURCE_TABLES.find((t) => t.value === previewModule)?.label;
+  const previewModuleLabel = SOURCE_TABLES.find((t) => t.value === previewModule)?.label
+    || MODULE_OPTIONS.find((m) => m.value === previewModule)?.label;
 
+  // When user picks a curated sub-event, sync eventCode + sourceTables and default templates.
   useEffect(() => {
-    if (!previewModule) return;
-    if (!titleTouched.current) setTitleTemplate(preset.title);
-    if (!messageTouched.current) setMessageTemplate(preset.message);
-  }, [previewModule, preset]);
+    if (!isCuratedModule || !currentSubEvent) return;
+    setEventCode(currentSubEvent.event_code);
+    setSourceTables([currentSubEvent.source_table]);
+    if (!titleTouched.current && currentSubEvent.title) setTitleTemplate(currentSubEvent.title);
+    if (!messageTouched.current && currentSubEvent.message) setMessageTemplate(currentSubEvent.message);
+  }, [isCuratedModule, currentSubEvent?.value]);
 
   const { data: pickUsers = [], isLoading: pickUsersLoading } = useQuery({
     queryKey: ['notif-pick-users'],
