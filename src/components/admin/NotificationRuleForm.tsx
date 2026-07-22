@@ -72,11 +72,29 @@ const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit',
 const time24Str = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 const timestampStr = `${dateStr} ${timeStr}`;
 
-const TIMESTAMP_FORMATS: { token: string; label: string; hint: string }[] = [
-  { token: '{time}', label: 'Time (12-hour)', hint: 'e.g. 11:07 AM' },
-  { token: '{time_24}', label: 'Time (24-hour)', hint: 'e.g. 23:07' },
-  { token: '{date}', label: 'Date only', hint: 'e.g. 22-Jul-2026' },
-  { token: '{timestamp}', label: 'Date + Time', hint: 'e.g. 22-Jul-2026 11:07 AM' },
+const TIMESTAMP_FORMATS: { token: string; label: string; hint: string; group: string }[] = [
+  // Time
+  { token: '{time}', label: 'Time (12-hour)', hint: 'e.g. 11:07 AM', group: 'Time' },
+  { token: '{time_24}', label: 'Time (24-hour)', hint: 'e.g. 23:07', group: 'Time' },
+  { token: '{time_seconds}', label: 'Time with seconds', hint: 'e.g. 11:07:32 AM', group: 'Time' },
+  { token: '{time_hm}', label: 'Time short', hint: 'e.g. 11:07', group: 'Time' },
+  // Date
+  { token: '{date}', label: 'Date (short month)', hint: 'e.g. 22-Jul-2026', group: 'Date' },
+  { token: '{date_long}', label: 'Date (long)', hint: 'e.g. 22 July 2026', group: 'Date' },
+  { token: '{date_numeric}', label: 'Date (numeric)', hint: 'e.g. 22/07/2026', group: 'Date' },
+  { token: '{date_iso}', label: 'Date (ISO)', hint: 'e.g. 2026-07-22', group: 'Date' },
+  { token: '{weekday}', label: 'Weekday', hint: 'e.g. Wednesday', group: 'Date' },
+  { token: '{weekday_short}', label: 'Weekday short', hint: 'e.g. Wed', group: 'Date' },
+  { token: '{month}', label: 'Month', hint: 'e.g. July', group: 'Date' },
+  { token: '{month_short}', label: 'Month short', hint: 'e.g. Jul', group: 'Date' },
+  { token: '{year}', label: 'Year', hint: 'e.g. 2026', group: 'Date' },
+  // Combined
+  { token: '{timestamp}', label: 'Date + Time', hint: 'e.g. 22-Jul-2026 11:07 AM', group: 'Combined' },
+  { token: '{datetime}', label: 'Weekday, Date + Time', hint: 'e.g. Wed, 22-Jul-2026 11:07 AM', group: 'Combined' },
+  { token: '{datetime_iso}', label: 'ISO 8601', hint: 'e.g. 2026-07-22T11:07:32+05:30', group: 'Combined' },
+  { token: '{datetime_long}', label: 'Long date + time', hint: 'e.g. 22 July 2026 at 11:07 AM IST', group: 'Combined' },
+  // Relative
+  { token: '{relative_time}', label: 'Relative', hint: 'e.g. just now / 5 min ago', group: 'Relative' },
 ];
 
 const MODULE_PRESETS: Record<string, ModulePreset> = {
