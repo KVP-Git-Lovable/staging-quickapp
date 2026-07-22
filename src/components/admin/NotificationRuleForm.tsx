@@ -405,12 +405,31 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               </SelectContent>
             </Select>
             {receiverType === 'role' && (
-              <Input
-                value={receiverRole}
-                onChange={(e) => setReceiverRole(e.target.value)}
-                placeholder="role name (e.g. admin)"
-                className="h-8 w-auto min-w-[140px] inline-flex"
-              />
+              <Select value={receiverRole} onValueChange={setReceiverRole} disabled={pickUsersLoading}>
+                <SelectTrigger className={`${pillTrigger} min-w-[160px]`}>
+                  <SelectValue placeholder={pickUsersLoading ? 'Loading roles…' : 'pick a role'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(() => {
+                    const roles = Array.from(
+                      new Set(
+                        (pickUsers || [])
+                          .map((u) => (u.role || '').trim())
+                          .filter((r) => r.length > 0),
+                      ),
+                    ).sort((a, b) => a.localeCompare(b));
+                    if (pickUsersLoading) {
+                      return <div className="px-2 py-1.5 text-sm text-muted-foreground">Loading…</div>;
+                    }
+                    if (roles.length === 0) {
+                      return <div className="px-2 py-1.5 text-sm text-muted-foreground">No roles found</div>;
+                    }
+                    return roles.map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ));
+                  })()}
+                </SelectContent>
+              </Select>
             )}
             {receiverType === 'specific_user' && (
               <Select value={receiverUserId} onValueChange={setReceiverUserId} disabled={pickUsersLoading}>
