@@ -673,6 +673,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
             receiverType={receiverType}
             receiverRole={receiverRole}
             receiverUserId={receiverUserIds[0] || ''}
+            receiverUserIds={receiverUserIds}
             pickUsers={pickUsers}
             currentUserId={userId}
           />
@@ -855,6 +856,7 @@ interface RecipientPreviewProps {
   receiverType: string;
   receiverRole: string;
   receiverUserId: string;
+  receiverUserIds?: string[];
   pickUsers: Array<{ id: string; name: string; role: string | null }>;
   currentUserId: string;
 }
@@ -863,6 +865,7 @@ function RecipientPreview({
   receiverType,
   receiverRole,
   receiverUserId,
+  receiverUserIds,
   pickUsers,
   currentUserId,
 }: RecipientPreviewProps) {
@@ -873,15 +876,26 @@ function RecipientPreview({
     if (!sampleActor && currentUserId) setSampleActor(currentUserId);
   }, [currentUserId, sampleActor]);
 
+  const isMultiSpecific = receiverType === 'specific_user' && (receiverUserIds?.length || 0) > 1;
+
   const { data, isLoading } = useQuery({
     queryKey: [
       'notif-preview-recipients',
       receiverType,
       receiverRole,
       receiverUserId,
+      (receiverUserIds || []).join(','),
       actorDependent ? sampleActor : null,
     ],
     queryFn: async () => {
+      // For multi-select "specific people", resolve locally from pickUsers —
+      // avoids N RPC calls and mirrors the fan-out that happens on save.
+      if (isMultiSpecific) {
+        return (receiverUserIds || [])
+          .map((id) => pickUsers.find((u) => u.id === id))
+          .filter(Boolean)
+          .map((u) => ({ id: u!.id, name: u!.name, role: u!.role })) as Array<{ id: string; name: string; role: string | null }>;
+      }
       const { data, error } = await supabase.rpc('notif_preview_recipients' as any, {
         p_receiver_type: receiverType,
         p_receiver_role: receiverRole || null,
