@@ -522,22 +522,28 @@ export function ReportSubscriptionsTab() {
                       <span className={cn('inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] border', fmt.tint)}>{fmt.icon} {fmt.label}</span>
                     </div>
                     <div className="mt-3 flex items-center justify-between">
-                      <div className="flex items-center">
-                        {recipients.slice(0, 4).map((uid: string, i: number) => {
-                          const p = profileMap.get(uid);
-                          const name = p?.name || 'Unknown';
-                          const avatar = avatarFor(uid);
-                          return (
-                            <div key={uid + i} title={name} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
-                              {avatar ? <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /> : initials(name)}
-                            </div>
-                          );
-                        })}
-                        {recipients.length > 4 && (
-                          <div className="h-6 w-6 -ml-2 rounded-full ring-2 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">+{recipients.length - 4}</div>
-                        )}
-                        {recipients.length === 0 && <span className="text-[11px] text-muted-foreground">No recipients</span>}
-                      </div>
+                      {s.recipient_mode === 'all_managers' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 text-indigo-700 px-2 py-0.5 text-[11px] font-medium border border-indigo-100">
+                          <NetworkIcon size={11} /> All managers · per recipient
+                        </span>
+                      ) : (
+                        <div className="flex items-center">
+                          {recipients.slice(0, 4).map((uid: string, i: number) => {
+                            const p = profileMap.get(uid);
+                            const name = p?.name || 'Unknown';
+                            const avatar = avatarFor(uid);
+                            return (
+                              <div key={uid + i} title={name} className={cn('h-6 w-6 rounded-full ring-2 ring-background text-[9px] font-semibold text-white flex items-center justify-center overflow-hidden', !avatar && avatarColors[i % avatarColors.length], i > 0 && '-ml-2')}>
+                                {avatar ? <img src={avatar} alt={name} className="h-full w-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} /> : initials(name)}
+                              </div>
+                            );
+                          })}
+                          {recipients.length > 4 && (
+                            <div className="h-6 w-6 -ml-2 rounded-full ring-2 ring-background bg-muted text-[9px] font-semibold text-muted-foreground flex items-center justify-center">+{recipients.length - 4}</div>
+                          )}
+                          {recipients.length === 0 && <span className="text-[11px] text-muted-foreground">No recipients</span>}
+                        </div>
+                      )}
                       <div className="flex items-center gap-0.5">
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => runNow.mutate(s.id)}><Zap size={13} className="text-amber-500" /></Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(s)}><Pencil size={13} /></Button>
