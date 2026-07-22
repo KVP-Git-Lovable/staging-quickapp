@@ -1056,13 +1056,14 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
             disabled={saving}
             className="bg-sky-500 hover:bg-sky-600 text-white shadow-sm shadow-sky-200/60"
           >
-            {saving
-              ? 'Saving…'
-              : isEdit
-                ? 'Update rule'
-                : sourceTables.length > 1
-                  ? `Create ${sourceTables.length} rules`
-                  : 'Create rule'}
+            {(() => {
+              if (saving) return 'Saving…';
+              if (isEdit) return 'Update rule';
+              const variantCount = isCuratedModule ? subEventValues.length : sourceTables.length;
+              const userCount = receiverType === 'specific_user' ? Math.max(receiverUserIds.length, 1) : 1;
+              const total = variantCount * userCount;
+              return total > 1 ? `Create ${total} rules` : 'Create rule';
+            })()}
           </Button>
         </div>
       </div>
