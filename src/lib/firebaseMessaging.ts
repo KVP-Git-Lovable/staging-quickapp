@@ -2,6 +2,8 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported, deleteToken } from 'firebase/messaging';
 import { supabase } from '@/integrations/supabase/client';
 import { devLog, devError } from '@/utils/devLog';
+import { toast } from 'sonner';
+
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -118,9 +120,28 @@ export async function initWebPush(userId: string, onNotification?: () => void): 
     }
     currentToken = token;
 
-    onMessage(messaging, () => {
+    onMessage(messaging, (payload) => {
+      const title = payload.notification?.title || (payload.data as any)?.title || 'Notification';
+      const body = payload.notification?.body || (payload.data as any)?.body || '';
+      try {
+        toast(title, { description: body });
+      } catch (err) {
+        devError('[Push] foreground toast failed', err);
+      }
+      try {
+        if (reg && 'showNotification' in reg) {
+          reg.showNotification(title, {
+            body,
+            icon: '/icons/app-icon.png',
+            data: payload.data || {},
+          });
+        }
+      } catch (err) {
+        devError('[Push] foreground showNotification failed', err);
+      }
       onNotification?.();
     });
+
 
     return token;
   } catch (e) {
