@@ -67,8 +67,17 @@ type ModulePreset = {
 };
 
 const now = new Date();
-const dateStr = now.toLocaleDateString();
-const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+const time24Str = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+const timestampStr = `${dateStr} ${timeStr}`;
+
+const TIMESTAMP_FORMATS: { token: string; label: string; hint: string }[] = [
+  { token: '{time}', label: 'Time (12-hour)', hint: 'e.g. 11:07 AM' },
+  { token: '{time_24}', label: 'Time (24-hour)', hint: 'e.g. 23:07' },
+  { token: '{date}', label: 'Date only', hint: 'e.g. 22-Jul-2026' },
+  { token: '{timestamp}', label: 'Date + Time', hint: 'e.g. 22-Jul-2026 11:07 AM' },
+];
 
 const MODULE_PRESETS: Record<string, ModulePreset> = {
   orders: {
