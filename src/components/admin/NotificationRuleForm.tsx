@@ -67,8 +67,17 @@ type ModulePreset = {
 };
 
 const now = new Date();
-const dateStr = now.toLocaleDateString();
-const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
+const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+const time24Str = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+const timestampStr = `${dateStr} ${timeStr}`;
+
+const TIMESTAMP_FORMATS: { token: string; label: string; hint: string }[] = [
+  { token: '{time}', label: 'Time (12-hour)', hint: 'e.g. 11:07 AM' },
+  { token: '{time_24}', label: 'Time (24-hour)', hint: 'e.g. 23:07' },
+  { token: '{date}', label: 'Date only', hint: 'e.g. 22-Jul-2026' },
+  { token: '{timestamp}', label: 'Date + Time', hint: 'e.g. 22-Jul-2026 11:07 AM' },
+];
 
 const MODULE_PRESETS: Record<string, ModulePreset> = {
   orders: {
@@ -302,8 +311,9 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
   };
 
-  const previewTitle = renderTemplate(titleTemplate, preset.sample);
-  const previewMessage = renderTemplate(messageTemplate, preset.sample);
+  const sampleCtx = { timestamp: timestampStr, datetime: timestampStr, time_24: time24Str, date: dateStr, time: timeStr, ...preset.sample };
+  const previewTitle = renderTemplate(titleTemplate, sampleCtx);
+  const previewMessage = renderTemplate(messageTemplate, sampleCtx);
 
   // Reusable pill classnames for the inline sentence-builder selects.
   const pillTrigger =
@@ -549,6 +559,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                     {t}
                   </button>
                 ))}
+                <TimestampPicker onPick={(tok) => insertToken(tok, 'title')} />
               </div>
             </div>
 
@@ -576,6 +587,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
                     {t}
                   </button>
                 ))}
+                <TimestampPicker onPick={(tok) => insertToken(tok, 'message')} />
               </div>
             </div>
           </div>
@@ -740,3 +752,40 @@ function RecipientPreview({
   );
 }
 
+
+// ============================================================
+// TimestampPicker — chip that inserts a chosen timestamp token
+// ============================================================
+function TimestampPicker({ onPick }: { onPick: (token: string) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="px-2 py-1 bg-sky-100 text-slate-700 rounded text-[11px] font-bold cursor-pointer hover:bg-slate-200 transition-colors inline-flex items-center gap-1"
+          title="Insert a timestamp in your preferred format"
+        >
+          🕒 Timestamp <ChevronDown size={10} className="opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-2 pt-1 pb-1.5">
+          Pick a format (IST)
+        </div>
+        {TIMESTAMP_FORMATS.map((f) => (
+          <button
+            key={f.token}
+            type="button"
+            onClick={() => onPick(f.token)}
+            className="w-full text-left px-2 py-1.5 rounded hover:bg-sky-50 flex flex-col"
+          >
+            <span className="text-sm font-medium text-slate-800">{f.label}</span>
+            <span className="text-[11px] text-slate-500">
+              <code className="text-slate-600">{f.token}</code> — {f.hint}
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
