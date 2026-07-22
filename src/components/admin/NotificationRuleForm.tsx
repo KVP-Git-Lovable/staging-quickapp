@@ -67,49 +67,16 @@ type ModulePreset = {
 };
 
 const now = new Date();
-const pad = (n: number) => String(n).padStart(2, '0');
 const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-');
-const dateLongStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-const dateNumericStr = now.toLocaleDateString('en-GB');
-const dateIsoStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
 const time24Str = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-const timeSecondsStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-const timeHmStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-const weekdayStr = now.toLocaleDateString('en-GB', { weekday: 'long' });
-const weekdayShortStr = now.toLocaleDateString('en-GB', { weekday: 'short' });
-const monthStr = now.toLocaleDateString('en-GB', { month: 'long' });
-const monthShortStr = now.toLocaleDateString('en-GB', { month: 'short' });
-const yearStr = String(now.getFullYear());
 const timestampStr = `${dateStr} ${timeStr}`;
-const datetimeStr = `${weekdayShortStr}, ${dateStr} ${timeStr}`;
-const datetimeLongStr = `${dateLongStr} at ${timeStr} IST`;
-const datetimeIsoStr = `${dateIsoStr}T${timeHmStr}:${pad(now.getSeconds())}+05:30`;
-const relativeTimeStr = 'just now';
 
-const TIMESTAMP_FORMATS: { token: string; label: string; hint: string; group: string }[] = [
-  // Time
-  { token: '{time}', label: 'Time (12-hour)', hint: 'e.g. 11:07 AM', group: 'Time' },
-  { token: '{time_24}', label: 'Time (24-hour)', hint: 'e.g. 23:07', group: 'Time' },
-  { token: '{time_seconds}', label: 'Time with seconds', hint: 'e.g. 11:07:32 AM', group: 'Time' },
-  { token: '{time_hm}', label: 'Time short', hint: 'e.g. 11:07', group: 'Time' },
-  // Date
-  { token: '{date}', label: 'Date (short month)', hint: 'e.g. 22-Jul-2026', group: 'Date' },
-  { token: '{date_long}', label: 'Date (long)', hint: 'e.g. 22 July 2026', group: 'Date' },
-  { token: '{date_numeric}', label: 'Date (numeric)', hint: 'e.g. 22/07/2026', group: 'Date' },
-  { token: '{date_iso}', label: 'Date (ISO)', hint: 'e.g. 2026-07-22', group: 'Date' },
-  { token: '{weekday}', label: 'Weekday', hint: 'e.g. Wednesday', group: 'Date' },
-  { token: '{weekday_short}', label: 'Weekday short', hint: 'e.g. Wed', group: 'Date' },
-  { token: '{month}', label: 'Month', hint: 'e.g. July', group: 'Date' },
-  { token: '{month_short}', label: 'Month short', hint: 'e.g. Jul', group: 'Date' },
-  { token: '{year}', label: 'Year', hint: 'e.g. 2026', group: 'Date' },
-  // Combined
-  { token: '{timestamp}', label: 'Date + Time', hint: 'e.g. 22-Jul-2026 11:07 AM', group: 'Combined' },
-  { token: '{datetime}', label: 'Weekday, Date + Time', hint: 'e.g. Wed, 22-Jul-2026 11:07 AM', group: 'Combined' },
-  { token: '{datetime_iso}', label: 'ISO 8601', hint: 'e.g. 2026-07-22T11:07:32+05:30', group: 'Combined' },
-  { token: '{datetime_long}', label: 'Long date + time', hint: 'e.g. 22 July 2026 at 11:07 AM IST', group: 'Combined' },
-  // Relative
-  { token: '{relative_time}', label: 'Relative', hint: 'e.g. just now / 5 min ago', group: 'Relative' },
+const TIMESTAMP_FORMATS: { token: string; label: string; hint: string }[] = [
+  { token: '{time}', label: 'Time (12-hour)', hint: 'e.g. 11:07 AM' },
+  { token: '{time_24}', label: 'Time (24-hour)', hint: 'e.g. 23:07' },
+  { token: '{date}', label: 'Date only', hint: 'e.g. 22-Jul-2026' },
+  { token: '{timestamp}', label: 'Date + Time', hint: 'e.g. 22-Jul-2026 11:07 AM' },
 ];
 
 const MODULE_PRESETS: Record<string, ModulePreset> = {
@@ -344,27 +311,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
     }
   };
 
-  const sampleCtx = {
-    timestamp: timestampStr,
-    datetime: datetimeStr,
-    datetime_iso: datetimeIsoStr,
-    datetime_long: datetimeLongStr,
-    time: timeStr,
-    time_24: time24Str,
-    time_seconds: timeSecondsStr,
-    time_hm: timeHmStr,
-    date: dateStr,
-    date_long: dateLongStr,
-    date_numeric: dateNumericStr,
-    date_iso: dateIsoStr,
-    weekday: weekdayStr,
-    weekday_short: weekdayShortStr,
-    month: monthStr,
-    month_short: monthShortStr,
-    year: yearStr,
-    relative_time: relativeTimeStr,
-    ...preset.sample,
-  };
+  const sampleCtx = { timestamp: timestampStr, datetime: timestampStr, time_24: time24Str, date: dateStr, time: timeStr, ...preset.sample };
   const previewTitle = renderTemplate(titleTemplate, sampleCtx);
   const previewMessage = renderTemplate(messageTemplate, sampleCtx);
 
@@ -821,27 +768,22 @@ function TimestampPicker({ onPick }: { onPick: (token: string) => void }) {
           🕒 Timestamp <ChevronDown size={10} className="opacity-60" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-1.5 max-h-[420px] overflow-y-auto">
-        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-2 pt-1 pb-1.5 sticky top-0 bg-white">
+      <PopoverContent align="start" className="w-64 p-1.5">
+        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-2 pt-1 pb-1.5">
           Pick a format (IST)
         </div>
-        {['Time', 'Date', 'Combined', 'Relative'].map((grp) => (
-          <div key={grp} className="pb-1">
-            <div className="text-[9px] uppercase tracking-wider text-sky-600 font-bold px-2 pt-1.5 pb-0.5">{grp}</div>
-            {TIMESTAMP_FORMATS.filter((f) => f.group === grp).map((f) => (
-              <button
-                key={f.token}
-                type="button"
-                onClick={() => onPick(f.token)}
-                className="w-full text-left px-2 py-1.5 rounded hover:bg-sky-50 flex flex-col"
-              >
-                <span className="text-sm font-medium text-slate-800">{f.label}</span>
-                <span className="text-[11px] text-slate-500">
-                  <code className="text-slate-600">{f.token}</code> — {f.hint}
-                </span>
-              </button>
-            ))}
-          </div>
+        {TIMESTAMP_FORMATS.map((f) => (
+          <button
+            key={f.token}
+            type="button"
+            onClick={() => onPick(f.token)}
+            className="w-full text-left px-2 py-1.5 rounded hover:bg-sky-50 flex flex-col"
+          >
+            <span className="text-sm font-medium text-slate-800">{f.label}</span>
+            <span className="text-[11px] text-slate-500">
+              <code className="text-slate-600">{f.token}</code> — {f.hint}
+            </span>
+          </button>
         ))}
       </PopoverContent>
     </Popover>
