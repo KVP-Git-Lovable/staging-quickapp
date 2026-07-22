@@ -131,12 +131,18 @@ const NotificationRulesAdmin = () => {
         title,
         message,
         type: 'info',
+        metadata: {
+          route: '/notifications',
+          actor_id: user?.id || null,
+          manual_fire: true,
+          requested_channel: rule.notification_channel,
+        },
       }));
       const { error } = await supabase.from('notifications').insert(rows);
       if (error) throw error;
       return receiverIds.length;
     },
-    onSuccess: (count) => toast.success(`Fired notification to ${count} user(s)`),
+    onSuccess: (count) => toast.success(`Fired in-app + push test to ${count} user(s)`),
     onError: (err: any) => toast.error(err.message || 'Failed to fire rule'),
   });
 

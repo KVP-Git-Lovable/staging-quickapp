@@ -81,7 +81,7 @@ const RECEIVER_OPTIONS = [
 
 const CHANNELS = [
   { value: 'in_app', label: 'In-app', disabled: false },
-  { value: 'push', label: 'Push (coming soon)', disabled: true },
+  { value: 'push', label: 'In-app + push', disabled: false },
   { value: 'email', label: 'Email (coming soon)', disabled: true },
 ];
 
