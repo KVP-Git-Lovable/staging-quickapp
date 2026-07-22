@@ -573,7 +573,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
               </div>
               <div className="relative bg-white shadow-2xl shadow-slate-300/40 border border-slate-100 rounded-xl p-4 w-full max-w-[340px]">
                 <div className="flex gap-3">
-                  <div className="shrink-0 w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center text-white">
+                  <div className="shrink-0 w-10 h-10 bg-indigo-400 rounded-lg flex items-center justify-center text-white">
                     <Bell size={18} />
                   </div>
                   <div className="flex-1 min-w-0">
