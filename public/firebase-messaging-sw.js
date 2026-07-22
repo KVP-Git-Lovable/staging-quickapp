@@ -22,11 +22,21 @@ if (firebaseConfig.apiKey) {
   const messaging = firebase.messaging();
 
   messaging.onBackgroundMessage((payload) => {
-    const title = payload.notification?.title || payload.data?.title || 'Notification';
+    const data = payload.data || {};
+    const title = payload.notification?.title || data.title || 'Notification';
+    // Unique tag per notification prevents Android/Chrome from silently
+    // coalescing rapid-fire messages (e.g. regularization + leave within 60s).
+    const tag =
+      data.notification_id ||
+      `${data.type || 'notif'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const options = {
-      body: payload.notification?.body || payload.data?.body || '',
+      body: payload.notification?.body || data.body || '',
       icon: '/icons/app-icon.png',
-      data: payload.data || {},
+      badge: '/icons/app-icon.png',
+      tag,
+      renotify: true,
+      requireInteraction: true,
+      data,
     };
     self.registration.showNotification(title, options);
   });
