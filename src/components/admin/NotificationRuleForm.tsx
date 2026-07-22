@@ -364,6 +364,10 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
       toast.error('Please pick an event and at least one module');
       return;
     }
+    if (receiverType === 'specific_user' && receiverUserIds.length === 0) {
+      toast.error('Please pick at least one person');
+      return;
+    }
     setSaving(true);
     try {
       const eventLabel = eventTypes.find((e) => e.event_code === eventCode)?.label || eventCode;
@@ -373,7 +377,6 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         event_code: eventCode,
         receiver_type: receiverType,
         receiver_role: receiverType === 'role' ? receiverRole : null,
-        receiver_user_id: receiverType === 'specific_user' ? (receiverUserId || null) : null,
         notification_channel,
         title_template: titleTemplate,
         message_template: messageTemplate,
@@ -381,9 +384,15 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         updated_at: new Date().toISOString(),
       };
 
+      // For specific_user: fan out one rule per selected user (schema stores single UUID).
+      const targetUserIds =
+        receiverType === 'specific_user' && receiverUserIds.length > 0 ? receiverUserIds : [null];
+
       if (isEdit && rule) {
+        // Edit only updates the first user (keeps behaviour predictable).
         const payload = {
           ...commonPayload,
+          receiver_user_id: receiverType === 'specific_user' ? (receiverUserIds[0] || null) : null,
           name: name || `When ${eventLabel} → notify ${receiverLabel}`,
           source_table: sourceTables[0],
         };
@@ -391,19 +400,26 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         if (error) throw error;
         toast.success('Rule updated');
       } else {
-        const rows = sourceTables.map((mod) => {
-          const modLabel = SOURCE_TABLES.find((t) => t.value === mod)?.label || mod;
-          return {
-            ...commonPayload,
-            name: name
-              ? sourceTables.length > 1
-                ? `${name} — ${modLabel}`
-                : name
-              : `When ${eventLabel} on ${modLabel} → notify ${receiverLabel}`,
-            source_table: mod,
-            created_by: userId,
-          };
-        });
+        const rows = sourceTables.flatMap((mod) =>
+          targetUserIds.map((uid) => {
+            const modLabel = SOURCE_TABLES.find((t) => t.value === mod)?.label || mod;
+            const userLabel =
+              uid && receiverType === 'specific_user'
+                ? pickUsers.find((u) => u.id === uid)?.name || 'user'
+                : receiverLabel;
+            return {
+              ...commonPayload,
+              receiver_user_id: uid,
+              name: name
+                ? sourceTables.length > 1 || targetUserIds.length > 1
+                  ? `${name} — ${modLabel}${uid ? ` — ${userLabel}` : ''}`
+                  : name
+                : `When ${eventLabel} on ${modLabel} → notify ${uid ? userLabel : receiverLabel}`,
+              source_table: mod,
+              created_by: userId,
+            };
+          }),
+        );
         const { error } = await supabase.from('notification_rules').insert(rows);
         if (error) throw error;
         toast.success(rows.length > 1 ? `Created ${rows.length} rules` : 'Rule created');
