@@ -271,6 +271,7 @@ export function NotificationRuleForm({ rule, userId, onClose, onSaved }: Notific
         notification_channel,
         title_template: titleTemplate,
         message_template: messageTemplate,
+        timezone,
         updated_at: new Date().toISOString(),
       };
 
