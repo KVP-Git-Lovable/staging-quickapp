@@ -31,8 +31,13 @@ export function PushNotificationSettings() {
       if (!Capacitor.isNativePlatform() && preferenceEnabled) {
         const browserPermission = 'Notification' in window ? Notification.permission : 'denied';
         if (browserPermission === 'granted') {
-          const token = await initWebPush(user.id);
-          setEnabled(Boolean(token));
+          try {
+            const token = await initWebPush(user.id);
+            setEnabled(Boolean(token));
+          } catch (error) {
+            console.error('Push registration failed:', error);
+            setEnabled(false);
+          }
         } else {
           // A saved preference is not the same as an active browser subscription.
           // Keep the switch off so the next user click can request permission.

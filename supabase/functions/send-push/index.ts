@@ -2,8 +2,9 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { create, getNumericDate } from 'https://deno.land/x/djwt@v3.0.2/mod.ts';
 
-const PROJECT_ID = Deno.env.get('FIREBASE_PROJECT_ID')!;
 const SERVICE_ACCOUNT_RAW = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')!;
+const SERVICE_ACCOUNT = JSON.parse(SERVICE_ACCOUNT_RAW);
+const PROJECT_ID = SERVICE_ACCOUNT.project_id || Deno.env.get('FIREBASE_PROJECT_ID')!;
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -43,12 +44,11 @@ async function getAccessToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedToken.exp - 60 > now) return cachedToken.token;
 
-  const sa = JSON.parse(SERVICE_ACCOUNT_RAW);
-  const key = await importPrivateKey(sa.private_key);
+  const key = await importPrivateKey(SERVICE_ACCOUNT.private_key);
   const jwt = await create(
     { alg: 'RS256', typ: 'JWT' },
     {
-      iss: sa.client_email,
+      iss: SERVICE_ACCOUNT.client_email,
       scope: 'https://www.googleapis.com/auth/firebase.messaging',
       aud: 'https://oauth2.googleapis.com/token',
       iat: getNumericDate(0),
