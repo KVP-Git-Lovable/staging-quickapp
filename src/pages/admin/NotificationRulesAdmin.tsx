@@ -99,25 +99,22 @@ const NotificationRulesAdmin = () => {
 
   const fireMutation = useMutation({
     mutationFn: async (rule: NotificationRule) => {
-      let receiverIds: string[] = [];
-      if (rule.receiver_type === 'specific_user' && rule.receiver_user_id) {
-        receiverIds = [rule.receiver_user_id];
-      } else if (rule.receiver_type === 'employee') {
-        if (user?.id) receiverIds = [user.id];
-      } else if (rule.receiver_type === 'manager') {
-        if (user?.id) {
-          const { data } = await supabase.from('profiles').select('manager_id').eq('id', user.id).maybeSingle();
-          if ((data as any)?.manager_id) receiverIds = [(data as any).manager_id];
-        }
-      } else if (rule.receiver_type === 'admin') {
-        const { data } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
-        receiverIds = (data || []).map((r: any) => r.user_id);
-      } else if (rule.receiver_type === 'role' && rule.receiver_role) {
-        const { data } = await supabase.from('user_roles').select('user_id').eq('role', rule.receiver_role as any);
-        receiverIds = (data || []).map((r: any) => r.user_id);
-      }
+      const { data: recipients, error: recipientError } = await supabase.rpc(
+        'notif_preview_recipients' as any,
+        {
+          p_receiver_type: rule.receiver_type,
+          p_receiver_role: rule.receiver_role || null,
+          p_receiver_user_id: rule.receiver_user_id || null,
+          p_sample_actor: ['employee', 'manager', 'hierarchy'].includes(rule.receiver_type)
+            ? user?.id || null
+            : null,
+        },
+      );
+      if (recipientError) throw recipientError;
 
-      receiverIds = Array.from(new Set(receiverIds.filter(Boolean)));
+      const receiverIds = Array.from(
+        new Set(((recipients || []) as Array<{ id: string }>).map((recipient) => recipient.id).filter(Boolean)),
+      );
       if (receiverIds.length === 0) throw new Error('No receivers resolved for this rule');
 
       const ctx = {
