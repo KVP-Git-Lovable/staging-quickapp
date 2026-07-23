@@ -26,8 +26,9 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const body = (await req.json()) as GenerateRequest;
+  const body = (await req.json()) as GenerateRequest & { force?: boolean };
   const { subscription_id, period } = body;
+  const force = body.force === true || body.mode === 'manual';
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
@@ -73,17 +74,21 @@ Deno.serve(async (req) => {
 
   const outcomes: Array<Record<string, unknown>> = [];
 
-  // Pre-fetch any existing delivery-log rows for this run so we can skip
-  // recipients that were already delivered (idempotency across retries).
+  // Pre-fetch existing delivery-log rows for this run. Only rows that represent
+  // a GENUINE delivery ('created') count for idempotency — 'skipped_empty' or
+  // 'failed_*' rows must NOT suppress a later run that has data. Manual runs
+  // bypass this entirely (force=true).
   const { data: existingLog } = await admin
     .from('report_delivery_log')
     .select('recipient_user_id, in_app_status')
     .eq('subscription_id', sub.id)
     .eq('period', period.key);
   const alreadyProcessed = new Set(
-    (existingLog ?? [])
-      .filter((r: any) => r.in_app_status && r.in_app_status !== 'failed')
-      .map((r: any) => r.recipient_user_id),
+    force
+      ? []
+      : (existingLog ?? [])
+          .filter((r: any) => r.in_app_status === 'created')
+          .map((r: any) => r.recipient_user_id),
   );
 
   // Shared: single RPC + single file. Skip empty entirely.
@@ -208,10 +213,9 @@ Deno.serve(async (req) => {
         error: nErr ? nErr.message : null,
       }, { onConflict: 'subscription_id,recipient_user_id,period' });
 
-      outcomes.push({ recipient: rid, notification_id: notif?.id, push: pushStatus });
+      outcomes.push({ recipient: rid, notification_id: notif?.id, push: pushStatus, delivered: !nErr });
     } catch (e) {
       console.error('per-recipient error', rid, e);
-      // Log the failure so all_managers fan-out records every recipient.
       try {
         await admin.from('report_delivery_log').upsert({
           subscription_id: sub.id,
@@ -228,9 +232,23 @@ Deno.serve(async (req) => {
     }
   }
 
-  await admin.from('report_subscriptions').update({ last_fired_at: new Date().toISOString() }).eq('id', sub.id);
+  // Only stamp last_fired_at when at least one recipient actually received a report.
+  // This prevents empty/failed attempts from poisoning the "last fired" indicator
+  // and — combined with the dispatcher's period check — allows data arriving later
+  // in the day to still be delivered.
+  const deliveredCount = outcomes.filter((o: any) => o.delivered === true).length;
+  const emptyCount = outcomes.filter((o: any) => o.skipped === 'empty').length;
+  if (deliveredCount > 0) {
+    await admin.from('report_subscriptions').update({ last_fired_at: new Date().toISOString() }).eq('id', sub.id);
+  }
 
-  return new Response(JSON.stringify({ ok: true, recipients: outcomes.length, outcomes }), {
+  return new Response(JSON.stringify({
+    ok: true,
+    recipients: outcomes.length,
+    delivered: deliveredCount,
+    empty: emptyCount === recipients.length && recipients.length > 0,
+    outcomes,
+  }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });

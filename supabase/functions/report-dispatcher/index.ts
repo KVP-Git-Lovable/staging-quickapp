@@ -18,7 +18,6 @@ Deno.serve(async (req) => {
     const providedSecret = req.headers.get('x-cron-secret');
     let isCron = !!providedSecret && providedSecret === Deno.env.get('CRON_SECRET');
     if (!isCron && providedSecret) {
-      // Also allow the push_config trigger_secret (used by the DB cron job)
       const admin0 = createClient(SUPABASE_URL, SERVICE_ROLE);
       const { data: cfg } = await admin0.from('push_config').select('trigger_secret').eq('id', true).maybeSingle();
       if (cfg?.trigger_secret && providedSecret === cfg.trigger_secret) isCron = true;
@@ -35,7 +34,6 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-    // Manual "Run now" — authenticated admin user
     if (isManual) {
       if (!authHeader?.startsWith('Bearer ')) {
         return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
@@ -54,14 +52,16 @@ Deno.serve(async (req) => {
 
       const { data: sub, error } = await admin
         .from('report_subscriptions')
-        .select('id, cadence')
+        .select('id, cadence, period_basis')
         .eq('id', body.subscription_id)
         .maybeSingle();
       if (error || !sub) {
         return new Response(JSON.stringify({ error: 'Subscription not found' }), { status: 404, headers: corsHeaders });
       }
-      const period = computePeriod(sub.cadence);
-      const result = await invokeGenerate(sub.id, period, 'manual');
+      const basis = (sub as any).period_basis === 'previous' ? 'previous' : 'current';
+      const period = computePeriod(sub.cadence, new Date(), basis);
+      // Manual always forces a regeneration.
+      const result = await invokeGenerate(sub.id, period, 'manual', true);
       return new Response(JSON.stringify({ ok: true, ...result }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -70,25 +70,27 @@ Deno.serve(async (req) => {
     // Cron path
     const { data: subs } = await admin
       .from('report_subscriptions')
-      .select('id, cadence, fire_day, fire_time, timezone, last_fired_at')
+      .select('id, cadence, fire_day, fire_time, timezone, last_fired_at, period_basis')
       .eq('status', 'active');
 
     const results: Array<Record<string, unknown>> = [];
     for (const s of subs ?? []) {
       if (!isDue(s.cadence, s.fire_day, String(s.fire_time), s.timezone ?? 'Asia/Kolkata')) continue;
-      const period = computePeriod(s.cadence);
-      // Idempotency — skip if last fired in current period
+      const basis = (s as any).period_basis === 'previous' ? 'previous' : 'current';
+      const period = computePeriod(s.cadence, new Date(), basis);
+      // Idempotency — skip only if last SUCCESSFUL fire is in the current period.
+      // generate-report only stamps last_fired_at when at least one recipient was delivered,
+      // so skipped_empty runs no longer poison the period.
       if (s.last_fired_at) {
         const last = new Date(s.last_fired_at);
-        const nowKey = period.key;
-        const lastPeriod = computePeriod(s.cadence, last).key;
-        if (lastPeriod === nowKey) {
-          results.push({ subscription_id: s.id, skipped: 'already_fired', period: nowKey });
+        const lastPeriod = computePeriod(s.cadence, last, basis).key;
+        if (lastPeriod === period.key) {
+          results.push({ subscription_id: s.id, skipped: 'already_fired', period: period.key });
           continue;
         }
       }
       try {
-        const r = await invokeGenerate(s.id, period, 'scheduled');
+        const r = await invokeGenerate(s.id, period, 'scheduled', false);
         results.push({ subscription_id: s.id, period: period.key, ...r });
         if (s.cadence === 'today') {
           await admin.from('report_subscriptions').update({ status: 'paused' }).eq('id', s.id);
@@ -110,7 +112,12 @@ Deno.serve(async (req) => {
   }
 });
 
-async function invokeGenerate(subscriptionId: string, period: { key: string; label: string; date_from: string; date_to: string }, mode: string) {
+async function invokeGenerate(
+  subscriptionId: string,
+  period: { key: string; label: string; date_from: string; date_to: string },
+  mode: string,
+  force: boolean,
+) {
   const url = `${SUPABASE_URL}/functions/v1/generate-report`;
   const r = await fetch(url, {
     method: 'POST',
@@ -119,7 +126,7 @@ async function invokeGenerate(subscriptionId: string, period: { key: string; lab
       Authorization: `Bearer ${SERVICE_ROLE}`,
       apikey: SERVICE_ROLE,
     },
-    body: JSON.stringify({ subscription_id: subscriptionId, period, mode }),
+    body: JSON.stringify({ subscription_id: subscriptionId, period, mode, force }),
   });
   const j = await r.json().catch(() => ({}));
   return { status: r.status, ...j };

@@ -159,8 +159,16 @@ export function ReportSubscriptionsTab() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      toast.success('Report dispatched');
+    onSuccess: (data: any) => {
+      // generate-report returns { delivered, empty }. When zero rows were found
+      // no notification / push is dispatched and last_fired_at is NOT stamped.
+      const delivered = data?.delivered ?? 0;
+      const empty = data?.empty === true;
+      if (empty || delivered === 0) {
+        toast.info('No data for this period — nothing sent');
+      } else {
+        toast.success(`Report dispatched to ${delivered} recipient${delivered === 1 ? '' : 's'}`);
+      }
       qc.invalidateQueries({ queryKey: ['report-subscriptions'] });
     },
     onError: (e: any) => toast.error(e.message || 'Failed to run'),
@@ -413,9 +421,22 @@ export function ReportSubscriptionsTab() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border', fmt.tint)}>
-                            {fmt.icon} {fmt.label}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border', fmt.tint)}>
+                              {fmt.icon} {fmt.label}
+                            </span>
+                            <span
+                              title={s.push_to_phone ? 'Phone push enabled' : 'Phone push OFF'}
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium border',
+                                s.push_to_phone
+                                  ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                  : 'bg-slate-100 text-slate-500 border-slate-200 line-through'
+                              )}
+                            >
+                              <Send size={10} /> Push
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell>
                           {s.recipient_mode === 'all_managers' ? (
@@ -612,6 +633,9 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [timezone, setTimezone] = useState(editing?.sub.timezone ?? 'Asia/Kolkata');
   const [format, setFormat] = useState(editing?.sub.attachment_format ?? 'summary_only');
   const [pushToPhone, setPushToPhone] = useState(editing?.sub.push_to_phone ?? false);
+  const [periodBasis, setPeriodBasis] = useState<'current' | 'previous'>(
+    ((editing?.sub as any)?.period_basis as any) ?? 'previous'
+  );
   const [scope, setScope] = useState(editing?.sub.scope ?? 'shared');
   const [recipientIds, setRecipientIds] = useState<string[]>(editing?.sub.recipient_user_ids ?? []);
   const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
@@ -687,6 +711,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             recipient_mode: recipientMode,
             attachment_format: format,
             push_to_phone: pushToPhone,
+            period_basis: periodBasis,
             scope: effectiveScope,
           } as any)
           .eq('id', editing.sub.id);
@@ -709,11 +734,16 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             recipient_mode: recipientMode,
             attachment_format: format,
             push_to_phone: pushToPhone,
+            period_basis: periodBasis,
             scope: effectiveScope,
             status: 'active',
           },
         });
         if (error) throw error;
+        // period_basis isn't in the RPC signature — set it directly after insert.
+        if (data) {
+          await supabase.from('report_subscriptions').update({ period_basis: periodBasis } as any).eq('id', data);
+        }
         return data;
       }
     },
@@ -822,6 +852,21 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                     Per recipient is required so each manager sees only their own team.
                   </p>
                 )}
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Reporting window</Label>
+                <Select value={periodBasis} onValueChange={(v) => setPeriodBasis(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="previous">Previous complete period (recommended)</SelectItem>
+                    <SelectItem value="current">Current period to date</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {periodBasis === 'previous'
+                    ? 'Reports cover the last completed period (yesterday for daily, last week for weekly, last month for monthly).'
+                    : 'Reports cover the current period up to the fire time — useful for intraday summaries.'}
+                </p>
               </div>
               <div className="flex items-center gap-3 md:col-span-2 pt-2">
                 <Switch checked={pushToPhone} onCheckedChange={setPushToPhone} id="push" />

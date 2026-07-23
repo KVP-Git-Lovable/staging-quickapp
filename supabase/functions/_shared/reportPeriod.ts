@@ -1,10 +1,10 @@
 // Utilities to compute the reporting period label + date range for a subscription cadence.
 
 export interface Period {
-  key: string; // stable ID used for idempotency & storage paths (e.g. "2026-07-20", "2026-W29", "2026-06")
+  key: string;
   label: string;
-  date_from: string; // yyyy-mm-dd
-  date_to: string; // yyyy-mm-dd
+  date_from: string;
+  date_to: string;
 }
 
 function fmt(d: Date): string {
@@ -25,42 +25,62 @@ function isoWeek(d: Date): { year: number; week: number } {
 }
 
 /**
- * Compute reporting period for a cadence.
- *
- * Same-day cadences (daily / weekday / weekly) are CURRENT-DAY-TO-DATE — e.g. the
- * 11:00 attendance summary or the 19:00 EOD run should report today up to `now`,
- * NOT yesterday. This matches the real-world use of "morning attendance" and
- * "end-of-day" digests. Only Monthly looks back a full completed period.
+ * Compute reporting period for a cadence and basis.
+ * - basis='current' (default): current period-to-date (today / this week / this month so far)
+ * - basis='previous': the last COMPLETED period (yesterday / last ISO week / previous calendar month)
  */
-export function computePeriod(cadence: string, now: Date = new Date()): Period {
+export function computePeriod(
+  cadence: string,
+  now: Date = new Date(),
+  basis: 'current' | 'previous' = 'current',
+): Period {
   const today = new Date(now);
   const todayStr = fmt(today);
 
   if (cadence === 'daily' || cadence === 'weekday' || cadence === 'today') {
-    return {
-      key: todayStr,
-      label: todayStr,
-      date_from: todayStr,
-      date_to: todayStr,
-    };
+    if (basis === 'previous') {
+      const y = new Date(today.valueOf() - 86400000);
+      const s = fmt(y);
+      return { key: s, label: s, date_from: s, date_to: s };
+    }
+    return { key: todayStr, label: todayStr, date_from: todayStr, date_to: todayStr };
   }
 
   if (cadence === 'weekly') {
-    // Current ISO week — Monday..today (week-to-date)
     const w = new Date(now);
     const dayNr = (w.getUTCDay() + 6) % 7;
     w.setUTCDate(w.getUTCDate() - dayNr); // Monday of current week
-    const from = new Date(w);
-    const iw = isoWeek(from);
+    if (basis === 'previous') {
+      const monPrev = new Date(w.valueOf() - 7 * 86400000);
+      const sunPrev = new Date(monPrev.valueOf() + 6 * 86400000);
+      const iw = isoWeek(monPrev);
+      return {
+        key: `${iw.year}-W${String(iw.week).padStart(2, '0')}`,
+        label: `Week ${iw.week}, ${iw.year}`,
+        date_from: fmt(monPrev),
+        date_to: fmt(sunPrev),
+      };
+    }
+    const iw = isoWeek(w);
     return {
       key: `${iw.year}-W${String(iw.week).padStart(2, '0')}`,
       label: `Week ${iw.week}, ${iw.year} (to date)`,
-      date_from: fmt(from),
+      date_from: fmt(w),
       date_to: todayStr,
     };
   }
 
-  // monthly: previous calendar month (only cadence that looks back a full period)
+  // monthly
+  if (basis === 'current') {
+    const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const key = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    return {
+      key,
+      label: now.toLocaleString('en-US', { month: 'long', year: 'numeric' }) + ' (to date)',
+      date_from: fmt(first),
+      date_to: todayStr,
+    };
+  }
   const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const prevLast = new Date(first.valueOf() - 86400000);
   const prevFirst = new Date(Date.UTC(prevLast.getUTCFullYear(), prevLast.getUTCMonth(), 1));
@@ -73,13 +93,10 @@ export function computePeriod(cadence: string, now: Date = new Date()): Period {
   };
 }
 
-/**
- * Returns true when `now` in `tz` matches the subscription's fire slot (within a 15-min tick window).
- */
 export function isDue(
   cadence: string,
   fireDay: string | null,
-  fireTime: string, // "HH:MM" or "HH:MM:SS"
+  fireTime: string,
   tz: string,
   now: Date = new Date(),
 ): boolean {
@@ -92,13 +109,12 @@ export function isDue(
   const get = (t: string) => parts.find(p => p.type === t)?.value ?? '';
   const hh = parseInt(get('hour'), 10);
   const mm = parseInt(get('minute'), 10);
-  const weekday = get('weekday'); // Mon, Tue, ...
+  const weekday = get('weekday');
   const day = parseInt(get('day'), 10);
 
   const [fh, fm] = fireTime.split(':').map(n => parseInt(n, 10));
   const nowMin = hh * 60 + mm;
   const fireMin = fh * 60 + fm;
-  // 15-min tick window: fire if we're within [fire, fire + 14min]
   if (nowMin < fireMin || nowMin >= fireMin + 15) return false;
 
   if (cadence === 'daily' || cadence === 'today') return true;
