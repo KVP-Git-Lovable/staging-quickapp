@@ -21009,7 +21009,7 @@ export type Database = {
           push_status: string | null
           recipient_user_id: string
           storage_path: string | null
-          subscription_id: string
+          subscription_id: string | null
         }
         Insert: {
           created_at?: string
@@ -21021,7 +21021,7 @@ export type Database = {
           push_status?: string | null
           recipient_user_id: string
           storage_path?: string | null
-          subscription_id: string
+          subscription_id?: string | null
         }
         Update: {
           created_at?: string
@@ -21033,7 +21033,7 @@ export type Database = {
           push_status?: string | null
           recipient_user_id?: string
           storage_path?: string | null
-          subscription_id?: string
+          subscription_id?: string | null
         }
         Relationships: [
           {
@@ -21056,6 +21056,7 @@ export type Database = {
           id: string
           last_fired_at: string | null
           name: string
+          period_basis: string
           push_to_phone: boolean
           recipient_mode: string
           recipient_user_ids: string[]
@@ -21075,6 +21076,7 @@ export type Database = {
           id?: string
           last_fired_at?: string | null
           name: string
+          period_basis?: string
           push_to_phone?: boolean
           recipient_mode?: string
           recipient_user_ids?: string[]
@@ -21094,6 +21096,7 @@ export type Database = {
           id?: string
           last_fired_at?: string | null
           name?: string
+          period_basis?: string
           push_to_phone?: boolean
           recipient_mode?: string
           recipient_user_ids?: string[]
