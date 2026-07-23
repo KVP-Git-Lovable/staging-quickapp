@@ -213,10 +213,9 @@ Deno.serve(async (req) => {
         error: nErr ? nErr.message : null,
       }, { onConflict: 'subscription_id,recipient_user_id,period' });
 
-      outcomes.push({ recipient: rid, notification_id: notif?.id, push: pushStatus });
+      outcomes.push({ recipient: rid, notification_id: notif?.id, push: pushStatus, delivered: !nErr });
     } catch (e) {
       console.error('per-recipient error', rid, e);
-      // Log the failure so all_managers fan-out records every recipient.
       try {
         await admin.from('report_delivery_log').upsert({
           subscription_id: sub.id,
@@ -233,9 +232,23 @@ Deno.serve(async (req) => {
     }
   }
 
-  await admin.from('report_subscriptions').update({ last_fired_at: new Date().toISOString() }).eq('id', sub.id);
+  // Only stamp last_fired_at when at least one recipient actually received a report.
+  // This prevents empty/failed attempts from poisoning the "last fired" indicator
+  // and — combined with the dispatcher's period check — allows data arriving later
+  // in the day to still be delivered.
+  const deliveredCount = outcomes.filter((o: any) => o.delivered === true).length;
+  const emptyCount = outcomes.filter((o: any) => o.skipped === 'empty').length;
+  if (deliveredCount > 0) {
+    await admin.from('report_subscriptions').update({ last_fired_at: new Date().toISOString() }).eq('id', sub.id);
+  }
 
-  return new Response(JSON.stringify({ ok: true, recipients: outcomes.length, outcomes }), {
+  return new Response(JSON.stringify({
+    ok: true,
+    recipients: outcomes.length,
+    delivered: deliveredCount,
+    empty: emptyCount === recipients.length && recipients.length > 0,
+    outcomes,
+  }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 });
