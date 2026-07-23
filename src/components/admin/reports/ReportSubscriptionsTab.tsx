@@ -421,9 +421,22 @@ export function ReportSubscriptionsTab() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border', fmt.tint)}>
-                            {fmt.icon} {fmt.label}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={cn('inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium border', fmt.tint)}>
+                              {fmt.icon} {fmt.label}
+                            </span>
+                            <span
+                              title={s.push_to_phone ? 'Phone push enabled' : 'Phone push OFF'}
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium border',
+                                s.push_to_phone
+                                  ? 'bg-sky-50 text-sky-700 border-sky-200'
+                                  : 'bg-slate-100 text-slate-500 border-slate-200 line-through'
+                              )}
+                            >
+                              <Send size={10} /> Push
+                            </span>
+                          </div>
                         </TableCell>
                         <TableCell>
                           {s.recipient_mode === 'all_managers' ? (
