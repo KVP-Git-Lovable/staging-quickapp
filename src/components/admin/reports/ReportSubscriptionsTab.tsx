@@ -853,6 +853,21 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                   </p>
                 )}
               </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label>Reporting window</Label>
+                <Select value={periodBasis} onValueChange={(v) => setPeriodBasis(v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="previous">Previous complete period (recommended)</SelectItem>
+                    <SelectItem value="current">Current period to date</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[11px] text-muted-foreground">
+                  {periodBasis === 'previous'
+                    ? 'Reports cover the last completed period (yesterday for daily, last week for weekly, last month for monthly).'
+                    : 'Reports cover the current period up to the fire time — useful for intraday summaries.'}
+                </p>
+              </div>
               <div className="flex items-center gap-3 md:col-span-2 pt-2">
                 <Switch checked={pushToPhone} onCheckedChange={setPushToPhone} id="push" />
                 <Label htmlFor="push" className="cursor-pointer">Also send phone push notification</Label>
