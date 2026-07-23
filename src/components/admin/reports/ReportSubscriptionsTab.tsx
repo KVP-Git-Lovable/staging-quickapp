@@ -159,8 +159,16 @@ export function ReportSubscriptionsTab() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      toast.success('Report dispatched');
+    onSuccess: (data: any) => {
+      // generate-report returns { delivered, empty }. When zero rows were found
+      // no notification / push is dispatched and last_fired_at is NOT stamped.
+      const delivered = data?.delivered ?? 0;
+      const empty = data?.empty === true;
+      if (empty || delivered === 0) {
+        toast.info('No data for this period — nothing sent');
+      } else {
+        toast.success(`Report dispatched to ${delivered} recipient${delivered === 1 ? '' : 's'}`);
+      }
       qc.invalidateQueries({ queryKey: ['report-subscriptions'] });
     },
     onError: (e: any) => toast.error(e.message || 'Failed to run'),
