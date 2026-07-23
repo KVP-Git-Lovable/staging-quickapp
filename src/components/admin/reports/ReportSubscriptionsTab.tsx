@@ -740,6 +740,10 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
           },
         });
         if (error) throw error;
+        // period_basis isn't in the RPC signature — set it directly after insert.
+        if (data) {
+          await supabase.from('report_subscriptions').update({ period_basis: periodBasis } as any).eq('id', data);
+        }
         return data;
       }
     },
