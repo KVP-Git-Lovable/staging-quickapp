@@ -734,6 +734,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             recipient_mode: recipientMode,
             attachment_format: format,
             push_to_phone: pushToPhone,
+            period_basis: periodBasis,
             scope: effectiveScope,
             status: 'active',
           },
