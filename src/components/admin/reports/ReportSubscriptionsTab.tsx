@@ -633,6 +633,9 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [timezone, setTimezone] = useState(editing?.sub.timezone ?? 'Asia/Kolkata');
   const [format, setFormat] = useState(editing?.sub.attachment_format ?? 'summary_only');
   const [pushToPhone, setPushToPhone] = useState(editing?.sub.push_to_phone ?? false);
+  const [periodBasis, setPeriodBasis] = useState<'current' | 'previous'>(
+    ((editing?.sub as any)?.period_basis as any) ?? 'previous'
+  );
   const [scope, setScope] = useState(editing?.sub.scope ?? 'shared');
   const [recipientIds, setRecipientIds] = useState<string[]>(editing?.sub.recipient_user_ids ?? []);
   const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
