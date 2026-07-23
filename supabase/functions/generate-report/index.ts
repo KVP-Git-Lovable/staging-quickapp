@@ -74,17 +74,21 @@ Deno.serve(async (req) => {
 
   const outcomes: Array<Record<string, unknown>> = [];
 
-  // Pre-fetch any existing delivery-log rows for this run so we can skip
-  // recipients that were already delivered (idempotency across retries).
+  // Pre-fetch existing delivery-log rows for this run. Only rows that represent
+  // a GENUINE delivery ('created') count for idempotency — 'skipped_empty' or
+  // 'failed_*' rows must NOT suppress a later run that has data. Manual runs
+  // bypass this entirely (force=true).
   const { data: existingLog } = await admin
     .from('report_delivery_log')
     .select('recipient_user_id, in_app_status')
     .eq('subscription_id', sub.id)
     .eq('period', period.key);
   const alreadyProcessed = new Set(
-    (existingLog ?? [])
-      .filter((r: any) => r.in_app_status && r.in_app_status !== 'failed')
-      .map((r: any) => r.recipient_user_id),
+    force
+      ? []
+      : (existingLog ?? [])
+          .filter((r: any) => r.in_app_status === 'created')
+          .map((r: any) => r.recipient_user_id),
   );
 
   // Shared: single RPC + single file. Skip empty entirely.
