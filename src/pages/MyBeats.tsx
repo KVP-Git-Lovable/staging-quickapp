@@ -2466,7 +2466,7 @@ export const MyBeats = () => {
 
         {/* Beat Options Dialog */}
         <Dialog open={showOptionsDialog} onOpenChange={setShowOptionsDialog}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] p-4 sm:w-full sm:max-w-md sm:p-6">
             <DialogHeader>
               <DialogTitle>Beat Created Successfully!</DialogTitle>
             </DialogHeader>
