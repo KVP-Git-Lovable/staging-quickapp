@@ -26,8 +26,9 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const body = (await req.json()) as GenerateRequest;
+  const body = (await req.json()) as GenerateRequest & { force?: boolean };
   const { subscription_id, period } = body;
+  const force = body.force === true || body.mode === 'manual';
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
