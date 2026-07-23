@@ -1987,15 +1987,15 @@ export const MyBeats = () => {
 
         {/* Create Beat Modal */}
         <Dialog open={isCreateBeatOpen} onOpenChange={setIsCreateBeatOpen}>
-          <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden p-4 sm:p-6">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
+          <DialogContent className="w-[calc(100vw-1rem)] sm:w-[95vw] max-w-4xl max-h-[90vh] flex flex-col overflow-hidden p-3 sm:p-6">
+            <DialogHeader className="pr-8">
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Plus className="h-5 w-5 shrink-0" />
                 Create New Beat
               </DialogTitle>
             </DialogHeader>
             
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-4 pr-1 sm:pr-2 -mr-1 sm:mr-0">
               {/* Beat Name */}
               <div className="space-y-2">
                 <Label htmlFor="beatName">Beat Name</Label>
