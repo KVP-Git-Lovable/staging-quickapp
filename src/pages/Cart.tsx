@@ -2210,8 +2210,9 @@ export const Cart = () => {
       }
 
       // FIFO at-order payment (D-1 path): same flow as regular order.
+      // Full payment must clear ALL open pending (previous + new); partial keeps FIFO oldest-first.
       const atOrderAmountPaidD1 =
-        paymentType === 'full' ? totalAmount :
+        paymentType === 'full' ? (pendingAmountFromPrevious + totalAmount) :
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
       let syncedOrderRowD1: any = null;
       let syncedOrderAllocationsD1: any[] = [];
