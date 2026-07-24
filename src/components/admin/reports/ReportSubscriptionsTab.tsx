@@ -853,63 +853,28 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                   <PdfTemplatePanel
                     value={pdfTemplate}
                     onChange={setPdfTemplate}
-                    onPreview={async () => {
-                      setPreviewingPdf(true);
-                      try {
-                        const { data: sess } = await supabase.auth.getSession();
-                        const token = sess.session?.access_token;
-                        const projectId = (import.meta as any).env.VITE_SUPABASE_PROJECT_ID;
-                        const url = `https://${projectId}.supabase.co/functions/v1/generate-report`;
-                        const isoTo = new Date().toISOString().slice(0, 10);
-                        const isoFrom = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); })();
-                        const res = await fetch(url, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                            'apikey': (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                          },
-                          body: JSON.stringify({
-                            mode: 'preview',
-                            preview: {
-                              name: name || 'Report preview',
-                              dataset_key: datasetKey,
-                              layout,
-                              config: {
-                                rows,
-                                columns: columns ? [columns] : [],
-                                values,
-                                filters: {
-                                  date_from: dateFrom || isoFrom,
-                                  date_to: dateTo || isoTo,
-                                  scope_user_id: scopeUserId || null,
-                                  distributor_id: distributorId || null,
-                                },
-                              },
-                              pdf_template: pdfTemplate ?? {},
-                              period: {
-                                key: 'preview',
-                                label: `${dateFrom || isoFrom} → ${dateTo || isoTo}`,
-                                date_from: dateFrom || isoFrom,
-                                date_to: dateTo || isoTo,
-                              },
-                            },
-                          }),
-                        });
-                        if (!res.ok) {
-                          const t = await res.text();
-                          throw new Error(t || `HTTP ${res.status}`);
-                        }
-                        const blob = await res.blob();
-                        const objectUrl = URL.createObjectURL(blob);
-                        window.open(objectUrl, '_blank');
-                      } catch (e: any) {
-                        toast.error(e.message || 'Preview failed');
-                      } finally {
-                        setPreviewingPdf(false);
-                      }
+                    onPreview={() => {
+                      if (!pdfPreviewOpen) setPdfPreviewOpen(true);
+                      else setPdfPreviewRefreshKey(k => k + 1);
                     }}
-                    previewing={previewingPdf}
+                    previewOpen={pdfPreviewOpen}
+                  />
+                  <PdfInlinePreview
+                    open={pdfPreviewOpen}
+                    template={pdfTemplate}
+                    name={name}
+                    dataset={dataset}
+                    layout={layout}
+                    rows={rows}
+                    columns={columns}
+                    values={values}
+                    filters={{
+                      date_from: dateFrom,
+                      date_to: dateTo,
+                      scope_user_id: scopeUserId || null,
+                      distributor_id: distributorId || null,
+                    }}
+                    refreshKey={pdfPreviewRefreshKey}
                   />
                 </div>
               )}
