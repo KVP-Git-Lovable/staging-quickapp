@@ -60,8 +60,8 @@ Deno.serve(async (req) => {
       }
       const basis = (sub as any).period_basis === 'previous' ? 'previous' : 'current';
       const period = computePeriod(sub.cadence, new Date(), basis);
-      // Manual always forces a regeneration.
-      const result = await invokeGenerate(sub.id, period, 'manual', true);
+      // Manual: never checks idempotency, never updates last_scheduled_*.
+      const result = await invokeGenerate(sub.id, period, 'manual');
       return new Response(JSON.stringify({ ok: true, ...result }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     // Cron path
     const { data: subs } = await admin
       .from('report_subscriptions')
-      .select('id, cadence, fire_day, fire_time, timezone, period_basis')
+      .select('id, cadence, fire_day, fire_time, timezone, period_basis, last_scheduled_period_key')
       .eq('status', 'active');
 
     const results: Array<Record<string, unknown>> = [];
@@ -78,11 +78,14 @@ Deno.serve(async (req) => {
       if (!isDue(s.cadence, s.fire_day, String(s.fire_time), s.timezone ?? 'Asia/Kolkata')) continue;
       const basis = (s as any).period_basis === 'previous' ? 'previous' : 'current';
       const period = computePeriod(s.cadence, new Date(), basis);
-      // Recipient-level delivery logs are the source of truth for idempotency.
-      // Do not gate on last_fired_at: legacy/empty attempts may have stamped it,
-      // and generate-report must still replace skipped_empty rows when data arrives.
+      // Scheduled idempotency: one scheduled fire per period.key. Manual runs
+      // do not touch last_scheduled_period_key, so they can never suppress this.
+      if ((s as any).last_scheduled_period_key === period.key) {
+        results.push({ subscription_id: s.id, period: period.key, skipped: 'already_fired_this_period' });
+        continue;
+      }
       try {
-        const r = await invokeGenerate(s.id, period, 'scheduled', false);
+        const r = await invokeGenerate(s.id, period, 'scheduled');
         results.push({ subscription_id: s.id, period: period.key, ...r });
         if (s.cadence === 'today') {
           await admin.from('report_subscriptions').update({ status: 'paused' }).eq('id', s.id);
@@ -107,8 +110,7 @@ Deno.serve(async (req) => {
 async function invokeGenerate(
   subscriptionId: string,
   period: { key: string; label: string; date_from: string; date_to: string },
-  mode: string,
-  force: boolean,
+  mode: 'scheduled' | 'manual',
 ) {
   const url = `${SUPABASE_URL}/functions/v1/generate-report`;
   const r = await fetch(url, {
@@ -118,7 +120,7 @@ async function invokeGenerate(
       Authorization: `Bearer ${SERVICE_ROLE}`,
       apikey: SERVICE_ROLE,
     },
-    body: JSON.stringify({ subscription_id: subscriptionId, period, mode, force }),
+    body: JSON.stringify({ subscription_id: subscriptionId, period, mode }),
   });
   const j = await r.json().catch(() => ({}));
   return { status: r.status, ...j };

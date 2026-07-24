@@ -1,7 +1,16 @@
 // Generates a report file (Excel/PDF/summary_only), uploads to Storage,
 // and creates in-app notifications for recipients. Push delivery is handled
-// exclusively by the notifications_push_dispatch DB trigger — this function
-// does NOT call send-push directly (prevents duplicate pushes).
+// exclusively by the notifications_push_dispatch DB trigger.
+//
+// Delivery model:
+// - Every run generates and delivers, regardless of row count. Empty datasets
+//   still produce a file (headers only) or a "No records for this period"
+//   digest, still create a notification, still write a delivery log row.
+// - The delivery log is APPEND-ONLY. Each run inserts a new row tagged with
+//   trigger_type = 'scheduled' | 'manual'.
+// - Scheduled idempotency is enforced upstream by report-dispatcher against
+//   report_subscriptions.last_scheduled_period_key. Manual runs never touch
+//   that field, and never suppress a scheduled slot.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
@@ -26,9 +35,9 @@ Deno.serve(async (req) => {
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const body = (await req.json()) as GenerateRequest & { force?: boolean };
-  const { subscription_id, period } = body;
-  const force = body.force === true || body.mode === 'manual';
+  const body = (await req.json()) as GenerateRequest;
+  const { subscription_id, period, mode } = body;
+  const triggerType: 'scheduled' | 'manual' = mode === 'manual' ? 'manual' : 'scheduled';
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
@@ -68,30 +77,13 @@ Deno.serve(async (req) => {
   } else {
     recipients = sub.recipient_user_ids ?? [];
   }
-  // Deduplicate the recipient list itself so a user listed twice doesn't
-  // create two notifications for the same period.
   recipients = Array.from(new Set(recipients));
 
   const outcomes: Array<Record<string, unknown>> = [];
 
-  // Pre-fetch existing delivery-log rows for this run. Only rows that represent
-  // a GENUINE delivery ('created') count for idempotency — 'skipped_empty' or
-  // 'failed_*' rows must NOT suppress a later run that has data. Manual runs
-  // bypass this entirely (force=true).
-  const { data: existingLog } = await admin
-    .from('report_delivery_log')
-    .select('recipient_user_id, in_app_status')
-    .eq('subscription_id', sub.id)
-    .eq('period', period.key);
-  const alreadyProcessed = new Set(
-    force
-      ? []
-      : (existingLog ?? [])
-          .filter((r: any) => r.in_app_status === 'created')
-          .map((r: any) => r.recipient_user_id),
-  );
-
-  // Shared: single RPC + single file. Skip empty entirely.
+  // Shared: always call the RPC fresh and always render/upload — overwriting
+  // the storage object for this period so late-arriving data replaces the
+  // earlier (possibly empty) file.
   let sharedPath: string | null = null;
   let sharedDigest = '';
   let sharedRows: any[] = [];
@@ -101,32 +93,22 @@ Deno.serve(async (req) => {
       date_from: period.date_from,
       date_to: period.date_to,
     });
-    if (sharedRows.length === 0) {
-      sharedIsEmpty = true;
-    } else {
-      sharedDigest = buildDigest(sub.name, period, sharedRows);
-      if (sub.attachment_format !== 'summary_only') {
-        const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows);
-        const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
-        const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
-          contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          upsert: true,
-        });
-        if (upErr) console.error('upload err', upErr);
-        else sharedPath = path;
-      }
+    sharedIsEmpty = sharedRows.length === 0;
+    sharedDigest = buildDigest(sub.name, period, sharedRows);
+    if (sub.attachment_format !== 'summary_only') {
+      const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows);
+      const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
+      const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
+        contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        upsert: true,
+      });
+      if (upErr) console.error('upload err', upErr);
+      else sharedPath = path;
     }
   }
 
   for (const rid of recipients) {
     try {
-      // Idempotency: never insert a second notification for the same
-      // (subscription, recipient, period). Enforced BEFORE the insert.
-      if (alreadyProcessed.has(rid)) {
-        outcomes.push({ recipient: rid, skipped: 'already_delivered' });
-        continue;
-      }
-
       let path = sharedPath;
       let digest = sharedDigest;
       let rows = sharedRows;
@@ -139,34 +121,20 @@ Deno.serve(async (req) => {
           scope_user_id: rid,
         });
         isEmpty = rows.length === 0;
-        if (!isEmpty) {
-          digest = buildDigest(sub.name, period, rows);
-          if (sub.attachment_format !== 'summary_only') {
-            const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);
-            path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
-            await admin.storage.from('report-files').upload(path, bytes, {
-              contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              upsert: true,
-            });
-          }
+        digest = buildDigest(sub.name, period, rows);
+        if (sub.attachment_format !== 'summary_only') {
+          const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);
+          path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
+          await admin.storage.from('report-files').upload(path, bytes, {
+            contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            upsert: true,
+          });
         }
       }
 
-      // Skip empty reports — never notify or push.
-      if (isEmpty) {
-        await admin.from('report_delivery_log').upsert({
-          subscription_id: sub.id,
-          recipient_user_id: rid,
-          period: period.key,
-          notification_id: null,
-          storage_path: null,
-          in_app_status: 'skipped_empty',
-          push_status: null,
-          error: null,
-        }, { onConflict: 'subscription_id,recipient_user_id,period' });
-        outcomes.push({ recipient: rid, skipped: 'empty' });
-        continue;
-      }
+      const bodyLine = isEmpty
+        ? `${period.label} — No records for this period.`
+        : `${period.label} — ${rows.length} row${rows.length === 1 ? '' : 's'}`;
 
       const metadata: Record<string, unknown> = {
         subscription_id: sub.id,
@@ -175,7 +143,9 @@ Deno.serve(async (req) => {
         period: period.label,
         period_key: period.key,
         attachment_format: sub.attachment_format,
-        // The trigger reads this to decide whether to dispatch a phone push.
+        trigger_type: triggerType,
+        row_count: rows.length,
+        is_empty: isEmpty,
         push_to_phone: sub.push_to_phone === true,
       };
       if (path) metadata.storage_path = path;
@@ -186,7 +156,7 @@ Deno.serve(async (req) => {
         .insert({
           user_id: rid,
           title: sub.name,
-          message: sub.attachment_format === 'summary_only' ? digest.slice(0, 500) : `${period.label} — ${rows.length} row${rows.length === 1 ? '' : 's'}`,
+          message: sub.attachment_format === 'summary_only' ? digest.slice(0, 500) : bodyLine,
           type: 'report_delivery',
           related_table: 'report_subscriptions',
           related_id: sub.id,
@@ -195,58 +165,65 @@ Deno.serve(async (req) => {
         .select('id')
         .single();
 
-      // Push is now dispatched exclusively by the DB trigger
-      // (dispatch_push_for_notification), which honours metadata.push_to_phone
-      // and builds the /notifications/<id> deep-link for report_delivery.
       const pushStatus: string | null = notif
         ? (sub.push_to_phone ? 'dispatched_by_trigger' : 'skipped_push_off')
         : null;
 
-      await admin.from('report_delivery_log').upsert({
+      // Append-only log row (no upsert). Every run is recorded.
+      await admin.from('report_delivery_log').insert({
         subscription_id: sub.id,
         recipient_user_id: rid,
         period: period.key,
         notification_id: notif?.id ?? null,
         storage_path: path,
-        in_app_status: nErr ? `failed_${nErr.message.slice(0, 80)}` : 'created',
+        in_app_status: nErr ? 'failed' : 'delivered',
         push_status: pushStatus,
         error: nErr ? nErr.message : null,
-      }, { onConflict: 'subscription_id,recipient_user_id,period' });
+        trigger_type: triggerType,
+      });
 
-      outcomes.push({ recipient: rid, notification_id: notif?.id, push: pushStatus, delivered: !nErr });
+      outcomes.push({ recipient: rid, notification_id: notif?.id, push: pushStatus, delivered: !nErr, empty: isEmpty });
     } catch (e) {
       console.error('per-recipient error', rid, e);
       try {
-        await admin.from('report_delivery_log').upsert({
+        await admin.from('report_delivery_log').insert({
           subscription_id: sub.id,
           recipient_user_id: rid,
           period: period.key,
           notification_id: null,
           storage_path: null,
-          in_app_status: `failed_${String(e).slice(0, 80)}`,
+          in_app_status: 'failed',
           push_status: null,
-          error: String(e),
-        }, { onConflict: 'subscription_id,recipient_user_id,period' });
+          error: String(e).slice(0, 500),
+          trigger_type: triggerType,
+        });
       } catch (_) { /* swallow */ }
-      outcomes.push({ recipient: rid, error: String(e) });
+      outcomes.push({ recipient: rid, error: String(e), delivered: false });
     }
   }
 
-  // Only stamp last_fired_at when at least one recipient actually received a report.
-  // This prevents empty/failed attempts from poisoning the "last fired" indicator
-  // and — combined with the dispatcher's period check — allows data arriving later
-  // in the day to still be delivered.
   const deliveredCount = outcomes.filter((o: any) => o.delivered === true).length;
-  const emptyCount = outcomes.filter((o: any) => o.skipped === 'empty').length;
-  if (deliveredCount > 0) {
-    await admin.from('report_subscriptions').update({ last_fired_at: new Date().toISOString() }).eq('id', sub.id);
+  const emptyRun = outcomes.length > 0 && outcomes.every((o: any) => o.empty === true);
+
+  // last_fired_at reflects the most recent run of EITHER kind (display only).
+  // last_scheduled_fire_at / last_scheduled_period_key are set only for
+  // scheduled runs, so manual runs never consume a scheduled slot.
+  const updates: Record<string, unknown> = {};
+  if (deliveredCount > 0) updates.last_fired_at = new Date().toISOString();
+  if (triggerType === 'scheduled' && deliveredCount > 0) {
+    updates.last_scheduled_fire_at = new Date().toISOString();
+    updates.last_scheduled_period_key = period.key;
+  }
+  if (Object.keys(updates).length > 0) {
+    await admin.from('report_subscriptions').update(updates).eq('id', sub.id);
   }
 
   return new Response(JSON.stringify({
     ok: true,
     recipients: outcomes.length,
     delivered: deliveredCount,
-    empty: emptyCount === recipients.length && recipients.length > 0,
+    empty: emptyRun,
+    trigger_type: triggerType,
     outcomes,
   }), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -273,7 +250,7 @@ async function callRpc(admin: any, source: string, def: any, filters: Record<str
 }
 
 function buildDigest(name: string, period: { label: string }, rows: any[]): string {
-  if (!rows || rows.length === 0) return `${name} — ${period.label}\n\nNo data for this period.`;
+  if (!rows || rows.length === 0) return `${name} — ${period.label}\n\nNo records for this period.`;
   const preview = rows.slice(0, 10);
   const keys = Object.keys(preview[0] ?? {});
   const lines = [
@@ -310,7 +287,7 @@ async function renderExcel(name: string, period: { label: string }, rows: any[])
       ws.getColumn(i + 1).width = Math.max(12, Math.min(40, k.length + 4));
     });
   } else {
-    ws.addRow(['No data']);
+    ws.addRow(['No records for this period.']);
   }
   const buf = await wb.xlsx.writeBuffer();
   return new Uint8Array(buf);
@@ -335,7 +312,7 @@ async function renderPdf(name: string, period: { label: string }, rows: any[]): 
     draw(keys.join(' | '), 9, true);
     for (const r of rows) draw(keys.map(k => String(r[k] ?? '')).join(' | '), 9);
   } else {
-    draw('No data for this period.');
+    draw('No records for this period.');
   }
   return await pdf.save();
 }
