@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { ReportNotificationDialog } from '@/components/notifications/ReportNotificationDialog';
 
 export function NotificationBell() {
-  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, dismiss } = useNotifications();
   const [openReport, setOpenReport] = useState<Notification | null>(null);
 
   const formatTime = (dateString: string) => {
