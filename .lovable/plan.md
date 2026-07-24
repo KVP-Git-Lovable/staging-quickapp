@@ -1,54 +1,72 @@
-## Goal
 
-Restructure the rule builder from:
+## What's actually happening (verified against your data)
 
+Retailer **Annapurna Sweet Shop** — pending ₹2,829 before the new order.
+
+| Order | Date | Total | Paid | Pending | Status |
+|---|---|---|---|---|---|
+| b8c21427 (new, 24-Jul) | 09:52 | 279 | 0 | **279** | pending |
+| 42fb86a7 (10-Jul) | | 1,280 | 0 | 1,280 | pending |
+| 3a1096e6 (10-Jul, oldest open) | | 1,828 | 558 → 837 | 1,270 | partial |
+
+At the new order you tapped **Full payment**. What the app did:
+- Collected only **₹279** (just the new order's amount).
+- Applied it via FIFO → allocation `815e4aaf` landed on the *oldest* open order `3a1096e6`, not on the new order.
+
+Net effect: new order still pending, oldest reduced by 279, retailer pending unchanged at 2,829. Exactly the wrong outcome for "Full".
+
+## What "Full" should mean (your clarification)
+
+- **Full payment** = pay **previous_pending + new_order_total** together → every open order (old + new) becomes `paid`. No FIFO needed; the collection exactly matches all open pending.
+- **Partial payment** = pay any amount less than total due → keep current FIFO oldest-first behaviour (correct as-is).
+- **Credit** = collect nothing → new order joins pending list, old pendings untouched (correct as-is).
+
+## Root cause
+
+`src/pages/Cart.tsx` lines 1030–1058 treat Full as "pay this order's total only" and always route through `apply_retailer_payment_fifo`:
+
+```ts
+} else if (paymentType === "full") {
+  // Full payment - routed through FIFO post-insert. ...
+  creditPaid = 0;
+  creditPending = totalAmount;   // ← only the new order's amount
+  ...
+}
 ```
-When [event] → happens on [module(s)]
-```
 
-to:
+Two bugs:
+1. The collection amount is `totalAmount` (new order only) — it should be `pendingAmountFromPrevious + totalAmount` when there's prior pending.
+2. Full is routed through FIFO — for a true "clear everything" collection, FIFO happens to work (it will pay every open order), but only if the amount is right. Bug #1 defeats it.
 
-```
-Which Module [Attendance] → Happens on [Check-in / Check-out / …] → When [it occurs]
-```
+Partial has the correct FIFO behaviour today and stays untouched.
 
-Keep the existing storage schema (`event_code`, `source_table`) and the existing emit/dispatch pipeline. Only the UI, the title/message auto-templates, and one new attendance trigger change. Start with **Attendance** module fully wired; other modules stay as they are until we tackle them.
+## Fix
 
-## Attendance sub-events (module = `attendance`)
+1. **Cart.tsx — Full payment path**
+   - When `paymentType === "full"`, set the collection amount to `pendingAmountFromPrevious + totalAmount` (the full outstanding, not just the new order).
+   - Keep the FIFO call — with the correct amount, FIFO will settle every open order in one shot (oldest → newest, including the just-inserted new order).
+   - Set `previous_pending_cleared` on the new order to the actual amount that flowed to older invoices (read back from `retailer_payment_allocations`), so the receipt shows "cleared ₹2,829 old dues + ₹279 this order".
+   - Same change in the offline branch (~line 1945) so the optimistic cache reflects "all paid".
 
-| Sub-event label        | Storage (`source_table` / `event_code`)                                | Fires when                                                            |
-| ---------------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Check-in               | `attendance` / `RECORD_CREATED`                                        | already wired (existing INSERT trigger)                               |
-| Check-out              | `attendance` / `RECORD_UPDATED`                                        | new: attendance row `check_out_time` transitions NULL → not-null      |
-| Leave applied          | `leave_applications` / `RECORD_CREATED`                                | already wired                                                         |
-| Regularization applied | `regularization_requests` / `RECORD_CREATED`                           | already wired                                                         |
-| Approval requested     | `leave_applications` / `RECORD_UPDATED` (status → `pending_approval`)  | reuses existing UPDATE emit path; filtered by sub-event tag           |
-| Approval approved      | `leave_applications` / `RECORD_UPDATED` (status → `approved`)          | reuses existing UPDATE emit path; filtered by sub-event tag           |
+2. **UI copy on the Full option**
+   - Show the true amount that will be collected: **"Full payment — collect ₹{previous_pending + new_order_total}"** with a small breakdown line ("₹2,829 old dues + ₹279 this order"). Removes the ambiguity that caused this bug in the first place.
 
-Storage stays as the two existing columns — no schema migration for `notification_rules`. Each attendance sub-event is a preset pair of `(source_table, event_code)` plus (for the two approval variants) a client-side status filter carried in `title_template`/`message_template` defaults. We can add a lightweight `sub_event` metadata column later if we need server-side filtering; for the first pass the two approval variants are surfaced but share the same underlying rule row.
+3. **Partial and Credit paths**
+   - No behaviour change. Partial keeps FIFO oldest-first. Credit stays as-is.
 
-## UI changes — `src/components/admin/NotificationRuleForm.tsx`
+4. **Data repair for Annapurna (one-off, not a migration)**
+   - You have two options — I'll do whichever you pick:
+     - **A. Reassign the ₹279 allocation** from order `3a1096e6` to the new order `b8c21427`, so the new order shows `paid` and `3a1096e6` returns to pending 1,549. Retailer pending stays 2,829. This matches what would have happened if you'd tapped "Credit" (and is safe if you didn't actually collect ₹2,829 more in cash).
+     - **B. Record the missing ₹2,829 collection** (only if you really did receive that cash) so every old order + the new order becomes `paid` and retailer pending goes to 0.
 
-1. Insert a new **Which Module** selector at the top of the sentence-builder row. Options: Attendance (active), Orders, Visits, Leaves, Regularization, … (existing `SOURCE_TABLES` list — for now, non-attendance modules keep today's free-form event picker so nothing regresses).
-2. When module = **Attendance**, replace the two current controls (`event_code` + `source_table[]`) with a single **Happens on** dropdown populated from the table above. Selecting an option sets both `event_code` and `source_table` behind the scenes.
-3. Auto-populate `title_template` and `message_template` from a per-sub-event default (e.g. Check-out → `{user_name} — checked out` / `{user_name} checked out at {time} on {date}.`). The admin can still edit them.
-4. Keep the rest of the builder (recipients, channel, timezone, preview, save) unchanged.
-5. Sentence preview updates to read: `When {sub-event label} on Attendance → notify {recipients}`.
+## Out of scope
 
-## Backend changes
+- No change to the standalone "Collect Payment" drawer — it's explicitly FIFO by intent.
+- No change to edit-mode payment reconciliation (`finalize_order_edit`).
+- No change to `apply_retailer_payment_fifo` RPC — bug is purely on the client side (wrong collection amount for Full).
 
-1. **Migration** — extend `trigger_notification_attendance()` to also run on `UPDATE OF check_out_time` and emit `RECORD_UPDATED` when `OLD.check_out_time IS NULL AND NEW.check_out_time IS NOT NULL`. Recreate the trigger as `AFTER INSERT OR UPDATE OF check_out_time`. Payload includes `user_name`, `check_out_time`, `date`, and `sub_event = 'checked_out'` so future filters can key off it.
-2. No changes required for leave / regularization emits — they already emit `RECORD_CREATED` and `RECORD_UPDATED` on `leave_applications` and `regularization_requests`.
-3. No changes to `notif_preview_recipients`, `send-push`, or the notification center.
+## Technical notes
 
-## Out of scope for this pass
-
-- Other modules' sub-event trees (Orders, Visits, etc.) — they keep today's UI.
-- A dedicated `sub_event` column on `notification_rules` (revisit if two "Approval requested" vs "Approval approved" rules need distinct server-side gating).
-- Backfilling existing rules — the current attendance check-in rule keeps working as-is.
-
-## Verification
-
-- Create a new rule via the redesigned UI: Module = Attendance, Happens on = Check-out → save, then check out on a device → confirm a notification arrives and one row lands in `notifications` / `notification_event_log`.
-- Re-open the existing check-in rule → it loads correctly with Module = Attendance, Happens on = Check-in.
-- Non-attendance modules still open and save with the legacy controls.
+- Files: `src/pages/Cart.tsx` — the two Full/Partial payment blocks around lines ~1030 and ~1945, plus the payment-type UI component that renders the Full/Partial/Credit options (to show the full amount + breakdown).
+- `pendingAmountFromPrevious` is already computed in Cart.tsx (line ~460 from `retailers.pending_amount`), so no new query needed.
+- Offline optimistic split at lines 1388–1406 must be updated to reflect "all open orders paid" when Full is used with prior pending, not just the new order.
