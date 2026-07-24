@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check, CheckCheck } from 'lucide-react';
+import { Bell, CheckCheck, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications, type Notification } from '@/hooks/useNotifications';
 import {
