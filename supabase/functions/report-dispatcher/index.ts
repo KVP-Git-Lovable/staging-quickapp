@@ -110,8 +110,7 @@ Deno.serve(async (req) => {
 async function invokeGenerate(
   subscriptionId: string,
   period: { key: string; label: string; date_from: string; date_to: string },
-  mode: string,
-  force: boolean,
+  mode: 'scheduled' | 'manual',
 ) {
   const url = `${SUPABASE_URL}/functions/v1/generate-report`;
   const r = await fetch(url, {
@@ -121,7 +120,7 @@ async function invokeGenerate(
       Authorization: `Bearer ${SERVICE_ROLE}`,
       apikey: SERVICE_ROLE,
     },
-    body: JSON.stringify({ subscription_id: subscriptionId, period, mode, force }),
+    body: JSON.stringify({ subscription_id: subscriptionId, period, mode }),
   });
   const j = await r.json().catch(() => ({}));
   return { status: r.status, ...j };
