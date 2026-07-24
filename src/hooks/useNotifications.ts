@@ -34,7 +34,6 @@ export function useNotifications() {
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
-        .eq('is_read', false)
         .or('target_portal.is.null,target_portal.eq.field_sales_app')
         .order('created_at', { ascending: false })
         .limit(50);
@@ -71,11 +70,35 @@ export function useNotifications() {
         return;
       }
 
-      setNotifications(prev => prev.filter(n => n.id !== id));
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
   }, [user?.id]);
+
+  const dismiss = useCallback(async (id: string) => {
+    if (!user?.id) return;
+    const prev = notifications;
+    setNotifications(p => p.filter(n => n.id !== id));
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, is_dismissed: true })
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (error) {
+        // Fallback if is_dismissed column doesn't exist
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', id)
+          .eq('user_id', user.id);
+      }
+    } catch (e) {
+      console.error('Error dismissing notification:', e);
+      setNotifications(prev);
+    }
+  }, [user?.id, notifications]);
 
   const markAllAsRead = useCallback(async () => {
     if (!user?.id) return;
@@ -92,7 +115,7 @@ export function useNotifications() {
         return;
       }
 
-      setNotifications([]);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
@@ -159,6 +182,7 @@ export function useNotifications() {
     unreadCount,
     isLoading,
     markAsRead,
+    dismiss,
     markAllAsRead,
     pendingBanner,
     dismissBanner,
