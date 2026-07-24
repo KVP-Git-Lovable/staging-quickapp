@@ -115,6 +115,7 @@ async function invokeGenerate(
   subscriptionId: string,
   period: { key: string; label: string; date_from: string; date_to: string },
   mode: 'scheduled' | 'manual',
+  occurrenceKey: string | null,
 ) {
   const url = `${SUPABASE_URL}/functions/v1/generate-report`;
   const r = await fetch(url, {
@@ -124,7 +125,7 @@ async function invokeGenerate(
       Authorization: `Bearer ${SERVICE_ROLE}`,
       apikey: SERVICE_ROLE,
     },
-    body: JSON.stringify({ subscription_id: subscriptionId, period, mode }),
+    body: JSON.stringify({ subscription_id: subscriptionId, period, mode, occurrence_key: occurrenceKey }),
   });
   const j = await r.json().catch(() => ({}));
   return { status: r.status, ...j };
