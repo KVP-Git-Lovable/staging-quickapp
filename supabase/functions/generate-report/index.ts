@@ -338,8 +338,30 @@ function buildDigest(name: string, period: { label: string }, rows: any[]): stri
   return lines.join('\n');
 }
 
-async function renderFile(format: string, name: string, period: { label: string }, rows: any[]): Promise<Uint8Array> {
-  if (format === 'pdf') return renderPdf(name, period, rows);
+async function renderFile(
+  format: string,
+  name: string,
+  period: { key: string; label: string; date_from: string; date_to: string },
+  rows: any[],
+  opts: {
+    pdfTemplate: PdfTemplate;
+    brand: any | null;
+    scopeLabel?: string | null;
+    filtersLabel?: string | null;
+    recipientName?: string | null;
+  },
+): Promise<Uint8Array> {
+  if (format === 'pdf') {
+    const model = buildReportModel({
+      reportName: name,
+      period,
+      rows,
+      recipientName: opts.recipientName ?? null,
+      scopeLabel: opts.scopeLabel ?? null,
+      filtersLabel: opts.filtersLabel ?? null,
+    });
+    return renderReportPdf(model, opts.pdfTemplate ?? {}, opts.brand);
+  }
   return renderExcel(name, period, rows);
 }
 
@@ -366,26 +388,10 @@ async function renderExcel(name: string, period: { label: string }, rows: any[])
   return new Uint8Array(buf);
 }
 
-async function renderPdf(name: string, period: { label: string }, rows: any[]): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  let page = pdf.addPage([595, 842]);
-  let y = 800;
-  const draw = (text: string, size = 10, isBold = false) => {
-    if (y < 40) { page = pdf.addPage([595, 842]); y = 800; }
-    page.drawText(text.slice(0, 130), { x: 40, y, size, font: isBold ? bold : font, color: rgb(0.1, 0.1, 0.1) });
-    y -= size + 4;
-  };
-  draw(name, 16, true);
-  draw(`Period: ${period.label}`, 10);
-  draw('', 6);
-  if (rows.length > 0) {
-    const keys = Object.keys(rows[0]);
-    draw(keys.join(' | '), 9, true);
-    for (const r of rows) draw(keys.map(k => String(r[k] ?? '')).join(' | '), 9);
-  } else {
-    draw('No records for this period.');
-  }
-  return await pdf.save();
+function filtersLabelFrom(filters: any): string | null {
+  if (!filters || typeof filters !== 'object') return null;
+  const parts: string[] = [];
+  if (filters.distributor_id) parts.push(`distributor ${String(filters.distributor_id).slice(0, 8)}`);
+  if (filters.scope_user_id) parts.push(`user ${String(filters.scope_user_id).slice(0, 8)}`);
+  return parts.length ? parts.join(', ') : null;
 }
