@@ -22858,6 +22858,7 @@ export type Database = {
         Row: {
           account_holder_name: string | null
           address: string
+          advance_credit: number
           alternate_phone: string | null
           avg_monthly_orders_3m: number | null
           avg_order_per_visit_3m: number | null
@@ -22931,6 +22932,7 @@ export type Database = {
         Insert: {
           account_holder_name?: string | null
           address: string
+          advance_credit?: number
           alternate_phone?: string | null
           avg_monthly_orders_3m?: number | null
           avg_order_per_visit_3m?: number | null
@@ -23004,6 +23006,7 @@ export type Database = {
         Update: {
           account_holder_name?: string | null
           address?: string
+          advance_credit?: number
           alternate_phone?: string | null
           avg_monthly_orders_3m?: number | null
           avg_order_per_visit_3m?: number | null
@@ -28963,6 +28966,10 @@ export type Database = {
       recompute_retailer_pending: {
         Args: { p_retailer_id: string }
         Returns: number
+      }
+      reconcile_retailer_account: {
+        Args: { p_retailer_id: string }
+        Returns: Json
       }
       record_route_execution: {
         Args: {
