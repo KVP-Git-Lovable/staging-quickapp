@@ -115,7 +115,7 @@ export function useNotifications() {
         return;
       }
 
-      setNotifications([]);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
