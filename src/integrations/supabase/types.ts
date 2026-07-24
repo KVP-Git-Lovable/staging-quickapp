@@ -16579,6 +16579,7 @@ export type Database = {
           anniversary_date: string | null
           aspirations: string | null
           created_at: string
+          currency: string | null
           current_address: string | null
           date_of_birth: string | null
           deactivated_at: string | null
@@ -16598,6 +16599,7 @@ export type Database = {
           is_active: boolean
           learning_goals: string[] | null
           linkedin_url: string | null
+          locale: string | null
           must_change_password: boolean | null
           onboarding_completed: boolean | null
           onboarding_step: number | null
@@ -16609,6 +16611,7 @@ export type Database = {
           recovery_email: string | null
           role_id: string | null
           territories_covered: string[] | null
+          timezone: string | null
           twitter_url: string | null
           updated_at: string
           user_status: Database["public"]["Enums"]["user_status"] | null
@@ -16619,6 +16622,7 @@ export type Database = {
           anniversary_date?: string | null
           aspirations?: string | null
           created_at?: string
+          currency?: string | null
           current_address?: string | null
           date_of_birth?: string | null
           deactivated_at?: string | null
@@ -16638,6 +16642,7 @@ export type Database = {
           is_active?: boolean
           learning_goals?: string[] | null
           linkedin_url?: string | null
+          locale?: string | null
           must_change_password?: boolean | null
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
@@ -16649,6 +16654,7 @@ export type Database = {
           recovery_email?: string | null
           role_id?: string | null
           territories_covered?: string[] | null
+          timezone?: string | null
           twitter_url?: string | null
           updated_at?: string
           user_status?: Database["public"]["Enums"]["user_status"] | null
@@ -16659,6 +16665,7 @@ export type Database = {
           anniversary_date?: string | null
           aspirations?: string | null
           created_at?: string
+          currency?: string | null
           current_address?: string | null
           date_of_birth?: string | null
           deactivated_at?: string | null
@@ -16678,6 +16685,7 @@ export type Database = {
           is_active?: boolean
           learning_goals?: string[] | null
           linkedin_url?: string | null
+          locale?: string | null
           must_change_password?: boolean | null
           onboarding_completed?: boolean | null
           onboarding_step?: number | null
@@ -16689,6 +16697,7 @@ export type Database = {
           recovery_email?: string | null
           role_id?: string | null
           territories_covered?: string[] | null
+          timezone?: string | null
           twitter_url?: string | null
           updated_at?: string
           user_status?: Database["public"]["Enums"]["user_status"] | null
