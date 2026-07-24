@@ -1036,11 +1036,14 @@ export const Cart = () => {
         previousPendingCleared = 0;
         orderPaymentMethod = "credit";
       } else if (paymentType === "full") {
-        // Full payment - routed through FIFO post-insert. Order row starts unpaid;
-        // apply_retailer_payment_fifo will clear oldest pending first (incl. this order).
+        // Full payment = collect (previous_pending + new_order_total) in one go.
+        // The collection amount is set to totalDue below (atOrderAmountPaid), so
+        // apply_retailer_payment_fifo will settle every open pending order + this
+        // new one. previous_pending_cleared records the portion that went to
+        // older invoices.
         isCreditOrder = true;
-        newTotalPending = Math.max(0, totalDue - totalAmount);
-        previousPendingCleared = 0;
+        newTotalPending = 0;
+        previousPendingCleared = pendingAmountFromPrevious;
         creditPaid = 0;
         creditPending = totalAmount;
         orderPaymentMethod = paymentMethod;
