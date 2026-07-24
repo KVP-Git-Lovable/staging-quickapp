@@ -21061,6 +21061,7 @@ export type Database = {
           last_scheduled_fire_at: string | null
           last_scheduled_period_key: string | null
           name: string
+          pdf_template: Json
           period_basis: string
           push_to_phone: boolean
           recipient_mode: string
@@ -21083,6 +21084,7 @@ export type Database = {
           last_scheduled_fire_at?: string | null
           last_scheduled_period_key?: string | null
           name: string
+          pdf_template?: Json
           period_basis?: string
           push_to_phone?: boolean
           recipient_mode?: string
@@ -21105,6 +21107,7 @@ export type Database = {
           last_scheduled_fire_at?: string | null
           last_scheduled_period_key?: string | null
           name?: string
+          pdf_template?: Json
           period_basis?: string
           push_to_phone?: boolean
           recipient_mode?: string
