@@ -264,6 +264,10 @@ const UserProfile = () => {
             {/* Language Settings */}
             <LanguageSettings />
 
+            {/* Locale, Time Zone & Currency */}
+            <LocaleSettings />
+
+
             {/* Push Notifications */}
             <PushNotificationSettings />
 
