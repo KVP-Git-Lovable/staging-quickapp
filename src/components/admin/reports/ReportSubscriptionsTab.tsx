@@ -11,7 +11,8 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon, Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon, Eye, RefreshCw } from 'lucide-react';
+import { PdfInlinePreview } from './PdfInlinePreview';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -644,7 +645,11 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [pdfTemplate, setPdfTemplate] = useState<any>(
     ((editing?.sub as any)?.pdf_template as any) ?? {}
   );
-  const [previewingPdf, setPreviewingPdf] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfPreviewRefreshKey, setPdfPreviewRefreshKey] = useState(0);
+  React.useEffect(() => {
+    if (format !== 'pdf') setPdfPreviewOpen(false);
+  }, [format]);
 
   // Live manager count for all_managers mode
   const { data: managerList = [] } = useQuery({
@@ -848,63 +853,28 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                   <PdfTemplatePanel
                     value={pdfTemplate}
                     onChange={setPdfTemplate}
-                    onPreview={async () => {
-                      setPreviewingPdf(true);
-                      try {
-                        const { data: sess } = await supabase.auth.getSession();
-                        const token = sess.session?.access_token;
-                        const projectId = (import.meta as any).env.VITE_SUPABASE_PROJECT_ID;
-                        const url = `https://${projectId}.supabase.co/functions/v1/generate-report`;
-                        const isoTo = new Date().toISOString().slice(0, 10);
-                        const isoFrom = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); })();
-                        const res = await fetch(url, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                            'apikey': (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                          },
-                          body: JSON.stringify({
-                            mode: 'preview',
-                            preview: {
-                              name: name || 'Report preview',
-                              dataset_key: datasetKey,
-                              layout,
-                              config: {
-                                rows,
-                                columns: columns ? [columns] : [],
-                                values,
-                                filters: {
-                                  date_from: dateFrom || isoFrom,
-                                  date_to: dateTo || isoTo,
-                                  scope_user_id: scopeUserId || null,
-                                  distributor_id: distributorId || null,
-                                },
-                              },
-                              pdf_template: pdfTemplate ?? {},
-                              period: {
-                                key: 'preview',
-                                label: `${dateFrom || isoFrom} → ${dateTo || isoTo}`,
-                                date_from: dateFrom || isoFrom,
-                                date_to: dateTo || isoTo,
-                              },
-                            },
-                          }),
-                        });
-                        if (!res.ok) {
-                          const t = await res.text();
-                          throw new Error(t || `HTTP ${res.status}`);
-                        }
-                        const blob = await res.blob();
-                        const objectUrl = URL.createObjectURL(blob);
-                        window.open(objectUrl, '_blank');
-                      } catch (e: any) {
-                        toast.error(e.message || 'Preview failed');
-                      } finally {
-                        setPreviewingPdf(false);
-                      }
+                    onPreview={() => {
+                      if (!pdfPreviewOpen) setPdfPreviewOpen(true);
+                      else setPdfPreviewRefreshKey(k => k + 1);
                     }}
-                    previewing={previewingPdf}
+                    previewOpen={pdfPreviewOpen}
+                  />
+                  <PdfInlinePreview
+                    open={pdfPreviewOpen}
+                    template={pdfTemplate}
+                    name={name}
+                    dataset={dataset}
+                    layout={layout}
+                    rows={rows}
+                    columns={columns}
+                    values={values}
+                    filters={{
+                      date_from: dateFrom,
+                      date_to: dateTo,
+                      scope_user_id: scopeUserId || null,
+                      distributor_id: distributorId || null,
+                    }}
+                    refreshKey={pdfPreviewRefreshKey}
                   />
                 </div>
               )}
@@ -2038,7 +2008,7 @@ interface PdfTemplatePanelProps {
   value: any;
   onChange: (v: any) => void;
   onPreview: () => void;
-  previewing: boolean;
+  previewOpen: boolean;
 }
 
 const HEADER_STYLES: Array<{ id: string; label: string }> = [
@@ -2076,7 +2046,7 @@ function Seg({
   );
 }
 
-function PdfTemplatePanel({ value, onChange, onPreview, previewing }: PdfTemplatePanelProps) {
+function PdfTemplatePanel({ value, onChange, onPreview, previewOpen }: PdfTemplatePanelProps) {
   const t = value ?? {};
   const set = (k: string, v: any) => onChange({ ...t, [k]: v });
   const bool = (k: string, def = true) => (t[k] === undefined ? def : !!t[k]);
@@ -2163,9 +2133,14 @@ function PdfTemplatePanel({ value, onChange, onPreview, previewing }: PdfTemplat
       </div>
 
       <div className="pt-1">
-        <Button type="button" variant="outline" className="w-full" onClick={onPreview} disabled={previewing}>
-          {previewing ? <><Loader2 size={14} className="animate-spin mr-2" />Rendering preview…</> : <><Eye size={14} className="mr-2" />Preview PDF</>}
+        <Button type="button" variant="outline" className="w-full" onClick={onPreview}>
+          {previewOpen ? <><RefreshCw size={14} className="mr-2" />Refresh preview</> : <><Eye size={14} className="mr-2" />Preview PDF</>}
         </Button>
+        {!previewOpen && (
+          <p className="mt-2 text-[11px] text-muted-foreground text-center">
+            Press Preview PDF to render the template.
+          </p>
+        )}
       </div>
     </div>
   );
