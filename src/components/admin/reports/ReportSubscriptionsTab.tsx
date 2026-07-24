@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon, Eye } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -641,6 +641,10 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
     ((editing?.sub as any)?.recipient_mode as any) ?? 'named_users'
   );
+  const [pdfTemplate, setPdfTemplate] = useState<any>(
+    ((editing?.sub as any)?.pdf_template as any) ?? {}
+  );
+  const [previewingPdf, setPreviewingPdf] = useState(false);
 
   // Live manager count for all_managers mode
   const { data: managerList = [] } = useQuery({
@@ -713,6 +717,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             push_to_phone: pushToPhone,
             period_basis: periodBasis,
             scope: effectiveScope,
+            pdf_template: format === 'pdf' ? pdfTemplate : {},
           } as any)
           .eq('id', editing.sub.id);
         if (sErr) throw sErr;
@@ -740,9 +745,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
           },
         });
         if (error) throw error;
-        // period_basis isn't in the RPC signature — set it directly after insert.
+        // period_basis + pdf_template aren't in the RPC signature — set directly after insert.
         if (data) {
-          await supabase.from('report_subscriptions').update({ period_basis: periodBasis } as any).eq('id', data);
+          await supabase.from('report_subscriptions').update({
+            period_basis: periodBasis,
+            pdf_template: format === 'pdf' ? pdfTemplate : {},
+          } as any).eq('id', data);
         }
         return data;
       }
@@ -835,6 +843,71 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                   </SelectContent>
                 </Select>
               </div>
+              {format === 'pdf' && (
+                <div className="md:col-span-2">
+                  <PdfTemplatePanel
+                    value={pdfTemplate}
+                    onChange={setPdfTemplate}
+                    onPreview={async () => {
+                      setPreviewingPdf(true);
+                      try {
+                        const { data: sess } = await supabase.auth.getSession();
+                        const token = sess.session?.access_token;
+                        const projectId = (import.meta as any).env.VITE_SUPABASE_PROJECT_ID;
+                        const url = `https://${projectId}.supabase.co/functions/v1/generate-report`;
+                        const isoTo = new Date().toISOString().slice(0, 10);
+                        const isoFrom = (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0, 10); })();
+                        const res = await fetch(url, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                            'apikey': (import.meta as any).env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                          },
+                          body: JSON.stringify({
+                            mode: 'preview',
+                            preview: {
+                              name: name || 'Report preview',
+                              dataset_key: datasetKey,
+                              layout,
+                              config: {
+                                rows,
+                                columns: columns ? [columns] : [],
+                                values,
+                                filters: {
+                                  date_from: dateFrom || isoFrom,
+                                  date_to: dateTo || isoTo,
+                                  scope_user_id: scopeUserId || null,
+                                  distributor_id: distributorId || null,
+                                },
+                              },
+                              pdf_template: pdfTemplate ?? {},
+                              period: {
+                                key: 'preview',
+                                label: `${dateFrom || isoFrom} → ${dateTo || isoTo}`,
+                                date_from: dateFrom || isoFrom,
+                                date_to: dateTo || isoTo,
+                              },
+                            },
+                          }),
+                        });
+                        if (!res.ok) {
+                          const t = await res.text();
+                          throw new Error(t || `HTTP ${res.status}`);
+                        }
+                        const blob = await res.blob();
+                        const objectUrl = URL.createObjectURL(blob);
+                        window.open(objectUrl, '_blank');
+                      } catch (e: any) {
+                        toast.error(e.message || 'Preview failed');
+                      } finally {
+                        setPreviewingPdf(false);
+                      }
+                    }}
+                    previewing={previewingPdf}
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
                   Scope
@@ -952,6 +1025,14 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               <div><span className="font-medium">Measures:</span> {values.join(', ')}</div>
               <div><span className="font-medium">Schedule:</span> {cadence}{['weekly','monthly'].includes(cadence) ? ` · ${fireDay}` : ''} · {fireTime} ({timezone})</div>
               <div><span className="font-medium">Format:</span> {format} {pushToPhone ? '· + phone push' : ''}</div>
+              {format === 'pdf' && (
+                <div className="text-[12px] text-muted-foreground pl-1">
+                  PDF template · Header: <b>{pdfTemplate.header_style || 'standard'}</b>
+                  {' · '}Orientation: <b>{pdfTemplate.orientation || 'auto'}</b>
+                  {' · '}Branding: <b>{pdfTemplate.branding || 'company'}</b>
+                  {pdfTemplate.footer_note ? <> · Footer: <b>{pdfTemplate.footer_note}</b></> : null}
+                </div>
+              )}
               <div><span className="font-medium">Scope:</span> {recipientMode === 'all_managers' ? 'per_recipient (locked)' : scope}</div>
               <div>
                 <span className="font-medium">Recipients:</span>{' '}
@@ -1950,3 +2031,142 @@ function MatrixTable({ rowsData, rowKey, columnKey, valueKey, labelOf, onRemoveV
 }
 
 
+
+// ---------- PDF template panel (inline, Schedule step) ----------
+
+interface PdfTemplatePanelProps {
+  value: any;
+  onChange: (v: any) => void;
+  onPreview: () => void;
+  previewing: boolean;
+}
+
+const HEADER_STYLES: Array<{ id: string; label: string }> = [
+  { id: 'standard', label: 'Standard' },
+  { id: 'centered', label: 'Centered' },
+  { id: 'band', label: 'Band' },
+  { id: 'compact', label: 'Compact' },
+];
+const ORIENTATIONS: Array<{ id: string; label: string }> = [
+  { id: 'auto', label: 'Auto' },
+  { id: 'portrait', label: 'Portrait' },
+  { id: 'landscape', label: 'Landscape' },
+];
+
+function Seg({
+  options, value, onChange,
+}: { options: Array<{ id: string; label: string }>; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="inline-flex w-full rounded-md border bg-background overflow-hidden">
+      {options.map((o, i) => (
+        <button
+          key={o.id}
+          type="button"
+          onClick={() => onChange(o.id)}
+          className={cn(
+            'flex-1 text-xs py-1.5 transition-colors',
+            i > 0 && 'border-l',
+            value === o.id ? 'bg-[#eeedfe] text-[#534ab7] font-medium dark:bg-[#2a2560] dark:text-[#afa9ec]' : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PdfTemplatePanel({ value, onChange, onPreview, previewing }: PdfTemplatePanelProps) {
+  const t = value ?? {};
+  const set = (k: string, v: any) => onChange({ ...t, [k]: v });
+  const bool = (k: string, def = true) => (t[k] === undefined ? def : !!t[k]);
+
+  return (
+    <div className="rounded-xl border border-[#afa9ec] bg-[#eeedfe]/60 dark:bg-[#2a2560]/40 p-4 space-y-4">
+      <div className="flex items-center gap-2 text-[12px] font-semibold text-[#534ab7] dark:text-[#afa9ec]">
+        <FileType2 size={14} /> PDF template
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Branding</Label>
+          <Select value={t.branding ?? 'company'} onValueChange={v => set('branding', v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="company">Company</SelectItem>
+              <SelectItem value="distributor">Distributor (scoped)</SelectItem>
+              <SelectItem value="none">No branding</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Orientation</Label>
+          <Seg options={ORIENTATIONS} value={t.orientation ?? 'auto'} onChange={v => set('orientation', v)} />
+        </div>
+      </div>
+
+      <div className="h-px bg-[#afa9ec]/50" />
+
+      <div className="text-[12px] font-semibold text-[#534ab7] dark:text-[#afa9ec]">Header</div>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Header style</Label>
+          <Seg options={HEADER_STYLES} value={t.header_style ?? 'standard'} onChange={v => set('header_style', v)} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Title override</Label>
+            <Input value={t.title_override ?? ''} placeholder="Leave blank to use the report name"
+              onChange={e => set('title_override', e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Subtitle (optional)</Label>
+            <Input value={t.subtitle ?? ''} placeholder="e.g. Prepared for the regional review"
+              onChange={e => set('subtitle', e.target.value)} />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox checked={bool('show_period', true)} onCheckedChange={c => set('show_period', !!c)} />
+            Show reporting period
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox checked={bool('show_contact_line', false)} onCheckedChange={c => set('show_contact_line', !!c)} />
+            Show address &amp; GSTIN line
+          </label>
+        </div>
+      </div>
+
+      <div className="h-px bg-[#afa9ec]/50" />
+
+      <div className="text-[12px] font-semibold text-[#534ab7] dark:text-[#afa9ec]">Body</div>
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox checked={bool('include_meta', true)} onCheckedChange={c => set('include_meta', !!c)} />
+            Meta block (generated, filters, recipient)
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox checked={bool('include_totals', true)} onCheckedChange={c => set('include_totals', !!c)} />
+            Totals row
+          </label>
+          <label className="flex items-center gap-2 text-xs cursor-pointer">
+            <Checkbox checked={bool('include_page_numbers', true)} onCheckedChange={c => set('include_page_numbers', !!c)} />
+            Page numbers
+          </label>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Footer note (optional)</Label>
+          <Input value={t.footer_note ?? ''} placeholder="e.g. Confidential — internal use only"
+            onChange={e => set('footer_note', e.target.value)} />
+        </div>
+      </div>
+
+      <div className="pt-1">
+        <Button type="button" variant="outline" className="w-full" onClick={onPreview} disabled={previewing}>
+          {previewing ? <><Loader2 size={14} className="animate-spin mr-2" />Rendering preview…</> : <><Eye size={14} className="mr-2" />Preview PDF</>}
+        </Button>
+      </div>
+    </div>
+  );
+}

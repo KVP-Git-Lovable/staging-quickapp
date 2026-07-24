@@ -15,15 +15,26 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import ExcelJS from 'npm:exceljs@4.4.0';
-import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1';
+import { buildReportModel, renderReportPdf, PdfTemplate } from './pdf-renderer.ts';
+import { resolveBranding } from './branding.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 interface GenerateRequest {
-  subscription_id: string;
-  period: { key: string; label: string; date_from: string; date_to: string };
-  mode: 'manual' | 'scheduled';
+  subscription_id?: string;
+  period?: { key: string; label: string; date_from: string; date_to: string };
+  mode: 'manual' | 'scheduled' | 'preview';
+  // Preview-only payload: renders a PDF from an in-progress wizard config
+  // without writing to report_subscriptions or report_delivery_log.
+  preview?: {
+    name: string;
+    dataset_key: string;
+    layout: string;
+    config: any;
+    pdf_template: PdfTemplate;
+    period: { key: string; label: string; date_from: string; date_to: string };
+  };
 }
 
 Deno.serve(async (req) => {
@@ -36,12 +47,48 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const body = (await req.json()) as GenerateRequest;
+
+  // -------- Preview mode: on-demand PDF, no persistence --------
+  if (body.mode === 'preview') {
+    if (!body.preview) {
+      return new Response(JSON.stringify({ error: 'preview payload required' }), { status: 400, headers: corsHeaders });
+    }
+    const pv = body.preview;
+    const { data: dataset } = await admin
+      .from('reportable_datasets').select('source').eq('key', pv.dataset_key).maybeSingle();
+    if (!dataset) {
+      return new Response(JSON.stringify({ error: 'Dataset not found' }), { status: 404, headers: corsHeaders });
+    }
+    const rows = await callRpc(admin, dataset.source, { layout: pv.layout, config: pv.config }, {
+      date_from: pv.period.date_from, date_to: pv.period.date_to,
+    });
+    const distributorId = pv.config?.filters?.distributor_id ?? null;
+    const brand = await resolveBranding(admin, {
+      mode: (pv.pdf_template?.branding ?? 'company') as any,
+      distributor_id: distributorId,
+    });
+    const model = buildReportModel({
+      reportName: pv.name || 'Report',
+      period: pv.period,
+      rows,
+      scopeLabel: 'Preview',
+      filtersLabel: filtersLabelFrom(pv.config?.filters),
+    });
+    const pdfBytes = await renderReportPdf(model, pv.pdf_template ?? {}, brand);
+    return new Response(pdfBytes, {
+      headers: { ...corsHeaders, 'Content-Type': 'application/pdf' },
+    });
+  }
+
   const { subscription_id, period, mode } = body;
+  if (!subscription_id || !period) {
+    return new Response(JSON.stringify({ error: 'subscription_id and period required' }), { status: 400, headers: corsHeaders });
+  }
   const triggerType: 'scheduled' | 'manual' = mode === 'manual' ? 'manual' : 'scheduled';
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
-    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence')
+    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence, pdf_template')
     .eq('id', subscription_id)
     .maybeSingle();
   if (sErr || !sub) {
@@ -81,6 +128,25 @@ Deno.serve(async (req) => {
 
   const outcomes: Array<Record<string, unknown>> = [];
 
+  // Fetch branding once per run and reuse across recipients.
+  const pdfTemplate: PdfTemplate = (sub as any).pdf_template ?? {};
+  const distributorId = def.config?.filters?.distributor_id ?? null;
+  const brand = sub.attachment_format === 'pdf'
+    ? await resolveBranding(admin, {
+        mode: (pdfTemplate.branding ?? 'company') as any,
+        distributor_id: distributorId,
+      })
+    : null;
+  const filtersLabel = filtersLabelFrom(def.config?.filters);
+
+  // Look up recipient display names for the meta block on per-recipient PDFs.
+  const recipientNames = new Map<string, string>();
+  if (recipients.length > 0) {
+    const { data: profs } = await admin
+      .from('profiles').select('id, full_name').in('id', recipients);
+    (profs ?? []).forEach((p: any) => recipientNames.set(p.id, p.full_name || ''));
+  }
+
   // Shared: always call the RPC fresh and always render/upload — overwriting
   // the storage object for this period so late-arriving data replaces the
   // earlier (possibly empty) file.
@@ -96,7 +162,9 @@ Deno.serve(async (req) => {
     sharedIsEmpty = sharedRows.length === 0;
     sharedDigest = buildDigest(sub.name, period, sharedRows);
     if (sub.attachment_format !== 'summary_only') {
-      const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows);
+      const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows, {
+        pdfTemplate, brand, scopeLabel: 'Shared', filtersLabel,
+      });
       const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
       const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
         contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -123,7 +191,12 @@ Deno.serve(async (req) => {
         isEmpty = rows.length === 0;
         digest = buildDigest(sub.name, period, rows);
         if (sub.attachment_format !== 'summary_only') {
-          const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);
+          const bytes = await renderFile(sub.attachment_format, sub.name, period, rows, {
+            pdfTemplate, brand,
+            scopeLabel: 'Per recipient',
+            filtersLabel,
+            recipientName: recipientNames.get(rid) || null,
+          });
           path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
           await admin.storage.from('report-files').upload(path, bytes, {
             contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -265,8 +338,30 @@ function buildDigest(name: string, period: { label: string }, rows: any[]): stri
   return lines.join('\n');
 }
 
-async function renderFile(format: string, name: string, period: { label: string }, rows: any[]): Promise<Uint8Array> {
-  if (format === 'pdf') return renderPdf(name, period, rows);
+async function renderFile(
+  format: string,
+  name: string,
+  period: { key: string; label: string; date_from: string; date_to: string },
+  rows: any[],
+  opts: {
+    pdfTemplate: PdfTemplate;
+    brand: any | null;
+    scopeLabel?: string | null;
+    filtersLabel?: string | null;
+    recipientName?: string | null;
+  },
+): Promise<Uint8Array> {
+  if (format === 'pdf') {
+    const model = buildReportModel({
+      reportName: name,
+      period,
+      rows,
+      recipientName: opts.recipientName ?? null,
+      scopeLabel: opts.scopeLabel ?? null,
+      filtersLabel: opts.filtersLabel ?? null,
+    });
+    return renderReportPdf(model, opts.pdfTemplate ?? {}, opts.brand);
+  }
   return renderExcel(name, period, rows);
 }
 
@@ -293,26 +388,10 @@ async function renderExcel(name: string, period: { label: string }, rows: any[])
   return new Uint8Array(buf);
 }
 
-async function renderPdf(name: string, period: { label: string }, rows: any[]): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  let page = pdf.addPage([595, 842]);
-  let y = 800;
-  const draw = (text: string, size = 10, isBold = false) => {
-    if (y < 40) { page = pdf.addPage([595, 842]); y = 800; }
-    page.drawText(text.slice(0, 130), { x: 40, y, size, font: isBold ? bold : font, color: rgb(0.1, 0.1, 0.1) });
-    y -= size + 4;
-  };
-  draw(name, 16, true);
-  draw(`Period: ${period.label}`, 10);
-  draw('', 6);
-  if (rows.length > 0) {
-    const keys = Object.keys(rows[0]);
-    draw(keys.join(' | '), 9, true);
-    for (const r of rows) draw(keys.map(k => String(r[k] ?? '')).join(' | '), 9);
-  } else {
-    draw('No records for this period.');
-  }
-  return await pdf.save();
+function filtersLabelFrom(filters: any): string | null {
+  if (!filters || typeof filters !== 'object') return null;
+  const parts: string[] = [];
+  if (filters.distributor_id) parts.push(`distributor ${String(filters.distributor_id).slice(0, 8)}`);
+  if (filters.scope_user_id) parts.push(`user ${String(filters.scope_user_id).slice(0, 8)}`);
+  return parts.length ? parts.join(', ') : null;
 }
