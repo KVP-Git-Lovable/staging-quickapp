@@ -25,6 +25,10 @@ interface GenerateRequest {
   subscription_id?: string;
   period?: { key: string; label: string; date_from: string; date_to: string };
   mode: 'manual' | 'scheduled' | 'preview';
+  // Scheduled occurrence key (local date + fire_time). Stamped onto
+  // report_subscriptions.last_scheduled_period_key for idempotency. Only
+  // present for scheduled runs; manual/preview never carry this.
+  occurrence_key?: string | null;
   // Preview-only payload: renders a PDF from an in-progress wizard config
   // without writing to report_subscriptions or report_delivery_log.
   preview?: {
