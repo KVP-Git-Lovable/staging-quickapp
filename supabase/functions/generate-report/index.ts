@@ -41,12 +41,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   const auth = req.headers.get('Authorization') ?? '';
-  if (auth !== `Bearer ${SERVICE_ROLE}`) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
-  }
-
+  const isServiceRole = auth === `Bearer ${SERVICE_ROLE}`;
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const body = (await req.json()) as GenerateRequest;
+
+  // Preview mode: allow any authenticated user; other modes require service role.
+  if (!isServiceRole) {
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    const { data: userData } = await admin.auth.getUser(token);
+    if (!userData?.user || body.mode !== 'preview') {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+    }
+  }
 
   // -------- Preview mode: on-demand PDF, no persistence --------
   if (body.mode === 'preview') {
