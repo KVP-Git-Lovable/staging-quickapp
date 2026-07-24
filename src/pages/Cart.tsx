@@ -2980,6 +2980,19 @@ export const Cart = () => {
                             Full Credit
                           </Button>
                         </div>
+                        {paymentType === "full" && pendingAmountFromPrevious > 0 && (
+                          <div className="p-2 rounded-lg border border-primary/30 bg-primary/5 space-y-0.5">
+                            <div className="flex justify-between text-xs font-semibold">
+                              <span className="text-primary">Full Payment — collect</span>
+                              <span className="text-primary">₹{formatRounded(pendingAmountFromPrevious + getFinalTotal())}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                              <span>₹{formatRounded(pendingAmountFromPrevious)} old dues</span>
+                              <span>+ ₹{formatRounded(getFinalTotal())} this order</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground pt-0.5">Clears all pending invoices for this retailer.</p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 p-2.5 rounded-[12px] border border-border bg-muted/40">
