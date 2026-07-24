@@ -645,7 +645,11 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [pdfTemplate, setPdfTemplate] = useState<any>(
     ((editing?.sub as any)?.pdf_template as any) ?? {}
   );
-  const [previewingPdf, setPreviewingPdf] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [pdfPreviewRefreshKey, setPdfPreviewRefreshKey] = useState(0);
+  React.useEffect(() => {
+    if (format !== 'pdf') setPdfPreviewOpen(false);
+  }, [format]);
 
   // Live manager count for all_managers mode
   const { data: managerList = [] } = useQuery({
