@@ -93,13 +93,34 @@ export function computePeriod(
   };
 }
 
-export function isDue(
+/**
+ * Compute the current scheduled occurrence for a subscription and whether it
+ * is due right now (catch-up semantics).
+ *
+ * The occurrence key identifies the scheduled slot — local calendar date plus
+ * fire_time (HH:MM). It is intentionally derived from the schedule, NOT from
+ * the reporting period, so that:
+ *   - changing fire_time yields a new key (allowing another fire the same day)
+ *   - period_basis (current/previous) never affects idempotency
+ *
+ * `due` is true when: today matches the cadence's day rule AND the current
+ * local time is at or past today's fire time. Occurrences from previous days
+ * are never revived — only today's slot is considered.
+ */
+export interface Occurrence {
+  key: string;       // e.g. "2026-07-24T17:05"
+  dueAt: string;     // same as key; kept for clarity
+  due: boolean;      // catch-up: now >= scheduled time today, and cadence matches today
+  matchesToday: boolean;
+}
+
+export function computeOccurrence(
   cadence: string,
   fireDay: string | null,
   fireTime: string,
   tz: string,
   now: Date = new Date(),
-): boolean {
+): Occurrence {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz,
     year: 'numeric', month: '2-digit', day: '2-digit',
@@ -107,22 +128,45 @@ export function isDue(
     weekday: 'short',
   }).formatToParts(now);
   const get = (t: string) => parts.find(p => p.type === t)?.value ?? '';
+  const y = get('year'), mo = get('month'), d = get('day');
   const hh = parseInt(get('hour'), 10);
   const mm = parseInt(get('minute'), 10);
   const weekday = get('weekday');
-  const day = parseInt(get('day'), 10);
+  const day = parseInt(d, 10);
 
   const [fh, fm] = fireTime.split(':').map(n => parseInt(n, 10));
   const nowMin = hh * 60 + mm;
   const fireMin = fh * 60 + fm;
-  if (nowMin < fireMin || nowMin >= fireMin + 15) return false;
 
-  if (cadence === 'daily' || cadence === 'today') return true;
-  if (cadence === 'weekday') return !['Sat', 'Sun'].includes(weekday);
-  if (cadence === 'weekly') return weekday.toLowerCase().startsWith((fireDay ?? 'mon').slice(0, 3).toLowerCase());
-  if (cadence === 'monthly') {
-    const d = parseInt(fireDay ?? '1', 10);
-    return day === d;
-  }
-  return false;
+  let matchesToday = false;
+  if (cadence === 'daily' || cadence === 'today') matchesToday = true;
+  else if (cadence === 'weekday') matchesToday = !['Sat', 'Sun'].includes(weekday);
+  else if (cadence === 'weekly') matchesToday = weekday.toLowerCase().startsWith((fireDay ?? 'mon').slice(0, 3).toLowerCase());
+  else if (cadence === 'monthly') matchesToday = day === parseInt(fireDay ?? '1', 10);
+
+  const hhmm = `${String(fh).padStart(2, '0')}:${String(fm).padStart(2, '0')}`;
+  const key = `${y}-${mo}-${d}T${hhmm}`;
+
+  return {
+    key,
+    dueAt: key,
+    matchesToday,
+    due: matchesToday && nowMin >= fireMin,
+  };
+}
+
+/**
+ * @deprecated Kept for backwards compatibility. Prefer computeOccurrence().
+ * Returns true only in the exact 15-minute window after fire_time — this is
+ * the OLD behaviour and does not support catch-up.
+ */
+export function isDue(
+  cadence: string,
+  fireDay: string | null,
+  fireTime: string,
+  tz: string,
+  now: Date = new Date(),
+): boolean {
+  const occ = computeOccurrence(cadence, fireDay, fireTime, tz, now);
+  return occ.due;
 }

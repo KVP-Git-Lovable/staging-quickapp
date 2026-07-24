@@ -25,6 +25,10 @@ interface GenerateRequest {
   subscription_id?: string;
   period?: { key: string; label: string; date_from: string; date_to: string };
   mode: 'manual' | 'scheduled' | 'preview';
+  // Scheduled occurrence key (local date + fire_time). Stamped onto
+  // report_subscriptions.last_scheduled_period_key for idempotency. Only
+  // present for scheduled runs; manual/preview never carry this.
+  occurrence_key?: string | null;
   // Preview-only payload: renders a PDF from an in-progress wizard config
   // without writing to report_subscriptions or report_delivery_log.
   preview?: {
@@ -286,12 +290,16 @@ Deno.serve(async (req) => {
 
   // last_fired_at reflects the most recent run of EITHER kind (display only).
   // last_scheduled_fire_at / last_scheduled_period_key are set only for
-  // scheduled runs, so manual runs never consume a scheduled slot.
+  // scheduled runs, and last_scheduled_period_key stores the OCCURRENCE key
+  // (local date + fire_time) — never the reporting-period key. This ensures
+  // changing fire_time produces a new key and permits another same-day run.
   const updates: Record<string, unknown> = {};
   if (deliveredCount > 0) updates.last_fired_at = new Date().toISOString();
   if (triggerType === 'scheduled' && deliveredCount > 0) {
     updates.last_scheduled_fire_at = new Date().toISOString();
-    updates.last_scheduled_period_key = period.key;
+    if (body.occurrence_key) {
+      updates.last_scheduled_period_key = body.occurrence_key;
+    }
   }
   if (Object.keys(updates).length > 0) {
     await admin.from('report_subscriptions').update(updates).eq('id', sub.id);
