@@ -93,12 +93,33 @@ export async function resolveBranding(
   return brand;
 }
 
-export function formatCurrency(n: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 }).format(n);
-  } catch {
-    return `${currency} ${n.toFixed(2)}`;
+export function formatCurrency(n: number, currency: string, unicodeSafe = true): string {
+  // Format the number in Indian grouping without a currency symbol, then
+  // prefix with a symbol we control. This avoids Intl's locale-picked symbols
+  // that may not be embedded in the PDF font.
+  const num = new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+  const symbol = currencySymbol(currency, unicodeSafe);
+  return `${symbol}${symbol.endsWith(' ') ? '' : ' '}${num}`;
+}
+
+export function currencySymbol(code: string, unicodeSafe: boolean): string {
+  const c = (code || 'INR').toUpperCase();
+  if (!unicodeSafe) {
+    // ASCII-only fallbacks for WinAnsi fonts (jsPDF built-in).
+    if (c === 'INR') return 'Rs.';
+    if (c === 'USD') return '$';
+    if (c === 'EUR') return 'EUR';
+    if (c === 'GBP') return 'GBP';
+    return c;
   }
+  if (c === 'INR') return '\u20B9'; // ₹
+  if (c === 'USD') return '$';
+  if (c === 'EUR') return '\u20AC';
+  if (c === 'GBP') return '\u00A3';
+  return c;
 }
 
 export function formatDateToken(d: Date, fmt: string): string {
