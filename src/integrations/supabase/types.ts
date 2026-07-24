@@ -21010,6 +21010,7 @@ export type Database = {
           recipient_user_id: string
           storage_path: string | null
           subscription_id: string | null
+          trigger_type: string
         }
         Insert: {
           created_at?: string
@@ -21022,6 +21023,7 @@ export type Database = {
           recipient_user_id: string
           storage_path?: string | null
           subscription_id?: string | null
+          trigger_type: string
         }
         Update: {
           created_at?: string
@@ -21034,6 +21036,7 @@ export type Database = {
           recipient_user_id?: string
           storage_path?: string | null
           subscription_id?: string | null
+          trigger_type?: string
         }
         Relationships: [
           {
@@ -21055,6 +21058,8 @@ export type Database = {
           fire_time: string
           id: string
           last_fired_at: string | null
+          last_scheduled_fire_at: string | null
+          last_scheduled_period_key: string | null
           name: string
           period_basis: string
           push_to_phone: boolean
@@ -21075,6 +21080,8 @@ export type Database = {
           fire_time?: string
           id?: string
           last_fired_at?: string | null
+          last_scheduled_fire_at?: string | null
+          last_scheduled_period_key?: string | null
           name: string
           period_basis?: string
           push_to_phone?: boolean
@@ -21095,6 +21102,8 @@ export type Database = {
           fire_time?: string
           id?: string
           last_fired_at?: string | null
+          last_scheduled_fire_at?: string | null
+          last_scheduled_period_key?: string | null
           name?: string
           period_basis?: string
           push_to_phone?: boolean
