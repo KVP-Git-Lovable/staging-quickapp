@@ -1335,8 +1335,9 @@ export const Cart = () => {
 
       // FIFO at-order payment: record collection + allocate oldest-first across all
       // pending credit orders (including this new one). Idempotent per collection_id.
+      // Full payment must clear ALL open pending (previous + new); partial keeps FIFO oldest-first.
       const atOrderAmountPaid =
-        paymentType === 'full' ? totalAmount :
+        paymentType === 'full' ? (pendingAmountFromPrevious + totalAmount) :
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
       let syncedOrderRow: any = null;
       let syncedOrderAllocations: any[] = [];
