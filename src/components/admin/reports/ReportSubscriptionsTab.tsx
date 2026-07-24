@@ -2008,7 +2008,7 @@ interface PdfTemplatePanelProps {
   value: any;
   onChange: (v: any) => void;
   onPreview: () => void;
-  previewing: boolean;
+  previewOpen: boolean;
 }
 
 const HEADER_STYLES: Array<{ id: string; label: string }> = [
