@@ -2046,7 +2046,7 @@ function Seg({
   );
 }
 
-function PdfTemplatePanel({ value, onChange, onPreview, previewing }: PdfTemplatePanelProps) {
+function PdfTemplatePanel({ value, onChange, onPreview, previewOpen }: PdfTemplatePanelProps) {
   const t = value ?? {};
   const set = (k: string, v: any) => onChange({ ...t, [k]: v });
   const bool = (k: string, def = true) => (t[k] === undefined ? def : !!t[k]);
