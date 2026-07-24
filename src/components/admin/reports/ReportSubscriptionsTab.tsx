@@ -2133,9 +2133,14 @@ function PdfTemplatePanel({ value, onChange, onPreview, previewOpen }: PdfTempla
       </div>
 
       <div className="pt-1">
-        <Button type="button" variant="outline" className="w-full" onClick={onPreview} disabled={previewing}>
-          {previewing ? <><Loader2 size={14} className="animate-spin mr-2" />Rendering preview…</> : <><Eye size={14} className="mr-2" />Preview PDF</>}
+        <Button type="button" variant="outline" className="w-full" onClick={onPreview}>
+          {previewOpen ? <><RefreshCw size={14} className="mr-2" />Refresh preview</> : <><Eye size={14} className="mr-2" />Preview PDF</>}
         </Button>
+        {!previewOpen && (
+          <p className="mt-2 text-[11px] text-muted-foreground text-center">
+            Press Preview PDF to render the template.
+          </p>
+        )}
       </div>
     </div>
   );
