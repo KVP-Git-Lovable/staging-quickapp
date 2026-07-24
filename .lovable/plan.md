@@ -1,72 +1,82 @@
+# Report Subscription — PDF pipeline rebuild
 
-## What's actually happening (verified against your data)
+Scope is strictly the PDF path inside the report subscription wizard's Schedule step and the `generate-report` edge function. Excel, `summary_only`, notifications, and the shared `notifications` trigger are not touched.
 
-Retailer **Annapurna Sweet Shop** — pending ₹2,829 before the new order.
+## Phase 1 — Rebuild the PDF renderer (verify before Phase 3)
 
-| Order | Date | Total | Paid | Pending | Status |
-|---|---|---|---|---|---|
-| b8c21427 (new, 24-Jul) | 09:52 | 279 | 0 | **279** | pending |
-| 42fb86a7 (10-Jul) | | 1,280 | 0 | 1,280 | pending |
-| 3a1096e6 (10-Jul, oldest open) | | 1,828 | 558 → 837 | 1,270 | partial |
+**Files**
+- `supabase/functions/generate-report/index.ts` — refactor so it builds one neutral report model:
+  `{ title, subtitle, period, columns[], rows[], totals, meta }`.
+  Excel path and PDF path both consume this model independently. Current `renderPdf` (pdf-lib) is removed.
+- `supabase/functions/generate-report/pdf-renderer.ts` — NEW. Uses `npm:jspdf` + `npm:jspdf-autotable`.
+- `supabase/functions/generate-report/branding.ts` — NEW small helper. Fetches once per run from `public.companies` (`header_logo_url` → fallback `logo_url`, `header_name`, `name`, `address`, `gstin`, `contact_phone`, `currency`, `date_format`). When the report scope is a single distributor, use `distributors.logo_url` / `distributors.name` instead if branding = Distributor. Logo is fetched, base64-encoded, embedded via `doc.addImage()`. All currency/date formatting flows through the fetched `currency` and `date_format` — no hardcoded ₹ or date strings.
 
-At the new order you tapped **Full payment**. What the app did:
-- Collected only **₹279** (just the new order's amount).
-- Applied it via FIFO → allocation `815e4aaf` landed on the *oldest* open order `3a1096e6`, not on the new order.
+**Renderer behaviour**
+- Default template = "Standard" header from the reference: logo left · `header_name` + company name + report title · reporting period right · brand-coloured divider · meta block (generated timestamp, recipient, scope, filters) · autotable (filled header row, right-aligned numeric columns, zebra rows, tinted totals row) · footer (page X of Y · generated-by · optional footer note).
+- Orientation: portrait when columns ≤ 6, landscape otherwise (this is the Auto rule; explicit overrides come in Phase 3).
+- autotable handles repeated header rows across page breaks, column widths, per-column alignment, styled totals footer.
 
-Net effect: new order still pending, oldest reduced by 279, retailer pending unchanged at 2,829. Exactly the wrong outcome for "Full".
+**Verify Phase 1 before moving on** by running `generate-report` end-to-end for an existing PDF subscription and downloading the output.
 
-## What "Full" should mean (your clarification)
+## Phase 2 — Preview PDF button
 
-- **Full payment** = pay **previous_pending + new_order_total** together → every open order (old + new) becomes `paid`. No FIFO needed; the collection exactly matches all open pending.
-- **Partial payment** = pay any amount less than total due → keep current FIFO oldest-first behaviour (correct as-is).
-- **Credit** = collect nothing → new order joins pending list, old pendings untouched (correct as-is).
+**Files**
+- `supabase/functions/generate-report/index.ts` — add a `mode: 'preview'` branch. It accepts the in-progress wizard payload (dataset, filters, period basis, `pdf_template`, scope), runs the same model + renderer, and returns the PDF bytes inline (base64 or signed short-lived URL) without writing to `report_subscriptions` or `report_delivery_log`.
+- `src/components/admin/reports/ReportSubscriptionsTab.tsx` — inside the Schedule step (around the Format select at ~line 831), add a **Preview PDF** button visible only when `format === 'pdf'`. On click it invokes the preview mode, opens the returned PDF in a new tab. No DB write.
 
-## Root cause
+## Phase 3 — Template configuration (`pdf_template`)
 
-`src/pages/Cart.tsx` lines 1030–1058 treat Full as "pay this order's total only" and always route through `apply_retailer_payment_fifo`:
-
-```ts
-} else if (paymentType === "full") {
-  // Full payment - routed through FIFO post-insert. ...
-  creditPaid = 0;
-  creditPending = totalAmount;   // ← only the new order's amount
-  ...
-}
+**Migration**
+```sql
+ALTER TABLE public.report_subscriptions
+  ADD COLUMN IF NOT EXISTS pdf_template jsonb NOT NULL DEFAULT '{}'::jsonb;
 ```
+Empty `{}` means "use defaults", so existing rows need no backfill. Renderer merge order: structural defaults ← `companies`/`distributors` branding ← per-subscription `pdf_template`.
 
-Two bugs:
-1. The collection amount is `totalAmount` (new order only) — it should be `pendingAmountFromPrevious + totalAmount` when there's prior pending.
-2. Full is routed through FIFO — for a true "clear everything" collection, FIFO happens to work (it will pay every open order), but only if the amount is right. Bug #1 defeats it.
+**Wizard state** (`ReportSubscriptionsTab.tsx`)
+- Add `pdfTemplate` state seeded from `editing?.sub.pdf_template ?? {}`.
+- Include it in both the create insert (~line 712) and update path (~line 735).
+- On Format change to non-PDF, keep the object in state but stop rendering the panel.
 
-Partial has the correct FIFO behaviour today and stays untouched.
+**Schedule step — inline panel** (rendered directly beneath the Format select, not a modal, not a new route). Collapses when Format is Excel or Summary. Matches `pdf_template_panel.html` structure and styling (not exact pixel metrics; sample values in the reference are illustrative only).
 
-## Fix
+Header section:
+- Header style — Standard · Centered · Band · Compact
+- Title override (blank = report name)
+- Subtitle (optional)
+- Show reporting period (default on)
+- Show address & GSTIN line (default off; source depends on Branding selection)
 
-1. **Cart.tsx — Full payment path**
-   - When `paymentType === "full"`, set the collection amount to `pendingAmountFromPrevious + totalAmount` (the full outstanding, not just the new order).
-   - Keep the FIFO call — with the correct amount, FIFO will settle every open order in one shot (oldest → newest, including the just-inserted new order).
-   - Set `previous_pending_cleared` on the new order to the actual amount that flowed to older invoices (read back from `retailer_payment_allocations`), so the receipt shows "cleared ₹2,829 old dues + ₹279 this order".
-   - Same change in the offline branch (~line 1945) so the optimistic cache reflects "all paid".
+Body section:
+- Branding — Company · Distributor · None
+- Orientation — Auto · Portrait · Landscape
+- Include — meta block · totals row · page numbers (all default on)
+- Footer note (optional; replaces generated-by line)
 
-2. **UI copy on the Full option**
-   - Show the true amount that will be collected: **"Full payment — collect ₹{previous_pending + new_order_total}"** with a small breakdown line ("₹2,829 old dues + ₹279 this order"). Removes the ambiguity that caused this bug in the first place.
+**Review step** — when format is PDF, list the pdf_template summary (header style, orientation, branding, footer note preview).
 
-3. **Partial and Credit paths**
-   - No behaviour change. Partial keeps FIFO oldest-first. Credit stays as-is.
+**Renderer wiring** — `pdf-renderer.ts` reads `pdf_template` and applies each option (header variant switch, orientation override, meta/totals/page-number toggles, footer note substitution, GSTIN line, title/subtitle overrides).
 
-4. **Data repair for Annapurna (one-off, not a migration)**
-   - You have two options — I'll do whichever you pick:
-     - **A. Reassign the ₹279 allocation** from order `3a1096e6` to the new order `b8c21427`, so the new order shows `paid` and `3a1096e6` returns to pending 1,549. Retailer pending stays 2,829. This matches what would have happened if you'd tapped "Credit" (and is safe if you didn't actually collect ₹2,829 more in cash).
-     - **B. Record the missing ₹2,829 collection** (only if you really did receive that cash) so every old order + the new order becomes `paid` and retailer pending goes to 0.
+## Phase 4 — Wide-column handling in `pdf-renderer.ts`
 
-## Out of scope
+Applied in this order until the table fits:
+1. Auto-orient to landscape (unless user forced Portrait).
+2. Shrink font size down to a floor of ~6pt.
+3. Split columns across pages: repeat the leftmost row-label column on every continuation page, and add a subtitle band like `columns 8–15, continued`.
 
-- No change to the standalone "Collect Payment" drawer — it's explicitly FIFO by intent.
-- No change to edit-mode payment reconciliation (`finalize_order_edit`).
-- No change to `apply_retailer_payment_fifo` RPC — bug is purely on the client side (wrong collection amount for Full).
+Row-label detection: first column of the model unless `meta.rowLabelColumns` says otherwise.
 
 ## Technical notes
 
-- Files: `src/pages/Cart.tsx` — the two Full/Partial payment blocks around lines ~1030 and ~1945, plus the payment-type UI component that renders the Full/Partial/Credit options (to show the full amount + breakdown).
-- `pendingAmountFromPrevious` is already computed in Cart.tsx (line ~460 from `retailers.pending_amount`), so no new query needed.
-- Offline optimistic split at lines 1388–1406 must be updated to reflect "all open orders paid" when Full is used with prior pending, not just the new order.
+- Deps: `npm:jspdf`, `npm:jspdf-autotable` (both work in Deno edge runtime). `pdf-lib` is dropped from this path. No `@react-pdf/renderer`.
+- No changes to the notifications trigger, push flow, `report_delivery_log` idempotency, or Excel generation.
+- Preview endpoint must not write to `report_subscriptions`, `report_delivery_log`, or Storage — bytes go straight back to the caller.
+- Branding logo is fetched exactly once per generate run and reused across per-recipient files.
+
+## Files touched (summary)
+
+- NEW `supabase/functions/generate-report/pdf-renderer.ts`
+- NEW `supabase/functions/generate-report/branding.ts`
+- MOD `supabase/functions/generate-report/index.ts` (neutral model + preview mode + wire new renderer, remove pdf-lib PDF path)
+- MOD `src/components/admin/reports/ReportSubscriptionsTab.tsx` (Schedule step: inline PDF panel + Preview button + wizard state; Review step: PDF template summary; create/update: persist `pdf_template`)
+- Migration: add `pdf_template jsonb` on `report_subscriptions`
