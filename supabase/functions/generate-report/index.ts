@@ -15,15 +15,26 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import ExcelJS from 'npm:exceljs@4.4.0';
-import { PDFDocument, StandardFonts, rgb } from 'npm:pdf-lib@1.17.1';
+import { buildReportModel, renderReportPdf, PdfTemplate } from './pdf-renderer.ts';
+import { resolveBranding } from './branding.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 interface GenerateRequest {
-  subscription_id: string;
-  period: { key: string; label: string; date_from: string; date_to: string };
-  mode: 'manual' | 'scheduled';
+  subscription_id?: string;
+  period?: { key: string; label: string; date_from: string; date_to: string };
+  mode: 'manual' | 'scheduled' | 'preview';
+  // Preview-only payload: renders a PDF from an in-progress wizard config
+  // without writing to report_subscriptions or report_delivery_log.
+  preview?: {
+    name: string;
+    dataset_key: string;
+    layout: string;
+    config: any;
+    pdf_template: PdfTemplate;
+    period: { key: string; label: string; date_from: string; date_to: string };
+  };
 }
 
 Deno.serve(async (req) => {
@@ -36,12 +47,48 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const body = (await req.json()) as GenerateRequest;
+
+  // -------- Preview mode: on-demand PDF, no persistence --------
+  if (body.mode === 'preview') {
+    if (!body.preview) {
+      return new Response(JSON.stringify({ error: 'preview payload required' }), { status: 400, headers: corsHeaders });
+    }
+    const pv = body.preview;
+    const { data: dataset } = await admin
+      .from('reportable_datasets').select('source').eq('key', pv.dataset_key).maybeSingle();
+    if (!dataset) {
+      return new Response(JSON.stringify({ error: 'Dataset not found' }), { status: 404, headers: corsHeaders });
+    }
+    const rows = await callRpc(admin, dataset.source, { layout: pv.layout, config: pv.config }, {
+      date_from: pv.period.date_from, date_to: pv.period.date_to,
+    });
+    const distributorId = pv.config?.filters?.distributor_id ?? null;
+    const brand = await resolveBranding(admin, {
+      mode: (pv.pdf_template?.branding ?? 'company') as any,
+      distributor_id: distributorId,
+    });
+    const model = buildReportModel({
+      reportName: pv.name || 'Report',
+      period: pv.period,
+      rows,
+      scopeLabel: 'Preview',
+      filtersLabel: filtersLabelFrom(pv.config?.filters),
+    });
+    const pdfBytes = await renderReportPdf(model, pv.pdf_template ?? {}, brand);
+    return new Response(pdfBytes, {
+      headers: { ...corsHeaders, 'Content-Type': 'application/pdf' },
+    });
+  }
+
   const { subscription_id, period, mode } = body;
+  if (!subscription_id || !period) {
+    return new Response(JSON.stringify({ error: 'subscription_id and period required' }), { status: 400, headers: corsHeaders });
+  }
   const triggerType: 'scheduled' | 'manual' = mode === 'manual' ? 'manual' : 'scheduled';
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
-    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence')
+    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence, pdf_template')
     .eq('id', subscription_id)
     .maybeSingle();
   if (sErr || !sub) {
