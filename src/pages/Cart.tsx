@@ -1036,11 +1036,14 @@ export const Cart = () => {
         previousPendingCleared = 0;
         orderPaymentMethod = "credit";
       } else if (paymentType === "full") {
-        // Full payment - routed through FIFO post-insert. Order row starts unpaid;
-        // apply_retailer_payment_fifo will clear oldest pending first (incl. this order).
+        // Full payment = collect (previous_pending + new_order_total) in one go.
+        // The collection amount is set to totalDue below (atOrderAmountPaid), so
+        // apply_retailer_payment_fifo will settle every open pending order + this
+        // new one. previous_pending_cleared records the portion that went to
+        // older invoices.
         isCreditOrder = true;
-        newTotalPending = Math.max(0, totalDue - totalAmount);
-        previousPendingCleared = 0;
+        newTotalPending = 0;
+        previousPendingCleared = pendingAmountFromPrevious;
         creditPaid = 0;
         creditPending = totalAmount;
         orderPaymentMethod = paymentMethod;
@@ -1332,8 +1335,9 @@ export const Cart = () => {
 
       // FIFO at-order payment: record collection + allocate oldest-first across all
       // pending credit orders (including this new one). Idempotent per collection_id.
+      // Full payment must clear ALL open pending (previous + new); partial keeps FIFO oldest-first.
       const atOrderAmountPaid =
-        paymentType === 'full' ? totalAmount :
+        paymentType === 'full' ? (pendingAmountFromPrevious + totalAmount) :
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
       let syncedOrderRow: any = null;
       let syncedOrderAllocations: any[] = [];
@@ -1386,14 +1390,17 @@ export const Cart = () => {
           // queued CREATE_COLLECTION + server FIFO remain the source of truth,
           // and VisitCard's authoritative refetch reconciles on sync.
           try {
-            const paid = atOrderAmountPaid;                 // already computed above
-            const pending = Math.max(0, totalAmount - paid);
-            const payStatus = pending <= 0 ? 'paid' : (paid > 0 ? 'partial' : 'pending');
+            // atOrderAmountPaid may exceed this order's total (Full includes prior pending).
+            // Cap the paid-on-this-order at its own total for the optimistic split; the
+            // remainder settles older invoices via FIFO on sync.
+            const paidOnThisOrder = Math.min(atOrderAmountPaid, totalAmount);
+            const pending = Math.max(0, totalAmount - paidOnThisOrder);
+            const payStatus = pending <= 0 ? 'paid' : (paidOnThisOrder > 0 ? 'partial' : 'pending');
             const cachedOrder: any = await offlineStorage.getById(STORES.ORDERS, result.order.id);
             if (cachedOrder) {
               await offlineStorage.save(STORES.ORDERS, {
                 ...cachedOrder,
-                credit_paid_amount: paid,
+                credit_paid_amount: paidOnThisOrder,
                 credit_pending_amount: pending,
                 is_credit_order: pending > 0,
                 payment_status: payStatus,
@@ -1959,10 +1966,11 @@ export const Cart = () => {
         previousPendingCleared = 0;
         orderPaymentMethod = "credit";
       } else if (paymentType === "full") {
-        // Full payment - routed through FIFO post-insert.
+        // Full payment = collect (previous_pending + new_order_total). FIFO settles
+        // every open order plus this new one.
         isCreditOrder = true;
-        newTotalPending = Math.max(0, totalDue - totalAmount);
-        previousPendingCleared = 0;
+        newTotalPending = 0;
+        previousPendingCleared = pendingAmountFromPrevious;
         creditPaid = 0;
         creditPending = totalAmount;
         orderPaymentMethod = paymentMethod;
@@ -2202,8 +2210,9 @@ export const Cart = () => {
       }
 
       // FIFO at-order payment (D-1 path): same flow as regular order.
+      // Full payment must clear ALL open pending (previous + new); partial keeps FIFO oldest-first.
       const atOrderAmountPaidD1 =
-        paymentType === 'full' ? totalAmount :
+        paymentType === 'full' ? (pendingAmountFromPrevious + totalAmount) :
         paymentType === 'partial' ? Math.max(0, parseFloat(partialAmount) || 0) : 0;
       let syncedOrderRowD1: any = null;
       let syncedOrderAllocationsD1: any[] = [];
@@ -2971,6 +2980,19 @@ export const Cart = () => {
                             Full Credit
                           </Button>
                         </div>
+                        {paymentType === "full" && pendingAmountFromPrevious > 0 && (
+                          <div className="p-2 rounded-lg border border-primary/30 bg-primary/5 space-y-0.5">
+                            <div className="flex justify-between text-xs font-semibold">
+                              <span className="text-primary">Full Payment — collect</span>
+                              <span className="text-primary">₹{formatRounded(pendingAmountFromPrevious + getFinalTotal())}</span>
+                            </div>
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                              <span>₹{formatRounded(pendingAmountFromPrevious)} old dues</span>
+                              <span>+ ₹{formatRounded(getFinalTotal())} this order</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground pt-0.5">Clears all pending invoices for this retailer.</p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 p-2.5 rounded-[12px] border border-border bg-muted/40">
