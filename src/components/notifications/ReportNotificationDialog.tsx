@@ -23,6 +23,18 @@ export function ReportNotificationDialog({ notification, onClose }: Props) {
   const period: string = meta.period ?? '';
   const bodyMd: string = meta.body_md ?? '';
 
+  const slugify = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'report';
+
+  const deriveFilename = (signedUrl: string) => {
+    const ext = (storagePath?.match(/\.([a-z0-9]+)(?:\?|$)/i)?.[1]
+      || signedUrl.match(/\.([a-z0-9]+)(?:\?|$)/i)?.[1]
+      || 'xlsx').toLowerCase();
+    const base = slugify(notification.title || 'report');
+    const periodPart = period ? `-${slugify(period)}` : '';
+    return `${base}${periodPart}.${ext}`;
+  };
+
   const handleDownload = async () => {
     if (!subscriptionId || !storagePath) return;
     setDownloading(true);
@@ -32,9 +44,31 @@ export function ReportNotificationDialog({ notification, onClose }: Props) {
       });
       if (error) throw error;
       if (!data?.url) throw new Error('No URL returned');
-      window.open(data.url, '_blank', 'noopener,noreferrer');
+
+      let blob: Blob;
+      try {
+        const res = await fetch(data.url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        blob = await res.blob();
+      } catch (fetchErr) {
+        console.error('Report fetch failed:', fetchErr);
+        toast.error(
+          "Couldn't download the report — please try again. Your browser or an extension may be blocking the download."
+        );
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = deriveFilename(data.url);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (e: any) {
-      toast.error(e.message || 'Failed to download report');
+      console.error(e);
+      toast.error("Couldn't download the report — please try again");
     } finally {
       setDownloading(false);
     }
