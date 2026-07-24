@@ -83,6 +83,7 @@ Deno.serve(async (req) => {
       rows,
       scopeLabel: 'Preview',
       filtersLabel: filtersLabelFrom(pv.config?.filters),
+      rowDimensionKey: rowDimensionKeyFrom(pv.config),
     });
     const pdfBytes = await renderReportPdf(model, pv.pdf_template ?? {}, brand);
     return new Response(pdfBytes, {
