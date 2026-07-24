@@ -21,6 +21,7 @@ import { AboutEditMode } from '@/components/profile/about/AboutEditMode';
 import { ProfilePointsBadge } from '@/components/profile/ProfilePointsBadge';
 import { PasswordChangeSection } from '@/components/profile/PasswordChangeSection';
 import { LanguageSettings } from '@/components/profile/LanguageSettings';
+import { LocaleSettings } from '@/components/profile/LocaleSettings';
 import { PushNotificationSettings } from '@/components/PushNotificationSettings';
 
 
@@ -262,6 +263,10 @@ const UserProfile = () => {
 
             {/* Language Settings */}
             <LanguageSettings />
+
+            {/* Locale, Time Zone & Currency */}
+            <LocaleSettings />
+
 
             {/* Push Notifications */}
             <PushNotificationSettings />
