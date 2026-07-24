@@ -208,6 +208,7 @@ Deno.serve(async (req) => {
             scopeLabel: 'Per recipient',
             filtersLabel,
             recipientName: recipientNames.get(rid) || null,
+            rowDimensionKey: rowDimensionKeyFrom(def.config),
           });
           path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
           await admin.storage.from('report-files').upload(path, bytes, {
