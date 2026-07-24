@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       const basis = (sub as any).period_basis === 'previous' ? 'previous' : 'current';
       const period = computePeriod(sub.cadence, new Date(), basis);
       // Manual: never checks idempotency, never updates last_scheduled_*.
-      const result = await invokeGenerate(sub.id, period, 'manual');
+      const result = await invokeGenerate(sub.id, period, 'manual', null);
       return new Response(JSON.stringify({ ok: true, ...result }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -75,23 +75,27 @@ Deno.serve(async (req) => {
 
     const results: Array<Record<string, unknown>> = [];
     for (const s of subs ?? []) {
-      if (!isDue(s.cadence, s.fire_day, String(s.fire_time), s.timezone ?? 'Asia/Kolkata')) continue;
-      const basis = (s as any).period_basis === 'previous' ? 'previous' : 'current';
-      const period = computePeriod(s.cadence, new Date(), basis);
-      // Scheduled idempotency: one scheduled fire per period.key. Manual runs
-      // do not touch last_scheduled_period_key, so they can never suppress this.
-      if ((s as any).last_scheduled_period_key === period.key) {
-        results.push({ subscription_id: s.id, period: period.key, skipped: 'already_fired_this_period' });
+      const tz = s.timezone ?? 'Asia/Kolkata';
+      const occ = computeOccurrence(s.cadence, s.fire_day, String(s.fire_time), tz);
+      // Only today's scheduled occurrence is eligible. Catch-up fires it on
+      // any tick at or after the fire time, but never revives a prior day.
+      if (!occ.matchesToday || !occ.due) continue;
+      // Occurrence key = local date + fire_time. Changing fire_time yields
+      // a new key, so a same-day schedule change can fire again.
+      if ((s as any).last_scheduled_period_key === occ.key) {
+        results.push({ subscription_id: s.id, occurrence: occ.key, skipped: 'already_fired_this_occurrence' });
         continue;
       }
+      const basis = (s as any).period_basis === 'previous' ? 'previous' : 'current';
+      const period = computePeriod(s.cadence, new Date(), basis);
       try {
-        const r = await invokeGenerate(s.id, period, 'scheduled');
-        results.push({ subscription_id: s.id, period: period.key, ...r });
+        const r = await invokeGenerate(s.id, period, 'scheduled', occ.key);
+        results.push({ subscription_id: s.id, occurrence: occ.key, period: period.key, ...r });
         if (s.cadence === 'today') {
           await admin.from('report_subscriptions').update({ status: 'paused' }).eq('id', s.id);
         }
       } catch (e) {
-        results.push({ subscription_id: s.id, error: String(e) });
+        results.push({ subscription_id: s.id, occurrence: occ.key, error: String(e) });
       }
     }
 
