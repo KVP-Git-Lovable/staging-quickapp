@@ -3274,23 +3274,50 @@ export const VisitCard = ({
                       <span className="text-warning">Pending Amount:</span>
                       <span className="font-medium text-warning">₹{Math.round(creditPendingAmount).toLocaleString()}</span>
                     </div>
-                    {oldPaymentsCleared.amount > 0 && (
-                      <div className="flex justify-between items-start text-xs pt-1 mt-1 border-t border-amber-200 dark:border-amber-700">
-                        <span className="text-muted-foreground">
-                          Old payment cleared (FIFO):
-                          {oldPaymentsCleared.lastDate && (
-                            <span className="block text-[10px] text-muted-foreground/80">
-                              on {new Date(oldPaymentsCleared.lastDate).toLocaleDateString('en-IN', {
-                                day: '2-digit', month: 'short', year: 'numeric',
-                              })}
+                    {(() => {
+                      // Prefer per-order previous_pending_cleared (authoritative on orders table)
+                      // and only fall back to the payment-allocations lookup when the orders
+                      // column is empty. Show a per-order breakdown when >1 order in the day
+                      // and more than one contributed to clearing old dues.
+                      const perOrderContribs = ordersTodayList
+                        .map((o: any) => ({
+                          inv: o.invoice_number || `#${String(o.id).slice(0, 6)}`,
+                          amt: Number(o.previous_pending_cleared || 0),
+                        }))
+                        .filter(x => x.amt > 0);
+                      const sumFromOrders = perOrderContribs.reduce((s, x) => s + x.amt, 0);
+                      const displayAmount = sumFromOrders > 0 ? sumFromOrders : oldPaymentsCleared.amount;
+                      if (displayAmount <= 0) return null;
+                      return (
+                        <div className="pt-1 mt-1 border-t border-amber-200 dark:border-amber-700 space-y-1">
+                          <div className="flex justify-between items-start text-xs">
+                            <span className="text-muted-foreground">
+                              Old payment cleared (FIFO):
+                              {oldPaymentsCleared.lastDate && (
+                                <span className="block text-[10px] text-muted-foreground/80">
+                                  on {new Date(oldPaymentsCleared.lastDate).toLocaleDateString('en-IN', {
+                                    day: '2-digit', month: 'short', year: 'numeric',
+                                  })}
+                                </span>
+                              )}
                             </span>
+                            <span className="font-medium text-success">
+                              ₹{Math.round(displayAmount).toLocaleString()}
+                            </span>
+                          </div>
+                          {perOrderContribs.length > 1 && (
+                            <div className="pl-2 space-y-0.5">
+                              {perOrderContribs.map((c) => (
+                                <div key={c.inv} className="flex justify-between text-[10px] text-muted-foreground">
+                                  <span>via {c.inv}</span>
+                                  <span>₹{Math.round(c.amt).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
                           )}
-                        </span>
-                        <span className="font-medium text-success">
-                          ₹{Math.round(oldPaymentsCleared.amount).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   
                   
