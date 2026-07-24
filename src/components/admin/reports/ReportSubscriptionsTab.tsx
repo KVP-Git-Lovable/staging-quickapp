@@ -160,12 +160,12 @@ export function ReportSubscriptionsTab() {
       return data;
     },
     onSuccess: (data: any) => {
-      // generate-report returns { delivered, empty }. When zero rows were found
-      // no notification / push is dispatched and last_fired_at is NOT stamped.
       const delivered = data?.delivered ?? 0;
       const empty = data?.empty === true;
-      if (empty || delivered === 0) {
-        toast.info('No data for this period — nothing sent');
+      if (delivered === 0) {
+        toast.error('Manual run failed — no recipients delivered');
+      } else if (empty) {
+        toast.success(`Sent — no records for this period (${delivered} recipient${delivered === 1 ? '' : 's'})`);
       } else {
         toast.success(`Report dispatched to ${delivered} recipient${delivered === 1 ? '' : 's'}`);
       }
