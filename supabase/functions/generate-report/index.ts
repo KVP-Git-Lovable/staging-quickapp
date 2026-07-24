@@ -175,6 +175,7 @@ Deno.serve(async (req) => {
     if (sub.attachment_format !== 'summary_only') {
       const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows, {
         pdfTemplate, brand, scopeLabel: 'Shared', filtersLabel,
+        rowDimensionKey: rowDimensionKeyFrom(def.config),
       });
       const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
       const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
