@@ -1025,6 +1025,14 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               <div><span className="font-medium">Measures:</span> {values.join(', ')}</div>
               <div><span className="font-medium">Schedule:</span> {cadence}{['weekly','monthly'].includes(cadence) ? ` · ${fireDay}` : ''} · {fireTime} ({timezone})</div>
               <div><span className="font-medium">Format:</span> {format} {pushToPhone ? '· + phone push' : ''}</div>
+              {format === 'pdf' && (
+                <div className="text-[12px] text-muted-foreground pl-1">
+                  PDF template · Header: <b>{pdfTemplate.header_style || 'standard'}</b>
+                  {' · '}Orientation: <b>{pdfTemplate.orientation || 'auto'}</b>
+                  {' · '}Branding: <b>{pdfTemplate.branding || 'company'}</b>
+                  {pdfTemplate.footer_note ? <> · Footer: <b>{pdfTemplate.footer_note}</b></> : null}
+                </div>
+              )}
               <div><span className="font-medium">Scope:</span> {recipientMode === 'all_managers' ? 'per_recipient (locked)' : scope}</div>
               <div>
                 <span className="font-medium">Recipients:</span>{' '}
