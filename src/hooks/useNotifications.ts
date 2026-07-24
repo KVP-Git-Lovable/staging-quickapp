@@ -34,7 +34,6 @@ export function useNotifications() {
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
-        .eq('is_read', false)
         .or('target_portal.is.null,target_portal.eq.field_sales_app')
         .order('created_at', { ascending: false })
         .limit(50);
