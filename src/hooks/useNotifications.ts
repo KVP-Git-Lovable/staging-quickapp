@@ -182,6 +182,7 @@ export function useNotifications() {
     unreadCount,
     isLoading,
     markAsRead,
+    dismiss,
     markAllAsRead,
     pendingBanner,
     dismissBanner,
