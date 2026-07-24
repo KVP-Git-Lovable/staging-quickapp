@@ -745,9 +745,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
           },
         });
         if (error) throw error;
-        // period_basis isn't in the RPC signature — set it directly after insert.
+        // period_basis + pdf_template aren't in the RPC signature — set directly after insert.
         if (data) {
-          await supabase.from('report_subscriptions').update({ period_basis: periodBasis } as any).eq('id', data);
+          await supabase.from('report_subscriptions').update({
+            period_basis: periodBasis,
+            pdf_template: format === 'pdf' ? pdfTemplate : {},
+          } as any).eq('id', data);
         }
         return data;
       }
