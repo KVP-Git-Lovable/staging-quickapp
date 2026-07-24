@@ -3,7 +3,8 @@
 // Supports header style variants, orientation, wide-column splitting.
 
 import { jsPDF } from 'npm:jspdf@2.5.1';
-import autoTable from 'npm:jspdf-autotable@3.8.2';
+import autoTableImport from 'npm:jspdf-autotable@3.8.2';
+const autoTable: any = (autoTableImport as any).default ?? autoTableImport;
 import { Branding, formatCurrency, formatDateToken } from './branding.ts';
 
 export interface ReportColumn {
