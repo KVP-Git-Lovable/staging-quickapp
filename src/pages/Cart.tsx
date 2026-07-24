@@ -1966,10 +1966,11 @@ export const Cart = () => {
         previousPendingCleared = 0;
         orderPaymentMethod = "credit";
       } else if (paymentType === "full") {
-        // Full payment - routed through FIFO post-insert.
+        // Full payment = collect (previous_pending + new_order_total). FIFO settles
+        // every open order plus this new one.
         isCreditOrder = true;
-        newTotalPending = Math.max(0, totalDue - totalAmount);
-        previousPendingCleared = 0;
+        newTotalPending = 0;
+        previousPendingCleared = pendingAmountFromPrevious;
         creditPaid = 0;
         creditPending = totalAmount;
         orderPaymentMethod = paymentMethod;
