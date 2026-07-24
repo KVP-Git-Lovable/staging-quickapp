@@ -366,6 +366,7 @@ async function renderFile(
     scopeLabel?: string | null;
     filtersLabel?: string | null;
     recipientName?: string | null;
+    rowDimensionKey?: string | null;
   },
 ): Promise<Uint8Array> {
   if (format === 'pdf') {
@@ -376,6 +377,7 @@ async function renderFile(
       recipientName: opts.recipientName ?? null,
       scopeLabel: opts.scopeLabel ?? null,
       filtersLabel: opts.filtersLabel ?? null,
+      rowDimensionKey: opts.rowDimensionKey ?? null,
     });
     return renderReportPdf(model, opts.pdfTemplate ?? {}, opts.brand);
   }
@@ -408,7 +410,23 @@ async function renderExcel(name: string, period: { label: string }, rows: any[])
 function filtersLabelFrom(filters: any): string | null {
   if (!filters || typeof filters !== 'object') return null;
   const parts: string[] = [];
-  if (filters.distributor_id) parts.push(`distributor ${String(filters.distributor_id).slice(0, 8)}`);
-  if (filters.scope_user_id) parts.push(`user ${String(filters.scope_user_id).slice(0, 8)}`);
+  for (const [k, v] of Object.entries(filters)) {
+    if (v === null || v === undefined || v === '' || k === 'scope_user_id' || k === 'date_from' || k === 'date_to') continue;
+    const label = k.replace(/_id$/, '').replace(/_/g, ' ');
+    const val = typeof v === 'string' && v.length > 12 ? `${v.slice(0, 8)}\u2026` : String(v);
+    parts.push(`${label}: ${val}`);
+  }
   return parts.length ? parts.join(', ') : null;
+}
+
+// Extract the primary row-dimension key from a report definition config so
+// the PDF row-label column can be titled "Team member" / "Beat" / "Date"
+// instead of the raw grouping key ("grp", "user_id"…).
+function rowDimensionKeyFrom(config: any): string | null {
+  if (!config) return null;
+  const r = Array.isArray(config.rows) ? config.rows[0] : config.rows;
+  if (!r) return null;
+  if (typeof r === 'string') return r;
+  if (typeof r === 'object') return r.key ?? r.field ?? r.name ?? null;
+  return null;
 }
