@@ -1390,14 +1390,17 @@ export const Cart = () => {
           // queued CREATE_COLLECTION + server FIFO remain the source of truth,
           // and VisitCard's authoritative refetch reconciles on sync.
           try {
-            const paid = atOrderAmountPaid;                 // already computed above
-            const pending = Math.max(0, totalAmount - paid);
-            const payStatus = pending <= 0 ? 'paid' : (paid > 0 ? 'partial' : 'pending');
+            // atOrderAmountPaid may exceed this order's total (Full includes prior pending).
+            // Cap the paid-on-this-order at its own total for the optimistic split; the
+            // remainder settles older invoices via FIFO on sync.
+            const paidOnThisOrder = Math.min(atOrderAmountPaid, totalAmount);
+            const pending = Math.max(0, totalAmount - paidOnThisOrder);
+            const payStatus = pending <= 0 ? 'paid' : (paidOnThisOrder > 0 ? 'partial' : 'pending');
             const cachedOrder: any = await offlineStorage.getById(STORES.ORDERS, result.order.id);
             if (cachedOrder) {
               await offlineStorage.save(STORES.ORDERS, {
                 ...cachedOrder,
-                credit_paid_amount: paid,
+                credit_paid_amount: paidOnThisOrder,
                 credit_pending_amount: pending,
                 is_credit_order: pending > 0,
                 payment_status: payStatus,
