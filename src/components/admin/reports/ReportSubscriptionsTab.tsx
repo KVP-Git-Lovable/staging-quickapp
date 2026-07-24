@@ -641,6 +641,10 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
     ((editing?.sub as any)?.recipient_mode as any) ?? 'named_users'
   );
+  const [pdfTemplate, setPdfTemplate] = useState<any>(
+    ((editing?.sub as any)?.pdf_template as any) ?? {}
+  );
+  const [previewingPdf, setPreviewingPdf] = useState(false);
 
   // Live manager count for all_managers mode
   const { data: managerList = [] } = useQuery({
