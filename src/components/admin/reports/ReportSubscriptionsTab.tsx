@@ -717,6 +717,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             push_to_phone: pushToPhone,
             period_basis: periodBasis,
             scope: effectiveScope,
+            pdf_template: format === 'pdf' ? pdfTemplate : {},
           } as any)
           .eq('id', editing.sub.id);
         if (sErr) throw sErr;
