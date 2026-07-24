@@ -128,6 +128,25 @@ Deno.serve(async (req) => {
 
   const outcomes: Array<Record<string, unknown>> = [];
 
+  // Fetch branding once per run and reuse across recipients.
+  const pdfTemplate: PdfTemplate = (sub as any).pdf_template ?? {};
+  const distributorId = def.config?.filters?.distributor_id ?? null;
+  const brand = sub.attachment_format === 'pdf'
+    ? await resolveBranding(admin, {
+        mode: (pdfTemplate.branding ?? 'company') as any,
+        distributor_id: distributorId,
+      })
+    : null;
+  const filtersLabel = filtersLabelFrom(def.config?.filters);
+
+  // Look up recipient display names for the meta block on per-recipient PDFs.
+  const recipientNames = new Map<string, string>();
+  if (recipients.length > 0) {
+    const { data: profs } = await admin
+      .from('profiles').select('id, full_name').in('id', recipients);
+    (profs ?? []).forEach((p: any) => recipientNames.set(p.id, p.full_name || ''));
+  }
+
   // Shared: always call the RPC fresh and always render/upload — overwriting
   // the storage object for this period so late-arriving data replaces the
   // earlier (possibly empty) file.
@@ -143,7 +162,9 @@ Deno.serve(async (req) => {
     sharedIsEmpty = sharedRows.length === 0;
     sharedDigest = buildDigest(sub.name, period, sharedRows);
     if (sub.attachment_format !== 'summary_only') {
-      const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows);
+      const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows, {
+        pdfTemplate, brand, scopeLabel: 'Shared', filtersLabel,
+      });
       const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
       const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
         contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -170,7 +191,12 @@ Deno.serve(async (req) => {
         isEmpty = rows.length === 0;
         digest = buildDigest(sub.name, period, rows);
         if (sub.attachment_format !== 'summary_only') {
-          const bytes = await renderFile(sub.attachment_format, sub.name, period, rows);
+          const bytes = await renderFile(sub.attachment_format, sub.name, period, rows, {
+            pdfTemplate, brand,
+            scopeLabel: 'Per recipient',
+            filtersLabel,
+            recipientName: recipientNames.get(rid) || null,
+          });
           path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
           await admin.storage.from('report-files').upload(path, bytes, {
             contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
