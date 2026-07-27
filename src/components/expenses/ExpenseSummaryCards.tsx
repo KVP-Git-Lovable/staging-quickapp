@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Car, Utensils, Receipt, IndianRupee, ShoppingCart, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 interface ExpenseSummaryCardsProps {
   ta: number;
@@ -15,12 +16,11 @@ interface ExpenseSummaryCardsProps {
   totalKm?: number;
 }
 
-const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-
 const ExpenseSummaryCards: React.FC<ExpenseSummaryCardsProps> = ({
   ta, da, additional, total, presentDays, loading, onTotalClick, isExpanded, orderValue = 0, totalKm = 0
 }) => {
   const [compact, setCompact] = useState(false);
+  const { format: fmt } = useCurrency();
 
   if (loading) {
     return (
