@@ -3,14 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { 
   User, Mail, Phone, MapPin, Building2, Calendar, Pencil, 
   Linkedin, Twitter, Instagram, Facebook, Globe, Briefcase, 
-  GraduationCap, Heart, Target, ClipboardCheck, Users, Shield
+  GraduationCap, Heart, Target, ClipboardCheck, Users, Shield, ChevronDown
 } from "lucide-react";
 import { format } from "date-fns";
 import { ProfilePictureUpload } from "@/components/ProfilePictureUpload";
 import { useAuth } from "@/hooks/useAuth";
+
 
 interface AboutViewModeProps {
   userProfile: any;
