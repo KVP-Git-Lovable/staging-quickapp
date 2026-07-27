@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { clearTimezoneCache } from '@/hooks/useAppTimezone';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import {
   LANGUAGES, REGIONS, LANGS_WITH_TRANSLATIONS, applyDocumentLanguage,
 } from '@/i18n/regions';
@@ -76,6 +77,7 @@ export const RegionLanguageSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { i18n } = useTranslation();
+  const { refresh: refreshCurrency } = useCurrency();
 
   const [open, setOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -204,6 +206,7 @@ export const RegionLanguageSettings = () => {
       applyDocumentLanguage(language);
       setInitial({ language, locale, timezone, currency });
       clearTimezoneCache();
+      void refreshCurrency();
       toast({ title: 'Preferences saved', description: 'Your language and region settings have been updated.' });
     } catch (e: any) {
       toast({ title: 'Save failed', description: e.message ?? String(e), variant: 'destructive' });
