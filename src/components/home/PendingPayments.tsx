@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface PendingPayment {
   retailerId: string;
@@ -23,6 +24,7 @@ interface PendingPaymentsProps {
 }
 
 export const PendingPayments = ({ userId }: PendingPaymentsProps) => {
+  const { format } = useCurrency();
   const navigate = useNavigate();
   const { t } = useTranslation('common');
   const [payments, setPayments] = useState<PendingPayment[]>([]);
@@ -173,13 +175,6 @@ export const PendingPayments = ({ userId }: PendingPaymentsProps) => {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-IN', { 
@@ -231,7 +226,7 @@ export const PendingPayments = ({ userId }: PendingPaymentsProps) => {
         <div className="bg-destructive/10 rounded-lg p-3 flex items-center justify-between">
           <div>
             <p className="text-xs text-muted-foreground">{t('home.totalPending')}</p>
-            <p className="text-xl font-bold text-destructive">{formatCurrency(totalPending)}</p>
+            <p className="text-xl font-bold text-destructive">{format(totalPending)}</p>
           </div>
           <AlertCircle className="h-8 w-8 text-destructive/50" />
         </div>
@@ -260,7 +255,7 @@ export const PendingPayments = ({ userId }: PendingPaymentsProps) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-destructive">
-                    {formatCurrency(payment.pendingAmount)}
+                    {format(payment.pendingAmount)}
                   </span>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>

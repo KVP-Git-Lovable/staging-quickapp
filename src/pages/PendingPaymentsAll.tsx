@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Search, CreditCard, Loader2, MapPin } from "lucide-react";
 import { RetailerDetailModal } from "@/components/RetailerDetailModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface PendingPaymentRetailer {
   id: string;
@@ -20,6 +21,7 @@ interface PendingPaymentRetailer {
 }
 
 export default function PendingPaymentsAll() {
+  const { format } = useCurrency();
   const { userProfile } = useAuth();
   const [retailers, setRetailers] = useState<PendingPaymentRetailer[]>([]);
   const [filteredRetailers, setFilteredRetailers] = useState<PendingPaymentRetailer[]>([]);
@@ -110,13 +112,6 @@ export default function PendingPaymentsAll() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
 
   const totalPending = retailers.reduce((sum, r) => sum + r.pending_amount, 0);
 
@@ -132,7 +127,7 @@ export default function PendingPaymentsAll() {
           </div>
           <div className="text-right">
             <p className="text-xs text-muted-foreground">Total Outstanding</p>
-            <p className="text-2xl font-bold text-destructive">{formatCurrency(totalPending)}</p>
+            <p className="text-2xl font-bold text-destructive">{format(totalPending)}</p>
           </div>
         </div>
 
@@ -189,7 +184,7 @@ export default function PendingPaymentsAll() {
                         <div className="text-right">
                           <p className="text-xs text-muted-foreground">Outstanding</p>
                           <p className="text-xl font-bold text-destructive">
-                            {formatCurrency(retailer.pending_amount)}
+                            {format(retailer.pending_amount)}
                           </p>
                         </div>
                       </div>
