@@ -90,23 +90,28 @@ export function PushNotificationSettings() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          {enabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
-          Push Notifications
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground pr-4">
-          Get real-time alerts on your device for orders, approvals, and mentions.
+    <Card className="rounded-2xl border-border/60 shadow-sm overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`h-10 w-10 shrink-0 rounded-xl flex items-center justify-center shadow-sm ${enabled ? 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-amber-500/30' : 'bg-muted text-muted-foreground'}`}>
+            {enabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-semibold text-sm text-foreground">Push Notifications</p>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <Switch checked={enabled} disabled={saving} onCheckedChange={onToggle} />
+              )}
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Get real-time alerts on your device for orders, approvals, and mentions.
+            </p>
+          </div>
         </div>
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <Switch checked={enabled} disabled={saving} onCheckedChange={onToggle} />
-        )}
       </CardContent>
     </Card>
+
   );
 }
