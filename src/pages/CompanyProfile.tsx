@@ -6,7 +6,7 @@ import CompanySettings from "@/components/invoice/CompanySettings";
 import HeaderBrandingSettings from "@/components/invoice/HeaderBrandingSettings";
 import DocumentSettings from "@/components/invoice/DocumentSettings";
 import RegionalSettings from "@/components/RegionalSettings";
-import MultiCurrencySettings from "@/components/MultiCurrencySettings";
+
 import { CompanyFeaturesTab } from "@/components/features/CompanyFeaturesTab";
 import { Layout } from "@/components/Layout";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
@@ -79,7 +79,7 @@ export default function CompanyProfile() {
 
           <TabsContent value="regional" className="space-y-4">
             <RegionalSettings />
-            <MultiCurrencySettings />
+            
           </TabsContent>
 
 
