@@ -423,8 +423,10 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <NetworkProvider>
           <AuthProvider>
+            <CurrencyProvider>
             <FeatureProvider>
               <QAModeProvider>
+
                 <TooltipProvider>
                   <BrowserRouter>
                     <SlowConnectionBanner />
