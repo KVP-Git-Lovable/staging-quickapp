@@ -435,6 +435,8 @@ const App = () => {
                 </TooltipProvider>
               </QAModeProvider>
             </FeatureProvider>
+            </CurrencyProvider>
+
           </AuthProvider>
         </NetworkProvider>
       </QueryClientProvider>
