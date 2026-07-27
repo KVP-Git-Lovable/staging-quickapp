@@ -1,58 +1,56 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Globe2, Clock, Coins, Languages, ChevronDown, MapPin } from 'lucide-react';
+import { Globe2, Clock, Coins, Languages, ChevronDown, MapPin, Check, ChevronsUpDown } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { clearTimezoneCache } from '@/hooks/useAppTimezone';
-
-/** Region presets — picking a region sets sensible locale / timezone / currency. */
-const REGIONS = [
-  { code: 'IN', flag: '🇮🇳', name: 'India', locale: 'en-IN', timezone: 'Asia/Kolkata', currency: 'INR' },
-  { code: 'AE', flag: '🇦🇪', name: 'United Arab Emirates', locale: 'en-GB', timezone: 'Asia/Dubai', currency: 'AED' },
-  { code: 'SG', flag: '🇸🇬', name: 'Singapore', locale: 'en-GB', timezone: 'Asia/Singapore', currency: 'SGD' },
-  { code: 'GB', flag: '🇬🇧', name: 'United Kingdom', locale: 'en-GB', timezone: 'Europe/London', currency: 'GBP' },
-  { code: 'US', flag: '🇺🇸', name: 'United States', locale: 'en-US', timezone: 'America/New_York', currency: 'USD' },
-  { code: 'DE', flag: '🇩🇪', name: 'Germany', locale: 'de-DE', timezone: 'Europe/Berlin', currency: 'EUR' },
-  { code: 'FR', flag: '🇫🇷', name: 'France', locale: 'fr-FR', timezone: 'Europe/Paris', currency: 'EUR' },
-  { code: 'AU', flag: '🇦🇺', name: 'Australia', locale: 'en-GB', timezone: 'Australia/Sydney', currency: 'AUD' },
-  { code: 'JP', flag: '🇯🇵', name: 'Japan', locale: 'ja-JP', timezone: 'Asia/Tokyo', currency: 'JPY' },
-];
-
-const LANGUAGES = [
-  { code: 'en', name: 'English', nativeName: 'English' },
-  { code: 'hi', name: 'Hindi', nativeName: 'हिंदी' },
-  { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
-  { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
-  { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
-  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
-];
+import {
+  LANGUAGES, REGIONS, LANGS_WITH_TRANSLATIONS, applyDocumentLanguage,
+} from '@/i18n/regions';
 
 const LOCALES = [
   { code: 'en-IN', label: 'English (India)' },
   { code: 'en-US', label: 'English (United States)' },
   { code: 'en-GB', label: 'English (United Kingdom)' },
+  { code: 'en-CA', label: 'English (Canada)' },
+  { code: 'en-SG', label: 'English (Singapore)' },
   { code: 'hi-IN', label: 'हिन्दी (भारत)' },
   { code: 'kn-IN', label: 'ಕನ್ನಡ (ಭಾರತ)' },
   { code: 'ta-IN', label: 'தமிழ் (இந்தியா)' },
   { code: 'te-IN', label: 'తెలుగు (భారత్)' },
   { code: 'gu-IN', label: 'ગુજરાતી (ભારત)' },
+  { code: 'mr-IN', label: 'मराठी (भारत)' },
+  { code: 'bn-BD', label: 'বাংলা (বাংলাদেশ)' },
+  { code: 'ml-IN', label: 'മലയാളം (ഇന്ത്യ)' },
+  { code: 'pa-IN', label: 'ਪੰਜਾਬੀ (ਭਾਰਤ)' },
+  { code: 'ar-AE', label: 'العربية (الإمارات)' },
+  { code: 'ar-SA', label: 'العربية (السعودية)' },
   { code: 'de-DE', label: 'Deutsch (Deutschland)' },
   { code: 'fr-FR', label: 'Français (France)' },
+  { code: 'nl-NL', label: 'Nederlands (Nederland)' },
   { code: 'es-ES', label: 'Español (España)' },
+  { code: 'es-MX', label: 'Español (México)' },
   { code: 'pt-BR', label: 'Português (Brasil)' },
   { code: 'ja-JP', label: '日本語 (日本)' },
   { code: 'zh-CN', label: '中文 (简体)' },
 ];
 
 const TIMEZONES = [
-  'Asia/Kolkata', 'Asia/Dubai', 'Asia/Singapore', 'Asia/Tokyo', 'Asia/Shanghai',
-  'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'America/New_York', 'America/Chicago',
+  'Asia/Kolkata', 'Asia/Dubai', 'Asia/Riyadh', 'Asia/Dhaka', 'Asia/Singapore', 'Asia/Tokyo', 'Asia/Shanghai',
+  'Europe/London', 'Europe/Paris', 'Europe/Amsterdam', 'Europe/Berlin',
+  'America/New_York', 'America/Toronto', 'America/Mexico_City', 'America/Chicago',
   'America/Denver', 'America/Los_Angeles', 'America/Sao_Paulo', 'Australia/Sydney', 'UTC',
 ];
 
@@ -62,7 +60,11 @@ const CURRENCIES = [
   { code: 'EUR', label: 'Euro (€)' },
   { code: 'GBP', label: 'British Pound (£)' },
   { code: 'AED', label: 'UAE Dirham (د.إ)' },
+  { code: 'SAR', label: 'Saudi Riyal (﷼)' },
   { code: 'SGD', label: 'Singapore Dollar (S$)' },
+  { code: 'CAD', label: 'Canadian Dollar (C$)' },
+  { code: 'MXN', label: 'Mexican Peso (MX$)' },
+  { code: 'BDT', label: 'Bangladeshi Taka (৳)' },
   { code: 'JPY', label: 'Japanese Yen (¥)' },
   { code: 'CNY', label: 'Chinese Yuan (¥)' },
   { code: 'AUD', label: 'Australian Dollar (A$)' },
@@ -77,6 +79,8 @@ export const RegionLanguageSettings = () => {
 
   const [open, setOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const [showAllLanguages, setShowAllLanguages] = useState(false);
   const [companyDefaults, setCompanyDefaults] = useState(DEFAULTS);
   const [region, setRegion] = useState('IN');
   const [language, setLanguage] = useState((i18n.language || 'en').split('-')[0]);
@@ -111,15 +115,19 @@ export const RegionLanguageSettings = () => {
       setTimezone(nextTz);
       setCurrency(nextCur);
       setLanguage(nextLang);
-      const match = REGIONS.find(
-        (r) => r.locale === nextLocale && (!nextTz || r.timezone === nextTz),
-      ) || REGIONS.find((r) => r.locale === nextLocale);
+      applyDocumentLanguage(nextLang);
+      const match =
+        REGIONS.find((r) => r.locale === nextLocale && (!nextTz || r.timezone === nextTz)) ||
+        REGIONS.find((r) => r.locale === nextLocale) ||
+        REGIONS.find((r) => r.timezone === nextTz);
       if (match) setRegion(match.code);
       setInitial({ language: nextLang, locale: nextLocale, timezone: nextTz, currency: nextCur });
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [user]);
+
+  const activeRegion = REGIONS.find((r) => r.code === region);
 
   const handleRegionChange = (code: string) => {
     setRegion(code);
@@ -128,7 +136,29 @@ export const RegionLanguageSettings = () => {
     setLocale(r.locale);
     setTimezone(r.timezone);
     setCurrency(r.currency);
+    if (!r.languages.includes(language)) {
+      handleLanguageSelect(r.languages[0]);
+    }
   };
+
+  const handleLanguageSelect = (code: string) => {
+    setLanguage(code);
+    setLangOpen(false);
+    applyDocumentLanguage(code);
+    i18n.changeLanguage(code);
+    localStorage.setItem('preferredLanguage', code);
+  };
+
+  const availableLanguages = useMemo(() => {
+    if (showAllLanguages || !activeRegion) return LANGUAGES;
+    const inRegion = LANGUAGES.filter((l) => activeRegion.languages.includes(l.code));
+    // Always keep the currently selected language visible.
+    if (!inRegion.some((l) => l.code === language)) {
+      const current = LANGUAGES.find((l) => l.code === language);
+      if (current) return [current, ...inRegion];
+    }
+    return inRegion;
+  }, [showAllLanguages, activeRegion, language]);
 
   const dirty =
     language !== initial.language ||
@@ -152,6 +182,7 @@ export const RegionLanguageSettings = () => {
       if (error) throw error;
       await i18n.changeLanguage(language);
       localStorage.setItem('preferredLanguage', language);
+      applyDocumentLanguage(language);
       setInitial({ language, locale, timezone, currency });
       clearTimezoneCache();
       toast({ title: 'Preferences saved', description: 'Your language and region settings have been updated.' });
@@ -162,10 +193,14 @@ export const RegionLanguageSettings = () => {
     }
   };
 
-  const activeRegion = REGIONS.find((r) => r.code === region);
   const activeLang = LANGUAGES.find((l) => l.code === language);
   const effectiveTz = timezone || companyDefaults.timezone;
   const effectiveCur = currency || companyDefaults.currency;
+
+  const regionHintFor = (code: string) =>
+    REGIONS.find((r) => r.languages[0] === code)?.flag ||
+    REGIONS.find((r) => r.languages.includes(code))?.flag ||
+    '🌐';
 
   return (
     <Card className="overflow-hidden rounded-2xl border-border/60 shadow-sm">
@@ -181,7 +216,7 @@ export const RegionLanguageSettings = () => {
                   <div>
                     <CardTitle className="text-base">Language &amp; Region</CardTitle>
                     <CardDescription className="text-xs">
-                      {activeRegion?.flag} {activeRegion?.name} · {activeLang?.nativeName} · {effectiveCur}
+                      {activeRegion?.flag} {activeRegion?.name} · {activeLang?.native} · {effectiveCur}
                     </CardDescription>
                   </div>
                 </div>
@@ -211,7 +246,7 @@ export const RegionLanguageSettings = () => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Sets your date format, time zone and currency automatically.
+                Sets your date format, time zone, currency and available languages automatically.
               </p>
             </div>
 
@@ -220,26 +255,76 @@ export const RegionLanguageSettings = () => {
               <Label className="flex items-center gap-1.5">
                 <Languages className="h-4 w-4 text-violet-600" /> Display Language
               </Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {LANGUAGES.map((l) => {
-                  const selected = language === l.code;
-                  return (
-                    <button
-                      key={l.code}
-                      type="button"
-                      onClick={() => setLanguage(l.code)}
-                      className={`rounded-xl border p-2.5 text-center transition-all active:scale-[0.98] ${
-                        selected
-                          ? 'border-violet-400 bg-gradient-to-br from-violet-50 to-fuchsia-50 ring-1 ring-violet-300 dark:from-violet-950/40 dark:to-fuchsia-950/30'
-                          : 'border-border bg-background hover:border-violet-300'
-                      }`}
-                    >
-                      <div className={`text-sm font-semibold ${selected ? 'text-violet-700 dark:text-violet-300' : 'text-foreground'}`}>{l.nativeName}</div>
-                      <div className="text-[11px] text-muted-foreground">{l.name}</div>
-                    </button>
-                  );
-                })}
+
+              <Popover open={langOpen} onOpenChange={setLangOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={langOpen}
+                    disabled={loading}
+                    className="w-full justify-between rounded-lg bg-background font-normal"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span>{regionHintFor(language)}</span>
+                      <span className="truncate font-semibold">{activeLang?.native ?? 'Select language'}</span>
+                      <span className="truncate text-xs text-muted-foreground">{activeLang?.english}</span>
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command
+                    filter={(value, search) =>
+                      value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
+                    }
+                  >
+                    <CommandInput placeholder="Search language…" />
+                    <CommandList>
+                      <CommandEmpty>No language found.</CommandEmpty>
+                      <CommandGroup>
+                        {availableLanguages.map((l) => {
+                          const beta = !LANGS_WITH_TRANSLATIONS.includes(l.code);
+                          return (
+                            <CommandItem
+                              key={l.code}
+                              value={`${l.native} ${l.english} ${l.code}`}
+                              onSelect={() => handleLanguageSelect(l.code)}
+                              className="gap-2"
+                            >
+                              <span className="w-5 text-center">{regionHintFor(l.code)}</span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-semibold">{l.native}</span>
+                                <span className="block truncate text-[11px] text-muted-foreground">{l.english}</span>
+                              </span>
+                              {beta && (
+                                <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-medium text-muted-foreground">
+                                  Beta
+                                </Badge>
+                              )}
+                              <Check className={`h-4 w-4 ${language === l.code ? 'opacity-100 text-violet-600' : 'opacity-0'}`} />
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <span className="text-xs text-muted-foreground">
+                  Show all languages
+                  <span className="block text-[11px]">Ignore the region filter and list every language.</span>
+                </span>
+                <Switch checked={showAllLanguages} onCheckedChange={setShowAllLanguages} />
               </div>
+
+              {!LANGS_WITH_TRANSLATIONS.includes(language) && (
+                <p className="text-[11px] text-muted-foreground">
+                  Beta language — untranslated text falls back to English.
+                </p>
+              )}
             </div>
 
             {/* Advanced overrides */}
@@ -259,6 +344,9 @@ export const RegionLanguageSettings = () => {
                       {LOCALES.map((l) => <SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  {activeRegion && (
+                    <p className="text-xs text-muted-foreground">Date format: {activeRegion.dateFormat}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
