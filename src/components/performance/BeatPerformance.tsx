@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Route, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import type { PerformanceData } from '@/hooks/usePerformanceSummary';
 
 interface BeatPerformanceProps {
@@ -11,15 +12,17 @@ interface BeatPerformanceProps {
   isLoading?: boolean;
 }
 
-const formatCurrency = (amount: number): string => {
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-  if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
-  return `₹${amount.toFixed(0)}`;
-};
-
 export function BeatPerformance({ beats, quantityUnit, isLoading }: BeatPerformanceProps) {
   const navigate = useNavigate();
+  const { format, displayCurrency } = useCurrency();
+
+  const formatCurrency = (amount: number): string => {
+    if (displayCurrency !== 'INR') return format(amount);
+    if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(1)}Cr`;
+    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
+    return format(amount);
+  };
 
   if (isLoading) {
     return (
