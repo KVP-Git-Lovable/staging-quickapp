@@ -57,7 +57,7 @@ i18n
     // Ensure we always have a valid language
     load: 'languageOnly',
     // Support language codes like en-US falling back to en
-    supportedLngs: ['en', 'hi', 'kn', 'ta', 'te', 'gu'],
+    supportedLngs: ['en', 'hi', 'kn', 'ta', 'te', 'gu', 'mr', 'bn', 'ml', 'pa', 'ar', 'fr', 'es', 'nl', 'de'],
     nonExplicitSupportedLngs: true,
   });
 
