@@ -2785,7 +2785,7 @@ export const Cart = () => {
                         <span className="text-xs text-muted-foreground">Qty: {freeItem.quantity} {freeItem.unit || 'pcs'}</span>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="text-lg font-bold text-green-600">₹0</span>
+                        <span className="text-lg font-bold text-green-600">{format(0)}</span>
                       </div>
                     </div>
                   </CardContent>

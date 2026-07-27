@@ -2586,7 +2586,7 @@ export const OrderEntry = () => {
                       <p className="text-xs text-muted-foreground">{product.category}</p>
                       {displayProduct.sku && <p className="text-xs text-blue-600 font-mono">SKU: {displayProduct.sku}</p>}
                       <p className="text-base font-bold text-primary">
-                        Total: ₹{(() => {
+                        Total: {(() => {
                           let total = 0;
 
                           // Calculate base product total
@@ -2612,7 +2612,7 @@ export const OrderEntry = () => {
                               }
                             });
                           }
-                          return total > 0 ? total.toLocaleString() : "0";
+                          return format(total > 0 ? total : 0);
                         })()}
                       </p>
                       

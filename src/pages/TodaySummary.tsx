@@ -2935,10 +2935,9 @@ export const TodaySummary = () => {
                     <div className="text-center p-3 bg-success/10 rounded-lg">
                       <div className="text-xs text-muted-foreground mb-1">Cash in Hand</div>
                       <div className="text-lg font-bold text-success">
-                        ₹{paymentMethodBreakdown
+                        {format(paymentMethodBreakdown
                           .filter(p => !['credit'].includes(p.method.toLowerCase()))
-                          .reduce((sum, p) => sum + p.amount, 0)
-                          .toLocaleString('en-IN')}
+                          .reduce((sum, p) => sum + p.amount, 0))}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         (Cash + UPI + NEFT + Cheque)
@@ -2947,10 +2946,9 @@ export const TodaySummary = () => {
                     <div className="text-center p-3 bg-destructive/10 rounded-lg">
                       <div className="text-xs text-muted-foreground mb-1">Credit (Pending)</div>
                       <div className="text-lg font-bold text-destructive">
-                        ₹{paymentMethodBreakdown
+                        {format(paymentMethodBreakdown
                           .filter(p => p.method.toLowerCase() === 'credit')
-                          .reduce((sum, p) => sum + p.amount, 0)
-                          .toLocaleString('en-IN')}
+                          .reduce((sum, p) => sum + p.amount, 0))}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">
                         To be collected
@@ -2960,7 +2958,7 @@ export const TodaySummary = () => {
                   <div className="mt-3 text-center p-3 bg-primary/10 rounded-lg">
                     <div className="text-xs text-muted-foreground mb-1">Total Order Value</div>
                     <div className="text-xl font-bold text-primary">
-                      ₹{paymentMethodBreakdown.reduce((sum, p) => sum + p.amount, 0).toLocaleString('en-IN')}
+                      {format(paymentMethodBreakdown.reduce((sum, p) => sum + p.amount, 0))}
                     </div>
                   </div>
                 </div>
@@ -3012,7 +3010,7 @@ export const TodaySummary = () => {
               {dialogContentType === "products" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Total: ₹{Math.round(productGroupedOrders.reduce((sum, p) => sum + p.value, 0)).toLocaleString('en-IN')} • {productGroupedOrders.length} products
+                    Total: {format(Math.round(productGroupedOrders.reduce((sum, p) => sum + p.value, 0)))} • {productGroupedOrders.length} products
                   </div>
                   <Table>
                     <TableHeader>
@@ -3046,7 +3044,7 @@ export const TodaySummary = () => {
               {dialogContentType === "orders" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Total: ₹{Math.round(orders.reduce((sum, o) => sum + o.amount, 0)).toLocaleString('en-IN')} • {orders.length} orders
+                    Total: {format(Math.round(orders.reduce((sum, o) => sum + o.amount, 0)))} • {orders.length} orders
                   </div>
                   <Table>
                     <TableHeader>
@@ -3074,19 +3072,19 @@ export const TodaySummary = () => {
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="text-center p-3 bg-primary/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-primary whitespace-nowrap">
-                        ₹{Math.round(orders.reduce((sum, o) => sum + o.amount, 0)).toLocaleString('en-IN')}
+                        {format(Math.round(orders.reduce((sum, o) => sum + o.amount, 0)))}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Total</div>
                     </div>
                     <div className="text-center p-3 bg-destructive/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-destructive whitespace-nowrap">
-                        ₹{Math.round(orders.reduce((sum, o) => sum + o.creditAmount, 0)).toLocaleString('en-IN')}
+                        {format(Math.round(orders.reduce((sum, o) => sum + o.creditAmount, 0)))}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Credit</div>
                     </div>
                     <div className="text-center p-3 bg-success/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-success whitespace-nowrap">
-                        ₹{Math.round(orders.reduce((sum, o) => sum + o.cashInHand, 0)).toLocaleString('en-IN')}
+                        {format(Math.round(orders.reduce((sum, o) => sum + o.cashInHand, 0)))}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Amount Collected</div>
                     </div>
