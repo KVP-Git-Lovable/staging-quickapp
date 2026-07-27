@@ -33,6 +33,7 @@ import { RetailerVisitDetailsModal } from "@/components/RetailerVisitDetailsModa
 import { getLocalTodayDate } from "@/utils/dateUtils";
 import { OrderGuideManualButton } from "@/components/OrderGuideManualButton";
 import {
+import { useCurrency } from "@/contexts/CurrencyContext";
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -111,6 +112,7 @@ interface ProductVariant {
   focused_territories?: string[] | null;
 }
 export const OrderEntry = () => {
+  const { format } = useCurrency();
   const {
     t
   } = useTranslation();

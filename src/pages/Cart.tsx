@@ -42,6 +42,7 @@ import { useVanSales } from "@/hooks/useVanSales";
 import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
 import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface CartItem {
   id: string;
@@ -119,6 +120,7 @@ const formatRounded = (value: number) => {
   return rounded.toLocaleString('en-IN');
 };
 export const Cart = () => {
+  const { format } = useCurrency();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const visitId = searchParams.get("visitId") || '';
