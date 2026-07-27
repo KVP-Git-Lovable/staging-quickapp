@@ -346,7 +346,41 @@ export const RegionLanguageSettings = () => {
               )}
             </div>
 
+            {/* Display currency (multi-currency only) */}
+            {multiEnabled && (
+              <div className="space-y-2 rounded-xl border border-border/60 bg-muted/30 p-3">
+                <Label htmlFor="display-currency" className="flex items-center gap-1.5">
+                  <Coins className="h-4 w-4 text-emerald-600" /> Display Currency
+                </Label>
+                <Select
+                  value={currency || companyDefaults.currency}
+                  onValueChange={setCurrency}
+                  disabled={loading}
+                >
+                  <SelectTrigger id="display-currency" className="bg-background rounded-lg">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedCurrencies.map((code) => {
+                      const meta = currencyMeta.find((c) => c.code === code);
+                      return (
+                        <SelectItem key={code} value={code}>
+                          {code}
+                          {meta?.name ? ` — ${meta.name}` : ''}
+                          {meta?.symbol ? ` (${meta.symbol})` : ''}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Amounts across the app are shown converted to this currency.
+                </p>
+              </div>
+            )}
+
             {/* Advanced overrides */}
+
             <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="px-0 text-muted-foreground">
