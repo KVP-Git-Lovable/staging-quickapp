@@ -211,12 +211,16 @@ const UserProfile = () => {
       <div className="p-4">
         <div className="max-w-6xl mx-auto space-y-6">
           {/* Header with Points */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4 rounded-xl border bg-card p-4">
             <div className="flex items-center gap-4">
-              <User className="w-8 h-8 text-primary" />
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <User className="w-6 h-6 text-primary" />
+              </div>
               <div>
-                <h1 className="text-3xl font-bold text-foreground">My Profile</h1>
-                <p className="text-muted-foreground">Manage your information and track performance</p>
+                <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
+                <p className="text-sm text-muted-foreground">
+                  Your personal details, preferences and performance — all in one place
+                </p>
               </div>
             </div>
             {/* Points Badge - Clickable to Leaderboard */}
@@ -236,7 +240,7 @@ const UserProfile = () => {
           </TabsList>
 
           {/* About Tab */}
-          <TabsContent value="about" className="space-y-6">
+          <TabsContent value="about" className="space-y-4">
             {/* View/Edit Mode Toggle */}
             {isEditMode ? (
               <AboutEditMode
@@ -258,29 +262,59 @@ const UserProfile = () => {
               />
             )}
 
-            {/* Password & Security */}
-            <PasswordChangeSection />
+            {/* Language, Region, Time Zone & Currency */}
+            <RegionLanguageSettings />
 
-            {/* Language Settings */}
-            <LanguageSettings />
+            <CollapsibleSection
+              title="Password & Security"
+              description="Change your password"
+              icon={<Lock className="h-5 w-5" />}
+            >
+              <PasswordChangeSection />
+            </CollapsibleSection>
 
-            {/* Locale, Time Zone & Currency */}
-            <LocaleSettings />
+            <CollapsibleSection
+              title="Notifications"
+              description="Push notification preferences"
+              icon={<Bell className="h-5 w-5" />}
+            >
+              <PushNotificationSettings />
+            </CollapsibleSection>
 
+            <CollapsibleSection
+              title="Career & Background"
+              description="Work experience, education and aspirations"
+              icon={<Briefcase className="h-5 w-5" />}
+            >
+              <div className="space-y-4">
+                <WorkExperienceSection />
+                <EducationHistorySection />
+                <AspirationsSection />
+                <OnboardingChecklistSection />
+              </div>
+            </CollapsibleSection>
 
-            {/* Push Notifications */}
-            <PushNotificationSettings />
+            <CollapsibleSection
+              title="Emergency Contacts & Documents"
+              description="Contacts and uploaded attachments"
+              icon={<ShieldCheck className="h-5 w-5" />}
+            >
+              <div className="space-y-4">
+                <EmergencyContactsSection />
+                <ProfileAttachments />
+              </div>
+            </CollapsibleSection>
 
-
-            {/* Additional Sections - Always in view/edit with their own controls */}
-            <WorkExperienceSection />
-            <EducationHistorySection />
-            <EmergencyContactsSection />
-            <AspirationsSection />
-            <OnboardingChecklistSection />
-            <ProfileAttachments />
-            <FollowersFollowingCard />
-            <UserFeaturesSection />
+            <CollapsibleSection
+              title="Network & Features"
+              description="Followers, following and enabled features"
+              icon={<Users className="h-5 w-5" />}
+            >
+              <div className="space-y-4">
+                <FollowersFollowingCard />
+                <UserFeaturesSection />
+              </div>
+            </CollapsibleSection>
           </TabsContent>
 
           {/* Social/Collaboration Tab */}
@@ -293,5 +327,6 @@ const UserProfile = () => {
     </Layout>
   );
 };
+
 
 export default UserProfile;
