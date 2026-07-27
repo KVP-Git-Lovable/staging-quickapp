@@ -42,6 +42,7 @@ import { useVanSales } from "@/hooks/useVanSales";
 import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
 import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface CartItem {
   id: string;
@@ -119,6 +120,7 @@ const formatRounded = (value: number) => {
   return rounded.toLocaleString('en-IN');
 };
 export const Cart = () => {
+  const { format: fmtMoney } = useCurrency();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const visitId = searchParams.get("visitId") || '';
@@ -2671,8 +2673,8 @@ export const Cart = () => {
                                 && Math.abs(originalPerDisplayUnit - ratePerDisplayUnit) > 0.005) {
                               return (
                                 <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
-                                  <span className="line-through mr-1">₹{originalPerDisplayUnit.toFixed(2)}</span>
-                                  <span className="text-primary font-medium">₹{ratePerDisplayUnit.toFixed(2)}</span>
+                                  <span className="line-through mr-1">{fmtMoney(originalPerDisplayUnit)}</span>
+                                  <span className="text-primary font-medium">{fmtMoney(ratePerDisplayUnit)}</span>
                                   /{displayUnit}
                                   <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-amber-500/15 text-amber-700 border-amber-500/30">
                                     price edited
@@ -2682,12 +2684,12 @@ export const Cart = () => {
                             }
                             return hasDiscount ? (
                               <p className="text-xs text-muted-foreground">
-                                <span className="line-through mr-1">₹{ratePerDisplayUnit.toFixed(2)}</span>
-                                <span className="text-success font-medium">₹{ratePerDisplayUnitAfterDiscount.toFixed(2)}</span>
+                                <span className="line-through mr-1">{fmtMoney(ratePerDisplayUnit)}</span>
+                                <span className="text-success font-medium">{fmtMoney(ratePerDisplayUnitAfterDiscount)}</span>
                                 /{displayUnit}
                               </p>
                             ) : (
-                              <p className="text-xs text-muted-foreground">₹{ratePerDisplayUnit.toFixed(2)}/{displayUnit}</p>
+                              <p className="text-xs text-muted-foreground">{fmtMoney(ratePerDisplayUnit)}/{displayUnit}</p>
                             );
                           })()}
                           
@@ -2697,9 +2699,9 @@ export const Cart = () => {
                             return (
                               <p className="text-[10px] text-muted-foreground mt-0.5">
                                 {lineTax.igst > 0 ? (
-                                  <>IGST {lineTax.taxRate}% ₹{lineTax.igst.toFixed(2)}</>
+                                  <>IGST {lineTax.taxRate}% {fmtMoney(lineTax.igst)}</>
                                 ) : (
-                                  <>CGST {half}% ₹{lineTax.cgst.toFixed(2)} • SGST {half}% ₹{lineTax.sgst.toFixed(2)}</>
+                                  <>CGST {half}% {fmtMoney(lineTax.cgst)} • SGST {half}% {fmtMoney(lineTax.sgst)}</>
                                 )}
                               </p>
                             );
@@ -2718,7 +2720,7 @@ export const Cart = () => {
                                       <>
                                         {scheme.schemeName}
                                         {scheme.discountPercentage && ` (${scheme.discountPercentage}% off)`}
-                                        {scheme.discountAmount > 0 && ` - ₹${scheme.discountAmount.toFixed(2)} saved`}
+                                        {scheme.discountAmount > 0 && ` - ${fmtMoney(scheme.discountAmount)} saved`}
                                       </>
                                     )}
                                   </span>
@@ -2744,8 +2746,8 @@ export const Cart = () => {
                         
                         {/* Price - Compact */}
                         <div className="text-right min-w-[60px] shrink-0">
-                          <div className="font-bold text-xs">₹{formatExact(finalPrice)}</div>
-                          {hasDiscount && <div className="text-[10px] text-green-600 font-medium">-₹{formatExact(discount)}</div>}
+                          <div className="font-bold text-xs">{fmtMoney(finalPrice)}</div>
+                          {hasDiscount && <div className="text-[10px] text-green-600 font-medium">-{fmtMoney(discount)}</div>}
                         </div>
                         
                         {/* Action Buttons - Compact */}
@@ -2785,7 +2787,7 @@ export const Cart = () => {
                         <span className="text-xs text-muted-foreground">Qty: {freeItem.quantity} {freeItem.unit || 'pcs'}</span>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className="text-lg font-bold text-green-600">₹0</span>
+                        <span className="text-lg font-bold text-green-600">{fmtMoney(0)}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -2803,7 +2805,7 @@ export const Cart = () => {
                 )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal:</span>
-                  <span className="font-semibold">₹{formatExact(getSubtotal())}</span>
+                  <span className="font-semibold">{fmtMoney(getSubtotal())}</span>
                 </div>
 
                 {getDiscount() > 0 && <div className="p-2 bg-success/10 rounded-lg border border-success/20">
@@ -2813,7 +2815,7 @@ export const Cart = () => {
                     </div>
                     <div className="flex justify-between text-xs">
                       <span>Discount:</span>
-                      <span className="text-success font-medium">-₹{formatExact(getDiscount())}</span>
+                      <span className="text-success font-medium">-{fmtMoney(getDiscount())}</span>
                     </div>
                   </div>}
 
@@ -2828,11 +2830,11 @@ export const Cart = () => {
                       <>
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>CGST{half != null ? ` @ ${half}%` : ''}:</span>
-                          <span>₹{formatExact(getCGST())}</span>
+                          <span>{fmtMoney(getCGST())}</span>
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground">
                           <span>SGST{half != null ? ` @ ${half}%` : ''}:</span>
-                          <span>₹{formatExact(getSGST())}</span>
+                          <span>{fmtMoney(getSGST())}</span>
                         </div>
                         {rates.length > 1 && (
                           <div className="text-[10px] text-muted-foreground italic">
@@ -2844,31 +2846,31 @@ export const Cart = () => {
                   })()}
                   <div className="flex justify-between text-xs font-medium border-t border-dashed mt-1 pt-1">
                     <span>Total Tax:</span>
-                    <span>₹{formatExact(taxTotals.cgst + taxTotals.sgst + taxTotals.igst + taxTotals.cess)}</span>
+                    <span>{fmtMoney(taxTotals.cgst + taxTotals.sgst + taxTotals.igst + taxTotals.cess)}</span>
                   </div>
                 </div>
 
                 <div className="flex justify-between text-base font-bold border-t pt-2">
                   <span>Total:</span>
-                  <span>₹{formatExact(getFinalTotal())}</span>
+                  <span>{fmtMoney(getFinalTotal())}</span>
                 </div>
                 <div className="flex justify-between text-[11px] text-muted-foreground -mt-1">
                   <span>(excl. GST)</span>
-                  <span>₹{formatExact(getAmountAfterDiscount())}</span>
+                  <span>{fmtMoney(getAmountAfterDiscount())}</span>
                 </div>
 
                 {pendingAmountFromPrevious > 0 && <div className="space-y-1.5 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Previous Pending:</span>
-                      <span className="font-semibold text-warning">₹{formatRounded(pendingAmountFromPrevious)}</span>
+                      <span className="font-semibold text-warning">{fmtMoney(pendingAmountFromPrevious)}</span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Current Order:</span>
-                      <span className="font-semibold">₹{formatRounded(getFinalTotal())}</span>
+                      <span className="font-semibold">{fmtMoney(getFinalTotal())}</span>
                     </div>
                     <div className="flex justify-between text-xs pt-1.5 border-t border-amber-200 dark:border-amber-800">
                       <span className="font-medium">Total Due:</span>
-                      <span className="font-bold">₹{formatRounded(pendingAmountFromPrevious + getFinalTotal())}</span>
+                      <span className="font-bold">{fmtMoney(pendingAmountFromPrevious + getFinalTotal())}</span>
                     </div>
                   </div>}
 
@@ -2984,11 +2986,11 @@ export const Cart = () => {
                           <div className="p-2 rounded-lg border border-primary/30 bg-primary/5 space-y-0.5">
                             <div className="flex justify-between text-xs font-semibold">
                               <span className="text-primary">Full Payment — collect</span>
-                              <span className="text-primary">₹{formatRounded(pendingAmountFromPrevious + getFinalTotal())}</span>
+                              <span className="text-primary">{fmtMoney(pendingAmountFromPrevious + getFinalTotal())}</span>
                             </div>
                             <div className="flex justify-between text-[10px] text-muted-foreground">
-                              <span>₹{formatRounded(pendingAmountFromPrevious)} old dues</span>
-                              <span>+ ₹{formatRounded(getFinalTotal())} this order</span>
+                              <span>{fmtMoney(pendingAmountFromPrevious)} old dues</span>
+                              <span>+ {fmtMoney(getFinalTotal())} this order</span>
                             </div>
                             <p className="text-[10px] text-muted-foreground pt-0.5">Clears all pending invoices for this retailer.</p>
                           </div>
@@ -3011,11 +3013,11 @@ export const Cart = () => {
                     {partialAmount && parseFloat(partialAmount) > 0 && <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
                         <div className="flex justify-between text-xs">
                           <span className="text-success">Paying Now:</span>
-                          <span className="font-semibold text-success">₹{formatRounded(parseFloat(partialAmount))}</span>
+                          <span className="font-semibold text-success">{fmtMoney(parseFloat(partialAmount))}</span>
                         </div>
                         <div className="flex justify-between text-xs pt-1 border-t border-amber-200 dark:border-amber-800">
                           <span className="font-medium text-warning">Remaining:</span>
-                          <span className="font-bold text-warning">₹{formatRounded(Math.max(0, getFinalTotal() + pendingAmountFromPrevious - parseFloat(partialAmount)))}</span>
+                          <span className="font-bold text-warning">{fmtMoney(Math.max(0, getFinalTotal() + pendingAmountFromPrevious - parseFloat(partialAmount)))}</span>
                         </div>
                       </div>}
                   </div>}
@@ -3167,7 +3169,7 @@ export const Cart = () => {
                           Submitting...
                         </>
                       ) : (
-                        <>Complete sale · collect ₹{formatRounded(getFinalTotal())}</>
+                        <>Complete sale · collect {fmtMoney(getFinalTotal())}</>
                       )}
                     </Button>
                   ) : (
