@@ -212,23 +212,23 @@ const UserProfile = () => {
       <div className="p-3 sm:p-4">
         <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
           {/* Header with Points */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 p-4 sm:p-5 shadow-lg shadow-violet-500/20">
-            <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/15" />
-            <div className="absolute -left-8 -bottom-14 h-32 w-32 rounded-full bg-white/10" />
+          <div className="relative overflow-hidden rounded-3xl border border-violet-100 dark:border-violet-900/40 bg-gradient-to-br from-indigo-50 via-violet-50 to-sky-50 dark:from-indigo-950/40 dark:via-violet-950/30 dark:to-sky-950/30 p-4 sm:p-5 shadow-sm">
+            <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-violet-200/40 dark:bg-violet-500/10" />
+            <div className="absolute -left-8 -bottom-14 h-32 w-32 rounded-full bg-sky-200/40 dark:bg-sky-500/10" />
             <div className="relative flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center ring-1 ring-white/30">
-                  <User className="w-5 h-5 text-white" />
+                <div className="h-11 w-11 rounded-2xl bg-white dark:bg-white/10 flex items-center justify-center ring-1 ring-violet-200/70 dark:ring-white/10 shadow-sm">
+                  <User className="w-5 h-5 text-violet-600 dark:text-violet-300" />
                 </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">My Profile</h1>
-                  <p className="text-xs sm:text-sm text-white/80 mt-0.5 max-w-[16rem] sm:max-w-none">
+                  <h1 className="text-xl sm:text-2xl font-bold text-foreground leading-tight">My Profile</h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 max-w-[16rem] sm:max-w-none">
                     Your details, preferences & performance
                   </p>
                 </div>
               </div>
               {/* Points Badge - Clickable to Leaderboard */}
-              <div className="shrink-0 rounded-2xl bg-white/90 dark:bg-white/90 px-1 py-0.5 shadow-sm">
+              <div className="shrink-0 rounded-2xl bg-white/80 dark:bg-white/10 px-1 py-0.5 shadow-sm">
                 <ProfilePointsBadge userId={user.id} />
               </div>
             </div>
