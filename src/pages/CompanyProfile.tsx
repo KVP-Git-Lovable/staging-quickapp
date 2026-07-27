@@ -77,9 +77,11 @@ export default function CompanyProfile() {
             <DocumentSettings />
           </TabsContent>
 
-          <TabsContent value="regional">
+          <TabsContent value="regional" className="space-y-4">
             <RegionalSettings />
+            <MultiCurrencySettings />
           </TabsContent>
+
 
           <TabsContent value="features">
             <CompanyFeaturesTab />
