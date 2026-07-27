@@ -30,6 +30,8 @@ export function AboutViewMode({
   onEdit 
 }: AboutViewModeProps) {
   const { user } = useAuth();
+  const [showDetails, setShowDetails] = useState(false);
+
 
   const getManagerName = () => {
     const manager = managers.find(m => m.id === formData.manager_id);
