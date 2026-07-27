@@ -60,6 +60,7 @@ import { openAppSettings } from "@/utils/permissions";
 import { Capacitor } from "@capacitor/core";
 import { reverseGeocode } from "@/utils/reverseGeocode";
 import { useOrderSyncStatuses, OrderSyncBadge, OrderSyncDetails } from "@/components/order/OrderSyncStatus";
+import { useCurrency } from "@/contexts/CurrencyContext";
 interface Visit {
   id: string;
   retailerId?: string;
@@ -118,6 +119,7 @@ export const VisitCard = ({
   pointsBreakdown
 }: VisitCardProps) => {
   const navigate = useNavigate();
+  const { format } = useCurrency();
   const [showNoOrderModal, setShowNoOrderModal] = useState(false);
   const [noOrderReason, setNoOrderReason] = useState<string>(visit.noOrderReason || "");
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -1598,7 +1600,7 @@ export const VisitCard = ({
     switch (status) {
       case "productive":
         // Show order value if available (rounded), otherwise just "Productive"
-        return actualOrderValue > 0 ? `₹${Math.round(actualOrderValue).toLocaleString()}` : "Productive";
+        return actualOrderValue > 0 ? format(Math.round(actualOrderValue)) : "Productive";
       case "in-progress":
         return "In Progress";
       case "planned":
@@ -2818,7 +2820,7 @@ export const VisitCard = ({
             <span className="truncate">
               <span className="font-semibold">{visit.teammateActivity.name}</span>{' '}
               {visit.teammateActivity.hasOrder
-                ? `placed an order${visit.teammateActivity.orderValue ? ` of ₹${Math.round(visit.teammateActivity.orderValue).toLocaleString('en-IN')}` : ''} here`
+                ? `placed an order${visit.teammateActivity.orderValue ? ` of ${format(Math.round(visit.teammateActivity.orderValue))}` : ''} here`
                 : 'visited this retailer'}
               {visit.teammateActivity.visitTime &&
                 ` · ${new Date(visit.teammateActivity.visitTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`}
@@ -2990,7 +2992,7 @@ export const VisitCard = ({
                 <div className="flex flex-col gap-0.5">
                   <p className="text-xs sm:text-sm font-medium text-warning flex items-center gap-1">
                     <span>⚠️</span>
-                    Pending Amount: ₹{pendingAmount.toLocaleString()}
+                    Pending Amount: {format(pendingAmount)}
                   </p>
                   {pendingSinceDate && (
                     <p className="text-[10px] sm:text-xs text-warning/70">
@@ -3150,7 +3152,7 @@ export const VisitCard = ({
                   ? "Check in first to place order"
                   : `Order${
                       visit.orderValue || hasOrderToday
-                        ? ` (₹${visit.orderValue ? visit.orderValue.toLocaleString() : "Order Placed"})`
+                        ? ` (${visit.orderValue ? format(visit.orderValue) : "Order Placed"})`
                         : ""
                     }`
               }
@@ -3264,15 +3266,15 @@ export const VisitCard = ({
                     )}
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-muted-foreground">Total Amount:</span>
-                      <span className="font-semibold">₹{Math.round(actualOrderValue).toLocaleString()}</span>
+                      <span className="font-semibold">{format(Math.round(actualOrderValue))}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-success">Paid Amount:</span>
-                      <span className="font-medium text-success">₹{Math.round(paidTodayAmount).toLocaleString()}</span>
+                      <span className="font-medium text-success">{format(Math.round(paidTodayAmount))}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs">
                       <span className="text-warning">Pending Amount:</span>
-                      <span className="font-medium text-warning">₹{Math.round(creditPendingAmount).toLocaleString()}</span>
+                      <span className="font-medium text-warning">{format(Math.round(creditPendingAmount))}</span>
                     </div>
                     {(() => {
                       // Prefer per-order previous_pending_cleared (authoritative on orders table)
@@ -3302,7 +3304,7 @@ export const VisitCard = ({
                               )}
                             </span>
                             <span className="font-medium text-success">
-                              ₹{Math.round(displayAmount).toLocaleString()}
+                              {format(Math.round(displayAmount))}
                             </span>
                           </div>
                           {perOrderContribs.length > 1 && (
@@ -3310,7 +3312,7 @@ export const VisitCard = ({
                               {perOrderContribs.map((c) => (
                                 <div key={c.inv} className="flex justify-between text-[10px] text-muted-foreground">
                                   <span>via {c.inv}</span>
-                                  <span>₹{Math.round(c.amt).toLocaleString()}</span>
+                                  <span>{format(Math.round(c.amt))}</span>
                                 </div>
                               ))}
                             </div>
@@ -3357,7 +3359,7 @@ export const VisitCard = ({
                                 )}
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="font-semibold">₹{Math.round(order.total_amount).toLocaleString()}</span>
+                                <span className="font-semibold">{format(Math.round(order.total_amount))}</span>
                                 <OrderSyncBadge status={orderSyncStatuses[order.id]} />
                                 <span className="text-muted-foreground">{isExpanded ? '▲' : '▼'}</span>
                               </div>
@@ -3399,9 +3401,9 @@ export const VisitCard = ({
                           <div key={idx} className="flex justify-between items-start gap-2 text-xs py-1">
                             <span className="flex-1 min-w-0 break-words">{it.product_name}</span>
                             <div className="flex-shrink-0 text-right">
-                              <span className="font-medium">{qtyDisplay} × ₹{it.actualRate.toFixed(2)}</span>
+                              <span className="font-medium">{qtyDisplay} × {format(it.actualRate)}</span>
                               {it.actualRate.toFixed(2) !== it.rate.toFixed(2) && it.rate > 0 && (
-                                <div className="text-[10px] text-muted-foreground line-through">₹{it.rate.toFixed(2)}</div>
+                                <div className="text-[10px] text-muted-foreground line-through">{format(it.rate)}</div>
                               )}
                             </div>
                           </div>
@@ -3501,7 +3503,7 @@ export const VisitCard = ({
                           <span className="font-medium">
                             {o.invoice_number ? `Invoice ${o.invoice_number}` : `Order ${o.id.slice(0, 8)}`}
                           </span>
-                          <span className="text-muted-foreground">₹{Number(o.total_amount || 0).toLocaleString('en-IN')}</span>
+                          <span className="text-muted-foreground">{format(Number(o.total_amount || 0))}</span>
                         </div>
                         {o.distributor_name && (
                           <div className="text-xs text-muted-foreground mt-0.5">{o.distributor_name}</div>

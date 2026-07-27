@@ -8,6 +8,7 @@ import { Recommendation } from "@/hooks/useRecommendations";
 import { RecommendationCard } from "@/components/RecommendationCard";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface InsightsPanelProps {
   userId: string | undefined;
@@ -51,6 +52,7 @@ export const InsightsPanel = ({
   hasBeat = false,
 }: InsightsPanelProps) => {
   const navigate = useNavigate();
+  const { format, displayCurrency } = useCurrency();
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
   const [targetPeriod, setTargetPeriod] = useState<TargetPeriod>('today');
   const [targetBasis, setTargetBasis] = useState<TargetBasis>('quantity');
@@ -62,9 +64,12 @@ export const InsightsPanel = ({
   );
 
   const formatCurrency = (amount: number) => {
-    if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
-    if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
-    return `₹${Math.round(amount)}`;
+    if (displayCurrency === 'INR') {
+      if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
+      if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
+      return `₹${Math.round(amount)}`;
+    }
+    return format(amount);
   };
 
   const formatQuantity = (qty: number, unitLabel: string) => {
