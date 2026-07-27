@@ -78,29 +78,27 @@ export const PasswordChangeSection = () => {
 
   if (!isExpanded) {
     return (
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                <Key className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-lg">Password & Security</CardTitle>
-                <CardDescription className="text-sm">
-                  Change your account password
-                </CardDescription>
-              </div>
+      <Card className="rounded-2xl border-border/60 shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm shadow-emerald-500/30 flex items-center justify-center">
+              <Key className="h-5 w-5" />
             </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setIsExpanded(true)}
-            >
-              Change Password
-            </Button>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-sm text-foreground">Password &amp; Security</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Change your account password</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full rounded-full sm:w-auto"
+                onClick={() => setIsExpanded(true)}
+              >
+                Change Password
+              </Button>
+            </div>
           </div>
-        </CardHeader>
+        </CardContent>
+
       </Card>
     );
   }
