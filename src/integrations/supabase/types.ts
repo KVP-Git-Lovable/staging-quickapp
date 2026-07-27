@@ -2689,6 +2689,7 @@ export type Database = {
           ifsc: string | null
           invoice_template: string | null
           logo_url: string | null
+          multi_currency_enabled: boolean
           name: string
           qr_code_url: string | null
           qr_upi: string | null
@@ -2718,6 +2719,7 @@ export type Database = {
           ifsc?: string | null
           invoice_template?: string | null
           logo_url?: string | null
+          multi_currency_enabled?: boolean
           name: string
           qr_code_url?: string | null
           qr_upi?: string | null
@@ -2747,6 +2749,7 @@ export type Database = {
           ifsc?: string | null
           invoice_template?: string | null
           logo_url?: string | null
+          multi_currency_enabled?: boolean
           name?: string
           qr_code_url?: string | null
           qr_upi?: string | null
