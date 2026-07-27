@@ -32,8 +32,8 @@ import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "@/components/RetailerVisitDetailsModal";
 import { getLocalTodayDate } from "@/utils/dateUtils";
 import { OrderGuideManualButton } from "@/components/OrderGuideManualButton";
-import {
 import { useCurrency } from "@/contexts/CurrencyContext";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
