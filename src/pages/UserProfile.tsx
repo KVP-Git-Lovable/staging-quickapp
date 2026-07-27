@@ -280,6 +280,7 @@ const UserProfile = () => {
 
             <CollapsibleSection
               title="Password & Security"
+              tone="rose"
               description="Change your password"
               icon={<Lock className="h-5 w-5" />}
             >
@@ -288,6 +289,7 @@ const UserProfile = () => {
 
             <CollapsibleSection
               title="Notifications"
+              tone="amber"
               description="Push notification preferences"
               icon={<Bell className="h-5 w-5" />}
             >
@@ -296,6 +298,7 @@ const UserProfile = () => {
 
             <CollapsibleSection
               title="Career & Background"
+              tone="violet"
               description="Work experience, education and aspirations"
               icon={<Briefcase className="h-5 w-5" />}
             >
@@ -309,6 +312,7 @@ const UserProfile = () => {
 
             <CollapsibleSection
               title="Emergency Contacts & Documents"
+              tone="emerald"
               description="Contacts and uploaded attachments"
               icon={<ShieldCheck className="h-5 w-5" />}
             >
@@ -320,6 +324,7 @@ const UserProfile = () => {
 
             <CollapsibleSection
               title="Network & Features"
+              tone="sky"
               description="Followers, following and enabled features"
               icon={<Users className="h-5 w-5" />}
             >
