@@ -217,7 +217,7 @@ const Attendance = () => {
 
   const confirmStopTracking = async () => {
     if (!stopReason) {
-      toast({ title: 'Please select a reason', variant: 'destructive' });
+      toast({ title: t('attendance.selectReason'), variant: 'destructive' });
       return;
     }
 
@@ -235,7 +235,7 @@ const Attendance = () => {
       setStopReason('');
     } catch (error) {
       console.error('Error saving stop reason:', error);
-      toast({ title: 'Failed to save stop reason', variant: 'destructive' });
+      toast({ title: t('attendance.stopReasonFailed'), variant: 'destructive' });
     }
   };
 
