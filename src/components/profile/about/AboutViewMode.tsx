@@ -50,10 +50,10 @@ export function AboutViewMode({
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <Card className="overflow-hidden rounded-2xl border-border/60 shadow-sm">
+      <CardHeader className="pb-4 bg-gradient-to-br from-indigo-50 via-violet-50 to-transparent dark:from-indigo-950/30 dark:via-violet-950/20">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             {user && (
               <ProfilePictureUpload
                 userId={user.id}
@@ -63,32 +63,37 @@ export function AboutViewMode({
                 size="lg"
               />
             )}
-            <div>
-              <CardTitle className="text-xl">{userProfile?.full_name || 'User'}</CardTitle>
+            <div className="min-w-0">
+              <CardTitle className="text-lg sm:text-xl truncate">{userProfile?.full_name || 'User'}</CardTitle>
               {formData.designation && (
-                <p className="text-sm text-muted-foreground">{formData.designation}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">{formData.designation}</p>
               )}
-              <p className="text-sm text-muted-foreground">{formData.email}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{formData.email}</p>
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit Profile
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEdit}
+            className="shrink-0 rounded-full border-violet-200 bg-white/80 text-violet-700 hover:bg-violet-50 dark:bg-transparent dark:text-violet-300 dark:border-violet-800"
+          >
+            <Pencil className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Edit Profile</span>
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Essentials — always visible */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <InfoItem icon={<Mail className="h-4 w-4" />} label="Email" value={formData.email} />
-          <InfoItem icon={<Phone className="h-4 w-4" />} label="Phone" value={formData.phone_number || "-"} />
-          <InfoItem icon={<Briefcase className="h-4 w-4" />} label="Designation" value={formData.designation || "-"} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <InfoItem tone="sky" icon={<Mail className="h-4 w-4" />} label="Email" value={formData.email} />
+          <InfoItem tone="emerald" icon={<Phone className="h-4 w-4" />} label="Phone" value={formData.phone_number || "-"} />
+          <InfoItem tone="amber" icon={<Briefcase className="h-4 w-4" />} label="Designation" value={formData.designation || "-"} />
         </div>
 
         {/* Everything else — hidden behind the arrow */}
         <Collapsible open={showDetails} onOpenChange={setShowDetails}>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="w-full justify-between">
+            <Button variant="ghost" size="sm" className="w-full justify-between rounded-xl bg-muted/50 hover:bg-muted">
               <span>{showDetails ? "Hide full details" : "Show full details"}</span>
               <ChevronDown className={`h-4 w-4 transition-transform ${showDetails ? "rotate-180" : ""}`} />
             </Button>
@@ -195,12 +200,32 @@ export function AboutViewMode({
   );
 }
 
-function InfoItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+const infoTones = {
+  sky: 'bg-sky-100 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300',
+  emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300',
+  amber: 'bg-amber-100 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300',
+  violet: 'bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-300',
+  neutral: 'bg-muted text-muted-foreground',
+} as const;
+
+function InfoItem({
+  icon,
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: keyof typeof infoTones;
+}) {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-      <div className="text-muted-foreground mt-0.5">{icon}</div>
+    <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50">
+      <div className={`h-9 w-9 shrink-0 rounded-lg flex items-center justify-center ${infoTones[tone]}`}>
+        {icon}
+      </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
         <p className="text-sm font-medium truncate">{value}</p>
       </div>
     </div>
