@@ -54,6 +54,7 @@ import { cn } from "@/lib/utils";
 import { CameraCapture } from "@/components/CameraCapture";
 import { usePaymentProofMandatory } from "@/hooks/usePaymentProofMandatory";
 import { offlineStorage } from "@/lib/offlineStorage";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 // ---------- types ----------
 interface CounterCustomer {
@@ -98,6 +99,7 @@ function MobileCustomerCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { format } = useCurrency();
   const [pickerOpen, setPickerOpen] = useState(false);
   const locked = row.status === "saved" || row.status === "submitted";
   const total = rowAmount(row);
@@ -404,6 +406,7 @@ function CounterCustomerCard({
   onDelete: () => void;
   eventMode?: boolean;
 }) {
+  const { format } = useCurrency();
   const [pickerOpen, setPickerOpen] = useState(false);
   const locked = row.status === "saved" || row.status === "submitted";
   const itemCount = rowItemCount(row);
@@ -1353,6 +1356,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
 
   const handleCameraCapture = async (blob: Blob) => {
     if (!cameraRowUid) {
+  const { format } = useCurrency();
       setIsCameraOpen(false);
       return;
     }
@@ -2227,6 +2231,7 @@ function OrderRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { format } = useCurrency();
   const locked = row.status === "saved" || row.status === "submitted";
   const subtotal = row.items.reduce(
     (s, i) => s + (i.product_id ? itemSubtotal(i) : 0),
@@ -2457,6 +2462,7 @@ function SummaryView({
   rows: CounterRow[];
   onDelete: (uid: string) => void;
 }) {
+  const { format } = useCurrency();
   const navigate = useNavigate();
   if (rows.length === 0) {
     return (
@@ -2536,6 +2542,7 @@ function ProductPickerDialog({
   products: any[];
   onAdd: (p: any, qty: number, unit: string, price: number) => void;
 }) {
+  const { format } = useCurrency();
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState<any | null>(null);
   const [qty, setQty] = useState(1);
@@ -2907,6 +2914,7 @@ function InlineProductSelect({
   onPick: (p: any) => void;
   onEnter?: () => void;
 }) {
+  const { format } = useCurrency();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
