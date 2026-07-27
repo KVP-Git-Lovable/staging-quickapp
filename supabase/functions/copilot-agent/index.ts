@@ -439,6 +439,10 @@ Deno.serve(async (req) => {
       { role: "user", content: message },
     ];
 
+    const reqId = crypto.randomUUID().slice(0, 8);
+    const diagLog = (msg: string, extra?: unknown) =>
+      console.log(`[copilot-diag][${reqId}][edge] ${msg}`, extra ?? "");
+
     let stream: Awaited<ReturnType<typeof streamChat>>;
     try {
       const intent = classifyDataIntent(message);
@@ -446,6 +450,7 @@ Deno.serve(async (req) => {
       if (intent) {
         try {
           const dataBlock = await dataAnswer(intent, supabase, userId, today);
+          diagLog(`intent=${intent} dataBlockChars=${dataBlock.length}`);
           const grounding: ChatMessage = {
             role: "system",
             content:
@@ -469,8 +474,16 @@ Deno.serve(async (req) => {
           };
           llmMessages = [messages[0], note, ...messages.slice(1)];
         }
+      } else {
+        diagLog("intent=none");
       }
-      stream = await streamChat({ apiKey, messages: llmMessages });
+      diagLog(`opening stream promptMessages=${llmMessages.length}`);
+      stream = await streamChat({
+        apiKey,
+        messages: llmMessages,
+        signal: req.signal,
+        reqId,
+      });
     } catch (err) {
 
       if (err instanceof TogetherError) {
@@ -481,22 +494,48 @@ Deno.serve(async (req) => {
       throw err;
     }
 
-    // Persist before the terminal SSE event so the next question cannot race
-    // ahead of the completed answer's conversation history.
-    const persistAssistant = async (text: string) => {
-      const finalText = text.trim();
-      const nowIso = new Date().toISOString();
-      const { error: assistantMessageError } = await supabase.from("copilot_messages").insert({
-        conversation_id: conversationId,
-        user_id: userId,
-        role: "assistant",
-        content: finalText || "",
-        model: MODEL,
-      });
-      if (assistantMessageError) {
-        console.error("[copilot-agent] assistant message persistence failed:", assistantMessageError);
-        return;
+    // The assistant row is created as soon as the first token arrives and is
+    // then updated in place. If the isolate is torn down mid-stream, whatever
+    // the user already saw survives instead of the turn vanishing entirely.
+    let assistantRowId: string | null = null;
+    let persistedLength = 0;
+
+    const persistAssistant = async (text: string, final: boolean) => {
+      const content = final ? text.trim() : text;
+      if (!content && !final) return;
+
+      if (!assistantRowId) {
+        const { data, error } = await supabase
+          .from("copilot_messages")
+          .insert({
+            conversation_id: conversationId,
+            user_id: userId,
+            role: "assistant",
+            content,
+            model: MODEL,
+          })
+          .select("id")
+          .maybeSingle();
+        if (error || !data) {
+          console.error("[copilot-agent] assistant message persistence failed:", error);
+          return;
+        }
+        assistantRowId = (data as any).id as string;
+        persistedLength = content.length;
+      } else if (content.length !== persistedLength || final) {
+        const { error } = await supabase
+          .from("copilot_messages")
+          .update({ content })
+          .eq("id", assistantRowId);
+        if (error) {
+          console.error("[copilot-agent] assistant message update failed:", error);
+          return;
+        }
+        persistedLength = content.length;
       }
+
+      if (!final) return;
+      const nowIso = new Date().toISOString();
       const updates: Record<string, unknown> = { last_message_at: nowIso, updated_at: nowIso };
       // Auto-title first exchange
       if (!conv.title || conv.title === "New chat") {
@@ -507,24 +546,76 @@ Deno.serve(async (req) => {
 
     // Wrap token stream as SSE text events.
     const encoder = new TextEncoder();
+    const HEARTBEAT_MS = 10_000;
+
     const sse = new ReadableStream({
       async start(controller) {
         const reader = stream.tokens.getReader();
+        let closed = false;
+        let accumulated = "";
+        let forwarded = 0;
+        let lastPersistAt = 0;
+        let terminalSent = false;
+
+        const send = (payload: string) => {
+          if (closed) return;
+          try {
+            controller.enqueue(encoder.encode(payload));
+          } catch {
+            closed = true;
+          }
+        };
+
+        // Comment frames keep intermediaries from treating an idle-but-alive
+        // connection as dead, and let the client tell "thinking" from "gone".
+        const heartbeat = setInterval(() => send(`: keep-alive\n\n`), HEARTBEAT_MS);
+
         try {
           while (true) {
             const { value, done } = await reader.read();
             if (done) break;
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: value })}\n\n`));
+            if (forwarded === 0) diagLog("first delta forwarded");
+            accumulated += value;
+            forwarded += 1;
+            send(`data: ${JSON.stringify({ delta: value })}\n\n`);
+
+            const now = Date.now();
+            if (now - lastPersistAt > 750 || accumulated.length - persistedLength > 200) {
+              lastPersistAt = now;
+              await persistAssistant(accumulated, false);
+            }
           }
+
           const completedText = await stream.fullText;
-          await persistAssistant(completedText);
-          controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-          controller.close();
+          diagLog("stream drained", {
+            forwarded,
+            chars: completedText.length,
+            upstream: stream.diag,
+          });
+          await persistAssistant(completedText, true);
+          terminalSent = true;
+          send(`data: [DONE]\n\n`);
         } catch (err) {
-          console.error("[copilot-agent] stream error:", err);
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "stream_failed" })}\n\n`));
-          controller.close();
+          const code = err instanceof TogetherError ? err.code : "stream_failed";
+          console.error(`[copilot-agent][${reqId}] stream error (${code}):`, err);
+          // Keep the partial answer rather than discarding the turn.
+          if (accumulated.trim()) {
+            try { await persistAssistant(accumulated, true); } catch { /* best effort */ }
+          }
+          terminalSent = true;
+          send(`data: ${JSON.stringify({ error: code, partial: accumulated.length > 0 })}\n\n`);
+        } finally {
+          clearInterval(heartbeat);
+          // No path may close silently: the client treats a missing terminal
+          // frame as an interrupted stream.
+          if (!terminalSent) send(`data: ${JSON.stringify({ error: "stream_failed" })}\n\n`);
+          diagLog("closing sse", { forwarded, upstream: stream.diag });
+          closed = true;
+          try { controller.close(); } catch { /* already closed */ }
         }
+      },
+      cancel() {
+        diagLog("client cancelled sse");
       },
     });
 
@@ -542,3 +633,4 @@ Deno.serve(async (req) => {
     return jsonError(500, "internal_error", err instanceof Error ? err.message : "Unknown error");
   }
 });
+

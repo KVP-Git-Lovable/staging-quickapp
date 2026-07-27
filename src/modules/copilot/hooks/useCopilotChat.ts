@@ -125,11 +125,20 @@ export function useCopilotChat(conversationId: string | null) {
           setMessages((prev) => prev.filter((m) => m.id !== uid && m.id !== aid));
         } else if (assistantMsg) {
           const id = assistantMsg.id;
-          setMessages((prev) => prev.map((m) =>
-            m.id === id ? { ...m, streaming: false, content: `⚠️ ${msg}` } : m
-          ));
+          // Preserve whatever streamed before the interruption — the server
+          // has already persisted the same partial text.
+          setMessages((prev) => prev.map((m) => {
+            if (m.id !== id) return m;
+            const partial = m.content.trim();
+            return {
+              ...m,
+              streaming: false,
+              content: partial ? `${partial}\n\n_⚠️ ${msg}_` : `⚠️ ${msg}`,
+            };
+          }));
         }
       }
+
     } finally {
       abortRef.current = null;
       sendingRef.current = false;
