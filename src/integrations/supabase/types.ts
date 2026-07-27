@@ -3726,8 +3726,11 @@ export type Database = {
       credit_ledger: {
         Row: {
           amount: number
+          base_amount: number | null
           created_at: string
           created_by: string | null
+          currency_code: string
+          fx_rate: number
           id: string
           reference_id: string | null
           retailer_id: string
@@ -3735,8 +3738,11 @@ export type Database = {
         }
         Insert: {
           amount: number
+          base_amount?: number | null
           created_at?: string
           created_by?: string | null
+          currency_code?: string
+          fx_rate?: number
           id?: string
           reference_id?: string | null
           retailer_id: string
@@ -3744,14 +3750,24 @@ export type Database = {
         }
         Update: {
           amount?: number
+          base_amount?: number | null
           created_at?: string
           created_by?: string | null
+          currency_code?: string
+          fx_rate?: number
           id?: string
           reference_id?: string | null
           retailer_id?: string
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_ledger_ccy_fk"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "credit_ledger_retailer_id_fkey"
             columns: ["retailer_id"]
@@ -3924,11 +3940,14 @@ export type Database = {
           approval_status: string
           approved_at: string | null
           approved_by: string | null
+          base_amount: number | null
           cgst_total: number | null
           created_at: string | null
           created_by: string | null
           credit_note_date: string
           credit_note_number: string
+          currency_code: string
+          fx_rate: number
           id: string
           original_order_id: string | null
           posted_to_ledger: boolean
@@ -3948,11 +3967,14 @@ export type Database = {
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
+          base_amount?: number | null
           cgst_total?: number | null
           created_at?: string | null
           created_by?: string | null
           credit_note_date?: string
           credit_note_number: string
+          currency_code?: string
+          fx_rate?: number
           id?: string
           original_order_id?: string | null
           posted_to_ledger?: boolean
@@ -3972,11 +3994,14 @@ export type Database = {
           approval_status?: string
           approved_at?: string | null
           approved_by?: string | null
+          base_amount?: number | null
           cgst_total?: number | null
           created_at?: string | null
           created_by?: string | null
           credit_note_date?: string
           credit_note_number?: string
+          currency_code?: string
+          fx_rate?: number
           id?: string
           original_order_id?: string | null
           posted_to_ledger?: boolean
@@ -3991,6 +4016,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_notes_ccy_fk"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "credit_notes_original_order_id_fkey"
             columns: ["original_order_id"]
@@ -10857,13 +10889,16 @@ export type Database = {
       invoices: {
         Row: {
           amount_in_words: string | null
+          base_amount: number | null
           cancellation_reason: string | null
           cancelled_at: string | null
           company_id: string | null
           created_at: string | null
           created_by: string | null
+          currency_code: string
           customer_id: string | null
           due_date: string | null
+          fx_rate: number
           id: string
           invoice_date: string
           invoice_number: string
@@ -10883,13 +10918,16 @@ export type Database = {
         }
         Insert: {
           amount_in_words?: string | null
+          base_amount?: number | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          currency_code?: string
           customer_id?: string | null
           due_date?: string | null
+          fx_rate?: number
           id?: string
           invoice_date: string
           invoice_number: string
@@ -10909,13 +10947,16 @@ export type Database = {
         }
         Update: {
           amount_in_words?: string | null
+          base_amount?: number | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
           company_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          currency_code?: string
           customer_id?: string | null
           due_date?: string | null
+          fx_rate?: number
           id?: string
           invoice_date?: string
           invoice_number?: string
@@ -10934,6 +10975,13 @@ export type Database = {
           vehicle_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_ccy_fk"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "invoices_company_id_fkey"
             columns: ["company_id"]
@@ -12372,6 +12420,7 @@ export type Database = {
       order_items: {
         Row: {
           backorder_qty: number | null
+          base_amount: number | null
           category: string
           cess_amount: number | null
           cess_rate: number | null
@@ -12379,7 +12428,9 @@ export type Database = {
           cgst_rate: number | null
           conversion_to_base: number | null
           created_at: string
+          currency_code: string
           discount_amount: number | null
+          fx_rate: number
           hsn_code: string | null
           id: string
           igst_amount: number | null
@@ -12403,6 +12454,7 @@ export type Database = {
         }
         Insert: {
           backorder_qty?: number | null
+          base_amount?: number | null
           category: string
           cess_amount?: number | null
           cess_rate?: number | null
@@ -12410,7 +12462,9 @@ export type Database = {
           cgst_rate?: number | null
           conversion_to_base?: number | null
           created_at?: string
+          currency_code?: string
           discount_amount?: number | null
+          fx_rate?: number
           hsn_code?: string | null
           id?: string
           igst_amount?: number | null
@@ -12434,6 +12488,7 @@ export type Database = {
         }
         Update: {
           backorder_qty?: number | null
+          base_amount?: number | null
           category?: string
           cess_amount?: number | null
           cess_rate?: number | null
@@ -12441,7 +12496,9 @@ export type Database = {
           cgst_rate?: number | null
           conversion_to_base?: number | null
           created_at?: string
+          currency_code?: string
           discount_amount?: number | null
+          fx_rate?: number
           hsn_code?: string | null
           id?: string
           igst_amount?: number | null
@@ -12464,6 +12521,13 @@ export type Database = {
           variant_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "order_items_ccy_fk"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
@@ -12493,6 +12557,7 @@ export type Database = {
           assigned_agent_id: string | null
           assigned_van_id: string | null
           backdate_reason: string | null
+          base_amount: number | null
           beat_id: string | null
           beat_name_snapshot: string | null
           cancellation_reason: string | null
@@ -12502,6 +12567,7 @@ export type Database = {
           created_at: string
           credit_paid_amount: number | null
           credit_pending_amount: number | null
+          currency_code: string
           delivered_at: string | null
           delivery_date: string | null
           delivery_notes: string | null
@@ -12515,6 +12581,7 @@ export type Database = {
           edit_count: number
           edited_at: string | null
           event_id: string | null
+          fx_rate: number
           id: string
           idempotency_key: string
           influencer_id: string | null
@@ -12559,6 +12626,7 @@ export type Database = {
           assigned_agent_id?: string | null
           assigned_van_id?: string | null
           backdate_reason?: string | null
+          base_amount?: number | null
           beat_id?: string | null
           beat_name_snapshot?: string | null
           cancellation_reason?: string | null
@@ -12568,6 +12636,7 @@ export type Database = {
           created_at?: string
           credit_paid_amount?: number | null
           credit_pending_amount?: number | null
+          currency_code?: string
           delivered_at?: string | null
           delivery_date?: string | null
           delivery_notes?: string | null
@@ -12581,6 +12650,7 @@ export type Database = {
           edit_count?: number
           edited_at?: string | null
           event_id?: string | null
+          fx_rate?: number
           id?: string
           idempotency_key: string
           influencer_id?: string | null
@@ -12625,6 +12695,7 @@ export type Database = {
           assigned_agent_id?: string | null
           assigned_van_id?: string | null
           backdate_reason?: string | null
+          base_amount?: number | null
           beat_id?: string | null
           beat_name_snapshot?: string | null
           cancellation_reason?: string | null
@@ -12634,6 +12705,7 @@ export type Database = {
           created_at?: string
           credit_paid_amount?: number | null
           credit_pending_amount?: number | null
+          currency_code?: string
           delivered_at?: string | null
           delivery_date?: string | null
           delivery_notes?: string | null
@@ -12647,6 +12719,7 @@ export type Database = {
           edit_count?: number
           edited_at?: string | null
           event_id?: string | null
+          fx_rate?: number
           id?: string
           idempotency_key?: string
           influencer_id?: string | null
@@ -12693,6 +12766,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_ccy_fk"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "orders_counter_customer_id_fkey"
@@ -22638,9 +22718,12 @@ export type Database = {
       retailer_payment_collections: {
         Row: {
           amount: number
+          base_amount: number | null
           collected_at: string
           collected_by_user_id: string
           created_at: string
+          currency_code: string
+          fx_rate: number
           id: string
           notes: string | null
           payment_method: string | null
@@ -22651,9 +22734,12 @@ export type Database = {
         }
         Insert: {
           amount: number
+          base_amount?: number | null
           collected_at?: string
           collected_by_user_id: string
           created_at?: string
+          currency_code?: string
+          fx_rate?: number
           id?: string
           notes?: string | null
           payment_method?: string | null
@@ -22664,9 +22750,12 @@ export type Database = {
         }
         Update: {
           amount?: number
+          base_amount?: number | null
           collected_at?: string
           collected_by_user_id?: string
           created_at?: string
+          currency_code?: string
+          fx_rate?: number
           id?: string
           notes?: string | null
           payment_method?: string | null
@@ -22682,6 +22771,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "retailers"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rpc_ccy_fk"
+            columns: ["currency_code"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
           },
         ]
       }
