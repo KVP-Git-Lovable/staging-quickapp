@@ -20,8 +20,9 @@ import { AboutViewMode } from '@/components/profile/about/AboutViewMode';
 import { AboutEditMode } from '@/components/profile/about/AboutEditMode';
 import { ProfilePointsBadge } from '@/components/profile/ProfilePointsBadge';
 import { PasswordChangeSection } from '@/components/profile/PasswordChangeSection';
-import { LanguageSettings } from '@/components/profile/LanguageSettings';
-import { LocaleSettings } from '@/components/profile/LocaleSettings';
+import { RegionLanguageSettings } from '@/components/profile/RegionLanguageSettings';
+import { CollapsibleSection } from '@/components/profile/CollapsibleSection';
+
 import { PushNotificationSettings } from '@/components/PushNotificationSettings';
 
 
