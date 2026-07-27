@@ -1,5 +1,6 @@
 import { TrendingUp, DollarSign, Trophy, Target } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface PerformanceSnapshotProps {
   performance: {
@@ -12,10 +13,13 @@ interface PerformanceSnapshotProps {
 }
 
 export const PerformanceSnapshot = ({ performance }: PerformanceSnapshotProps) => {
+  const { format, displayCurrency } = useCurrency();
+
   const formatAmount = (amount: number) => {
+    if (displayCurrency !== 'INR') return format(amount);
     if (amount >= 100000) return `₹${(amount / 100000).toFixed(1)}L`;
     if (amount >= 1000) return `₹${(amount / 1000).toFixed(1)}K`;
-    return `₹${amount}`;
+    return format(amount);
   };
 
   return (
