@@ -168,15 +168,15 @@ export const RegionLanguageSettings = () => {
   const effectiveCur = currency || companyDefaults.currency;
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden rounded-2xl border-border/60 shadow-sm">
       <Collapsible open={open} onOpenChange={setOpen}>
         <CollapsibleTrigger asChild>
           <button type="button" className="w-full text-left">
-            <CardHeader className="pb-4 hover:bg-muted/40 transition-colors">
+            <CardHeader className="pb-4 bg-gradient-to-r from-sky-50 to-transparent dark:from-sky-950/30 hover:bg-muted/40 transition-colors">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Globe2 className="h-5 w-5 text-primary" />
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-500 text-white shadow-sm shadow-sky-500/30 flex items-center justify-center">
+                    <Globe2 className="h-5 w-5" />
                   </div>
                   <div>
                     <CardTitle className="text-base">Language &amp; Region</CardTitle>
@@ -194,12 +194,12 @@ export const RegionLanguageSettings = () => {
         <CollapsibleContent>
           <CardContent className="space-y-5 pt-0">
             {/* Region */}
-            <div className="space-y-2">
+            <div className="space-y-2 rounded-xl border border-border/60 bg-muted/30 p-3">
               <Label htmlFor="region-select" className="flex items-center gap-1.5">
-                <MapPin className="h-4 w-4" /> Country / Region
+                <MapPin className="h-4 w-4 text-sky-600" /> Country / Region
               </Label>
               <Select value={region} onValueChange={handleRegionChange} disabled={loading}>
-                <SelectTrigger id="region-select">
+                <SelectTrigger id="region-select" className="bg-background rounded-lg">
                   <SelectValue placeholder="Select your region" />
                 </SelectTrigger>
                 <SelectContent>
@@ -216,9 +216,9 @@ export const RegionLanguageSettings = () => {
             </div>
 
             {/* Language */}
-            <div className="space-y-2">
+            <div className="space-y-2 rounded-xl border border-border/60 bg-muted/30 p-3">
               <Label className="flex items-center gap-1.5">
-                <Languages className="h-4 w-4" /> Display Language
+                <Languages className="h-4 w-4 text-violet-600" /> Display Language
               </Label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {LANGUAGES.map((l) => {
@@ -228,11 +228,13 @@ export const RegionLanguageSettings = () => {
                       key={l.code}
                       type="button"
                       onClick={() => setLanguage(l.code)}
-                      className={`rounded-lg border p-3 text-center transition-all hover:border-primary/50 ${
-                        selected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border bg-card'
+                      className={`rounded-xl border p-2.5 text-center transition-all active:scale-[0.98] ${
+                        selected
+                          ? 'border-violet-400 bg-gradient-to-br from-violet-50 to-fuchsia-50 ring-1 ring-violet-300 dark:from-violet-950/40 dark:to-fuchsia-950/30'
+                          : 'border-border bg-background hover:border-violet-300'
                       }`}
                     >
-                      <div className="text-sm font-medium text-foreground">{l.nativeName}</div>
+                      <div className={`text-sm font-semibold ${selected ? 'text-violet-700 dark:text-violet-300' : 'text-foreground'}`}>{l.nativeName}</div>
                       <div className="text-[11px] text-muted-foreground">{l.name}</div>
                     </button>
                   );
@@ -248,11 +250,11 @@ export const RegionLanguageSettings = () => {
                   Advanced (locale, time zone, currency)
                 </Button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-4 pt-3">
+              <CollapsibleContent className="space-y-4 rounded-xl border border-border/60 bg-muted/30 p-3 mt-2">
                 <div className="space-y-2">
                   <Label htmlFor="locale-select">Locale (date &amp; number format)</Label>
                   <Select value={locale} onValueChange={setLocale} disabled={loading}>
-                    <SelectTrigger id="locale-select"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="locale-select" className="bg-background rounded-lg"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {LOCALES.map((l) => <SelectItem key={l.code} value={l.code}>{l.label}</SelectItem>)}
                     </SelectContent>
@@ -261,14 +263,14 @@ export const RegionLanguageSettings = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="tz-select" className="flex items-center gap-1.5">
-                    <Clock className="h-4 w-4" /> Time Zone
+                    <Clock className="h-4 w-4 text-amber-600" /> Time Zone
                   </Label>
                   <Select
                     value={timezone || '__default__'}
                     onValueChange={(v) => setTimezone(v === '__default__' ? '' : v)}
                     disabled={loading}
                   >
-                    <SelectTrigger id="tz-select"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="tz-select" className="bg-background rounded-lg"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__default__">Use company default ({companyDefaults.timezone})</SelectItem>
                       {TIMEZONES.map((tz) => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}
@@ -279,14 +281,14 @@ export const RegionLanguageSettings = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="cur-select" className="flex items-center gap-1.5">
-                    <Coins className="h-4 w-4" /> Currency
+                    <Coins className="h-4 w-4 text-emerald-600" /> Currency
                   </Label>
                   <Select
                     value={currency || '__default__'}
                     onValueChange={(v) => setCurrency(v === '__default__' ? '' : v)}
                     disabled={loading}
                   >
-                    <SelectTrigger id="cur-select"><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="cur-select" className="bg-background rounded-lg"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__default__">Use company default ({companyDefaults.currency})</SelectItem>
                       {CURRENCIES.map((c) => <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>)}
@@ -298,7 +300,7 @@ export const RegionLanguageSettings = () => {
             </Collapsible>
 
             <div className="flex justify-end">
-              <Button onClick={handleSave} disabled={!dirty || saving || loading}>
+              <Button className="w-full rounded-full sm:w-auto" onClick={handleSave} disabled={!dirty || saving || loading}>
                 {saving ? 'Saving…' : 'Save preferences'}
               </Button>
             </div>
