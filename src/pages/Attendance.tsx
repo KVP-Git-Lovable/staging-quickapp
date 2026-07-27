@@ -1105,11 +1105,11 @@ const Attendance = () => {
                     })}
                   </div>
                   <div className="flex justify-between text-[10px] text-muted-foreground px-1">
-                    <span className="w-10 text-center">Location</span>
-                    <span className="w-10 text-center">Photo</span>
-                    <span className="w-10 text-center">Face</span>
-                    <span className="w-10 text-center">Save</span>
-                    <span className="w-10 text-center">Done</span>
+                    <span className="w-10 text-center">{t('attendance.stepLocation')}</span>
+                    <span className="w-10 text-center">{t('attendance.stepPhoto')}</span>
+                    <span className="w-10 text-center">{t('attendance.stepFace')}</span>
+                    <span className="w-10 text-center">{t('attendance.stepSave')}</span>
+                    <span className="w-10 text-center">{t('attendance.stepDone')}</span>
                   </div>
                 </div>
               </div>
@@ -1131,7 +1131,7 @@ const Attendance = () => {
             <Dialog open={showStopReasonDialog} onOpenChange={setShowStopReasonDialog}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Why are you stopping tracking?</DialogTitle>
+                  <DialogTitle>{t('attendance.whyStopTracking')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
                   <div className="space-y-2">
@@ -1255,12 +1255,12 @@ const Attendance = () => {
                   <div className="bg-green-100 dark:bg-green-900 p-4 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="text-center">
                       <CheckCircle className="h-5 w-5 mx-auto mb-2 text-green-600" />
-                      <div className="font-semibold text-green-800 dark:text-green-200 text-sm">First Check In</div>
+                      <div className="font-semibold text-green-800 dark:text-green-200 text-sm">{t('attendance.firstCheckIn')}</div>
                       <div className="text-sm text-green-600 dark:text-green-400 mt-1">
                         {format(new Date(todaysAttendance.check_in_time), 'hh:mm a')}
                       </div>
                       <div className="text-xs text-green-500 mt-1">
-                        {todaysVisits.length === 0 ? 'No visits today' : `${todaysVisits.length} visit${todaysVisits.length === 1 ? '' : 's'} today`}
+                        {todaysVisits.length === 0 ? t('attendance.noVisitsToday') : `${todaysVisits.length} visit${todaysVisits.length === 1 ? '' : 's'} today`}
                       </div>
                     </div>
                   </div>
@@ -1268,8 +1268,8 @@ const Attendance = () => {
                   <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border">
                     <div className="text-center text-gray-500 dark:text-gray-400">
                       <CheckCircle className="h-5 w-5 mx-auto mb-2" />
-                      <div className="font-semibold text-sm">First Check In</div>
-                      <div className="text-xs mt-1">Not started</div>
+                      <div className="font-semibold text-sm">{t('attendance.firstCheckIn')}</div>
+                      <div className="text-xs mt-1">{t('attendance.notStarted')}</div>
                     </div>
                   </div>
                 )}
@@ -1305,12 +1305,12 @@ const Attendance = () => {
                   <div className="bg-orange-100 dark:bg-orange-900 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
                     <div className="text-center">
                       <LogOut className="h-5 w-5 mx-auto mb-2 text-orange-600" />
-                      <div className="font-semibold text-orange-800 dark:text-orange-200 text-sm">Last Check Out</div>
+                      <div className="font-semibold text-orange-800 dark:text-orange-200 text-sm">{t('attendance.lastCheckOut')}</div>
                       <div className="text-sm text-orange-600 dark:text-orange-400 mt-1">
                         {format(new Date(todaysAttendance.check_out_time), 'hh:mm a')}
                       </div>
                       <div className="text-xs text-orange-500 mt-1">
-                        {todaysVisits.length === 0 ? 'No visits today' : `${todaysVisits.length} visit${todaysVisits.length === 1 ? '' : 's'} today`}
+                        {todaysVisits.length === 0 ? t('attendance.noVisitsToday') : `${todaysVisits.length} visit${todaysVisits.length === 1 ? '' : 's'} today`}
                       </div>
                     </div>
                   </div>
@@ -1318,8 +1318,8 @@ const Attendance = () => {
                   <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg border">
                     <div className="text-center text-gray-500 dark:text-gray-400">
                       <LogOut className="h-5 w-5 mx-auto mb-2" />
-                      <div className="font-semibold text-sm">Last Check Out</div>
-                      <div className="text-xs mt-1">Not ended</div>
+                      <div className="font-semibold text-sm">{t('attendance.lastCheckOut')}</div>
+                      <div className="text-xs mt-1">{t('attendance.notEnded')}</div>
                     </div>
                   </div>
                 )}
@@ -1439,20 +1439,20 @@ const Attendance = () => {
                                   )}
                                   
                                   {isAbsent && !hasPendingRequest && !hasRejectedRequest && (
-                                    <Badge variant="destructive">Absent</Badge>
+                                    <Badge variant="destructive">{t('attendance.absent')}</Badge>
                                   )}
                                   
                                   {isRegularized && (
-                                    <Badge className="bg-purple-500 hover:bg-purple-600">Regularized</Badge>
+                                    <Badge className="bg-purple-500 hover:bg-purple-600">{t('attendance.regularized')}</Badge>
                                   )}
                                   
                                   {hasPendingRequest && (
-                                    <Badge className="bg-yellow-500 hover:bg-yellow-600">Pending Approval</Badge>
+                                    <Badge className="bg-yellow-500 hover:bg-yellow-600">{t('attendance.pendingApproval')}</Badge>
                                   )}
                                   
                                   {hasRejectedRequest && (
                                     <Badge variant="destructive" className="text-xs">
-                                      Rejected - Resubmit
+                                      {t('attendance.rejectedResubmit')}
                                     </Badge>
                                   )}
                                 </div>
@@ -1487,7 +1487,7 @@ const Attendance = () => {
                                           setSelectedDateForMap(new Date(record.date));
                                           await loadGPSPositionsForDate(recordDate);
                                         }}
-                                        title="Travel Heat Map"
+                                        title={t('attendance.travelHeatMap')}
                                       >
                                         <Route className="h-4 w-4" />
                                       </Button>
@@ -1527,7 +1527,7 @@ const Attendance = () => {
                                     onClick={() => {
                                       navigate(`/visits/retailers?date=${recordDate}&timeline=true`);
                                     }}
-                                    title="Timeline View"
+                                    title={t('visits.timelineView')}
                                   >
                                     <CalendarDays className="h-4 w-4" />
                                   </Button>
@@ -1537,7 +1537,7 @@ const Attendance = () => {
                                     variant={record.status === 'present' || isRegularized ? 'default' : 'destructive'}
                                     className="h-8 w-8"
                                     onClick={() => navigate(`/today-summary?date=${recordDate}`)}
-                                    title="Productivity Report"
+                                    title={t('attendance.productivityReport')}
                                   >
                                     <FileText className="h-4 w-4" />
                                   </Button>
@@ -1550,7 +1550,7 @@ const Attendance = () => {
                     ) : (
                       <div className="text-center text-muted-foreground py-8">
                         <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-                        <p>No attendance records found for the selected period</p>
+                        <p>{t('attendance.noRecords')}</p>
                       </div>
                     )}
                   </div>
@@ -1588,8 +1588,8 @@ const Attendance = () => {
           setAttendanceType(null);
         }}
         onCapture={handleCameraCapture}
-        title="Capture Photo for Attendance"
-        description="Position yourself in the frame and capture your photo"
+        title={t('attendance.capturePhotoTitle')}
+        description={t('attendance.capturePhotoDesc')}
       />
 
       {/* Regularization Request Modal */}
@@ -1648,8 +1648,8 @@ const Attendance = () => {
             description: "Attendance recorded with manual override reason.",
           });
         }}
-        title="Provide Override Reason"
-        description="After multiple failed attempts, please provide a reason to manually mark your attendance."
+        title={t('attendance.overrideReasonTitle')}
+        description={t('attendance.overrideReasonDesc')}
       />
     </Layout>
   );
