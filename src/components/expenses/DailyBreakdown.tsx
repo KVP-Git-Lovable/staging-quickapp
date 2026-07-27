@@ -1,14 +1,14 @@
 import React from 'react';
 import { format, parseISO } from 'date-fns';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import type { DailyBreakdown as DailyBreakdownType } from '@/hooks/useMonthlyExpenseSummary';
 
 interface DailyBreakdownProps {
   days: DailyBreakdownType[];
 }
 
-const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-
 const DailyBreakdown: React.FC<DailyBreakdownProps> = ({ days }) => {
+  const { format: fmt } = useCurrency();
   const activeDays = days.filter(d => d.total > 0 || d.isPresent || d.orderValue > 0);
 
   if (!activeDays.length) {
