@@ -9,6 +9,15 @@ import knCommon from './locales/kn/common.json';
 import taCommon from './locales/ta/common.json';
 import teCommon from './locales/te/common.json';
 import guCommon from './locales/gu/common.json';
+import mrCommon from './locales/mr/common.json';
+import bnCommon from './locales/bn/common.json';
+import mlCommon from './locales/ml/common.json';
+import paCommon from './locales/pa/common.json';
+import arCommon from './locales/ar/common.json';
+import frCommon from './locales/fr/common.json';
+import esCommon from './locales/es/common.json';
+import nlCommon from './locales/nl/common.json';
+import deCommon from './locales/de/common.json';
 
 i18n
   .use(LanguageDetector)
@@ -20,7 +29,16 @@ i18n
       kn: { common: knCommon },
       ta: { common: taCommon },
       te: { common: teCommon },
-      gu: { common: guCommon }
+      gu: { common: guCommon },
+      mr: { common: mrCommon },
+      bn: { common: bnCommon },
+      ml: { common: mlCommon },
+      pa: { common: paCommon },
+      ar: { common: arCommon },
+      fr: { common: frCommon },
+      es: { common: esCommon },
+      nl: { common: nlCommon },
+      de: { common: deCommon }
     },
     fallbackLng: 'en',
     defaultNS: 'common',
