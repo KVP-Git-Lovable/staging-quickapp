@@ -1322,6 +1322,7 @@ export interface EventContext {
 }
 
 export default function CounterSales({ eventContext }: { eventContext?: EventContext } = {}) {
+  const { format } = useCurrency();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { products, fetchProducts } = useOfflineOrderEntry();
@@ -1356,7 +1357,6 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
 
   const handleCameraCapture = async (blob: Blob) => {
     if (!cameraRowUid) {
-  const { format } = useCurrency();
       setIsCameraOpen(false);
       return;
     }
