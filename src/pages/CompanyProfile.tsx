@@ -79,7 +79,7 @@ export default function CompanyProfile() {
 
           <TabsContent value="regional" className="space-y-4">
             <RegionalSettings />
-            <MultiCurrencySettings />
+            
           </TabsContent>
 
 
