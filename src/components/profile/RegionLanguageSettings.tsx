@@ -90,6 +90,10 @@ export const RegionLanguageSettings = () => {
   const [initial, setInitial] = useState({ language: '', locale: '', timezone: '', currency: '' });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [multiEnabled, setMultiEnabled] = useState(false);
+  const [allowedCurrencies, setAllowedCurrencies] = useState<string[]>([]);
+  const [currencyMeta, setCurrencyMeta] = useState<Array<{ code: string; name: string; symbol: string }>>([]);
+
 
   useEffect(() => {
     if (!user) return;
