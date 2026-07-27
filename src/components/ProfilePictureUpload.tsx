@@ -156,30 +156,43 @@ export const ProfilePictureUpload = ({
 
       {/* Viewer Dialog */}
       <Dialog open={showViewer} onOpenChange={setShowViewer}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{fullName}</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-full aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
+          <div className="relative">
+            {/* Photo hero */}
+            <div className="relative w-full aspect-square bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center">
               {signedPhotoUrl ? (
-                <img
-                  src={signedPhotoUrl}
-                  alt={fullName}
-                  className="w-full h-full object-contain"
-                />
+                <img src={signedPhotoUrl} alt={fullName} className="w-full h-full object-cover" />
               ) : (
-                <div className="text-6xl text-muted-foreground font-semibold">
-                  {fullName.charAt(0)}
-                </div>
+                <div className="text-7xl font-semibold text-muted-foreground">{fullName.charAt(0)}</div>
               )}
+              {/* Gradient scrim for legibility */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background via-background/70 to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/40 to-transparent" />
             </div>
+
+            {/* Name overlay */}
+            <div className="absolute bottom-0 inset-x-0 px-5 pb-4">
+              <DialogHeader className="space-y-0.5 text-left">
+                <DialogTitle className="text-xl font-semibold">{fullName}</DialogTitle>
+                <p className="text-xs text-muted-foreground">Profile photo</p>
+              </DialogHeader>
+            </div>
+          </div>
+
+          <div className="flex gap-2 px-5 pb-5 pt-1">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl"
+              onClick={() => setShowViewer(false)}
+            >
+              Close
+            </Button>
             <Button
               onClick={() => { setShowViewer(false); setShowOptions(true); }}
-              className="w-full gap-2"
+              className="flex-1 gap-2 rounded-xl"
             >
               <Camera className="h-4 w-4" />
-              {signedPhotoUrl ? "Change Photo" : "Add Photo"}
+              {signedPhotoUrl ? "Change" : "Add photo"}
             </Button>
           </div>
         </DialogContent>
@@ -187,43 +200,63 @@ export const ProfilePictureUpload = ({
 
       {/* Options Dialog */}
       <Dialog open={showOptions} onOpenChange={setShowOptions}>
-        <DialogContent className="max-w-xs">
+        <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Update Profile Photo</DialogTitle>
+            <DialogTitle className="text-lg">Update profile photo</DialogTitle>
+            <p className="text-sm text-muted-foreground">Choose how you'd like to add your picture.</p>
           </DialogHeader>
-          <div className="flex flex-col gap-3">
-            <Button variant="outline" className="w-full justify-start gap-3" onClick={startCamera}>
-              <Video className="h-5 w-5" />
-              Take Photo with Camera
-            </Button>
-            <Button variant="outline" className="w-full justify-start gap-3" onClick={() => { setShowOptions(false); fileInputRef.current?.click(); }}>
-              <Upload className="h-5 w-5" />
-              Upload from Files
-            </Button>
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={startCamera}
+              className="flex items-center gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/50"
+            >
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Video className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Take a photo</p>
+                <p className="text-xs text-muted-foreground">Use your device camera</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowOptions(false); fileInputRef.current?.click(); }}
+              className="flex items-center gap-3 rounded-xl border p-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/50"
+            >
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <Upload className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Upload from files</p>
+                <p className="text-xs text-muted-foreground">JPG or PNG, up to 5MB</p>
+              </div>
+            </button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Camera Dialog */}
       <Dialog open={showCamera} onOpenChange={(open) => { if (!open) stopCamera(); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Take a Photo</DialogTitle>
+            <DialogTitle className="text-lg">Take a photo</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col items-center gap-4">
-            <div className="relative w-full aspect-[4/3] bg-black rounded-lg overflow-hidden">
+            <div className="relative w-full aspect-[4/3] bg-black rounded-xl overflow-hidden ring-1 ring-border">
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             </div>
             <canvas ref={canvasRef} className="hidden" />
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={stopCamera}>Cancel</Button>
-              <Button onClick={capturePhoto}>
+            <div className="flex w-full gap-2">
+              <Button variant="outline" className="flex-1 rounded-xl" onClick={stopCamera}>Cancel</Button>
+              <Button className="flex-1 rounded-xl" onClick={capturePhoto}>
                 <Camera className="h-4 w-4 mr-2" /> Capture
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
 
       <input
         ref={fileInputRef}
