@@ -96,16 +96,30 @@ export const RegionLanguageSettings = () => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: company }, { data: profile }] = await Promise.all([
-        supabase.from('companies').select('timezone, currency').limit(1).maybeSingle(),
+      const [{ data: company }, { data: profile }, { data: currencyRows }] = await Promise.all([
+        supabase
+          .from('companies')
+          .select('timezone, currency, base_currency, allowed_currencies, multi_currency_enabled')
+          .limit(1)
+          .maybeSingle(),
         supabase.from('profiles').select('locale, timezone, currency, preferred_language').eq('id', user.id).maybeSingle(),
+        supabase.from('currencies').select('code, name, symbol'),
       ]);
       if (cancelled) return;
+      const comp = company as any;
       const defs = {
-        timezone: (company as any)?.timezone || DEFAULTS.timezone,
-        currency: (company as any)?.currency || DEFAULTS.currency,
+        timezone: comp?.timezone || DEFAULTS.timezone,
+        currency: comp?.base_currency || comp?.currency || DEFAULTS.currency,
       };
       setCompanyDefaults(defs);
+      setMultiEnabled(!!comp?.multi_currency_enabled);
+      setAllowedCurrencies(
+        Array.isArray(comp?.allowed_currencies) && comp.allowed_currencies.length
+          ? comp.allowed_currencies
+          : [defs.currency],
+      );
+      setCurrencyMeta((currencyRows as any[]) || []);
+
       const p = profile as any;
       const nextLocale = p?.locale || 'en-IN';
       const nextTz = p?.timezone || '';
