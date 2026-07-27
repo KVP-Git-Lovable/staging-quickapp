@@ -133,7 +133,7 @@ function MobileCustomerCard({
             {row.items.length} item{row.items.length !== 1 ? "s" : ""}
           </div>
           <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-            ₹{total.toFixed(2)}
+            {format(total)}
           </div>
         </div>
         <ChevronDown
@@ -275,7 +275,7 @@ function MobileCustomerCard({
                     <div>
                       <label className="text-[10px] text-muted-foreground">Amount</label>
                       <div className="h-8 flex items-center text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                        ₹{(item.product_id ? itemAmount(item) : 0).toFixed(2)}
+                        {format(item.product_id ? itemAmount(item) : 0)}
                       </div>
                     </div>
                   </div>
@@ -493,7 +493,7 @@ function CounterCustomerCard({
             {itemCount} item{itemCount !== 1 ? "s" : ""}
           </span>
           <div className="text-[13px] font-bold text-emerald-600 dark:text-emerald-400">
-            ₹{total.toFixed(2)}
+            {format(total)}
           </div>
         </div>
         <ChevronDown
@@ -711,7 +711,7 @@ function CounterCustomerCard({
                           <>
                             <span className="opacity-40">|</span>
                             <span>
-                              MRP: <span className="font-medium text-foreground/80">₹{Number(mrp).toFixed(2)}</span>
+                              MRP: <span className="font-medium text-foreground/80">{format(Number(mrp))}</span>
                             </span>
                           </>
                         )}
@@ -720,7 +720,7 @@ function CounterCustomerCard({
                         <span>
                           Total:{" "}
                           <span className="font-semibold text-foreground">
-                            ₹{lineTotal.toFixed(2)}
+                            {format(lineTotal)}
                           </span>
                         </span>
                         <Button
@@ -801,11 +801,11 @@ function CounterCustomerCard({
                   <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800 space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="text-emerald-700 dark:text-emerald-400">Paying Now:</span>
-                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">₹{parseFloat(row.partialAmount).toFixed(2)}</span>
+                      <span className="font-semibold text-emerald-700 dark:text-emerald-400">{format(parseFloat(row.partialAmount))}</span>
                     </div>
                     <div className="flex justify-between text-xs pt-1 border-t border-amber-200 dark:border-amber-800">
                       <span className="font-medium text-amber-700 dark:text-amber-400">Remaining:</span>
-                      <span className="font-bold text-amber-700 dark:text-amber-400">₹{Math.max(0, total - parseFloat(row.partialAmount)).toFixed(2)}</span>
+                      <span className="font-bold text-amber-700 dark:text-amber-400">{format(Math.max(0, total - parseFloat(row.partialAmount)))}</span>
                     </div>
                   </div>
                 )}
@@ -943,20 +943,20 @@ function CounterCustomerCard({
               <div className="grid grid-cols-4 gap-3 text-center">
                 <div>
                   <div className="text-[10px] text-muted-foreground">Subtotal</div>
-                  <div className="text-sm font-semibold">₹{subtotal.toFixed(2)}</div>
+                  <div className="text-sm font-semibold">{format(subtotal)}</div>
                 </div>
                 <div>
                   <div className="text-[10px] text-muted-foreground">Discount</div>
-                  <div className="text-sm font-semibold text-destructive">- ₹{discountTotal.toFixed(2)}</div>
+                  <div className="text-sm font-semibold text-destructive">- {format(discountTotal)}</div>
                 </div>
                 <div>
                   <div className="text-[10px] text-muted-foreground">GST</div>
-                  <div className="text-sm font-semibold">₹{taxTotal.toFixed(2)}</div>
+                  <div className="text-sm font-semibold">{format(taxTotal)}</div>
                 </div>
                 <div>
                   <div className="text-[10px] text-muted-foreground">Total</div>
                   <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                    ₹{total.toFixed(2)}
+                    {format(total)}
                   </div>
                 </div>
               </div>
@@ -2093,7 +2093,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                   </div>
                   <div className="min-w-0">
                     <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">Grand Total</div>
-                    <div className="text-sm sm:text-base font-bold leading-tight whitespace-nowrap">₹{totals.grand.toFixed(2)}</div>
+                    <div className="text-sm sm:text-base font-bold leading-tight whitespace-nowrap">{format(totals.grand)}</div>
                   </div>
                 </div>
               </div>
@@ -2169,7 +2169,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
               className="w-full h-12 rounded-xl bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 text-sm font-semibold"
             >
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-              Submit All Orders <span className="opacity-60 mx-2">•</span> ₹{totals.grand.toFixed(2)}
+              Submit All Orders <span className="opacity-60 mx-2">•</span> {format(totals.grand)}
             </Button>
           </div>
         </div>
@@ -2269,7 +2269,7 @@ function OrderRow({
           {rowItemCount(row)} item{rowItemCount(row) !== 1 ? "s" : ""}
         </div>
 
-        <div className="text-sm font-semibold">₹{total.toFixed(2)}</div>
+        <div className="text-sm font-semibold">{format(total)}</div>
 
         <div className="flex items-center justify-end gap-2">
           {row.status === "submitted" ? (
@@ -2419,24 +2419,24 @@ function OrderRow({
             <div className="rounded-xl border bg-background px-3 py-2 text-sm space-y-1">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span>₹{subtotal.toFixed(2)}</span>
+                <span>{format(subtotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Discount</span>
-                <span className="text-destructive">- ₹{discountTotal.toFixed(2)}</span>
+                <span className="text-destructive">- {format(discountTotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Taxable Amount</span>
-                <span>₹{taxableTotal.toFixed(2)}</span>
+                <span>{format(taxableTotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Total Tax (incl. GST)</span>
-                <span>₹{taxTotal.toFixed(2)}</span>
+                <span>{format(taxTotal)}</span>
               </div>
               <div className="flex justify-between border-t pt-1 mt-1 font-semibold">
                 <span>Total Amount</span>
                 <span className="text-emerald-600 dark:text-emerald-400">
-                  ₹{total.toFixed(2)}
+                  {format(total)}
                 </span>
               </div>
             </div>
@@ -2502,7 +2502,7 @@ function SummaryView({
                 <div>
                   <div className="text-[11px] text-muted-foreground leading-none">Total Amount</div>
                   <div className="text-base font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
-                    ₹{rowAmount(r).toFixed(2)}
+                    {format(rowAmount(r))}
                   </div>
                 </div>
                 <Button
@@ -2603,7 +2603,7 @@ function ProductPickerDialog({
                         {p.category?.name || "—"} · {p.unit || "Pcs"}
                       </div>
                     </div>
-                    <div className="text-sm font-semibold">₹{Number(p.rate || 0).toFixed(2)}</div>
+                    <div className="text-sm font-semibold">{format(Number(p.rate || 0))}</div>
                   </button>
                 ))
               )}
@@ -2654,7 +2654,7 @@ function ProductPickerDialog({
               </div>
             </div>
             <div className="text-right text-sm">
-              Amount: <span className="font-semibold">₹{(qty * price).toFixed(2)}</span>
+              Amount: <span className="font-semibold">{format(qty * price)}</span>
             </div>
           </div>
         )}
@@ -2989,7 +2989,7 @@ function InlineProductSelect({
                     </div>
                   </div>
                   <div className="text-sm font-semibold shrink-0">
-                    ₹{Number(p.rate || 0).toFixed(2)}
+                    {format(Number(p.rate || 0))}
                   </div>
                 </button>
               ))

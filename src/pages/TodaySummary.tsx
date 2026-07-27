@@ -2391,7 +2391,7 @@ export const TodaySummary = () => {
                 className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition overflow-hidden"
               >
                 <div className="text-xl font-bold text-primary break-words">
-                  {loading ? "Loading..." : `₹${Math.round(summaryData.totalOrderValue).toLocaleString('en-IN')}`}
+                  {loading ? "Loading..." : `${format(Math.round(summaryData.totalOrderValue))}`}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Total Order Value</div>
               </div>
@@ -2420,7 +2420,7 @@ export const TodaySummary = () => {
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-lg font-bold">
-                  {loading ? "Loading..." : `₹${Math.round(summaryData.avgOrderValue).toLocaleString('en-IN')}`}
+                  {loading ? "Loading..." : `${format(Math.round(summaryData.avgOrderValue))}`}
                 </div>
                 <div className="text-sm text-muted-foreground">Avg Order Value</div>
               </div>
@@ -2668,7 +2668,7 @@ export const TodaySummary = () => {
                 <div key={retailer.name} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="font-semibold">{retailer.name}</div>
                   <div className="text-right">
-                    <div className="font-bold text-success">₹{Math.round(retailer.orderValue).toLocaleString('en-IN')}</div>
+                    <div className="font-bold text-success">{format(Math.round(retailer.orderValue))}</div>
                     <div className="text-xs text-muted-foreground">#{index + 1}</div>
                   </div>
                 </div>
@@ -2721,7 +2721,7 @@ export const TodaySummary = () => {
                 </div>
                 <div className="text-center p-3 bg-green-100 rounded-lg">
                   <div className="text-lg font-bold text-green-700">
-                    ₹{Math.round(jointSalesData.orderIncrease).toLocaleString('en-IN')}
+                    {format(Math.round(jointSalesData.orderIncrease))}
                   </div>
                   <div className="text-xs text-green-600">Order Increase</div>
                 </div>
@@ -2765,7 +2765,7 @@ export const TodaySummary = () => {
                       <div className="text-muted-foreground text-xs line-clamp-1">{feedback.impact}</div>
                       {feedback.orderIncrease > 0 && (
                         <div className="text-green-600 font-medium text-xs mt-1">
-                          +₹{Math.round(feedback.orderIncrease).toLocaleString('en-IN')} increase
+                          +{format(Math.round(feedback.orderIncrease))} increase
                         </div>
                       )}
                     </div>
@@ -2814,7 +2814,7 @@ export const TodaySummary = () => {
                    <TableRow key={p.name}>
                      <TableCell className="font-medium">{p.name}</TableCell>
                      <TableCell className="text-right">{p.qtyFormatted}</TableCell>
-                     <TableCell className="text-right">₹{Math.round(p.revenue).toLocaleString('en-IN')}</TableCell>
+                     <TableCell className="text-right">{format(Math.round(p.revenue))}</TableCell>
                    </TableRow>
                  ))
                )}
@@ -2879,7 +2879,7 @@ export const TodaySummary = () => {
                           ))}
                         </Pie>
                         <Tooltip 
-                          formatter={(value: number) => [`₹${value.toLocaleString('en-IN')}`, 'Amount']}
+                          formatter={(value: number) => [`${format(value)}`, 'Amount']}
                           contentStyle={{ 
                             backgroundColor: 'hsl(var(--card))',
                             border: '1px solid hsl(var(--border))',
@@ -2917,7 +2917,7 @@ export const TodaySummary = () => {
                           </div>
                           <div className="text-right">
                             <div className="text-sm font-bold" style={{ color: item.color }}>
-                              ₹{item.amount.toLocaleString('en-IN')}
+                              {format(item.amount)}
                             </div>
                             <div className="text-[10px] text-muted-foreground">
                               {item.count} {item.count === 1 ? 'order' : 'orders'}
@@ -3028,7 +3028,7 @@ export const TodaySummary = () => {
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{p.product}</TableCell>
                             <TableCell className="text-right">{p.kgFormatted}</TableCell>
-                            <TableCell className="text-right">₹{Math.round(p.value).toLocaleString('en-IN')}</TableCell>
+                            <TableCell className="text-right">{format(Math.round(p.value))}</TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -3061,7 +3061,7 @@ export const TodaySummary = () => {
                         <TableRow key={idx}>
                           <TableCell className="font-medium">{o.retailer}</TableCell>
                           <TableCell className="text-right">{o.kgFormatted}</TableCell>
-                          <TableCell className="text-right">₹{Math.round(o.amount).toLocaleString('en-IN')}</TableCell>
+                          <TableCell className="text-right">{format(Math.round(o.amount))}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -3107,12 +3107,12 @@ export const TodaySummary = () => {
                           orders.map((o, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-medium">{o.retailer}</TableCell>
-                              <TableCell className="text-right">₹{Math.round(o.amount).toLocaleString('en-IN')}</TableCell>
+                              <TableCell className="text-right">{format(Math.round(o.amount))}</TableCell>
                               <TableCell className="text-right text-warning">
-                                {o.creditAmount > 0 ? `₹${Math.round(o.creditAmount).toLocaleString('en-IN')}` : '-'}
+                                {o.creditAmount > 0 ? `${format(Math.round(o.creditAmount))}` : '-'}
                               </TableCell>
                               <TableCell className="text-right text-success">
-                                ₹{Math.round(o.cashInHand).toLocaleString('en-IN')}
+                                {format(Math.round(o.cashInHand))}
                               </TableCell>
                               <TableCell className="text-center">
                                 <Badge variant="outline" className="text-xs">
@@ -3149,7 +3149,7 @@ export const TodaySummary = () => {
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{v.retailer}</TableCell>
                             <TableCell className="text-right text-success font-semibold">
-                              ₹{Math.round(v.totalValue || 0).toLocaleString('en-IN')}
+                              {format(Math.round(v.totalValue || 0))}
                             </TableCell>
                           </TableRow>
                         ))}

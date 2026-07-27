@@ -1292,7 +1292,7 @@ export const OrderEntry = () => {
       return `${scheme.name} (${scheme.discount_percentage}% off)`;
     }
     if (scheme.discount_amount) {
-      return `${scheme.name} (₹${scheme.discount_amount} off)`;
+      return `${scheme.name} (${format(scheme.discount_amount)} off)`;
     }
     return scheme.name;
   };
@@ -1304,7 +1304,7 @@ export const OrderEntry = () => {
       if (scheme.discount_percentage) {
         return `${conditionText}, get ${scheme.discount_percentage}% off`;
       } else if (scheme.discount_amount) {
-        return `${conditionText}, get ₹${scheme.discount_amount} off`;
+        return `${conditionText}, get ${format(scheme.discount_amount)} off`;
       }
     } else if (scheme.scheme_type === 'buy_get') {
       return `${conditionText}, get ${scheme.free_quantity} free`;
@@ -1541,7 +1541,7 @@ export const OrderEntry = () => {
         return newCart;
       });
     }
-    const schemeMessage = totalDiscount > 0 ? ` (Saved ₹${totalDiscount.toFixed(2)})` : '';
+    const schemeMessage = totalDiscount > 0 ? ` (Saved ${format(totalDiscount)})` : '';
     const freeMessage = freeQuantity > 0 ? ` + ${freeQuantity} free` : '';
 
     // Save stock data if stock quantity is provided
@@ -1732,7 +1732,7 @@ export const OrderEntry = () => {
         const product = products.find(p => p.id === baseId);
         const savings = Math.max(0, Number(ci.rate) * Number(ci.quantity) - Number(ci.total || 0));
         const appliedOffers: string[] = [];
-        if (savings > 0) appliedOffers.push(`Savings: ₹${savings.toFixed(2)}`);
+        if (savings > 0) appliedOffers.push(`Savings: ${format(savings)}`);
         return {
           id: ci.id,
           variantName: ci.name,
@@ -1773,7 +1773,7 @@ export const OrderEntry = () => {
           rate: product.rate,
           totalPrice: total - totalDiscount,
           savings: totalDiscount,
-          appliedOffers: totalDiscount > 0 ? [`Scheme discount: ₹${totalDiscount.toFixed(2)}`] : []
+          appliedOffers: totalDiscount > 0 ? [`Scheme discount: ${format(totalDiscount)}`] : []
         });
       }
 
@@ -1793,10 +1793,10 @@ export const OrderEntry = () => {
             totalSavings += variantSavings * variantQty + totalDiscount;
             const appliedOffers = [] as string[];
             if (variantSavings > 0) {
-              appliedOffers.push(`Variant discount: ₹${(variantSavings * variantQty).toFixed(2)}`);
+              appliedOffers.push(`Variant discount: ${format(variantSavings * variantQty)}`);
             }
             if (totalDiscount > 0) {
-              appliedOffers.push(`Scheme discount: ₹${totalDiscount.toFixed(2)}`);
+              appliedOffers.push(`Scheme discount: ${format(totalDiscount)}`);
             }
             items.push({
               id: `${product.id}_variant_${variant.id}`,
@@ -2134,7 +2134,7 @@ export const OrderEntry = () => {
                   <div className="text-center">
                     <p className="text-[9px] sm:text-[10px] text-primary-foreground/80 leading-tight">Current</p>
                     <p className="text-xs sm:text-sm font-bold leading-tight break-all">
-                      ₹{getSelectionValue().toLocaleString()}
+                      {format(getSelectionValue())}
                     </p>
                   </div>
                 </Button>
@@ -2619,7 +2619,7 @@ export const OrderEntry = () => {
                       {savingsAmount > 0 && (
                         <>
                           <p className="text-xs text-green-600 font-semibold">
-                            You save ₹{savingsAmount.toFixed(2)}
+                            You save {format(savingsAmount)}
                           </p>
                           {getAppliedSchemeName(product.id) && (
                             <div className="flex items-center gap-1 text-[10px] text-orange-600">
@@ -2672,11 +2672,11 @@ export const OrderEntry = () => {
                                 }
                                 const pricePerUnit = product.rate * conversionFactor;
                                 return conversionFactor !== 1 ? <div className="flex flex-col">
-                                    <span>₹{pricePerUnit.toFixed(2)}</span>
+                                    <span>{format(pricePerUnit)}</span>
                                     <span className="text-[9px] text-muted-foreground">
-                                      (₹{product.rate.toFixed(2)}/{baseUnit})
+                                      ({format(product.rate)}/{baseUnit})
                                     </span>
-                                  </div> : `₹${product.rate % 1 === 0 ? product.rate.toString() : product.rate.toFixed(2)}`;
+                                  </div> : `${format(product.rate)}`;
                               })()}
                             </div>
                             <div>
@@ -2765,12 +2765,12 @@ export const OrderEntry = () => {
                                       const pricePerUnit = variantPrice * conversionFactor;
                                       return conversionFactor !== 1 ? (
                                         <div className="flex flex-col">
-                                          <span>₹{pricePerUnit.toFixed(2)}</span>
+                                          <span>{format(pricePerUnit)}</span>
                                           <span className="text-[9px] text-muted-foreground">
-                                            (₹{variantPrice.toFixed(2)}/{baseUnit})
+                                            ({format(variantPrice)}/{baseUnit})
                                           </span>
                                         </div>
-                                      ) : `₹${variantPrice % 1 === 0 ? variantPrice.toString() : variantPrice.toFixed(2)}`;
+                                      ) : `${format(variantPrice)}`;
                                     })()}
                                   </div>
                                   <div>
@@ -2838,7 +2838,7 @@ export const OrderEntry = () => {
                          
                          <div className="grid grid-cols-4 gap-1 p-2 text-xs border-t">
                            <div className="text-xs">{product.name}</div>
-                           <div className="font-medium">₹{product.rate % 1 === 0 ? product.rate.toString() : product.rate.toFixed(2)}</div>
+                           <div className="font-medium">{format(product.rate)}</div>
                            <div>
                              <Input type="number" placeholder="0" value={quantities[product.id] || ""} onChange={e => {
                             const qty = parseInt(e.target.value) || 0;
