@@ -99,6 +99,11 @@ export const REGIONS: RegionDef[] = [
   },
 ];
 
+// English is the common/shared language — guarantee it is selectable everywhere.
+REGIONS.forEach((r) => {
+  if (!r.languages.includes('en')) r.languages.push('en');
+});
+
 /** Languages that ship a common.json today; others fall back to English. */
 export const LANGS_WITH_TRANSLATIONS = ['en', 'hi', 'kn', 'ta', 'te', 'gu'];
 
