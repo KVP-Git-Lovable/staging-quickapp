@@ -209,34 +209,46 @@ const UserProfile = () => {
 
   return (
     <Layout>
-      <div className="p-4">
-        <div className="max-w-6xl mx-auto space-y-6">
+      <div className="p-3 sm:p-4">
+        <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
           {/* Header with Points */}
-          <div className="flex items-center justify-between gap-4 rounded-xl border bg-card p-4">
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <User className="w-6 h-6 text-primary" />
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 p-4 sm:p-5 shadow-lg shadow-violet-500/20">
+            <div className="absolute -right-10 -top-12 h-36 w-36 rounded-full bg-white/15" />
+            <div className="absolute -left-8 -bottom-14 h-32 w-32 rounded-full bg-white/10" />
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center ring-1 ring-white/30">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">My Profile</h1>
+                  <p className="text-xs sm:text-sm text-white/80 mt-0.5 max-w-[16rem] sm:max-w-none">
+                    Your details, preferences & performance
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
-                <p className="text-sm text-muted-foreground">
-                  Your personal details, preferences and performance — all in one place
-                </p>
+              {/* Points Badge - Clickable to Leaderboard */}
+              <div className="shrink-0 rounded-2xl bg-white/90 dark:bg-white/90 px-1 py-0.5 shadow-sm">
+                <ProfilePointsBadge userId={user.id} />
               </div>
             </div>
-            {/* Points Badge - Clickable to Leaderboard */}
-            <ProfilePointsBadge userId={user.id} />
           </div>
 
         <Tabs defaultValue="about" className="space-y-4">
-          <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
-            <TabsTrigger value="about" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
-              <User className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">About</span>
+          <TabsList className="w-full grid grid-cols-2 h-auto gap-1 p-1 rounded-2xl bg-muted/70">
+            <TabsTrigger
+              value="about"
+              className="rounded-xl text-xs sm:text-sm py-2 gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-violet-500 data-[state=active]:text-white data-[state=active]:shadow"
+            >
+              <User className="h-4 w-4" />
+              <span>About</span>
             </TabsTrigger>
-            <TabsTrigger value="social" className="flex-1 min-w-[80px] text-xs sm:text-sm py-2">
-              <Users className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Social</span>
+            <TabsTrigger
+              value="social"
+              className="rounded-xl text-xs sm:text-sm py-2 gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-sky-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow"
+            >
+              <Users className="h-4 w-4" />
+              <span>Social</span>
             </TabsTrigger>
           </TabsList>
 
