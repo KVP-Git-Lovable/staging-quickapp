@@ -2,15 +2,15 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { format, parseISO } from 'date-fns';
 import { ShoppingCart } from 'lucide-react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import type { WeeklyBreakdown as WeeklyBreakdownType } from '@/hooks/useMonthlyExpenseSummary';
 
 interface WeeklyBreakdownProps {
   weeks: WeeklyBreakdownType[];
 }
 
-const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
-
 const WeeklyBreakdown: React.FC<WeeklyBreakdownProps> = ({ weeks }) => {
+  const { format: fmt } = useCurrency();
   if (!weeks.length) return null;
 
   return (
