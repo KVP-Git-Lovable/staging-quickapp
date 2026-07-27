@@ -2393,7 +2393,7 @@ export const TodaySummary = () => {
                 className="text-center p-4 bg-primary/10 rounded-lg cursor-pointer hover:bg-primary/20 transition overflow-hidden"
               >
                 <div className="text-xl font-bold text-primary break-words">
-                  {loading ? "Loading..." : `${format(Math.round(summaryData.totalOrderValue))}`}
+                  {loading ? "Loading..." : `${fmtMoney(Math.round(summaryData.totalOrderValue))}`}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">Total Order Value</div>
               </div>
@@ -2422,7 +2422,7 @@ export const TodaySummary = () => {
               </div>
               <div className="text-center p-3 bg-muted rounded-lg">
                 <div className="text-lg font-bold">
-                  {loading ? "Loading..." : `${format(Math.round(summaryData.avgOrderValue))}`}
+                  {loading ? "Loading..." : `${fmtMoney(Math.round(summaryData.avgOrderValue))}`}
                 </div>
                 <div className="text-sm text-muted-foreground">Avg Order Value</div>
               </div>
@@ -2670,7 +2670,7 @@ export const TodaySummary = () => {
                 <div key={retailer.name} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="font-semibold">{retailer.name}</div>
                   <div className="text-right">
-                    <div className="font-bold text-success">{format(Math.round(retailer.orderValue))}</div>
+                    <div className="font-bold text-success">{fmtMoney(Math.round(retailer.orderValue))}</div>
                     <div className="text-xs text-muted-foreground">#{index + 1}</div>
                   </div>
                 </div>
@@ -2723,7 +2723,7 @@ export const TodaySummary = () => {
                 </div>
                 <div className="text-center p-3 bg-green-100 rounded-lg">
                   <div className="text-lg font-bold text-green-700">
-                    {format(Math.round(jointSalesData.orderIncrease))}
+                    {fmtMoney(Math.round(jointSalesData.orderIncrease))}
                   </div>
                   <div className="text-xs text-green-600">Order Increase</div>
                 </div>
@@ -2767,7 +2767,7 @@ export const TodaySummary = () => {
                       <div className="text-muted-foreground text-xs line-clamp-1">{feedback.impact}</div>
                       {feedback.orderIncrease > 0 && (
                         <div className="text-green-600 font-medium text-xs mt-1">
-                          +{format(Math.round(feedback.orderIncrease))} increase
+                          +{fmtMoney(Math.round(feedback.orderIncrease))} increase
                         </div>
                       )}
                     </div>
@@ -2816,7 +2816,7 @@ export const TodaySummary = () => {
                    <TableRow key={p.name}>
                      <TableCell className="font-medium">{p.name}</TableCell>
                      <TableCell className="text-right">{p.qtyFormatted}</TableCell>
-                     <TableCell className="text-right">{format(Math.round(p.revenue))}</TableCell>
+                     <TableCell className="text-right">{fmtMoney(Math.round(p.revenue))}</TableCell>
                    </TableRow>
                  ))
                )}
@@ -2881,7 +2881,7 @@ export const TodaySummary = () => {
                           ))}
                         </Pie>
                         <Tooltip 
-                          formatter={(value: number) => [`${format(value)}`, 'Amount']}
+                          formatter={(value: number) => [`${fmtMoney(value)}`, 'Amount']}
                           contentStyle={{ 
                             backgroundColor: 'hsl(var(--card))',
                             border: '1px solid hsl(var(--border))',
@@ -2919,7 +2919,7 @@ export const TodaySummary = () => {
                           </div>
                           <div className="text-right">
                             <div className="text-sm font-bold" style={{ color: item.color }}>
-                              {format(item.amount)}
+                              {fmtMoney(item.amount)}
                             </div>
                             <div className="text-[10px] text-muted-foreground">
                               {item.count} {item.count === 1 ? 'order' : 'orders'}
@@ -2937,7 +2937,7 @@ export const TodaySummary = () => {
                     <div className="text-center p-3 bg-success/10 rounded-lg">
                       <div className="text-xs text-muted-foreground mb-1">Cash in Hand</div>
                       <div className="text-lg font-bold text-success">
-                        {format(paymentMethodBreakdown
+                        {fmtMoney(paymentMethodBreakdown
                           .filter(p => !['credit'].includes(p.method.toLowerCase()))
                           .reduce((sum, p) => sum + p.amount, 0))}
                       </div>
@@ -2948,7 +2948,7 @@ export const TodaySummary = () => {
                     <div className="text-center p-3 bg-destructive/10 rounded-lg">
                       <div className="text-xs text-muted-foreground mb-1">Credit (Pending)</div>
                       <div className="text-lg font-bold text-destructive">
-                        {format(paymentMethodBreakdown
+                        {fmtMoney(paymentMethodBreakdown
                           .filter(p => p.method.toLowerCase() === 'credit')
                           .reduce((sum, p) => sum + p.amount, 0))}
                       </div>
@@ -2960,7 +2960,7 @@ export const TodaySummary = () => {
                   <div className="mt-3 text-center p-3 bg-primary/10 rounded-lg">
                     <div className="text-xs text-muted-foreground mb-1">Total Order Value</div>
                     <div className="text-xl font-bold text-primary">
-                      {format(paymentMethodBreakdown.reduce((sum, p) => sum + p.amount, 0))}
+                      {fmtMoney(paymentMethodBreakdown.reduce((sum, p) => sum + p.amount, 0))}
                     </div>
                   </div>
                 </div>
@@ -3012,7 +3012,7 @@ export const TodaySummary = () => {
               {dialogContentType === "products" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Total: {format(Math.round(productGroupedOrders.reduce((sum, p) => sum + p.value, 0)))} • {productGroupedOrders.length} products
+                    Total: {fmtMoney(Math.round(productGroupedOrders.reduce((sum, p) => sum + p.value, 0)))} • {productGroupedOrders.length} products
                   </div>
                   <Table>
                     <TableHeader>
@@ -3028,7 +3028,7 @@ export const TodaySummary = () => {
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{p.product}</TableCell>
                             <TableCell className="text-right">{p.kgFormatted}</TableCell>
-                            <TableCell className="text-right">{format(Math.round(p.value))}</TableCell>
+                            <TableCell className="text-right">{fmtMoney(Math.round(p.value))}</TableCell>
                           </TableRow>
                         ))
                       ) : (
@@ -3046,7 +3046,7 @@ export const TodaySummary = () => {
               {dialogContentType === "orders" && (
                 <div className="space-y-3">
                   <div className="text-sm text-muted-foreground">
-                    Total: {format(Math.round(orders.reduce((sum, o) => sum + o.amount, 0)))} • {orders.length} orders
+                    Total: {fmtMoney(Math.round(orders.reduce((sum, o) => sum + o.amount, 0)))} • {orders.length} orders
                   </div>
                   <Table>
                     <TableHeader>
@@ -3061,7 +3061,7 @@ export const TodaySummary = () => {
                         <TableRow key={idx}>
                           <TableCell className="font-medium">{o.retailer}</TableCell>
                           <TableCell className="text-right">{o.kgFormatted}</TableCell>
-                          <TableCell className="text-right">{format(Math.round(o.amount))}</TableCell>
+                          <TableCell className="text-right">{fmtMoney(Math.round(o.amount))}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -3074,19 +3074,19 @@ export const TodaySummary = () => {
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="text-center p-3 bg-primary/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-primary whitespace-nowrap">
-                        {format(Math.round(orders.reduce((sum, o) => sum + o.amount, 0)))}
+                        {fmtMoney(Math.round(orders.reduce((sum, o) => sum + o.amount, 0)))}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Total</div>
                     </div>
                     <div className="text-center p-3 bg-destructive/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-destructive whitespace-nowrap">
-                        {format(Math.round(orders.reduce((sum, o) => sum + o.creditAmount, 0)))}
+                        {fmtMoney(Math.round(orders.reduce((sum, o) => sum + o.creditAmount, 0)))}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Credit</div>
                     </div>
                     <div className="text-center p-3 bg-success/10 rounded-lg overflow-hidden">
                       <div className="text-sm font-bold text-success whitespace-nowrap">
-                        {format(Math.round(orders.reduce((sum, o) => sum + o.cashInHand, 0)))}
+                        {fmtMoney(Math.round(orders.reduce((sum, o) => sum + o.cashInHand, 0)))}
                       </div>
                       <div className="text-xs text-muted-foreground mt-1">Amount Collected</div>
                     </div>
@@ -3107,12 +3107,12 @@ export const TodaySummary = () => {
                           orders.map((o, idx) => (
                             <TableRow key={idx}>
                               <TableCell className="font-medium">{o.retailer}</TableCell>
-                              <TableCell className="text-right">{format(Math.round(o.amount))}</TableCell>
+                              <TableCell className="text-right">{fmtMoney(Math.round(o.amount))}</TableCell>
                               <TableCell className="text-right text-warning">
-                                {o.creditAmount > 0 ? `${format(Math.round(o.creditAmount))}` : '-'}
+                                {o.creditAmount > 0 ? `${fmtMoney(Math.round(o.creditAmount))}` : '-'}
                               </TableCell>
                               <TableCell className="text-right text-success">
-                                {format(Math.round(o.cashInHand))}
+                                {fmtMoney(Math.round(o.cashInHand))}
                               </TableCell>
                               <TableCell className="text-center">
                                 <Badge variant="outline" className="text-xs">
@@ -3149,7 +3149,7 @@ export const TodaySummary = () => {
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{v.retailer}</TableCell>
                             <TableCell className="text-right text-success font-semibold">
-                              {format(Math.round(v.totalValue || 0))}
+                              {fmtMoney(Math.round(v.totalValue || 0))}
                             </TableCell>
                           </TableRow>
                         ))}
