@@ -30,7 +30,12 @@
     "recycleBin": "Corbeille",
     "adminControls": "Contrôles d'administration",
     "navigation": "Navigation",
-    "usageReport": "Rapport d'utilisation"
+    "usageReport": "Rapport d'utilisation",
+    "helpCenter": "Centre d'aide",
+    "runTestsQa": "Exécuter les tests (QA)",
+    "employees": "Employés",
+    "influencers": "Influenceurs",
+    "copilot": "Copilote"
   },
   "common": {
     "save": "Enregistrer",
@@ -49,7 +54,11 @@
     "selectLanguage": "Choisir la langue",
     "thisWeek": "Cette semaine",
     "thisMonth": "Ce mois-ci",
-    "lastMonth": "Le mois dernier"
+    "lastMonth": "Le mois dernier",
+    "goBack": "Retourner",
+    "noConnection": "Pas de connexion",
+    "confirmLogout": "Confirmer la déconnexion",
+    "confirmLogoutDesc": "Voulez-vous vraiment vous déconnecter ? Vous devrez vous reconnecter pour accéder à l'application."
   },
   "visits": {
     "title": "Mes visites",
@@ -96,7 +105,27 @@
     "summary": "Résumé",
     "pendingVisits": "Visites en attente",
     "pointsEarned": "Points gagnés",
-    "recent": "Récent"
+    "recent": "Récent",
+    "backdateNotAllowed": "La rétroaction n'est pas autorisée pour cette date — affichage des données passées (consultation seulement)",
+    "backdateUnverified": "Impossible de vérifier l'autorisation de rétroaction — affichage des données passées (consultation seulement)",
+    "provideReason": "Veuillez fournir une raison",
+    "requestSent": "Demande envoyée à votre responsable",
+    "requestFailed": "Impossible d'envoyer la demande",
+    "timelineLoadFailed": "Échec du chargement des données de la chronologie",
+    "autoPlanHint": "L'IA génère des plans de tournées hebdomadaires optimisés",
+    "activity": "Activité",
+    "cannotSyncOffline": "Impossible de synchroniser hors ligne",
+    "sortAlphabetically": "Trier par ordre alphabétique",
+    "loadingVisits": "Chargement des visites...",
+    "backdateRequestDesc": "Cette date dépasse le délai auto-autorisé. Envoyez une demande à votre responsable.",
+    "reason": "Raison",
+    "backdateReasonPlaceholder": "Pourquoi avez-vous besoin de antidater cette commande ?",
+    "clearCacheTitle": "Vider le cache local ?",
+    "clearCacheDesc": "Ceci effacera toutes les données mises en cache localement et rechargera la page. Assurez-vous d'avoir une connexion Internet stable avant de continuer.",
+    "clearCache": "Vider le cache",
+    "cacheCleared": "Cache vidé - données actualisées",
+    "cacheClearFailed": "Échec de la suppression du cache",
+    "syncSuccess": "Données synchronisées avec succès !"
   },
   "retailer": {
     "addRetailer": "Ajouter un détaillant",
@@ -208,7 +237,25 @@
     "visitsToday": "visites aujourd'hui",
     "marketHoursTracked": "Les heures de marché sont automatiquement suivies à partir de vos pointages de visite",
     "confirmStop": "Confirmer l'arrêt",
-    "whyStopTracking": "Pourquoi arrêtez-vous le suivi ?"
+    "whyStopTracking": "Pourquoi arrêtez-vous le suivi ?",
+    "stepLocation": "Localisation",
+    "stepPhoto": "Photo",
+    "stepFace": "Visage",
+    "stepSave": "Enregistrer",
+    "stepDone": "Terminé",
+    "absent": "Absent",
+    "regularized": "Régularisé",
+    "pendingApproval": "En attente d'approbation",
+    "rejectedResubmit": "Rejeté - Soumettre à nouveau",
+    "travelHeatMap": "Carte thermique des déplacements",
+    "productivityReport": "Rapport de productivité",
+    "noRecords": "Aucun enregistrement de présence trouvé pour la période sélectionnée",
+    "capturePhotoTitle": "Capturer une photo pour la présence",
+    "capturePhotoDesc": "Positionnez-vous dans le cadre et prenez votre photo",
+    "overrideReasonTitle": "Indiquer la raison de la dérogation",
+    "overrideReasonDesc": "Après plusieurs tentatives infructueuses, veuillez indiquer une raison pour enregistrer manuellement votre présence.",
+    "selectReason": "Veuillez sélectionner une raison",
+    "stopReasonFailed": "Échec de l'enregistrement de la raison de l'arrêt"
   },
   "home": {
     "goodMorning": "Bonjour",
@@ -297,5 +344,141 @@
     "startYourDay": "Commencez votre journée en pointant votre présence",
     "startMyDay": "Commencer ma journée",
     "quickActions": "Actions rapides"
+  },
+  "adminControls": {
+    "dragHint": "Faites glisser les cartes pour réorganiser, ou utilisez l'engrenage pour créer des groupes",
+    "searchPlaceholder": "Rechercher des modules d'administration...",
+    "ungrouped": "Non groupé",
+    "noModules": "Aucun module trouvé correspondant à \"{{query}}\""
+  },
+  "adminModules": {
+    "priceBooks": {
+      "title": "Gestion des tarifs",
+      "desc": "Créer et gérer des tarifs pour les distributeurs et les territoires"
+    },
+    "admin": {
+      "title": "Gestion des utilisateurs",
+      "desc": "Gérer les comptes utilisateurs, les rôles et les permissions"
+    },
+    "attendanceManagement": {
+      "title": "Gestion des présences",
+      "desc": "Gérer les présences des utilisateurs, les jours fériés et les approbations de congés"
+    },
+    "productManagement": {
+      "title": "Produits",
+      "desc": "Gérer votre catalogue de produits, catégories et SKU"
+    },
+    "uomMaster": {
+      "title": "Maître des unités de mesure",
+      "desc": "Gérer les unités de mesure, les valeurs par défaut et l'ordre pour le catalogue de produits"
+    },
+    "beatCoordinator": {
+      "title": "Coordinateur de tournée",
+      "desc": "Planifier les tournées, couvrir les congés et optimiser les itinéraires de votre équipe"
+    },
+    "schemeManagement": {
+      "title": "Maître des schémas",
+      "desc": "Créer et gérer des schémas promotionnels, des offres et des remises"
+    },
+    "vendors": {
+      "title": "Fournisseurs",
+      "desc": "Gérer les relations avec les fournisseurs et les approbations"
+    },
+    "territoriesAndDistributors": {
+      "title": "Territoires et distributeurs",
+      "desc": "Gérer les affectations de territoires et le réseau de distributeurs"
+    },
+    "adminExpenseManagement": {
+      "title": "Gestion des dépenses",
+      "desc": "Suivre la productivité de l'équipe et les analyses de dépenses"
+    },
+    "feedbackManagement": {
+      "title": "Gestion des retours",
+      "desc": "Consulter les retours des détaillants, les informations sur la concurrence et les demandes de marque"
+    },
+    "operations": {
+      "title": "Opérations",
+      "desc": "Surveiller les opérations en temps réel, les enregistrements, les commandes et les données de stock"
+    },
+    "gpsTrackManagement": {
+      "title": "Gestion des traces GPS",
+      "desc": "Surveiller les emplacements en direct et suivre les mouvements des utilisateurs de la connexion à la déconnexion"
+    },
+    "retailManagement": {
+      "title": "Gestion de la vente au détail",
+      "desc": "Vérifier et gérer tous les détaillants dans le système"
+    },
+    "vanSalesManagement": {
+      "title": "Gestion des ventes itinérantes",
+      "desc": "Gérer les fourgonnettes, les chauffeurs et les opérations de vente en fourgonnette"
+    },
+    "securityManagement": {
+      "title": "Sécurité et Accès",
+      "desc": "Gérer les profils utilisateurs, les autorisations et le contrôle d'accès aux données"
+    },
+    "featureManagement": {
+      "title": "Gestion des Fonctionnalités",
+      "desc": "Contrôler les fonctionnalités visibles et actives pour les utilisateurs"
+    },
+    "gamificationAdmin": {
+      "title": "Gamification",
+      "desc": "Configurer les jeux, les points, les actions et gérer les échanges"
+    },
+    "retailerLoyaltyAdmin": {
+      "title": "Fidélité des Détaillants",
+      "desc": "Gérer les programmes de fidélité des détaillants, les points et les échanges"
+    },
+    "companyProfile": {
+      "title": "Profil de l'Entreprise",
+      "desc": "Gérer les détails de l'entreprise, les informations bancaires et l'image de marque de l'en-tête"
+    },
+    "invoiceManagement": {
+      "title": "Gestion des Factures",
+      "desc": "Créer et gérer les factures GST avec des modèles"
+    },
+    "creditManagement": {
+      "title": "Gestion du Crédit",
+      "desc": "Configurer le score de crédit des détaillants et le système de gestion des limites"
+    },
+    "notificationRules": {
+      "title": "Centre de Notifications",
+      "desc": "Configurer les règles et les déclencheurs de notifications basées sur les événements"
+    },
+    "recycleBin": {
+      "title": "Corbeille Générale",
+      "desc": "Configurer les paramètres de la corbeille et afficher les journaux de suppression permanente"
+    },
+    "distributorPortal": {
+      "title": "Administrateur du Portail Distributeur",
+      "desc": "Gérer les utilisateurs du portail distributeur, les commandes, les réclamations, le support et les idées"
+    },
+    "targetVsActual": {
+      "title": "Gestion des Objectifs",
+      "desc": "Configurer, assigner et suivre les objectifs d'équipe avec cascade hiérarchique"
+    },
+    "pincodeMaster": {
+      "title": "Maître des Codes PIN",
+      "desc": "Importer et gérer les données de référence des codes PIN de l'Inde"
+    },
+    "taxMaster": {
+      "title": "Maître des Taxes",
+      "desc": "Configurer les taux de taxe GST/IGST et les associer aux SKU de produits"
+    },
+    "activityTypes": {
+      "title": "Maître des Types d'Activité",
+      "desc": "Configurer les types d'activité, les pondérations et les paramètres de productivité"
+    },
+    "activityCoordinator": {
+      "title": "Coordinateur d'Activités",
+      "desc": "Afficher les activités de l'équipe et en assigner de nouvelles"
+    },
+    "retailerExternalDb": {
+      "title": "Base de Données Externe des Détaillants",
+      "desc": "Parcourir les données externes des détaillants en épicerie par état et par ville"
+    },
+    "syncHealth": {
+      "title": "Santé de la Synchronisation",
+      "desc": "Surveiller les échecs de synchronisation, les vérifications d'intégrité des données et les événements de sécurité RLS"
+    }
   }
 }

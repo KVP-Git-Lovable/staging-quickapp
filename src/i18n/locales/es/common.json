@@ -30,7 +30,12 @@
     "recycleBin": "Papelera",
     "adminControls": "Controles de administrador",
     "navigation": "Navegación",
-    "usageReport": "Informe de uso"
+    "usageReport": "Informe de uso",
+    "helpCenter": "Centro de ayuda",
+    "runTestsQa": "Ejecutar pruebas (QA)",
+    "employees": "Empleados",
+    "influencers": "Influencers",
+    "copilot": "Copilot"
   },
   "common": {
     "save": "Guardar",
@@ -49,7 +54,11 @@
     "selectLanguage": "Seleccionar idioma",
     "thisWeek": "Esta semana",
     "thisMonth": "Este mes",
-    "lastMonth": "Mes pasado"
+    "lastMonth": "Mes pasado",
+    "goBack": "Volver",
+    "noConnection": "Sin conexión",
+    "confirmLogout": "Confirmar cierre de sesión",
+    "confirmLogoutDesc": "¿Estás seguro de que quieres cerrar sesión? Deberá iniciar sesión de nuevo para acceder a la aplicación."
   },
   "visits": {
     "title": "Mis visitas",
@@ -96,7 +105,27 @@
     "summary": "Resumen",
     "pendingVisits": "Visitas pendientes",
     "pointsEarned": "Puntos ganados",
-    "recent": "Reciente"
+    "recent": "Reciente",
+    "backdateNotAllowed": "No se permite la retroactividad para esta fecha — mostrando datos pasados (solo vista)",
+    "backdateUnverified": "No se pudo verificar el permiso de retroactividad — mostrando datos pasados (solo vista)",
+    "provideReason": "Por favor, proporciona una razón",
+    "requestSent": "Solicitud enviada a tu gerente",
+    "requestFailed": "No se pudo enviar la solicitud",
+    "timelineLoadFailed": "No se pudieron cargar los datos de la línea de tiempo",
+    "autoPlanHint": "La IA genera planes de ruta semanales optimizados",
+    "activity": "Actividad",
+    "cannotSyncOffline": "No se puede sincronizar sin conexión",
+    "sortAlphabetically": "Ordenar alfabéticamente",
+    "loadingVisits": "Cargando visitas...",
+    "backdateRequestDesc": "Esta fecha supera el límite permitido automáticamente. Envía una solicitud a tu gerente.",
+    "reason": "Razón",
+    "backdateReasonPlaceholder": "¿Por qué necesitas retroceder este pedido?",
+    "clearCacheTitle": "¿Borrar caché local?",
+    "clearCacheDesc": "Esto borrará todos los datos almacenados en caché localmente y recargará la página. Asegúrate de tener una conexión a Internet estable antes de continuar.",
+    "clearCache": "Borrar caché",
+    "cacheCleared": "Caché borrada - datos actualizados",
+    "cacheClearFailed": "No se pudo borrar la caché",
+    "syncSuccess": "¡Datos sincronizados correctamente!"
   },
   "retailer": {
     "addRetailer": "Agregar minorista",
@@ -208,7 +237,25 @@
     "visitsToday": "visitas hoy",
     "marketHoursTracked": "Las horas en el mercado se calculan automáticamente a partir de tus registros de visita",
     "confirmStop": "Confirmar detención",
-    "whyStopTracking": "¿Por qué detienes el rastreo?"
+    "whyStopTracking": "¿Por qué detienes el rastreo?",
+    "stepLocation": "Ubicación",
+    "stepPhoto": "Foto",
+    "stepFace": "Cara",
+    "stepSave": "Guardar",
+    "stepDone": "Hecho",
+    "absent": "Ausente",
+    "regularized": "Regularizado",
+    "pendingApproval": "Aprobación pendiente",
+    "rejectedResubmit": "Rechazado - Volver a enviar",
+    "travelHeatMap": "Mapa de calor de viaje",
+    "productivityReport": "Informe de productividad",
+    "noRecords": "No se encontraron registros de asistencia para el período seleccionado",
+    "capturePhotoTitle": "Capturar foto para asistencia",
+    "capturePhotoDesc": "Posiciónate en el recuadro y captura tu foto",
+    "overrideReasonTitle": "Proveer motivo de anulación",
+    "overrideReasonDesc": "Después de múltiples intentos fallidos, por favor provee una razón para marcar tu asistencia manualmente.",
+    "selectReason": "Por favor selecciona una razón",
+    "stopReasonFailed": "Fallo al guardar el motivo de la parada"
   },
   "home": {
     "goodMorning": "Buenos días",
@@ -297,5 +344,141 @@
     "startYourDay": "Comienza tu jornada registrando tu asistencia",
     "startMyDay": "Iniciar mi jornada",
     "quickActions": "Acciones rápidas"
+  },
+  "adminControls": {
+    "dragHint": "Arrastra las tarjetas para reordenar, o usa el engranaje para crear grupos",
+    "searchPlaceholder": "Buscar módulos de administración...",
+    "ungrouped": "Sin agrupar",
+    "noModules": "No se encontraron módulos que coincidan con \"{{query}}\""
+  },
+  "adminModules": {
+    "priceBooks": {
+      "title": "Gestión de listas de precios",
+      "desc": "Crea y gestiona listas de precios para distribuidores y territorios"
+    },
+    "admin": {
+      "title": "Gestión de usuarios",
+      "desc": "Gestiona cuentas de usuario, roles y permisos"
+    },
+    "attendanceManagement": {
+      "title": "Gestión de asistencia",
+      "desc": "Gestiona la asistencia de usuarios, días festivos y aprobaciones de licencias"
+    },
+    "productManagement": {
+      "title": "Productos",
+      "desc": "Gestiona tu catálogo de productos, categorías y SKUs"
+    },
+    "uomMaster": {
+      "title": "Maestro de unidades de medida",
+      "desc": "Gestiona unidades de medida, valores predeterminados y pedidos para el catálogo de productos"
+    },
+    "beatCoordinator": {
+      "title": "Coordinador de rutas",
+      "desc": "Planifica rutas, cubre ausencias y optimiza los trayectos para tu equipo"
+    },
+    "schemeManagement": {
+      "title": "Maestro de esquemas",
+      "desc": "Crea y gestiona esquemas promocionales, ofertas y descuentos"
+    },
+    "vendors": {
+      "title": "Proveedores",
+      "desc": "Gestiona relaciones con proveedores y aprobaciones"
+    },
+    "territoriesAndDistributors": {
+      "title": "Territorios y distribuidores",
+      "desc": "Gestiona asignaciones de territorio y red de distribuidores"
+    },
+    "adminExpenseManagement": {
+      "title": "Gestión de gastos",
+      "desc": "Rastrea la productividad del equipo y el análisis de gastos"
+    },
+    "feedbackManagement": {
+      "title": "Gestión de comentarios",
+      "desc": "Ver comentarios de minoristas, conocimientos de la competencia y solicitudes de marca"
+    },
+    "operations": {
+      "title": "Operaciones",
+      "desc": "Monitorea operaciones en tiempo real, registros, pedidos y datos de existencias"
+    },
+    "gpsTrackManagement": {
+      "title": "Gestión de rastreo GPS",
+      "desc": "Monitorea ubicaciones en tiempo real y rastrea los movimientos del usuario desde el inicio hasta el cierre de sesión"
+    },
+    "retailManagement": {
+      "title": "Gestión minorista",
+      "desc": "Verifica y gestiona todos los minoristas en el sistema"
+    },
+    "vanSalesManagement": {
+      "title": "Gestión de ventas en furgonetas",
+      "desc": "Gestionar furgonetas, conductores y operaciones de venta basadas en furgonetas"
+    },
+    "securityManagement": {
+      "title": "Seguridad y Acceso",
+      "desc": "Gestionar perfiles de usuario, permisos y control de acceso a datos"
+    },
+    "featureManagement": {
+      "title": "Gestión de Funciones",
+      "desc": "Controlar qué funciones son visibles y activas para los usuarios"
+    },
+    "gamificationAdmin": {
+      "title": "Gamificación",
+      "desc": "Configurar juegos, puntos, acciones y gestionar canjes"
+    },
+    "retailerLoyaltyAdmin": {
+      "title": "Lealtad del Minorista",
+      "desc": "Gestionar programas de lealtad de minoristas, puntos y canjes"
+    },
+    "companyProfile": {
+      "title": "Perfil de la Compañía",
+      "desc": "Gestionar detalles de la compañía, información bancaria y marca de encabezado"
+    },
+    "invoiceManagement": {
+      "title": "Gestión de Facturas",
+      "desc": "Crear y gestionar facturas GST con plantillas"
+    },
+    "creditManagement": {
+      "title": "Gestión de Crédito",
+      "desc": "Configurar el sistema de puntuación de crédito y gestión de límites del minorista"
+    },
+    "notificationRules": {
+      "title": "Centro de Notificaciones",
+      "desc": "Configurar reglas y disparadores de notificación basados en eventos"
+    },
+    "recycleBin": {
+      "title": "Master de Papelera de Reciclaje",
+      "desc": "Configurar ajustes de la papelera de reciclaje y ver registros de eliminación permanente"
+    },
+    "distributorPortal": {
+      "title": "Administrador del Portal del Distribuidor",
+      "desc": "Gestionar usuarios del portal del distribuidor, pedidos, reclamaciones, soporte e ideas"
+    },
+    "targetVsActual": {
+      "title": "Gestión de Objetivos",
+      "desc": "Configurar, asignar y seguir los objetivos del equipo con cascada de jerarquía"
+    },
+    "pincodeMaster": {
+      "title": "Master de Código Postal",
+      "desc": "Importar y gestionar datos de referencia de códigos PIN de India"
+    },
+    "taxMaster": {
+      "title": "Master de Impuestos",
+      "desc": "Configurar tasas de impuestos GST/IGST y mapear a SKUs de productos"
+    },
+    "activityTypes": {
+      "title": "Master de Tipo de Actividad",
+      "desc": "Configurar tipos de actividad, pesos y ajustes de productividad"
+    },
+    "activityCoordinator": {
+      "title": "Coordinador de Actividades",
+      "desc": "Ver actividades del equipo y asignar nuevas"
+    },
+    "retailerExternalDb": {
+      "title": "Base de Datos Externa de Minoristas",
+      "desc": "Buscar datos externos de minoristas de comestibles por estado y ciudad"
+    },
+    "syncHealth": {
+      "title": "Salud de Sincronización",
+      "desc": "Monitorear fallos de sincronización, comprobaciones de integridad de datos y eventos de seguridad RLS"
+    }
   }
 }
