@@ -11,7 +11,8 @@ const languages = [
   { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ' },
   { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்' },
   { code: 'te', name: 'Telugu', nativeName: 'తెలుగు' },
-  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' }
+  { code: 'gu', name: 'Gujarati', nativeName: 'ગુજરાતી' },
+  { code: 'fr', name: 'French', nativeName: 'Français' }
 ];
 
 export const LanguageSettings = () => {
