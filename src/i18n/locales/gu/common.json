@@ -28,7 +28,14 @@
     "recycleBin": "Recycle Bin",
     "adminControls": "Admin Controls",
     "navigation": "Navigation",
-    "usageReport": "Usage Report"
+    "usageReport": "Usage Report",
+    "counter": "કાઉન્ટર",
+    "event": "ઇવેન્ટ",
+    "helpCenter": "સહાય કેન્દ્ર",
+    "runTestsQa": "ટેસ્ટ ચલાવો (QA)",
+    "employees": "કર્મચારીઓ",
+    "influencers": "પ્રભાવકો",
+    "copilot": "કોપાયલટ"
   },
   "common": {
     "save": "સાચવો",
@@ -47,7 +54,11 @@
     "selectLanguage": "ભાષા પસંદ કરો",
     "thisWeek": "This Week",
     "thisMonth": "This Month",
-    "lastMonth": "Last Month"
+    "lastMonth": "Last Month",
+    "goBack": "પાછા જાઓ",
+    "noConnection": "કોઈ કનેક્શન નથી",
+    "confirmLogout": "લોગઆઉટની પુષ્ટિ કરો",
+    "confirmLogoutDesc": "શું તમે ખરેખર લોગ આઉટ કરવા માંગો છો? એપ ઍક્સેસ કરવા માટે તમારે ફરીથી સાઇન ઇન કરવું પડશે."
   },
   "visits": {
     "title": "મારી મુલાકાતો",
@@ -94,7 +105,27 @@
     "summary": "Summary",
     "pendingVisits": "Pending Visits",
     "pointsEarned": "Points Earned",
-    "recent": "Recent"
+    "recent": "Recent",
+    "backdateNotAllowed": "આ તારીખ માટે બેકડેટીંગની મંજૂરી નથી — ભૂતકાળનો ડેટા બતાવી રહ્યું છે (ફક્ત જુઓ)",
+    "backdateUnverified": "બેકડેટ પરવાનગી ચકાસી શકાય નથી — ભૂતકાળનો ડેટા બતાવી રહ્યું છે (ફક્ત જુઓ)",
+    "provideReason": "કૃપા કરીને કારણ આપો",
+    "requestSent": "તમારા મેનેજરને વિનંતી મોકલવામાં આવી",
+    "requestFailed": "વિનંતી મોકલી શકાય નહીં",
+    "timelineLoadFailed": "ટાઈમલાઈન ડેટા લોડ કરવામાં નિષ્ફળ",
+    "autoPlanHint": "AI ઑપ્ટિમાઇઝ કરેલી સાપ્તાહિક બીટ યોજનાઓ બનાવે છે",
+    "activity": "પ્રવૃત્તિ",
+    "cannotSyncOffline": "ઓફલાઇન હોય ત્યારે સમન્વય કરી શકાતો નથી",
+    "sortAlphabetically": "મૂળાક્ષરો પ્રમાણે ગોઠવો",
+    "loadingVisits": "મુલાકાતો લોડ કરી રહ્યાં છીએ...",
+    "backdateRequestDesc": "આ તારીખ સ્વતઃ-મંજૂર મર્યાદાથી બહાર છે. તમારા મેનેજરને વિનંતી મોકલો.",
+    "reason": "કારણ",
+    "backdateReasonPlaceholder": "તમારે આ ઓર્ડરને બેકડેટ કરવાની શા માટે જરૂર છે?",
+    "clearCacheTitle": "સ્થાનિક કેશ સાફ કરો?",
+    "clearCacheDesc": "આ તમામ સ્થાનિક કેશ કરેલો ડેટા સાફ કરશે અને પૃષ્ઠ ફરીથી લોડ કરશે. આગળ વધતા પહેલા ખાતરી કરો કે તમારી પાસે સ્થિર ઇન્ટરનેટ કનેક્શન છે.",
+    "clearCache": "કેશ સાફ કરો",
+    "cacheCleared": "કેશ સાફ - ડેટા તાજો થયો",
+    "cacheClearFailed": "કેશ સાફ કરવામાં નિષ્ફળ",
+    "syncSuccess": "ડેટા સફળતાપૂર્વક સમન્વયિત થયો!"
   },
   "retailer": {
     "addRetailer": "રિટેલર ઉમેરો",
@@ -206,7 +237,25 @@
     "visitsToday": "visits today",
     "marketHoursTracked": "Market hours are automatically tracked from your visit check-ins",
     "confirmStop": "Confirm Stop",
-    "whyStopTracking": "Why are you stopping tracking?"
+    "whyStopTracking": "Why are you stopping tracking?",
+    "stepLocation": "સ્થાન",
+    "stepPhoto": "ફોટો",
+    "stepFace": "ચહેરો",
+    "stepSave": "સાચવો",
+    "stepDone": "થઈ ગયું",
+    "absent": "ગેરહાજર",
+    "regularized": "નિયમિત",
+    "pendingApproval": "મંજૂરી બાકી",
+    "rejectedResubmit": "અસ્વીકૃત - ફરીથી સબમિટ કરો",
+    "travelHeatMap": "પ્રવાસ હીટ મેપ",
+    "productivityReport": "ઉત્પાદકતા અહેવાલ",
+    "noRecords": "પસંદ કરેલ સમયગાળા માટે હાજરીના કોઈ રેકોર્ડ મળ્યા નથી",
+    "capturePhotoTitle": "હાજરી માટે ફોટો કેપ્ચર કરો",
+    "capturePhotoDesc": "તમારી જાતને ફ્રેમમાં ગોઠવો અને તમારો ફોટો કેપ્ચર કરો",
+    "overrideReasonTitle": "ઓવરરાઇડ કારણ આપો",
+    "overrideReasonDesc": "ઘણા પ્રયાસો નિષ્ફળ ગયા પછી, કૃપા કરીને તમારી હાજરી મેન્યુઅલી ચિહ્નિત કરવા માટે એક કારણ આપો.",
+    "selectReason": "કૃપા કરીને એક કારણ પસંદ કરો",
+    "stopReasonFailed": "સ્ટોપ કારણ સાચવવામાં નિષ્ફળ"
   },
   "home": {
     "goodMorning": "Good Morning",
@@ -295,5 +344,141 @@
     "startYourDay": "Start your day by marking attendance",
     "startMyDay": "Start My Day",
     "quickActions": "Quick Actions"
+  },
+  "adminControls": {
+    "dragHint": "પુન:ક્રમાંકિત કરવા માટે કાર્ડ્સને ખેંચો, અથવા જૂથો બનાવવા માટે ગિયરનો ઉપયોગ કરો",
+    "searchPlaceholder": "એડમિન મોડ્યુલ્સ શોધો...",
+    "ungrouped": "અવર્ગીકૃત",
+    "noModules": "\"{{query}}\" સાથે મળતા કોઈ મોડ્યુલ્સ મળ્યા નથી"
+  },
+  "adminModules": {
+    "priceBooks": {
+      "title": "પ્રાઈસ બુક મેનેજમેન્ટ",
+      "desc": "વિતરકો અને પ્રદેશો માટે પ્રાઈસ બુક્સ બનાવો અને સંચાલિત કરો"
+    },
+    "admin": {
+      "title": "વપરાશકર્તા વ્યવસ્થાપન",
+      "desc": "વપરાશકર્તા એકાઉન્ટ્સ, ભૂમિકાઓ અને પરવાનગીઓનું સંચાલન કરો"
+    },
+    "attendanceManagement": {
+      "title": "હાજરી વ્યવસ્થાપન",
+      "desc": "વપરાશકર્તાની હાજરી, રજાઓ અને રજાની મંજૂરીઓનું સંચાલન કરો"
+    },
+    "productManagement": {
+      "title": "ઉત્પાદનો",
+      "desc": "તમારા ઉત્પાદન કેટલોગ, શ્રેણીઓ અને SKUs નું સંચાલન કરો"
+    },
+    "uomMaster": {
+      "title": "માપનના એકમનું માસ્ટર",
+      "desc": "માપનના એકમો, ડિફોલ્ટ અને ઉત્પાદન કેટલોગ માટે ઓર્ડરિંગનું સંચાલન કરો"
+    },
+    "beatCoordinator": {
+      "title": "બીટ કોઓર્ડિનેટર",
+      "desc": "તમારી ટીમ માટે બીટની યોજના બનાવો, રજા આવરી લો અને રૂટ્સને શ્રેષ્ઠ બનાવો"
+    },
+    "schemeManagement": {
+      "title": "યોજના માસ્ટર",
+      "desc": "પ્રમોશનલ યોજનાઓ, ઑફર્સ અને ડિસ્કાઉન્ટ બનાવો અને સંચાલિત કરો"
+    },
+    "vendors": {
+      "title": "વિક્રેતાઓ",
+      "desc": "વિક્રેતા સંબંધો અને મંજૂરીઓનું સંચાલન કરો"
+    },
+    "territoriesAndDistributors": {
+      "title": "પ્રદેશો અને વિતરકો",
+      "desc": "પ્રદેશની સોંપણીઓ અને વિતરક નેટવર્કનું સંચાલન કરો"
+    },
+    "adminExpenseManagement": {
+      "title": "ખર્ચ વ્યવસ્થાપન",
+      "desc": "ટીમની ઉત્પાદકતા અને ખર્ચ વિશ્લેષણ ટ્રૅક કરો"
+    },
+    "feedbackManagement": {
+      "title": "પ્રતિસાદ વ્યવસ્થાપન",
+      "desc": "છૂટક વેપારીનો પ્રતિસાદ, સ્પર્ધાની આંતરદૃષ્ટિ અને બ્રાન્ડિંગ વિનંતીઓ જુઓ"
+    },
+    "operations": {
+      "title": "ઓપરેશન્સ",
+      "desc": "રીઅલ-ટાઇમ ઓપરેશન્સ, ચેક-ઇન્સ, ઑર્ડર અને સ્ટોક ડેટાનું નિરીક્ષણ કરો"
+    },
+    "gpsTrackManagement": {
+      "title": "GPS ટ્રેક મેનેજમેન્ટ",
+      "desc": "લાઇવ સ્થાનોનું નિરીક્ષણ કરો અને લૉગિનથી લૉગઆઉટ સુધી વપરાશકર્તાની હિલચાલને ટ્રૅક કરો"
+    },
+    "retailManagement": {
+      "title": "રીટેલ મેનેજમેન્ટ",
+      "desc": "સિસ્ટમમાં બધા રિટેલરોને ચકાસો અને મેનેજ કરો"
+    },
+    "vanSalesManagement": {
+      "title": "વાન સેલ્સ મેનેજમેન્ટ",
+      "desc": "વાન, ડ્રાઇવરો અને વાન-આધારિત વેચાણ કામગીરીનું સંચાલન કરો"
+    },
+    "securityManagement": {
+      "title": "સુરક્ષા અને ઍક્સેસ",
+      "desc": "વપરાશકર્તા પ્રોફાઇલ્સ, પરવાનગીઓ અને ડેટા ઍક્સેસ નિયંત્રણનું સંચાલન કરો"
+    },
+    "featureManagement": {
+      "title": "ફીચર મેનેજમેન્ટ",
+      "desc": "વપરાશકર્તાઓ માટે કઈ સુવિધાઓ દૃશ્યમાન અને સક્રિય છે તે નિયંત્રિત કરો"
+    },
+    "gamificationAdmin": {
+      "title": "ગેમિફિકેશન",
+      "desc": "રમતો, પોઈન્ટ, ક્રિયાઓ ગોઠવો અને રીડેમ્પશન્સનું સંચાલન કરો"
+    },
+    "retailerLoyaltyAdmin": {
+      "title": "રિટેલર લોયલ્ટી",
+      "desc": "રિટેલર લોયલ્ટી પ્રોગ્રામ્સ, પોઈન્ટ્સ અને રીડેમ્પશન્સનું સંચાલન કરો"
+    },
+    "companyProfile": {
+      "title": "કંપની પ્રોફાઇલ",
+      "desc": "કંપનીની વિગતો, બેંકની માહિતી અને હેડર બ્રાન્ડિંગનું સંચાલન કરો"
+    },
+    "invoiceManagement": {
+      "title": "ઇન્વોઇસ મેનેજમેન્ટ",
+      "desc": "ટેમ્પ્લેટ્સ સાથે GST ઇન્વોઇસ બનાવો અને મેનેજ કરો"
+    },
+    "creditManagement": {
+      "title": "ક્રેડિટ મેનેજમેન્ટ",
+      "desc": "રિટેલર ક્રેડિટ સ્કોરિંગ અને લિમિટ મેનેજમેન્ટ સિસ્ટમ ગોઠવો"
+    },
+    "notificationRules": {
+      "title": "નોટિફિકેશન સેન્ટર",
+      "desc": "ઇવેન્ટ-આધારિત નોટિફિકેશન નિયમો અને ટ્રિગર્સ ગોઠવો"
+    },
+    "recycleBin": {
+      "title": "રીસાયકલ બિન માસ્ટર",
+      "desc": "રીસાયકલ બિન સેટિંગ્સ ગોઠવો અને કાયમી કાઢી નાખવાના લોગ જુઓ"
+    },
+    "distributorPortal": {
+      "title": "ડિસ્ટ્રીબ્યુટર પોર્ટલ એડમિન",
+      "desc": "ડિસ્ટ્રીબ્યુટર પોર્ટલ વપરાશકર્તાઓ, ઓર્ડર, દાવાઓ, સપોર્ટ અને વિચારોનું સંચાલન કરો"
+    },
+    "targetVsActual": {
+      "title": "લક્ષ્ય વ્યવસ્થાપન",
+      "desc": "હાયરાર્કી કેસ્કેડ સાથે ટીમના લક્ષ્યોને ગોઠવો, સોંપો અને ટ્રૅક કરો"
+    },
+    "pincodeMaster": {
+      "title": "પિનકોડ માસ્ટર",
+      "desc": "ભારતના PIN કોડ સંદર્ભ ડેટાને આયાત અને સંચાલિત કરો"
+    },
+    "taxMaster": {
+      "title": "ટેક્સ માસ્ટર",
+      "desc": "GST/IGST ટેક્સ દરો ગોઠવો અને SKU પ્રોડક્ટ્સ સાથે મેપ કરો"
+    },
+    "activityTypes": {
+      "title": "પ્રવૃત્તિ પ્રકાર માસ્ટર",
+      "desc": "પ્રવૃત્તિના પ્રકારો, વજન અને ઉત્પાદકતા સેટિંગ્સ ગોઠવો"
+    },
+    "activityCoordinator": {
+      "title": "એક્ટિવિટી કોઓર્ડિનેટર",
+      "desc": "ટીમની પ્રવૃત્તિઓ જુઓ અને નવી પ્રવૃત્તિઓ સોંપો"
+    },
+    "retailerExternalDb": {
+      "title": "રિટેલર બાહ્ય ડેટાબેઝ",
+      "desc": "રાજ્ય અને શહેર દ્વારા બાહ્ય કરિયાણાના રિટેલર ડેટા બ્રાઉઝ કરો"
+    },
+    "syncHealth": {
+      "title": "સિંક હેલ્થ",
+      "desc": "સિંક નિષ્ફળતા, ડેટા અખંડિતતા તપાસો અને RLS સુરક્ષા ઇવેન્ટ્સનું નિરીક્ષણ કરો"
+    }
   }
 }
