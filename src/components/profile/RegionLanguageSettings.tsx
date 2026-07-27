@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { clearTimezoneCache } from '@/hooks/useAppTimezone';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import {
   LANGUAGES, REGIONS, LANGS_WITH_TRANSLATIONS, applyDocumentLanguage,
 } from '@/i18n/regions';
@@ -76,6 +77,7 @@ export const RegionLanguageSettings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { i18n } = useTranslation();
+  const { refresh: refreshCurrency } = useCurrency();
 
   const [open, setOpen] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -90,22 +92,40 @@ export const RegionLanguageSettings = () => {
   const [initial, setInitial] = useState({ language: '', locale: '', timezone: '', currency: '' });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [multiEnabled, setMultiEnabled] = useState(false);
+  const [allowedCurrencies, setAllowedCurrencies] = useState<string[]>([]);
+  const [currencyMeta, setCurrencyMeta] = useState<Array<{ code: string; name: string; symbol: string }>>([]);
+
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: company }, { data: profile }] = await Promise.all([
-        supabase.from('companies').select('timezone, currency').limit(1).maybeSingle(),
+      const [{ data: company }, { data: profile }, { data: currencyRows }] = await Promise.all([
+        supabase
+          .from('companies')
+          .select('timezone, currency, base_currency, allowed_currencies, multi_currency_enabled')
+          .limit(1)
+          .maybeSingle(),
         supabase.from('profiles').select('locale, timezone, currency, preferred_language').eq('id', user.id).maybeSingle(),
+        supabase.from('currencies').select('code, name, symbol'),
       ]);
       if (cancelled) return;
+      const comp = company as any;
       const defs = {
-        timezone: (company as any)?.timezone || DEFAULTS.timezone,
-        currency: (company as any)?.currency || DEFAULTS.currency,
+        timezone: comp?.timezone || DEFAULTS.timezone,
+        currency: comp?.base_currency || comp?.currency || DEFAULTS.currency,
       };
       setCompanyDefaults(defs);
+      setMultiEnabled(!!comp?.multi_currency_enabled);
+      setAllowedCurrencies(
+        Array.isArray(comp?.allowed_currencies) && comp.allowed_currencies.length
+          ? comp.allowed_currencies
+          : [defs.currency],
+      );
+      setCurrencyMeta((currencyRows as any[]) || []);
+
       const p = profile as any;
       const nextLocale = p?.locale || 'en-IN';
       const nextTz = p?.timezone || '';
@@ -186,6 +206,7 @@ export const RegionLanguageSettings = () => {
       applyDocumentLanguage(language);
       setInitial({ language, locale, timezone, currency });
       clearTimezoneCache();
+      void refreshCurrency();
       toast({ title: 'Preferences saved', description: 'Your language and region settings have been updated.' });
     } catch (e: any) {
       toast({ title: 'Save failed', description: e.message ?? String(e), variant: 'destructive' });
@@ -328,7 +349,41 @@ export const RegionLanguageSettings = () => {
               )}
             </div>
 
+            {/* Display currency (multi-currency only) */}
+            {multiEnabled && (
+              <div className="space-y-2 rounded-xl border border-border/60 bg-muted/30 p-3">
+                <Label htmlFor="display-currency" className="flex items-center gap-1.5">
+                  <Coins className="h-4 w-4 text-emerald-600" /> Display Currency
+                </Label>
+                <Select
+                  value={currency || companyDefaults.currency}
+                  onValueChange={setCurrency}
+                  disabled={loading}
+                >
+                  <SelectTrigger id="display-currency" className="bg-background rounded-lg">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedCurrencies.map((code) => {
+                      const meta = currencyMeta.find((c) => c.code === code);
+                      return (
+                        <SelectItem key={code} value={code}>
+                          {code}
+                          {meta?.name ? ` — ${meta.name}` : ''}
+                          {meta?.symbol ? ` (${meta.symbol})` : ''}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Amounts across the app are shown converted to this currency.
+                </p>
+              </div>
+            )}
+
             {/* Advanced overrides */}
+
             <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="px-0 text-muted-foreground">

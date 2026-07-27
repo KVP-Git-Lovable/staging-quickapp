@@ -13,6 +13,8 @@ import { isQAMode } from "@/lib/tableRouter";
 import { registerNavigator as registerQANavigator } from "@/qa/automation/navigate";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { FeatureProvider } from "@/context/FeatureContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
+
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { RoleBasedAuthPage } from "@/components/auth/RoleBasedAuthPage";
 import { useMasterDataCache } from "@/hooks/useMasterDataCache";
@@ -423,8 +425,10 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <NetworkProvider>
           <AuthProvider>
+            <CurrencyProvider>
             <FeatureProvider>
               <QAModeProvider>
+
                 <TooltipProvider>
                   <BrowserRouter>
                     <SlowConnectionBanner />
@@ -433,6 +437,8 @@ const App = () => {
                 </TooltipProvider>
               </QAModeProvider>
             </FeatureProvider>
+            </CurrencyProvider>
+
           </AuthProvider>
         </NetworkProvider>
       </QueryClientProvider>
