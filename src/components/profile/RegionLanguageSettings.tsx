@@ -137,7 +137,8 @@ export const RegionLanguageSettings = () => {
     setTimezone(r.timezone);
     setCurrency(r.currency);
     if (!r.languages.includes(language)) {
-      handleLanguageSelect(r.languages[0]);
+      // English is the universal fallback for regions that don't offer the current language.
+      handleLanguageSelect('en');
     }
   };
 
