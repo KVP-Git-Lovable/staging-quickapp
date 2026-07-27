@@ -30,7 +30,12 @@
     "recycleBin": "Recycle Bin",
     "adminControls": "Admin Controls",
     "navigation": "Navigation",
-    "usageReport": "Usage Report"
+    "usageReport": "Usage Report",
+    "helpCenter": "Help Center",
+    "runTestsQa": "Run Tests (QA)",
+    "employees": "Employees",
+    "influencers": "Influencers",
+    "copilot": "Copilot"
   },
   "common": {
     "save": "Save",
@@ -49,7 +54,11 @@
     "selectLanguage": "Select Language",
     "thisWeek": "This Week",
     "thisMonth": "This Month",
-    "lastMonth": "Last Month"
+    "lastMonth": "Last Month",
+    "goBack": "Go back",
+    "noConnection": "No Connection",
+    "confirmLogout": "Confirm Logout",
+    "confirmLogoutDesc": "Are you sure you want to log out? You will need to sign in again to access the app."
   },
   "visits": {
     "title": "My Visits",
@@ -96,7 +105,27 @@
     "summary": "Summary",
     "pendingVisits": "Pending Visits",
     "pointsEarned": "Points Earned",
-    "recent": "Recent"
+    "recent": "Recent",
+    "backdateNotAllowed": "Backdating isn't allowed for this date — showing past data (view only)",
+    "backdateUnverified": "Could not verify backdate permission — showing past data (view only)",
+    "provideReason": "Please provide a reason",
+    "requestSent": "Request sent to your manager",
+    "requestFailed": "Could not send request",
+    "timelineLoadFailed": "Failed to load timeline data",
+    "autoPlanHint": "AI generates optimized weekly beat plans",
+    "activity": "Activity",
+    "cannotSyncOffline": "Cannot sync while offline",
+    "sortAlphabetically": "Sort Alphabetically",
+    "loadingVisits": "Loading visits...",
+    "backdateRequestDesc": "This date is beyond the auto-allowed limit. Send a request to your manager.",
+    "reason": "Reason",
+    "backdateReasonPlaceholder": "Why do you need to backdate this order?",
+    "clearCacheTitle": "Clear Local Cache?",
+    "clearCacheDesc": "This will clear all locally cached data and reload the page. Make sure you have a stable internet connection before proceeding.",
+    "clearCache": "Clear Cache",
+    "cacheCleared": "Cache cleared - data refreshed",
+    "cacheClearFailed": "Failed to clear cache",
+    "syncSuccess": "Data synced successfully!"
   },
   "retailer": {
     "addRetailer": "Add Retailer",
@@ -208,7 +237,25 @@
     "visitsToday": "visits today",
     "marketHoursTracked": "Market hours are automatically tracked from your visit check-ins",
     "confirmStop": "Confirm Stop",
-    "whyStopTracking": "Why are you stopping tracking?"
+    "whyStopTracking": "Why are you stopping tracking?",
+    "stepLocation": "Location",
+    "stepPhoto": "Photo",
+    "stepFace": "Face",
+    "stepSave": "Save",
+    "stepDone": "Done",
+    "absent": "Absent",
+    "regularized": "Regularized",
+    "pendingApproval": "Pending Approval",
+    "rejectedResubmit": "Rejected - Resubmit",
+    "travelHeatMap": "Travel Heat Map",
+    "productivityReport": "Productivity Report",
+    "noRecords": "No attendance records found for the selected period",
+    "capturePhotoTitle": "Capture Photo for Attendance",
+    "capturePhotoDesc": "Position yourself in the frame and capture your photo",
+    "overrideReasonTitle": "Provide Override Reason",
+    "overrideReasonDesc": "After multiple failed attempts, please provide a reason to manually mark your attendance.",
+    "selectReason": "Please select a reason",
+    "stopReasonFailed": "Failed to save stop reason"
   },
   "home": {
     "goodMorning": "Good Morning",
@@ -297,5 +344,141 @@
     "startYourDay": "Start your day by marking attendance",
     "startMyDay": "Start My Day",
     "quickActions": "Quick Actions"
+  },
+  "adminControls": {
+    "dragHint": "Drag cards to reorder, or use the gear to create groups",
+    "searchPlaceholder": "Search admin modules...",
+    "ungrouped": "Ungrouped",
+    "noModules": "No modules found matching \"{{query}}\""
+  },
+  "adminModules": {
+    "priceBooks": {
+      "title": "Price Book Management",
+      "desc": "Create and manage price books for distributors and territories"
+    },
+    "admin": {
+      "title": "User Management",
+      "desc": "Manage user accounts, roles, and permissions"
+    },
+    "attendanceManagement": {
+      "title": "Attendance Management",
+      "desc": "Manage user attendance, holidays, and leave approvals"
+    },
+    "productManagement": {
+      "title": "Products",
+      "desc": "Manage your product catalog, categories, and SKUs"
+    },
+    "uomMaster": {
+      "title": "Unit of Measure Master",
+      "desc": "Manage measurement units, defaults, and ordering for the product catalog"
+    },
+    "beatCoordinator": {
+      "title": "Beat Coordinator",
+      "desc": "Plan beats, cover leave, and optimise routes for your team"
+    },
+    "schemeManagement": {
+      "title": "Scheme Master",
+      "desc": "Create and manage promotional schemes, offers, and discounts"
+    },
+    "vendors": {
+      "title": "Vendors",
+      "desc": "Manage vendor relationships and approvals"
+    },
+    "territoriesAndDistributors": {
+      "title": "Territories & Distributors",
+      "desc": "Manage territory assignments and distributor network"
+    },
+    "adminExpenseManagement": {
+      "title": "Expense Management",
+      "desc": "Track team productivity and expense analytics"
+    },
+    "feedbackManagement": {
+      "title": "Feedback Management",
+      "desc": "View retailer feedback, competition insights, and branding requests"
+    },
+    "operations": {
+      "title": "Operations",
+      "desc": "Monitor real-time operations, check-ins, orders, and stock data"
+    },
+    "gpsTrackManagement": {
+      "title": "GPS Track Management",
+      "desc": "Monitor live locations and track user movements from login to logout"
+    },
+    "retailManagement": {
+      "title": "Retail Management",
+      "desc": "Verify and manage all retailers across the system"
+    },
+    "vanSalesManagement": {
+      "title": "Van Sales Management",
+      "desc": "Manage vans, drivers, and van-based sales operations"
+    },
+    "securityManagement": {
+      "title": "Security & Access",
+      "desc": "Manage user profiles, permissions, and data access control"
+    },
+    "featureManagement": {
+      "title": "Feature Management",
+      "desc": "Control which features are visible and active for users"
+    },
+    "gamificationAdmin": {
+      "title": "Gamification",
+      "desc": "Configure games, points, actions, and manage redemptions"
+    },
+    "retailerLoyaltyAdmin": {
+      "title": "Retailer Loyalty",
+      "desc": "Manage retailer loyalty programs, points, and redemptions"
+    },
+    "companyProfile": {
+      "title": "Company Profile",
+      "desc": "Manage company details, bank information, and header branding"
+    },
+    "invoiceManagement": {
+      "title": "Invoice Management",
+      "desc": "Create and manage GST invoices with templates"
+    },
+    "creditManagement": {
+      "title": "Credit Management",
+      "desc": "Configure retailer credit scoring and limit management system"
+    },
+    "notificationRules": {
+      "title": "Notification Center",
+      "desc": "Configure event-based notification rules and triggers"
+    },
+    "recycleBin": {
+      "title": "Recycle Bin Master",
+      "desc": "Configure recycle bin settings and view permanent deletion logs"
+    },
+    "distributorPortal": {
+      "title": "Distributor Portal Admin",
+      "desc": "Manage distributor portal users, orders, claims, support, and ideas"
+    },
+    "targetVsActual": {
+      "title": "Target Management",
+      "desc": "Configure, assign, and track team targets with hierarchy cascade"
+    },
+    "pincodeMaster": {
+      "title": "Pincode Master",
+      "desc": "Import and manage India PIN code reference data"
+    },
+    "taxMaster": {
+      "title": "Tax Master",
+      "desc": "Configure GST/IGST tax rates and map to product SKUs"
+    },
+    "activityTypes": {
+      "title": "Activity Type Master",
+      "desc": "Configure activity types, weights, and productivity settings"
+    },
+    "activityCoordinator": {
+      "title": "Activity Coordinator",
+      "desc": "View team activities and assign new ones"
+    },
+    "retailerExternalDb": {
+      "title": "Retailer External Database",
+      "desc": "Browse external grocery retailer data by state and city"
+    },
+    "syncHealth": {
+      "title": "Sync Health",
+      "desc": "Monitor sync failures, data integrity checks, and RLS security events"
+    }
   }
 }

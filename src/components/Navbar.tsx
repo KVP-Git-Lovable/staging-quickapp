@@ -114,8 +114,8 @@ export const Navbar = memo(() => {
       { id: 'competition-master', icon: Trophy, label: t('nav.competitionMaster'), href: "/competition-master", color: "from-slate-500 to-slate-600" },
       { id: 'schemes', icon: Gift, label: t('nav.schemes'), href: "/schemes", color: "from-pink-500 to-pink-600" },
       { id: 'expenses', icon: CreditCard, label: t('nav.expenses'), href: "/expenses", color: "from-indigo-500 to-indigo-600" },
-      { id: 'employees', icon: Contact, label: 'Employees', href: "/employees", color: "from-blue-500 to-indigo-600" },
-      { id: 'influencers', icon: Megaphone, label: 'Influencers', href: "/influencers", color: "from-fuchsia-500 to-pink-600" },
+      { id: 'employees', icon: Contact, label: t('nav.employees'), href: "/employees", color: "from-blue-500 to-indigo-600" },
+      { id: 'influencers', icon: Megaphone, label: t('nav.influencers'), href: "/influencers", color: "from-fuchsia-500 to-pink-600" },
     ];
 
     // Add Leaderboard only if gamification is active
@@ -137,7 +137,7 @@ export const Navbar = memo(() => {
     baseItems.push(
       // { id: 'projects', icon: FolderKanban, label: 'Projects', href: "/projects", color: "from-sky-500 to-sky-600" }, // ARCHIVED: Projects module hidden
       { id: 'my-competency', icon: Target, label: t('nav.competency'), href: "/competency-dashboard", color: "from-indigo-500 to-indigo-600" },
-      { id: 'help-center', icon: HelpCircle, label: 'Help Center', href: "/help-center", color: "from-teal-500 to-teal-600" },
+      { id: 'help-center', icon: HelpCircle, label: t('nav.helpCenter'), href: "/help-center", color: "from-teal-500 to-teal-600" },
       { id: 'usage-report', icon: BarChart3, label: t('nav.usageReport'), href: "/usage-report", color: "from-sky-500 to-sky-600" },
       { id: 'recycle-bin', icon: Trash2, label: t('nav.recycleBin'), href: "/recycle-bin", color: "from-rose-500 to-rose-600" },
     );
@@ -167,7 +167,7 @@ export const Navbar = memo(() => {
     // QA-only: tree-shaken out of production bundles because
     // import.meta.env.VITE_APP_MODE is statically replaced by Vite.
     ...(import.meta.env.VITE_APP_MODE === 'qa'
-      ? [{ icon: Shield, label: 'Run Tests (QA)', href: '/qa/run-tests', color: 'from-yellow-500 to-amber-600' }]
+      ? [{ icon: Shield, label: t('nav.runTestsQa'), href: '/qa/run-tests', color: 'from-yellow-500 to-amber-600' }]
       : []),
   ];
 
@@ -215,7 +215,7 @@ export const Navbar = memo(() => {
                 <button
                   onClick={handleBackClick}
                   className="p-1 rounded-lg hover:bg-white/10 transition-colors text-white"
-                  title="Go back"
+                  title={t('common.goBack')}
                 >
                   <ArrowLeft size={16} />
                 </button>
@@ -244,7 +244,7 @@ export const Navbar = memo(() => {
                     ) : connectivityStatus === 'offline' ? (
                       <>
                         <WifiOff className="h-2.5 w-2.5 opacity-80" />
-                        <p className="text-[10px] opacity-80">No Connection</p>
+                        <p className="text-[10px] opacity-80">{t('common.noConnection')}</p>
                       </>
                     ) : null}
                   </div>
@@ -255,7 +255,7 @@ export const Navbar = memo(() => {
             <div className="flex items-center gap-1">
               <NavLink
                 to="/copilot"
-                title="Copilot"
+                title={t('nav.copilot')}
                 className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white flex items-center"
               >
                 <Sparkles size={18} />
@@ -391,14 +391,14 @@ export const Navbar = memo(() => {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Confirm Logout
+              {t('common.confirmLogout')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to log out? You will need to sign in again to access the app.
+              {t('common.confirmLogoutDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => {
@@ -408,7 +408,7 @@ export const Navbar = memo(() => {
               }}
             >
               <LogOut className="h-4 w-4 mr-2" />
-              Logout
+              {t('nav.logout')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

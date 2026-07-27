@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
@@ -28,6 +29,7 @@ const COLOR_TO_GRADIENT: Record<string, string> = {
 };
 
 const AdminControls = () => {
+  const { t } = useTranslation('common');
   const { hasAdminAccess, permittedAdminPaths, loading } = useAdminAccess();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,39 +38,39 @@ const AdminControls = () => {
   const [draggedGroupId, setDraggedGroupId] = useState<string | null>(null);
 
   const adminModules = useMemo(() => [
-    { title: "Price Book Management", description: "Create and manage price books for distributors and territories", icon: DollarSign, color: "emerald", path: "/admin/price-books" },
-    { title: "User Management", description: "Manage user accounts, roles, and permissions", icon: Users, color: "orange", path: "/admin#users" },
-    { title: "Attendance Management", description: "Manage user attendance, holidays, and leave approvals", icon: CalendarDays, color: "purple", path: "/attendance-management" },
-    { title: "Products", description: "Manage your product catalog, categories, and SKUs", icon: Package, color: "blue", path: "/product-management" },
-    { title: "Unit of Measure Master", description: "Manage measurement units, defaults, and ordering for the product catalog", icon: Ruler, color: "sky", path: "/admin/uom-master" },
-    { title: "Beat Coordinator", description: "Plan beats, cover leave, and optimise routes for your team", icon: Route, color: "indigo", path: "/admin/beat-coordinator" },
-    { title: "Scheme Master", description: "Create and manage promotional schemes, offers, and discounts", icon: Gift, color: "amber", path: "/scheme-management" },
-    { title: "Vendors", description: "Manage vendor relationships and approvals", icon: Users, color: "green", path: "/vendors" },
-    { title: "Territories & Distributors", description: "Manage territory assignments and distributor network", icon: MapPin, color: "indigo", path: "/territories-and-distributors" },
-    { title: "Expense Management", description: "Track team productivity and expense analytics", icon: DollarSign, color: "yellow", path: "/admin-expense-management" },
-    { title: "Feedback Management", description: "View retailer feedback, competition insights, and branding requests", icon: MessageSquareText, color: "purple", path: "/feedback-management" },
-    { title: "Operations", description: "Monitor real-time operations, check-ins, orders, and stock data", icon: BarChart3, color: "red", path: "/operations" },
-    { title: "GPS Track Management", description: "Monitor live locations and track user movements from login to logout", icon: Navigation, color: "cyan", path: "/gps-track-management" },
-    { title: "Retail Management", description: "Verify and manage all retailers across the system", icon: Store, color: "teal", path: "/retail-management" },
-    { title: "Van Sales Management", description: "Manage vans, drivers, and van-based sales operations", icon: Truck, color: "emerald", path: "/van-sales-management" },
-    { title: "Security & Access", description: "Manage user profiles, permissions, and data access control", icon: Lock, color: "indigo", path: "/security-management" },
-    { title: "Feature Management", description: "Control which features are visible and active for users", icon: Flag, color: "violet", path: "/feature-management" },
-    { title: "Gamification", description: "Configure games, points, actions, and manage redemptions", icon: Trophy, color: "amber", path: "/gamification-admin" },
-    { title: "Retailer Loyalty", description: "Manage retailer loyalty programs, points, and redemptions", icon: Trophy, color: "pink", path: "/retailer-loyalty-admin" },
-    { title: "Company Profile", description: "Manage company details, bank information, and header branding", icon: Building2, color: "blue", path: "/company-profile" },
-    { title: "Invoice Management", description: "Create and manage GST invoices with templates", icon: FileText, color: "cyan", path: "/invoice-management" },
-    { title: "Credit Management", description: "Configure retailer credit scoring and limit management system", icon: CreditCard, color: "emerald", path: "/credit-management" },
-    { title: "Notification Center", description: "Configure event-based notification rules and triggers", icon: Bell, color: "rose", path: "/admin/notification-rules" },
-    { title: "Recycle Bin Master", description: "Configure recycle bin settings and view permanent deletion logs", icon: Trash2, color: "rose", path: "/admin/recycle-bin" },
-    { title: "Distributor Portal Admin", description: "Manage distributor portal users, orders, claims, support, and ideas", icon: Building2, color: "cyan", path: "/admin/distributor-portal" },
-    { title: "Target Management", description: "Configure, assign, and track team targets with hierarchy cascade", icon: Target, color: "blue", path: "/admin/target-vs-actual" },
-    { title: "Pincode Master", description: "Import and manage India PIN code reference data", icon: MapIcon, color: "teal", path: "/admin/pincode-master" },
-    { title: "Tax Master", description: "Configure GST/IGST tax rates and map to product SKUs", icon: Percent, color: "violet", path: "/admin/tax-master" },
-    { title: "Activity Type Master", description: "Configure activity types, weights, and productivity settings", icon: Activity, color: "teal", path: "/admin/activity-types" },
-    { title: "Activity Coordinator", description: "View team activities and assign new ones", icon: Activity, color: "teal", path: "/admin/activity-coordinator" },
-    { title: "Retailer External Database", description: "Browse external grocery retailer data by state and city", icon: Database, color: "orange", path: "/admin/retailer-external-db" },
-    { title: "Sync Health", description: "Monitor sync failures, data integrity checks, and RLS security events", icon: Activity, color: "red", path: "/admin/sync-health" },
-  ], []);
+    { title: t('adminModules.priceBooks.title'), description: t('adminModules.priceBooks.desc'), icon: DollarSign, color: "emerald", path: "/admin/price-books" },
+    { title: t('adminModules.admin.title'), description: t('adminModules.admin.desc'), icon: Users, color: "orange", path: "/admin#users" },
+    { title: t('adminModules.attendanceManagement.title'), description: t('adminModules.attendanceManagement.desc'), icon: CalendarDays, color: "purple", path: "/attendance-management" },
+    { title: t('adminModules.productManagement.title'), description: t('adminModules.productManagement.desc'), icon: Package, color: "blue", path: "/product-management" },
+    { title: t('adminModules.uomMaster.title'), description: t('adminModules.uomMaster.desc'), icon: Ruler, color: "sky", path: "/admin/uom-master" },
+    { title: t('adminModules.beatCoordinator.title'), description: t('adminModules.beatCoordinator.desc'), icon: Route, color: "indigo", path: "/admin/beat-coordinator" },
+    { title: t('adminModules.schemeManagement.title'), description: t('adminModules.schemeManagement.desc'), icon: Gift, color: "amber", path: "/scheme-management" },
+    { title: t('adminModules.vendors.title'), description: t('adminModules.vendors.desc'), icon: Users, color: "green", path: "/vendors" },
+    { title: t('adminModules.territoriesAndDistributors.title'), description: t('adminModules.territoriesAndDistributors.desc'), icon: MapPin, color: "indigo", path: "/territories-and-distributors" },
+    { title: t('adminModules.adminExpenseManagement.title'), description: t('adminModules.adminExpenseManagement.desc'), icon: DollarSign, color: "yellow", path: "/admin-expense-management" },
+    { title: t('adminModules.feedbackManagement.title'), description: t('adminModules.feedbackManagement.desc'), icon: MessageSquareText, color: "purple", path: "/feedback-management" },
+    { title: t('adminModules.operations.title'), description: t('adminModules.operations.desc'), icon: BarChart3, color: "red", path: "/operations" },
+    { title: t('adminModules.gpsTrackManagement.title'), description: t('adminModules.gpsTrackManagement.desc'), icon: Navigation, color: "cyan", path: "/gps-track-management" },
+    { title: t('adminModules.retailManagement.title'), description: t('adminModules.retailManagement.desc'), icon: Store, color: "teal", path: "/retail-management" },
+    { title: t('adminModules.vanSalesManagement.title'), description: t('adminModules.vanSalesManagement.desc'), icon: Truck, color: "emerald", path: "/van-sales-management" },
+    { title: t('adminModules.securityManagement.title'), description: t('adminModules.securityManagement.desc'), icon: Lock, color: "indigo", path: "/security-management" },
+    { title: t('adminModules.featureManagement.title'), description: t('adminModules.featureManagement.desc'), icon: Flag, color: "violet", path: "/feature-management" },
+    { title: t('adminModules.gamificationAdmin.title'), description: t('adminModules.gamificationAdmin.desc'), icon: Trophy, color: "amber", path: "/gamification-admin" },
+    { title: t('adminModules.retailerLoyaltyAdmin.title'), description: t('adminModules.retailerLoyaltyAdmin.desc'), icon: Trophy, color: "pink", path: "/retailer-loyalty-admin" },
+    { title: t('adminModules.companyProfile.title'), description: t('adminModules.companyProfile.desc'), icon: Building2, color: "blue", path: "/company-profile" },
+    { title: t('adminModules.invoiceManagement.title'), description: t('adminModules.invoiceManagement.desc'), icon: FileText, color: "cyan", path: "/invoice-management" },
+    { title: t('adminModules.creditManagement.title'), description: t('adminModules.creditManagement.desc'), icon: CreditCard, color: "emerald", path: "/credit-management" },
+    { title: t('adminModules.notificationRules.title'), description: t('adminModules.notificationRules.desc'), icon: Bell, color: "rose", path: "/admin/notification-rules" },
+    { title: t('adminModules.recycleBin.title'), description: t('adminModules.recycleBin.desc'), icon: Trash2, color: "rose", path: "/admin/recycle-bin" },
+    { title: t('adminModules.distributorPortal.title'), description: t('adminModules.distributorPortal.desc'), icon: Building2, color: "cyan", path: "/admin/distributor-portal" },
+    { title: t('adminModules.targetVsActual.title'), description: t('adminModules.targetVsActual.desc'), icon: Target, color: "blue", path: "/admin/target-vs-actual" },
+    { title: t('adminModules.pincodeMaster.title'), description: t('adminModules.pincodeMaster.desc'), icon: MapIcon, color: "teal", path: "/admin/pincode-master" },
+    { title: t('adminModules.taxMaster.title'), description: t('adminModules.taxMaster.desc'), icon: Percent, color: "violet", path: "/admin/tax-master" },
+    { title: t('adminModules.activityTypes.title'), description: t('adminModules.activityTypes.desc'), icon: Activity, color: "teal", path: "/admin/activity-types" },
+    { title: t('adminModules.activityCoordinator.title'), description: t('adminModules.activityCoordinator.desc'), icon: Activity, color: "teal", path: "/admin/activity-coordinator" },
+    { title: t('adminModules.retailerExternalDb.title'), description: t('adminModules.retailerExternalDb.desc'), icon: Database, color: "orange", path: "/admin/retailer-external-db" },
+    { title: t('adminModules.syncHealth.title'), description: t('adminModules.syncHealth.desc'), icon: Activity, color: "red", path: "/admin/sync-health" },
+  ], [t]);
 
   const ALWAYS_VISIBLE_FOR_ADMIN = new Set(['/admin/uom-master', '/admin/beat-coordinator', '/admin/sync-health']);
 
@@ -211,8 +213,8 @@ const AdminControls = () => {
           {/* Header */}
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-foreground">Admin Controls</h1>
-              <p className="text-muted-foreground">Drag cards to reorder, or use the gear to create groups</p>
+              <h1 className="text-3xl font-bold text-foreground">{t('nav.adminControls')}</h1>
+              <p className="text-muted-foreground">{t('adminControls.dragHint')}</p>
             </div>
           </div>
 
@@ -220,7 +222,7 @@ const AdminControls = () => {
           <div className="flex items-center gap-2 max-w-md">
             <div className="flex-1">
               <SearchInput
-                placeholder="Search admin modules..."
+                placeholder={t('adminControls.searchPlaceholder')}
                 value={searchQuery}
                 onChange={setSearchQuery}
               />
@@ -262,7 +264,7 @@ const AdminControls = () => {
           {filteredUngrouped.length > 0 && (
             <div className="space-y-4">
               {filteredGroups.length > 0 && (
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ungrouped</h2>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{t('adminControls.ungrouped')}</h2>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
                 {filteredUngrouped.map(item => renderCard(item, null, filteredUngrouped))}
@@ -274,7 +276,7 @@ const AdminControls = () => {
 
           {totalVisible === 0 && (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No modules found matching "{searchQuery}"</p>
+              <p className="text-muted-foreground">{t('adminControls.noModules', { query: searchQuery })}</p>
             </div>
           )}
         </div>

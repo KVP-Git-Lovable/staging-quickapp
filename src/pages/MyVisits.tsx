@@ -744,7 +744,7 @@ export const MyVisits = () => {
       setTimelineVisits(timelineData);
     } catch (error) {
       console.error('Error loading timeline visits:', error);
-      toast.error('Failed to load timeline data');
+      toast.error(t('visits.timelineLoadFailed'));
     }
   };
 
@@ -1082,12 +1082,12 @@ export const MyVisits = () => {
         setBackdateApprovalReason('');
         setBackdateApprovalPrompt({ isoDate });
       } else {
-        toast.info("Backdating isn't allowed for this date — showing past data (view only)");
+        toast.info(t('visits.backdateNotAllowed'));
       }
       return true;
     } catch (e: any) {
       try { sessionStorage.removeItem('backdated_order_context'); } catch {}
-      toast.info('Could not verify backdate permission — showing past data (view only)');
+      toast.info(t('visits.backdateUnverified'));
       return true;
     }
   }, [backdateCfg]);
@@ -1097,18 +1097,18 @@ export const MyVisits = () => {
     const iso = backdateApprovalPrompt.isoDate;
     const reason = backdateApprovalReason.trim();
     if (backdateCfg.requireReason && !reason) {
-      toast.error('Please provide a reason');
+      toast.error(t('visits.provideReason'));
       return;
     }
     setBackdateApprovalSubmitting(true);
     try {
       const { error } = await supabase.rpc('request_backdate' as any, { p_date: iso, p_reason: reason || null });
       if (error) throw error;
-      toast.success('Request sent to your manager');
+      toast.success(t('visits.requestSent'));
       setBackdateApprovalPrompt(null);
       setBackdateApprovalReason('');
     } catch (e: any) {
-      toast.error(e?.message || 'Could not send request');
+      toast.error(e?.message || t('visits.requestFailed'));
     } finally {
       setBackdateApprovalSubmitting(false);
     }
@@ -1495,7 +1495,7 @@ export const MyVisits = () => {
               const allBeatEnabled = isBackdateAllowedForDate(selectedDate);
               const row1Buttons = [
                 showAutoPlan && (
-                  <Button key="auto-plan" variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={handleAutoGeneratePlan} disabled={isGeneratingPlan} title="AI generates optimized weekly beat plans">
+                  <Button key="auto-plan" variant="secondary" size="sm" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[10px] sm:text-sm h-8 sm:h-9 px-1.5 sm:px-3" onClick={handleAutoGeneratePlan} disabled={isGeneratingPlan} title={t('visits.autoPlanHint')}>
                     {isGeneratingPlan ? <Loader2 size={12} className="mr-1 sm:mr-1.5 animate-spin" /> : <Sparkles size={12} className="mr-1 sm:mr-1.5" />}
                     <span className="whitespace-nowrap">{isGeneratingPlan ? t('visits.planning') : t('visits.autoPlan')}</span>
                   </Button>
@@ -1542,7 +1542,7 @@ export const MyVisits = () => {
                 showActivity && (
                   <Button key="activity" variant="secondary" size="sm" className="relative bg-primary-foreground/10 text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/20 text-[9px] sm:text-sm h-8 sm:h-9 px-1 sm:px-3" onClick={() => setIsActivityModalOpen(true)}>
                     <Sparkles size={12} className="mr-0.5 sm:mr-1.5 flex-shrink-0" />
-                    <span className="truncate">Activity</span>
+                    <span className="truncate">{t('visits.activity')}</span>
                     {overdueFollowUpCount > 0 && (
                       <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[9px] flex items-center justify-center rounded-full">
                         {overdueFollowUpCount}
@@ -1595,7 +1595,7 @@ export const MyVisits = () => {
                   onClick={() => {
                     if (!user?.id) return;
                     if (!navigator.onLine || networkStatus === 'offline') {
-                      toast.error('Cannot sync while offline');
+                      toast.error(t('visits.cannotSyncOffline'));
                       return;
                     }
                     setShowSyncModal(true);
@@ -1683,7 +1683,7 @@ export const MyVisits = () => {
                     variant="outline"
                     size="sm"
                     className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20 hover:from-primary/15 hover:to-primary/10 h-9 w-9 p-0 flex-shrink-0"
-                    title="Sort Alphabetically"
+                    title={t('visits.sortAlphabetically')}
                   >
                     <ArrowUpDown className="h-4 w-4" />
                   </Button>
@@ -1723,7 +1723,7 @@ export const MyVisits = () => {
                   <div className="h-4 w-32 mx-auto mb-2 bg-muted rounded" />
                   <div className="h-3 w-48 mx-auto bg-muted rounded" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-3">Loading visits...</p>
+                <p className="text-xs text-muted-foreground mt-3">{t('visits.loadingVisits')}</p>
               </CardContent>
             </Card>
           )}
@@ -1824,22 +1824,22 @@ export const MyVisits = () => {
                 Request approval to backdate to {backdateApprovalPrompt?.isoDate}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                This date is beyond the auto-allowed limit. Send a request to your manager.
+                {t('visits.backdateRequestDesc')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             {backdateCfg.requireReason && (
               <div className="py-2">
-                <label className="text-sm font-medium">Reason</label>
+                <label className="text-sm font-medium">{t('visits.reason')}</label>
                 <textarea
                   className="mt-1 w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={backdateApprovalReason}
                   onChange={(e) => setBackdateApprovalReason(e.target.value)}
-                  placeholder="Why do you need to backdate this order?"
+                  placeholder={t('visits.backdateReasonPlaceholder')}
                 />
               </div>
             )}
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={backdateApprovalSubmitting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={backdateApprovalSubmitting}>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction
                 onClick={(e) => { e.preventDefault(); submitBackdateApprovalRequest(); }}
                 disabled={backdateApprovalSubmitting}
@@ -1950,13 +1950,13 @@ export const MyVisits = () => {
         <AlertDialog open={showClearCacheDialog} onOpenChange={setShowClearCacheDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Clear Local Cache?</AlertDialogTitle>
+              <AlertDialogTitle>{t('visits.clearCacheTitle')}</AlertDialogTitle>
               <AlertDialogDescription>
-                This will clear all locally cached data and reload the page. Make sure you have a stable internet connection before proceeding.
+                {t('visits.clearCacheDesc')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 onClick={async () => {
@@ -1970,17 +1970,17 @@ export const MyVisits = () => {
                     await Preferences.remove({ key: snapshotKey });
                     await Preferences.remove({ key: 'visit_status_cache' });
                     
-                    toast.success('Cache cleared - data refreshed');
+                    toast.success(t('visits.cacheCleared'));
                     invalidateData?.();
                     // Dispatch global refresh event instead of full page reload
                     window.dispatchEvent(new CustomEvent('globalDataRefresh', { detail: { source: 'cacheClear' } }));
                   } catch (err) {
                     console.error('Cache clear error:', err);
-                    toast.error('Failed to clear cache');
+                    toast.error(t('visits.cacheClearFailed'));
                   }
                 }}
               >
-                Clear Cache
+                {t('visits.clearCache')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1992,7 +1992,7 @@ export const MyVisits = () => {
           onClose={() => setShowSyncModal(false)}
           onComplete={() => {
             invalidateData?.();
-            toast.success('Data synced successfully!');
+            toast.success(t('visits.syncSuccess'));
           }}
         />
       </div>

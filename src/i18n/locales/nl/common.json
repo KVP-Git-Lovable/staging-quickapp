@@ -30,7 +30,12 @@
     "recycleBin": "Prullenbak",
     "adminControls": "Beheerinstellingen",
     "navigation": "Navigatie",
-    "usageReport": "Gebruiksrapport"
+    "usageReport": "Gebruiksrapport",
+    "helpCenter": "Helpcentrum",
+    "runTestsQa": "Tests uitvoeren (QA)",
+    "employees": "Werknemers",
+    "influencers": "Influencers",
+    "copilot": "Copilot"
   },
   "common": {
     "save": "Opslaan",
@@ -49,7 +54,11 @@
     "selectLanguage": "Taal selecteren",
     "thisWeek": "Deze week",
     "thisMonth": "Deze maand",
-    "lastMonth": "Vorige maand"
+    "lastMonth": "Vorige maand",
+    "goBack": "Teruggaan",
+    "noConnection": "Geen verbinding",
+    "confirmLogout": "Uitloggen bevestigen",
+    "confirmLogoutDesc": "Weet u zeker dat u wilt uitloggen? U moet opnieuw inloggen om toegang te krijgen tot de app."
   },
   "visits": {
     "title": "Mijn bezoeken",
@@ -96,7 +105,27 @@
     "summary": "Samenvatting",
     "pendingVisits": "Openstaande bezoeken",
     "pointsEarned": "Verdiende punten",
-    "recent": "Recent"
+    "recent": "Recent",
+    "backdateNotAllowed": "Terugdateren is niet toegestaan voor deze datum — oudere gegevens weergeven (alleen bekijken)",
+    "backdateUnverified": "Kon terugdateer-toestemming niet verifiëren — oudere gegevens weergeven (alleen bekijken)",
+    "provideReason": "Gelieve een reden op te geven",
+    "requestSent": "Verzoek verzonden naar uw manager",
+    "requestFailed": "Kon verzoek niet verzenden",
+    "timelineLoadFailed": "Laden van tijdlijngegevens mislukt",
+    "autoPlanHint": "AI genereert geoptimaliseerde wekelijkse bezoekplanningen",
+    "activity": "Activiteit",
+    "cannotSyncOffline": "Kan niet synchroniseren terwijl offline",
+    "sortAlphabetically": "Alfabetisch sorteren",
+    "loadingVisits": "Bezoeken laden...",
+    "backdateRequestDesc": "Deze datum valt buiten de automatisch toegestane limiet. Stuur een verzoek naar uw manager.",
+    "reason": "Reden",
+    "backdateReasonPlaceholder": "Waarom moet u deze bestelling terugdateren?",
+    "clearCacheTitle": "Lokale cache wissen?",
+    "clearCacheDesc": "Hiermee worden alle lokaal opgeslagen gegevens gewist en de pagina opnieuw geladen. Zorg voor een stabiele internetverbinding voordat u verdergaat.",
+    "clearCache": "Cache wissen",
+    "cacheCleared": "Cache gewist - gegevens vernieuwd",
+    "cacheClearFailed": "Wissen van cache mislukt",
+    "syncSuccess": "Gegevens succesvol gesynchroniseerd!"
   },
   "retailer": {
     "addRetailer": "Retailer toevoegen",
@@ -208,7 +237,25 @@
     "visitsToday": "bezoeken vandaag",
     "marketHoursTracked": "Markturen worden automatisch berekend op basis van je bezoek-check-ins",
     "confirmStop": "Stoppen bevestigen",
-    "whyStopTracking": "Waarom stop je met tracken?"
+    "whyStopTracking": "Waarom stop je met tracken?",
+    "stepLocation": "Locatie",
+    "stepPhoto": "Foto",
+    "stepFace": "Gezicht",
+    "stepSave": "Opslaan",
+    "stepDone": "Klaar",
+    "absent": "Afwezig",
+    "regularized": "Geregulariseerd",
+    "pendingApproval": "In afwachting van goedkeuring",
+    "rejectedResubmit": "Afgekeurd - Opnieuw indienen",
+    "travelHeatMap": "Reis-heatmap",
+    "productivityReport": "Productiviteitsrapport",
+    "noRecords": "Geen aanwezigheidsgegevens gevonden voor de geselecteerde periode",
+    "capturePhotoTitle": "Foto maken voor aanwezigheid",
+    "capturePhotoDesc": "Plaats uzelf in het kader en maak een foto",
+    "overrideReasonTitle": "Geef reden voor negeren op",
+    "overrideReasonDesc": "Na meerdere mislukte pogingen, gelieve een reden op te geven om uw aanwezigheid handmatig te markeren.",
+    "selectReason": "Gelieve een reden te selecteren",
+    "stopReasonFailed": "Opslaan van stopreden mislukt"
   },
   "home": {
     "goodMorning": "Goedemorgen",
@@ -297,5 +344,141 @@
     "startYourDay": "Start je dag door je aanwezigheid te registreren",
     "startMyDay": "Mijn dag starten",
     "quickActions": "Snelle acties"
+  },
+  "adminControls": {
+    "dragHint": "Sleep kaarten om de volgorde te wijzigen, of gebruik het tandwiel om groepen te maken",
+    "searchPlaceholder": "Zoek adminmodules...",
+    "ungrouped": "Niet-gegroepeerd",
+    "noModules": "Geen modules gevonden die overeenkomen met \"{{query}}\""
+  },
+  "adminModules": {
+    "priceBooks": {
+      "title": "Prijsboekbeheer",
+      "desc": "Maak en beheer prijsboeken voor distributeurs en gebieden"
+    },
+    "admin": {
+      "title": "Gebruikersbeheer",
+      "desc": "Beheer gebruikersaccounts, rollen en permissies"
+    },
+    "attendanceManagement": {
+      "title": "Aanwezigheidsbeheer",
+      "desc": "Beheer gebruikersaanwezigheid, feestdagen en verlofaanvragen"
+    },
+    "productManagement": {
+      "title": "Producten",
+      "desc": "Beheer uw productcatalogus, categorieën en SKU's"
+    },
+    "uomMaster": {
+      "title": "Hoofdbestand voor maateenheden",
+      "desc": "Beheer maateenheden, standaardwaarden en volgorde voor de productcatalogus"
+    },
+    "beatCoordinator": {
+      "title": "Beat Coördinator",
+      "desc": "Plan routes, dek verlof af en optimaliseer routes voor uw team"
+    },
+    "schemeManagement": {
+      "title": "Schema Beheer",
+      "desc": "Maak en beheer promotieprogramma's, aanbiedingen en kortingen"
+    },
+    "vendors": {
+      "title": "Leveranciers",
+      "desc": "Beheer leveranciersrelaties en goedkeuringen"
+    },
+    "territoriesAndDistributors": {
+      "title": "Gebieden & Distributeurs",
+      "desc": "Beheer toewijzingen van gebieden en distributeursnetwerk"
+    },
+    "adminExpenseManagement": {
+      "title": "Onkostenbeheer",
+      "desc": "Volg teamproductiviteit en onkostenanalyses"
+    },
+    "feedbackManagement": {
+      "title": "Feedbackbeheer",
+      "desc": "Bekijk feedback van retailers, concurrentie-inzichten en brandingverzoeken"
+    },
+    "operations": {
+      "title": "Operationeel",
+      "desc": "Monitor real-time operaties, check-ins, bestellingen en voorraadgegevens"
+    },
+    "gpsTrackManagement": {
+      "title": "GPS Track Beheer",
+      "desc": "Monitor live locaties en volg gebruikersbewegingen van login tot logout"
+    },
+    "retailManagement": {
+      "title": "Retail Beheer",
+      "desc": "Verifieer en beheer alle retailers in het systeem"
+    },
+    "vanSalesManagement": {
+      "title": "Van Sales Management",
+      "desc": "Beheer bestelwagens, chauffeurs en bestelwagengebaseerde verkoopactiviteiten"
+    },
+    "securityManagement": {
+      "title": "Beveiliging & Toegang",
+      "desc": "Beheer gebruikersprofielen, machtigingen en toegangscontrole tot gegevens"
+    },
+    "featureManagement": {
+      "title": "Functiebeheer",
+      "desc": "Bepaal welke functies zichtbaar en actief zijn voor gebruikers"
+    },
+    "gamificationAdmin": {
+      "title": "Gamificatie",
+      "desc": "Configureer spellen, punten, acties en beheer verzilveringen"
+    },
+    "retailerLoyaltyAdmin": {
+      "title": "Retailer loyaliteit",
+      "desc": "Beheer loyaliteitsprogramma's, punten en verzilveringen voor retailers"
+    },
+    "companyProfile": {
+      "title": "Bedrijfsprofiel",
+      "desc": "Beheer bedrijfsgegevens, bankinformatie en headerbranding"
+    },
+    "invoiceManagement": {
+      "title": "Factuurbeheer",
+      "desc": "Maak en beheer GST-facturen met sjablonen"
+    },
+    "creditManagement": {
+      "title": "Kredietbeheer",
+      "desc": "Configureer retailer kredietscore- en limietbeheersysteem"
+    },
+    "notificationRules": {
+      "title": "Notificatiecentrum",
+      "desc": "Configureer evenementgebaseerde notificatieregels en triggers"
+    },
+    "recycleBin": {
+      "title": "Prullenbak Master",
+      "desc": "Configureer prullenbakinstellingen en bekijk logboeken van permanente verwijderingen"
+    },
+    "distributorPortal": {
+      "title": "Distributeursportaal Beheer",
+      "desc": "Beheer distributeursportaal gebruikers, bestellingen, claims, ondersteuning en ideeën"
+    },
+    "targetVsActual": {
+      "title": "Targetbeheer",
+      "desc": "Configureer, wijs toe en volg teamdoelen met hiërarchische cascade"
+    },
+    "pincodeMaster": {
+      "title": "Postcodemaster",
+      "desc": "Importeer en beheer India PIN-codereferentiegegevens"
+    },
+    "taxMaster": {
+      "title": "Belastingmaster",
+      "desc": "Configureer GST/IGST belastingtarieven en koppel aan product-SKU's"
+    },
+    "activityTypes": {
+      "title": "Activiteitstype Master",
+      "desc": "Configureer activiteitstypes, wegingen en productiviteitsinstellingen"
+    },
+    "activityCoordinator": {
+      "title": "Activiteitencoördinator",
+      "desc": "Bekijk teamactiviteiten en wijs nieuwe toe"
+    },
+    "retailerExternalDb": {
+      "title": "Externe database voor retailers",
+      "desc": "Blader door externe supermarktretailergegevens per staat en stad"
+    },
+    "syncHealth": {
+      "title": "Synchronisatiegezondheid",
+      "desc": "Bewaak synchronisatiefouten, gegevensintegriteitscontroles en RLS-beveiligingsevenementen"
+    }
   }
 }

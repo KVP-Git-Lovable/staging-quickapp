@@ -30,7 +30,12 @@
     "recycleBin": "Papierkorb",
     "adminControls": "Admin-Einstellungen",
     "navigation": "Navigation",
-    "usageReport": "Nutzungsbericht"
+    "usageReport": "Nutzungsbericht",
+    "helpCenter": "Hilfe-Center",
+    "runTestsQa": "Tests durchführen (QA)",
+    "employees": "Mitarbeiter",
+    "influencers": "Influencer",
+    "copilot": "Copilot"
   },
   "common": {
     "save": "Speichern",
@@ -49,7 +54,11 @@
     "selectLanguage": "Sprache auswählen",
     "thisWeek": "Diese Woche",
     "thisMonth": "Dieser Monat",
-    "lastMonth": "Letzter Monat"
+    "lastMonth": "Letzter Monat",
+    "goBack": "Zurück",
+    "noConnection": "Keine Verbindung",
+    "confirmLogout": "Abmeldung bestätigen",
+    "confirmLogoutDesc": "Möchten Sie sich wirklich abmelden? Sie müssen sich erneut anmelden, um auf die App zugreifen zu können."
   },
   "visits": {
     "title": "Meine Besuche",
@@ -96,7 +105,27 @@
     "summary": "Zusammenfassung",
     "pendingVisits": "Offene Besuche",
     "pointsEarned": "Erhaltene Punkte",
-    "recent": "Kürzlich"
+    "recent": "Kürzlich",
+    "backdateNotAllowed": "Rückdatierung für dieses Datum nicht zulässig – frühere Daten werden angezeigt (nur Ansicht)",
+    "backdateUnverified": "Rückdatierungsberechtigung konnte nicht überprüft werden – frühere Daten werden angezeigt (nur Ansicht)",
+    "provideReason": "Bitte geben Sie einen Grund an",
+    "requestSent": "Anfrage an Ihren Manager gesendet",
+    "requestFailed": "Anfrage konnte nicht gesendet werden",
+    "timelineLoadFailed": "Zeitliniendaten konnten nicht geladen werden",
+    "autoPlanHint": "KI generiert optimierte wöchentliche Besuchsrouten",
+    "activity": "Aktivität",
+    "cannotSyncOffline": "Synchronisierung im Offline-Modus nicht möglich",
+    "sortAlphabetically": "Alphabetisch sortieren",
+    "loadingVisits": "Besuche werden geladen...",
+    "backdateRequestDesc": "Dieses Datum liegt außerhalb des automatisch zulässigen Limits. Senden Sie eine Anfrage an Ihren Manager.",
+    "reason": "Grund",
+    "backdateReasonPlaceholder": "Warum müssen Sie diese Bestellung rückdatieren?",
+    "clearCacheTitle": "Lokalen Cache leeren?",
+    "clearCacheDesc": "Dadurch werden alle lokal zwischengespeicherten Daten gelöscht und die Seite neu geladen. Stellen Sie sicher, dass Sie eine stabile Internetverbindung haben, bevor Sie fortfahren.",
+    "clearCache": "Cache leeren",
+    "cacheCleared": "Cache geleert – Daten aktualisiert",
+    "cacheClearFailed": "Cache konnte nicht geleert werden",
+    "syncSuccess": "Daten erfolgreich synchronisiert!"
   },
   "retailer": {
     "addRetailer": "Händler hinzufügen",
@@ -208,7 +237,25 @@
     "visitsToday": "Besuche heute",
     "marketHoursTracked": "Marktstunden werden automatisch aus deinen Besuchs-Check-ins berechnet",
     "confirmStop": "Stopp bestätigen",
-    "whyStopTracking": "Warum beendest du das Tracking?"
+    "whyStopTracking": "Warum beendest du das Tracking?",
+    "stepLocation": "Standort",
+    "stepPhoto": "Foto",
+    "stepFace": "Gesicht",
+    "stepSave": "Speichern",
+    "stepDone": "Fertig",
+    "absent": "Abwesend",
+    "regularized": "Regularisiert",
+    "pendingApproval": "Genehmigung ausstehend",
+    "rejectedResubmit": "Abgelehnt - Erneut einreichen",
+    "travelHeatMap": "Reise-Heatmap",
+    "productivityReport": "Produktivitätsbericht",
+    "noRecords": "Keine Anwesenheitsnachweise für den ausgewählten Zeitraum gefunden",
+    "capturePhotoTitle": "Foto für Anwesenheit aufnehmen",
+    "capturePhotoDesc": "Positionieren Sie sich im Rahmen und nehmen Sie Ihr Foto auf",
+    "overrideReasonTitle": "Grund für die Überschreibung angeben",
+    "overrideReasonDesc": "Nach mehreren fehlgeschlagenen Versuchen geben Sie bitte einen Grund an, um Ihre Anwesenheit manuell zu markieren.",
+    "selectReason": "Bitte wählen Sie einen Grund aus",
+    "stopReasonFailed": "Speichern des Stoppgrundes fehlgeschlagen"
   },
   "home": {
     "goodMorning": "Guten Morgen",
@@ -297,5 +344,141 @@
     "startYourDay": "Starte deinen Tag, indem du die Anwesenheit erfasst",
     "startMyDay": "Meinen Tag starten",
     "quickActions": "Schnellaktionen"
+  },
+  "adminControls": {
+    "dragHint": "Karten ziehen, um sie neu anzuordnen, oder das Zahnrad verwenden, um Gruppen zu erstellen",
+    "searchPlaceholder": "Admin-Module durchsuchen...",
+    "ungrouped": "Ungruppiert",
+    "noModules": "Keine Module gefunden, die \"{{query}}\" entsprechen"
+  },
+  "adminModules": {
+    "priceBooks": {
+      "title": "Preisbuchverwaltung",
+      "desc": "Preisbücher für Distributoren und Gebiete erstellen und verwalten"
+    },
+    "admin": {
+      "title": "Benutzerverwaltung",
+      "desc": "Benutzerkonten, Rollen und Berechtigungen verwalten"
+    },
+    "attendanceManagement": {
+      "title": "Anwesenheitsverwaltung",
+      "desc": "Benutzeranwesenheit, Feiertage und Urlaubsanträge verwalten"
+    },
+    "productManagement": {
+      "title": "Produkte",
+      "desc": "Verwalten Sie Ihren Produktkatalog, Kategorien und SKUs"
+    },
+    "uomMaster": {
+      "title": "Einheitenverwaltung",
+      "desc": "Maßeinheiten, Standardwerte und Reihenfolge für den Produktkatalog verwalten"
+    },
+    "beatCoordinator": {
+      "title": "Beat-Koordinator",
+      "desc": "Beats planen, Urlaub abdecken und Routen für Ihr Team optimieren"
+    },
+    "schemeManagement": {
+      "title": "Regelungsmeister",
+      "desc": "Werbemaßnahmen, Angebote und Rabatte erstellen und verwalten"
+    },
+    "vendors": {
+      "title": "Lieferanten",
+      "desc": "Lieferantenbeziehungen und Genehmigungen verwalten"
+    },
+    "territoriesAndDistributors": {
+      "title": "Gebiete & Distributoren",
+      "desc": "Gebietszuweisungen und Distributorennetzwerk verwalten"
+    },
+    "adminExpenseManagement": {
+      "title": "Spesenverwaltung",
+      "desc": "Teamproduktivität und Spesenanalysen verfolgen"
+    },
+    "feedbackManagement": {
+      "title": "Feedback-Verwaltung",
+      "desc": "Einzelhändler-Feedback, Wettbewerbseinblicke und Branding-Anfragen anzeigen"
+    },
+    "operations": {
+      "title": "Operationen",
+      "desc": "Echtzeit-Operationen, Check-ins, Bestellungen und Bestandsdaten überwachen"
+    },
+    "gpsTrackManagement": {
+      "title": "GPS-Spurverwaltung",
+      "desc": "Live-Standorte überwachen und Benutzerbewegungen vom Login bis zum Logout verfolgen"
+    },
+    "retailManagement": {
+      "title": "Einzelhandelsverwaltung",
+      "desc": "Alle Einzelhändler im System überprüfen und verwalten"
+    },
+    "vanSalesManagement": {
+      "title": "Van-Verkaufsverwaltung",
+      "desc": "Verwalten Sie Vans, Fahrer und Van-basierte Verkaufsaktivitäten"
+    },
+    "securityManagement": {
+      "title": "Sicherheit & Zugang",
+      "desc": "Benutzerprofile, Berechtigungen und Datenzugriffssteuerung verwalten"
+    },
+    "featureManagement": {
+      "title": "Funktionsverwaltung",
+      "desc": "Steuern Sie, welche Funktionen für Benutzer sichtbar und aktiv sind"
+    },
+    "gamificationAdmin": {
+      "title": "Gamifizierung",
+      "desc": "Spiele, Punkte, Aktionen konfigurieren und Einlösungen verwalten"
+    },
+    "retailerLoyaltyAdmin": {
+      "title": "Händler-Loyalität",
+      "desc": "Händler-Loyalitätsprogramme, Punkte und Einlösungen verwalten"
+    },
+    "companyProfile": {
+      "title": "Unternehmensprofil",
+      "desc": "Unternehmensdetails, Bankinformationen und Header-Branding verwalten"
+    },
+    "invoiceManagement": {
+      "title": "Rechnungsverwaltung",
+      "desc": "GST-Rechnungen mit Vorlagen erstellen und verwalten"
+    },
+    "creditManagement": {
+      "title": "Kreditverwaltung",
+      "desc": "System zur Einzelhändler-Kreditbewertung und Limitverwaltung konfigurieren"
+    },
+    "notificationRules": {
+      "title": "Benachrichtigungscenter",
+      "desc": "Ereignisbasierte Benachrichtigungsregeln und Auslöser konfigurieren"
+    },
+    "recycleBin": {
+      "title": "Papierkorb-Master",
+      "desc": "Papierkorb-Einstellungen konfigurieren und Protokolle dauerhafter Löschungen anzeigen"
+    },
+    "distributorPortal": {
+      "title": "Distributor-Portal-Admin",
+      "desc": "Distributor-Portal-Benutzer, Bestellungen, Ansprüche, Support und Ideen verwalten"
+    },
+    "targetVsActual": {
+      "title": "Zielmanagement",
+      "desc": "Teamziele mit Hierarchiekaskade konfigurieren, zuweisen und verfolgen"
+    },
+    "pincodeMaster": {
+      "title": "PIN-Code-Master",
+      "desc": "Referenzdaten für indische PIN-Codes importieren und verwalten"
+    },
+    "taxMaster": {
+      "title": "Steuermaster",
+      "desc": "GST/IGST-Steuersätze konfigurieren und SKU-Produkten zuordnen"
+    },
+    "activityTypes": {
+      "title": "Aktivitätstyp-Master",
+      "desc": "Aktivitätstypen, Gewichtungen und Produktivitätseinstellungen konfigurieren"
+    },
+    "activityCoordinator": {
+      "title": "Aktivitätskoordinator",
+      "desc": "Teamaktivitäten anzeigen und neue zuweisen"
+    },
+    "retailerExternalDb": {
+      "title": "Externe Händlerdatenbank",
+      "desc": "Externe Lebensmittelhändlerdaten nach Bundesland und Stadt durchsuchen"
+    },
+    "syncHealth": {
+      "title": "Synchronisierungszustand",
+      "desc": "Synchronisierungsfehler, Datenintegritätsprüfungen und RLS-Sicherheitsereignisse überwachen"
+    }
   }
 }
