@@ -40,7 +40,7 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 type DateFilterType = 'today' | 'week' | 'lastWeek' | 'month' | 'custom' | 'dateRange';
 
 export const TodaySummary = () => {
-  const { format } = useCurrency();
+  const { format: fmtMoney } = useCurrency();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);

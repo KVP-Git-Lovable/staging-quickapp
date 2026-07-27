@@ -120,7 +120,7 @@ const formatRounded = (value: number) => {
   return rounded.toLocaleString('en-IN');
 };
 export const Cart = () => {
-  const { format } = useCurrency();
+  const { format: fmtMoney } = useCurrency();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const visitId = searchParams.get("visitId") || '';
