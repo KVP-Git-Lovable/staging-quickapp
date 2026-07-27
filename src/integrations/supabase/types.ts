@@ -2671,14 +2671,17 @@ export type Database = {
         Row: {
           account_holder_name: string | null
           address: string | null
+          allowed_currencies: string[]
           bank_account: string | null
           bank_name: string | null
+          base_currency: string | null
           contact_phone: string | null
           created_at: string | null
           currency: string
           date_format: string
           email: string | null
           eway_threshold_value: number
+          fx_mode: string
           gstin: string | null
           header_logo_url: string | null
           header_name: string | null
@@ -2697,14 +2700,17 @@ export type Database = {
         Insert: {
           account_holder_name?: string | null
           address?: string | null
+          allowed_currencies?: string[]
           bank_account?: string | null
           bank_name?: string | null
+          base_currency?: string | null
           contact_phone?: string | null
           created_at?: string | null
           currency?: string
           date_format?: string
           email?: string | null
           eway_threshold_value?: number
+          fx_mode?: string
           gstin?: string | null
           header_logo_url?: string | null
           header_name?: string | null
@@ -2723,14 +2729,17 @@ export type Database = {
         Update: {
           account_holder_name?: string | null
           address?: string | null
+          allowed_currencies?: string[]
           bank_account?: string | null
           bank_name?: string | null
+          base_currency?: string | null
           contact_phone?: string | null
           created_at?: string | null
           currency?: string
           date_format?: string
           email?: string | null
           eway_threshold_value?: number
+          fx_mode?: string
           gstin?: string | null
           header_logo_url?: string | null
           header_name?: string | null
@@ -2746,7 +2755,15 @@ export type Database = {
           timezone?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_base_currency_fk"
+            columns: ["base_currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       company_feature_config: {
         Row: {
@@ -3986,6 +4003,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      currencies: {
+        Row: {
+          code: string
+          created_at: string
+          decimals: number
+          is_active: boolean
+          name: string
+          symbol: string
+          symbol_position: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          decimals?: number
+          is_active?: boolean
+          name: string
+          symbol: string
+          symbol_position?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          decimals?: number
+          is_active?: boolean
+          name?: string
+          symbol?: string
+          symbol_position?: string
+        }
+        Relationships: []
       }
       custom_invoice_templates: {
         Row: {
@@ -7893,6 +7940,54 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "distributors"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      exchange_rates: {
+        Row: {
+          base_currency: string
+          created_at: string
+          created_by: string | null
+          effective_date: string
+          id: string
+          quote_currency: string
+          rate: number
+          source: string
+        }
+        Insert: {
+          base_currency: string
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          id?: string
+          quote_currency: string
+          rate: number
+          source?: string
+        }
+        Update: {
+          base_currency?: string
+          created_at?: string
+          created_by?: string | null
+          effective_date?: string
+          id?: string
+          quote_currency?: string
+          rate?: number
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exchange_rates_base_currency_fkey"
+            columns: ["base_currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "exchange_rates_quote_currency_fkey"
+            columns: ["quote_currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
           },
         ]
       }
