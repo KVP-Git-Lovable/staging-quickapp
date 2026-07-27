@@ -1,82 +1,68 @@
-# Report Subscription — PDF pipeline rebuild
+## Root cause analysis (what the evidence shows, and what it does not)
 
-Scope is strictly the PDF path inside the report subscription wizard's Schedule step and the `generate-report` edge function. Excel, `summary_only`, notifications, and the shared `notifications` trigger are not touched.
+### Verified facts
 
-## Phase 1 — Rebuild the PDF renderer (verify before Phase 3)
+**1. The failure is deterministic by intent, not intermittent.** Querying `copilot_messages` shows every user question is saved, but only some get an assistant row:
 
-**Files**
-- `supabase/functions/generate-report/index.ts` — refactor so it builds one neutral report model:
-  `{ title, subtitle, period, columns[], rows[], totals, meta }`.
-  Excel path and PDF path both consume this model independently. Current `renderPdf` (pdf-lib) is removed.
-- `supabase/functions/generate-report/pdf-renderer.ts` — NEW. Uses `npm:jspdf` + `npm:jspdf-autotable`.
-- `supabase/functions/generate-report/branding.ts` — NEW small helper. Fetches once per run from `public.companies` (`header_logo_url` → fallback `logo_url`, `header_name`, `name`, `address`, `gstin`, `contact_phone`, `currency`, `date_format`). When the report scope is a single distributor, use `distributors.logo_url` / `distributors.name` instead if branding = Distributor. Logo is fetched, base64-encoded, embedded via `doc.addImage()`. All currency/date formatting flows through the fetched `currency` and `date_format` — no hardcoded ₹ or date strings.
+| Prompt | Intent | Assistant reply saved? |
+|---|---|---|
+| "What is my leave balance?" (11:08:27) | `leave` | Yes, 2s later |
+| "Explain today's targets." (11:13:30) | `targets` | Yes, 1s later |
+| "Show pending collections." (11:13:20) | `collections` | **No row at all** |
+| "Summarise my last three beats." (11:13:34, 11:28:29) | `beats` | **No row at all** |
+| "Help me plan today's visits." (11:08:37, 11:25:33) | `visits` | **No row at all** |
 
-**Renderer behaviour**
-- Default template = "Standard" header from the reference: logo left · `header_name` + company name + report title · reporting period right · brand-coloured divider · meta block (generated timestamp, recipient, scope, filters) · autotable (filled header row, right-aligned numeric columns, zebra rows, tinted totals row) · footer (page X of Y · generated-by · optional footer note).
-- Orientation: portrait when columns ≤ 6, landscape otherwise (this is the Auto rule; explicit overrides come in Phase 3).
-- autotable handles repeated header rows across page breaks, column widths, per-column alignment, styled totals footer.
+So it is not random: the two intents that return a short data block succeed, the three that build larger multi-row markdown blocks fail every time.
 
-**Verify Phase 1 before moving on** by running `generate-report` end-to-end for an existing PDF subscription and downloading the output.
+**2. The worker dies silently — no exception is ever thrown.** `copilot-agent` logs for the failing window contain only:
 
-## Phase 2 — Preview PDF button
-
-**Files**
-- `supabase/functions/generate-report/index.ts` — add a `mode: 'preview'` branch. It accepts the in-progress wizard payload (dataset, filters, period basis, `pdf_template`, scope), runs the same model + renderer, and returns the PDF bytes inline (base64 or signed short-lived URL) without writing to `report_subscriptions` or `report_delivery_log`.
-- `src/components/admin/reports/ReportSubscriptionsTab.tsx` — inside the Schedule step (around the Format select at ~line 831), add a **Preview PDF** button visible only when `format === 'pdf'`. On click it invokes the preview mode, opens the returned PDF in a new tab. No DB write.
-
-## Phase 3 — Template configuration (`pdf_template`)
-
-**Migration**
-```sql
-ALTER TABLE public.report_subscriptions
-  ADD COLUMN IF NOT EXISTS pdf_template jsonb NOT NULL DEFAULT '{}'::jsonb;
 ```
-Empty `{}` means "use defaults", so existing rows need no backfill. Renderer merge order: structural defaults ← `companies`/`distributors` branding ← per-subscription `pdf_template`.
+11:28:29 booted   (two boots — the CORS preflight boots its own isolate)
+11:28:52 shutdown
+```
 
-**Wizard state** (`ReportSubscriptionsTab.tsx`)
-- Add `pdfTemplate` state seeded from `editing?.sub.pdf_template ?? {}`.
-- Include it in both the create insert (~line 712) and update path (~line 735).
-- On Format change to non-PDF, keep the object in state but stop rendering the panel.
+There is no `[copilot-agent] stream error`, no `together error`, no `fatal`. Every catch path in `index.ts` logs before returning, so the absence of any log means **no catch ran**. The isolate was torn down ~23 seconds into the request while awaiting the stream. That also explains the UI: the browser had received a couple of deltas ("You…"), the socket then closed with no `[DONE]` and no error frame.
 
-**Schedule step — inline panel** (rendered directly beneath the Format select, not a modal, not a new route). Collapses when Format is Excel or Summary. Matches `pdf_template_panel.html` structure and styling (not exact pixel metrics; sample values in the reference are illustrative only).
+**3. Because of the ordering in `index.ts`, a torn-down worker loses everything.** Lines 519–521 do `await stream.fullText` → `persistAssistant(...)` → only then enqueue `[DONE]`. Nothing is written until the *entire* answer is complete, which is precisely why the failing prompts leave zero assistant rows despite text having reached the screen.
 
-Header section:
-- Header style — Standard · Centered · Band · Compact
-- Title override (blank = report name)
-- Subtitle (optional)
-- Show reporting period (default on)
-- Show address & GSTIN line (default off; source depends on Branding selection)
+**4. `MODEL` is `meta-llama/Llama-3.3-70B-Instruct-Turbo`, not `openai/gpt-oss-20b`.** `config.ts` carries an explicit warning against gpt-oss because it streams a long private reasoning phase before any content. The DB confirms Llama is what actually served the successful replies. Worth correcting in your mental model of the system.
 
-Body section:
-- Branding — Company · Distributor · None
-- Orientation — Auto · Portrait · Landscape
-- Include — meta block · totals row · page numbers (all default on)
-- Footer note (optional; replaces generated-by line)
+### Honest statement of the diagnosis
 
-**Review step** — when format is PDF, list the pdf_template summary (header style, orientation, branding, footer note preview).
+The *symptom* is fully localized: the Supabase isolate is terminated mid-stream, before any application error handler runs. What I have **not** yet proven is why — the two candidates the current logging cannot distinguish are (a) Together.ai stalling or holding the connection open on those particular prompts until the edge runtime's wall-clock budget elapses, and (b) the request exceeding the runtime budget for an unrelated reason. Notably the data volumes are tiny here (19 pending retailers, 2 visits today, 33 beats), so a "too much data" explanation does not hold — which makes an upstream stall the stronger candidate, but I will not assert it as fact without the instrumentation below.
 
-**Renderer wiring** — `pdf-renderer.ts` reads `pdf_template` and applies each option (header variant switch, orientation override, meta/totals/page-number toggles, footer note substitution, GSTIN line, title/subtitle overrides).
+There are also three defects visible in the code that are real regardless of which candidate wins, and that convert a recoverable hiccup into total data loss:
 
-## Phase 4 — Wide-column handling in `pdf-renderer.ts`
+- **Nothing is persisted until the stream fully completes**, so any interruption discards text the user already saw.
+- **No heartbeat and no upstream timeout.** `streamChat` passes no `AbortSignal` from the request and sets no deadline, so a stalled upstream is indistinguishable from a slow one and simply runs until the isolate is killed.
+- **The single-shot continuation retry** in `togetherClient.ts` silently issues a *second* full upstream request on a premature EOF, roughly doubling the time budget before the user sees anything — likely making the teardown more probable, not less.
 
-Applied in this order until the table fits:
-1. Auto-orient to landscape (unless user forced Portrait).
-2. Shrink font size down to a floor of ~6pt.
-3. Split columns across pages: repeat the leftmost row-label column on every continuation page, and add a subtitle band like `columns 8–15, continued`.
+## Plan
 
-Row-label detection: first column of the model unless `meta.rowLabelColumns` says otherwise.
+### Phase 1 — Diagnostics (temporary, removable)
 
-## Technical notes
+Add a `[copilot-diag]` tagged, request-correlated log trail so the exact interruption point becomes unambiguous:
 
-- Deps: `npm:jspdf`, `npm:jspdf-autotable` (both work in Deno edge runtime). `pdf-lib` is dropped from this path. No `@react-pdf/renderer`.
-- No changes to the notifications trigger, push flow, `report_delivery_log` idempotency, or Excel generation.
-- Preview endpoint must not write to `report_subscriptions`, `report_delivery_log`, or Storage — bytes go straight back to the caller.
-- Branding logo is fetched exactly once per generate run and reused across per-recipient files.
+- **`togetherClient.ts`**: log upstream HTTP status and response headers on open; count raw SSE frames, content deltas, and total characters; log `finish_reason`, whether `[DONE]` was seen, whether the continuation retry fired, and total upstream duration.
+- **`index.ts`**: log the classified intent, data-block character length, total prompt message count, deltas forwarded to the browser, and a timestamped marker at each of stream-open / first-delta / last-delta / fullText-resolved / persisted / `[DONE]`-sent.
+- **`copilotService.ts`**: count frames received, log whether `[DONE]` arrived, and log the reader's terminal state.
+- Emit a `data:` heartbeat comment every 10s so we can see from the client side whether the connection is alive but idle (upstream stall) versus dropped.
 
-## Files touched (summary)
+Run each of the five prompts once and compare the three counts (upstream → edge → browser). That triangulates the cut point definitively.
 
-- NEW `supabase/functions/generate-report/pdf-renderer.ts`
-- NEW `supabase/functions/generate-report/branding.ts`
-- MOD `supabase/functions/generate-report/index.ts` (neutral model + preview mode + wire new renderer, remove pdf-lib PDF path)
-- MOD `src/components/admin/reports/ReportSubscriptionsTab.tsx` (Schedule step: inline PDF panel + Preview button + wizard state; Review step: PDF template summary; create/update: persist `pdf_template`)
-- Migration: add `pdf_template jsonb` on `report_subscriptions`
+### Phase 2 — Fixes that stand regardless of the diagnosis
+
+1. **Persist incrementally, not only on completion.** Insert the assistant row as soon as the first delta arrives, then update its `content` periodically (every ~750ms or ~200 chars) and once more on close. A killed isolate then leaves the partial answer in the database instead of nothing, and the UI reload matches what the user saw.
+2. **Send `[DONE]` semantics correctly.** Move persistence off the critical path of the terminal event, and always emit a terminal frame — `[DONE]` on success, a typed error frame on failure — using a `finally` block so no path can close the stream silently.
+3. **Add an upstream deadline and forward the abort signal.** Pass `req.signal` into the Together fetch and apply an explicit inactivity timeout (no delta for N seconds → abort, emit a typed `upstream_stalled` error frame, persist what we have). This converts a silent 23-second death into a visible, actionable error in under 10.
+4. **Add SSE heartbeats** (`: keep-alive` comments) so proxies never see an idle connection, and so the client can distinguish "thinking" from "dead".
+5. **Make the continuation retry conditional and logged.** Only retry on `finish_reason === "length"`, never on a premature EOF (where it doubles the time budget for no benefit), and surface a visible notice when it fires.
+6. **Client: treat a missing `[DONE]` as a recoverable error with the partial text kept.** `copilotService.ts` already throws `stream_incomplete`; make `useCopilotChat` retain the streamed text and append a "response was interrupted — retry?" affordance rather than leaving the bubble ambiguous.
+
+### Phase 3 — Validate
+
+Re-run all five prompts and confirm: identical delta counts at all three layers, `[DONE]` observed client-side, an assistant row present for every prompt, and a deliberately-stalled upstream producing a visible error within the timeout instead of a silent stop. Then strip the Phase 1 logging down to a small permanent set (intent, delta count, finish reason, duration).
+
+### Open question
+
+Do you want me to also switch the model, or keep `meta-llama/Llama-3.3-70B-Instruct-Turbo`? Your request describes `openai/gpt-oss-20b`, which the codebase deliberately moved away from because its reasoning phase delays the first visible token. My recommendation is to keep Llama and fix the streaming layer — but if you want gpt-oss back, the fixes above are a prerequisite, not an alternative.
