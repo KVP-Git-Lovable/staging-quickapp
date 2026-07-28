@@ -104,7 +104,7 @@ interface StockData {
 }
 
 const Operations = () => {
-  const { format } = useCurrency();
+  const { format: fmtMoney } = useCurrency();
   const { hasAdminAccess, loading } = useAdminAccess();
   const { can } = usePermissions();
   const navigate = useNavigate();

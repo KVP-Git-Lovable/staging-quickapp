@@ -70,7 +70,7 @@ const toKgQuantity = (quantity: unknown, unit?: unknown) => {
 const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} KG`;
 
 export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeReady = true }: SupervisorReportProps) => {
-  const { format, displayCurrency } = useCurrency();
+  const { format: fmtMoney, displayCurrency } = useCurrency();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   
