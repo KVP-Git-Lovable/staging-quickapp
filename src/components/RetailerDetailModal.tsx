@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -138,6 +139,7 @@ const getDateRange = (filter: DateFilter): { start: Date; end: Date } => {
 };
 
 export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, startInEditMode = false }: RetailerDetailModalProps) => {
+  const { format, displayCurrency } = useCurrency();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState<Retailer | null>(null);
@@ -219,6 +221,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const [showSelectedDayDetails, setShowSelectedDayDetails] = useState(false);
 
   // Format number for mobile display
+  const fmtCompactMoney = (num: number) =>
+    displayCurrency === 'INR' ? `₹${formatCompactNumber(num)}` : format(num);
+
   const formatCompactNumber = (num: number) => {
     if (num >= 10000000) return `${(num / 10000000).toFixed(1)}Cr`;
     if (num >= 100000) return `${(num / 100000).toFixed(1)}L`;
@@ -912,16 +917,16 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               {/* Key Metrics - Mobile responsive with truncation */}
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <Card className="p-2 sm:p-3">
-                  <p className="text-base sm:text-xl font-bold text-primary truncate" title={`₹${totalLifetimeValue.toLocaleString()}`}>
-                    <span className="sm:hidden">₹{formatCompactNumber(totalLifetimeValue)}</span>
-                    <span className="hidden sm:inline">₹{totalLifetimeValue.toLocaleString()}</span>
+                  <p className="text-base sm:text-xl font-bold text-primary truncate" title={format(totalLifetimeValue)}>
+                    <span className="sm:hidden">{fmtCompactMoney(totalLifetimeValue)}</span>
+                    <span className="hidden sm:inline">{format(totalLifetimeValue)}</span>
                   </p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground">Total Lifetime Value</p>
                 </Card>
                 <Card className="p-2 sm:p-3">
-                  <p className="text-base sm:text-xl font-bold truncate" title={`₹${avgMonthlyRevenue6M.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}>
-                    <span className="sm:hidden">₹{formatCompactNumber(avgMonthlyRevenue6M)}</span>
-                    <span className="hidden sm:inline">₹{avgMonthlyRevenue6M.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <p className="text-base sm:text-xl font-bold truncate" title={format(avgMonthlyRevenue6M)}>
+                    <span className="sm:hidden">{fmtCompactMoney(avgMonthlyRevenue6M)}</span>
+                    <span className="hidden sm:inline">{format(avgMonthlyRevenue6M)}</span>
                   </p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground">Avg Monthly Revenue (6M)</p>
                 </Card>
@@ -937,9 +942,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 </Card>
                 <Card className="p-2 sm:p-3">
                   <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Last Order Value</p>
-                  <p className="text-sm sm:text-base font-semibold text-primary truncate" title={`₹${lastVisitOrderValue.toLocaleString()}`}>
-                    <span className="sm:hidden">₹{formatCompactNumber(lastVisitOrderValue)}</span>
-                    <span className="hidden sm:inline">₹{lastVisitOrderValue.toLocaleString()}</span>
+                  <p className="text-sm sm:text-base font-semibold text-primary truncate" title={format(lastVisitOrderValue)}>
+                    <span className="sm:hidden">{fmtCompactMoney(lastVisitOrderValue)}</span>
+                    <span className="hidden sm:inline">{format(lastVisitOrderValue)}</span>
                   </p>
                 </Card>
               </div>
@@ -948,9 +953,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <Card className="p-2 sm:p-3">
                   <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Avg Order Value/Visit</p>
-                  <p className="text-sm sm:text-base font-semibold truncate" title={`₹${avgOrderValuePerVisit.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}>
-                    <span className="sm:hidden">₹{formatCompactNumber(avgOrderValuePerVisit)}</span>
-                    <span className="hidden sm:inline">₹{avgOrderValuePerVisit.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <p className="text-sm sm:text-base font-semibold truncate" title={format(avgOrderValuePerVisit)}>
+                    <span className="sm:hidden">{fmtCompactMoney(avgOrderValuePerVisit)}</span>
+                    <span className="hidden sm:inline">{format(avgOrderValuePerVisit)}</span>
                   </p>
                 </Card>
                 <Card className="p-2 sm:p-3">
@@ -1001,7 +1006,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                             <TableRow key={invoice.id}>
                               <TableCell className="text-xs py-1">{invoice.invoice_number}</TableCell>
                               <TableCell className="text-xs py-1">{format(new Date(invoice.created_at), 'dd/MM/yy')}</TableCell>
-                              <TableCell className="text-xs py-1">₹{(invoice.total_amount || 0).toLocaleString()}</TableCell>
+                              <TableCell className="text-xs py-1">{format(invoice.total_amount || 0)}</TableCell>
                               <TableCell className="text-right py-1">
                                 <div className="flex items-center justify-end gap-0.5">
                                   <TooltipProvider>
@@ -1121,7 +1126,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       {dayVisits.map((visit, i) => (
                         <div key={i} className={cn("mt-0.5 w-full text-[10px] px-1 rounded truncate", getVisitStatusColor(visit))}>
                           {visit.status === 'productive' ? 'P' : visit.status === 'unproductive' ? 'U' : visit.planned_date > todayStr ? 'Plan' : '-'}
-                          {ordersByVisit.get(visit.id) && <span> ₹{(ordersByVisit.get(visit.id)!.total / 1000).toFixed(1)}k</span>}
+                          {ordersByVisit.get(visit.id) && <span> {displayCurrency === 'INR' ? `₹${(ordersByVisit.get(visit.id)!.total / 1000).toFixed(1)}k` : format(ordersByVisit.get(visit.id)!.total)}</span>}
                           {feedbacks.get(visit.id) && <span> ✓</span>}
                         </div>
                       ))}
@@ -1153,13 +1158,13 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                             </div>
                             {orderData && (
                               <>
-                                <p className="text-sm font-medium">Order Value: ₹{orderData.total.toLocaleString()}</p>
+                                <p className="text-sm font-medium">Order Value: {format(orderData.total)}</p>
                                 <div className="text-xs space-y-1">
                                   <p className="font-medium text-muted-foreground">Products:</p>
                                   {orderData.items.map((item, i) => (
                                     <div key={i} className="flex justify-between">
                                       <span>{item.product_name} x{item.quantity}</span>
-                                      <span>₹{item.total_price.toLocaleString()}</span>
+                                      <span>{format(item.total_price)}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -1207,8 +1212,8 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       <BarChart data={revenueByDateData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
-                        <RechartsTooltip formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']} />
+                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => displayCurrency === 'INR' ? `₹${(v/1000).toFixed(0)}k` : format(v)} />
+                        <RechartsTooltip formatter={(value: number) => [format(value), 'Revenue']} />
                         <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1227,9 +1232,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={revenueByProductData} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}k`} />
+                        <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => displayCurrency === 'INR' ? `₹${(v/1000).toFixed(0)}k` : format(v)} />
                         <YAxis type="category" dataKey="product" tick={{ fontSize: 9 }} width={80} />
-                        <RechartsTooltip formatter={(value: number) => [`₹${value.toLocaleString()}`, 'Revenue']} />
+                        <RechartsTooltip formatter={(value: number) => [format(value), 'Revenue']} />
                         <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
                           {revenueByProductData.map((_, index) => (
                             <Cell key={index} fill={chartColors[index % chartColors.length]} />

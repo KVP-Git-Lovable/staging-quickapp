@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,7 @@ const toKgQuantity = (quantity: unknown, unit?: unknown) => {
 const formatKg = (value: number) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} KG`;
 
 export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeReady = true }: SupervisorReportProps) => {
+  const { format, displayCurrency } = useCurrency();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
   
@@ -263,7 +265,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
       insights.push({
         type: 'success',
         title: 'Top Performer',
-        description: `${topPerformer.full_name} leads with ₹${topPerformer.total_order_value.toLocaleString()} (${topShare.toFixed(1)}% of total)`
+        description: `${topPerformer.full_name} leads with ${format(topPerformer.total_order_value)} (${topShare.toFixed(1)}% of total)`
       });
     }
 
@@ -1921,7 +1923,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
             <div>
               <p className="text-[10px] md:text-sm opacity-90">Total Order Value</p>
               <p className="text-xl md:text-3xl lg:text-4xl font-bold">
-                ₹{(businessSummary.totalRevenue / 100000).toFixed(2)} Lac
+                {displayCurrency === 'INR' ? `₹${(businessSummary.totalRevenue / 100000).toFixed(2)} Lac` : format(businessSummary.totalRevenue)}
               </p>
               <p className="text-[8px] md:text-xs opacity-75 mt-0.5 md:mt-1">
                 {format(dateRange.from, 'MMM dd')} - {format(dateRange.to, 'MMM dd, yyyy')}
@@ -1992,7 +1994,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
            {/* These two are hidden on mobile, shown on md+ */}
            <BusinessSummaryCard
              title="Total Revenue"
-             value={`₹${(businessSummary.totalRevenue / 1000).toFixed(0)}K`}
+             value={displayCurrency === 'INR' ? `₹${(businessSummary.totalRevenue / 1000).toFixed(0)}K` : format(businessSummary.totalRevenue)}
              icon={<IndianRupee size={14} className="text-purple-600 md:w-[18px] md:h-[18px]" />}
              iconBgClass="bg-purple-500/10"
              onClick={() => { fetchBusinessOrderDetails(selectedUserIds, dateRange); setShowOrderDetailsDialog(true); }}
@@ -2001,7 +2003,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
            />
            <BusinessSummaryCard
              title="Pending Payments"
-             value={`₹${(businessSummary.pendingPayments / 1000).toFixed(0)}K`}
+             value={displayCurrency === 'INR' ? `₹${(businessSummary.pendingPayments / 1000).toFixed(0)}K` : format(businessSummary.pendingPayments)}
              icon={<CreditCard size={14} className="text-red-600 md:w-[18px] md:h-[18px]" />}
              iconBgClass="bg-red-500/10"
              onClick={() => { fetchPendingPaymentDetails(selectedUserIds, dateRange); setShowPendingPayments(true); }}
@@ -2013,7 +2015,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
          <div className="grid grid-cols-2 gap-2 md:hidden">
            <BusinessSummaryCard
              title="Total Revenue"
-             value={`₹${(businessSummary.totalRevenue / 1000).toFixed(0)}K`}
+             value={displayCurrency === 'INR' ? `₹${(businessSummary.totalRevenue / 1000).toFixed(0)}K` : format(businessSummary.totalRevenue)}
              icon={<IndianRupee size={14} className="text-purple-600" />}
              iconBgClass="bg-purple-500/10"
              onClick={() => { fetchBusinessOrderDetails(selectedUserIds, dateRange); setShowOrderDetailsDialog(true); }}
@@ -2021,7 +2023,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
            />
            <BusinessSummaryCard
              title="Pending Payments"
-             value={`₹${(businessSummary.pendingPayments / 1000).toFixed(0)}K`}
+             value={displayCurrency === 'INR' ? `₹${(businessSummary.pendingPayments / 1000).toFixed(0)}K` : format(businessSummary.pendingPayments)}
              icon={<CreditCard size={14} className="text-red-600" />}
              iconBgClass="bg-red-500/10"
              onClick={() => { fetchPendingPaymentDetails(selectedUserIds, dateRange); setShowPendingPayments(true); }}
@@ -2221,7 +2223,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                 {formatKg(row.total_kg)}
                               </td>
                               <td className={cn("text-right font-semibold align-middle whitespace-nowrap", isMobile ? "py-0.5 px-2" : "p-4")}>
-                                ₹{row.total_order_value.toLocaleString()}
+                                {format(row.total_order_value)}
                               </td>
                             </tr>
                           ))}
@@ -2235,7 +2237,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                               {filteredSummaryData.reduce((sum, r) => sum + r.total_kg, 0).toLocaleString()}
                             </td>
                             <td className={cn("text-right font-bold align-middle whitespace-nowrap", isMobile ? "py-1 px-2" : "p-4")}>
-                              ₹{filteredSummaryData.reduce((sum, r) => sum + r.total_order_value, 0).toLocaleString()}
+                              {format(filteredSummaryData.reduce((sum, r) => sum + r.total_order_value, 0))}
                             </td>
                           </tr>
                         </tfoot>
@@ -2288,7 +2290,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                    <TableCell className="text-xs py-1.5 px-2 text-primary underline-offset-2 hover:underline">{getTranslated(beat.beat_name)}</TableCell>
                                   <TableCell className="text-xs py-1.5 px-2 text-right">{beat.order_count}</TableCell>
                                   <TableCell className="text-xs py-1.5 px-2 text-right font-semibold">
-                                    ₹{beat.total_value.toLocaleString()}
+                                    {format(beat.total_value)}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -2300,7 +2302,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                   {beatBreakdownData.reduce((s, b) => s + b.order_count, 0)}
                                 </TableCell>
                                 <TableCell className="text-xs py-1.5 px-2 text-right font-bold text-primary">
-                                  ₹{beatBreakdownData.reduce((s, b) => s + b.total_value, 0).toLocaleString()}
+                                  {format(beatBreakdownData.reduce((s, b) => s + b.total_value, 0))}
                                 </TableCell>
                               </TableRow>
                             </tfoot>
@@ -2386,7 +2388,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                          <TableCell>{getTranslated(retailer.retailer_name)}</TableCell>
                         <TableCell className="text-right">{retailer.order_count}</TableCell>
                         <TableCell className="text-right font-semibold">
-                          ₹{retailer.total_value.toLocaleString()}
+                          {format(retailer.total_value)}
                         </TableCell>
                         <TableCell className="text-center">
                           <Button
@@ -2415,7 +2417,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                       {retailerDetailsData.reduce((s, r) => s + r.order_count, 0)}
                     </TableCell>
                     <TableCell className="text-right font-bold text-primary">
-                      ₹{retailerDetailsData.reduce((s, r) => s + r.total_value, 0).toLocaleString()}
+                      {format(retailerDetailsData.reduce((s, r) => s + r.total_value, 0))}
                     </TableCell>
                     <TableCell></TableCell>
                   </TableRow>
@@ -2463,7 +2465,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                   >
                     <TableCell className="text-primary hover:underline">{user.name}</TableCell>
                     <TableCell className="text-right font-semibold">
-                      ₹{user.value.toLocaleString()}
+                      {format(user.value)}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       {user.percentage}%
@@ -2475,7 +2477,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                 <TableRow>
                   <TableCell className="font-semibold">Total</TableCell>
                   <TableCell className="text-right font-bold text-primary">
-                    ₹{othersData.reduce((s, u) => s + u.value, 0).toLocaleString()}
+                    {format(othersData.reduce((s, u) => s + u.value, 0))}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground font-semibold">
                     {othersData.length > 0 && totalOrderValue > 0 
@@ -2629,7 +2631,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                 <TableCell className="text-right">{beat.order_count}</TableCell>
                                 <TableCell className="text-right">{beat.total_retailers}</TableCell>
                                 <TableCell className="text-right font-semibold">
-                                  ₹{beat.total_value.toLocaleString()}
+                                  {format(beat.total_value)}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -2644,7 +2646,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                 {orderDetailsBeatBreakdown.reduce((s, b) => s + b.total_retailers, 0)}
                               </TableCell>
                               <TableCell className="text-right font-bold text-primary">
-                                ₹{orderDetailsBeatBreakdown.reduce((s, b) => s + b.total_value, 0).toLocaleString()}
+                                {format(orderDetailsBeatBreakdown.reduce((s, b) => s + b.total_value, 0))}
                               </TableCell>
                             </TableRow>
                           </tfoot>
@@ -2698,7 +2700,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                   {row.order_date}
                                 </TableCell>
                                 <TableCell className="text-xs py-1.5 px-2 text-right">{row.quantity_kg.toFixed(2)}</TableCell>
-                                <TableCell className="text-xs py-1.5 px-2 text-right">₹{row.revenue.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs py-1.5 px-2 text-right">{format(row.revenue)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -2749,7 +2751,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                       <TableCell className="text-right">
                                         {product.quantity} {product.unit}
                                       </TableCell>
-                                      <TableCell className="text-right">₹{product.total.toLocaleString()}</TableCell>
+                                      <TableCell className="text-right">{format(product.total)}</TableCell>
                                     </TableRow>
                                   ))}
                                 </TableBody>
@@ -2758,7 +2760,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                                     <TableCell className="font-semibold">Total</TableCell>
                                     <TableCell />
                                     <TableCell className="text-right font-bold text-primary">
-                                      ₹{productDayDetails.reduce((sum, p) => sum + p.total, 0).toLocaleString()}
+                                      {format(productDayDetails.reduce((sum, p) => sum + p.total, 0))}
                                     </TableCell>
                                   </TableRow>
                                 </tfoot>
@@ -2801,7 +2803,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                               {row.beat_names}
                             </TableCell>
                             <TableCell className="text-right font-semibold">
-                              ₹{row.total_amount.toLocaleString()}
+                              {format(row.total_amount)}
                             </TableCell>
                             <TableCell className="text-right text-muted-foreground">
                               ZIP({row.invoice_count})
@@ -2815,7 +2817,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
                             Total ({userDetails.length} days)
                           </TableCell>
                           <TableCell className="text-right font-bold text-primary">
-                            ₹{userDetails.reduce((sum, row) => sum + row.total_amount, 0).toLocaleString()}
+                            {format(userDetails.reduce((sum, row) => sum + row.total_amount, 0))}
                           </TableCell>
                           <TableCell />
                         </TableRow>
