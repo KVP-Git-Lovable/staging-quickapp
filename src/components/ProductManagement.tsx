@@ -683,6 +683,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             focused_target_quantity: productForm.focused_target_quantity || 0,
             focused_territories: productForm.focused_territories || [],
             barcode: productForm.barcode || null,
+            barcode_image_url: productForm.barcode_image_url || null,
             qr_code: qrCode,
             hsn_code: productForm.hsn_code || null,
             tax_master_id: productForm.tax_master_id || null,
@@ -725,6 +726,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
             focused_target_quantity: productForm.focused_target_quantity || 0,
             focused_territories: productForm.focused_territories || [],
             barcode: productForm.barcode || null,
+            barcode_image_url: productForm.barcode_image_url || null,
             qr_code: qrCode,
             hsn_code: productForm.hsn_code || null,
             tax_master_id: productForm.tax_master_id || null,
@@ -1200,9 +1202,9 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           />
                         </TableCell>
                         <TableCell>
-                          {(product as any).sku_image_url ? (
+                          {((product as any).sku_image_url || (product as any).barcode_image_url) ? (
                             <img 
-                              src={(product as any).sku_image_url} 
+                              src={(product as any).sku_image_url || (product as any).barcode_image_url} 
                               alt={product.name}
                               className="w-12 h-12 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
                               onClick={() => {
