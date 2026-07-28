@@ -567,13 +567,19 @@ const PriceBookDetail = () => {
           </Select>
         </div>
 
+        {syncNotice && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            {syncNotice}
+          </div>
+        )}
+
         {/* Entries List */}
         {filteredEntries.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Package className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">No products in this price book</p>
-              <Button onClick={syncAllProducts} disabled={syncing}>
+              <Button onClick={() => syncAllProducts('default')} disabled={syncing}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 Add All Products
               </Button>
