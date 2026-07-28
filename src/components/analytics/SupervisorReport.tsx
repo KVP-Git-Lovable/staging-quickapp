@@ -1578,12 +1578,12 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
 
       // --- Section 1: Business Summary ---
       addSectionHeader('Business Summary');
-      addKeyValue('Total Order Value', `₹${businessSummary.totalRevenue.toLocaleString()}`);
+      addKeyValue('Total Order Value', fmtMoney(businessSummary.totalRevenue));
       addKeyValue('Total Quantity (KG)', formatKg(businessSummary.totalKg));
       addKeyValue('Total Orders', businessSummary.totalOrders.toLocaleString());
       addKeyValue('Total Beats', businessSummary.totalBeats.toLocaleString());
       addKeyValue('Total Retailers', businessSummary.totalRetailers.toLocaleString());
-      addKeyValue('Pending Payments', `₹${businessSummary.pendingPayments.toLocaleString()}`);
+      addKeyValue('Pending Payments', fmtMoney(businessSummary.pendingPayments));
 
       // --- Section 2: Order Summary by User ---
       addSectionHeader('Order Summary by User');
@@ -1592,7 +1592,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           (i + 1).toString(),
           u.full_name,
           u.total_kg.toLocaleString(),
-          `₹${u.total_order_value.toLocaleString()}`
+          fmtMoney(u.total_order_value)
         ]);
 
         autoTable(pdf, {
@@ -1669,7 +1669,7 @@ export const SupervisorReport = ({ users, selectedUserIds, dateRange, isScopeRea
           key.split('||')[0],
           v.unit,
           v.quantityKg.toLocaleString(undefined, { maximumFractionDigits: 2 }),
-          `₹${v.revenue.toLocaleString()}`
+          fmtMoney(v.revenue)
         ]);
 
       if (skuTableData.length > 0) {
