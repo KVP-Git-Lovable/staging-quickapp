@@ -122,16 +122,28 @@ serve(async (req) => {
 
     let plansCreated = 0;
     if (plansToInsert.length > 0) {
+      // De-dupe within the payload itself (same user+date+beat can appear twice)
+      const seen = new Set<string>();
+      const uniquePlans = plansToInsert.filter((p) => {
+        const key = `${p.user_id}|${p.plan_date}|${p.beat_id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       const { error: insertError } = await supabaseClient
         .from('beat_plans')
-        .insert(plansToInsert);
+        .upsert(uniquePlans, {
+          onConflict: 'user_id,plan_date,beat_id',
+          ignoreDuplicates: false,
+        });
       if (insertError) {
         return new Response(JSON.stringify({ error: insertError.message }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      plansCreated = plansToInsert.length;
+      plansCreated = uniquePlans.length;
 
       // Log autonomous action (best-effort)
       try {
