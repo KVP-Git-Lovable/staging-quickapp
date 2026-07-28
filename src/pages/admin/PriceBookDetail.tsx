@@ -664,10 +664,14 @@ const PriceBookDetail = () => {
                               <p className="text-xs text-muted-foreground text-center">Disc %</p>
                             </div>
                             <div className="min-w-20 text-center">
-                              <p className="font-bold text-primary">
-                                ₹{entry.final_price?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                              </p>
-                              <p className="text-xs text-muted-foreground">Final</p>
+                              {Number(entry.final_price) > 0 ? (
+                                <p className="font-bold text-primary">{fmtBook(entry.final_price)}</p>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  No price set
+                                </Badge>
+                              )}
+                              <p className="text-xs text-muted-foreground">Final ({bookCurrency})</p>
                             </div>
                             <Button
                               variant="ghost"
