@@ -245,12 +245,21 @@ const TaxMaster = () => {
       const productIds = keys.filter(k => k.startsWith('p:')).map(k => k.slice(2));
       const variantIds = keys.filter(k => k.startsWith('v:')).map(k => k.slice(2));
       const ops: Promise<any>[] = [];
-      if (productIds.length) ops.push(Promise.resolve(supabase.from('products').update({ tax_master_id: p.targetBracket }).in('id', productIds)));
-      if (variantIds.length) ops.push(Promise.resolve(supabase.from('product_variants').update({ tax_master_id: p.targetBracket }).in('id', variantIds)));
+      if (productIds.length) ops.push(Promise.resolve(supabase.from('products').update({ tax_master_id: p.targetBracket }).in('id', productIds).select('id')));
+      if (variantIds.length) ops.push(Promise.resolve(supabase.from('product_variants').update({ tax_master_id: p.targetBracket }).in('id', variantIds).select('id')));
       const results = await Promise.all(ops);
       const failed = results.find((r: any) => r.error);
       if (failed) throw (failed as any).error;
-      toast.success(`Moved ${keys.length} item(s) to the selected bracket`);
+      // RLS can silently update 0 rows — verify what actually changed.
+      const movedCount = results.reduce((s: number, r: any) => s + (r.data?.length || 0), 0);
+      if (movedCount === 0) {
+        throw new Error('No records were updated — you may not have permission to change product tax brackets.');
+      }
+      if (movedCount < keys.length) {
+        toast.warning(`Moved ${movedCount} of ${keys.length} item(s); the rest could not be updated.`);
+      } else {
+        toast.success(`Moved ${movedCount} item(s) to the selected bracket`);
+      }
       updatePanel(key, { saving: false, selected: new Set() });
       await Promise.all([
         loadPanelProducts(key, bracketId),
