@@ -25148,7 +25148,6 @@ export type Database = {
       uom_master: {
         Row: {
           category: string
-          category_id: string | null
           code: string
           conversion_to_base: number | null
           created_at: string
@@ -25160,7 +25159,6 @@ export type Database = {
         }
         Insert: {
           category: string
-          category_id?: string | null
           code: string
           conversion_to_base?: number | null
           created_at?: string
@@ -25172,7 +25170,6 @@ export type Database = {
         }
         Update: {
           category?: string
-          category_id?: string | null
           code?: string
           conversion_to_base?: number | null
           created_at?: string
@@ -25182,15 +25179,7 @@ export type Database = {
           name?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "uom_master_category_id_fkey"
-            columns: ["category_id"]
-            isOneToOne: false
-            referencedRelation: "uom_category"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_approvals: {
         Row: {
