@@ -407,6 +407,7 @@ function CounterCustomerCard({
   eventMode?: boolean;
 }) {
   const { format } = useCurrency();
+  const currencySymbol = format(0).replace(/[\d.,\s]/g, '') || '';
   const [pickerOpen, setPickerOpen] = useState(false);
   const locked = row.status === "saved" || row.status === "submitted";
   const itemCount = rowItemCount(row);
@@ -631,7 +632,7 @@ function CounterCustomerCard({
               <div>Product</div>
               <div>Unit</div>
               <div>Qty</div>
-              <div>Price (₹)</div>
+              <div>Price ({currencySymbol})</div>
             </div>
 
             <div className="space-y-3">
@@ -1323,6 +1324,7 @@ export interface EventContext {
 
 export default function CounterSales({ eventContext }: { eventContext?: EventContext } = {}) {
   const { format } = useCurrency();
+  const currencySymbol = format(0).replace(/[\d.,\s]/g, '') || '';
   const navigate = useNavigate();
   const { user } = useAuth();
   const { products, fetchProducts } = useOfflineOrderEntry();
@@ -2093,7 +2095,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2.5 pl-2 sm:pl-3 min-w-0">
                   <div className="h-7 w-7 sm:h-9 sm:w-9 shrink-0 rounded-full bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center">
-                    <span className="text-amber-600 dark:text-amber-400 text-xs sm:text-sm font-bold">₹</span>
+                    <span className="text-amber-600 dark:text-amber-400 text-xs sm:text-sm font-bold">{currencySymbol}</span>
                   </div>
                   <div className="min-w-0">
                     <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">Grand Total</div>
@@ -2232,6 +2234,7 @@ function OrderRow({
   onDelete: () => void;
 }) {
   const { format } = useCurrency();
+  const currencySymbol = format(0).replace(/[\d.,\s]/g, '') || '';
   const locked = row.status === "saved" || row.status === "submitted";
   const subtotal = row.items.reduce(
     (s, i) => s + (i.product_id ? itemSubtotal(i) : 0),
@@ -2325,8 +2328,8 @@ function OrderRow({
             <div>Product</div>
             <div>Unit</div>
             <div>Qty</div>
-            <div>Price (₹)</div>
-            <div>Discount (₹)</div>
+            <div>Price ({currencySymbol})</div>
+            <div>Discount ({currencySymbol})</div>
             <div></div>
           </div>
 
@@ -2543,6 +2546,7 @@ function ProductPickerDialog({
   onAdd: (p: any, qty: number, unit: string, price: number) => void;
 }) {
   const { format } = useCurrency();
+  const currencySymbol = format(0).replace(/[\d.,\s]/g, '') || '';
   const [search, setSearch] = useState("");
   const [picked, setPicked] = useState<any | null>(null);
   const [qty, setQty] = useState(1);
@@ -2650,7 +2654,7 @@ function ProductPickerDialog({
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Price (₹)</label>
+                <label className="text-xs text-muted-foreground">Price ({currencySymbol})</label>
                 <Input
                   type="number"
                   min={0}

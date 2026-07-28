@@ -107,18 +107,6 @@ const getDisplayRate = (item: CartItem) => {
   return Number(item.rate) || 0;
 };
 
-// Currency formatter - exact with 2 decimals for item-level values
-const formatExact = (value: number) => {
-  const num = Number(value) || 0;
-  return num.toFixed(2);
-};
-
-// Currency formatter - rounded to whole number for final totals only
-const formatRounded = (value: number) => {
-  const num = Number(value) || 0;
-  const rounded = Math.round(num);
-  return rounded.toLocaleString('en-IN');
-};
 export const Cart = () => {
   const { format: fmtMoney } = useCurrency();
   const navigate = useNavigate();
