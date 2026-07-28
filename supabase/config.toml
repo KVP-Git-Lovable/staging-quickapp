@@ -66,6 +66,11 @@ verify_jwt = true
 [functions.bolna-help-webhook]
 verify_jwt = false
 
+[functions.madad-help-call]
+verify_jwt = false
+
+
+
 [functions.employee-portal-api]
 verify_jwt = false
 
