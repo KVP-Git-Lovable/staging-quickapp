@@ -28336,6 +28336,20 @@ export type Database = {
         Returns: Json
       }
       expire_user_delegations: { Args: never; Returns: undefined }
+      export_price_book_entries: {
+        Args: { p_price_book_id: string }
+        Returns: {
+          discount_percent: number
+          final_price: number
+          list_price: number
+          min_quantity: number
+          product_name: string
+          product_sku: string
+          uom_code: string
+          variant_name: string
+          variant_sku: string
+        }[]
+      }
       finalize_credit_note: {
         Args: {
           p_created_by: string
@@ -29012,6 +29026,10 @@ export type Database = {
         Returns: boolean
       }
       hash_hint_answer: { Args: { answer: string }; Returns: string }
+      import_price_book_entries: {
+        Args: { p_price_book_id: string; p_rows: Json }
+        Returns: Json
+      }
       initialize_leave_policy_balances: {
         Args: { p_policy_id: string }
         Returns: undefined
@@ -29285,28 +29303,17 @@ export type Database = {
         Returns: Json
       }
       resolve_fx_to_base: { Args: { p_currency: string }; Returns: number }
-      resolve_product_price:
-        | {
-            Args: {
-              p_product_id: string
-              p_quantity?: number
-              p_retailer_id: string
-              p_user_id?: string
-              p_variant_id?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_product_id: string
-              p_quantity?: number
-              p_retailer_id: string
-              p_target_type?: string
-              p_user_id?: string
-              p_variant_id?: string
-            }
-            Returns: Json
-          }
+      resolve_product_price: {
+        Args: {
+          p_product_id: string
+          p_quantity?: number
+          p_retailer_id: string
+          p_target_type?: string
+          p_user_id?: string
+          p_variant_id?: string
+        }
+        Returns: Json
+      }
       resolve_quantity_to_base: {
         Args: {
           p_conversion_snap?: number
@@ -29428,16 +29435,28 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
-      simulate_product_price: {
-        Args: {
-          p_product_id: string
-          p_quantity?: number
-          p_retailer_id: string
-          p_user_id?: string
-          p_variant_id?: string
-        }
-        Returns: Json
-      }
+      simulate_product_price:
+        | {
+            Args: {
+              p_product_id: string
+              p_quantity?: number
+              p_retailer_id: string
+              p_user_id?: string
+              p_variant_id?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_product_id: string
+              p_quantity?: number
+              p_retailer_id: string
+              p_target_type?: string
+              p_user_id?: string
+              p_variant_id?: string
+            }
+            Returns: Json
+          }
       suggest_beat_cover: {
         Args: { p_absent_user: string; p_beat_id: string; p_date: string }
         Returns: {
