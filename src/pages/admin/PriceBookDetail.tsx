@@ -86,7 +86,7 @@ const PriceBookDetail = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [priceBookRes, entriesRes, productsAll, categoriesRes] = await Promise.all([
+      const [priceBookRes, entriesRes, productsAll, categoriesRes, companyRes, ratesRes] = await Promise.all([
         supabase.from('price_books').select('*').eq('id', id).single(),
         supabase
           .from('price_book_entries')
