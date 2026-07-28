@@ -414,17 +414,29 @@ const PriceBookDetail = () => {
                 <Badge variant="outline">
                   {priceBook.target_type === 'retailer' ? 'Retailer' : 'Distributor'}
                 </Badge>
+                <Badge variant="secondary">{priceBook.currency}</Badge>
               </div>
               <p className="text-muted-foreground text-sm">
                 {entries.length} products • {priceBook.currency}
+                {isForeignBook && ` • prices stored natively in ${bookCurrency}`}
               </p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={syncAllProducts} disabled={syncing}>
+            <Button variant="outline" onClick={() => syncAllProducts('default')} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sync All Products
             </Button>
+            {isForeignBook && (
+              <Button
+                variant="outline"
+                onClick={() => syncAllProducts('convert')}
+                disabled={syncing || !fxRate}
+                title={fxRate ? `1 ${baseCurrency} = ${fxRate} ${bookCurrency}` : 'No exchange rate available'}
+              >
+                Seed from base at exchange rate
+              </Button>
+            )}
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
                 <Button onClick={resetAddForm}>
