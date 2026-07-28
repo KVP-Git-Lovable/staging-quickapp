@@ -100,7 +100,6 @@ function MobileCustomerCard({
   onDelete: () => void;
 }) {
   const { format } = useCurrency();
-  const currencySymbol = format(0).replace(/[\d.,\s]/g, '') || '';
   const [pickerOpen, setPickerOpen] = useState(false);
   const locked = row.status === "saved" || row.status === "submitted";
   const total = rowAmount(row);
@@ -2467,7 +2466,6 @@ function SummaryView({
   onDelete: (uid: string) => void;
 }) {
   const { format } = useCurrency();
-  const currencySymbol = format(0).replace(/[\d.,\s]/g, '') || '';
   const navigate = useNavigate();
   if (rows.length === 0) {
     return (
@@ -2921,7 +2919,6 @@ function InlineProductSelect({
   onEnter?: () => void;
 }) {
   const { format } = useCurrency();
-  const currencySymbol = format(0).replace(/[\d.,\s]/g, '') || '';
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
