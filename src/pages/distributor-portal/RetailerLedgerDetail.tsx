@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { useOutletContext, useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +31,7 @@ interface LedgerEntry {
 }
 
 const RetailerLedgerDetail = () => {
+  const { format: fmtMoney } = useCurrency();
   const { retailerId } = useParams<{ retailerId: string }>();
   const { distributorId } = useOutletContext<OutletContext>();
   const navigate = useNavigate();
@@ -121,20 +123,20 @@ const RetailerLedgerDetail = () => {
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground">Total Sales</p>
-            <p className="text-lg font-bold">₹{totalDebit.toLocaleString('en-IN')}</p>
+            <p className="text-lg font-bold">{fmtMoney(totalDebit)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground">Total Received</p>
-            <p className="text-lg font-bold text-green-600">₹{totalCredit.toLocaleString('en-IN')}</p>
+            <p className="text-lg font-bold text-green-600">{fmtMoney(totalCredit)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground">Outstanding</p>
             <p className={`text-lg font-bold ${outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              ₹{Math.abs(outstanding).toLocaleString('en-IN')}
+              {fmtMoney(Math.abs(outstanding))}
             </p>
           </CardContent>
         </Card>
@@ -142,7 +144,7 @@ const RetailerLedgerDetail = () => {
           <CardContent className="p-3">
             <p className="text-xs text-muted-foreground">Credit Limit</p>
             <p className="text-lg font-bold">
-              {creditLimit > 0 ? `₹${creditLimit.toLocaleString('en-IN')}` : 'Not Set'}
+              {creditLimit > 0 ? fmtMoney(creditLimit) : 'Not Set'}
             </p>
             {creditLimit > 0 && outstanding > creditLimit && (
               <Badge variant="destructive" className="text-[10px] mt-1">Exceeded</Badge>
@@ -190,16 +192,16 @@ const RetailerLedgerDetail = () => {
                       </TableCell>
                       <TableCell className="text-right text-sm">
                         {Number(entry.debit_amount) > 0
-                          ? `₹${Number(entry.debit_amount).toLocaleString('en-IN')}`
+                          ? fmtMoney(Number(entry.debit_amount))
                           : '—'}
                       </TableCell>
                       <TableCell className="text-right text-sm text-green-600">
                         {Number(entry.credit_amount) > 0
-                          ? `₹${Number(entry.credit_amount).toLocaleString('en-IN')}`
+                          ? fmtMoney(Number(entry.credit_amount))
                           : '—'}
                       </TableCell>
                       <TableCell className={`text-right text-sm font-medium ${entry.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        ₹{Math.abs(entry.balance).toLocaleString('en-IN')}
+                        {fmtMoney(Math.abs(entry.balance))}
                         {entry.balance < 0 && <span className="text-[10px] ml-0.5">CR</span>}
                       </TableCell>
                     </TableRow>
@@ -207,10 +209,10 @@ const RetailerLedgerDetail = () => {
                   {/* Totals row */}
                   <TableRow className="bg-muted/50 font-semibold">
                     <TableCell colSpan={4} className="text-right">Totals</TableCell>
-                    <TableCell className="text-right">₹{totalDebit.toLocaleString('en-IN')}</TableCell>
-                    <TableCell className="text-right text-green-600">₹{totalCredit.toLocaleString('en-IN')}</TableCell>
+                    <TableCell className="text-right">{fmtMoney(totalDebit)}</TableCell>
+                    <TableCell className="text-right text-green-600">{fmtMoney(totalCredit)}</TableCell>
                     <TableCell className={`text-right ${outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      ₹{Math.abs(outstanding).toLocaleString('en-IN')}
+                      {fmtMoney(Math.abs(outstanding))}
                     </TableCell>
                   </TableRow>
                 </TableBody>
