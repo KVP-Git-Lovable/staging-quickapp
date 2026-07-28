@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
@@ -92,7 +92,7 @@ const PriceBookDetail = () => {
             variant:product_variants(variant_name)
           `)
           .eq('price_book_id', id)
-          .order('created_at', { ascending: false }),
+          .order('min_quantity', { ascending: true }),
         fetchAllPaginated<any>((from, to) =>
           supabase
             .from('products')
@@ -208,7 +208,7 @@ const PriceBookDetail = () => {
       const { error } = await supabase.from('price_book_entries').insert({
         price_book_id: id,
         product_id: selectedProduct,
-        variant_id: selectedVariant || null,
+        variant_id: selectedVariant && selectedVariant !== '__base__' ? selectedVariant : null,
         list_price: newEntry.list_price,
         discount_percent: newEntry.discount_percent,
         final_price: finalPrice,
@@ -263,6 +263,32 @@ const PriceBookDetail = () => {
       setEntries(entries.filter(e => e.id !== entryId));
     } catch (error: any) {
       toast.error(error.message || 'Failed to remove');
+    }
+  };
+
+  /** Duplicate an entry as a higher quantity slab (volume pricing). */
+  const handleAddSlab = async (entry: PriceBookEntry) => {
+    const siblings = entries.filter(
+      e => e.product_id === entry.product_id && (e.variant_id || null) === (entry.variant_id || null)
+    );
+    const nextMin = Math.max(...siblings.map(e => e.min_quantity || 1)) + 10;
+
+    try {
+      const { error } = await supabase.from('price_book_entries').insert({
+        price_book_id: id,
+        product_id: entry.product_id,
+        variant_id: entry.variant_id,
+        list_price: entry.list_price,
+        discount_percent: entry.discount_percent,
+        final_price: entry.final_price,
+        min_quantity: nextMin,
+        uom: entry.uom || null,
+      });
+      if (error) throw error;
+      toast.success(`Slab added for quantity ≥ ${nextMin}`);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add slab');
     }
   };
 
@@ -390,7 +416,7 @@ const PriceBookDetail = () => {
                           <SelectValue placeholder="Select variant" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No variant (Base product)</SelectItem>
+                          <SelectItem value="__base__">No variant (Base product)</SelectItem>
                           {selectedProductData.product_variants.map(variant => (
                             <SelectItem key={variant.id} value={variant.id}>
                               {variant.variant_name}
@@ -504,9 +530,18 @@ const PriceBookDetail = () => {
                                 {entry.product?.name}
                                 <ExternalLink className="h-3 w-3" />
                               </button>
-                              {entry.variant && (
+                              {entry.variant ? (
                                 <Badge variant="outline" className="text-xs">
                                   {entry.variant.variant_name}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  Base product
+                                </Badge>
+                              )}
+                              {entry.min_quantity > 1 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Qty ≥ {entry.min_quantity}
                                 </Badge>
                               )}
                             </div>
@@ -558,6 +593,14 @@ const PriceBookDetail = () => {
                               </p>
                               <p className="text-xs text-muted-foreground">Final</p>
                             </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Add a higher quantity slab"
+                              onClick={() => handleAddSlab(entry)}
+                            >
+                              <Layers className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"

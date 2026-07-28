@@ -15230,6 +15230,7 @@ export type Database = {
       price_books: {
         Row: {
           apply_to_all_territories: boolean | null
+          beat_id: string | null
           cloned_from: string | null
           created_at: string
           created_by: string | null
@@ -15243,12 +15244,19 @@ export type Database = {
           is_standard: boolean | null
           name: string
           price_book_type: string
+          region: string | null
+          retail_type: string | null
+          retailer_category: string | null
+          retailer_id: string | null
           target_type: string | null
           territory_id: string | null
           updated_at: string
+          user_id: string | null
+          zone: string | null
         }
         Insert: {
           apply_to_all_territories?: boolean | null
+          beat_id?: string | null
           cloned_from?: string | null
           created_at?: string
           created_by?: string | null
@@ -15262,12 +15270,19 @@ export type Database = {
           is_standard?: boolean | null
           name: string
           price_book_type?: string
+          region?: string | null
+          retail_type?: string | null
+          retailer_category?: string | null
+          retailer_id?: string | null
           target_type?: string | null
           territory_id?: string | null
           updated_at?: string
+          user_id?: string | null
+          zone?: string | null
         }
         Update: {
           apply_to_all_territories?: boolean | null
+          beat_id?: string | null
           cloned_from?: string | null
           created_at?: string
           created_by?: string | null
@@ -15281,9 +15296,15 @@ export type Database = {
           is_standard?: boolean | null
           name?: string
           price_book_type?: string
+          region?: string | null
+          retail_type?: string | null
+          retailer_category?: string | null
+          retailer_id?: string | null
           target_type?: string | null
           territory_id?: string | null
           updated_at?: string
+          user_id?: string | null
+          zone?: string | null
         }
         Relationships: [
           {
@@ -15294,10 +15315,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "price_books_retailer_fk"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "price_books_territory_id_fkey"
             columns: ["territory_id"]
             isOneToOne: false
             referencedRelation: "territories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_books_user_fk"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -29264,7 +29299,9 @@ export type Database = {
       resolve_product_price: {
         Args: {
           p_product_id: string
+          p_quantity?: number
           p_retailer_id: string
+          p_user_id?: string
           p_variant_id?: string
         }
         Returns: Json
@@ -29390,6 +29427,16 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      simulate_product_price: {
+        Args: {
+          p_product_id: string
+          p_quantity?: number
+          p_retailer_id: string
+          p_user_id?: string
+          p_variant_id?: string
+        }
+        Returns: Json
+      }
       suggest_beat_cover: {
         Args: { p_absent_user: string; p_beat_id: string; p_date: string }
         Returns: {
