@@ -1,33 +1,28 @@
 ## Goal
 
-Add a rotating "insight ticker" strip directly under the "Welcome to QuickApp Copilot!" header bar and immediately above the chat window on `/copilot`. It cycles every 3 seconds through three insight slides, then loops.
+Add a Help ("Madad") call button next to the existing Copilot sparkle icon in the top navbar. Tapping it triggers the Bolna agent `af3cbfa9-7913-48ff-b6c1-d80e24b2bd4b` to place an outbound voice call to the signed-in user's own phone number.
 
-## Slides
+## Icon
 
-1. **Declining retailers** — top 5 retailers of the signed-in user whose purchase value in the last 30 days dropped most vs the prior 30 days.
-2. **Low-yield visits** — retailers where the most time was spent (check-in → check-out duration, last 90 days) but the resulting order value is very low (or zero).
-3. **Slow movers** — bottom 3 products by sales value/quantity over the last 90 days (among products that appear in the user's orders).
+- Placed immediately to the left of the Copilot sparkles icon in `src/components/Navbar.tsx`.
+- Circular yellow badge with a headset/support-person glyph and a small question-mark accent (lucide `Headset` + `HelpCircle` overlay), sized to match the neighbouring icons.
+- States: idle → tap → spinner while the call is being placed → toast "Madad is calling you now on +91XXXXXXXXXX" or an error toast. Button disabled while a request is in flight.
+- If the user's profile has no phone number, the toast explains that and links to `/profile`.
 
-Each slide shows a short label ("Declining purchases", "High time, low value", "Slow-moving products") followed by the names with a compact metric (e.g. `Sharma Stores ↓ 42%`, `Gupta Traders · 48m · ₹0`, `Product X · ₹1,200`).
+## Backend
 
-## Look
+New edge function `supabase/functions/madad-help-call/index.ts` (registered in `supabase/config.toml` with `verify_jwt = true`):
 
-- Background: creamy white-to-yellow gradient (added as design tokens in `index.css`, not hardcoded classes).
-- Fonts: blue for the slide label, brown for the metric values, black for retailer/product names.
-- Single-line, horizontally scrollable on small screens; smooth fade/slide transition between slides; pauses on hover.
-- Height kept slim (~40px) so the chat area is barely affected.
+- Reads the caller's JWT, resolves `auth.uid()`, and loads `profiles.phone_number` for that user with the service-role client. The phone is never taken from the request body, so a user can only trigger a call to their own number.
+- Normalises the number with the same `normalisePhone` logic used by `bolna-outbound-call` (10 digits → `+91…`).
+- POSTs to `https://api.bolna.ai/call` with `agent_id` from a new `BOLNA_HELP_AGENT_ID` secret (defaulting to the ID given), `recipient_phone_number`, the same `from_phone_number`, and `user_data` carrying the user's id, name and role so the Madad agent can personalise the conversation.
+- Returns `{ success, call_id }` or a friendly `{ success: false, error }`; existing `bolna-outbound-call` is left untouched.
 
-## Technical
+## Frontend
 
-- New hook `src/modules/copilot/hooks/useCopilotTicker.ts`
-  - Scoped to `auth.getUser()` like the existing `useCopilotInsights`.
-  - Single `orders` read (`retailer_id, visit_id, total_amount, order_date, status`, cancelled excluded) covering the last ~180 days, plus:
-    - `visits` (`id, retailer_id, check_in_time, check_out_time`) for slide 2 duration,
-    - `order_items` (`product_id, product_name, total, quantity`) joined by order id for slide 3,
-    - `retailers` name lookup for the ids actually used.
-  - All aggregation done client-side in memory (same pattern as the current insights hook); returns `{ declining, lowYield, slowMovers, loading }`.
-- New component `src/modules/copilot/components/panel/CopilotTicker.tsx` handling the 3-second rotation and styling.
-- `CopilotPage.tsx`: render `<CopilotTicker />` between the header `div` and the `flex-1 min-h-0` chat container. No other logic touched.
-- Empty/loading states render a neutral single line ("Gathering your insights…" / "Not enough data yet") so the strip never collapses or errors.
+- Small hook/handler in the navbar that invokes the function via `supabase.functions.invoke("madad-help-call")` and surfaces the result through the existing toast system.
+- No routing, layout, or other navbar behaviour changed.
 
-Currency values use the existing `useCurrency().format()` helper. No database or edge-function changes.
+## Secrets
+
+Adds `BOLNA_HELP_AGENT_ID` (value `af3cbfa9-7913-48ff-b6c1-d80e24b2bd4b`). `BOLNA_API_KEY` is already configured and reused.
