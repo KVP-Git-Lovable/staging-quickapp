@@ -92,7 +92,7 @@ const PriceBookDetail = () => {
             variant:product_variants(variant_name)
           `)
           .eq('price_book_id', id)
-          .order('created_at', { ascending: false }),
+          .order('min_quantity', { ascending: true }),
         fetchAllPaginated<any>((from, to) =>
           supabase
             .from('products')
@@ -208,7 +208,7 @@ const PriceBookDetail = () => {
       const { error } = await supabase.from('price_book_entries').insert({
         price_book_id: id,
         product_id: selectedProduct,
-        variant_id: selectedVariant || null,
+        variant_id: selectedVariant && selectedVariant !== '__base__' ? selectedVariant : null,
         list_price: newEntry.list_price,
         discount_percent: newEntry.discount_percent,
         final_price: finalPrice,
@@ -263,6 +263,32 @@ const PriceBookDetail = () => {
       setEntries(entries.filter(e => e.id !== entryId));
     } catch (error: any) {
       toast.error(error.message || 'Failed to remove');
+    }
+  };
+
+  /** Duplicate an entry as a higher quantity slab (volume pricing). */
+  const handleAddSlab = async (entry: PriceBookEntry) => {
+    const siblings = entries.filter(
+      e => e.product_id === entry.product_id && (e.variant_id || null) === (entry.variant_id || null)
+    );
+    const nextMin = Math.max(...siblings.map(e => e.min_quantity || 1)) + 10;
+
+    try {
+      const { error } = await supabase.from('price_book_entries').insert({
+        price_book_id: id,
+        product_id: entry.product_id,
+        variant_id: entry.variant_id,
+        list_price: entry.list_price,
+        discount_percent: entry.discount_percent,
+        final_price: entry.final_price,
+        min_quantity: nextMin,
+        uom: entry.uom || null,
+      });
+      if (error) throw error;
+      toast.success(`Slab added for quantity ≥ ${nextMin}`);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to add slab');
     }
   };
 
@@ -390,7 +416,7 @@ const PriceBookDetail = () => {
                           <SelectValue placeholder="Select variant" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">No variant (Base product)</SelectItem>
+                          <SelectItem value="__base__">No variant (Base product)</SelectItem>
                           {selectedProductData.product_variants.map(variant => (
                             <SelectItem key={variant.id} value={variant.id}>
                               {variant.variant_name}
