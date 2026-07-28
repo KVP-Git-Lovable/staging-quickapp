@@ -22,6 +22,7 @@ import { calculateOrderWithSchemes, calculateSchemeDiscountForComparison, Scheme
 import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
 import { resolveProduct, type ResolvedProduct } from "@/utils/resolveProduct";
 import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
+import { useCurrency } from "@/contexts/CurrencyContext";
 interface Product {
   id: string;
   sku: string;
@@ -133,6 +134,7 @@ export interface VoiceAutoFillResult {
 }
 
 export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormProps>(({ onCartUpdate, products, loading, onReloadProducts, onStockUpdate }, ref) => {
+  const { format: fmtMoney } = useCurrency();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const visitId = searchParams.get("visitId") || '';
@@ -834,7 +836,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const baseResolved = resolveProduct(product);
       options.push({
         value: product.id,
-        label: `${baseResolved.display_name} | ₹${baseResolved.rate}`,
+        label: `${baseResolved.display_name} | ${fmtMoney(baseResolved.rate)}`,
         product,
         sku: baseResolved.sku || product.sku,
         price: baseResolved.rate,
@@ -851,7 +853,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             const r = resolveProduct(product, variant);
             options.push({
               value: `${product.id}_variant_${variant.id}`,
-              label: `${r.display_name} | ₹${r.rate}`,
+              label: `${r.display_name} | ${fmtMoney(r.rate)}`,
               product,
               variant,
               sku: r.sku || '',
@@ -1501,7 +1503,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                           <div className="flex-1">
                                             <div className="font-medium">{option.label}</div>
                                             <div className="text-[10px] md:text-xs text-muted-foreground">
-                                              SKU: {option.sku} | ₹{option.variant ? option.variant.price : option.product.rate}
+                                              SKU: {option.sku} | {fmtMoney(option.variant ? option.variant.price : option.product.rate)}
                                             </div>
                                           </div>
                                         </div>
@@ -1569,7 +1571,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                        edited
                                      </Badge>
                                      <span className="text-[9px] text-muted-foreground">
-                                       list ₹{catalogRate.toFixed(2)}
+                                       list {fmtMoney(catalogRate)}
                                      </span>
                                    </>
                                  )}
@@ -1578,15 +1580,15 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                               })() : hasDiscount ? (
                                <span className="text-[9px] mt-0.5 flex items-center gap-1 flex-wrap">
                                  <span className="line-through text-muted-foreground">
-                                   ₹{catalogRate.toFixed(2)}
+                                   {fmtMoney(catalogRate)}
                                  </span>
                                  <span className="text-green-600 font-medium">
-                                    ₹{effectiveRate.toFixed(2)} per {displayUnit}
+                                    {fmtMoney(effectiveRate)} per {displayUnit}
                                  </span>
                                </span>
                              ) : (
                                <span className="text-[9px] text-muted-foreground mt-0.5">
-                                  ₹{catalogRate.toFixed(2)} per {displayUnit}
+                                  {fmtMoney(catalogRate)} per {displayUnit}
                                </span>
                              )}
                              {itemSchemes.length > 0 && row.quantity > 0 && (
@@ -1604,7 +1606,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                         <>
                                           {scheme.schemeName}
                                           {scheme.discountPercentage && ` (${scheme.discountPercentage}% off)`}
-                                          {scheme.discountAmount > 0 && ` - ₹${scheme.discountAmount.toFixed(2)} saved`}
+                                          {scheme.discountAmount > 0 && ` - ${fmtMoney(scheme.discountAmount)} saved`}
                                         </>
                                       )}
                                     </span>
@@ -1699,7 +1701,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                       <div className="text-xs text-green-600">{formatQtyUnit(freeItem.unit) || 'pcs'}</div>
                       <div className="text-center text-xs font-medium text-green-700">{freeItem.quantity}</div>
                       <div className="text-center text-xs text-muted-foreground">-</div>
-                      <div className="text-right text-xs font-bold text-green-600 pr-2">₹0.00</div>
+                      <div className="text-right text-xs font-bold text-green-600 pr-2">{fmtMoney(0)}</div>
                     </div>
                   ))}
                   </React.Fragment>
@@ -1723,7 +1725,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         <div className="text-right space-y-1">
           <div className="flex justify-end items-center gap-2">
             <p className="text-sm text-muted-foreground">Subtotal:</p>
-            <p className="text-sm font-medium">₹{getTotalValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+            <p className="text-sm font-medium">{fmtMoney(getTotalValue())}</p>
           </div>
           
           {getDiscountValue() > 0 && (
@@ -1732,7 +1734,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                 <Tag size={12} />
                 <p className="text-sm">Discount:</p>
               </div>
-              <p className="text-sm font-medium text-green-600">-₹{getDiscountValue().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+              <p className="text-sm font-medium text-green-600">-{fmtMoney(getDiscountValue())}</p>
               <button
                 className="p-0.5 text-muted-foreground hover:text-destructive transition-colors"
                 onClick={() => {
@@ -1750,10 +1752,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           
           <div className="flex justify-end items-center gap-2 pt-1 border-t border-border">
             <p className="text-sm font-semibold">Total:</p>
-            <p className="text-lg font-bold">₹{getFinalTotal().toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+            <p className="text-lg font-bold">{fmtMoney(getFinalTotal())}</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            (incl. GST: ₹{(getFinalTotal() + getGstAmount()).toLocaleString('en-IN', { maximumFractionDigits: 2 })})
+            (incl. GST: {fmtMoney(getFinalTotal() + getGstAmount())})
           </p>
         </div>
       </div>
