@@ -47,7 +47,9 @@ export function useNotifications() {
       const banners = all.filter(n => n.type === 'leaderboard_banner');
       const rest = all.filter(n => n.type !== 'leaderboard_banner');
       setNotifications(rest);
-      setPendingBanner(banners[0] ?? null);
+      // Only show a banner that has not been dismissed/read yet, otherwise it
+      // re-appears on every page refresh.
+      setPendingBanner(banners.find(n => !n.is_read) ?? null);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
