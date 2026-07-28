@@ -253,6 +253,7 @@ export const Navbar = memo(() => {
             </div>
             
             <div className="flex items-center gap-1">
+              <MadadHelpButton />
               <NavLink
                 to="/copilot"
                 title={t('nav.copilot')}
