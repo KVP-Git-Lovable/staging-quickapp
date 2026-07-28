@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,6 +59,7 @@ interface SchemeRow {
 const DEFAULT_GST = 18;
 
 const CreatePrimaryOrder = () => {
+  const { format: fmtMoney } = useCurrency();
   const navigate = useNavigate();
   const { id: editOrderId } = useParams();
   const isEditMode = Boolean(editOrderId);
@@ -403,7 +405,7 @@ const CreatePrimaryOrder = () => {
       return `${s.name} · Buy ${s.buy_quantity} Get ${s.free_quantity}`;
     }
     if (s.discount_percentage) return `${s.name} · ${s.discount_percentage}% off`;
-    if (s.discount_amount)     return `${s.name} · ₹${s.discount_amount} off`;
+    if (s.discount_amount)     return `${s.name} · ${fmtMoney(s.discount_amount)} off`;
     return s.name;
   };
 
@@ -460,7 +462,7 @@ const CreatePrimaryOrder = () => {
         const overLimit = newOutstanding > creditLimit;
         const allowBeyond = cfg?.allow_orders_beyond_limit;
         if (overLimit && !allowBeyond) {
-          toast.error(`Credit limit exceeded! Limit: ₹${creditLimit.toLocaleString('en-IN')}, Outstanding + this order (net of advance): ₹${newOutstanding.toLocaleString('en-IN')}.`, { duration: 6000 });
+          toast.error(`Credit limit exceeded! Limit: ${fmtMoney(creditLimit)}, Outstanding + this order (net of advance): ${fmtMoney(newOutstanding)}.`, { duration: 6000 });
           return;
         }
         if (overLimit && cfg?.approval_required_beyond_limit) {
@@ -473,7 +475,7 @@ const CreatePrimaryOrder = () => {
       const minAdvance = cfg?.require_advance_payment && cfg?.advance_payment_pct > 0
         ? Math.round((totals.grandTotal * Number(cfg.advance_payment_pct)) / 100) : 0;
       if (minAdvance > 0 && (payment.advanceAmount || 0) < minAdvance) {
-        toast.error(`Minimum advance payment of ₹${minAdvance.toLocaleString('en-IN')} (${cfg.advance_payment_pct}%) required`); return;
+        toast.error(`Minimum advance payment of ${fmtMoney(minAdvance)} (${cfg.advance_payment_pct}%) required`); return;
       }
       const proofRequired = cfg?.require_payment_proof || payment.paymentTerm === 'advance';
       if (proofRequired && !payment.paymentProofUrl) {
@@ -814,6 +816,7 @@ const CreditStrip = ({
   creditLimit: number; availableCredit: number; thisOrder: number;
   utilizationPct: number; isExceeded: boolean; showRoomLeft: boolean; roomLeft: number;
 }) => {
+  const { format: fmtMoney } = useCurrency();
   const tone = isExceeded
     ? { wrap: "bg-amber-50 border-amber-200", bar: "bg-amber-500", pill: "bg-amber-100 text-amber-700 border-amber-300", label: "Over limit" }
     : { wrap: "bg-emerald-50 border-emerald-200", bar: "bg-emerald-500", pill: "bg-white text-emerald-700 border-emerald-300", label: "Within limit ✓" };
@@ -827,10 +830,10 @@ const CreditStrip = ({
         <div className={cn("h-full transition-all", tone.bar)} style={{ width: `${utilizationPct}%` }} />
       </div>
       <div className="flex-1 text-xs text-foreground/80 truncate">
-        ₹{availableCredit.toLocaleString('en-IN')} available
-        <span className="text-muted-foreground"> · this order ₹{thisOrder.toLocaleString('en-IN')} · {utilizationPct}% used</span>
+        {fmtMoney(availableCredit)} available
+        <span className="text-muted-foreground"> · this order {fmtMoney(thisOrder)} · {utilizationPct}% used</span>
         {showRoomLeft && (
-          <span className="text-muted-foreground"> · ₹{roomLeft.toLocaleString('en-IN')} room left</span>
+          <span className="text-muted-foreground"> · {fmtMoney(roomLeft)} room left</span>
         )}
       </div>
       <Badge variant="outline" className={cn("text-[11px] px-2.5 py-0.5 rounded-full shrink-0", tone.pill)}>
@@ -849,6 +852,7 @@ const CartStage = ({
   orderItems, updateItem, removeItem, addEmptyRow, getProductPrice, totals,
   getApplicableSchemes, describeScheme,
 }: any) => {
+  const { format: fmtMoney } = useCurrency();
   const filtered = selectedCategory === 'all'
     ? products
     : selectedCategory === 'uncategorized'
@@ -1082,17 +1086,17 @@ const CartStage = ({
                     <div className="text-xs">
                       {hasDiscount && (
                         <span className="line-through text-muted-foreground mr-1.5">
-                          ₹{listPrice.toFixed(2)}
+                          {fmtMoney(listPrice)}
                         </span>
                       )}
                       <span className="font-semibold text-foreground">
-                        ₹{item.unit_price.toFixed(2)}/{item.unit?.toUpperCase()}
+                        {fmtMoney(item.unit_price)}/{item.unit?.toUpperCase()}
                       </span>
                     </div>
                     {savings > 0 && (
                       <div className="text-xs text-emerald-600 flex items-center gap-1">
                         <Gift className="w-3 h-3" />
-                        Volume Offer ({offerPct}% off) · ₹{savings.toFixed(2)} saved
+                        Volume Offer ({offerPct}% off) · {fmtMoney(savings)} saved
                       </div>
                     )}
                   </div>
@@ -1138,22 +1142,22 @@ const CartStage = ({
           <div className="rounded-lg border bg-muted/20 p-4 space-y-1.5 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="font-medium">₹{totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+              <span className="font-medium">{fmtMoney(totals.subtotal)}</span>
             </div>
             {totals.totalDiscount > 0 && (
               <div className="flex justify-between">
                 <span className="text-emerald-700 inline-flex items-center gap-1"><Gift className="w-3 h-3" /> Discount</span>
-                <span className="font-medium text-emerald-700">− ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                <span className="font-medium text-emerald-700">− {fmtMoney(totals.totalDiscount)}</span>
               </div>
             )}
             <div className="flex justify-between pt-2 border-t mt-1.5">
               <span className="font-semibold">Total</span>
               <span className="text-xl font-extrabold tracking-tight">
-                ₹{(totals.taxable).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                {fmtMoney(totals.taxable)}
               </span>
             </div>
             <div className="text-[11px] text-muted-foreground text-right">
-              incl. GST ₹{(totals.taxable + totals.taxAmount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+              incl. GST {fmtMoney(totals.taxable + totals.taxAmount)}
             </div>
           </div>
         </div>
@@ -1218,6 +1222,7 @@ const SupplierChip = ({ available, requested }: { available: number; requested: 
 // Stage 2 — Review
 // ============================================================
 const ReviewStage = ({ orderItems, updateItem, removeItem, totals }: any) => {
+  const { format: fmtMoney } = useCurrency();
   const valid = orderItems.filter((it: OrderItem) => it.product_id);
   return (
     <Card className="rounded-xl shadow-sm">
@@ -1244,11 +1249,11 @@ const ReviewStage = ({ orderItems, updateItem, removeItem, totals }: any) => {
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground">{item.product_name}</p>
                   <p className="text-xs mt-0.5">
-                    <span className="font-semibold">₹{item.unit_price.toFixed(2)}/{item.unit?.toUpperCase()}</span>
+                    <span className="font-semibold">{fmtMoney(item.unit_price)}/{item.unit?.toUpperCase()}</span>
                   </p>
                   {disc > 0 && (
                     <p className="text-xs text-emerald-600 flex items-center gap-1 mt-0.5">
-                      <Gift className="w-3 h-3" /> Volume Offer ({item.discount_percent}% off) · ₹{disc.toFixed(2)} saved
+                      <Gift className="w-3 h-3" /> Volume Offer ({item.discount_percent}% off) · {fmtMoney(disc)} saved
                     </p>
                   )}
                 </div>
@@ -1264,8 +1269,8 @@ const ReviewStage = ({ orderItems, updateItem, removeItem, totals }: any) => {
                   </Button>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold">₹{lineTotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-                  {disc > 0 && <p className="text-xs text-emerald-600">−₹{disc.toFixed(2)}</p>}
+                  <p className="font-semibold">{fmtMoney(lineTotal)}</p>
+                  {disc > 0 && <p className="text-xs text-emerald-600">−{fmtMoney(disc)}</p>}
                   <p className="text-[10px] text-muted-foreground mt-0.5">{item.unit?.toUpperCase()}</p>
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive mt-1"
                     onClick={() => removeItem(idxInAll)}>
@@ -1281,7 +1286,7 @@ const ReviewStage = ({ orderItems, updateItem, removeItem, totals }: any) => {
         <div className="mt-5 rounded-xl border bg-muted/10 p-4 space-y-3">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Subtotal</span>
-            <span className="font-medium">₹{totals.subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+            <span className="font-medium">{fmtMoney(totals.subtotal)}</span>
           </div>
           {totals.totalDiscount > 0 && (
             <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
@@ -1291,7 +1296,7 @@ const ReviewStage = ({ orderItems, updateItem, removeItem, totals }: any) => {
               </div>
               <div className="flex justify-between text-sm mt-1.5">
                 <span className="text-emerald-800">Discount</span>
-                <span className="font-medium text-emerald-800">− ₹{totals.totalDiscount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                <span className="font-medium text-emerald-800">− {fmtMoney(totals.totalDiscount)}</span>
               </div>
             </div>
           )}
@@ -1312,11 +1317,11 @@ const ReviewStage = ({ orderItems, updateItem, removeItem, totals }: any) => {
               rows.push(
                 <div key={`cgst-${rate}`} className="flex justify-between text-sm">
                   <span className="text-muted-foreground">CGST ({half}%)</span>
-                  <span>₹{v.cgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                  <span>{fmtMoney(v.cgst)}</span>
                 </div>,
                 <div key={`sgst-${rate}`} className="flex justify-between text-sm">
                   <span className="text-muted-foreground">SGST ({half}%)</span>
-                  <span>₹{v.sgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+                  <span>{fmtMoney(v.sgst)}</span>
                 </div>
               );
             });
@@ -1326,11 +1331,11 @@ const ReviewStage = ({ orderItems, updateItem, removeItem, totals }: any) => {
             <div>
               <p className="text-base font-bold">Total</p>
               <p className="text-[11px] text-muted-foreground">
-                taxable ₹{totals.taxable.toLocaleString('en-IN', { maximumFractionDigits: 2 })} · incl. GST
+                taxable {fmtMoney(totals.taxable)} · incl. GST
               </p>
             </div>
             <p className="text-2xl font-extrabold tracking-tight">
-              ₹{totals.grandTotal.toLocaleString('en-IN')}
+              {fmtMoney(totals.grandTotal)}
             </p>
           </div>
         </div>
@@ -1347,6 +1352,7 @@ const ConfirmStage = ({
   expectedDeliveryDate, setExpectedDeliveryDate, notes, setNotes,
   payment, setPayment, paymentConfig, totals, totalUnits, validItemsCount,
 }: any) => {
+  const { format: fmtMoney } = useCurrency();
   const savings = totals.totalDiscount;
   return (
     <div className="space-y-4">
@@ -1356,7 +1362,7 @@ const ConfirmStage = ({
           <span className="text-sm font-semibold text-amber-900 inline-flex items-center gap-2">
             <Gift className="w-4 h-4" /> You're saving on this order
           </span>
-          <span className="text-base font-bold text-amber-900">₹{savings.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
+          <span className="text-base font-bold text-amber-900">{fmtMoney(savings)}</span>
         </div>
       )}
 
@@ -1454,7 +1460,7 @@ const ConfirmStage = ({
         </p>
         <div className="text-right">
           <p className="text-[11px] text-muted-foreground">Grand Total (incl. GST)</p>
-          <p className="text-xl font-extrabold tracking-tight">₹{totals.grandTotal.toLocaleString('en-IN')}</p>
+          <p className="text-xl font-extrabold tracking-tight">{fmtMoney(totals.grandTotal)}</p>
         </div>
       </div>
     </div>
@@ -1472,6 +1478,7 @@ const WizardFooter = ({
   canNext: boolean; canSubmit: boolean; isEditMode: boolean; grandTotal: number;
   onBack: () => void; onNext: () => void; onSaveDraft: () => void; onSubmit: () => void;
 }) => {
+  const { format: fmtMoney } = useCurrency();
   const showGrandTotal = currentStep > 1;
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-card border-t shadow-[0_-4px_12px_rgba(0,0,0,0.04)] z-40">
@@ -1480,7 +1487,7 @@ const WizardFooter = ({
           {showGrandTotal && (
             <span className="text-muted-foreground">
               Grand Total <span className="ml-2 text-foreground font-extrabold text-base">
-                ₹{grandTotal.toLocaleString('en-IN')}
+                {fmtMoney(grandTotal)}
               </span>
             </span>
           )}

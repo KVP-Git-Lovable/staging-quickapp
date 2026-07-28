@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo, startTransition } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useOutletContext, useSearchParams, useNavigate } from 'react-router-dom';
 import { customerPortalSupabase as supabase } from '@/integrations/supabase/portal-client';
@@ -78,9 +79,9 @@ const isGramUnit = (unit: string) => {
 const getConvertedPrice = (price: number, unit: string) =>
   isGramUnit(unit) ? price / 1000 : price;
 
-const getDisplayPrice = (price: number, unit: string) => {
-  if (isGramUnit(unit)) return `₹${(price / 1000).toFixed(2)} / gram`;
-  return `₹${price.toFixed(2)} / ${unit}`;
+const getDisplayPrice = (price: number, unit: string, fmt: (n: number) => string) => {
+  if (isGramUnit(unit)) return `${fmt(price / 1000)} / gram`;
+  return `${fmt(price)} / ${unit}`;
 };
 
 
@@ -103,6 +104,7 @@ const ProductPickerItem = memo(function ProductPickerItem({
   formatScheme: (s: Scheme) => string;
   onSelect: (id: string) => void;
 }) {
+  const { format: fmtMoney } = useCurrency();
   return (
     <CommandItem
       value={`${product.name} ${product.sku || ''}`}
@@ -117,7 +119,7 @@ const ProductPickerItem = memo(function ProductPickerItem({
           {scheme && <Gift size={10} className="text-emerald-600 shrink-0" />}
         </div>
         <div className="text-[10px] text-muted-foreground">
-          {product.sku && `SKU: ${product.sku} | `}₹{price.toFixed(2)}
+          {product.sku && `SKU: ${product.sku} | `}{fmtMoney(price)}
         </div>
         {scheme && (
           <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
@@ -216,6 +218,7 @@ const ProductPicker = memo(function ProductPicker({
 });
 
 const CustomerCatalog = () => {
+  const { format: fmtMoney } = useCurrency();
   const { retailer, cartCount } = useOutletContext<ContextType>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -469,7 +472,7 @@ const CustomerCatalog = () => {
     if (s.scheme_type === 'buy_x_get_y' && s.buy_quantity && s.free_quantity)
       return `Buy ${s.buy_quantity} Get ${s.free_quantity} Free`;
     if (s.discount_percentage) return `${s.discount_percentage}% Off`;
-    if (s.discount_amount) return `₹${s.discount_amount} Off`;
+    if (s.discount_amount) return `${fmtMoney(s.discount_amount)} Off`;
     return s.name;
   }, []);
 
@@ -730,7 +733,7 @@ const CustomerCatalog = () => {
                     scheme && "bg-emerald-50/30 dark:bg-emerald-950/10"
                   )}>
                     <span className="text-[10px] text-muted-foreground">
-                      {getDisplayPrice(rawPrice, effectiveUnit)}
+                      {getDisplayPrice(rawPrice, effectiveUnit, fmtMoney)}
                       {gstPct > 0 && <span className="ml-1">+{gstPct}% GST</span>}
                     </span>
                     {scheme && (
@@ -783,7 +786,7 @@ const CustomerCatalog = () => {
       <Card className="p-4 rounded-xl border-border/50 shadow-sm">
         <div className="flex justify-between items-center mb-1">
           <span className="text-sm text-muted-foreground">Subtotal</span>
-          <span className="text-sm font-medium text-foreground">₹{subtotal.toFixed(2)}</span>
+          <span className="text-sm font-medium text-foreground">{fmtMoney(subtotal)}</span>
         </div>
         {appliedSchemes.length > 0 && (
           <>
@@ -793,13 +796,13 @@ const CustomerCatalog = () => {
                   🎁 {s.name}
                 </span>
                 <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                  -₹{s.saving.toFixed(2)}
+                  -{fmtMoney(s.saving)}
                 </span>
               </div>
             ))}
             <div className="flex justify-between items-center mb-1 pt-1 border-t border-emerald-200/40 dark:border-emerald-800/40">
               <span className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">Total Offer Discount</span>
-              <span className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">-₹{discountTotal.toFixed(2)}</span>
+              <span className="text-xs text-emerald-700 dark:text-emerald-400 font-semibold">-{fmtMoney(discountTotal)}</span>
             </div>
           </>
         )}
@@ -807,17 +810,17 @@ const CustomerCatalog = () => {
           <>
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs text-muted-foreground">CGST</span>
-              <span className="text-xs text-muted-foreground">₹{(gstTotal / 2).toFixed(2)}</span>
+              <span className="text-xs text-muted-foreground">{fmtMoney(gstTotal / 2)}</span>
             </div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs text-muted-foreground">SGST</span>
-              <span className="text-xs text-muted-foreground">₹{(gstTotal / 2).toFixed(2)}</span>
+              <span className="text-xs text-muted-foreground">{fmtMoney(gstTotal / 2)}</span>
             </div>
           </>
         )}
         <div className="flex justify-between items-center pt-2 border-t border-border/40">
           <span className="text-base font-bold text-foreground">Total</span>
-          <span className="text-lg font-bold text-primary">₹{(subtotal - discountTotal + gstTotal).toFixed(2)}</span>
+          <span className="text-lg font-bold text-primary">{fmtMoney(subtotal - discountTotal + gstTotal)}</span>
         </div>
       </Card>
 
