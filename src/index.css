@@ -85,6 +85,16 @@
     --copilot-chrome-end: 220 4% 22%;
     --copilot-card: 0 0% 100% / 0.07;
     --copilot-card-hover: 0 0% 100% / 0.11;
+
+    /* Copilot insight ticker: creamy white to soft yellow */
+    --copilot-ticker-start: 48 100% 99%;
+    --copilot-ticker-mid: 48 92% 94%;
+    --copilot-ticker-end: 45 90% 86%;
+    --copilot-ticker-border: 45 60% 78%;
+    --copilot-ticker-label: 219 79% 42%;
+    --copilot-ticker-metric: 22 62% 30%;
+    --copilot-ticker-name: 0 0% 8%;
+
   }
 
   .dark {
