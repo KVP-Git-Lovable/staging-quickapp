@@ -762,6 +762,7 @@ const PriceBookAdmin = () => {
               {renderCreateForm()}
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Clone Dialog */}
