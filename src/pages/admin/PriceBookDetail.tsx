@@ -13,6 +13,7 @@ import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink
 import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { formatCurrency, resolveRate, type RatesMap } from '@/lib/money';
+import PriceBookExcelActions from '@/components/pricebook/PriceBookExcelActions';
 
 interface PriceBook {
   id: string;
