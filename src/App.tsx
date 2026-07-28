@@ -619,6 +619,7 @@ const AppContent = () => {
         <Route path="/admin/performance-module" element={<ProtectedRoute><PerformanceModuleAdmin /></ProtectedRoute>} />
         <Route path="/admin/price-books" element={<ProtectedRoute><PriceBookAdmin /></ProtectedRoute>} />
         <Route path="/admin/price-books/:id" element={<ProtectedRoute><PriceBookDetail /></ProtectedRoute>} />
+        <Route path="/admin/price-simulator" element={<ProtectedRoute><PriceSimulator /></ProtectedRoute>} />
         <Route path="/my-targets" element={<ProtectedRoute><MyTargets /></ProtectedRoute>} />
         <Route path="/team-targets" element={<ProtectedRoute><TeamTargets /></ProtectedRoute>} />
         <Route path="/joint-sales-analytics" element={<ProtectedRoute><JointSalesAnalytics /></ProtectedRoute>} />
