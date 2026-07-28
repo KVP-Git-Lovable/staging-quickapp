@@ -1,13 +1,13 @@
 // Central money formatting + conversion.
 // Principle: every amount stored in the DB is in the company BASE currency.
-// To show it to a user, convert base -> the user's display currency, then format.
-// Formatting uses Intl (symbol + decimal places are derived automatically from the ISO code).
+// Rates are stored base<->X; any-to-any pairs resolve via triangulation through the base.
+// If no rate can be resolved, we format in the BASE currency (honest) rather than stamping
+// a foreign symbol onto an unconverted number.
 
-export type RatesMap = Record<string, number>; // key: `${base}->${quote}`  value: multiplier
+export type RatesMap = Record<string, number>; // key: `${base}->${quote}` value: multiplier
 
 /**
- * Format an amount that is ALREADY in `currency`. Symbol and decimals come from Intl per ISO code
- * (e.g. INR -> ₹, JPY -> ¥ with 0 decimals). Falls back to "CODE 1,234" for unknown codes.
+ * Format an amount that is ALREADY in `currency`.
  */
 export function formatCurrency(
   amount: number | string | null | undefined,
@@ -22,28 +22,51 @@ export function formatCurrency(
   }
 }
 
-/**
- * Convert `amount` from one currency to another using a rates map keyed `${from}->${to}`.
- * Returns the amount unchanged if from===to or no rate is known (safe fallback, never throws).
- */
+function findPairRate(from: string, to: string, rates: RatesMap): number | null {
+  if (from === to) return 1;
+  const direct = rates[`${from}->${to}`];
+  if (direct && direct > 0) return direct;
+  const inverse = rates[`${to}->${from}`];
+  if (inverse && inverse > 0) return 1 / inverse;
+  return null;
+}
+
+/** Resolve a from->to rate, triangulating through `baseCurrency` when needed. */
+export function resolveRate(
+  from: string,
+  to: string,
+  rates: RatesMap = {},
+  baseCurrency?: string,
+): number | null {
+  const direct = findPairRate(from, to, rates);
+  if (direct !== null) return direct;
+
+  if (baseCurrency && from !== baseCurrency && to !== baseCurrency) {
+    const fromToBase = findPairRate(from, baseCurrency, rates);
+    const baseToTo = findPairRate(baseCurrency, to, rates);
+    if (fromToBase !== null && baseToTo !== null) return fromToBase * baseToTo;
+  }
+
+  return null;
+}
+
+/** Convert between currencies; returns the amount unchanged when no rate is resolvable. */
 export function convertAmount(
   amount: number | string | null | undefined,
   from: string,
   to: string,
   rates: RatesMap = {},
+  baseCurrency?: string,
 ): number {
   const n = Number(amount) || 0;
-  if (!from || !to || from === to) return n;
-  const direct = rates[`${from}->${to}`];
-  if (direct && direct > 0) return n * direct;
-  const inverse = rates[`${to}->${from}`];
-  if (inverse && inverse > 0) return n / inverse;
-  return n; // unknown rate -> return unconverted rather than a wrong/zero value
+  if (!from || !to) return n;
+  const rate = resolveRate(from, to, rates, baseCurrency);
+  return rate === null ? n : n * rate;
 }
 
 /**
  * Take a BASE-currency amount, convert it to the display currency, and format it.
- * This is the function most UI code should call.
+ * Falls back to base-currency formatting when no rate exists.
  */
 export function formatFromBase(
   baseAmount: number | string | null | undefined,
@@ -52,6 +75,10 @@ export function formatFromBase(
   rates: RatesMap = {},
   locale: string = 'en-IN',
 ): string {
-  const converted = convertAmount(baseAmount, baseCurrency, displayCurrency, rates);
-  return formatCurrency(converted, displayCurrency, locale);
+  const n = Number(baseAmount) || 0;
+  const base = baseCurrency || 'INR';
+  if (!displayCurrency || displayCurrency === base) return formatCurrency(n, base, locale);
+  const rate = resolveRate(base, displayCurrency, rates, base);
+  if (rate === null) return formatCurrency(n, base, locale);
+  return formatCurrency(n * rate, displayCurrency, locale);
 }
