@@ -130,6 +130,16 @@ const PriceBookDetail = () => {
       });
       setEntries(entriesRes.data || []);
       setCategories(categoriesRes.data || []);
+
+      const comp: any = (companyRes as any)?.data || {};
+      setBaseCurrency(comp.base_currency || comp.currency || 'INR');
+      const map: RatesMap = {};
+      for (const r of ((ratesRes as any)?.data || []) as any[]) {
+        const rate = Number(r.rate);
+        if (rate > 0) map[`${r.base_currency}->${r.quote_currency}`] = rate;
+      }
+      setRates(map);
+
       
       // Map products to match Product interface
       const mappedProducts: Product[] = (productsAll || []).map((p: any) => ({
