@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface PriceBook {
   id: string;
@@ -42,6 +43,8 @@ interface PriceBook {
 interface Territory {
   id: string;
   name: string;
+  zone?: string | null;
+  region?: string | null;
 }
 
 const priceBookTypes = {
@@ -67,6 +70,10 @@ const PriceBookAdmin = () => {
   const navigate = useNavigate();
   const [priceBooks, setPriceBooks] = useState<PriceBook[]>([]);
   const [territories, setTerritories] = useState<Territory[]>([]);
+  const [currencies, setCurrencies] = useState<{ code: string; name: string }[]>([]);
+  const [retailers, setRetailers] = useState<{ id: string; name: string }[]>([]);
+  const [salespeople, setSalespeople] = useState<{ id: string; full_name: string | null }[]>([]);
+  const [beats, setBeats] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
@@ -87,6 +94,11 @@ const PriceBookAdmin = () => {
     territory_id: '',
     apply_to_all_territories: true,
     distributor_category: '',
+    retailer_id: '',
+    user_id: '',
+    beat_id: '',
+    zone: '',
+    region: '',
   });
 
   useEffect(() => {
@@ -110,9 +122,13 @@ const PriceBookAdmin = () => {
         query = query.eq('is_active', false);
       }
 
-      const [priceBookRes, territoriesRes] = await Promise.all([
+      const [priceBookRes, territoriesRes, currenciesRes, retailersRes, profilesRes, beatsRes] = await Promise.all([
         query,
-        supabase.from('territories').select('id, name').order('name')
+        supabase.from('territories').select('id, name, zone, region').order('name'),
+        supabase.from('currencies').select('code, name').eq('is_active', true).order('code'),
+        supabase.from('retailers').select('id, name').order('name').limit(1000),
+        supabase.from('profiles').select('id, full_name').order('full_name'),
+        supabase.from('beats').select('id, name').order('name').limit(1000),
       ]);
 
       if (priceBookRes.error) throw priceBookRes.error;
@@ -142,7 +158,11 @@ const PriceBookAdmin = () => {
       }));
 
       setPriceBooks(booksWithCounts);
-      setTerritories(territoriesRes.data || []);
+      setTerritories((territoriesRes.data as any[]) || []);
+      setCurrencies(((currenciesRes.data as any[]) || []).length ? (currenciesRes.data as any[]) : [{ code: 'INR', name: 'Indian Rupee' }]);
+      setRetailers((retailersRes.data as any[]) || []);
+      setSalespeople((profilesRes.data as any[]) || []);
+      setBeats((beatsRes.data as any[]) || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load price books');
@@ -173,6 +193,11 @@ const PriceBookAdmin = () => {
         territory_id: formData.apply_to_all_territories ? null : (formData.territory_id || null),
         apply_to_all_territories: formData.apply_to_all_territories,
         distributor_category: formData.distributor_category || null,
+        retailer_id: formData.retailer_id || null,
+        user_id: formData.user_id || null,
+        beat_id: formData.beat_id || null,
+        zone: formData.zone || null,
+        region: formData.region || null,
         created_by: user?.user?.id || null,
       };
 
@@ -263,6 +288,11 @@ const PriceBookAdmin = () => {
           territory_id: formData.apply_to_all_territories ? null : (formData.territory_id || null),
           apply_to_all_territories: formData.apply_to_all_territories,
           distributor_category: formData.distributor_category || null,
+          retailer_id: formData.retailer_id || null,
+          user_id: formData.user_id || null,
+          beat_id: formData.beat_id || null,
+          zone: formData.zone || null,
+          region: formData.region || null,
           cloned_from: selectedPriceBook.id,
           created_by: user?.user?.id || null,
         })
@@ -339,6 +369,11 @@ const PriceBookAdmin = () => {
       territory_id: '',
       apply_to_all_territories: false,
       distributor_category: '',
+      retailer_id: '',
+      user_id: '',
+      beat_id: '',
+      zone: '',
+      region: '',
     });
     setIsCloneOpen(true);
   };
@@ -363,6 +398,11 @@ const PriceBookAdmin = () => {
       territory_id: '',
       apply_to_all_territories: true,
       distributor_category: '',
+      retailer_id: '',
+      user_id: '',
+      beat_id: '',
+      zone: '',
+      region: '',
     });
   };
 
@@ -558,14 +598,91 @@ const PriceBookAdmin = () => {
         </div>
       )}
 
+      {/* Applies to (specificity targeting) */}
+      <div className="space-y-3 p-3 border rounded-lg">
+        <div>
+          <Label className="text-sm font-medium">Applies to</Label>
+          <p className="text-xs text-muted-foreground mt-1">
+            The most specific match wins: Retailer &gt; Salesperson &gt; Beat &gt; Territory &gt; Zone &gt; Region &gt; Category &gt; Standard.
+            Leave a field blank to keep the book broader.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Retailer</Label>
+            <SearchableSelect
+              value={formData.retailer_id}
+              onValueChange={(v) => setFormData({ ...formData, retailer_id: v })}
+              options={retailers.map((r) => r.id)}
+              labels={Object.fromEntries(retailers.map((r) => [r.id, r.name]))}
+              placeholder="Any retailer"
+              searchPlaceholder="Search retailers..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Salesperson</Label>
+            <SearchableSelect
+              value={formData.user_id}
+              onValueChange={(v) => setFormData({ ...formData, user_id: v })}
+              options={salespeople.map((u) => u.id)}
+              labels={Object.fromEntries(salespeople.map((u) => [u.id, u.full_name || u.id]))}
+              placeholder="Any salesperson"
+              searchPlaceholder="Search users..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Beat</Label>
+            <SearchableSelect
+              value={formData.beat_id}
+              onValueChange={(v) => setFormData({ ...formData, beat_id: v })}
+              options={beats.map((b) => b.id)}
+              labels={Object.fromEntries(beats.map((b) => [b.id, b.name]))}
+              placeholder="Any beat"
+              searchPlaceholder="Search beats..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Zone</Label>
+            <SearchableSelect
+              value={formData.zone}
+              onValueChange={(v) => setFormData({ ...formData, zone: v })}
+              options={Array.from(new Set(territories.map((t) => t.zone).filter(Boolean))) as string[]}
+              placeholder="Any zone"
+              searchPlaceholder="Search zones..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Region</Label>
+            <SearchableSelect
+              value={formData.region}
+              onValueChange={(v) => setFormData({ ...formData, region: v })}
+              options={Array.from(new Set(territories.map((t) => t.region).filter(Boolean))) as string[]}
+              placeholder="Any region"
+              searchPlaceholder="Search regions..."
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Currency</Label>
-          <Input
+          <Select
             value={formData.currency}
-            onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-            placeholder="INR"
-          />
+            onValueChange={(val) => setFormData({ ...formData, currency: val })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select currency" />
+            </SelectTrigger>
+            <SelectContent>
+              {currencies.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  {c.code} — {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
