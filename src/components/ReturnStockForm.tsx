@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './ui/command';
 import { cn } from '@/lib/utils';
 import { useOfflineOrderEntry } from '@/hooks/useOfflineOrderEntry';
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface ProductVariant {
   id: string;
@@ -100,6 +101,7 @@ function deriveLine(line: ReturnableLine, returnQty: number) {
 }
 
 export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete }: ReturnStockFormProps) {
+  const { format: fmtMoney } = useCurrency();
   const { products: cachedProducts, loading: cacheLoading, fetchProducts } = useOfflineOrderEntry();
   const [products, setProducts] = useState<Product[]>([]);
   const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
@@ -703,7 +705,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                                     sold <span className="font-medium text-foreground">{l.sold_qty}</span>
                                   </span>
                                   <span>
-                                    ₹<span className="font-medium text-foreground">{l.rate.toFixed(2)}</span>/unit
+                                    <span className="font-medium text-foreground">{fmtMoney(l.rate)}</span>/unit
                                   </span>
                                   <span>
                                     returnable <span className="font-medium text-primary">{l.returnable}</span>
@@ -740,7 +742,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                     <div>
                       <Label className="text-xs text-muted-foreground">Credit (est.)</Label>
                       <p className="h-9 mt-1 flex items-center text-sm font-semibold">
-                        ₹{returnQuantity > 0 && !qtyOverMax ? deriveLine(selectedLine, returnQuantity).total.toFixed(2) : '0.00'}
+                        {fmtMoney(returnQuantity > 0 && !qtyOverMax ? deriveLine(selectedLine, returnQuantity).total : 0)}
                       </p>
                     </div>
                   </div>
@@ -794,7 +796,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
               <div className="flex items-center justify-between px-1">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Added Items</p>
                 <Badge variant="secondary" className="text-xs">
-                  {returnItems.length} items · ₹{Math.round(grandTotal)}
+                  {returnItems.length} items · {fmtMoney(Math.round(grandTotal))}
                 </Badge>
               </div>
               {returnItems.map((item, index) => (
@@ -807,14 +809,14 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                           {item.variantName && <span className="text-muted-foreground"> · {item.variantName}</span>}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          INV {item.invoiceNumber || 'N/A'} · {item.returnQuantity} {item.unit} × ₹{item.rate.toFixed(2)}
+                          INV {item.invoiceNumber || 'N/A'} · {item.returnQuantity} {item.unit} × {fmtMoney(item.rate)}
                         </p>
                         <Badge variant="outline" className="text-[10px] px-1.5 py-0 mt-1">
                           {item.returnReason}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-sm font-semibold">₹{Math.round(item.total)}</span>
+                        <span className="text-sm font-semibold">{fmtMoney(Math.round(item.total))}</span>
                         <Button
                           size="icon"
                           variant="ghost"
@@ -848,13 +850,13 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
                         {item.variantName && <span className="text-muted-foreground text-xs"> · {item.variantName}</span>}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        INV {item.invoiceNumber || 'N/A'} · {item.returnQuantity} {item.unit} × ₹{item.rate.toFixed(2)}
+                        INV {item.invoiceNumber || 'N/A'} · {item.returnQuantity} {item.unit} × {fmtMoney(item.rate)}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        CGST ₹{item.cgstAmount.toFixed(2)} · SGST ₹{item.sgstAmount.toFixed(2)}
+                        CGST {fmtMoney(item.cgstAmount)} · SGST {fmtMoney(item.sgstAmount)}
                       </p>
                     </div>
-                    <span className="font-semibold shrink-0">₹{item.total.toFixed(2)}</span>
+                    <span className="font-semibold shrink-0">{fmtMoney(item.total)}</span>
                   </div>
                 </div>
               ))}
@@ -865,19 +867,19 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
             <CardContent className="p-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Sub Total</span>
-                <span>₹{subTotal.toFixed(2)}</span>
+                <span>{fmtMoney(subTotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">SGST</span>
-                <span>₹{sgstAmount.toFixed(2)}</span>
+                <span>{fmtMoney(sgstAmount)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">CGST</span>
-                <span>₹{cgstAmount.toFixed(2)}</span>
+                <span>{fmtMoney(cgstAmount)}</span>
               </div>
               <div className="flex justify-between text-sm font-bold border-t pt-2">
                 <span>Total Credit</span>
-                <span className="text-destructive">₹{Math.round(grandTotal)}</span>
+                <span className="text-destructive">{fmtMoney(Math.round(grandTotal))}</span>
               </div>
             </CardContent>
           </Card>
@@ -899,7 +901,7 @@ export function ReturnStockForm({ visitId, retailerId, retailerName, onComplete 
             <div>
               <h3 className="text-lg font-bold">{pendingApproval ? 'Submitted for Approval' : 'Credit Note Issued'}</h3>
               <p className="text-sm text-muted-foreground mt-1">{creditNoteNumber}</p>
-              <p className="text-2xl font-bold text-destructive mt-2">₹{Math.round(grandTotal)}</p>
+              <p className="text-2xl font-bold text-destructive mt-2">{fmtMoney(Math.round(grandTotal))}</p>
               {pendingApproval && (
                 <p className="text-xs text-muted-foreground mt-2 px-4">
                   PDF will be available after this credit note is approved. No ledger change yet.
