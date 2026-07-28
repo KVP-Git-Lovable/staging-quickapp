@@ -62,6 +62,9 @@ const PriceBookDetail = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [baseCurrency, setBaseCurrency] = useState('INR');
+  const [rates, setRates] = useState<RatesMap>({});
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
