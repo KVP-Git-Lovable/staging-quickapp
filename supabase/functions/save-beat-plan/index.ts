@@ -143,7 +143,7 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      plansCreated = plansToInsert.length;
+      plansCreated = uniquePlans.length;
 
       // Log autonomous action (best-effort)
       try {
