@@ -427,6 +427,12 @@ const PriceBookDetail = () => {
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sync All Products
             </Button>
+            <PriceBookExcelActions
+              priceBookId={id as string}
+              bookName={priceBook.name}
+              currency={bookCurrency}
+              onImported={fetchData}
+            />
             {isForeignBook && (
               <Button
                 variant="outline"
