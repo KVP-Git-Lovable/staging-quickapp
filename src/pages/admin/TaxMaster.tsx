@@ -263,6 +263,8 @@ const TaxMaster = () => {
       updatePanel(key, { saving: false, selected: new Set() });
       await Promise.all([
         loadPanelProducts(key, bracketId),
+        // refresh destination panel too, if it's open
+        ...(expanded[p.targetBracket] ? [loadPanelProducts(p.targetBracket, p.targetBracket)] : []),
         loadTaxes(),
       ]);
     } catch (e: any) {
