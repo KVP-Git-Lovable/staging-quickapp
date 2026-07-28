@@ -94,6 +94,10 @@ interface TableOrderFormProps {
 
 const normalizeUnitForOrder = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
 
+// Write-boundary guard: never persist a non-UUID uom_id (synthetic client-side ids break DB sync).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const safeUomId = (v: unknown): string | null => (v && UUID_RE.test(String(v)) ? String(v) : null);
+
 const isLegacyWeightDefault = (u?: string) => {
   const unit = normalizeUnitForOrder(u);
   return ["kg", "kilogram", "kilograms", "g", "gm", "gram", "grams"].includes(unit);
@@ -321,7 +325,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         original_rate: catalogRate,
         is_price_edited: isPriceEdited,
         unit: selectedUnit,
-        uom_id: row.uomId || null,
+        uom_id: safeUomId(row.uomId),
         uom_code: row.uomCode || selectedUnit,
         conversion_to_base: row.conversionToBase ?? null,
         base_unit: selectedUnit,
