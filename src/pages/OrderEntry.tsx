@@ -143,10 +143,17 @@ export const OrderEntry = () => {
 
   // Force-refresh the full master data cache (re-syncs products end-to-end).
   // Used by the "Refresh products" button + the 10-min staleness check on open.
-  const { forceRefreshMasterData, availabilityByProductId, territoriesById } = useMasterDataCache();
+  const { forceRefreshMasterData, hardRefreshProducts, availabilityByProductId, territoriesById } = useMasterDataCache();
 
-  // Manual refresh: re-sync product master AND reload the picker list.
+  // Manual refresh: HARD wipe of product/variant caches, re-sync master data,
+  // then reload the picker list so DB edits (base_unit / variant_name / rate)
+  // show up immediately.
   const reloadProductsFromMaster = useCallback(async () => {
+    try {
+      await hardRefreshProducts();
+    } catch (err) {
+      console.warn('[OrderEntry] hardRefreshProducts failed', err);
+    }
     try {
       await forceRefreshMasterData();
     } catch (err) {
@@ -154,11 +161,10 @@ export const OrderEntry = () => {
     }
     // Reset the in-memory de-dupe guard so the next fetchOfflineProducts
     // actually re-reads the freshly cached rows instead of returning early.
-    // Reset the in-memory de-dupe guard so the next fetchOfflineProducts
-    // actually re-reads the freshly cached rows instead of returning early.
     resetOfflineProductsGuard?.();
     await fetchOfflineProducts();
-  }, [forceRefreshMasterData, fetchOfflineProducts, resetOfflineProductsGuard]);
+  }, [hardRefreshProducts, forceRefreshMasterData, fetchOfflineProducts, resetOfflineProductsGuard]);
+
 
   // On OPEN: if online and cache is older than ~10 min, kick a background refresh
   // so newly-added products appear without waiting for the 45-min interval.
