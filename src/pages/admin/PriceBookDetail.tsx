@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 
@@ -530,9 +530,18 @@ const PriceBookDetail = () => {
                                 {entry.product?.name}
                                 <ExternalLink className="h-3 w-3" />
                               </button>
-                              {entry.variant && (
+                              {entry.variant ? (
                                 <Badge variant="outline" className="text-xs">
                                   {entry.variant.variant_name}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  Base product
+                                </Badge>
+                              )}
+                              {entry.min_quantity > 1 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Qty ≥ {entry.min_quantity}
                                 </Badge>
                               )}
                             </div>
@@ -584,6 +593,14 @@ const PriceBookDetail = () => {
                               </p>
                               <p className="text-xs text-muted-foreground">Final</p>
                             </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Add a higher quantity slab"
+                              onClick={() => handleAddSlab(entry)}
+                            >
+                              <Layers className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
