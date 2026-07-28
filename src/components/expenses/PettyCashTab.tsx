@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,8 @@ interface PettyCashTabProps {
 }
 
 const PettyCashTab: React.FC<PettyCashTabProps> = ({ fund, limits }) => {
+  const { format: fmtMoney } = useCurrency();
+  const currencySymbol = fmtMoney(0).replace(/[\d.,\s]/g, '') || '';
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: transactions = [], isLoading } = usePettyCashTransactions(fund.id);
@@ -52,16 +55,16 @@ const PettyCashTab: React.FC<PettyCashTabProps> = ({ fund, limits }) => {
 
   const validateSpend = (amount: number): string | null => {
     if (amount <= 0) return 'Amount must be greater than 0';
-    if (amount > fund.balance) return `Exceeds remaining balance (₹${fund.balance.toLocaleString()})`;
+    if (amount > fund.balance) return `Exceeds remaining balance (${fmtMoney(fund.balance)})`;
     if (limits?.max_per_transaction && amount > limits.max_per_transaction) {
-      return `Exceeds per-transaction limit (₹${limits.max_per_transaction.toLocaleString()})`;
+      return `Exceeds per-transaction limit (${fmtMoney(limits.max_per_transaction)})`;
     }
     if (limits?.max_per_day) {
       const todayTotal = transactions
         .filter(t => t.transaction_date === form.transaction_date && t.status !== 'rejected')
         .reduce((sum, t) => sum + t.amount, 0);
       if (todayTotal + amount > limits.max_per_day) {
-        return `Exceeds daily limit (₹${limits.max_per_day.toLocaleString()}, already spent ₹${todayTotal.toLocaleString()} today)`;
+        return `Exceeds daily limit (${fmtMoney(limits.max_per_day)}, already spent ${fmtMoney(todayTotal)} today)`;
       }
     }
     return null;
@@ -81,7 +84,7 @@ const PettyCashTab: React.FC<PettyCashTabProps> = ({ fund, limits }) => {
     }
 
     if (!asDraft && limits?.require_bill_above && amount > limits.require_bill_above) {
-      toast.error(`Bill/proof is required for amounts above ₹${limits.require_bill_above}`);
+      toast.error(`Bill/proof is required for amounts above ${fmtMoney(limits.require_bill_above)}`);
       return;
     }
 
@@ -141,15 +144,15 @@ const PettyCashTab: React.FC<PettyCashTabProps> = ({ fund, limits }) => {
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
               <p className="text-xs text-muted-foreground">Allocated</p>
-              <p className="text-lg font-bold text-foreground">₹{fund.allocated_amount.toLocaleString()}</p>
+              <p className="text-lg font-bold text-foreground">{fmtMoney(fund.allocated_amount)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Spent</p>
-              <p className="text-lg font-bold text-destructive">₹{spent.toLocaleString()}</p>
+              <p className="text-lg font-bold text-destructive">{fmtMoney(spent)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Remaining</p>
-              <p className="text-lg font-bold text-primary">₹{fund.balance.toLocaleString()}</p>
+              <p className="text-lg font-bold text-primary">{fmtMoney(fund.balance)}</p>
             </div>
           </div>
           <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
@@ -161,13 +164,13 @@ const PettyCashTab: React.FC<PettyCashTabProps> = ({ fund, limits }) => {
           {limits && (
             <div className="mt-2 flex flex-wrap gap-2">
               {limits.max_per_transaction && (
-                <Badge variant="outline" className="text-xs">Max/txn: ₹{limits.max_per_transaction}</Badge>
+                <Badge variant="outline" className="text-xs">Max/txn: {fmtMoney(limits.max_per_transaction)}</Badge>
               )}
               {limits.max_per_day && (
-                <Badge variant="outline" className="text-xs">Max/day: ₹{limits.max_per_day}</Badge>
+                <Badge variant="outline" className="text-xs">Max/day: {fmtMoney(limits.max_per_day)}</Badge>
               )}
               {limits.require_bill_above && (
-                <Badge variant="outline" className="text-xs">Bill req above: ₹{limits.require_bill_above}</Badge>
+                <Badge variant="outline" className="text-xs">Bill req above: {fmtMoney(limits.require_bill_above)}</Badge>
               )}
             </div>
           )}
@@ -219,7 +222,7 @@ const PettyCashTab: React.FC<PettyCashTabProps> = ({ fund, limits }) => {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">₹{tx.amount.toLocaleString()}</span>
+                    <span className="text-sm font-semibold">{fmtMoney(tx.amount)}</span>
                     {tx.status === 'draft' && (
                       <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => handleSubmitDraft(tx.id)}>
                         <Send className="h-3 w-3" /> Submit
@@ -250,7 +253,7 @@ const PettyCashTab: React.FC<PettyCashTabProps> = ({ fund, limits }) => {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Amount (₹)</Label>
+              <Label className="text-xs">Amount ({currencySymbol})</Label>
               <Input
                 type="number"
                 placeholder="0"
