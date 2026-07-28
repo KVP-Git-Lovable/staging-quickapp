@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+import { formatCurrency, resolveRate, type RatesMap } from '@/lib/money';
 
 interface PriceBook {
   id: string;
@@ -61,6 +62,9 @@ const PriceBookDetail = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [baseCurrency, setBaseCurrency] = useState('INR');
+  const [rates, setRates] = useState<RatesMap>({});
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -82,7 +86,7 @@ const PriceBookDetail = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [priceBookRes, entriesRes, productsAll, categoriesRes] = await Promise.all([
+      const [priceBookRes, entriesRes, productsAll, categoriesRes, companyRes, ratesRes] = await Promise.all([
         supabase.from('price_books').select('*').eq('id', id).single(),
         supabase
           .from('price_book_entries')
@@ -106,6 +110,15 @@ const PriceBookDetail = () => {
           .from('product_categories')
           .select('id, name')
           .order('name'),
+        supabase
+          .from('companies')
+          .select('base_currency, currency')
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('exchange_rates')
+          .select('base_currency, quote_currency, rate, effective_date')
+          .order('effective_date', { ascending: true }),
       ]);
 
       if (priceBookRes.error) throw priceBookRes.error;
@@ -117,6 +130,16 @@ const PriceBookDetail = () => {
       });
       setEntries(entriesRes.data || []);
       setCategories(categoriesRes.data || []);
+
+      const comp: any = (companyRes as any)?.data || {};
+      setBaseCurrency(comp.base_currency || comp.currency || 'INR');
+      const map: RatesMap = {};
+      for (const r of ((ratesRes as any)?.data || []) as any[]) {
+        const rate = Number(r.rate);
+        if (rate > 0) map[`${r.base_currency}->${r.quote_currency}`] = rate;
+      }
+      setRates(map);
+
       
       // Map products to match Product interface
       const mappedProducts: Product[] = (productsAll || []).map((p: any) => ({
@@ -137,10 +160,33 @@ const PriceBookDetail = () => {
     }
   };
 
-  const syncAllProducts = async () => {
-    if (!id) return;
-    
+  const bookCurrency = priceBook?.currency || baseCurrency;
+  const isForeignBook = !!priceBook && bookCurrency !== baseCurrency;
+  const fxRate = isForeignBook ? resolveRate(baseCurrency, bookCurrency, rates, baseCurrency) : 1;
+
+  const fmtBook = (v: number | null | undefined) => formatCurrency(v, bookCurrency);
+
+  // mode: 'default' = base-currency copy (same-currency books) or blank for foreign books
+  //       'convert' = seed foreign book from base price at the latest exchange rate
+  const syncAllProducts = async (mode: 'default' | 'convert' = 'default') => {
+    if (!id || !priceBook) return;
+
+    const convert = mode === 'convert' && isForeignBook && !!fxRate;
+    const blank = isForeignBook && !convert;
+
+    if (mode === 'convert' && !fxRate) {
+      toast.error(`No exchange rate found for ${baseCurrency} → ${bookCurrency}`);
+      return;
+    }
+
+    const priceFor = (base: number | null | undefined) => {
+      if (blank) return 0;
+      const n = Number(base) || 0;
+      return convert ? Math.round(n * (fxRate as number) * 100) / 100 : n;
+    };
+
     setSyncing(true);
+    setSyncNotice(null);
     try {
       // Get existing product/variant combinations
       const existingKeys = new Set(
@@ -153,13 +199,14 @@ const PriceBookDetail = () => {
         // Check base product
         const baseKey = `${product.id}-null`;
         if (!existingKeys.has(baseKey)) {
+          const price = priceFor(product.mrp);
           newEntries.push({
             price_book_id: id,
             product_id: product.id,
             variant_id: null,
-            list_price: product.mrp || 0,
+            list_price: price,
             discount_percent: 0,
-            final_price: product.mrp || 0,
+            final_price: price,
             min_quantity: 1,
           });
         }
@@ -168,13 +215,14 @@ const PriceBookDetail = () => {
         product.product_variants.forEach(variant => {
           const variantKey = `${product.id}-${variant.id}`;
           if (!existingKeys.has(variantKey)) {
+            const price = priceFor(variant.price ?? product.mrp);
             newEntries.push({
               price_book_id: id,
               product_id: product.id,
               variant_id: variant.id,
-              list_price: variant.price || product.mrp || 0,
+              list_price: price,
               discount_percent: 0,
-              final_price: variant.price || product.mrp || 0,
+              final_price: price,
               min_quantity: 1,
             });
           }
@@ -185,6 +233,15 @@ const PriceBookDetail = () => {
         const { error } = await supabase.from('price_book_entries').insert(newEntries);
         if (error) throw error;
         toast.success(`Added ${newEntries.length} new products`);
+        if (blank) {
+          setSyncNotice(
+            `Products added with no price. Enter local ${bookCurrency} prices — base-currency prices are not copied into a foreign-currency book.`
+          );
+        } else if (convert) {
+          setSyncNotice(
+            `Seeded ${newEntries.length} products from ${baseCurrency} at rate ${fxRate} (1 ${baseCurrency} = ${fxRate} ${bookCurrency}). Review these as a starting point.`
+          );
+        }
         fetchData();
       } else {
         toast.info('All products already in price book');
@@ -195,6 +252,7 @@ const PriceBookDetail = () => {
       setSyncing(false);
     }
   };
+
 
   const handleAddEntry = async () => {
     if (!selectedProduct) {
@@ -356,17 +414,29 @@ const PriceBookDetail = () => {
                 <Badge variant="outline">
                   {priceBook.target_type === 'retailer' ? 'Retailer' : 'Distributor'}
                 </Badge>
+                <Badge variant="secondary">{priceBook.currency}</Badge>
               </div>
               <p className="text-muted-foreground text-sm">
                 {entries.length} products • {priceBook.currency}
+                {isForeignBook && ` • prices stored natively in ${bookCurrency}`}
               </p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={syncAllProducts} disabled={syncing}>
+            <Button variant="outline" onClick={() => syncAllProducts('default')} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sync All Products
             </Button>
+            {isForeignBook && (
+              <Button
+                variant="outline"
+                onClick={() => syncAllProducts('convert')}
+                disabled={syncing || !fxRate}
+                title={fxRate ? `1 ${baseCurrency} = ${fxRate} ${bookCurrency}` : 'No exchange rate available'}
+              >
+                Seed from base at exchange rate
+              </Button>
+            )}
             <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
               <DialogTrigger asChild>
                 <Button onClick={resetAddForm}>
@@ -461,7 +531,7 @@ const PriceBookDetail = () => {
                   <div className="p-3 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground">Final Price</p>
                     <p className="text-lg font-bold">
-                      ₹{(newEntry.list_price * (1 - newEntry.discount_percent / 100)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      {fmtBook(newEntry.list_price * (1 - newEntry.discount_percent / 100))}
                     </p>
                   </div>
 
@@ -497,13 +567,19 @@ const PriceBookDetail = () => {
           </Select>
         </div>
 
+        {syncNotice && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            {syncNotice}
+          </div>
+        )}
+
         {/* Entries List */}
         {filteredEntries.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Package className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">No products in this price book</p>
-              <Button onClick={syncAllProducts} disabled={syncing}>
+              <Button onClick={() => syncAllProducts('default')} disabled={syncing}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 Add All Products
               </Button>
@@ -574,7 +650,7 @@ const PriceBookDetail = () => {
                                 onChange={(e) => handleUpdateEntry(entry, 'list_price', parseFloat(e.target.value) || 0)}
                                 className="w-24 text-right"
                               />
-                              <p className="text-xs text-muted-foreground text-center">List Price</p>
+                              <p className="text-xs text-muted-foreground text-center">List Price ({bookCurrency})</p>
                             </div>
                             <div>
                               <Input
@@ -588,10 +664,14 @@ const PriceBookDetail = () => {
                               <p className="text-xs text-muted-foreground text-center">Disc %</p>
                             </div>
                             <div className="min-w-20 text-center">
-                              <p className="font-bold text-primary">
-                                ₹{entry.final_price?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                              </p>
-                              <p className="text-xs text-muted-foreground">Final</p>
+                              {Number(entry.final_price) > 0 ? (
+                                <p className="font-bold text-primary">{fmtBook(entry.final_price)}</p>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                  No price set
+                                </Badge>
+                              )}
+                              <p className="text-xs text-muted-foreground">Final ({bookCurrency})</p>
                             </div>
                             <Button
                               variant="ghost"
