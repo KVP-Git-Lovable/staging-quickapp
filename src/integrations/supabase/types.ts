@@ -23078,6 +23078,7 @@ export type Database = {
           contact_title: string | null
           created_at: string
           created_by: string | null
+          currency: string | null
           distributor_id: string | null
           duplicate_of: string | null
           duplicate_risk_score: number
@@ -23152,6 +23153,7 @@ export type Database = {
           contact_title?: string | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
           distributor_id?: string | null
           duplicate_of?: string | null
           duplicate_risk_score?: number
@@ -23226,6 +23228,7 @@ export type Database = {
           contact_title?: string | null
           created_at?: string
           created_by?: string | null
+          currency?: string | null
           distributor_id?: string | null
           duplicate_of?: string | null
           duplicate_risk_score?: number
@@ -23284,6 +23287,13 @@ export type Database = {
           whatsapp_verified?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "retailers_currency_fk"
+            columns: ["currency"]
+            isOneToOne: false
+            referencedRelation: "currencies"
+            referencedColumns: ["code"]
+          },
           {
             foreignKeyName: "retailers_distributor_id_fkey"
             columns: ["distributor_id"]
@@ -29250,6 +29260,7 @@ export type Database = {
         Args: { p_leave_type_id: string; p_user_id: string }
         Returns: Json
       }
+      resolve_fx_to_base: { Args: { p_currency: string }; Returns: number }
       resolve_quantity_to_base: {
         Args: {
           p_conversion_snap?: number
@@ -29259,6 +29270,10 @@ export type Database = {
           p_uom_id?: string
         }
         Returns: number
+      }
+      resolve_retailer_currency: {
+        Args: { p_retailer_id: string }
+        Returns: string
       }
       retailer_has_history: {
         Args: { p_retailer_id: string }
