@@ -160,10 +160,33 @@ const PriceBookDetail = () => {
     }
   };
 
-  const syncAllProducts = async () => {
-    if (!id) return;
-    
+  const bookCurrency = priceBook?.currency || baseCurrency;
+  const isForeignBook = !!priceBook && bookCurrency !== baseCurrency;
+  const fxRate = isForeignBook ? resolveRate(baseCurrency, bookCurrency, rates, baseCurrency) : 1;
+
+  const fmtBook = (v: number | null | undefined) => formatCurrency(v, bookCurrency);
+
+  // mode: 'default' = base-currency copy (same-currency books) or blank for foreign books
+  //       'convert' = seed foreign book from base price at the latest exchange rate
+  const syncAllProducts = async (mode: 'default' | 'convert' = 'default') => {
+    if (!id || !priceBook) return;
+
+    const convert = mode === 'convert' && isForeignBook && !!fxRate;
+    const blank = isForeignBook && !convert;
+
+    if (mode === 'convert' && !fxRate) {
+      toast.error(`No exchange rate found for ${baseCurrency} → ${bookCurrency}`);
+      return;
+    }
+
+    const priceFor = (base: number | null | undefined) => {
+      if (blank) return 0;
+      const n = Number(base) || 0;
+      return convert ? Math.round(n * (fxRate as number) * 100) / 100 : n;
+    };
+
     setSyncing(true);
+    setSyncNotice(null);
     try {
       // Get existing product/variant combinations
       const existingKeys = new Set(
@@ -176,13 +199,14 @@ const PriceBookDetail = () => {
         // Check base product
         const baseKey = `${product.id}-null`;
         if (!existingKeys.has(baseKey)) {
+          const price = priceFor(product.mrp);
           newEntries.push({
             price_book_id: id,
             product_id: product.id,
             variant_id: null,
-            list_price: product.mrp || 0,
+            list_price: price,
             discount_percent: 0,
-            final_price: product.mrp || 0,
+            final_price: price,
             min_quantity: 1,
           });
         }
@@ -191,13 +215,14 @@ const PriceBookDetail = () => {
         product.product_variants.forEach(variant => {
           const variantKey = `${product.id}-${variant.id}`;
           if (!existingKeys.has(variantKey)) {
+            const price = priceFor(variant.price ?? product.mrp);
             newEntries.push({
               price_book_id: id,
               product_id: product.id,
               variant_id: variant.id,
-              list_price: variant.price || product.mrp || 0,
+              list_price: price,
               discount_percent: 0,
-              final_price: variant.price || product.mrp || 0,
+              final_price: price,
               min_quantity: 1,
             });
           }
@@ -208,6 +233,15 @@ const PriceBookDetail = () => {
         const { error } = await supabase.from('price_book_entries').insert(newEntries);
         if (error) throw error;
         toast.success(`Added ${newEntries.length} new products`);
+        if (blank) {
+          setSyncNotice(
+            `Products added with no price. Enter local ${bookCurrency} prices — base-currency prices are not copied into a foreign-currency book.`
+          );
+        } else if (convert) {
+          setSyncNotice(
+            `Seeded ${newEntries.length} products from ${baseCurrency} at rate ${fxRate} (1 ${baseCurrency} = ${fxRate} ${bookCurrency}). Review these as a starting point.`
+          );
+        }
         fetchData();
       } else {
         toast.info('All products already in price book');
@@ -218,6 +252,7 @@ const PriceBookDetail = () => {
       setSyncing(false);
     }
   };
+
 
   const handleAddEntry = async () => {
     if (!selectedProduct) {
