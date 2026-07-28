@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -60,6 +61,8 @@ type FilterType = 'today' | 'yesterday' | 'current_week' | 'last_week' | 'curren
 // ─── TA Table ────────────────────────────────────────────────────────────────
 
 const TACardList: React.FC<{ rows: ExpenseRow[]; totalTA: number; navigate: any }> = ({ rows, totalTA, navigate }) => {
+  const { format: fmtMoney } = useCurrency();
+  const currencySymbol = fmtMoney(0).replace(/[\d.,\s]/g, '') || '';
   const [showMore, setShowMore] = useState(false);
 
   if (rows.length === 0) {
@@ -94,23 +97,23 @@ const TACardList: React.FC<{ rows: ExpenseRow[]; totalTA: number; navigate: any 
                   {row.isOnLeave && <span className="ml-0.5 text-[9px] text-orange-500">L</span>}
                 </TableCell>
                 <TableCell className="text-[11px] py-1.5 px-2 truncate">{row.beat_name}</TableCell>
-                <TableCell className="text-right text-[11px] py-1.5 px-2 font-medium">₹{row.ta.toLocaleString()}</TableCell>
+                <TableCell className="text-right text-[11px] py-1.5 px-2 font-medium">{fmtMoney(row.ta)}</TableCell>
                 <TableCell className="text-center py-1.5 px-1">
                   <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => navigate(`/today-summary?date=${row.date}`)}>
                     <ExternalLink className="h-3 w-3" />
                   </Button>
                 </TableCell>
                 <TableCell className={`text-right text-[11px] py-1.5 px-2 ${showMore ? '' : 'hidden sm:table-cell'}`}>{row.productive_visits}</TableCell>
-                <TableCell className={`text-right text-[11px] py-1.5 px-2 ${showMore ? '' : 'hidden sm:table-cell'}`}>₹{row.order_value.toLocaleString()}</TableCell>
+                <TableCell className={`text-right text-[11px] py-1.5 px-2 ${showMore ? '' : 'hidden sm:table-cell'}`}>{fmtMoney(row.order_value)}</TableCell>
               </TableRow>
             ))}
             <TableRow className="border-t-2 bg-muted/30">
               <TableCell className="font-bold text-[11px] py-1.5 px-2">Total</TableCell>
               <TableCell></TableCell>
-              <TableCell className="text-right font-bold text-[11px] py-1.5 px-2">₹{totalTA.toLocaleString()}</TableCell>
+              <TableCell className="text-right font-bold text-[11px] py-1.5 px-2">{fmtMoney(totalTA)}</TableCell>
               <TableCell></TableCell>
               <TableCell className={`text-right font-bold text-[11px] py-1.5 px-2 ${showMore ? '' : 'hidden sm:table-cell'}`}>{rows.reduce((s, r) => s + r.productive_visits, 0)}</TableCell>
-              <TableCell className={`text-right font-bold text-[11px] py-1.5 px-2 ${showMore ? '' : 'hidden sm:table-cell'}`}>₹{rows.reduce((s, r) => s + r.order_value, 0).toLocaleString()}</TableCell>
+              <TableCell className={`text-right font-bold text-[11px] py-1.5 px-2 ${showMore ? '' : 'hidden sm:table-cell'}`}>{fmtMoney(rows.reduce((s, r) => s + r.order_value, 0))}</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -122,6 +125,8 @@ const TACardList: React.FC<{ rows: ExpenseRow[]; totalTA: number; navigate: any 
 // ─── DA Table ────────────────────────────────────────────────────────────────
 
 const DACardList: React.FC<{ records: DARecord[]; totalDA: number }> = ({ records, totalDA }) => {
+  const { format: fmtMoney } = useCurrency();
+  const currencySymbol = fmtMoney(0).replace(/[\d.,\s]/g, '') || '';
   const [showMore, setShowMore] = useState(false);
 
   if (records.length === 0) {
@@ -154,7 +159,7 @@ const DACardList: React.FC<{ records: DARecord[]; totalDA: number }> = ({ record
                   {new Date(record.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                   {record.isOnLeave && <span className="ml-0.5 text-[9px] text-orange-500">L</span>}
                 </TableCell>
-                <TableCell className="text-right text-[11px] py-1.5 px-2 font-medium">₹{record.da_amount.toLocaleString()}</TableCell>
+                <TableCell className="text-right text-[11px] py-1.5 px-2 font-medium">{fmtMoney(record.da_amount)}</TableCell>
                 <TableCell className="text-[11px] py-1.5 px-2">{record.market_hours}</TableCell>
                 <TableCell className={`text-[11px] py-1.5 px-2 ${showMore ? '' : 'hidden sm:table-cell'}`}>{record.day_start_time}</TableCell>
                 <TableCell className={`text-[11px] py-1.5 px-2 ${showMore ? '' : 'hidden sm:table-cell'}`}>{record.day_end_time}</TableCell>
@@ -162,7 +167,7 @@ const DACardList: React.FC<{ records: DARecord[]; totalDA: number }> = ({ record
             ))}
             <TableRow className="border-t-2 bg-muted/30">
               <TableCell className="font-bold text-[11px] py-1.5 px-2">Total</TableCell>
-              <TableCell className="text-right font-bold text-[11px] py-1.5 px-2">₹{totalDA.toLocaleString()}</TableCell>
+              <TableCell className="text-right font-bold text-[11px] py-1.5 px-2">{fmtMoney(totalDA)}</TableCell>
               <TableCell></TableCell>
               <TableCell className={`${showMore ? '' : 'hidden sm:table-cell'}`}></TableCell>
               <TableCell className={`${showMore ? '' : 'hidden sm:table-cell'}`}></TableCell>
@@ -198,6 +203,8 @@ const AdditionalCardList: React.FC<{
   onDelete?: (id: string) => void;
   onEdit?: (item: AdditionalExpenseData) => void;
 }> = ({ items, totalAdditional, onDelete, onEdit }) => {
+  const { format: fmtMoney } = useCurrency();
+  const currencySymbol = fmtMoney(0).replace(/[\d.,\s]/g, '') || '';
   const [viewItem, setViewItem] = useState<AdditionalExpenseData | null>(null);
   const [signedBillUrl, setSignedBillUrl] = useState<string | null>(null);
 
@@ -239,7 +246,7 @@ const AdditionalCardList: React.FC<{
                   {new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                 </TableCell>
                 <TableCell className="text-[11px] py-1.5 px-2 truncate">{item.expense_type}</TableCell>
-                <TableCell className="text-right text-[11px] py-1.5 px-2 font-medium">₹{item.value.toLocaleString()}</TableCell>
+                <TableCell className="text-right text-[11px] py-1.5 px-2 font-medium">{fmtMoney(item.value)}</TableCell>
                 <TableCell className="text-center py-1.5 px-1">
                   <Badge variant={statusVariant(item.status)} className="text-[8px] px-1 py-0">{statusLabel(item.status)}</Badge>
                 </TableCell>
@@ -264,7 +271,7 @@ const AdditionalCardList: React.FC<{
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Expense</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to delete this {item.expense_type} expense of ₹{item.value}?
+                              Are you sure you want to delete this {item.expense_type} expense of {fmtMoney(item.value)}?
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -283,7 +290,7 @@ const AdditionalCardList: React.FC<{
             <TableRow className="border-t-2 bg-muted/30">
               <TableCell className="font-bold text-[11px] py-1.5 px-2">Total</TableCell>
               <TableCell></TableCell>
-              <TableCell className="text-right font-bold text-[11px] py-1.5 px-2">₹{totalAdditional.toLocaleString()}</TableCell>
+              <TableCell className="text-right font-bold text-[11px] py-1.5 px-2">{fmtMoney(totalAdditional)}</TableCell>
               <TableCell></TableCell>
               <TableCell></TableCell>
               <TableCell></TableCell>
@@ -303,7 +310,7 @@ const AdditionalCardList: React.FC<{
               <div className="grid grid-cols-2 gap-2">
                 <div><span className="text-muted-foreground text-xs">Date</span><p className="font-medium">{new Date(viewItem.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p></div>
                 <div><span className="text-muted-foreground text-xs">Type</span><p className="font-medium">{viewItem.expense_type}</p></div>
-                <div><span className="text-muted-foreground text-xs">Amount</span><p className="font-medium">₹{viewItem.value.toLocaleString()}</p></div>
+                <div><span className="text-muted-foreground text-xs">Amount</span><p className="font-medium">{fmtMoney(viewItem.value)}</p></div>
                 <div><span className="text-muted-foreground text-xs">Status</span><p><Badge variant={statusVariant(viewItem.status)} className="text-[9px] px-1.5 py-0">{statusLabel(viewItem.status)}</Badge></p></div>
               </div>
               {viewItem.details && (
