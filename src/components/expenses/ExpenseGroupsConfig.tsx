@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Plus, Trash2, Users, Edit2, UserPlus, Loader2, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface ExpenseGroup {
   id: string;
@@ -31,6 +32,7 @@ interface GroupMember {
 }
 
 const ExpenseGroupsConfig = () => {
+  const { format: fmtMoney } = useCurrency();
   const { toast } = useToast();
   const [groups, setGroups] = useState<ExpenseGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -285,9 +287,9 @@ const ExpenseGroupsConfig = () => {
                           {g.ta_type === 'fixed' ? 'Fixed' : 'From Beat'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="py-2 px-3 text-xs">₹{g.fixed_ta_amount}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs">₹{g.da_amount}</TableCell>
-                      <TableCell className="py-2 px-3 text-xs">₹{g.ta_per_km_rate}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs">{fmtMoney(g.fixed_ta_amount)}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs">{fmtMoney(g.da_amount)}</TableCell>
+                      <TableCell className="py-2 px-3 text-xs">{fmtMoney(g.ta_per_km_rate)}</TableCell>
                       <TableCell className="py-2 px-3">
                         <Badge
                           variant="secondary"
