@@ -650,7 +650,7 @@ const PriceBookDetail = () => {
                                 onChange={(e) => handleUpdateEntry(entry, 'list_price', parseFloat(e.target.value) || 0)}
                                 className="w-24 text-right"
                               />
-                              <p className="text-xs text-muted-foreground text-center">List Price</p>
+                              <p className="text-xs text-muted-foreground text-center">List Price ({bookCurrency})</p>
                             </div>
                             <div>
                               <Input
