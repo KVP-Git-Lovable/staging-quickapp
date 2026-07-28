@@ -1053,6 +1053,8 @@ export function useMasterDataCache() {
     cacheOrders,
     cacheAllMasterData,
     forceRefreshMasterData,
+    hardRefreshProducts,
+
     warmCacheWithProgress,
     fullOfflineSync,
     loadCachedData,
