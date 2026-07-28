@@ -139,7 +139,7 @@ const getDateRange = (filter: DateFilter): { start: Date; end: Date } => {
 };
 
 export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, startInEditMode = false }: RetailerDetailModalProps) => {
-  const { format, displayCurrency } = useCurrency();
+  const { format: fmtMoney, displayCurrency } = useCurrency();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState<Retailer | null>(null);
@@ -222,7 +222,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
 
   // Format number for mobile display
   const fmtCompactMoney = (num: number) =>
-    displayCurrency === 'INR' ? `₹${formatCompactNumber(num)}` : format(num);
+    displayCurrency === 'INR' ? `₹${formatCompactNumber(num)}` : fmtMoney(num);
 
   const formatCompactNumber = (num: number) => {
     if (num >= 10000000) return `${(num / 10000000).toFixed(1)}Cr`;
@@ -917,16 +917,16 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               {/* Key Metrics - Mobile responsive with truncation */}
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <Card className="p-2 sm:p-3">
-                  <p className="text-base sm:text-xl font-bold text-primary truncate" title={format(totalLifetimeValue)}>
+                  <p className="text-base sm:text-xl font-bold text-primary truncate" title={fmtMoney(totalLifetimeValue)}>
                     <span className="sm:hidden">{fmtCompactMoney(totalLifetimeValue)}</span>
-                    <span className="hidden sm:inline">{format(totalLifetimeValue)}</span>
+                    <span className="hidden sm:inline">{fmtMoney(totalLifetimeValue)}</span>
                   </p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground">Total Lifetime Value</p>
                 </Card>
                 <Card className="p-2 sm:p-3">
-                  <p className="text-base sm:text-xl font-bold truncate" title={format(avgMonthlyRevenue6M)}>
+                  <p className="text-base sm:text-xl font-bold truncate" title={fmtMoney(avgMonthlyRevenue6M)}>
                     <span className="sm:hidden">{fmtCompactMoney(avgMonthlyRevenue6M)}</span>
-                    <span className="hidden sm:inline">{format(avgMonthlyRevenue6M)}</span>
+                    <span className="hidden sm:inline">{fmtMoney(avgMonthlyRevenue6M)}</span>
                   </p>
                   <p className="text-[10px] sm:text-xs text-muted-foreground">Avg Monthly Revenue (6M)</p>
                 </Card>
@@ -942,9 +942,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                 </Card>
                 <Card className="p-2 sm:p-3">
                   <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Last Order Value</p>
-                  <p className="text-sm sm:text-base font-semibold text-primary truncate" title={format(lastVisitOrderValue)}>
+                  <p className="text-sm sm:text-base font-semibold text-primary truncate" title={fmtMoney(lastVisitOrderValue)}>
                     <span className="sm:hidden">{fmtCompactMoney(lastVisitOrderValue)}</span>
-                    <span className="hidden sm:inline">{format(lastVisitOrderValue)}</span>
+                    <span className="hidden sm:inline">{fmtMoney(lastVisitOrderValue)}</span>
                   </p>
                 </Card>
               </div>
@@ -953,9 +953,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <Card className="p-2 sm:p-3">
                   <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5 sm:mb-1">Avg Order Value/Visit</p>
-                  <p className="text-sm sm:text-base font-semibold truncate" title={format(avgOrderValuePerVisit)}>
+                  <p className="text-sm sm:text-base font-semibold truncate" title={fmtMoney(avgOrderValuePerVisit)}>
                     <span className="sm:hidden">{fmtCompactMoney(avgOrderValuePerVisit)}</span>
-                    <span className="hidden sm:inline">{format(avgOrderValuePerVisit)}</span>
+                    <span className="hidden sm:inline">{fmtMoney(avgOrderValuePerVisit)}</span>
                   </p>
                 </Card>
                 <Card className="p-2 sm:p-3">
@@ -1006,7 +1006,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                             <TableRow key={invoice.id}>
                               <TableCell className="text-xs py-1">{invoice.invoice_number}</TableCell>
                               <TableCell className="text-xs py-1">{format(new Date(invoice.created_at), 'dd/MM/yy')}</TableCell>
-                              <TableCell className="text-xs py-1">{format(invoice.total_amount || 0)}</TableCell>
+                              <TableCell className="text-xs py-1">{fmtMoney(invoice.total_amount || 0)}</TableCell>
                               <TableCell className="text-right py-1">
                                 <div className="flex items-center justify-end gap-0.5">
                                   <TooltipProvider>
@@ -1126,7 +1126,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       {dayVisits.map((visit, i) => (
                         <div key={i} className={cn("mt-0.5 w-full text-[10px] px-1 rounded truncate", getVisitStatusColor(visit))}>
                           {visit.status === 'productive' ? 'P' : visit.status === 'unproductive' ? 'U' : visit.planned_date > todayStr ? 'Plan' : '-'}
-                          {ordersByVisit.get(visit.id) && <span> {displayCurrency === 'INR' ? `₹${(ordersByVisit.get(visit.id)!.total / 1000).toFixed(1)}k` : format(ordersByVisit.get(visit.id)!.total)}</span>}
+                          {ordersByVisit.get(visit.id) && <span> {displayCurrency === 'INR' ? `₹${(ordersByVisit.get(visit.id)!.total / 1000).toFixed(1)}k` : fmtMoney(ordersByVisit.get(visit.id)!.total)}</span>}
                           {feedbacks.get(visit.id) && <span> ✓</span>}
                         </div>
                       ))}
@@ -1158,13 +1158,13 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                             </div>
                             {orderData && (
                               <>
-                                <p className="text-sm font-medium">Order Value: {format(orderData.total)}</p>
+                                <p className="text-sm font-medium">Order Value: {fmtMoney(orderData.total)}</p>
                                 <div className="text-xs space-y-1">
                                   <p className="font-medium text-muted-foreground">Products:</p>
                                   {orderData.items.map((item, i) => (
                                     <div key={i} className="flex justify-between">
                                       <span>{item.product_name} x{item.quantity}</span>
-                                      <span>{format(item.total_price)}</span>
+                                      <span>{fmtMoney(item.total_price)}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -1212,8 +1212,8 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       <BarChart data={revenueByDateData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => displayCurrency === 'INR' ? `₹${(v/1000).toFixed(0)}k` : format(v)} />
-                        <RechartsTooltip formatter={(value: number) => [format(value), 'Revenue']} />
+                        <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => displayCurrency === 'INR' ? `₹${(v/1000).toFixed(0)}k` : fmtMoney(v)} />
+                        <RechartsTooltip formatter={(value: number) => [fmtMoney(value), 'Revenue']} />
                         <Bar dataKey="amount" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1232,9 +1232,9 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={revenueByProductData} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => displayCurrency === 'INR' ? `₹${(v/1000).toFixed(0)}k` : format(v)} />
+                        <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => displayCurrency === 'INR' ? `₹${(v/1000).toFixed(0)}k` : fmtMoney(v)} />
                         <YAxis type="category" dataKey="product" tick={{ fontSize: 9 }} width={80} />
-                        <RechartsTooltip formatter={(value: number) => [format(value), 'Revenue']} />
+                        <RechartsTooltip formatter={(value: number) => [fmtMoney(value), 'Revenue']} />
                         <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
                           {revenueByProductData.map((_, index) => (
                             <Cell key={index} fill={chartColors[index % chartColors.length]} />

@@ -66,7 +66,7 @@ interface TerritoryDetailsModalProps {
 }
 
 const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onOpenChange, territory, onEdit, onDelete }) => {
-  const { format, displayCurrency } = useCurrency();
+  const { format: fmtMoney, displayCurrency } = useCurrency();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [distributors, setDistributors] = useState<any[]>([]);
@@ -1019,11 +1019,11 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                       <div className="space-y-2">
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Target</span>
-                          <span className="font-medium">{format(territoryTargets.revenueTarget)}</span>
+                          <span className="font-medium">{fmtMoney(territoryTargets.revenueTarget)}</span>
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className="text-muted-foreground">Actual</span>
-                          <span className="font-bold text-green-600">{format(territoryTargets.actualRevenue)}</span>
+                          <span className="font-bold text-green-600">{fmtMoney(territoryTargets.actualRevenue)}</span>
                         </div>
                         <div className="w-full bg-muted rounded-full h-2 mt-2">
                           <div 
@@ -1037,7 +1037,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                         </div>
                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
                           <span>Gap: {territoryTargets.revenueTarget > territoryTargets.actualRevenue 
-                            ? format(territoryTargets.revenueTarget - territoryTargets.actualRevenue) 
+                            ? fmtMoney(territoryTargets.revenueTarget - territoryTargets.actualRevenue) 
                             : 'Target Achieved!'}</span>
                         </div>
                       </div>
@@ -1128,7 +1128,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                     <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
                     <p className="text-xs text-muted-foreground truncate">Total Sales</p>
                   </div>
-                  <p className="text-lg sm:text-2xl font-bold text-green-600 truncate">{format(periodSummary.totalSales)}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-green-600 truncate">{fmtMoney(periodSummary.totalSales)}</p>
                 </CardContent>
               </Card>
 
@@ -1190,7 +1190,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                             <TableCell className="text-right text-xs sm:text-sm">
                               <Badge variant="outline">{comp.entries}</Badge>
                             </TableCell>
-                            <TableCell className="text-right text-xs sm:text-sm hidden sm:table-cell">{format(Number(comp.avgPrice) || 0)}</TableCell>
+                            <TableCell className="text-right text-xs sm:text-sm hidden sm:table-cell">{fmtMoney(Number(comp.avgPrice) || 0)}</TableCell>
                             <TableCell className="text-right text-xs sm:text-sm hidden sm:table-cell">{comp.totalStock}</TableCell>
                           </TableRow>
                         ))}
@@ -1308,12 +1308,12 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                                       <TableCell className="text-xs sm:text-sm font-medium text-primary">{r.name}</TableCell>
                                       <TableCell className="hidden sm:table-cell"><Badge variant="outline" className="text-xs">{r.category || '-'}</Badge></TableCell>
                                       <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">
-                                        {stats.lastOrderValue > 0 ? format(stats.lastOrderValue) : '-'}
+                                        {stats.lastOrderValue > 0 ? fmtMoney(stats.lastOrderValue) : '-'}
                                         {stats.lastOrderDate && <span className="block text-[10px]">{format(new Date(stats.lastOrderDate), 'dd MMM')}</span>}
                                       </TableCell>
                                       <TableCell className="text-xs sm:text-sm text-muted-foreground hidden md:table-cell">{r.last_visit_date ? format(new Date(r.last_visit_date), 'dd MMM yyyy') : '-'}</TableCell>
-                                      <TableCell className="text-xs sm:text-sm font-medium">{format(stats.last6Months)}</TableCell>
-                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden lg:table-cell">{format(stats.lifetime)}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm font-medium">{fmtMoney(stats.last6Months)}</TableCell>
+                                      <TableCell className="text-xs sm:text-sm text-muted-foreground hidden lg:table-cell">{fmtMoney(stats.lifetime)}</TableCell>
                                     </TableRow>
                                   );
                                 })}
@@ -1437,8 +1437,8 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                           <LineChart data={salesTrendData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                             <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                            <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(value) => displayCurrency === 'INR' ? `₹${(value / 1000).toFixed(0)}k` : format(value)} />
-                            <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number) => [format(value), 'Sales']} />
+                            <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(value) => displayCurrency === 'INR' ? `₹${(value / 1000).toFixed(0)}k` : fmtMoney(value)} />
+                            <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number) => [fmtMoney(value), 'Sales']} />
                             <Line type="monotone" dataKey="sales" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: 'hsl(var(--primary))' }} />
                           </LineChart>
                         </ResponsiveContainer>
@@ -1466,9 +1466,9 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                         <ResponsiveContainer width="100%" height={250} minWidth={300}>
                           <BarChart data={productSalesData} layout="vertical">
                             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                            <XAxis type="number" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(value) => displayCurrency === 'INR' ? `₹${(value / 1000).toFixed(0)}k` : format(value)} />
+                            <XAxis type="number" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickFormatter={(value) => displayCurrency === 'INR' ? `₹${(value / 1000).toFixed(0)}k` : fmtMoney(value)} />
                             <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={100} />
-                            <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number) => [format(value), 'Sales']} />
+                            <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number) => [fmtMoney(value), 'Sales']} />
                             <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
@@ -1487,14 +1487,14 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Award className="h-4 w-4 text-green-600" />Top 5 SKUs</CardTitle></CardHeader>
                     <CardContent className="p-3">{topSKUsWithIds.length > 0 ? topSKUsWithIds.map((sku, i) => (
                       <div key={i} className="flex justify-between p-2 bg-green-500/5 rounded mb-1 cursor-pointer hover:bg-green-500/10" onClick={() => navigateToProduct(sku.productId)}>
-                        <span className="text-xs font-medium text-primary truncate">{sku.name}</span><span className="text-xs text-green-600 font-bold">{format(sku.total)}</span>
+                        <span className="text-xs font-medium text-primary truncate">{sku.name}</span><span className="text-xs text-green-600 font-bold">{fmtMoney(sku.total)}</span>
                       </div>
                     )) : <p className="text-xs text-muted-foreground text-center py-2">No data</p>}</CardContent>
                   </Card>
                   <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-red-600" />Bottom 5 SKUs</CardTitle></CardHeader>
                     <CardContent className="p-3">{bottomSKUsWithIds.length > 0 ? bottomSKUsWithIds.map((sku, i) => (
                       <div key={i} className="flex justify-between p-2 bg-red-500/5 rounded mb-1 cursor-pointer hover:bg-red-500/10" onClick={() => navigateToProduct(sku.productId)}>
-                        <span className="text-xs font-medium text-primary truncate">{sku.name}</span><span className="text-xs text-red-600 font-bold">{format(sku.total)}</span>
+                        <span className="text-xs font-medium text-primary truncate">{sku.name}</span><span className="text-xs text-red-600 font-bold">{fmtMoney(sku.total)}</span>
                       </div>
                     )) : <p className="text-xs text-muted-foreground text-center py-2">No data</p>}</CardContent>
                   </Card>
@@ -1505,14 +1505,14 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><Users className="h-4 w-4 text-blue-600" />Top 5 Retailers</CardTitle></CardHeader>
                     <CardContent className="p-3">{topRetailersWithIds.length > 0 ? topRetailersWithIds.map((r, i) => (
                       <div key={i} className="flex justify-between p-2 bg-blue-500/5 rounded mb-1 cursor-pointer hover:bg-blue-500/10" onClick={() => navigateToRetailer(r.id)}>
-                        <span className="text-xs font-medium text-primary truncate">{r.name}</span><span className="text-xs text-blue-600 font-bold">{format(r.sales)}</span>
+                        <span className="text-xs font-medium text-primary truncate">{r.name}</span><span className="text-xs text-blue-600 font-bold">{fmtMoney(r.sales)}</span>
                       </div>
                     )) : <p className="text-xs text-muted-foreground text-center py-2">No data</p>}</CardContent>
                   </Card>
                   <Card><CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-orange-600" />Bottom 5 Retailers</CardTitle></CardHeader>
                     <CardContent className="p-3">{bottomRetailersWithIds.length > 0 ? bottomRetailersWithIds.map((r, i) => (
                       <div key={i} className="flex justify-between p-2 bg-orange-500/5 rounded mb-1 cursor-pointer hover:bg-orange-500/10" onClick={() => navigateToRetailer(r.id)}>
-                        <span className="text-xs font-medium text-primary truncate">{r.name}</span><span className="text-xs text-orange-600 font-bold">{format(r.sales)}</span>
+                        <span className="text-xs font-medium text-primary truncate">{r.name}</span><span className="text-xs text-orange-600 font-bold">{fmtMoney(r.sales)}</span>
                       </div>
                     )) : <p className="text-xs text-muted-foreground text-center py-2">No data</p>}</CardContent>
                   </Card>
