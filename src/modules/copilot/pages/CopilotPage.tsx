@@ -7,6 +7,7 @@ import { useConversations } from "../hooks/useConversations";
 import { ConversationSidebar } from "../components/sidebar/ConversationSidebar";
 import { ChatWindow } from "../components/chat/ChatWindow";
 import { CopilotUtilityPanel } from "../components/panel/CopilotUtilityPanel";
+import { CopilotTicker } from "../components/panel/CopilotTicker";
 
 export default function CopilotPage() {
   const { threadId } = useParams<{ threadId?: string }>();
