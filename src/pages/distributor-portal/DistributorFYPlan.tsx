@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 const QUANTITY_UNITS = ['Units', 'Kg', 'Liters', 'Pcs', 'Boxes', 'Cartons', 'Tonnes', 'Quintals'];
 
@@ -140,6 +141,7 @@ interface RetailerTarget {
 }
 
 const DistributorFYPlanPage = () => {
+  const { format: fmtMoney } = useCurrency();
   const navigate = useNavigate();
   const [plans, setPlans] = useState<BusinessPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<BusinessPlan | null>(null);
@@ -808,7 +810,7 @@ const DistributorFYPlanPage = () => {
                     <div className="p-4 rounded-lg bg-green-500/10">
                       <p className="text-sm text-muted-foreground">Revenue Target</p>
                       <p className="text-2xl font-bold">
-                        ₹{selectedPlan.revenue_target.toLocaleString('en-IN')}
+                        {fmtMoney(selectedPlan.revenue_target)}
                       </p>
                     </div>
                   </div>
@@ -847,21 +849,21 @@ const DistributorFYPlanPage = () => {
                       <span className="text-sm">Product Allocation</span>
                       <div className="text-right">
                         <p className="font-medium">{totalProductQty.toLocaleString('en-IN')} {selectedPlan.quantity_unit}</p>
-                        <p className="text-xs text-muted-foreground">₹{totalProductRev.toLocaleString('en-IN')}</p>
+                        <p className="text-xs text-muted-foreground">{fmtMoney(totalProductRev)}</p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                       <span className="text-sm">Retailer Allocation</span>
                       <div className="text-right">
                         <p className="font-medium">{retailerTargets.length} retailers</p>
-                        <p className="text-xs text-muted-foreground">₹{totalRetailerRev.toLocaleString('en-IN')}</p>
+                        <p className="text-xs text-muted-foreground">{fmtMoney(totalRetailerRev)}</p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                       <span className="text-sm">Monthly Allocation</span>
                       <div className="text-right">
                         <p className="font-medium">{totalMonthQty.toLocaleString('en-IN')} {selectedPlan.quantity_unit}</p>
-                        <p className="text-xs text-muted-foreground">₹{totalMonthRev.toLocaleString('en-IN')}</p>
+                        <p className="text-xs text-muted-foreground">{fmtMoney(totalMonthRev)}</p>
                       </div>
                     </div>
                   </div>
@@ -899,7 +901,7 @@ const DistributorFYPlanPage = () => {
                             </div>
                             <div className="text-right text-sm">
                               <span className="font-medium">{cat.quantityTarget.toLocaleString('en-IN')}</span>
-                              <span className="text-muted-foreground ml-2">₹{cat.revenueTarget.toLocaleString('en-IN')}</span>
+                              <span className="text-muted-foreground ml-2">{fmtMoney(cat.revenueTarget)}</span>
                             </div>
                           </div>
                         </CollapsibleTrigger>
@@ -951,7 +953,7 @@ const DistributorFYPlanPage = () => {
                                       {product.quantityTarget.toFixed(0)} units
                                     </span>
                                     <span className="text-xs">
-                                      ₹{product.revenueTarget.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                      {fmtMoney(product.revenueTarget)}
                                     </span>
                                   </div>
                                 </div>
@@ -968,7 +970,7 @@ const DistributorFYPlanPage = () => {
                     <span>Total</span>
                     <div>
                       <span>{totalProductQty.toLocaleString('en-IN')} {selectedPlan.quantity_unit}</span>
-                      <span className="ml-3">₹{totalProductRev.toLocaleString('en-IN')}</span>
+                      <span className="ml-3">{fmtMoney(totalProductRev)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -1038,7 +1040,7 @@ const DistributorFYPlanPage = () => {
                     <span>Total</span>
                     <div>
                       <span>{totalMonthQty.toLocaleString('en-IN')} {selectedPlan.quantity_unit}</span>
-                      <span className="ml-3">₹{totalMonthRev.toLocaleString('en-IN')}</span>
+                      <span className="ml-3">{fmtMoney(totalMonthRev)}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -1116,7 +1118,7 @@ const DistributorFYPlanPage = () => {
                           <div>
                             <p className="text-sm font-medium">{rt.retailer_name}</p>
                             <p className="text-xs text-muted-foreground">
-                              Last Year: ₹{rt.last_year_revenue.toLocaleString('en-IN')} → Target: ₹{rt.target_revenue.toLocaleString('en-IN')}
+                              Last Year: {fmtMoney(rt.last_year_revenue)} → Target: {fmtMoney(rt.target_revenue)}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1136,7 +1138,7 @@ const DistributorFYPlanPage = () => {
                       ))}
                       <div className="border-t pt-2 mt-2">
                         <p className="text-sm font-medium text-right">
-                          Total Target: ₹{totalRetailerRev.toLocaleString('en-IN')}
+                          Total Target: {fmtMoney(totalRetailerRev)}
                         </p>
                       </div>
                     </div>

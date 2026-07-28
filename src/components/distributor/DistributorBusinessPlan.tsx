@@ -22,6 +22,7 @@ import { Plus, Target, TrendingUp, Package, Store, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllPaginated } from "@/utils/fetchAllPaginated";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface BusinessPlan {
   id: string;
@@ -64,6 +65,7 @@ interface Props {
 }
 
 export function DistributorBusinessPlan({ distributorId }: Props) {
+  const { format: fmtMoney } = useCurrency();
   const [plans, setPlans] = useState<BusinessPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<BusinessPlan | null>(null);
   const [productTargets, setProductTargets] = useState<ProductTarget[]>([]);
@@ -368,7 +370,7 @@ export function DistributorBusinessPlan({ distributorId }: Props) {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-muted-foreground">Revenue Target</p>
-                      <p className="text-lg font-bold">₹{selectedPlan.revenue_target.toLocaleString()}</p>
+                      <p className="text-lg font-bold">{fmtMoney(selectedPlan.revenue_target)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Coverage</p>
@@ -456,7 +458,7 @@ export function DistributorBusinessPlan({ distributorId }: Props) {
                               <div>
                                 <p className="text-sm font-medium">{pt.product_name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  Qty: {pt.quantity_target} | ₹{pt.revenue_target.toLocaleString()}
+                                  Qty: {pt.quantity_target} | {fmtMoney(pt.revenue_target)}
                                 </p>
                               </div>
                               <Button
@@ -471,7 +473,7 @@ export function DistributorBusinessPlan({ distributorId }: Props) {
                           ))}
                           <div className="border-t pt-2 mt-2">
                             <p className="text-sm font-medium text-right">
-                              Total: ₹{totalProductRevenue.toLocaleString()}
+                              Total: {fmtMoney(totalProductRevenue)}
                             </p>
                           </div>
                         </div>
@@ -545,7 +547,7 @@ export function DistributorBusinessPlan({ distributorId }: Props) {
                               <div>
                                 <p className="text-sm font-medium">{rt.retailer_name}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  Last: ₹{rt.last_year_revenue.toLocaleString()} → Target: ₹{rt.target_revenue.toLocaleString()}
+                                  Last: {fmtMoney(rt.last_year_revenue)} → Target: {fmtMoney(rt.target_revenue)}
                                 </p>
                                 <span className={`text-xs ${rt.growth_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                   <TrendingUp className="h-3 w-3 inline mr-1" />
@@ -564,7 +566,7 @@ export function DistributorBusinessPlan({ distributorId }: Props) {
                           ))}
                           <div className="border-t pt-2 mt-2">
                             <p className="text-sm font-medium text-right">
-                              Total: ₹{totalRetailerRevenue.toLocaleString()}
+                              Total: {fmtMoney(totalRetailerRevenue)}
                             </p>
                           </div>
                         </div>
