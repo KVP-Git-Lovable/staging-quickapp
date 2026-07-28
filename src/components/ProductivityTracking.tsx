@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,9 +28,9 @@ interface ProductivityData {
   productivity_ratio: number;
 }
 
-const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
 const ProductivityTracking = () => {
+  const { format: fmt } = useCurrency();
   const [productivityData, setProductivityData] = useState<ProductivityData[]>([]);
   const [additionalTotal, setAdditionalTotal] = useState(0);
   const [pettyCashTotal, setPettyCashTotal] = useState(0);
@@ -495,10 +496,10 @@ const ProductivityTracking = () => {
                           <TableCell>{item.beat_name}</TableCell>
                           <TableCell>{format(new Date(item.date), 'MMM dd, yyyy')}</TableCell>
                           <TableCell>{item.orders_count}</TableCell>
-                          <TableCell>₹{item.total_order_value.toFixed(2)}</TableCell>
-                          <TableCell>₹{item.daily_allowance.toFixed(2)}</TableCell>
-                          <TableCell>₹{item.travel_allowance.toFixed(2)}</TableCell>
-                          <TableCell>₹{item.total_allowance.toFixed(2)}</TableCell>
+                          <TableCell>{fmt(item.total_order_value)}</TableCell>
+                          <TableCell>{fmt(item.daily_allowance)}</TableCell>
+                          <TableCell>{fmt(item.travel_allowance)}</TableCell>
+                          <TableCell>{fmt(item.total_allowance)}</TableCell>
                           <TableCell>{item.productivity_ratio.toFixed(2)}x</TableCell>
                           <TableCell>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getProductivityColor(item.productivity_ratio)}`}>
@@ -565,8 +566,8 @@ const ProductivityTracking = () => {
                               <TableCell className="font-medium">{item.user_name}</TableCell>
                               <TableCell>{item.beat_name}</TableCell>
                               <TableCell>{item.orders_count}</TableCell>
-                              <TableCell>₹{item.total_order_value.toFixed(2)}</TableCell>
-                              <TableCell>₹{item.total_allowance.toFixed(2)}</TableCell>
+                              <TableCell>{fmt(item.total_order_value)}</TableCell>
+                              <TableCell>{fmt(item.total_allowance)}</TableCell>
                               <TableCell>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getProductivityColor(item.productivity_ratio)}`}>
                                   {item.productivity_ratio.toFixed(2)}x
