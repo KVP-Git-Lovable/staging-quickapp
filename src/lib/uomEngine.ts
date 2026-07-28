@@ -69,7 +69,8 @@ async function loadProductUnitsFromOfflineCache(productId: string): Promise<Prod
           }];
         }
         // ...otherwise synthesize from the PRODUCT ROW alone (real uom id, no cache needed).
-        const uomId = prod.default_sales_uom_id || prod.price_basis_uom_id || `synth-uom-${productId}`;
+        // No real UOM id available — keep it null (never fabricate a non-UUID; it breaks DB writes).
+        const uomId = (prod.default_sales_uom_id || prod.price_basis_uom_id || null) as unknown as string;
         return [{
           mappingId: `synth-base-${productId}`,
           uomId, code: baseCode, name: baseCode,
@@ -110,7 +111,7 @@ async function loadProductUnitsFromProductRow(productId: string): Promise<Produc
 
     return [{
       mappingId: `synth-base-${productId}`,
-      uomId: u?.id || (prod as any)?.default_sales_uom_id || (prod as any)?.price_basis_uom_id || `synth-uom-${productId}`,
+      uomId: (u?.id || (prod as any)?.default_sales_uom_id || (prod as any)?.price_basis_uom_id || null) as unknown as string,
       code: u?.code || baseCode,
       name: u?.name || baseCode,
       category: (u?.category || (prod as any)?.base_unit_category || 'unit') as UomCategory,
