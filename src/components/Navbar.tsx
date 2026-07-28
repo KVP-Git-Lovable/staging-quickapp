@@ -12,6 +12,7 @@ import { NetworkBadge } from "@/components/NetworkBadge";
 import { SyncStatusIndicator } from "@/components/SyncStatusIndicator";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { NotificationBell } from "@/components/NotificationBell";
+import { MadadHelpButton } from "@/components/MadadHelpButton";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SignedAvatarImage } from "@/components/ui/signed-image";
 import { useTranslation } from 'react-i18next';
