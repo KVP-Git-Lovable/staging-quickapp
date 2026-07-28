@@ -105,10 +105,10 @@ serve(async (req) => {
         beat_id: d.beat_id,
         beat_name: d.beat_name || '',
         plan_date: d.date,
-        day_of_week: d.day || dayNames[new Date(d.date + 'T00:00:00').getDay()],
         beat_data: {
           beat_name: d.beat_name,
           auto_generated: true,
+          day_of_week: d.day || dayNames[new Date(d.date + 'T00:00:00').getDay()],
           rationale: d.rationale || '',
           retailers: (d.retailers || []).map((r) => ({
             id: r.retailer_id || r.id,
