@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -188,13 +189,15 @@ const OverrideTable = React.memo<{
   onDelete: (field: 'ta' | 'da', entry: OverrideEntry) => void;
   onAdd: (field: 'ta' | 'da', type: 'user' | 'team', refId: string, name: string) => void;
 }>(({ field, overrides, defaultAmount, onUpdateAmount, onDelete, onAdd }) => {
+  const { format: fmtMoney } = useCurrency();
+  const currencySymbol = fmtMoney(0).replace(/[\d.,\s]/g, '') || '';
   const excludeIds = overrides.map(o => o.ref_id);
 
   return (
     <div className="space-y-3 mt-3">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          Default: <span className="font-semibold text-foreground">₹{defaultAmount}</span> for users not listed below
+          Default: <span className="font-semibold text-foreground">{fmtMoney(defaultAmount)}</span> for users not listed below
         </p>
       </div>
 
@@ -205,7 +208,7 @@ const OverrideTable = React.memo<{
               <TableRow>
                 <TableHead className="text-[11px] px-2">User / Team</TableHead>
                 <TableHead className="text-[11px] px-2">Type</TableHead>
-                <TableHead className="text-[11px] px-2">{field === 'ta' ? 'TA' : 'DA'} Amount (₹)</TableHead>
+                <TableHead className="text-[11px] px-2">{field === 'ta' ? 'TA' : 'DA'} Amount ({currencySymbol})</TableHead>
                 <TableHead className="text-[11px] px-1 w-[40px]"></TableHead>
               </TableRow>
             </TableHeader>
@@ -273,6 +276,8 @@ const InlineGroupSection = React.memo<{
   onMembers: (g: ExpenseGroup) => void;
   onDelete: (g: ExpenseGroup) => void;
 }>(({ groups, field, onCreate, onEdit, onMembers, onDelete }) => {
+  const { format: fmtMoney } = useCurrency();
+  const currencySymbol = fmtMoney(0).replace(/[\d.,\s]/g, '') || '';
   // Filter groups: TA section shows groups with TA config, DA section shows groups with DA config
   const filteredGroups = groups.filter(g => {
     if (field === 'ta') {
@@ -302,7 +307,7 @@ const InlineGroupSection = React.memo<{
             <TableHeader>
               <TableRow>
                 <TableHead className="text-[11px] px-2">Group</TableHead>
-                <TableHead className="text-[11px] px-2">{field === 'ta' ? 'TA (₹)' : 'DA (₹)'}</TableHead>
+                <TableHead className="text-[11px] px-2">{field === 'ta' ? `TA (${currencySymbol})` : `DA (${currencySymbol})`}</TableHead>
                 <TableHead className="text-[11px] px-2">Members</TableHead>
                 <TableHead className="text-[11px] px-1 w-[80px]"></TableHead>
               </TableRow>
@@ -316,9 +321,9 @@ const InlineGroupSection = React.memo<{
                   </TableCell>
                   <TableCell className="py-1.5 px-2 text-xs">
                     {field === 'ta' ? (
-                      g.ta_type === 'from_gps' ? `GPS × ₹${g.ta_per_km_rate}/km` : `₹${g.fixed_ta_amount}`
+                      g.ta_type === 'from_gps' ? `GPS × ${fmtMoney(g.ta_per_km_rate)}/km` : fmtMoney(g.fixed_ta_amount)
                     ) : (
-                      `₹${g.da_amount}`
+                      fmtMoney(g.da_amount)
                     )}
                   </TableCell>
                   <TableCell className="py-1.5 px-2">
@@ -347,6 +352,8 @@ const InlineGroupSection = React.memo<{
 InlineGroupSection.displayName = 'InlineGroupSection';
 
 const ExpensePolicyConfig = () => {
+  const { format: fmtMoney } = useCurrency();
+  const currencySymbol = fmtMoney(0).replace(/[\d.,\s]/g, '') || '';
   const { toast } = useToast();
   const [config, setConfig] = useState<ExpenseConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -838,7 +845,7 @@ const ExpensePolicyConfig = () => {
                   TA will be auto-calculated from each beat's travel allowance value. Configure beat-level TA in the Beat Management section.
                 </p>
                 <div className="mt-2 space-y-1.5">
-                  <Label className="text-xs">Per KM Rate (₹) — optional</Label>
+                  <Label className="text-xs">Per KM Rate ({currencySymbol}) — optional</Label>
                   <Input
                     type="number"
                     min="0"
@@ -864,7 +871,7 @@ const ExpensePolicyConfig = () => {
                   TA will be auto-calculated from the user's actual GPS kilometers traveled during the day. The system tracks GPS distance in real-time and calculates: <strong>TA = Total KM × Per KM Rate</strong>.
                 </p>
                 <div className="mt-2 space-y-1.5">
-                  <Label className="text-xs">Per KM Rate (₹) <span className="text-destructive">*</span></Label>
+                  <Label className="text-xs">Per KM Rate ({currencySymbol}) <span className="text-destructive">*</span></Label>
                   <Input
                     type="number"
                     min="0"
@@ -876,7 +883,7 @@ const ExpensePolicyConfig = () => {
                     }
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Example: If rate is ₹8/km and user travels 45 km, TA = ₹360
+                    Example: If rate is {fmtMoney(8)}/km and user travels 45 km, TA = {fmtMoney(360)}
                   </p>
                 </div>
               </div>
@@ -906,7 +913,7 @@ const ExpensePolicyConfig = () => {
 
               <div className="space-y-1.5">
                 <Label className="text-xs">
-                  {taDistribution === 'custom' ? 'Default TA Amount (₹)' : 'Fixed TA Amount (₹)'}
+                  {taDistribution === 'custom' ? `Default TA Amount (${currencySymbol})` : `Fixed TA Amount (${currencySymbol})`}
                 </Label>
                 <Input
                   type="number"
@@ -918,7 +925,7 @@ const ExpensePolicyConfig = () => {
                   }
                 />
                 {taDistribution === 'same_for_all' && (
-                  <p className="text-[11px] text-muted-foreground">Every user gets ₹{config.fixed_ta_amount} per working day</p>
+                  <p className="text-[11px] text-muted-foreground">Every user gets {fmtMoney(config.fixed_ta_amount)} per working day</p>
                 )}
               </div>
 
@@ -973,7 +980,7 @@ const ExpensePolicyConfig = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs">
-                {daDistribution === 'custom' ? 'Default DA Amount (₹)' : 'DA Amount (₹)'}
+                {daDistribution === 'custom' ? `Default DA Amount (${currencySymbol})` : `DA Amount (${currencySymbol})`}
               </Label>
               <Input
                 type="number"
@@ -1027,7 +1034,7 @@ const ExpensePolicyConfig = () => {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs">Max per Day (₹)</Label>
+              <Label className="text-xs">Max per Day ({currencySymbol})</Label>
               <Input
                 type="number"
                 min="0"
@@ -1039,7 +1046,7 @@ const ExpensePolicyConfig = () => {
               <p className="text-[11px] text-muted-foreground">0 = no limit</p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Max per Month (₹)</Label>
+              <Label className="text-xs">Max per Month ({currencySymbol})</Label>
               <Input
                 type="number"
                 min="0"
@@ -1051,7 +1058,7 @@ const ExpensePolicyConfig = () => {
               <p className="text-[11px] text-muted-foreground">0 = no limit</p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Bill Required Above (₹)</Label>
+              <Label className="text-xs">Bill Required Above ({currencySymbol})</Label>
               <Input
                 type="number"
                 min="0"
@@ -1142,11 +1149,11 @@ const ExpensePolicyConfig = () => {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Fixed TA (₹)</Label>
+                    <Label className="text-xs">Fixed TA ({currencySymbol})</Label>
                     <Input type="number" min="0" value={groupForm.fixed_ta_amount} onChange={e => setGroupForm(f => ({ ...f, fixed_ta_amount: Number(e.target.value) }))} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Per KM Rate (₹)</Label>
+                    <Label className="text-xs">Per KM Rate ({currencySymbol})</Label>
                     <Input type="number" min="0" step="0.5" value={groupForm.ta_per_km_rate} onChange={e => setGroupForm(f => ({ ...f, ta_per_km_rate: Number(e.target.value) }))} />
                   </div>
                 </div>
@@ -1156,7 +1163,7 @@ const ExpensePolicyConfig = () => {
             {/* DA-specific fields */}
             {groupDialogContext === 'da' && (
               <div className="space-y-1.5">
-                <Label className="text-xs">DA Amount (₹)</Label>
+                <Label className="text-xs">DA Amount ({currencySymbol})</Label>
                 <Input type="number" min="0" value={groupForm.da_amount} onChange={e => setGroupForm(f => ({ ...f, da_amount: Number(e.target.value) }))} />
               </div>
             )}
@@ -1293,9 +1300,9 @@ const ExpensePolicyConfig = () => {
             <div className="p-3 rounded-md border border-dashed bg-muted/20 space-y-2">
               <h4 className="font-semibold text-foreground text-xs">💡 Example</h4>
               <div className="text-[11px] text-muted-foreground space-y-1">
-                <p><strong className="text-foreground">Method:</strong> From GPS Tracking, Rate: ₹8/km</p>
+                <p><strong className="text-foreground">Method:</strong> From GPS Tracking, Rate: {fmtMoney(8)}/km</p>
                 <p><strong className="text-foreground">Employee travels:</strong> 45 km in a day</p>
-                <p><strong className="text-foreground">TA calculated:</strong> 45 × ₹8 = <strong className="text-foreground">₹360</strong></p>
+                <p><strong className="text-foreground">TA calculated:</strong> 45 × {fmtMoney(8)} = <strong className="text-foreground">{fmtMoney(360)}</strong></p>
               </div>
             </div>
           </div>
@@ -1358,9 +1365,9 @@ const ExpensePolicyConfig = () => {
             <div className="p-3 rounded-md border border-dashed bg-muted/20 space-y-2">
               <h4 className="font-semibold text-foreground text-xs">💡 Example</h4>
               <div className="text-[11px] text-muted-foreground space-y-1">
-                <p><strong className="text-foreground">Global DA:</strong> ₹200/day</p>
-                <p><strong className="text-foreground">Group "Metro Cities":</strong> ₹300/day (override)</p>
-                <p><strong className="text-foreground">Employee in Metro group, present 22 days:</strong> 22 × ₹300 = <strong className="text-foreground">₹6,600</strong></p>
+                <p><strong className="text-foreground">Global DA:</strong> {fmtMoney(200)}/day</p>
+                <p><strong className="text-foreground">Group "Metro Cities":</strong> {fmtMoney(300)}/day (override)</p>
+                <p><strong className="text-foreground">Employee in Metro group, present 22 days:</strong> 22 × {fmtMoney(300)} = <strong className="text-foreground">{fmtMoney(6600)}</strong></p>
               </div>
             </div>
           </div>

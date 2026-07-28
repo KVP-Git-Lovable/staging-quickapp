@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -226,6 +227,8 @@ export function UserFYPlanTarget({
   fyConfig,
   preselectedYear 
 }: UserFYPlanTargetProps = {}) {
+  const { format: fmtMoney } = useCurrency();
+  const currencySymbol = fmtMoney(0).replace(/[\d.,\s]/g, '') || '';
   const { user } = useAuth();
   // Use targetUserId if provided, otherwise use current user's id
   const effectiveUserId = targetUserId || user?.id;
@@ -1705,7 +1708,7 @@ export function UserFYPlanTarget({
                     Hierarchy target available for FY {planForm.year}: {' '}
                     <span className="font-medium">
                       {Math.round(dialogHierarchyAllocation.quantity_target).toLocaleString()} {dialogHierarchyAllocation.hierarchy_target?.quantity_unit || 'Units'} | 
-                      ₹{Math.round(dialogHierarchyAllocation.revenue_target).toLocaleString()}
+                      {fmtMoney(Math.round(dialogHierarchyAllocation.revenue_target))}
                     </span>
                     {' '}(auto-filled below)
                   </AlertDescription>
@@ -1742,7 +1745,7 @@ export function UserFYPlanTarget({
                     </div>
                   </div>
                   <div>
-                    <Label>Revenue Target (₹)</Label>
+                    <Label>Revenue Target ({currencySymbol})</Label>
                     <Input
                       type="number"
                       value={planForm.revenue_target}
@@ -1800,7 +1803,7 @@ export function UserFYPlanTarget({
                   <AlertDescription className="text-xs">
                     <span className="font-medium">Targets set via Hierarchy:</span>{" "}
                     {Math.round(hierarchyAllocation.quantity_target).toLocaleString()} {hierarchyAllocation.hierarchy_target?.quantity_unit || 'Units'} | 
-                    ₹{Math.round(hierarchyAllocation.revenue_target).toLocaleString()} 
+                    {fmtMoney(Math.round(hierarchyAllocation.revenue_target))} 
                     <span className="text-muted-foreground ml-1">
                       ({hierarchyAllocation.allocation_percentage?.toFixed(1)}% allocation)
                     </span>
@@ -1901,7 +1904,7 @@ export function UserFYPlanTarget({
                         />
                       </div>
                       <div className="flex items-center justify-between gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                        <Label className="text-xs font-semibold whitespace-nowrap text-green-600 dark:text-green-400">Revenue Target (₹)</Label>
+                        <Label className="text-xs font-semibold whitespace-nowrap text-green-600 dark:text-green-400">Revenue Target ({currencySymbol})</Label>
                         <Input
                           type="number"
                           value={selectedPlan.revenue_target || ''}
@@ -2012,7 +2015,7 @@ export function UserFYPlanTarget({
                           </div>
                         </div>
                         <div>
-                          <Label>Revenue Target (₹)</Label>
+                          <Label>Revenue Target ({currencySymbol})</Label>
                           <Input
                             type="number"
                             value={planForm.revenue_target}
@@ -2128,7 +2131,7 @@ export function UserFYPlanTarget({
                                       value={cat.revenueTarget || ''}
                                       onChange={(e) => handleCategoryTargetChange(cat.categoryId, cat.quantityTarget, parseFloat(e.target.value) || 0)}
                                       className="w-24 h-8 text-right text-sm"
-                                      placeholder="₹"
+                                      placeholder={currencySymbol}
                                     />
                                     <Button
                                       variant="ghost"
@@ -2176,7 +2179,7 @@ export function UserFYPlanTarget({
                                           {Math.round(p.quantityTarget).toLocaleString()}
                                         </span>
                                         <span className="text-sm font-medium w-20 text-right">
-                                          ₹{Math.round(p.revenueTarget).toLocaleString()}
+                                          {fmtMoney(Math.round(p.revenueTarget))}
                                         </span>
                                         <Button
                                           variant="ghost"
@@ -2207,7 +2210,7 @@ export function UserFYPlanTarget({
                         <div className="text-right">
                           <span className="text-sm font-bold">{Math.round(totalProductQuantity).toLocaleString()} {quantityUnit}</span>
                           <span className="mx-2 text-muted-foreground">|</span>
-                          <span className="text-sm font-bold">₹{Math.round(totalProductRevenue).toLocaleString()}</span>
+                          <span className="text-sm font-bold">{fmtMoney(Math.round(totalProductRevenue))}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -2273,7 +2276,7 @@ export function UserFYPlanTarget({
                                         value={cat.revenueTarget || ''}
                                         onChange={(e) => handleRetailerCategoryTargetChange(cat.category, cat.quantityTarget, parseFloat(e.target.value) || 0)}
                                         className="w-24 h-8 text-right text-sm"
-                                        placeholder="₹"
+                                        placeholder={currencySymbol}
                                       />
                                       <Button
                                         variant="ghost"
@@ -2321,7 +2324,7 @@ export function UserFYPlanTarget({
                                             {Math.round(r.quantityTarget).toLocaleString()}
                                           </span>
                                           <span className="text-sm font-medium w-20 text-right">
-                                            ₹{Math.round(r.revenueTarget).toLocaleString()}
+                                            {fmtMoney(Math.round(r.revenueTarget))}
                                           </span>
                                           <Button
                                             variant="ghost"
@@ -2352,7 +2355,7 @@ export function UserFYPlanTarget({
                         <div className="text-right">
                           <span className="text-sm font-bold">{Math.round(totalRetailerQuantity).toLocaleString()} {quantityUnit}</span>
                           <span className="mx-2 text-muted-foreground">|</span>
-                          <span className="text-sm font-bold">₹{Math.round(totalRetailerRevenue).toLocaleString()}</span>
+                          <span className="text-sm font-bold">{fmtMoney(Math.round(totalRetailerRevenue))}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -2421,7 +2424,7 @@ export function UserFYPlanTarget({
                                     value={Math.round(d.revenueTarget) || ''}
                                     onChange={(e) => handleDistributorTargetChange(d.distributorId, d.quantityTarget, parseFloat(e.target.value) || 0)}
                                     className="w-24 h-8 text-right text-sm"
-                                    placeholder="₹"
+                                    placeholder={currencySymbol}
                                   />
                                   <Button
                                     variant="ghost"
@@ -2448,7 +2451,7 @@ export function UserFYPlanTarget({
                         <div className="text-right">
                           <span className="text-sm font-bold">{Math.round(totalDistributorQuantity).toLocaleString()} {quantityUnit}</span>
                           <span className="mx-2 text-muted-foreground">|</span>
-                          <span className="text-sm font-bold">₹{Math.round(totalDistributorRevenue).toLocaleString()}</span>
+                          <span className="text-sm font-bold">{fmtMoney(Math.round(totalDistributorRevenue))}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -2525,7 +2528,7 @@ export function UserFYPlanTarget({
                                         value={Math.round(m.revenueTarget) || ''}
                                         onChange={(e) => handleMonthTargetChange(m.monthNumber, m.quantityTarget, parseFloat(e.target.value) || 0)}
                                         className="w-20 sm:w-24 h-7 text-right text-xs sm:text-sm"
-                                        placeholder="₹"
+                                        placeholder={currencySymbol}
                                       />
                                     </div>
                                   </div>
@@ -2596,11 +2599,11 @@ export function UserFYPlanTarget({
                                             <div>
                                               <span className="text-sm font-medium">Avg Revenue / Day</span>
                                               <p className="text-xs text-muted-foreground">
-                                                ₹{Math.round(m.revenueTarget).toLocaleString()} ÷ {m.workingDays} days
+                                                {fmtMoney(Math.round(m.revenueTarget))} ÷ {m.workingDays} days
                                               </p>
                                             </div>
                                             <span className="text-lg font-bold text-primary">
-                                              ₹{Math.round(avgRevPerDay).toLocaleString()}
+                                              {fmtMoney(Math.round(avgRevPerDay))}
                                             </span>
                                           </div>
                                         </div>
@@ -2661,7 +2664,7 @@ export function UserFYPlanTarget({
                                                       <div className="flex items-center gap-1 sm:gap-2 text-xs flex-shrink-0">
                                                         <span className="w-10 sm:w-14 text-center">{catPct.toFixed(1)}%</span>
                                                         <span className="w-12 sm:w-16 text-right">{Math.round(catQty).toLocaleString()}</span>
-                                                        <span className="w-14 sm:w-20 text-right font-medium">₹{Math.round(catRev).toLocaleString()}</span>
+                                                        <span className="w-14 sm:w-20 text-right font-medium">{fmtMoney(Math.round(catRev))}</span>
                                                       </div>
                                                     </div>
                                                   </CollapsibleTrigger>
@@ -2685,7 +2688,7 @@ export function UserFYPlanTarget({
                                                               {Math.round(p.quantityTarget).toLocaleString()}
                                                             </span>
                                                             <span className="text-xs font-medium w-14 sm:w-20 text-right">
-                                                              ₹{Math.round(p.revenueTarget).toLocaleString()}
+                                                              {fmtMoney(Math.round(p.revenueTarget))}
                                                             </span>
                                                           </div>
                                                         </div>
@@ -2704,7 +2707,7 @@ export function UserFYPlanTarget({
                                           <div className="flex items-center gap-1 sm:gap-2">
                                             <span className="w-10 sm:w-14 text-center">{m.products.reduce((s, p) => s + p.percentage, 0).toFixed(1)}%</span>
                                             <span className="w-12 sm:w-16 text-right">{Math.round(m.products.reduce((s, p) => s + p.quantityTarget, 0)).toLocaleString()}</span>
-                                            <span className="w-14 sm:w-20 text-right font-medium">₹{Math.round(m.products.reduce((s, p) => s + p.revenueTarget, 0)).toLocaleString()}</span>
+                                            <span className="w-14 sm:w-20 text-right font-medium">{fmtMoney(Math.round(m.products.reduce((s, p) => s + p.revenueTarget, 0)))}</span>
                                           </div>
                                         </div>
                                       </>
@@ -2727,7 +2730,7 @@ export function UserFYPlanTarget({
                         <div className="text-right">
                           <span className="text-sm font-bold">{Math.round(totalMonthQuantityComputed).toLocaleString()} {quantityUnit}</span>
                           <span className="mx-2 text-muted-foreground">|</span>
-                          <span className="text-sm font-bold">₹{Math.round(totalMonthRevenueComputed).toLocaleString()}</span>
+                          <span className="text-sm font-bold">{fmtMoney(Math.round(totalMonthRevenueComputed))}</span>
                         </div>
                       </div>
                     </CardContent>
