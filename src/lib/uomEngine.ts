@@ -87,6 +87,45 @@ async function loadProductUnitsFromOfflineCache(productId: string): Promise<Prod
 }
 
 
+/** Online fallback: build a single synthetic base unit straight from the
+ *  `products` row when the product has NO product_uom_mapping rows yet.
+ *  Without this, manually setting `base_unit` in Product Master never shows
+ *  up on order entry (the Unit cell renders "Configure UOM"). */
+async function loadProductUnitsFromProductRow(productId: string): Promise<ProductUnit[]> {
+  try {
+    const { data: prod } = await supabase
+      .from('products')
+      .select('id, base_unit, base_unit_category, default_sales_uom_id, price_basis_uom_id')
+      .eq('id', productId)
+      .maybeSingle();
+    const baseCode = (prod as any)?.base_unit ? String((prod as any).base_unit).trim() : '';
+    if (!baseCode) return [];
+
+    const { data: uomRows } = await supabase
+      .from('uom_master')
+      .select('id, code, name, category')
+      .or(`code.ilike.${baseCode},name.ilike.${baseCode}`)
+      .limit(1);
+    const u = (uomRows || [])[0] as any;
+
+    return [{
+      mappingId: `synth-base-${productId}`,
+      uomId: u?.id || (prod as any)?.default_sales_uom_id || (prod as any)?.price_basis_uom_id || `synth-uom-${productId}`,
+      code: u?.code || baseCode,
+      name: u?.name || baseCode,
+      category: (u?.category || (prod as any)?.base_unit_category || 'unit') as UomCategory,
+      conversionToBase: 1,
+      isBase: true,
+      isDefaultSales: true,
+      isPriceBasis: true,
+      isDefaultPurchase: true,
+    }];
+  } catch (err) {
+    console.warn('[uomEngine] product-row UOM fallback failed:', err);
+    return [];
+  }
+}
+
 /**
  * UoM category code. Historically a fixed union of 4 values but now data-driven
  * via the `uom_category` table (Medication, Electronics, Packaging, plus any
@@ -232,6 +271,14 @@ export async function loadProductUnits(productId: string): Promise<ProductUnit[]
     isPriceBasis: !!r.is_price_basis,
     isDefaultPurchase: !!r.is_default_purchase,
   }));
+  if (mapped.length === 0) {
+    // No mapping rows for this product — do NOT cache the empty result,
+    // otherwise a later Product Master unit edit can never surface.
+    const fromMaster = await loadProductUnitsFromOfflineCache(productId);
+    if (fromMaster.length > 0) return fromMaster;
+    return await loadProductUnitsFromProductRow(productId);
+  }
+
   productCache.set(productId, mapped);
   void idbSet(`product:${productId}`, mapped);
   return mapped;

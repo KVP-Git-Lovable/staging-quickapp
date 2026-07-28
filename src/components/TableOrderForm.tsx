@@ -1438,12 +1438,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                 )}
                                 <span className="truncate text-left flex-1 font-medium text-foreground">
                                   {row.variant ? (() => {
-                                    let variantDisplayName = row.variant.variant_name;
-                                    if (variantDisplayName.toLowerCase().startsWith(row.product.name.toLowerCase())) {
-                                      variantDisplayName = variantDisplayName.substring(row.product.name.length).trim();
-                                      variantDisplayName = variantDisplayName.replace(/^[-\s]+/, '');
-                                    }
-                                    return variantDisplayName || row.variant.variant_name;
+                                    // Show the FULL variant name as stored in Product Master.
+                                    // Previously the parent product name was stripped off,
+                                    // which turned "A1 Chat Masala 100g" into just "100g".
+                                    return row.variant.variant_name || row.product.name;
                                   })() : row.product.name}
                                 </span>
                               </div>
