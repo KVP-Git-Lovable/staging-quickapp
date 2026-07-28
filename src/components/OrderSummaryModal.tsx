@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Gift, Package, ShoppingCart } from "lucide-react";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface OrderSummaryItem {
   id: string;
@@ -34,6 +35,7 @@ export const OrderSummaryModal = ({
   onAddToCart,
   productName = "Product"
 }: OrderSummaryModalProps) => {
+  const { format } = useCurrency();
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
@@ -68,8 +70,8 @@ export const OrderSummaryModal = ({
                     <div className="col-span-3 text-right">
                       {hasDiscount ? (
                         <div className="flex flex-col items-end">
-                          <span className="text-xs text-muted-foreground line-through">₹{item.rate.toFixed(2)}</span>
-                          <span className="font-medium text-sm">₹{(item.rate - (item.savings / item.quantity)).toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground line-through">{format(item.rate)}</span>
+                          <span className="font-medium text-sm">{format(item.rate - (item.savings / item.quantity))}</span>
                           {item.appliedOffers.length > 0 && (
                             <span className="text-xs text-green-600 font-medium">
                               {item.appliedOffers[0].includes('10%') ? '10% OFF' : 
@@ -78,7 +80,7 @@ export const OrderSummaryModal = ({
                           )}
                         </div>
                       ) : (
-                        <span className="font-medium text-sm">₹{item.rate.toFixed(2)}</span>
+                        <span className="font-medium text-sm">{format(item.rate)}</span>
                       )}
                     </div>
                     <div className="col-span-2 text-center">
@@ -87,11 +89,11 @@ export const OrderSummaryModal = ({
                     <div className="col-span-3 text-right">
                       <div className="flex flex-col items-end">
                         {hasDiscount && (
-                          <span className="text-xs text-muted-foreground line-through">₹{originalPrice.toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground line-through">{format(originalPrice)}</span>
                         )}
-                        <span className="font-medium text-sm">₹{item.totalPrice.toFixed(2)}</span>
+                        <span className="font-medium text-sm">{format(item.totalPrice)}</span>
                         {hasDiscount && (
-                          <span className="text-xs text-green-600 font-medium">You saved ₹{item.savings.toFixed(2)}</span>
+                          <span className="text-xs text-green-600 font-medium">You saved {format(item.savings)}</span>
                         )}
                       </div>
                     </div>
@@ -109,7 +111,7 @@ export const OrderSummaryModal = ({
           {totalSavings > 0 && (
             <div className="flex justify-between items-center">
               <span className="font-bold text-green-600">You saved:</span>
-              <span className="font-bold text-green-600 text-right">₹{totalSavings.toFixed(2)}</span>
+              <span className="font-bold text-green-600 text-right">{format(totalSavings)}</span>
             </div>
           )}
 
@@ -117,7 +119,7 @@ export const OrderSummaryModal = ({
           <div>
             <div className="flex justify-between items-center mb-3">
               <span className="text-lg font-semibold">Total Amount:</span>
-              <span className="text-xl font-bold text-primary">₹{totalAmount.toFixed(2)}</span>
+              <span className="text-xl font-bold text-primary">{format(totalAmount)}</span>
             </div>
             
             <Button 
@@ -126,7 +128,7 @@ export const OrderSummaryModal = ({
               size="lg"
             >
               <ShoppingCart size={16} className="mr-2" />
-              Add Selected to Cart (₹{totalAmount.toFixed(2)})
+              Add Selected to Cart ({format(totalAmount)})
             </Button>
           </div>
         </div>

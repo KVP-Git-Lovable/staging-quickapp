@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Plus, X, Calendar, Package, Percent, DollarSign, Gift, Users, Clock, Star, Tag, Layers, ChevronsUpDown, Check, Search, Sliders } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface SchemeFormFieldsProps {
   schemeForm: any;
@@ -32,6 +33,7 @@ const UNIT_OPTIONS = [
 ];
 
 export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categories }: SchemeFormFieldsProps) => {
+  const { format: fmtMoney } = useCurrency();
   // Search states
   const [productSearchOpen, setProductSearchOpen] = useState(false);
   const [multiProductSearch, setMultiProductSearch] = useState('');
@@ -355,7 +357,7 @@ export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categori
                   <SelectItem value="same">Same Product (Free)</SelectItem>
                   {products.map((product) => (
                     <SelectItem key={product.id} value={product.id}>
-                      {product.name} - ₹{product.rate}
+                      {product.name} - {fmtMoney(product.rate)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -870,7 +872,7 @@ export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categori
                               )}
                             />
                             <span className="flex-1">{product.name}</span>
-                            <span className="text-muted-foreground text-xs ml-2">₹{product.rate}</span>
+                            <span className="text-muted-foreground text-xs ml-2">{fmtMoney(product.rate)}</span>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -940,7 +942,7 @@ export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categori
                           )}
                         </label>
                         <Badge variant="outline" className="text-xs">
-                          ₹{product.rate}
+                          {fmtMoney(product.rate)}
                         </Badge>
                       </div>
                     ))}
@@ -1005,7 +1007,7 @@ export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categori
                                   {product?.name || 'Unknown'}
                                 </TableCell>
                                 <TableCell className="text-sm py-2 text-muted-foreground">
-                                  ₹{product?.rate || 0}
+                                  {fmtMoney(product?.rate || 0)}
                                 </TableCell>
                                 <TableCell className="py-2">
                                   <Input

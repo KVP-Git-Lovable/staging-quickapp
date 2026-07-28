@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useTranslation } from "react-i18next";
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 interface TomorrowBeatPlanProps {
   userId: string;
@@ -44,6 +45,7 @@ interface BeatInsights {
 }
 
 export const TomorrowBeatPlan = ({ userId }: TomorrowBeatPlanProps) => {
+  const { format: fmtMoney, displayCurrency } = useCurrency();
   const [beatPlan, setBeatPlan] = useState<any>(null);
   const [insights, setInsights] = useState<BeatInsights | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<string>("");
@@ -250,14 +252,14 @@ export const TomorrowBeatPlan = ({ userId }: TomorrowBeatPlanProps) => {
 Beat: ${beatPlan.beat_name}
 Last Visited: ${insights.lastVisitedDate || 'Never'}
 Total Retailers: ${insights.totalRetailers}
-Average Monthly Sales: ₹${insights.averageSales.toLocaleString()}
+Average Monthly Sales: ${fmtMoney(insights.averageSales)}
 Growth: ${insights.beatGrowth.toFixed(1)}%
 Performance: ${insights.isAboveAverage ? 'Above' : 'Below'} user average
 Top Retailers: ${insights.topRetailers.map(r => r.name).join(', ')}
 Unattended Retailers: ${insights.unattendedRetailers.join(', ')}
 Hot Products: ${insights.hotProducts.join(', ')}
 Slow Products: ${insights.slowProducts.join(', ')}
-Pending Payments: ${insights.pendingPaymentRetailers.map(r => `${r.name}: ₹${r.amount}`).join(', ')}
+Pending Payments: ${insights.pendingPaymentRetailers.map(r => `${r.name}: ${fmtMoney(r.amount)}`).join(', ')}
 New Retailers Added: ${insights.retailersAdded}
 
 Provide 4-5 specific, actionable recommendations for a productive day. Focus on:
@@ -300,7 +302,7 @@ Keep it concise and practical.`;
     }
     
     if (insights.pendingPaymentRetailers.length > 0) {
-      rec += `• Collect ₹${insights.pendingPaymentRetailers.reduce((s, r) => s + r.amount, 0).toLocaleString()} in pending payments\n`;
+      rec += `• Collect ${fmtMoney(insights.pendingPaymentRetailers.reduce((s, r) => s + r.amount, 0))} in pending payments\n`;
     }
     
     if (insights.hotProducts.length > 0) {
@@ -498,7 +500,7 @@ Keep it concise and practical.`;
               </div>
               <div className="bg-muted/50 rounded-lg p-2 text-center">
                 <ShoppingCart className="h-3 w-3 mx-auto mb-1 text-muted-foreground" />
-                <p className="text-sm font-bold">₹{(insights.averageSales / 1000).toFixed(0)}K</p>
+                <p className="text-sm font-bold">{displayCurrency === 'INR' ? `₹${(insights.averageSales / 1000).toFixed(0)}K` : fmtMoney(insights.averageSales)}</p>
                 <p className="text-[10px] text-muted-foreground">Avg/Month</p>
               </div>
               <div className="bg-muted/50 rounded-lg p-2 text-center">
@@ -520,7 +522,7 @@ Keep it concise and practical.`;
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 rounded px-2 py-1">
                 <Calendar className="h-3 w-3" />
                 Last visited: {format(new Date(insights.lastVisitedDate), 'MMM dd, yyyy')}
-                <span className="ml-auto">Last order: ₹{insights.lastOrderValue.toLocaleString()}</span>
+                <span className="ml-auto">Last order: {fmtMoney(insights.lastOrderValue)}</span>
               </div>
             )}
 
@@ -540,9 +542,9 @@ Keep it concise and practical.`;
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">₹{r.lastOrderValue.toLocaleString()}</p>
+                      <p className="font-medium">{fmtMoney(r.lastOrderValue)}</p>
                       {r.pendingPayment > 0 && (
-                        <p className="text-[10px] text-red-500">Due: ₹{r.pendingPayment.toLocaleString()}</p>
+                        <p className="text-[10px] text-red-500">Due: {fmtMoney(r.pendingPayment)}</p>
                       )}
                     </div>
                   </div>
@@ -560,12 +562,12 @@ Keep it concise and practical.`;
                   {insights.pendingPaymentRetailers.map((r, i) => (
                     <div key={i} className="flex justify-between text-xs">
                       <span>{r.name}</span>
-                      <span className="font-medium">₹{r.amount.toLocaleString()}</span>
+                      <span className="font-medium">{fmtMoney(r.amount)}</span>
                     </div>
                   ))}
                 </div>
                 <p className="text-[10px] text-red-600 font-medium border-t border-red-500/20 pt-1 mt-1">
-                  Total: ₹{insights.pendingPaymentRetailers.reduce((s, r) => s + r.amount, 0).toLocaleString()}
+                  Total: {fmtMoney(insights.pendingPaymentRetailers.reduce((s, r) => s + r.amount, 0))}
                 </p>
               </div>
             )}
