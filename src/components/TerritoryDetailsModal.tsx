@@ -866,7 +866,7 @@ const TerritoryDetailsModal: React.FC<TerritoryDetailsModalProps> = ({ open, onO
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Target Market Size</p>
-                    <p className="font-medium text-sm">{territory.target_market_size ? format(territory.target_market_size) : '-'}</p>
+                    <p className="font-medium text-sm">{territory.target_market_size ? fmtMoney(territory.target_market_size) : '-'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground"># of Retailers (Covered)</p>
