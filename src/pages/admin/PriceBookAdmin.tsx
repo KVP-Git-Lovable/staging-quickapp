@@ -741,6 +741,11 @@ const PriceBookAdmin = () => {
               <p className="text-muted-foreground text-sm">{filteredPriceBooks.length} price books</p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate('/admin/price-simulator')}>
+            <Calculator className="h-4 w-4 mr-2" />
+            Price Simulator
+          </Button>
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button onClick={openCreateDialog}>
