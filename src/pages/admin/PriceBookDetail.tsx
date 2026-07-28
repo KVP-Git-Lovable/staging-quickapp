@@ -110,6 +110,15 @@ const PriceBookDetail = () => {
           .from('product_categories')
           .select('id, name')
           .order('name'),
+        supabase
+          .from('companies')
+          .select('base_currency, currency')
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('exchange_rates')
+          .select('base_currency, quote_currency, rate, effective_date')
+          .order('effective_date', { ascending: true }),
       ]);
 
       if (priceBookRes.error) throw priceBookRes.error;
