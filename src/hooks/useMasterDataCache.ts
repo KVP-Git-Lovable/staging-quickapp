@@ -126,6 +126,56 @@ export function useMasterDataCache() {
     onProgress?.('products', 'error');
   }, []);
 
+  /**
+   * HARD refresh of the product/variant caches.
+   * Unlike cacheProducts (which merges via replaceAll), this wipes the
+   * IndexedDB stores first so deleted/renamed rows and edited base_unit /
+   * variant_name / rate values can never survive on the device. Also clears
+   * the `master_data_cached_at` stamp so no staleness check can skip the sync.
+   */
+  const hardRefreshProducts = useCallback(async () => {
+    console.log('[Cache] 🧹 HARD refresh of products + variants...');
+    try {
+      // 1) Fetch fresh data FIRST (so a network failure can't leave us empty).
+      const products = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('products')
+          .select(`${PRODUCT_PICKER_COLUMNS}, category:product_categories(name)`)
+          .or('is_active.eq.true,is_active.is.null')
+          .order('name')
+          .range(from, to),
+        500
+      );
+
+      const variants = await fetchAllPaginated<any>((from, to) =>
+        supabase
+          .from('product_variants')
+          .select('*')
+          .or('is_active.eq.true,is_active.is.null')
+          .range(from, to),
+        500
+      );
+
+      // 2) Wipe the stores so nothing stale can linger.
+      await offlineStorage.clear(STORES.PRODUCTS);
+      await offlineStorage.clear(STORES.VARIANTS);
+
+      // 3) Write the fresh rows.
+      await offlineStorage.replaceAll(STORES.PRODUCTS, products || []);
+      await offlineStorage.replaceAll(STORES.VARIANTS, variants || []);
+
+      // 4) Invalidate the staleness stamp so nothing short-circuits later syncs.
+      localStorage.removeItem('master_data_cached_at');
+
+      console.log(`[Cache] ✅ Hard refresh: ${products?.length ?? 0} products, ${variants?.length ?? 0} variants`);
+      return true;
+    } catch (error) {
+      console.error('[Cache] Hard product refresh failed:', error);
+      return false;
+    }
+  }, []);
+
+
 
   // Cache schemes separately for progress tracking
   const cacheSchemes = useCallback(async (onProgress?: CacheProgressCallback) => {
