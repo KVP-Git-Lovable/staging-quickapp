@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { useNavigate } from 'react-router-dom';
 import { useManagedInterval, debounce } from '@/utils/intervalManager';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
@@ -103,6 +104,7 @@ interface StockData {
 }
 
 const Operations = () => {
+  const { format } = useCurrency();
   const { hasAdminAccess, loading } = useAdminAccess();
   const { can } = usePermissions();
   const navigate = useNavigate();
@@ -1946,7 +1948,7 @@ const Operations = () => {
                           </div>
                           <div className="rounded-lg border bg-card px-3 py-2">
                             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Total Value</div>
-                            <div className="text-lg font-semibold">₹{totalValue.toLocaleString('en-IN')}</div>
+                            <div className="text-lg font-semibold">{format(totalValue)}</div>
                           </div>
                           <div className="rounded-lg border bg-card px-3 py-2">
                             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Paid</div>
@@ -1955,7 +1957,7 @@ const Operations = () => {
                           <div className="rounded-lg border bg-card px-3 py-2">
                             <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Credit Pending</div>
                             <div className="text-lg font-semibold text-amber-600">
-                              {creditCount} <span className="text-xs font-normal text-muted-foreground">(₹{pendingAmt.toLocaleString('en-IN')})</span>
+                              {creditCount} <span className="text-xs font-normal text-muted-foreground">({format(pendingAmt)})</span>
                             </div>
                           </div>
                         </div>
@@ -2021,7 +2023,7 @@ const Operations = () => {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <span className="font-semibold">₹{item.total_amount.toLocaleString('en-IN')}</span>
+                              <span className="font-semibold">{format(item.total_amount)}</span>
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col gap-0.5 text-xs">
@@ -2112,17 +2114,17 @@ const Operations = () => {
                                             </div>
                                             <div>
                                               <div className="text-xs text-muted-foreground">Paid</div>
-                                              <div className="text-sm font-medium text-emerald-600">₹{Number(item.credit_paid_amount || 0).toLocaleString('en-IN')}</div>
+                                              <div className="text-sm font-medium text-emerald-600">{format(Number(item.credit_paid_amount || 0))}</div>
                                             </div>
                                             <div>
                                               <div className="text-xs text-muted-foreground">Pending</div>
                                               <div className={cn("text-sm font-medium", Number(item.credit_pending_amount || 0) > 0 ? "text-destructive" : "text-muted-foreground")}>
-                                                ₹{Number(item.credit_pending_amount || 0).toLocaleString('en-IN')}
+                                                {format(Number(item.credit_pending_amount || 0))}
                                               </div>
                                             </div>
                                             <div className="col-span-2 pt-1 border-t">
                                               <div className="text-xs text-muted-foreground">Total Amount</div>
-                                              <div className="text-base font-semibold">₹{Number(item.total_amount).toLocaleString('en-IN')}</div>
+                                              <div className="text-base font-semibold">{format(Number(item.total_amount))}</div>
                                             </div>
                                           </div>
                                         </div>
@@ -2160,15 +2162,15 @@ const Operations = () => {
                                                     <TableCell>{orderItem.product_name}</TableCell>
                                                     <TableCell className="text-right">{formatItemQty(qty, orderItem.unit)}</TableCell>
                                                     <TableCell className="text-right">
-                                                      ₹{rate.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                                                      {format(rate)}
                                                       {orderItem.unit && (
                                                         <span className="text-xs text-muted-foreground"> /{String(orderItem.unit).toLowerCase()}</span>
                                                       )}
                                                     </TableCell>
-                                                    <TableCell className="text-right">₹{taxable.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                                                    <TableCell className="text-right">₹{sgst.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                                                    <TableCell className="text-right">₹{cgst.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
-                                                    <TableCell className="text-right font-medium">₹{total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</TableCell>
+                                                    <TableCell className="text-right">{format(taxable)}</TableCell>
+                                                    <TableCell className="text-right">{format(sgst)}</TableCell>
+                                                    <TableCell className="text-right">{format(cgst)}</TableCell>
+                                                    <TableCell className="text-right font-medium">{format(total)}</TableCell>
                                                   </TableRow>
                                                 );
                                               })}
@@ -2189,13 +2191,13 @@ const Operations = () => {
                                           return (
                                             <div className="mt-3 flex justify-end">
                                               <div className="text-sm space-y-1 min-w-[260px]">
-                                                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal (excl. GST)</span><span>₹{totals.taxable.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                                                <div className="flex justify-between"><span className="text-muted-foreground">SGST</span><span>₹{totals.sgst.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
-                                                <div className="flex justify-between"><span className="text-muted-foreground">CGST</span><span>₹{totals.cgst.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+                                                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal (excl. GST)</span><span>{format(totals.taxable)}</span></div>
+                                                <div className="flex justify-between"><span className="text-muted-foreground">SGST</span><span>{format(totals.sgst)}</span></div>
+                                                <div className="flex justify-between"><span className="text-muted-foreground">CGST</span><span>{format(totals.cgst)}</span></div>
                                                 {item.discount_amount > 0 && (
-                                                  <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>- ₹{Number(item.discount_amount).toLocaleString()}</span></div>
+                                                  <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span>- {format(Number(item.discount_amount))}</span></div>
                                                 )}
-                                                <div className="flex justify-between font-semibold border-t pt-1"><span>Grand Total</span><span>₹{Number(item.total_amount).toLocaleString()}</span></div>
+                                                <div className="flex justify-between font-semibold border-t pt-1"><span>Grand Total</span><span>{format(Number(item.total_amount))}</span></div>
                                               </div>
                                             </div>
                                           );
@@ -2413,7 +2415,7 @@ const Operations = () => {
                               </Badge>
                             </TableCell>
                             <TableCell>{item.sku_name}</TableCell>
-                            <TableCell>₹{item.selling_price?.toLocaleString() || '-'}</TableCell>
+                            <TableCell>{item.selling_price != null ? format(item.selling_price) : '-'}</TableCell>
                             <TableCell>{item.stock_quantity || '-'}</TableCell>
                             <TableCell>
                               <Badge variant="secondary">
@@ -2486,7 +2488,7 @@ const Operations = () => {
                               <Badge variant="secondary">{item.items?.length || 0} items</Badge>
                             </TableCell>
                             <TableCell>{item.total_quantity}</TableCell>
-                            <TableCell>₹{item.total_value?.toLocaleString() || 0}</TableCell>
+                            <TableCell>{format(item.total_value || 0)}</TableCell>
                             <TableCell>
                               <Badge variant="secondary">
                                 {format(new Date(item.return_date), 'MMM dd, yyyy')}
@@ -2529,7 +2531,7 @@ const Operations = () => {
                                       </div>
                                       <div>
                                         <label className="text-sm font-medium">Total Value</label>
-                                        <p className="text-sm font-medium">₹{item.total_value?.toLocaleString() || 0}</p>
+                                        <p className="text-sm font-medium">{format(item.total_value || 0)}</p>
                                       </div>
                                     </div>
                                     <div>
@@ -2650,12 +2652,12 @@ const Operations = () => {
                             <TableCell>
                               {item.cancelled_at ? format(new Date(item.cancelled_at), 'dd/MM/yyyy HH:mm') : '-'}
                             </TableCell>
-                            <TableCell>₹{item.total_amount?.toLocaleString()}</TableCell>
+                            <TableCell>{format(item.total_amount || 0)}</TableCell>
                             <TableCell>
                               <div className="flex flex-wrap gap-1">
                                 {item.credit_reversed > 0 && (
                                   <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
-                                    Credit ₹{item.credit_reversed.toLocaleString()}
+                                    Credit {format(item.credit_reversed)}
                                   </Badge>
                                 )}
                                 {item.points_removed > 0 && (
