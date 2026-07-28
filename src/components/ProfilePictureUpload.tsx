@@ -238,24 +238,53 @@ export const ProfilePictureUpload = ({
 
       {/* Camera Dialog */}
       <Dialog open={showCamera} onOpenChange={(open) => { if (!open) stopCamera(); }}>
-        <DialogContent className="max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Take a photo</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-4">
-            <div className="relative w-full aspect-[4/3] bg-black rounded-xl overflow-hidden ring-1 ring-border">
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl border-0 bg-foreground text-background shadow-2xl">
+          <div className="relative">
+            <div className="relative w-full aspect-[3/4] bg-black overflow-hidden">
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-            </div>
-            <canvas ref={canvasRef} className="hidden" />
-            <div className="flex w-full gap-2">
-              <Button variant="outline" className="flex-1 rounded-xl" onClick={stopCamera}>Cancel</Button>
-              <Button className="flex-1 rounded-xl" onClick={capturePhoto}>
-                <Camera className="h-4 w-4 mr-2" /> Capture
-              </Button>
+
+              {/* Face guide */}
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="w-[62%] aspect-[3/4] rounded-[50%] border-2 border-background/70 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
+              </div>
+
+              {/* Top scrim + title */}
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/70 to-transparent" />
+              <DialogHeader className="absolute inset-x-0 top-0 px-5 pt-4 text-left space-y-0.5">
+                <DialogTitle className="text-base font-semibold text-white">Take a photo</DialogTitle>
+                <p className="text-xs text-white/70">Center your face inside the oval</p>
+              </DialogHeader>
+
+              {/* Bottom scrim + controls */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/80 to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between px-7 pb-7">
+                <button
+                  type="button"
+                  onClick={stopCamera}
+                  className="text-sm font-medium text-white/80 transition-colors hover:text-white"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={capturePhoto}
+                  aria-label="Capture photo"
+                  className="group relative h-[70px] w-[70px] rounded-full ring-2 ring-white/90 p-1.5 transition-transform active:scale-95"
+                >
+                  <span className="block h-full w-full rounded-full bg-white shadow-lg transition-colors group-hover:bg-white/85" />
+                </button>
+
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm">
+                  <Camera className="h-4 w-4 text-white/80" />
+                </div>
+              </div>
             </div>
           </div>
+          <canvas ref={canvasRef} className="hidden" />
         </DialogContent>
       </Dialog>
+
 
 
       <input
