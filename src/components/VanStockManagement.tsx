@@ -23,6 +23,7 @@ import { downloadExcel, downloadPDF } from '@/utils/fileDownloader';
 import { computeLineTax } from '@/utils/taxCalc';
 import { cacheVanStockForOffline } from '@/utils/localVanStockSync';
 import { getOrdersForDate, calculateOrderedQuantitiesByProduct } from '@/utils/ordersForDate';
+import { useCurrency } from "@/contexts/CurrencyContext";
 
 // Convert number to Indian words
 const numberToWords = (num: number): string => {
@@ -164,6 +165,7 @@ interface VanStockManagementProps {
 }
 
 export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStockManagementProps) {
+  const { format: fmtMoney } = useCurrency();
   const [vans, setVans] = useState<Van[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [openProductPopovers, setOpenProductPopovers] = useState<{ [key: number]: boolean }>({});
@@ -1927,7 +1929,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                               <div className="flex-1 leading-tight">
                                                 <div className="font-medium leading-tight">{product.name}</div>
                                                 <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                                                  ₹{product.rate.toFixed(2)} per {product.unit}
+                                                  {fmtMoney(product.rate)} per {product.unit}
                                                 </div>
                                               </div>
                                             </CommandItem>
@@ -1938,7 +1940,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                                   </PopoverContent>
                                 </Popover>
                                 {selectedProduct && (
-                                  <span className="text-[9px] text-muted-foreground mt-0.5 block">₹{pricePerUnit.toFixed(2)}/kg</span>
+                                  <span className="text-[9px] text-muted-foreground mt-0.5 block">{fmtMoney(pricePerUnit)}/kg</span>
                                 )}
                               </div>
                               
@@ -2196,7 +2198,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                         </div>
                         {showDetailModal === 'start' && (
                           <p className="text-xs text-muted-foreground">
-                            ₹{priceWithoutGST.toFixed(2)} (excl. GST) • {item.unit}
+                            {fmtMoney(priceWithoutGST)} (excl. GST) • {item.unit}
                           </p>
                         )}
                         {showDetailModal !== 'start' && (
