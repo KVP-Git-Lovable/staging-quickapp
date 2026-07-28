@@ -104,6 +104,7 @@ export default function CopilotPage() {
             <Bot className="h-5 w-5 text-primary-foreground" />
           </div>
         </div>
+        <CopilotTicker />
         <div className="flex-1 min-h-0">
           {threadId && deletingId !== threadId ? (
             <ChatWindow
