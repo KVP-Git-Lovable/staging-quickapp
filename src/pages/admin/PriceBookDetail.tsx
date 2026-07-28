@@ -531,7 +531,7 @@ const PriceBookDetail = () => {
                   <div className="p-3 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground">Final Price</p>
                     <p className="text-lg font-bold">
-                      ₹{(newEntry.list_price * (1 - newEntry.discount_percent / 100)).toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                      {fmtBook(newEntry.list_price * (1 - newEntry.discount_percent / 100))}
                     </p>
                   </div>
 
