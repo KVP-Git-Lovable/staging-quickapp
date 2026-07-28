@@ -53,7 +53,7 @@ serve(async (req) => {
 
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")
-      .select("id, full_name, phone_number, role")
+      .select("id, full_name, phone_number")
       .eq("id", user.id)
       .maybeSingle();
     if (profileErr) throw profileErr;
@@ -85,7 +85,7 @@ serve(async (req) => {
         user_data: {
           user_id: user.id,
           user_name: profile?.full_name ?? "",
-          role: profile?.role ?? "",
+          
         },
       }),
     });
