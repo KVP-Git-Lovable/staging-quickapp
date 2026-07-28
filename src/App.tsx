@@ -171,6 +171,7 @@ import SecurityManagement from "./pages/SecurityManagement";
 import PerformanceModuleAdmin from "./pages/admin/PerformanceModuleAdmin";
 import PriceBookAdmin from "./pages/admin/PriceBookAdmin";
 import PriceBookDetail from "./pages/admin/PriceBookDetail";
+import PriceSimulator from "./pages/admin/PriceSimulator";
 import RecycleBin from "./pages/RecycleBin";
 import RecycleBinAdmin from "./pages/admin/RecycleBinAdmin";
 import DistributorPortalAdmin from "./pages/admin/DistributorPortalAdmin";
