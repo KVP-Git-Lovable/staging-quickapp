@@ -727,6 +727,7 @@ const AppContent = () => {
           <Route path="chat" element={<CustomerChat />} />
           <Route path="schemes" element={<CustomerSchemes />} />
           <Route path="reports" element={<CustomerReports />} />
+          <Route path="prices" element={<CustomerPrices />} />
           <Route path="notifications" element={<CustomerNotifications />} />
         </Route>
         <Route path="/customer-portal/*" element={<Navigate to="/customer-portal/login" replace />} />
