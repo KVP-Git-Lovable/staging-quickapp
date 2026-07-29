@@ -29303,6 +29303,29 @@ export type Database = {
         Returns: Json
       }
       resolve_fx_to_base: { Args: { p_currency: string }; Returns: number }
+      resolve_price_for_distributor: {
+        Args: {
+          p_distributor_id: string
+          p_product_id: string
+          p_quantity?: number
+          p_variant_id?: string
+        }
+        Returns: Json
+      }
+      resolve_prices_for_distributor: {
+        Args: { p_distributor_id: string }
+        Returns: {
+          currency: string
+          matched_on: string
+          min_quantity: number
+          price: number
+          price_book_id: string
+          price_book_name: string
+          product_id: string
+          score: number
+          variant_id: string
+        }[]
+      }
       resolve_prices_for_retailer: {
         Args: {
           p_retailer_id: string
