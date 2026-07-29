@@ -684,23 +684,27 @@ const PriceBookDetail = () => {
                               <p className="text-xs text-muted-foreground text-center">Final ({bookCurrency})</p>
                             </div>
 
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Add a higher quantity slab"
-                              onClick={() => handleAddSlab(entry)}
-                            >
-                              <Layers className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive"
-                              onClick={() => handleDeleteEntry(entry.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-1 pb-5">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9"
+                                title="Add a higher quantity slab"
+                                onClick={() => handleAddSlab(entry)}
+                              >
+                                <Layers className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 text-destructive"
+                                onClick={() => handleDeleteEntry(entry.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
+
                         </div>
                       </CardContent>
                     </Card>
