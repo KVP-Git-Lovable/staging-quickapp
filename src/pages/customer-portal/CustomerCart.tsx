@@ -61,12 +61,12 @@ const CustomerCart = () => {
   const [localQuantities, setLocalQuantities] = useState<Record<string, number>>({});
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Resolve price book (cached, shared with catalog)
-  const { data: priceBookId } = useRetailerPriceBook(retailer.distributor_id);
+  // Database-resolved price book prices (variant + quantity slab + currency aware)
+  const { resolve: resolveDbPrice, currency: pbCurrency } = useResolvedRetailerPrices(retailer.id, supabase);
 
   // Fetch cart items + products + categories in one query chain
-  const { data: items = [], isLoading: loading, refetch } = useQuery({
-    queryKey: ['customer-cart', retailer.id, priceBookId],
+  const { data: rawItems = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['customer-cart', retailer.id],
     queryFn: async () => {
       const { data: cartData, error } = await customerPortalSupabase
         .from('customer_portal_cart')
@@ -79,18 +79,12 @@ const CustomerCart = () => {
 
       const productIds = [...new Set(cartData.map((c: any) => c.product_id))];
 
-      // Parallel: products + price entries + categories
-      const [productsRes, priceEntries] = await Promise.all([
-        supabase.from('products').select('id, name, rate, category_id, gst_percentage').in('id', productIds),
-        priceBookId
-          ? supabase.from('price_book_entries').select('product_id, final_price')
-              .eq('price_book_id', priceBookId).eq('is_active', true).in('product_id', productIds)
-          : Promise.resolve({ data: [] }),
-      ]);
+      const productsRes = await supabase
+        .from('products')
+        .select('id, name, rate, category_id, gst_percentage')
+        .in('id', productIds);
 
       const productMap = new Map((productsRes.data || []).map((p: any) => [p.id, p]));
-      const priceMap: Record<string, number> = {};
-      for (const e of ((priceEntries as any).data || [])) priceMap[e.product_id] = e.final_price;
 
       // Fetch category names for order items
       const categoryIds = [...new Set((productsRes.data || []).map((p: any) => p.category_id).filter(Boolean))];
@@ -106,8 +100,6 @@ const CustomerCart = () => {
         // stores product_id only (no variant_id) so we pass null variant — pricing
         // and gst still flow through the resolver so behavior matches order entry.
         const r = resolveProduct(product || { id: c.product_id }, null);
-        const priceBookPrice = priceMap[c.product_id];
-        const effectivePrice = priceBookPrice ?? r.rate;
         return {
           id: c.id,
           product_id: c.product_id,
@@ -115,13 +107,30 @@ const CustomerCart = () => {
           unit: c.unit,
           source: c.source,
           product_name: r.display_name || 'Unknown Product',
-          product_price: Number(effectivePrice),
+          product_price: Number(r.rate ?? 0),
           product_category: product?.category_id ? (categoryMap[product.category_id] || 'General') : 'General',
           category_id: r.category_id || undefined,
           gst_percentage: Number(r.gst_percentage ?? 0) || 0,
         } as CartItem;
       });
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+
+  // Apply price-book prices on top of the catalog default so quantity slabs
+  // re-evaluate live as the customer changes quantities.
+  const items = useMemo(
+    () =>
+      rawItems.map((item) => {
+        const qty = localQuantities[item.id] ?? item.quantity;
+        const row = resolveDbPrice(item.product_id, null, qty);
+        return row ? { ...item, product_price: Number(row.price) } : item;
+      }),
+    [rawItems, localQuantities, resolveDbPrice],
+  );
+
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
