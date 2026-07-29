@@ -130,6 +130,7 @@ import CustomerOrderSuccess from "./pages/customer-portal/CustomerOrderSuccess";
 import CustomerChat from "./pages/customer-portal/CustomerChat";
 import CustomerSchemes from "./pages/customer-portal/CustomerSchemes";
 import CustomerReports from "./pages/customer-portal/CustomerReports";
+import CustomerPrices from "./pages/customer-portal/CustomerPrices";
 import CustomerNotifications from "./pages/customer-portal/CustomerNotifications";
 import EmployeeDirectoryPage from "./pages/employees/EmployeeDirectoryPage";
 import InfluencersPage from "./pages/influencers/InfluencersPage";
