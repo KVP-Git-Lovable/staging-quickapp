@@ -263,13 +263,15 @@ export const Navbar = memo(() => {
             
             <div className="flex items-center gap-1">
               <MadadHelpButton />
-              <NavLink
-                to="/quickapp-ai"
-                title={t('nav.copilot')}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white flex items-center"
-              >
-                <Sparkles size={18} />
-              </NavLink>
+              {canAccessQuickAppAi && (
+                <NavLink
+                  to="/quickapp-ai"
+                  title={t('nav.copilot')}
+                  className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white flex items-center"
+                >
+                  <Sparkles size={18} />
+                </NavLink>
+              )}
               <NotificationBell />
               <button 
                 onClick={() => setIsMenuOpen(true)}
