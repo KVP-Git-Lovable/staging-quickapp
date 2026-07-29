@@ -836,6 +836,30 @@ export const HIERARCHICAL_MODULES: HierarchicalModule[] = [
     widgets: [],
   },
   {
+    name: 'quickapp_ai',
+    label: 'QuickApp AI',
+    fields: [
+      { name: 'field_ai_conversation_title', label: 'Conversation Title' },
+      { name: 'field_ai_message_content', label: 'Message Content' },
+      { name: 'field_ai_insight_impact', label: 'Insight Impact' },
+      { name: 'field_ai_insight_confidence', label: 'Insight Confidence' },
+    ],
+    actions: [
+      { name: 'action_ai_start_chat', label: 'Start / Send Chat Message' },
+      { name: 'action_ai_delete_conversation', label: 'Delete Conversation' },
+      { name: 'action_ai_create_workflow', label: 'Create AI Workflow' },
+      { name: 'action_ai_sahaya_help_call', label: 'Start Sahaya Help Call' },
+      { name: 'action_ai_insight_feedback', label: 'Give Insight Feedback' },
+    ],
+    widgets: [
+      { name: 'widget_ai_chat', label: 'Chat Section' },
+      { name: 'widget_ai_workflows', label: 'AI Workflows Section' },
+      { name: 'widget_ai_insights', label: 'AI Insights Section' },
+      { name: 'widget_ai_sahaya', label: 'QuickApp Sahaya Section' },
+      { name: 'widget_ai_utility_panel', label: 'Copilot Utility Panel' },
+    ],
+  },
+  {
     name: 'operations',
     label: 'Operations',
     fields: [],
