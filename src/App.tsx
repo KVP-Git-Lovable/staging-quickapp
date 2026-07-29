@@ -58,6 +58,7 @@ import DemoRequestPage from "./pages/website/DemoRequestPage";
 import Index from "./pages/Index";
 import Copilot from "./modules/copilot/pages/CopilotPage";
 import { AiModuleShell } from "./modules/quickapp-ai/components/AiModuleShell";
+import { RoutePermissionGuard } from "./components/auth/RoutePermissionGuard";
 import AiChatPage from "./modules/quickapp-ai/pages/AiChatPage";
 import AiWorkflowsPage from "./modules/quickapp-ai/pages/AiWorkflowsPage";
 import AiInsightsPage from "./modules/quickapp-ai/pages/AiInsightsPage";
