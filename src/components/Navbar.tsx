@@ -22,6 +22,7 @@ import { useCompanyData } from "@/hooks/useCompanyData";
 import { Building2 as DefaultLogoIcon } from "lucide-react";
 import { useNavCustomization, NavItem } from "@/hooks/useNavCustomization";
 import { useFeatureFlags } from "@/hooks/useFeatureFlags";
+import { useProfilePermissions } from "@/hooks/useProfilePermissions";
 import { NavSearch } from "@/components/navigation/NavSearch";
 import { NavCustomizeDialog } from "@/components/navigation/NavCustomizeDialog";
 import { NavGroupSection } from "@/components/navigation/NavGroupSection";
