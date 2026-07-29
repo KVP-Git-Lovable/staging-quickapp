@@ -403,10 +403,8 @@ const PriceBookDetail = () => {
       <div className="container mx-auto px-4 py-6 max-w-5xl pb-24">
         <div className="mb-6 space-y-3">
           <div className="flex items-start gap-3 min-w-0">
-            <Button variant="ghost" size="icon" className="mt-1 shrink-0" onClick={() => navigate('/admin/price-books')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             <div className="min-w-0 flex-1 pt-0.5">
+
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl font-bold leading-tight break-words">{priceBook.name}</h1>
                 <Badge className={priceBook.is_active ? 'bg-green-100 text-green-800' : 'bg-muted'}>
