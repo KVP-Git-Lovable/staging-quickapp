@@ -9,6 +9,8 @@ import {
   type ChatMessage,
   type StreamResult,
 } from "./services/togetherClient.ts";
+import { routeIntentWithAi } from "./services/aiIntentRouter.ts";
+
 import { HISTORY_LIMIT, MAX_INPUT_CHARS, MODEL } from "./config.ts";
 
 const corsHeaders = {
