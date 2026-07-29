@@ -568,7 +568,7 @@ const CustomerCatalog = () => {
       }
     }
     return { subtotal: sub, gstTotal: gst, discountTotal: discount, appliedSchemes: applied };
-  }, [orderRows, priceMap, gstMap, schemes]);
+  }, [orderRows, resolvePriceFor, gstMap, schemes]);
 
   const validRows = orderRows.filter(r => r.product && r.quantity > 0);
 
