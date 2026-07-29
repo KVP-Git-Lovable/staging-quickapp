@@ -29303,6 +29303,24 @@ export type Database = {
         Returns: Json
       }
       resolve_fx_to_base: { Args: { p_currency: string }; Returns: number }
+      resolve_prices_for_retailer: {
+        Args: {
+          p_retailer_id: string
+          p_target_type?: string
+          p_user_id?: string
+        }
+        Returns: {
+          currency: string
+          matched_on: string
+          min_quantity: number
+          price: number
+          price_book_id: string
+          price_book_name: string
+          product_id: string
+          score: number
+          variant_id: string
+        }[]
+      }
       resolve_product_price: {
         Args: {
           p_product_id: string
@@ -29435,28 +29453,17 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
-      simulate_product_price:
-        | {
-            Args: {
-              p_product_id: string
-              p_quantity?: number
-              p_retailer_id: string
-              p_user_id?: string
-              p_variant_id?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_product_id: string
-              p_quantity?: number
-              p_retailer_id: string
-              p_target_type?: string
-              p_user_id?: string
-              p_variant_id?: string
-            }
-            Returns: Json
-          }
+      simulate_product_price: {
+        Args: {
+          p_product_id: string
+          p_quantity?: number
+          p_retailer_id: string
+          p_target_type?: string
+          p_user_id?: string
+          p_variant_id?: string
+        }
+        Returns: Json
+      }
       suggest_beat_cover: {
         Args: { p_absent_user: string; p_beat_id: string; p_date: string }
         Returns: {
