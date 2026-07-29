@@ -140,7 +140,7 @@ interface ProductPickerPropsExt extends ProductPickerProps {
 }
 
 const ProductPicker = memo(function ProductPicker({
-  products, selectedId, priceMap, getProductScheme, formatScheme, onSelect, loading,
+  products, selectedId, resolvePriceFor, getProductScheme, formatScheme, onSelect, loading,
 }: ProductPickerPropsExt) {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
