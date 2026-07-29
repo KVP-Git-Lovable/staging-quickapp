@@ -23,6 +23,7 @@ import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/L
 import { resolveProduct, type ResolvedProduct } from "@/utils/resolveProduct";
 import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { usePriceBookPrices } from "@/hooks/usePriceBookPrices";
 interface Product {
   id: string;
   sku: string;
@@ -148,6 +149,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   // that would change the per-unit rate (product, variant, UOM) — only qty is editable.
   // Admin edit context always bypasses the price lock (admin is the override authority).
   const priceLocked = isEditMode && editPolicy.edit_lock_price && !isAdminEdit;
+  // Phase 3: price-book pricing (feature-flagged, offline-safe, DB-resolved).
+  const { resolveLinePrice } = usePriceBookPrices(retailerId);
 
   // PERF: disable noisy logs in hot paths
   const DEV_LOG = false;
@@ -306,6 +309,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         selectedUnit,
         row.conversionToBase,
         row.priceBasisConversionToBase,
+        row.quantity,
       );
 
       // Admin-edited price overrides the catalog rate on the way to the cart.
@@ -410,7 +414,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           const unit = getDefaultOrderUnit(product, result.unit);
           
           // Calculate total price
-          const rate = getPricePerUnit(product, variant, unit);
+          const rate = getPricePerUnit(product, variant, unit, null, null, result.quantity);
           const total = rate * result.quantity;
           
           if (existingRowIndex >= 0) {
@@ -663,7 +667,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       .filter(row => row.product && row.quantity > 0)
       .map(row => {
         const itemId = row.variant?.id || row.product!.id;
-        const catalog = getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase);
+        const catalog = getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase, row.quantity);
         const eff = (row.editedRate != null && Number.isFinite(row.editedRate)) ? Number(row.editedRate) : catalog;
         return {
           id: itemId,
@@ -884,14 +888,23 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     return u || "";
   };
 
+  /** Price-book row for a line, or null when the product default applies. */
+  const getPriceBookRow = (prod?: Product, variant?: any, qty?: number) => {
+    if (!prod) return null;
+    return resolveLinePrice(prod.id, variant?.id ?? null, Number(qty) || 0);
+  };
+
   const getPricePerUnit = (
     prod: Product,
     variant?: any,
     unit?: string,
     conversionToBase?: number | null,
     priceBasisConversionToBase?: number | null,
+    qty?: number,
   ) => {
-    const baseRate = Number(variant ? variant.price : prod.rate) || 0;
+    // Price book wins when a slab matches; otherwise fall back to the default price.
+    const pbRow = getPriceBookRow(prod, variant, qty);
+    const baseRate = pbRow ? Number(pbRow.price) || 0 : (Number(variant ? variant.price : prod.rate) || 0);
     if (conversionToBase && priceBasisConversionToBase) {
       return baseRate * (Number(conversionToBase) / Number(priceBasisConversionToBase));
     }
@@ -1015,7 +1028,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       if (!prod || !qty) return 0;
 
       // Price per selected unit using shared helper
-      let price = getPricePerUnit(prod, variant, selectedUnit, conversionToBase, priceBasisConversionToBase);
+      let price = getPricePerUnit(prod, variant, selectedUnit, conversionToBase, priceBasisConversionToBase, qty);
 
       // Apply variant discount if applicable
       if (variant) {
@@ -1121,6 +1134,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           selectedUnit,
           row.conversionToBase,
           row.priceBasisConversionToBase,
+          qty,
         );
 
         // Empty input clears the override.
@@ -1256,7 +1270,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       .map(row => {
         // Use variant ID if available for unique identification - each variant is a separate product
         const itemId = row.variant?.id || row.product!.id;
-        const catalog = getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase);
+        const catalog = getPricePerUnit(row.product!, row.variant, row.uomCode || row.unit, row.conversionToBase, row.priceBasisConversionToBase, row.quantity);
         const eff = (row.editedRate != null && Number.isFinite(row.editedRate)) ? Number(row.editedRate) : catalog;
         return {
           id: itemId,
@@ -1286,14 +1300,14 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const getGstAmount = () => {
     const taxable = orderRows.filter(r => r.product && r.quantity > 0);
     const subtotal = taxable.reduce((s, r) => {
-      const catalog = getPricePerUnit(r.product!, r.variant, r.uomCode || r.unit, r.conversionToBase, r.priceBasisConversionToBase);
+      const catalog = getPricePerUnit(r.product!, r.variant, r.uomCode || r.unit, r.conversionToBase, r.priceBasisConversionToBase, r.quantity);
       const eff = (r.editedRate != null && Number.isFinite(r.editedRate)) ? Number(r.editedRate) : catalog;
       return s + eff * r.quantity;
     }, 0);
     if (subtotal <= 0) return 0;
     const discountFactor = getFinalTotal() / subtotal;
     return taxable.reduce((tax, r) => {
-      const catalog = getPricePerUnit(r.product!, r.variant, r.uomCode || r.unit, r.conversionToBase, r.priceBasisConversionToBase);
+      const catalog = getPricePerUnit(r.product!, r.variant, r.uomCode || r.unit, r.conversionToBase, r.priceBasisConversionToBase, r.quantity);
       const eff = (r.editedRate != null && Number.isFinite(r.editedRate)) ? Number(r.editedRate) : catalog;
       const lineTaxable = eff * r.quantity * discountFactor;
       const gstPct = Number((r.product as any)?.gst_percentage) || 0;
@@ -1523,7 +1537,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
                        {row.product && (() => {
                          const displayUnit = row.uomCode || row.unit;
-                         const catalogRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase);
+                         const catalogRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase, row.quantity);
+                         const pbRow = getPriceBookRow(row.product, row.variant, row.quantity);
                          const itemId = row.variant?.id || row.product.id;
                          const itemSchemes = orderCalculation.itemSchemeDetails?.[itemId] || [];
                          const totalDiscount = itemSchemes.reduce((s, x) => s + (x.discountAmount || 0), 0);
@@ -1534,6 +1549,16 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                          const effectiveRate = Math.max(0, shownRate - perUnitDiscount);
                          return (
                            <>
+                              {pbRow && (
+                                <Badge
+                                  variant="secondary"
+                                  className="mt-1 text-[9px] px-1 py-0 bg-sky-500/10 text-sky-700 border-sky-500/30"
+                                  title={`Priced from price book: ${pbRow.price_book_name}`}
+                                >
+                                  <Tag size={9} className="mr-0.5" />
+                                  {pbRow.price_book_name}
+                                </Badge>
+                              )}
                               {isAdminEdit ? (() => {
                                 const buf = priceEditText[row.id] || {};
                                 const qtyNum = Number(row.quantity) || 0;

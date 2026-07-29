@@ -40,7 +40,9 @@ export const STORES = {
   PRODUCT_UOM_MAPPING: 'productUomMapping',
   PROFILES: 'profiles',
   DISTRIBUTORS: 'distributors',
-  DISTRIBUTOR_BEAT_MAPPINGS: 'distributorBeatMappings'
+  DISTRIBUTOR_BEAT_MAPPINGS: 'distributorBeatMappings',
+  // Phase 3: resolved price-book prices per retailer (offline order pricing)
+  PRICE_BOOK_PRICES: 'priceBookPrices'
 } as const;
 
 // Sync metadata interface

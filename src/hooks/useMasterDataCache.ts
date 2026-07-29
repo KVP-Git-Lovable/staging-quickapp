@@ -8,6 +8,7 @@ import { useManagedInterval } from '@/utils/intervalManager';
 import { fetchAllPaginated, chunkIds } from '@/utils/fetchAllPaginated';
 import type { AvailabilityRow, TerritoryLookupEntry } from '@/utils/productAvailability';
 import { prefetchAllProductUnits } from '@/lib/uomEngine';
+import { cacheRetailerPricesBulk, clearPriceBookCache } from '@/lib/priceBookCache';
 
 // Trimmed columns for picker / order-entry use case (avoids select('*')
 // pulling rarely-used heavy fields). Kept in sync with TableOrderForm needs.
@@ -167,13 +168,22 @@ export function useMasterDataCache() {
       // 4) Invalidate the staleness stamp so nothing short-circuits later syncs.
       localStorage.removeItem('master_data_cached_at');
 
+      // 5) Price-book prices are part of pricing master data — re-resolve them too.
+      try {
+        await clearPriceBookCache();
+        const cachedRetailers = await offlineStorage.getAll<any>(STORES.RETAILERS);
+        await cacheRetailerPricesBulk((cachedRetailers || []).map((r: any) => r.id), user?.id ?? null);
+      } catch (e) {
+        console.warn('[Cache] Price book refresh skipped:', e);
+      }
+
       console.log(`[Cache] ✅ Hard refresh: ${products?.length ?? 0} products, ${variants?.length ?? 0} variants`);
       return true;
     } catch (error) {
       console.error('[Cache] Hard product refresh failed:', error);
       return false;
     }
-  }, []);
+  }, [user?.id]);
 
 
 
@@ -530,6 +540,8 @@ export function useMasterDataCache() {
       if (retailers) {
         await offlineStorage.replaceAll(STORES.RETAILERS, retailers);
         console.log(`[Cache] ✅ ${retailers.length} retailers cached`);
+        // Phase 3: warm resolved price-book prices so order entry works offline.
+        cacheRetailerPricesBulk(retailers.map((r: any) => r.id), user.id).catch(() => undefined);
       }
       onProgress?.('retailers', 'done');
     } catch (error: any) {
