@@ -205,7 +205,8 @@ const ProductPicker = memo(function ProductPicker({
                     <ProductPickerItem
                       product={p}
                       selected={selectedId === p.id}
-                      price={priceMap[p.id] ?? p.rate}
+                      price={resolvePriceFor(p.id, 1)?.price ?? p.rate}
+                      priceCurrency={resolvePriceFor(p.id, 1)?.currency ?? null}
                       scheme={getProductScheme(p)}
                       formatScheme={formatScheme}
                       onSelect={onSelect}
