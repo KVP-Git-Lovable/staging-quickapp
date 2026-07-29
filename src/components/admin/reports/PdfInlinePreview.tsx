@@ -278,11 +278,17 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
                   Could not load preview rows.
                 </div>
               ) : (
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse table-fixed">
                   <thead>
                     <tr className="border-b border-neutral-300 bg-neutral-50">
                       {visibleColumns.map(col => (
-                        <th key={col} className="text-left py-1.5 px-2 font-semibold text-neutral-700 text-[9px]">
+                        <th
+                          key={col}
+                          className={cn(
+                            'py-1.5 px-2 font-semibold text-neutral-700 text-[9px] truncate',
+                            numericColumns.has(col) ? 'text-right' : 'text-left'
+                          )}
+                        >
                           {dimByKey[col] || col}
                         </th>
                       ))}
