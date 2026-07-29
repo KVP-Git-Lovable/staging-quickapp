@@ -8,7 +8,8 @@ import { Trash2, Plus, Minus, Loader2, ShoppingCart, Send, Gift } from 'lucide-r
 import { toast } from 'sonner';
 import { CustomerPortalUser } from '@/hooks/useCustomerPortalAuth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRetailerPriceBook, usePriceBookEntries } from '@/hooks/useRetailerPriceBook';
+import { useResolvedRetailerPrices } from '@/hooks/useResolvedRetailerPrices';
+import { formatCurrency } from '@/lib/money';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { resolveProduct } from '@/utils/resolveProduct';
 
