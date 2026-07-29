@@ -275,6 +275,13 @@ const CustomerCatalog = () => {
     },
     [resolveDbPrice],
   );
+  // Totals follow the resolved price-book currency when the customer has one.
+  const fmtMoney = useCallback(
+    (n: number) => (pbCurrency ? formatCurrency(n, pbCurrency) : fmtCtx(n)),
+    [pbCurrency, fmtCtx],
+  );
+
+
 
   // Fetch the globally enabled sales units from the Unit of Measure Master.
   // The customer portal should only display units that are actually enabled.
