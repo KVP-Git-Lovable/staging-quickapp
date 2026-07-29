@@ -29,31 +29,31 @@ export default function CopilotPage({ basePath = "/copilot", embedded = false }:
   useEffect(() => {
     if (loading || threadId) return;
     if (items[0]) {
-      navigate(`/copilot/${items[0].id}`, { replace: true });
+      navigate(`${basePath}/${items[0].id}`, { replace: true });
       return;
     }
     if (bootstrappingRef.current) return;
     bootstrappingRef.current = true;
     void create().then((c) => {
-      if (c) navigate(`/copilot/${c.id}`, { replace: true });
+      if (c) navigate(`${basePath}/${c.id}`, { replace: true });
       else bootstrappingRef.current = false;
     });
-  }, [loading, threadId, items, create, navigate]);
+  }, [loading, threadId, items, create, navigate, basePath]);
 
   // Admin read policies can expose other users' thread ids. Never open those
   // ids in the personal chat UI; route back to an owned conversation instead.
   useEffect(() => {
     if (loading || !threadId || items.some((item) => item.id === threadId)) return;
-    navigate(items[0] ? `/copilot/${items[0].id}` : "/copilot", { replace: true });
-  }, [loading, threadId, items, navigate]);
+    navigate(items[0] ? `${basePath}/${items[0].id}` : basePath, { replace: true });
+  }, [loading, threadId, items, navigate, basePath]);
 
   const handleNew = async () => {
     const c = await create();
-    if (c) { navigate(`/copilot/${c.id}`); setMobileOpen(false); }
+    if (c) { navigate(`${basePath}/${c.id}`); setMobileOpen(false); }
   };
 
   const handleSelect = (id: string) => {
-    navigate(`/copilot/${id}`);
+    navigate(`${basePath}/${id}`);
     setMobileOpen(false);
   };
 
@@ -62,7 +62,7 @@ export default function CopilotPage({ basePath = "/copilot", embedded = false }:
     const isActive = id === threadId;
     const next = items.find((c) => c.id !== id);
     setDeletingId(id); // Unmounts active chat and aborts its stream before DELETE.
-    if (isActive) navigate(next ? `/copilot/${next.id}` : "/copilot", { replace: true });
+    if (isActive) navigate(next ? `${basePath}/${next.id}` : basePath, { replace: true });
     await remove(id);
     setDeletingId(null);
   };
@@ -79,7 +79,7 @@ export default function CopilotPage({ basePath = "/copilot", embedded = false }:
   );
 
   return (
-    <div className="flex h-[calc(100vh-56px)] bg-background">
+    <div className={embedded ? "flex h-full bg-background" : "flex h-[calc(100vh-56px)] bg-background"}>
       <div className="hidden md:flex h-full">{sidebar}</div>
 
       <main className="flex-1 min-w-0 flex flex-col">
