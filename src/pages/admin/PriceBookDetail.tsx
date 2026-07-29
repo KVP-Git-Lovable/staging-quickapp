@@ -401,14 +401,14 @@ const PriceBookDetail = () => {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6 max-w-5xl pb-24">
-        <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="mb-6 space-y-3">
           <div className="flex items-start gap-3 min-w-0">
             <Button variant="ghost" size="icon" className="mt-1 shrink-0" onClick={() => navigate('/admin/price-books')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 pt-0.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-bold leading-tight truncate">{priceBook.name}</h1>
+                <h1 className="text-2xl font-bold leading-tight break-words">{priceBook.name}</h1>
                 <Badge className={priceBook.is_active ? 'bg-green-100 text-green-800' : 'bg-muted'}>
                   {priceBook.is_active ? 'Active' : 'Inactive'}
                 </Badge>
@@ -423,8 +423,7 @@ const PriceBookDetail = () => {
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:shrink-0">
-
+          <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-12 lg:justify-end">
             <Button variant="outline" onClick={() => syncAllProducts('default')} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sync All Products
@@ -551,7 +550,7 @@ const PriceBookDetail = () => {
         </div>
 
         {/* Search and Category Filter */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -562,7 +561,7 @@ const PriceBookDetail = () => {
             />
           </div>
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px] sm:shrink-0">
               <SelectValue placeholder="All Categories" />
             </SelectTrigger>
             <SelectContent>
@@ -604,8 +603,8 @@ const PriceBookDetail = () => {
                   {categoryEntries.map(entry => (
                     <Card key={entry.id}>
                       <CardContent className="p-4">
-                        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
-                          <div className="min-w-0 xl:flex-1">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+                          <div className="min-w-0 lg:flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <button
                                 onClick={() => navigate(`/product-management?product=${entry.product_id}`)}
@@ -631,7 +630,7 @@ const PriceBookDetail = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-end gap-2 flex-wrap xl:flex-nowrap xl:shrink-0">
+                          <div className="flex items-end gap-2 flex-wrap lg:flex-nowrap lg:shrink-0">
                             <div className="w-20 space-y-1">
                               <Input
                                 type="number"
