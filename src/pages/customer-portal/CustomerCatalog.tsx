@@ -356,7 +356,6 @@ const CustomerCatalog = () => {
 
   // Price book entries for all loaded products
   const productIds = useMemo(() => products.map(p => p.id), [products]);
-  const { data: priceMap = {} } = usePriceBookEntries(priceBookId, productIds, supabase);
 
   // Fetch active schemes
   const { data: schemes = [] } = useQuery({
