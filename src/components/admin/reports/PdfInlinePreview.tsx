@@ -213,6 +213,15 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
 
   const previewRows = dataRows.slice(0, 5);
 
+  // A column is numeric (right-aligned) if it is a measure or every sampled value is a number.
+  const numericColumns = new Set<string>(
+    visibleColumns.filter(col => {
+      if (measureKeys.has(col)) return true;
+      const sample = dataRows.filter(r => (r as any)[col] != null).slice(0, 5);
+      return sample.length > 0 && sample.every(r => typeof (r as any)[col] === 'number');
+    })
+  );
+
   if (!open) return null;
 
   return (
@@ -278,11 +287,17 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
                   Could not load preview rows.
                 </div>
               ) : (
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse table-fixed">
                   <thead>
                     <tr className="border-b border-neutral-300 bg-neutral-50">
                       {visibleColumns.map(col => (
-                        <th key={col} className="text-left py-1.5 px-2 font-semibold text-neutral-700 text-[9px]">
+                        <th
+                          key={col}
+                          className={cn(
+                            'py-1.5 px-2 font-semibold text-neutral-700 text-[9px] truncate',
+                            numericColumns.has(col) ? 'text-right' : 'text-left'
+                          )}
+                        >
                           {dimByKey[col] || col}
                         </th>
                       ))}
@@ -301,9 +316,9 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
                               : typeof v === 'number'
                                 ? new Intl.NumberFormat('en-IN').format(v)
                                 : String(v);
-                          const numeric = typeof v === 'number' || (measureKeys.has(col) && Number.isFinite(Number(v)));
+                          const numeric = numericColumns.has(col);
                           return (
-                            <td key={col} className={cn('py-1 px-2 text-[9px]', numeric && 'text-right tabular-nums')}>
+                            <td key={col} className={cn('py-1 px-2 text-[9px] truncate', numeric ? 'text-right tabular-nums' : 'text-left')}>
                               {display}
                             </td>
                           );
@@ -323,7 +338,7 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
                           const isMoney = MEASURE_LOOKS_LIKE_MONEY.test(col);
                           const t = totals[col];
                           return (
-                            <td key={col} className={cn('py-1 px-2 text-[9px]', measureKeys.has(col) && 'text-right tabular-nums')}>
+                            <td key={col} className={cn('py-1 px-2 text-[9px] truncate', numericColumns.has(col) ? 'text-right tabular-nums' : 'text-left')}>
                               {idx === 0 && t === undefined ? 'Total' :
                                 t === undefined ? '' :
                                 isMoney ? fmtCurrency(t, currency) : new Intl.NumberFormat('en-IN').format(t)}
