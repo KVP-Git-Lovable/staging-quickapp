@@ -381,24 +381,42 @@ export async function renderReportPdf(
     autoTable(doc, {
       head, body, foot: foot as any,
       startY: cursorY,
-      margin: { left: margin, right: margin },
+      margin: { left: margin, right: margin, bottom: margin + 24 },
       tableWidth: pageW - margin * 2,
-      styles: { font: fontFamily, fontSize: bodyFontSize, cellPadding: 4, overflow: 'linebreak', valign: 'middle' },
-      headStyles: {
-        fillColor: [brandRgb[0], brandRgb[1], brandRgb[2]],
-        textColor: 255,
-        fontStyle: 'bold',
+      theme: 'plain',
+      styles: {
         font: fontFamily,
+        fontSize: bodyFontSize,
+        cellPadding: { top: 6, right: 8, bottom: 6, left: 8 },
+        overflow: 'linebreak',
+        valign: 'middle',
+        textColor: [45, 45, 45],
+        lineColor: [235, 235, 233],
+        lineWidth: { top: 0, right: 0, bottom: 0.5, left: 0 } as any,
+        minCellHeight: 18,
+      },
+      headStyles: {
+        fillColor: [246, 246, 244],
+        textColor: [70, 70, 70],
+        fontStyle: 'bold',
+        fontSize: Math.max(6.5, bodyFontSize - 0.5),
+        font: fontFamily,
+        lineColor: [205, 205, 200],
+        lineWidth: { top: 0, right: 0, bottom: 0.8, left: 0 } as any,
+        cellPadding: { top: 7, right: 8, bottom: 7, left: 8 },
       },
       footStyles: {
-        fillColor: [245, 245, 240],
-        textColor: [brandRgb[0], brandRgb[1], brandRgb[2]],
+        fillColor: [252, 252, 251],
+        textColor: [17, 17, 17],
         fontStyle: 'bold',
         font: fontFamily,
+        lineColor: [120, 120, 118],
+        lineWidth: { top: 1.2, right: 0, bottom: 0, left: 0 } as any,
+        cellPadding: { top: 7, right: 8, bottom: 7, left: 8 },
       },
-      alternateRowStyles: { fillColor: [248, 248, 246] },
       columnStyles,
     });
+
   });
 
   // --- Footer on every page ---
