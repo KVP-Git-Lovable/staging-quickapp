@@ -401,14 +401,14 @@ const PriceBookDetail = () => {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6 max-w-5xl pb-24">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/admin/price-books')}>
+        <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3 min-w-0">
+            <Button variant="ghost" size="icon" className="mt-1 shrink-0" onClick={() => navigate('/admin/price-books')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{priceBook.name}</h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold leading-tight truncate">{priceBook.name}</h1>
                 <Badge className={priceBook.is_active ? 'bg-green-100 text-green-800' : 'bg-muted'}>
                   {priceBook.is_active ? 'Active' : 'Inactive'}
                 </Badge>
@@ -417,13 +417,14 @@ const PriceBookDetail = () => {
                 </Badge>
                 <Badge variant="secondary">{priceBook.currency}</Badge>
               </div>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm mt-1">
                 {entries.length} products • {priceBook.currency}
                 {isForeignBook && ` • prices stored natively in ${bookCurrency}`}
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:shrink-0">
+
             <Button variant="outline" onClick={() => syncAllProducts('default')} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sync All Products
@@ -603,15 +604,15 @@ const PriceBookDetail = () => {
                   {categoryEntries.map(entry => (
                     <Card key={entry.id}>
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                          <div className="flex-1 min-w-[200px]">
-                            <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
+                          <div className="min-w-0 xl:flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <button
                                 onClick={() => navigate(`/product-management?product=${entry.product_id}`)}
                                 className="font-medium truncate text-primary hover:underline flex items-center gap-1"
                               >
                                 {entry.product?.name}
-                                <ExternalLink className="h-3 w-3" />
+                                <ExternalLink className="h-3 w-3 shrink-0" />
                               </button>
                               {entry.variant ? (
                                 <Badge variant="outline" className="text-xs">
@@ -630,73 +631,80 @@ const PriceBookDetail = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <div>
+                          <div className="flex items-end gap-2 flex-wrap xl:flex-nowrap xl:shrink-0">
+                            <div className="w-20 space-y-1">
                               <Input
                                 type="number"
                                 value={entry.min_quantity}
                                 onChange={(e) => handleUpdateEntry(entry, 'min_quantity', parseInt(e.target.value) || 1)}
-                                className="w-20 text-center"
+                                className="w-full h-9 text-center"
                                 min={1}
                               />
                               <p className="text-xs text-muted-foreground text-center">Min Qty</p>
                             </div>
-                            <div>
+                            <div className="w-20 space-y-1">
                               <Input
                                 value={entry.uom || entry.product?.unit || 'pc'}
                                 onChange={(e) => handleUpdateEntry(entry, 'uom', e.target.value)}
-                                className="w-20 text-center"
+                                className="w-full h-9 text-center"
                                 placeholder="UOM"
                               />
                               <p className="text-xs text-muted-foreground text-center">UOM</p>
                             </div>
-                            <div>
+                            <div className="w-24 space-y-1">
                               <Input
                                 type="number"
                                 value={entry.list_price}
                                 onChange={(e) => handleUpdateEntry(entry, 'list_price', parseFloat(e.target.value) || 0)}
-                                className="w-24 text-right"
+                                className="w-full h-9 text-right"
                               />
-                              <p className="text-xs text-muted-foreground text-center">List Price ({bookCurrency})</p>
+                              <p className="text-xs text-muted-foreground text-center">List ({bookCurrency})</p>
                             </div>
-                            <div>
+                            <div className="w-20 space-y-1">
                               <Input
                                 type="number"
                                 value={entry.discount_percent}
                                 onChange={(e) => handleUpdateEntry(entry, 'discount_percent', parseFloat(e.target.value) || 0)}
-                                className="w-20 text-right"
+                                className="w-full h-9 text-right"
                                 min={0}
                                 max={100}
                               />
                               <p className="text-xs text-muted-foreground text-center">Disc %</p>
                             </div>
-                            <div className="min-w-20 text-center">
-                              {Number(entry.final_price) > 0 ? (
-                                <p className="font-bold text-primary">{fmtBook(entry.final_price)}</p>
-                              ) : (
-                                <Badge variant="outline" className="text-xs text-muted-foreground">
-                                  No price set
-                                </Badge>
-                              )}
-                              <p className="text-xs text-muted-foreground">Final ({bookCurrency})</p>
+                            <div className="w-28 space-y-1">
+                              <div className="h-9 flex items-center justify-center">
+                                {Number(entry.final_price) > 0 ? (
+                                  <p className="font-bold text-primary tabular-nums truncate">{fmtBook(entry.final_price)}</p>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                                    No price set
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground text-center">Final ({bookCurrency})</p>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Add a higher quantity slab"
-                              onClick={() => handleAddSlab(entry)}
-                            >
-                              <Layers className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive"
-                              onClick={() => handleDeleteEntry(entry.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+
+                            <div className="flex items-center gap-1 pb-5">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9"
+                                title="Add a higher quantity slab"
+                                onClick={() => handleAddSlab(entry)}
+                              >
+                                <Layers className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 text-destructive"
+                                onClick={() => handleDeleteEntry(entry.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
+
                         </div>
                       </CardContent>
                     </Card>
