@@ -9,6 +9,8 @@ import {
   type ChatMessage,
   type StreamResult,
 } from "./services/togetherClient.ts";
+import { routeIntentWithAi } from "./services/aiIntentRouter.ts";
+
 import { HISTORY_LIMIT, MAX_INPUT_CHARS, MODEL } from "./config.ts";
 
 const corsHeaders = {
@@ -445,8 +447,16 @@ Deno.serve(async (req) => {
 
     let stream: Awaited<ReturnType<typeof streamChat>>;
     try {
-      const intent = classifyDataIntent(message);
+      let intent = classifyDataIntent(message);
+      if (!intent) {
+        const routed = await routeIntentWithAi(apiKey, message);
+        diagLog(
+          `ai-router msgChars=${message.length} regex=no-match raw=${JSON.stringify(routed.raw)} resolved=${routed.intent ?? "none"} latencyMs=${routed.latencyMs}`,
+        );
+        intent = routed.intent;
+      }
       let llmMessages = messages;
+
       if (intent) {
         try {
           const dataBlock = await dataAnswer(intent, supabase, userId, today);
