@@ -89,7 +89,8 @@ const getDisplayPrice = (price: number, unit: string, fmt: (n: number) => string
 interface ProductPickerProps {
   products: Product[];
   selectedId?: string;
-  priceMap: Record<string, number>;
+  /** DB-resolved price for a product at a given quantity (null => use catalog default). */
+  resolvePriceFor: (productId: string, quantity: number) => { price: number; currency: string } | null;
   getProductScheme: (p: Product) => Scheme | null;
   formatScheme: (s: Scheme) => string;
   onSelect: (productId: string) => void;
