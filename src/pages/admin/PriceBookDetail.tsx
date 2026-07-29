@@ -401,14 +401,14 @@ const PriceBookDetail = () => {
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6 max-w-5xl pb-24">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/admin/price-books')}>
+        <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3 min-w-0">
+            <Button variant="ghost" size="icon" className="mt-1 shrink-0" onClick={() => navigate('/admin/price-books')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{priceBook.name}</h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold leading-tight truncate">{priceBook.name}</h1>
                 <Badge className={priceBook.is_active ? 'bg-green-100 text-green-800' : 'bg-muted'}>
                   {priceBook.is_active ? 'Active' : 'Inactive'}
                 </Badge>
@@ -417,13 +417,14 @@ const PriceBookDetail = () => {
                 </Badge>
                 <Badge variant="secondary">{priceBook.currency}</Badge>
               </div>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm mt-1">
                 {entries.length} products • {priceBook.currency}
                 {isForeignBook && ` • prices stored natively in ${bookCurrency}`}
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end lg:shrink-0">
+
             <Button variant="outline" onClick={() => syncAllProducts('default')} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               Sync All Products
