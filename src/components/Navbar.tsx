@@ -87,6 +87,10 @@ export const Navbar = memo(() => {
   const { isEnabled: isDeliveryAgentEnabled } = useDeliveryAgentApp();
   const { headerName, headerLogo } = useCompanyData();
   const { isNavItemEnabled } = useFeatureFlags();
+  const { permissions: profilePermissions, hasModuleAccess: hasProfileModuleAccess } = useProfilePermissions();
+  // QuickApp AI follows the standard module-permission contract.
+  const canAccessQuickAppAi =
+    profilePermissions.length === 0 || hasProfileModuleAccess('module_quickapp_ai');
   
   // Company name and logo - no hardcoded fallbacks, uses cache
   const companyName = headerName || '';
