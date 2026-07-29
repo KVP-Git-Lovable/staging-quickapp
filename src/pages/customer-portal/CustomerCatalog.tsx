@@ -97,16 +97,18 @@ interface ProductPickerProps {
 }
 
 const ProductPickerItem = memo(function ProductPickerItem({
-  product, selected, price, scheme, formatScheme, onSelect,
+  product, selected, price, priceCurrency, scheme, formatScheme, onSelect,
 }: {
   product: Product;
   selected: boolean;
   price: number;
+  priceCurrency?: string | null;
   scheme: Scheme | null;
   formatScheme: (s: Scheme) => string;
   onSelect: (id: string) => void;
 }) {
-  const { format: fmtMoney } = useCurrency();
+  const { format: fmtCtx } = useCurrency();
+  const fmtMoney = (n: number) => (priceCurrency ? formatCurrency(n, priceCurrency) : fmtCtx(n));
   return (
     <CommandItem
       value={`${product.name} ${product.sku || ''}`}
