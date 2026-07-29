@@ -1,7 +1,7 @@
 // QuickApp Copilot — Today's visit action plan.
 // Deterministic SQL signals + Together.ai narration. Auth required.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { streamChat, TogetherError, type ChatMessage } from "../copilot-agent/services/togetherClient.ts";
+import { streamChat, TogetherError, type ChatMessage } from "./services/togetherClient.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
