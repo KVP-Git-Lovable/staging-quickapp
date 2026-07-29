@@ -142,7 +142,9 @@ export const Navbar = memo(() => {
     // Add remaining items
     baseItems.push(
       // { id: 'projects', icon: FolderKanban, label: 'Projects', href: "/projects", color: "from-sky-500 to-sky-600" }, // ARCHIVED: Projects module hidden
-      { id: 'quickapp-ai', icon: BrainCircuit, label: 'QuickApp AI', href: "/quickapp-ai", color: "from-blue-500 to-violet-600" },
+      ...(canAccessQuickAppAi
+        ? [{ id: 'quickapp-ai', icon: BrainCircuit, label: 'QuickApp AI', href: "/quickapp-ai", color: "from-blue-500 to-violet-600" }]
+        : []),
       { id: 'my-competency', icon: Target, label: t('nav.competency'), href: "/competency-dashboard", color: "from-indigo-500 to-indigo-600" },
       { id: 'help-center', icon: HelpCircle, label: t('nav.helpCenter'), href: "/help-center", color: "from-teal-500 to-teal-600" },
       { id: 'usage-report', icon: BarChart3, label: t('nav.usageReport'), href: "/usage-report", color: "from-sky-500 to-sky-600" },
@@ -151,7 +153,7 @@ export const Navbar = memo(() => {
 
     // Filter by feature flags
     return baseItems.filter(item => isNavItemEnabled(item.id));
-  }, [t, isGamificationActive, isPackingListEnabled, isDeliveryAgentEnabled, isNavItemEnabled]);
+  }, [t, isGamificationActive, isPackingListEnabled, isDeliveryAgentEnabled, isNavItemEnabled, canAccessQuickAppAi]);
 
   // Nav customization hook
   const {
