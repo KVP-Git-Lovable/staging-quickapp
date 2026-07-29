@@ -130,6 +130,7 @@ const CustomerCart = () => {
       }),
     [rawItems, localQuantities, resolveDbPrice],
   );
+  const money = useCallback((n: number) => formatCurrency(n, pbCurrency || 'INR'), [pbCurrency]);
 
 
 
@@ -512,7 +513,7 @@ const CustomerCart = () => {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-xs text-foreground truncate leading-tight">{item.product_name}</h3>
                       <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                        ₹{convPrice.toFixed(2)}/{unitDisplay} × {qty} = ₹{(qty * convPrice).toFixed(2)}
+                        {money(convPrice)}/{unitDisplay} × {qty} = {money(qty * convPrice)}
                       </p>
                       {item.source !== 'manual' && (
                         <span className="text-[9px] text-muted-foreground/70 capitalize">Via {item.source}</span>
@@ -536,7 +537,7 @@ const CustomerCart = () => {
                   </div>
                   {isUnlocked && (
                     <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-px rounded whitespace-nowrap">
-                      <Gift size={9} /> {scheme.name}{scheme.discount_percentage ? ` · ${scheme.discount_percentage}% off` : ''}{scheme.discount_amount ? ` · ₹${scheme.discount_amount} off` : ''}{scheme.scheme_type === 'buy_x_get_y' && scheme.free_quantity ? ` · Get ${scheme.free_quantity} free` : ''}
+                      <Gift size={9} /> {scheme.name}{scheme.discount_percentage ? ` · ${scheme.discount_percentage}% off` : ''}{scheme.discount_amount ? ` · ${money(Number(scheme.discount_amount))} off` : ''}{scheme.scheme_type === 'buy_x_get_y' && scheme.free_quantity ? ` · Get ${scheme.free_quantity} free` : ''}
                     </div>
                   )}
                   {isClose && (
@@ -583,29 +584,29 @@ const CustomerCart = () => {
           <Card className="px-3 py-2.5 mb-3 bg-primary/5 border-primary/20">
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">Subtotal</span>
-              <span className="text-xs font-medium text-foreground">₹{subtotal.toFixed(2)}</span>
+              <span className="text-xs font-medium text-foreground">{money(subtotal)}</span>
             </div>
             {discountTotal > 0 && (
               <div className="flex justify-between items-center mt-0.5">
                 <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Offer Discount</span>
-                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">-₹{discountTotal.toFixed(2)}</span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">-{money(discountTotal)}</span>
               </div>
             )}
             {gstTotal > 0 && (
               <>
                 <div className="flex justify-between items-center mt-0.5">
                   <span className="text-[11px] text-muted-foreground">CGST</span>
-                  <span className="text-[11px] text-muted-foreground">₹{cgstTotal.toFixed(2)}</span>
+                  <span className="text-[11px] text-muted-foreground">{money(cgstTotal)}</span>
                 </div>
                 <div className="flex justify-between items-center mt-0.5">
                   <span className="text-[11px] text-muted-foreground">SGST</span>
-                  <span className="text-[11px] text-muted-foreground">₹{sgstTotal.toFixed(2)}</span>
+                  <span className="text-[11px] text-muted-foreground">{money(sgstTotal)}</span>
                 </div>
               </>
             )}
             <div className="flex justify-between items-center pt-1.5 mt-1.5 border-t border-border/40">
               <span className="font-semibold text-sm text-foreground">Total</span>
-              <span className="text-lg font-bold text-primary">₹{grandTotal.toFixed(2)}</span>
+              <span className="text-lg font-bold text-primary">{money(grandTotal)}</span>
             </div>
           </Card>
 
