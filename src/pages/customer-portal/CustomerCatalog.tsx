@@ -682,7 +682,7 @@ const CustomerCatalog = () => {
                           <ProductPicker
                             products={products}
                             selectedId={row.product?.id}
-                            priceMap={priceMap}
+                            resolvePriceFor={resolvePriceFor}
                             getProductScheme={getProductScheme}
                             formatScheme={formatScheme}
                             onSelect={(productId) => handleProductSelect(row.id, productId)}
