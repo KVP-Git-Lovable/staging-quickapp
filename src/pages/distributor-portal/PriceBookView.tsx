@@ -32,7 +32,7 @@ interface SecondaryRow {
   min_quantity: number | null;
 }
 
-const useNameMaps = async (productIds: string[], variantIds: string[]) => {
+const fetchNameMaps = async (productIds: string[], variantIds: string[]) => {
   const [prodRes, varRes] = await Promise.all([
     productIds.length
       ? supabase.from('products').select('id, name').in('id', productIds)
@@ -87,7 +87,7 @@ const PriceBookView = () => {
 
       const productIds = [...new Set(rows.map((r) => r.product_id).filter(Boolean))];
       const variantIds = [...new Set(rows.map((r) => r.variant_id).filter(Boolean))] as string[];
-      const { productMap, variantMap } = await useNameMaps(productIds, variantIds);
+      const { productMap, variantMap } = await fetchNameMaps(productIds, variantIds);
 
       setPrimaryBookName(rows[0]?.price_book_name ?? null);
       setPrimaryRows(
@@ -149,7 +149,7 @@ const PriceBookView = () => {
 
       const productIds = [...new Set(entries.map((e) => e.product_id).filter(Boolean))];
       const variantIds = [...new Set(entries.filter((e) => e.variant_id).map((e) => e.variant_id))] as string[];
-      const { productMap, variantMap } = await useNameMaps(productIds, variantIds);
+      const { productMap, variantMap } = await fetchNameMaps(productIds, variantIds);
 
       setSecondaryRows(
         entries.map((e) => ({
