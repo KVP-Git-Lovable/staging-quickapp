@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink, Layers } from 'lucide-react';
+import { Plus, Search, Save, Trash2, Package, RefreshCw, ExternalLink, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { formatCurrency, resolveRate, type RatesMap } from '@/lib/money';
