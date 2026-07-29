@@ -22,7 +22,7 @@ export function useVisitActionPlan() {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({}),
-           signal: controller.signal,
+          signal: controller.signal,
         },
       );
 
