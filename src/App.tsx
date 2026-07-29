@@ -537,7 +537,7 @@ const AppContent = () => {
         <Route path="/employee-portal" element={<EmployeePortalHome />} />
         <Route path="/copilot" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
         <Route path="/copilot/:threadId" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
-        <Route path="/quickapp-ai" element={<ProtectedRoute><AiModuleShell /></ProtectedRoute>}>
+        <Route path="/quickapp-ai" element={<ProtectedRoute><RoutePermissionGuard permissionPrefix="module_quickapp_ai" moduleName="QuickApp AI"><AiModuleShell /></RoutePermissionGuard></ProtectedRoute>}>
           <Route index element={<Navigate to="/quickapp-ai/chat" replace />} />
           <Route path="chat" element={<AiChatPage />} />
           <Route path="chat/:threadId" element={<AiChatPage />} />
