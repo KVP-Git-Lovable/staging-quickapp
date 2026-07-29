@@ -604,15 +604,15 @@ const PriceBookDetail = () => {
                   {categoryEntries.map(entry => (
                     <Card key={entry.id}>
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                          <div className="flex-1 min-w-[200px]">
-                            <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between xl:gap-4">
+                          <div className="min-w-0 xl:flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <button
                                 onClick={() => navigate(`/product-management?product=${entry.product_id}`)}
                                 className="font-medium truncate text-primary hover:underline flex items-center gap-1"
                               >
                                 {entry.product?.name}
-                                <ExternalLink className="h-3 w-3" />
+                                <ExternalLink className="h-3 w-3 shrink-0" />
                               </button>
                               {entry.variant ? (
                                 <Badge variant="outline" className="text-xs">
@@ -631,56 +631,59 @@ const PriceBookDetail = () => {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <div>
+                          <div className="flex items-end gap-2 flex-wrap xl:flex-nowrap xl:shrink-0">
+                            <div className="w-20 space-y-1">
                               <Input
                                 type="number"
                                 value={entry.min_quantity}
                                 onChange={(e) => handleUpdateEntry(entry, 'min_quantity', parseInt(e.target.value) || 1)}
-                                className="w-20 text-center"
+                                className="w-full h-9 text-center"
                                 min={1}
                               />
                               <p className="text-xs text-muted-foreground text-center">Min Qty</p>
                             </div>
-                            <div>
+                            <div className="w-20 space-y-1">
                               <Input
                                 value={entry.uom || entry.product?.unit || 'pc'}
                                 onChange={(e) => handleUpdateEntry(entry, 'uom', e.target.value)}
-                                className="w-20 text-center"
+                                className="w-full h-9 text-center"
                                 placeholder="UOM"
                               />
                               <p className="text-xs text-muted-foreground text-center">UOM</p>
                             </div>
-                            <div>
+                            <div className="w-24 space-y-1">
                               <Input
                                 type="number"
                                 value={entry.list_price}
                                 onChange={(e) => handleUpdateEntry(entry, 'list_price', parseFloat(e.target.value) || 0)}
-                                className="w-24 text-right"
+                                className="w-full h-9 text-right"
                               />
-                              <p className="text-xs text-muted-foreground text-center">List Price ({bookCurrency})</p>
+                              <p className="text-xs text-muted-foreground text-center">List ({bookCurrency})</p>
                             </div>
-                            <div>
+                            <div className="w-20 space-y-1">
                               <Input
                                 type="number"
                                 value={entry.discount_percent}
                                 onChange={(e) => handleUpdateEntry(entry, 'discount_percent', parseFloat(e.target.value) || 0)}
-                                className="w-20 text-right"
+                                className="w-full h-9 text-right"
                                 min={0}
                                 max={100}
                               />
                               <p className="text-xs text-muted-foreground text-center">Disc %</p>
                             </div>
-                            <div className="min-w-20 text-center">
-                              {Number(entry.final_price) > 0 ? (
-                                <p className="font-bold text-primary">{fmtBook(entry.final_price)}</p>
-                              ) : (
-                                <Badge variant="outline" className="text-xs text-muted-foreground">
-                                  No price set
-                                </Badge>
-                              )}
-                              <p className="text-xs text-muted-foreground">Final ({bookCurrency})</p>
+                            <div className="w-28 space-y-1">
+                              <div className="h-9 flex items-center justify-center">
+                                {Number(entry.final_price) > 0 ? (
+                                  <p className="font-bold text-primary tabular-nums truncate">{fmtBook(entry.final_price)}</p>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                                    No price set
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground text-center">Final ({bookCurrency})</p>
                             </div>
+
                             <Button
                               variant="ghost"
                               size="icon"
