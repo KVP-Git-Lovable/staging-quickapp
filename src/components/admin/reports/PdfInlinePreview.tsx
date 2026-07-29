@@ -316,9 +316,9 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
                               : typeof v === 'number'
                                 ? new Intl.NumberFormat('en-IN').format(v)
                                 : String(v);
-                          const numeric = typeof v === 'number' || (measureKeys.has(col) && Number.isFinite(Number(v)));
+                          const numeric = numericColumns.has(col);
                           return (
-                            <td key={col} className={cn('py-1 px-2 text-[9px]', numeric && 'text-right tabular-nums')}>
+                            <td key={col} className={cn('py-1 px-2 text-[9px] truncate', numeric ? 'text-right tabular-nums' : 'text-left')}>
                               {display}
                             </td>
                           );
@@ -338,7 +338,7 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
                           const isMoney = MEASURE_LOOKS_LIKE_MONEY.test(col);
                           const t = totals[col];
                           return (
-                            <td key={col} className={cn('py-1 px-2 text-[9px]', measureKeys.has(col) && 'text-right tabular-nums')}>
+                            <td key={col} className={cn('py-1 px-2 text-[9px] truncate', numericColumns.has(col) ? 'text-right tabular-nums' : 'text-left')}>
                               {idx === 0 && t === undefined ? 'Total' :
                                 t === undefined ? '' :
                                 isMoney ? fmtCurrency(t, currency) : new Intl.NumberFormat('en-IN').format(t)}
