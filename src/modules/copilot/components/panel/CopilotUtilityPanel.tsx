@@ -2,6 +2,8 @@ import { useState } from "react";
 import { LifeBuoy, Smartphone, ShoppingCart, Store, Route } from "lucide-react";
 import { OrdersChart } from "./OrdersChart";
 import { TicketStubDialog } from "./TicketStubDialog";
+import { VisitActionPlan } from "./VisitActionPlan";
+
 
 interface Category {
   key: string;
