@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Gift, Sparkles, ClipboardList, BarChart3 } from 'lucide-react';
+import { Home, Gift, Sparkles, ClipboardList, BarChart3, Tag } from 'lucide-react';
 import { useCustomerPortalAuth } from '@/hooks/useCustomerPortalAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ const navItems = [
   { path: '/customer-portal/home', icon: Home, label: 'Home' },
   { path: '/customer-portal/schemes', icon: Gift, label: 'Schemes' },
   { path: '/customer-portal/catalog', icon: Sparkles, label: 'AI Shop', isCenter: true },
+  { path: '/customer-portal/prices', icon: Tag, label: 'My Prices' },
   { path: '/customer-portal/orders', icon: ClipboardList, label: 'Orders' },
   { path: '/customer-portal/reports', icon: BarChart3, label: 'Reports' },
 ];
