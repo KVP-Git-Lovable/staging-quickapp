@@ -206,32 +206,49 @@ export async function renderReportPdf(
   };
 
   const drawBand = () => {
-    const bandH = 60;
-    doc.setFillColor(brandRgb[0], brandRgb[1], brandRgb[2]);
-    doc.rect(margin, cursorY, pageW - margin * 2, bandH, 'F');
-    let x = margin + 12;
+    // Dark, professional masthead: white logo plate on the left, company +
+    // report title beside it, period/date range right-aligned.
+    const bandH = 64;
+    const bandW = pageW - margin * 2;
+    doc.setFillColor(17, 17, 17);
+    doc.roundedRect(margin, cursorY, bandW, bandH, 4, 4, 'F');
+
+    let x = margin + 14;
     if (brand.logo_data_url && brand.logo_format) {
-      doc.addImage(brand.logo_data_url, brand.logo_format, x, cursorY + 8, 44, 44);
-      x += 54;
+      const plateW = 74, plateH = 40;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, cursorY + (bandH - plateH) / 2, plateW, plateH, 3, 3, 'F');
+      doc.addImage(
+        brand.logo_data_url,
+        brand.logo_format,
+        x + 6,
+        cursorY + (bandH - plateH) / 2 + 5,
+        plateW - 12,
+        plateH - 10,
+      );
+      x += plateW + 14;
     }
-    let ty = cursorY + 6;
+
+    const nameLine = (brand.header_name || brand.company_name || '').toUpperCase();
     doc.setTextColor(255);
-    if (brand.header_name) {
-      doc.setFont(fontFamily, 'bold'); doc.setFontSize(12);
-      doc.text(brand.header_name, x, ty + 10); ty += 13;
+    let ty = cursorY + (nameLine ? 24 : 38);
+    if (nameLine) {
+      doc.setFont(fontFamily, 'bold'); doc.setFontSize(9.5);
+      doc.text(nameLine, x, ty);
+      ty += 17;
     }
-    if (brand.company_name) {
-      doc.setFont(fontFamily, 'normal'); doc.setFontSize(9);
-      doc.text(brand.company_name, x, ty + 8); ty += 11;
-    }
-    doc.setFont(fontFamily, 'bold'); doc.setFontSize(13);
-    doc.text(displayTitle, x, ty + 12);
+    doc.setFont(fontFamily, 'bold'); doc.setFontSize(14);
+    doc.text(displayTitle, x, ty);
+
     if (t.show_period && periodLabel) {
       doc.setFont(fontFamily, 'normal'); doc.setFontSize(9);
-      doc.text(periodLabel, pageW - margin - 12, cursorY + bandH - 10, { align: 'right' });
+      doc.setTextColor(215);
+      doc.text(periodLabel, pageW - margin - 14, cursorY + bandH / 2 + 3, { align: 'right' });
     }
-    cursorY += bandH + 10;
+    cursorY += bandH + 14;
   };
+
+
 
   const drawCompact = () => {
     const logoBoxW = 26, logoBoxH = 26;
