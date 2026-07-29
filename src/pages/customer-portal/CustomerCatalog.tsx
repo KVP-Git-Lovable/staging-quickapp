@@ -546,7 +546,7 @@ const CustomerCatalog = () => {
     const applied: { name: string; saving: number }[] = [];
     for (const row of orderRows) {
       if (row.product && row.quantity > 0) {
-        const rawPrice = priceMap[row.product.id] ?? row.product.rate ?? 0;
+        const rawPrice = resolvePriceFor(row.product.id, row.quantity)?.price ?? row.product.rate ?? 0;
         const effectiveUnit = row.unit || row.product.unit || 'pc';
         const unitPrice = getConvertedPrice(rawPrice, effectiveUnit);
         const lineTotal = unitPrice * row.quantity;
