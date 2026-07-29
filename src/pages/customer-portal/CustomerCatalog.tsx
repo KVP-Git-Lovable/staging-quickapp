@@ -267,7 +267,7 @@ const CustomerCatalog = () => {
   });
 
   // Database-resolved price book prices for this retailer (variant + slab + currency aware).
-  const { resolve: resolveDbPrice } = useResolvedRetailerPrices(retailer.id, supabase);
+  const { resolve: resolveDbPrice, currency: pbCurrency } = useResolvedRetailerPrices(retailer.id, supabase);
   const resolvePriceFor = useCallback(
     (productId: string, quantity: number) => {
       const row = resolveDbPrice(productId, null, quantity);
