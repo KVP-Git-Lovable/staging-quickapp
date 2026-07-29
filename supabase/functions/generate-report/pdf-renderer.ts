@@ -278,21 +278,36 @@ export async function renderReportPdf(
 
   drawHeader();
 
-  // --- Meta block ---
+  // --- Meta block: label above value, evenly spaced columns ---
   if (t.include_meta) {
-    const parts: string[] = [];
-    parts.push(`Generated ${generatedAt}`);
-    if (model.meta.recipient_name) parts.push(`For ${model.meta.recipient_name}`);
-    if (model.meta.scope_label) parts.push(`Scope ${model.meta.scope_label}`);
-    if (periodLabel) parts.push(`Period ${periodLabel}`);
-    parts.push(model.meta.filters_label ? `Filters ${model.meta.filters_label}` : 'Filters None');
-    const text = parts.join('   \u00B7   ');
-    doc.setFillColor(247, 247, 245);
-    doc.rect(margin, cursorY, pageW - margin * 2, 20, 'F');
-    doc.setFont(fontFamily, 'normal'); doc.setFontSize(8.5); doc.setTextColor(85);
-    doc.text(text, margin + 8, cursorY + 13);
-    cursorY += 26;
+    const items: Array<[string, string]> = [['Generated', generatedAt]];
+    if (periodLabel) items.push(['Period', periodLabel]);
+    if (model.meta.scope_label) items.push(['Dataset / Scope', model.meta.scope_label]);
+    if (model.meta.recipient_name) items.push(['Prepared for', model.meta.recipient_name]);
+    items.push(['Filters', model.meta.filters_label || 'None']);
+
+    const blockW = pageW - margin * 2;
+    const colW = blockW / items.length;
+    const blockH = 34;
+    doc.setDrawColor(228);
+    doc.setFillColor(250, 250, 249);
+    doc.roundedRect(margin, cursorY, blockW, blockH, 3, 3, 'FD');
+
+    items.forEach(([label, value], i) => {
+      const x = margin + 12 + i * colW;
+      doc.setFont(fontFamily, 'normal'); doc.setFontSize(7); doc.setTextColor(150);
+      doc.text(label.toUpperCase(), x, cursorY + 13);
+      doc.setFont(fontFamily, 'bold'); doc.setFontSize(8.5); doc.setTextColor(60);
+      doc.text(doc.splitTextToSize(String(value), colW - 18)[0] ?? '', x, cursorY + 25);
+      if (i > 0) {
+        doc.setDrawColor(232);
+        doc.line(margin + i * colW, cursorY + 7, margin + i * colW, cursorY + blockH - 7);
+      }
+    });
+    cursorY += blockH + 14;
   }
+
+
 
   // --- Wide-column handling: split into chunks that fit ---
   const isEmpty = model.rows.length === 0;
