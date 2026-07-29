@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { customerPortalSupabase } from '@/integrations/supabase/portal-client';
@@ -233,7 +233,7 @@ const CustomerCart = () => {
 
   const removeItem = async (itemId: string) => {
     // Optimistic removal from query cache
-    queryClient.setQueryData(['customer-cart', retailer.id, priceBookId], (old: CartItem[] | undefined) =>
+    queryClient.setQueryData(['customer-cart', retailer.id], (old: CartItem[] | undefined) =>
       (old || []).filter(i => i.id !== itemId)
     );
     try {
