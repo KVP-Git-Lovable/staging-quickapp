@@ -44,9 +44,14 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } },
     );
 
-    const { data: claims, error: claimsError } = await supabase.auth.getClaims();
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claims, error: claimsError } = await supabase.auth.getClaims(token);
     const userId = (claims as any)?.claims?.sub as string | undefined;
-    if (claimsError || !userId) return jsonError(401, "unauthorized", "Invalid session");
+    if (claimsError || !userId) {
+      console.error("[copilot-visit-actions] auth failed:", claimsError?.message);
+      return jsonError(401, "unauthorized", "Invalid session");
+    }
+
 
     const today = new Date().toISOString().slice(0, 10);
     const since = new Date(Date.now() - LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
