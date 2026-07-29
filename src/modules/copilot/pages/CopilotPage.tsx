@@ -96,15 +96,17 @@ export default function CopilotPage({ basePath = "/copilot", embedded = false }:
               </SheetContent>
             </Sheet>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/dashboard")}
-            className="gap-1.5 text-primary-foreground hover:bg-primary-foreground/10 hover:text-warning"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Button>
+          {!embedded && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/dashboard")}
+              className="gap-1.5 text-primary-foreground hover:bg-primary-foreground/10 hover:text-warning"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </Button>
+          )}
           <h1 className="ml-1 truncate text-base font-bold text-primary-foreground sm:text-lg">
             Welcome to QuickApp Copilot!
           </h1>
