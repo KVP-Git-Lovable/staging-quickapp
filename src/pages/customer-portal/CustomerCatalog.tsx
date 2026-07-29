@@ -266,7 +266,15 @@ const CustomerCatalog = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: priceBookId } = useRetailerPriceBook(retailer.distributor_id, supabase);
+  // Database-resolved price book prices for this retailer (variant + slab + currency aware).
+  const { resolve: resolveDbPrice } = useResolvedRetailerPrices(retailer.id, supabase);
+  const resolvePriceFor = useCallback(
+    (productId: string, quantity: number) => {
+      const row = resolveDbPrice(productId, null, quantity);
+      return row ? { price: row.price, currency: row.currency } : null;
+    },
+    [resolveDbPrice],
+  );
 
   // Fetch the globally enabled sales units from the Unit of Measure Master.
   // The customer portal should only display units that are actually enabled.
