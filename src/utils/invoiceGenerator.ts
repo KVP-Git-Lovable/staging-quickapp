@@ -240,10 +240,43 @@ const normalizeItemForDisplay = (item: any) => {
 };
 
 /**
- * Generate Template 4 (Green Accent Professional) invoice PDF
- * This is the ONLY template used throughout the application
+ * Generate the invoice PDF.
+ *
+ * SINGLE SOURCE OF TRUTH: this renders the exact same <InvoicePreview />
+ * component the on-screen preview uses, so preview and download are identical.
+ * The legacy hand-drawn jsPDF layout below is kept only as a safety fallback.
  */
 export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob> {
+  try {
+    const { renderInvoicePreviewToPdfBlob } = await import('./renderInvoicePreviewPdf');
+    let displaySettings = data.displaySettings;
+    if (!displaySettings) {
+      try {
+        displaySettings = await getInvoiceDisplaySettingsMap();
+      } catch {
+        displaySettings = undefined;
+      }
+    }
+    return await renderInvoicePreviewToPdfBlob({
+      company: data.company,
+      retailer: data.retailer,
+      cartItems: data.cartItems,
+      orderId: data.displayInvoiceNumber || data.orderId,
+      beatName: data.beatName,
+      salesmanName: data.salesmanName,
+      invoiceTime: data.displayInvoiceTime,
+      schemeDetails: data.schemeDetails,
+      displaySettings,
+    });
+  } catch (err) {
+    console.error('Preview-based invoice render failed, falling back to legacy layout', err);
+    return generateTemplate4InvoiceLegacy(data);
+  }
+}
+
+/** @deprecated Legacy hand-drawn jsPDF layout — fallback only. */
+async function generateTemplate4InvoiceLegacy(data: InvoiceData): Promise<Blob> {
+
   const { orderId, company, retailer, cartItems, displayInvoiceNumber, displayInvoiceDate, displayInvoiceTime, beatName, salesmanName, schemeDetails, orderDiscount, orderTotal } = data;
   
   // Fetch display settings for customizable invoice fields
