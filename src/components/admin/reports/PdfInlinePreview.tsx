@@ -213,6 +213,15 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
 
   const previewRows = dataRows.slice(0, 5);
 
+  // A column is numeric (right-aligned) if it is a measure or every sampled value is a number.
+  const numericColumns = new Set<string>(
+    visibleColumns.filter(col => {
+      if (measureKeys.has(col)) return true;
+      const sample = dataRows.filter(r => (r as any)[col] != null).slice(0, 5);
+      return sample.length > 0 && sample.every(r => typeof (r as any)[col] === 'number');
+    })
+  );
+
   if (!open) return null;
 
   return (
