@@ -206,32 +206,49 @@ export async function renderReportPdf(
   };
 
   const drawBand = () => {
-    const bandH = 60;
-    doc.setFillColor(brandRgb[0], brandRgb[1], brandRgb[2]);
-    doc.rect(margin, cursorY, pageW - margin * 2, bandH, 'F');
-    let x = margin + 12;
+    // Dark, professional masthead: white logo plate on the left, company +
+    // report title beside it, period/date range right-aligned.
+    const bandH = 64;
+    const bandW = pageW - margin * 2;
+    doc.setFillColor(17, 17, 17);
+    doc.roundedRect(margin, cursorY, bandW, bandH, 4, 4, 'F');
+
+    let x = margin + 14;
     if (brand.logo_data_url && brand.logo_format) {
-      doc.addImage(brand.logo_data_url, brand.logo_format, x, cursorY + 8, 44, 44);
-      x += 54;
+      const plateW = 74, plateH = 40;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, cursorY + (bandH - plateH) / 2, plateW, plateH, 3, 3, 'F');
+      doc.addImage(
+        brand.logo_data_url,
+        brand.logo_format,
+        x + 6,
+        cursorY + (bandH - plateH) / 2 + 5,
+        plateW - 12,
+        plateH - 10,
+      );
+      x += plateW + 14;
     }
-    let ty = cursorY + 6;
+
+    const nameLine = (brand.header_name || brand.company_name || '').toUpperCase();
     doc.setTextColor(255);
-    if (brand.header_name) {
-      doc.setFont(fontFamily, 'bold'); doc.setFontSize(12);
-      doc.text(brand.header_name, x, ty + 10); ty += 13;
+    let ty = cursorY + (nameLine ? 24 : 38);
+    if (nameLine) {
+      doc.setFont(fontFamily, 'bold'); doc.setFontSize(9.5);
+      doc.text(nameLine, x, ty);
+      ty += 17;
     }
-    if (brand.company_name) {
-      doc.setFont(fontFamily, 'normal'); doc.setFontSize(9);
-      doc.text(brand.company_name, x, ty + 8); ty += 11;
-    }
-    doc.setFont(fontFamily, 'bold'); doc.setFontSize(13);
-    doc.text(displayTitle, x, ty + 12);
+    doc.setFont(fontFamily, 'bold'); doc.setFontSize(14);
+    doc.text(displayTitle, x, ty);
+
     if (t.show_period && periodLabel) {
       doc.setFont(fontFamily, 'normal'); doc.setFontSize(9);
-      doc.text(periodLabel, pageW - margin - 12, cursorY + bandH - 10, { align: 'right' });
+      doc.setTextColor(215);
+      doc.text(periodLabel, pageW - margin - 14, cursorY + bandH / 2 + 3, { align: 'right' });
     }
-    cursorY += bandH + 10;
+    cursorY += bandH + 14;
   };
+
+
 
   const drawCompact = () => {
     const logoBoxW = 26, logoBoxH = 26;
@@ -261,21 +278,36 @@ export async function renderReportPdf(
 
   drawHeader();
 
-  // --- Meta block ---
+  // --- Meta block: label above value, evenly spaced columns ---
   if (t.include_meta) {
-    const parts: string[] = [];
-    parts.push(`Generated ${generatedAt}`);
-    if (model.meta.recipient_name) parts.push(`For ${model.meta.recipient_name}`);
-    if (model.meta.scope_label) parts.push(`Scope ${model.meta.scope_label}`);
-    if (periodLabel) parts.push(`Period ${periodLabel}`);
-    parts.push(model.meta.filters_label ? `Filters ${model.meta.filters_label}` : 'Filters None');
-    const text = parts.join('   \u00B7   ');
-    doc.setFillColor(247, 247, 245);
-    doc.rect(margin, cursorY, pageW - margin * 2, 20, 'F');
-    doc.setFont(fontFamily, 'normal'); doc.setFontSize(8.5); doc.setTextColor(85);
-    doc.text(text, margin + 8, cursorY + 13);
-    cursorY += 26;
+    const items: Array<[string, string]> = [['Generated', generatedAt]];
+    if (periodLabel) items.push(['Period', periodLabel]);
+    if (model.meta.scope_label) items.push(['Dataset / Scope', model.meta.scope_label]);
+    if (model.meta.recipient_name) items.push(['Prepared for', model.meta.recipient_name]);
+    items.push(['Filters', model.meta.filters_label || 'None']);
+
+    const blockW = pageW - margin * 2;
+    const colW = blockW / items.length;
+    const blockH = 34;
+    doc.setDrawColor(228);
+    doc.setFillColor(250, 250, 249);
+    doc.roundedRect(margin, cursorY, blockW, blockH, 3, 3, 'FD');
+
+    items.forEach(([label, value], i) => {
+      const x = margin + 12 + i * colW;
+      doc.setFont(fontFamily, 'normal'); doc.setFontSize(7); doc.setTextColor(150);
+      doc.text(label.toUpperCase(), x, cursorY + 13);
+      doc.setFont(fontFamily, 'bold'); doc.setFontSize(8.5); doc.setTextColor(60);
+      doc.text(doc.splitTextToSize(String(value), colW - 18)[0] ?? '', x, cursorY + 25);
+      if (i > 0) {
+        doc.setDrawColor(232);
+        doc.line(margin + i * colW, cursorY + 7, margin + i * colW, cursorY + blockH - 7);
+      }
+    });
+    cursorY += blockH + 14;
   }
+
+
 
   // --- Wide-column handling: split into chunks that fit ---
   const isEmpty = model.rows.length === 0;
@@ -349,24 +381,42 @@ export async function renderReportPdf(
     autoTable(doc, {
       head, body, foot: foot as any,
       startY: cursorY,
-      margin: { left: margin, right: margin },
+      margin: { left: margin, right: margin, bottom: margin + 24 },
       tableWidth: pageW - margin * 2,
-      styles: { font: fontFamily, fontSize: bodyFontSize, cellPadding: 4, overflow: 'linebreak', valign: 'middle' },
-      headStyles: {
-        fillColor: [brandRgb[0], brandRgb[1], brandRgb[2]],
-        textColor: 255,
-        fontStyle: 'bold',
+      theme: 'plain',
+      styles: {
         font: fontFamily,
+        fontSize: bodyFontSize,
+        cellPadding: { top: 6, right: 8, bottom: 6, left: 8 },
+        overflow: 'linebreak',
+        valign: 'middle',
+        textColor: [45, 45, 45],
+        lineColor: [235, 235, 233],
+        lineWidth: { top: 0, right: 0, bottom: 0.5, left: 0 } as any,
+        minCellHeight: 18,
+      },
+      headStyles: {
+        fillColor: [246, 246, 244],
+        textColor: [70, 70, 70],
+        fontStyle: 'bold',
+        fontSize: Math.max(6.5, bodyFontSize - 0.5),
+        font: fontFamily,
+        lineColor: [205, 205, 200],
+        lineWidth: { top: 0, right: 0, bottom: 0.8, left: 0 } as any,
+        cellPadding: { top: 7, right: 8, bottom: 7, left: 8 },
       },
       footStyles: {
-        fillColor: [245, 245, 240],
-        textColor: [brandRgb[0], brandRgb[1], brandRgb[2]],
+        fillColor: [252, 252, 251],
+        textColor: [17, 17, 17],
         fontStyle: 'bold',
         font: fontFamily,
+        lineColor: [120, 120, 118],
+        lineWidth: { top: 1.2, right: 0, bottom: 0, left: 0 } as any,
+        cellPadding: { top: 7, right: 8, bottom: 7, left: 8 },
       },
-      alternateRowStyles: { fillColor: [248, 248, 246] },
       columnStyles,
     });
+
   });
 
   // --- Footer on every page ---
