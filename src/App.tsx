@@ -57,6 +57,11 @@ import PrivacyPolicyPage from "./pages/website/PrivacyPolicyPage";
 import DemoRequestPage from "./pages/website/DemoRequestPage";
 import Index from "./pages/Index";
 import Copilot from "./modules/copilot/pages/CopilotPage";
+import { AiModuleShell } from "./modules/quickapp-ai/components/AiModuleShell";
+import AiChatPage from "./modules/quickapp-ai/pages/AiChatPage";
+import AiWorkflowsPage from "./modules/quickapp-ai/pages/AiWorkflowsPage";
+import AiInsightsPage from "./modules/quickapp-ai/pages/AiInsightsPage";
+import SahayaPage from "./modules/quickapp-ai/pages/SahayaPage";
 import NotificationDetail from "./pages/NotificationDetail";
 import { MyVisits } from "./pages/MyVisits";
 import { OrderEntry } from "./pages/OrderEntry";
@@ -532,6 +537,14 @@ const AppContent = () => {
         <Route path="/employee-portal" element={<EmployeePortalHome />} />
         <Route path="/copilot" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
         <Route path="/copilot/:threadId" element={<ProtectedRoute><Copilot /></ProtectedRoute>} />
+        <Route path="/quickapp-ai" element={<ProtectedRoute><AiModuleShell /></ProtectedRoute>}>
+          <Route index element={<Navigate to="/quickapp-ai/chat" replace />} />
+          <Route path="chat" element={<AiChatPage />} />
+          <Route path="chat/:threadId" element={<AiChatPage />} />
+          <Route path="workflows" element={<AiWorkflowsPage />} />
+          <Route path="insights" element={<AiInsightsPage />} />
+          <Route path="sahaya" element={<SahayaPage />} />
+        </Route>
         
         
         <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
