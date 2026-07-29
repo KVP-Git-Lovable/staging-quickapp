@@ -58,6 +58,9 @@ export function CopilotUtilityPanel() {
         <p className="mt-2 text-[10px] text-muted-foreground/80">Tickets are for demo only.</p>
       </section>
 
+      <VisitActionPlan />
+
+
       <TicketStubDialog open={!!active} onOpenChange={(o) => !o && setActive(null)} category={active} />
     </aside>
   );
