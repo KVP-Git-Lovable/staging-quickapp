@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { customerPortalSupabase } from '@/integrations/supabase/portal-client';
@@ -8,7 +8,8 @@ import { Trash2, Plus, Minus, Loader2, ShoppingCart, Send, Gift } from 'lucide-r
 import { toast } from 'sonner';
 import { CustomerPortalUser } from '@/hooks/useCustomerPortalAuth';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRetailerPriceBook, usePriceBookEntries } from '@/hooks/useRetailerPriceBook';
+import { useResolvedRetailerPrices } from '@/hooks/useResolvedRetailerPrices';
+import { formatCurrency } from '@/lib/money';
 import { getLocalTodayDate } from '@/utils/dateUtils';
 import { resolveProduct } from '@/utils/resolveProduct';
 
@@ -60,12 +61,12 @@ const CustomerCart = () => {
   const [localQuantities, setLocalQuantities] = useState<Record<string, number>>({});
   const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // Resolve price book (cached, shared with catalog)
-  const { data: priceBookId } = useRetailerPriceBook(retailer.distributor_id);
+  // Database-resolved price book prices (variant + quantity slab + currency aware)
+  const { resolve: resolveDbPrice, currency: pbCurrency } = useResolvedRetailerPrices(retailer.id, supabase);
 
   // Fetch cart items + products + categories in one query chain
-  const { data: items = [], isLoading: loading, refetch } = useQuery({
-    queryKey: ['customer-cart', retailer.id, priceBookId],
+  const { data: rawItems = [], isLoading: loading, refetch } = useQuery({
+    queryKey: ['customer-cart', retailer.id],
     queryFn: async () => {
       const { data: cartData, error } = await customerPortalSupabase
         .from('customer_portal_cart')
@@ -78,18 +79,12 @@ const CustomerCart = () => {
 
       const productIds = [...new Set(cartData.map((c: any) => c.product_id))];
 
-      // Parallel: products + price entries + categories
-      const [productsRes, priceEntries] = await Promise.all([
-        supabase.from('products').select('id, name, rate, category_id, gst_percentage').in('id', productIds),
-        priceBookId
-          ? supabase.from('price_book_entries').select('product_id, final_price')
-              .eq('price_book_id', priceBookId).eq('is_active', true).in('product_id', productIds)
-          : Promise.resolve({ data: [] }),
-      ]);
+      const productsRes = await supabase
+        .from('products')
+        .select('id, name, rate, category_id, gst_percentage')
+        .in('id', productIds);
 
       const productMap = new Map((productsRes.data || []).map((p: any) => [p.id, p]));
-      const priceMap: Record<string, number> = {};
-      for (const e of ((priceEntries as any).data || [])) priceMap[e.product_id] = e.final_price;
 
       // Fetch category names for order items
       const categoryIds = [...new Set((productsRes.data || []).map((p: any) => p.category_id).filter(Boolean))];
@@ -105,8 +100,6 @@ const CustomerCart = () => {
         // stores product_id only (no variant_id) so we pass null variant — pricing
         // and gst still flow through the resolver so behavior matches order entry.
         const r = resolveProduct(product || { id: c.product_id }, null);
-        const priceBookPrice = priceMap[c.product_id];
-        const effectivePrice = priceBookPrice ?? r.rate;
         return {
           id: c.id,
           product_id: c.product_id,
@@ -114,7 +107,7 @@ const CustomerCart = () => {
           unit: c.unit,
           source: c.source,
           product_name: r.display_name || 'Unknown Product',
-          product_price: Number(effectivePrice),
+          product_price: Number(r.rate ?? 0),
           product_category: product?.category_id ? (categoryMap[product.category_id] || 'General') : 'General',
           category_id: r.category_id || undefined,
           gst_percentage: Number(r.gst_percentage ?? 0) || 0,
@@ -125,6 +118,21 @@ const CustomerCart = () => {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
+
+  // Apply price-book prices on top of the catalog default so quantity slabs
+  // re-evaluate live as the customer changes quantities.
+  const items = useMemo(
+    () =>
+      rawItems.map((item) => {
+        const qty = localQuantities[item.id] ?? item.quantity;
+        const row = resolveDbPrice(item.product_id, null, qty);
+        return row ? { ...item, product_price: Number(row.price) } : item;
+      }),
+    [rawItems, localQuantities, resolveDbPrice],
+  );
+  const money = useCallback((n: number) => formatCurrency(n, pbCurrency || 'INR'), [pbCurrency]);
+
+
 
   // Realtime: refresh cart when items are added/updated/removed for this retailer
   useEffect(() => {
@@ -226,7 +234,7 @@ const CustomerCart = () => {
 
   const removeItem = async (itemId: string) => {
     // Optimistic removal from query cache
-    queryClient.setQueryData(['customer-cart', retailer.id, priceBookId], (old: CartItem[] | undefined) =>
+    queryClient.setQueryData(['customer-cart', retailer.id], (old: CartItem[] | undefined) =>
       (old || []).filter(i => i.id !== itemId)
     );
     try {
@@ -505,7 +513,7 @@ const CustomerCart = () => {
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-xs text-foreground truncate leading-tight">{item.product_name}</h3>
                       <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
-                        ₹{convPrice.toFixed(2)}/{unitDisplay} × {qty} = ₹{(qty * convPrice).toFixed(2)}
+                        {money(convPrice)}/{unitDisplay} × {qty} = {money(qty * convPrice)}
                       </p>
                       {item.source !== 'manual' && (
                         <span className="text-[9px] text-muted-foreground/70 capitalize">Via {item.source}</span>
@@ -529,7 +537,7 @@ const CustomerCart = () => {
                   </div>
                   {isUnlocked && (
                     <div className="mt-1 inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-px rounded whitespace-nowrap">
-                      <Gift size={9} /> {scheme.name}{scheme.discount_percentage ? ` · ${scheme.discount_percentage}% off` : ''}{scheme.discount_amount ? ` · ₹${scheme.discount_amount} off` : ''}{scheme.scheme_type === 'buy_x_get_y' && scheme.free_quantity ? ` · Get ${scheme.free_quantity} free` : ''}
+                      <Gift size={9} /> {scheme.name}{scheme.discount_percentage ? ` · ${scheme.discount_percentage}% off` : ''}{scheme.discount_amount ? ` · ${money(Number(scheme.discount_amount))} off` : ''}{scheme.scheme_type === 'buy_x_get_y' && scheme.free_quantity ? ` · Get ${scheme.free_quantity} free` : ''}
                     </div>
                   )}
                   {isClose && (
@@ -576,29 +584,29 @@ const CustomerCart = () => {
           <Card className="px-3 py-2.5 mb-3 bg-primary/5 border-primary/20">
             <div className="flex justify-between items-center">
               <span className="text-xs text-muted-foreground">Subtotal</span>
-              <span className="text-xs font-medium text-foreground">₹{subtotal.toFixed(2)}</span>
+              <span className="text-xs font-medium text-foreground">{money(subtotal)}</span>
             </div>
             {discountTotal > 0 && (
               <div className="flex justify-between items-center mt-0.5">
                 <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Offer Discount</span>
-                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">-₹{discountTotal.toFixed(2)}</span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">-{money(discountTotal)}</span>
               </div>
             )}
             {gstTotal > 0 && (
               <>
                 <div className="flex justify-between items-center mt-0.5">
                   <span className="text-[11px] text-muted-foreground">CGST</span>
-                  <span className="text-[11px] text-muted-foreground">₹{cgstTotal.toFixed(2)}</span>
+                  <span className="text-[11px] text-muted-foreground">{money(cgstTotal)}</span>
                 </div>
                 <div className="flex justify-between items-center mt-0.5">
                   <span className="text-[11px] text-muted-foreground">SGST</span>
-                  <span className="text-[11px] text-muted-foreground">₹{sgstTotal.toFixed(2)}</span>
+                  <span className="text-[11px] text-muted-foreground">{money(sgstTotal)}</span>
                 </div>
               </>
             )}
             <div className="flex justify-between items-center pt-1.5 mt-1.5 border-t border-border/40">
               <span className="font-semibold text-sm text-foreground">Total</span>
-              <span className="text-lg font-bold text-primary">₹{grandTotal.toFixed(2)}</span>
+              <span className="text-lg font-bold text-primary">{money(grandTotal)}</span>
             </div>
           </Card>
 

@@ -17,7 +17,8 @@ import { toast } from 'sonner';
 import { VoiceSearchButton } from '@/components/VoiceSearchButton';
 import { CustomerPortalUser } from '@/hooks/useCustomerPortalAuth';
 import CustomerPhotoOrder from './CustomerPhotoOrder';
-import { useRetailerPriceBook, usePriceBookEntries } from '@/hooks/useRetailerPriceBook';
+import { useResolvedRetailerPrices } from '@/hooks/useResolvedRetailerPrices';
+import { formatCurrency } from '@/lib/money';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -88,23 +89,26 @@ const getDisplayPrice = (price: number, unit: string, fmt: (n: number) => string
 interface ProductPickerProps {
   products: Product[];
   selectedId?: string;
-  priceMap: Record<string, number>;
+  /** DB-resolved price for a product at a given quantity (null => use catalog default). */
+  resolvePriceFor: (productId: string, quantity: number) => { price: number; currency: string } | null;
   getProductScheme: (p: Product) => Scheme | null;
   formatScheme: (s: Scheme) => string;
   onSelect: (productId: string) => void;
 }
 
 const ProductPickerItem = memo(function ProductPickerItem({
-  product, selected, price, scheme, formatScheme, onSelect,
+  product, selected, price, priceCurrency, scheme, formatScheme, onSelect,
 }: {
   product: Product;
   selected: boolean;
   price: number;
+  priceCurrency?: string | null;
   scheme: Scheme | null;
   formatScheme: (s: Scheme) => string;
   onSelect: (id: string) => void;
 }) {
-  const { format: fmtMoney } = useCurrency();
+  const { format: fmtCtx } = useCurrency();
+  const fmtMoney = (n: number) => (priceCurrency ? formatCurrency(n, priceCurrency) : fmtCtx(n));
   return (
     <CommandItem
       value={`${product.name} ${product.sku || ''}`}
@@ -136,7 +140,7 @@ interface ProductPickerPropsExt extends ProductPickerProps {
 }
 
 const ProductPicker = memo(function ProductPicker({
-  products, selectedId, priceMap, getProductScheme, formatScheme, onSelect, loading,
+  products, selectedId, resolvePriceFor, getProductScheme, formatScheme, onSelect, loading,
 }: ProductPickerPropsExt) {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -201,7 +205,8 @@ const ProductPicker = memo(function ProductPicker({
                     <ProductPickerItem
                       product={p}
                       selected={selectedId === p.id}
-                      price={priceMap[p.id] ?? p.rate}
+                      price={resolvePriceFor(p.id, 1)?.price ?? p.rate}
+                      priceCurrency={resolvePriceFor(p.id, 1)?.currency ?? null}
                       scheme={getProductScheme(p)}
                       formatScheme={formatScheme}
                       onSelect={onSelect}
@@ -218,7 +223,7 @@ const ProductPicker = memo(function ProductPicker({
 });
 
 const CustomerCatalog = () => {
-  const { format: fmtMoney } = useCurrency();
+  const { format: fmtCtx } = useCurrency();
   const { retailer, cartCount } = useOutletContext<ContextType>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -261,7 +266,22 @@ const CustomerCatalog = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: priceBookId } = useRetailerPriceBook(retailer.distributor_id, supabase);
+  // Database-resolved price book prices for this retailer (variant + slab + currency aware).
+  const { resolve: resolveDbPrice, currency: pbCurrency } = useResolvedRetailerPrices(retailer.id, supabase);
+  const resolvePriceFor = useCallback(
+    (productId: string, quantity: number) => {
+      const row = resolveDbPrice(productId, null, quantity);
+      return row ? { price: row.price, currency: row.currency } : null;
+    },
+    [resolveDbPrice],
+  );
+  // Totals follow the resolved price-book currency when the customer has one.
+  const fmtMoney = useCallback(
+    (n: number) => (pbCurrency ? formatCurrency(n, pbCurrency) : fmtCtx(n)),
+    [pbCurrency, fmtCtx],
+  );
+
+
 
   // Fetch the globally enabled sales units from the Unit of Measure Master.
   // The customer portal should only display units that are actually enabled.
@@ -343,7 +363,6 @@ const CustomerCatalog = () => {
 
   // Price book entries for all loaded products
   const productIds = useMemo(() => products.map(p => p.id), [products]);
-  const { data: priceMap = {} } = usePriceBookEntries(priceBookId, productIds, supabase);
 
   // Fetch active schemes
   const { data: schemes = [] } = useQuery({
@@ -534,7 +553,7 @@ const CustomerCatalog = () => {
     const applied: { name: string; saving: number }[] = [];
     for (const row of orderRows) {
       if (row.product && row.quantity > 0) {
-        const rawPrice = priceMap[row.product.id] ?? row.product.rate ?? 0;
+        const rawPrice = resolvePriceFor(row.product.id, row.quantity)?.price ?? row.product.rate ?? 0;
         const effectiveUnit = row.unit || row.product.unit || 'pc';
         const unitPrice = getConvertedPrice(rawPrice, effectiveUnit);
         const lineTotal = unitPrice * row.quantity;
@@ -556,7 +575,7 @@ const CustomerCatalog = () => {
       }
     }
     return { subtotal: sub, gstTotal: gst, discountTotal: discount, appliedSchemes: applied };
-  }, [orderRows, priceMap, gstMap, schemes]);
+  }, [orderRows, resolvePriceFor, gstMap, schemes]);
 
   const validRows = orderRows.filter(r => r.product && r.quantity > 0);
 
@@ -627,7 +646,9 @@ const CustomerCatalog = () => {
         <div className="divide-y divide-border/30">
           {orderRows.map((row, index) => {
             const scheme = row.product ? getProductScheme(row.product) : null;
-            const rawPrice = row.product ? (priceMap[row.product.id] ?? row.product.rate ?? 0) : 0;
+            const pbRow = row.product ? resolvePriceFor(row.product.id, row.quantity) : null;
+            const rawPrice = row.product ? (pbRow?.price ?? row.product.rate ?? 0) : 0;
+            const rowFmt = pbRow ? (n: number) => formatCurrency(n, pbRow.currency) : fmtMoney;
             const effectiveUnit = row.unit || row.product?.unit || 'pc';
             const unitPrice = row.product ? getConvertedPrice(rawPrice, effectiveUnit) : 0;
             const gstPct = row.product ? (gstMap[row.product.id] ?? 0) : 0;
@@ -668,7 +689,7 @@ const CustomerCatalog = () => {
                           <ProductPicker
                             products={products}
                             selectedId={row.product?.id}
-                            priceMap={priceMap}
+                            resolvePriceFor={resolvePriceFor}
                             getProductScheme={getProductScheme}
                             formatScheme={formatScheme}
                             onSelect={(productId) => handleProductSelect(row.id, productId)}
@@ -733,7 +754,7 @@ const CustomerCatalog = () => {
                     scheme && "bg-emerald-50/30 dark:bg-emerald-950/10"
                   )}>
                     <span className="text-[10px] text-muted-foreground">
-                      {getDisplayPrice(rawPrice, effectiveUnit, fmtMoney)}
+                      {getDisplayPrice(rawPrice, effectiveUnit, rowFmt)}
                       {gstPct > 0 && <span className="ml-1">+{gstPct}% GST</span>}
                     </span>
                     {scheme && (
