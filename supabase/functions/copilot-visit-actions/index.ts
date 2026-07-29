@@ -206,7 +206,17 @@ Deno.serve(async (req) => {
     ];
 
     const stream = await streamChat({ apiKey, messages, signal: req.signal });
-    const plan = await stream.fullText;
+    // streamChat is pull-based: fullText resolves only while tokens are actively
+    // consumed. This endpoint returns JSON rather than forwarding the stream, so
+    // drain it here to prevent the request from idling until the edge timeout.
+    const drainTokens = (async () => {
+      const reader = stream.tokens.getReader();
+      while (true) {
+        const { done } = await reader.read();
+        if (done) return;
+      }
+    })();
+    const [plan] = await Promise.all([stream.fullText, drainTokens]);
 
     return new Response(
       JSON.stringify({

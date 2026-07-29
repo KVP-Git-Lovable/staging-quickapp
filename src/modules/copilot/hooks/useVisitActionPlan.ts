@@ -9,6 +9,8 @@ export function useVisitActionPlan() {
   const generate = useCallback(async () => {
     setLoading(true);
     setError(null);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 45_000);
     try {
       const { data: sess } = await supabase.auth.getSession();
       const token = sess.session?.access_token;
@@ -20,6 +22,7 @@ export function useVisitActionPlan() {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           body: JSON.stringify({}),
+          signal: controller.signal,
         },
       );
 
@@ -34,8 +37,15 @@ export function useVisitActionPlan() {
       }
       setPlan(String(body?.plan ?? "").trim() || null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not build the action plan.");
+      setError(
+        controller.signal.aborted
+          ? "The action plan took too long to prepare. Please try again."
+          : err instanceof Error
+            ? err.message
+            : "Could not build the action plan.",
+      );
     } finally {
+      window.clearTimeout(timeoutId);
       setLoading(false);
     }
   }, []);
