@@ -1,15 +1,30 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { MessageSquare, Workflow, Lightbulb, LifeBuoy, BrainCircuit } from "lucide-react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { MessageSquare, Workflow, Lightbulb, LifeBuoy, BrainCircuit, DoorOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useProfilePermissions } from "@/hooks/useProfilePermissions";
 
 const sections = [
-  { to: "/quickapp-ai/chat", label: "Chat", icon: MessageSquare, hint: "Ask anything about your business" },
-  { to: "/quickapp-ai/workflows", label: "AI Workflows", icon: Workflow, hint: "Build and deploy AI agents" },
-  { to: "/quickapp-ai/insights", label: "AI Insights", icon: Lightbulb, hint: "Proactive recommendations" },
-  { to: "/quickapp-ai/sahaya", label: "QuickApp Sahaya", icon: LifeBuoy, hint: "Voice help assistant" },
+  { to: "/quickapp-ai/chat", label: "Chat", icon: MessageSquare, hint: "Ask anything about your business", widget: "widget_ai_chat" },
+  { to: "/quickapp-ai/workflows", label: "AI Workflows", icon: Workflow, hint: "Build and deploy AI agents", widget: "widget_ai_workflows" },
+  { to: "/quickapp-ai/insights", label: "AI Insights", icon: Lightbulb, hint: "Proactive recommendations", widget: "widget_ai_insights" },
+  { to: "/quickapp-ai/sahaya", label: "QuickApp Sahaya", icon: LifeBuoy, hint: "Voice help assistant", widget: "widget_ai_sahaya" },
 ];
 
 export function AiModuleShell() {
+  const navigate = useNavigate();
+  const { permissions, hasModuleAccess, hasWidgetPermission } = useProfilePermissions();
+
+  // Same visibility contract as other modules: no security profile → show all;
+  // full module read → show all; otherwise fall back to the widget permission.
+  const hasSecurityProfile = permissions.length > 0;
+  const hasFullModuleAccess = hasModuleAccess("module_quickapp_ai");
+  const visibleSections = sections.filter(
+    (s) => !hasSecurityProfile || hasFullModuleAccess || hasWidgetPermission(s.widget),
+  );
+
+  // Leaves the module without signing out — plain client-side navigation.
+  const exitToDashboard = () => navigate("/dashboard");
+
   return (
     <div className="flex h-[calc(100vh-56px)] min-h-0 bg-background">
       {/* Desktop secondary nav */}
@@ -19,7 +34,7 @@ export function AiModuleShell() {
           <span className="text-sm font-semibold">QuickApp AI</span>
         </div>
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-          {sections.map((s) => (
+          {visibleSections.map((s) => (
             <NavLink
               key={s.to}
               to={s.to}
@@ -40,12 +55,22 @@ export function AiModuleShell() {
             </NavLink>
           ))}
         </nav>
+        <div className="border-t border-border p-2">
+          <button
+            type="button"
+            onClick={exitToDashboard}
+            className="flex w-full items-center gap-2 rounded-lg bg-destructive px-3 py-2.5 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
+          >
+            <DoorOpen className="h-4 w-4 shrink-0" />
+            Exit
+          </button>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile secondary nav */}
-        <div className="md:hidden flex gap-1 overflow-x-auto border-b border-border bg-card/40 px-2 py-2">
-          {sections.map((s) => (
+        <div className="md:hidden flex items-center gap-1 overflow-x-auto border-b border-border bg-card/40 px-2 py-2">
+          {visibleSections.map((s) => (
             <NavLink
               key={s.to}
               to={s.to}
@@ -62,6 +87,14 @@ export function AiModuleShell() {
               {s.label}
             </NavLink>
           ))}
+          <button
+            type="button"
+            onClick={exitToDashboard}
+            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground"
+          >
+            <DoorOpen className="h-3.5 w-3.5" />
+            Exit
+          </button>
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden">
