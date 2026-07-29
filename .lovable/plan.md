@@ -1,39 +1,28 @@
-## Goal
+## What the error is
 
-Produce two standalone audit/technical documents. No code, schema, or edge-function changes — read-only inspection plus new markdown files.
+The preview is blank because the app crashes on first render:
 
-## Deliverables
+```
+TypeError: Cannot read properties of null (reading 'useEffect')
+  at App (/src/App.tsx:430:5)
+Warning: Invalid hook call ... more than one copy of React
+```
 
-1. `docs/audit/COPILOT_CHAT_AUDIT.md`
-2. `docs/audit/COPILOT_TODAYS_ACTION_PLAN_AUDIT.md`
+What I verified:
 
-## Scope of investigation (read-only)
+- `src/App.tsx` around line 430 is plain JSX (`<CurrencyProvider>` inside the provider tree) — no hook is being called illegally there. The only hook in `App` is a normal top-level `useEffect`.
+- `package.json` pins `react` and `react-dom` at `^18.3.1`, and `node_modules` contains exactly one copy of each (both 18.3.1). No nested/duplicate React install.
+- `react-i18next@16.5.4` peer range is `react >= 16.8.0`, so it is compatible.
 
-Confirmed source surfaces already located:
+So the "more than one copy of React" warning is not coming from the dependency tree — it is coming from Vite's pre-bundled dependency cache (`node_modules/.vite/deps`, the `chunk-QCHXOAYK` / `chunk-T2SWDQEL` files in the stack trace). React's internal dispatcher resolves to `null` because the optimized bundle was rebuilt inconsistently, most likely after recent package changes. This is a build-cache problem, not an application-code problem.
 
-- Chat: `src/modules/copilot/pages/CopilotPage.tsx`, `components/chat/*` (ChatWindow, ChatComposer, MessageList, MessageBubble, TypingIndicator, WelcomeHeader), `components/sidebar/*` (ConversationSidebar, CopilotInsights), `components/panel/*` (CopilotUtilityPanel, CopilotTicker, OrdersChart, TicketStubDialog), hooks `useCopilotChat`, `useConversations`, `useCopilotInsights`, `useCopilotTicker`, `useMyOrdersLast7Days`, `services/copilotService.ts`, `utils/sanitize.ts`, `prompts/promptCards.ts`, and edge function `supabase/functions/copilot-agent/*` (index, config, prompts/systemPrompt.ts, services/togetherClient.ts).
-- Action Plan: `components/panel/VisitActionPlan.tsx`, hooks `useVisitActionPlan`, `useTodaysVisitRetailers`, and edge function `supabase/functions/copilot-visit-actions/*`.
+## Fix
 
-Also inspected during the audit: relevant tables/RPCs the two functions read, conversation/message persistence tables and their access rules, and Together.AI model/streaming configuration in each `config.ts`.
+1. Stop treating this as an App.tsx bug — no source changes needed.
+2. Clear the stale Vite optimize cache (`node_modules/.vite`) and restart the dev server so React gets pre-bundled cleanly once.
+3. Reload the preview and confirm the app renders past `App` with no "Invalid hook call" in the console.
+4. If (and only if) the error survives a clean cache, escalate to a dependency reinstall and re-check for a second React copy pulled in transitively — I'll report findings before making any dependency change.
 
-## Structure of each document
+## Notes
 
-Both docs follow the same outline so they can be compared side by side:
-
-1. Purpose and user-facing behaviour
-2. End-to-end workflow (numbered request→render sequence, plus an ASCII flow diagram)
-3. Component inventory — every file with its role and key props/state
-4. Hook and data layer — queries, caching, refetch and invalidation behaviour
-5. Backend/edge function — auth handling, request/response contract, error codes, timeouts
-6. AI architecture — which steps hit Together.AI vs. which are deterministic SQL, model id, streaming behaviour, prompt construction, token/latency controls, grounding data injected
-7. Data sources — tables, columns, RPCs read, and the access rules they depend on
-8. Operational execution — deployment, logging/observability, failure modes and current mitigations (stream drain, abort timeouts, partial-text preservation)
-9. Known limitations and risk observations (audit findings only — no fixes applied)
-10. Appendix: file map with line references
-
-## Technical details
-
-- Documents are written as reference material for a mixed technical/operational audience: plain-language summary at the top of each section, specifics below.
-- Every current-state claim is grounded in a file read or database query performed during the audit; anything unverifiable is flagged as such rather than asserted.
-- The audit explicitly lists which Copilot intents are LLM-generated versus locally computed, since that distinction has changed over time.
-- No edits to any file under `src/`, `supabase/functions/`, or the database.
+No application logic, UI, or dependency versions are changed by this plan.
