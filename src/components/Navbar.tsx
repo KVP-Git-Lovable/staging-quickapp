@@ -1,4 +1,4 @@
-import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff, AlertTriangle, Sparkles } from "lucide-react";
+import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff, AlertTriangle, Sparkles, BrainCircuit } from "lucide-react";
 
 
 import { toast } from 'sonner';
