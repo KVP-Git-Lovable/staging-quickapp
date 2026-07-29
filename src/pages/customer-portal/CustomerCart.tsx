@@ -131,10 +131,7 @@ const CustomerCart = () => {
     [rawItems, localQuantities, resolveDbPrice],
   );
 
-    staleTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-  });
+
 
   // Realtime: refresh cart when items are added/updated/removed for this retailer
   useEffect(() => {
