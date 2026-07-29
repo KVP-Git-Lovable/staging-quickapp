@@ -639,7 +639,9 @@ const CustomerCatalog = () => {
         <div className="divide-y divide-border/30">
           {orderRows.map((row, index) => {
             const scheme = row.product ? getProductScheme(row.product) : null;
-            const rawPrice = row.product ? (priceMap[row.product.id] ?? row.product.rate ?? 0) : 0;
+            const pbRow = row.product ? resolvePriceFor(row.product.id, row.quantity) : null;
+            const rawPrice = row.product ? (pbRow?.price ?? row.product.rate ?? 0) : 0;
+            const rowFmt = pbRow ? (n: number) => formatCurrency(n, pbRow.currency) : fmtMoney;
             const effectiveUnit = row.unit || row.product?.unit || 'pc';
             const unitPrice = row.product ? getConvertedPrice(rawPrice, effectiveUnit) : 0;
             const gstPct = row.product ? (gstMap[row.product.id] ?? 0) : 0;
