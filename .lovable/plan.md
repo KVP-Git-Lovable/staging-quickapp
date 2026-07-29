@@ -1,28 +1,42 @@
 ## Goal
 
-Add a Help ("Madad") call button next to the existing Copilot sparkle icon in the top navbar. Tapping it triggers the Bolna agent `af3cbfa9-7913-48ff-b6c1-d80e24b2bd4b` to place an outbound voice call to the signed-in user's own phone number.
+Add a new section in the Copilot right-hand utility panel, directly below **Ticket Assistant**, that lists all retailers in today's visit plan and generates a friendly, AI-written action plan built from three deterministic signals.
 
-## Icon
+## What the user sees
 
-- Placed immediately to the left of the Copilot sparkles icon in `src/components/Navbar.tsx`.
-- Circular yellow badge with a headset/support-person glyph and a small question-mark accent (lucide `Headset` + `HelpCircle` overlay), sized to match the neighbouring icons.
-- States: idle → tap → spinner while the call is being placed → toast "Madad is calling you now on +91XXXXXXXXXX" or an error toast. Button disabled while a request is in flight.
-- If the user's profile has no phone number, the toast explains that and links to `/profile`.
+1. **Today's Visits** header with the date and count.
+2. A compact list of every retailer in today's visits (name, beat, visit status, check-in/out time span if available).
+3. A button: **"Get my action plan"**. On click, the panel streams back a message like:
 
-## Backend
+   > Hi Rakesh, I have gathered some action points for your today's visit…
 
-New edge function `supabase/functions/madad-help-call/index.ts` (registered in `supabase/config.toml` with `verify_jwt = true`):
+   followed by three grouped sections:
+   - **Churn risk** — retailers in today's visits with no confirmed orders across their last 3 visits.
+   - **Low productivity** — retailers with the lowest order value/order-rate per visit.
+   - **Long dwell time** — retailers where `check_out_time − check_in_time` has been highest historically.
 
-- Reads the caller's JWT, resolves `auth.uid()`, and loads `profiles.phone_number` for that user with the service-role client. The phone is never taken from the request body, so a user can only trigger a call to their own number.
-- Normalises the number with the same `normalisePhone` logic used by `bolna-outbound-call` (10 digits → `+91…`).
-- POSTs to `https://api.bolna.ai/call` with `agent_id` from a new `BOLNA_HELP_AGENT_ID` secret (defaulting to the ID given), `recipient_phone_number`, the same `from_phone_number`, and `user_data` carrying the user's id, name and role so the Madad agent can personalise the conversation.
-- Returns `{ success, call_id }` or a friendly `{ success: false, error }`; existing `bolna-outbound-call` is left untouched.
+   Each section ends with short, diplomatic recommended next steps.
 
-## Frontend
+## Technical approach
 
-- Small hook/handler in the navbar that invokes the function via `supabase.functions.invoke("madad-help-call")` and surfaces the result through the existing toast system.
-- No routing, layout, or other navbar behaviour changed.
+**New edge function `copilot-visit-actions`** (does not touch `copilot-agent`):
+- Auth-scoped like `copilot-agent` (JWT verified in-code, RLS client from the caller's token).
+- Deterministic SQL first:
+  - Today's visits: `visits` filtered by `user_id` + `planned_date = today`, joined in code to `retailers` (name, beat_name, pending_amount).
+  - Churn: for each retailer in today's list, fetch its last 3 completed visits and check whether any linked `orders` row exists with a confirmed status; zero confirmed → churn candidate.
+  - Productivity: orders-per-visit and average order value over the last ~90 days per retailer; lowest ranked first.
+  - Dwell time: average minutes from `check_out_time − check_in_time` over the same window; highest ranked first.
+- The computed facts are passed to Together.AI (same `togetherClient.ts` + `MODEL` from `config.ts`) as an authoritative grounding block with a system instruction to greet the user by first name, stay diplomatic/friendly, use only the supplied figures, and end each group with concrete next steps.
+- Response streams back as SSE text tokens, using the same frame format the existing `copilotService` client parser already understands.
 
-## Secrets
+**Frontend (new files only, plus one insertion):**
+- `src/modules/copilot/hooks/useTodaysVisitRetailers.ts` — fetches today's visits + retailer names for the list rendering.
+- `src/modules/copilot/hooks/useVisitActionPlan.ts` — calls the new edge function and exposes `{ text, loading, error, generate }`.
+- `src/modules/copilot/components/panel/VisitActionPlan.tsx` — the section UI (retailer list, generate button, streamed markdown output rendered with the existing markdown renderer, loading and error states).
+- `CopilotUtilityPanel.tsx` — one added `<VisitActionPlan />` section below the Ticket Assistant block. No other change to that file.
 
-Adds `BOLNA_HELP_AGENT_ID` (value `af3cbfa9-7913-48ff-b6c1-d80e24b2bd4b`). `BOLNA_API_KEY` is already configured and reused.
+**Empty/edge states:** if no visits are planned today, the section shows "No visits planned for today" and the generate button is hidden. If Together.AI fails, an inline retry message appears — no fabricated data.
+
+## Out of scope
+
+No changes to chat, conversations, orders chart, ticker, sidebar, `copilot-agent`, or any existing hook/logic.

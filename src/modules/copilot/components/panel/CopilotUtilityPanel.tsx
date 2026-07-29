@@ -2,6 +2,8 @@ import { useState } from "react";
 import { LifeBuoy, Smartphone, ShoppingCart, Store, Route } from "lucide-react";
 import { OrdersChart } from "./OrdersChart";
 import { TicketStubDialog } from "./TicketStubDialog";
+import { VisitActionPlan } from "./VisitActionPlan";
+
 
 interface Category {
   key: string;
@@ -55,6 +57,9 @@ export function CopilotUtilityPanel() {
         </div>
         <p className="mt-2 text-[10px] text-muted-foreground/80">Tickets are for demo only.</p>
       </section>
+
+      <VisitActionPlan />
+
 
       <TicketStubDialog open={!!active} onOpenChange={(o) => !o && setActive(null)} category={active} />
     </aside>

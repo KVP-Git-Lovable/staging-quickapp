@@ -60,6 +60,10 @@ verify_jwt = false
 [functions.copilot-agent]
 verify_jwt = true
 
+[functions.copilot-visit-actions]
+verify_jwt = true
+
+
 [functions.send-retailer-otp]
 verify_jwt = true
 
