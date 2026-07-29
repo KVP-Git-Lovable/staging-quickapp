@@ -223,7 +223,7 @@ const ProductPicker = memo(function ProductPicker({
 });
 
 const CustomerCatalog = () => {
-  const { format: fmtMoney } = useCurrency();
+  const { format: fmtCtx } = useCurrency();
   const { retailer, cartCount } = useOutletContext<ContextType>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -747,7 +747,7 @@ const CustomerCatalog = () => {
                     scheme && "bg-emerald-50/30 dark:bg-emerald-950/10"
                   )}>
                     <span className="text-[10px] text-muted-foreground">
-                      {getDisplayPrice(rawPrice, effectiveUnit, fmtMoney)}
+                      {getDisplayPrice(rawPrice, effectiveUnit, rowFmt)}
                       {gstPct > 0 && <span className="ml-1">+{gstPct}% GST</span>}
                     </span>
                     {scheme && (
