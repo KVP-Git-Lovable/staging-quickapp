@@ -246,7 +246,18 @@ export function GamificationHome() {
                         style={{ color: cat.tx }}>
                     {p.is_active ? "Active" : "Draft"}
                   </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }}
+                    title="Delete program"
+                    aria-label={`Delete ${p.name}`}
+                    className={`w-[26px] h-[26px] rounded-lg bg-white/80 hover:bg-white flex items-center justify-center transition-colors ${
+                      isList ? "order-4 shrink-0" : "absolute bottom-3.5 right-3.5"
+                    }`}
+                  >
+                    <Trash2 className="h-[13px] w-[13px]" style={{ color: "#c0392b" }} />
+                  </button>
                 </div>
+
               );
             })}
             {!programs.length && (
