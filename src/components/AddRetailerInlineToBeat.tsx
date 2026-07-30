@@ -511,6 +511,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
       manual_credit_score: retailerData.manual_credit_score ? parseFloat(retailerData.manual_credit_score) : null,
       owner_id: selectedOwnerId || user.id,
       owner_name: selectedOwnerName || null,
+      ...(currencyConfig?.multiEnabled ? { currency: currency || null } : {}),
     };
 
     // NEW OFFLINE FEATURE: Save offline or online based on connectivity
