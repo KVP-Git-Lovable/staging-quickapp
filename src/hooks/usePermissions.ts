@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/utils/fetchAllRows';
+
 import { useAuth } from '@/hooks/useAuth';
 
 export interface PermissionFlags {
