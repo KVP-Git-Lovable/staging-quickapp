@@ -59,7 +59,7 @@ export async function awardPointsForOrder(context: OrderContext) {
   // Fetch user's territories
   const { data: userProfile } = await supabase
     .from("profiles")
-    .select("territories_covered, work_location, profile_id")
+    .select("territories_covered, work_location, role_id")
     .eq("id", userId)
     .single();
 
@@ -92,7 +92,7 @@ export async function awardPointsForOrder(context: OrderContext) {
     .in("game_id", gameIds)
     .eq("is_enabled", true);
 
-  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.profile_id, todayDateOnly);
+  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.role_id, todayDateOnly);
   if (!actions || actions.length === 0) return;
 
   for (const action of actions) {
@@ -104,6 +104,23 @@ export async function awardPointsForOrder(context: OrderContext) {
       let metadata: any = { order_value: orderValue, retailer_id: retailerId };
 
       switch (action.action_type) {
+        case "order_placed":
+          // Award on every confirmed order (respecting an optional daily cap)
+          if (action.max_daily_awards) {
+            const { count } = await supabase
+              .from("gamification_points")
+              .select("*", { count: "exact", head: true })
+              .eq("user_id", userId)
+              .eq("action_id", action.id)
+              .eq("game_id", game.id)
+              .gte("earned_at", todayStart.toISOString())
+              .lte("earned_at", todayEnd.toISOString());
+            if (count !== null && count < action.max_daily_awards) shouldAward = true;
+          } else {
+            shouldAward = true;
+          }
+          break;
+
         case "first_order_new_retailer":
           if (isFirstOrder) {
             // Check if max activities limit reached
@@ -421,7 +438,7 @@ export async function awardPointsForVisitCompletion(context: VisitContext) {
   // Fetch user's territories
   const { data: userProfile } = await supabase
     .from("profiles")
-    .select("territories_covered, work_location, profile_id")
+    .select("territories_covered, work_location, role_id")
     .eq("id", userId)
     .single();
 
@@ -455,7 +472,7 @@ export async function awardPointsForVisitCompletion(context: VisitContext) {
     .eq("is_enabled", true)
     .eq("action_type", "productive_visit");
 
-  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.profile_id, todayDateOnly);
+  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.role_id, todayDateOnly);
   if (!actions || actions.length === 0) return;
 
   for (const action of actions) {
@@ -511,7 +528,7 @@ export async function awardPointsForCompetitionData(userId: string, retailerId: 
   // Fetch user's territories
   const { data: userProfile } = await supabase
     .from("profiles")
-    .select("territories_covered, work_location, profile_id")
+    .select("territories_covered, work_location, role_id")
     .eq("id", userId)
     .single();
 
@@ -553,7 +570,7 @@ export async function awardPointsForCompetitionData(userId: string, retailerId: 
     .eq("is_enabled", true)
     .in("action_type", ["competition_data", "competition_insight"]);
 
-  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.profile_id, todayDateOnly);
+  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.role_id, todayDateOnly);
   if (!actions || actions.length === 0) {
     console.log('No competition_data/competition_insight actions found');
     return;
@@ -606,7 +623,7 @@ export async function awardPointsForRetailerFeedback(userId: string, retailerId:
   // Fetch user's territories
   const { data: userProfile } = await supabase
     .from("profiles")
-    .select("territories_covered, work_location, profile_id")
+    .select("territories_covered, work_location, role_id")
     .eq("id", userId)
     .single();
 
@@ -648,7 +665,7 @@ export async function awardPointsForRetailerFeedback(userId: string, retailerId:
     .eq("is_enabled", true)
     .eq("action_type", "retailer_feedback");
 
-  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.profile_id, todayDateOnly);
+  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.role_id, todayDateOnly);
   if (!actions || actions.length === 0) {
     console.log('No retailer_feedback actions found');
     return;
@@ -701,7 +718,7 @@ export async function awardPointsForBrandingRequest(userId: string, retailerId: 
   // Fetch user's territories
   const { data: userProfile } = await supabase
     .from("profiles")
-    .select("territories_covered, work_location, profile_id")
+    .select("territories_covered, work_location, role_id")
     .eq("id", userId)
     .single();
 
@@ -743,7 +760,7 @@ export async function awardPointsForBrandingRequest(userId: string, retailerId: 
     .eq("is_enabled", true)
     .eq("action_type", "branding_request");
 
-  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.profile_id, todayDateOnly);
+  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.role_id, todayDateOnly);
   if (!actions || actions.length === 0) {
     console.log('No branding_request actions found');
     return;
@@ -816,7 +833,7 @@ export async function awardPointsForTotalVisits(userId: string, visitDate: strin
   // Fetch user's territories
   const { data: userProfile } = await supabase
     .from("profiles")
-    .select("territories_covered, work_location, profile_id")
+    .select("territories_covered, work_location, role_id")
     .eq("id", userId)
     .single();
 
@@ -858,7 +875,7 @@ export async function awardPointsForTotalVisits(userId: string, visitDate: strin
     .eq("is_enabled", true)
     .eq("action_type", "total_visits");
 
-  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.profile_id, todayDateOnly);
+  const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.role_id, todayDateOnly);
   if (!actions || actions.length === 0) {
     console.log('[awardPointsForTotalVisits] No total_visits actions configured');
     return;
