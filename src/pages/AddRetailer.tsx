@@ -1456,6 +1456,15 @@ export const AddRetailer = () => {
                 />
               </div>
 
+              <RetailerCurrencyField
+                className="space-y-1"
+                value={currency}
+                onChange={(v) => { setCurrencyTouched(true); setCurrency(v); }}
+                retailerId={isEditMode ? editingRetailer?.id : null}
+              />
+
+
+
               <div className="space-y-2">
                 <Label htmlFor="phone">{t('retailer.phone')} *</Label>
                 <Input
