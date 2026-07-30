@@ -678,6 +678,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           beat_id: formData.beat_id,
           beat_name: selectedBeat?.beat_name || formData.beat_id,
           territory_id: formData.territory_id || null,
+          ...(currencyConfig?.multiEnabled ? { currency: formData.currency ?? null } : {}),
           distributor_id: (formData as any).distributor_id ?? null,
           photo_url: (formData as any).photo_url ?? null,
           manual_credit_score: formData.manual_credit_score,
