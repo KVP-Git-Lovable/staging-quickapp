@@ -98,6 +98,10 @@ export const AddRetailer = () => {
     };
   });
   
+  // Transaction currency (multi-currency onboarding). null = inherit default.
+  const [currency, setCurrency] = useState<string | null>(editingRetailer?.currency ?? null);
+  const [currencyTouched, setCurrencyTouched] = useState(false);
+
   // State to track the scanned board photo URL
   const [scannedBoardPhotoUrl, setScannedBoardPhotoUrl] = useState<string | null>(null);
   
