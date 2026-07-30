@@ -134,81 +134,100 @@ export function GamificationHome() {
   ];
 
   const gridClass =
-    view === "grid3" ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-    : view === "grid2" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
-    : "grid gap-3 grid-cols-1 2xl:grid-cols-2";
-
-  const statsStrip = (
-    <div
-      className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-2 bg-white rounded-[16px] overflow-hidden"
-      style={{ border: `1px solid ${LINE}` }}
-    >
-      {stats.map((s, i) => (
-        <div key={s.label} className="flex items-center gap-3 p-4 xl:p-5"
-             style={{ borderRight: i < stats.length - 1 ? `1px solid ${LINE}` : "none", borderBottom: `1px solid ${LINE}` }}>
-          <div className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-white shrink-0" style={{ background: s.bg }}>
-            <s.icon className="h-[17px] w-[17px]" />
-          </div>
-          <div>
-            <div className="text-[17px] font-extrabold leading-none" style={{ color: INK }}>{s.value}</div>
-            <div className="text-[10.5px] mt-0.5" style={{ color: MUT }}>{s.label}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+    view === "grid3" ? "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1800px]:grid-cols-6"
+    : view === "grid2" ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+    : "grid gap-4 grid-cols-1 2xl:grid-cols-2";
 
   return (
-    <div className="-mx-2 sm:-mx-4 -my-4 sm:-my-6 px-4 py-5 xl:px-8 2xl:px-12 min-h-screen" style={{ background: PAGE, color: INK }}>
-      <div className="mx-auto w-full max-w-[940px] xl:max-w-none">
-        {/* HERO + STATS (side by side on desktop) */}
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)] xl:items-stretch mb-2.5">
-          <div className="rounded-[20px] px-6 py-5 xl:px-10 xl:py-8 relative overflow-hidden"
-               style={{ background: "linear-gradient(120deg,#fff4e6 0%,#ffeede 46%,#fdf0e7 100%)" }}>
-            <Sparkles className="absolute h-3.5 w-3.5 text-amber-500" style={{ left: "52%", top: "26%" }} />
-            <Star className="absolute h-3.5 w-3.5 text-pink-500" style={{ left: "64%", top: "60%" }} />
-            <Coins className="absolute h-3 w-3 text-violet-500" style={{ left: "78%", top: "22%" }} />
-            <div className="font-pixel text-[9px] uppercase tracking-[0.14em] mb-3.5 text-orange-600">Rewards engine</div>
-            <h1 className="font-pixel text-[20px] sm:text-[26px] xl:text-[34px] leading-[1.15] m-0 text-orange-600"
-                style={{ textShadow: "2px 2px 0 rgba(251,146,60,.4)" }}>
-              GAMIFICATION
-            </h1>
-            <p className="text-[12.5px] xl:text-[14px] mt-3 max-w-[360px] xl:max-w-[520px] leading-relaxed" style={{ color: SEC }}>
-              Build programs, define the activities that earn points, and let the engine reward your field team automatically.
-            </p>
-            <Trophy className="absolute right-5 top-1/2 -translate-y-1/2 h-14 w-14 xl:h-20 xl:w-20 text-amber-500 opacity-90" />
+    <div className="-mx-2 sm:-mx-4 -my-4 sm:-my-6 px-4 sm:px-6 xl:px-8 py-6 xl:py-8 min-h-screen" style={{ background: PAGE, color: INK }}>
+      <div className="mx-auto w-full max-w-[1600px]">
+        {/* HERO */}
+        <div
+          className="relative overflow-hidden rounded-[24px] px-6 sm:px-10 py-8 xl:py-10 mb-6 xl:min-h-[300px] flex"
+          style={{ background: "linear-gradient(120deg,#2B1E72 0%,#4526AE 55%,#5A2DD8 100%)" }}
+        >
+          <div
+            className="pointer-events-none absolute -top-24 -left-16 w-[420px] h-[420px] rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 70%)" }}
+          />
+          <div
+            className="pointer-events-none absolute -bottom-32 right-1/3 w-[520px] h-[520px] rounded-full"
+            style={{ background: "radial-gradient(circle, rgba(124,58,237,.55) 0%, rgba(124,58,237,0) 70%)" }}
+          />
+          <Sparkles className="pointer-events-none absolute h-4 w-4 text-white/40 animate-pulse" style={{ left: "44%", top: "18%" }} />
+          <Star className="pointer-events-none absolute h-3.5 w-3.5 text-amber-300/70 animate-pulse" style={{ left: "56%", top: "68%" }} />
+          <Coins className="pointer-events-none absolute h-4 w-4 text-amber-200/60 animate-pulse" style={{ left: "36%", top: "78%" }} />
+
+          <div className="relative flex flex-col lg:flex-row items-center gap-8 w-full">
+            <div className="flex-1 min-w-0 w-full">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70 mb-3">Rewards engine</div>
+              <h1 className="text-[34px] sm:text-[46px] xl:text-[54px] font-extrabold tracking-tight leading-[1.05] m-0 text-white">
+                GAMIFICATION
+              </h1>
+              <p className="text-[13.5px] xl:text-[15px] mt-3.5 max-w-[560px] leading-relaxed text-white/75">
+                Build reward programs, define activities that earn points, and automatically reward your field teams.
+              </p>
+
+              <div className="mt-7 -mx-1 px-1 flex gap-3 overflow-x-auto sm:overflow-visible sm:grid sm:grid-cols-2 xl:grid-cols-4">
+                {stats.map((s) => (
+                  <div
+                    key={s.label}
+                    className="min-w-[168px] sm:min-w-0 flex items-center gap-3 rounded-[16px] px-4 py-3.5 bg-white/10 backdrop-blur-md"
+                    style={{ border: "1px solid rgba(255,255,255,.16)" }}
+                  >
+                    <div className="w-9 h-9 rounded-[11px] flex items-center justify-center text-white shrink-0" style={{ background: s.bg }}>
+                      <s.icon className="h-[17px] w-[17px]" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[19px] font-extrabold leading-none text-white">{s.value}</div>
+                      <div className="text-[10.5px] mt-1 text-white/65 truncate">{s.label}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="w-full lg:w-[36%] flex justify-center lg:justify-end shrink-0">
+              <img
+                src={heroTrophy}
+                alt="Rewards trophy illustration"
+                width={1024}
+                height={1024}
+                className="w-[190px] sm:w-[240px] xl:w-[290px] h-auto drop-shadow-[0_20px_40px_rgba(0,0,0,.25)]"
+              />
+            </div>
           </div>
-          <div className="hidden xl:block">{statsStrip}</div>
         </div>
 
         <GlobalConfigBar />
 
-
         {/* SECTION LABEL */}
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-3.5 px-0.5">
-          <div className="flex items-center gap-2">
-            <div className="w-[26px] h-[26px] rounded-lg bg-[#eaf2ff] text-[#3b82f6] flex items-center justify-center">
-              <Gamepad2 className="h-4 w-4" />
+        <div className="sticky top-0 z-10 -mx-1 px-1 py-3 mb-4 backdrop-blur" style={{ background: `${PAGE}f0` }}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="w-[30px] h-[30px] rounded-[10px] bg-[#f2edff] text-[#5A2DD8] flex items-center justify-center">
+                <Gamepad2 className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-[15px] font-bold tracking-tight leading-tight" style={{ color: INK }}>Reward Programs</div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: MUT }}>Manage and monitor your reward programs</div>
+              </div>
             </div>
-            <div>
-              <div className="font-pixel text-[11px] leading-[1.3]" style={{ color: INK }}>Reward Programs</div>
-              <div className="text-[11px] mt-1" style={{ color: MUT }}>Manage and monitor your reward programs</div>
+            <div className="flex items-center gap-2.5">
+              <div className="inline-flex bg-white rounded-[10px] p-0.5" style={{ border: `1px solid ${LINE}` }}>
+                {([["grid3", LayoutGrid], ["grid2", Columns2], ["list", List]] as const).map(([v, Icon]) => (
+                  <button key={v} onClick={() => setView(v as ViewMode)} title={v}
+                          className={`w-[30px] h-7 rounded-[8px] flex items-center justify-center transition-colors ${view === v ? "bg-[#f2edff] text-[#5A2DD8]" : "text-[#9aa1b5]"}`}>
+                    <Icon className="h-4 w-4" />
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setCreateOpen(true)}
+                      className="text-[12.5px] font-semibold text-white rounded-[12px] px-4 py-2.5 inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
+                      style={{ background: "linear-gradient(135deg,#5A2DD8,#2B1E72)" }}>
+                <Plus className="h-4 w-4" /> New program
+              </button>
             </div>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <div className="inline-flex bg-white rounded-[9px] p-0.5" style={{ border: `1px solid ${LINE}` }}>
-              {([["grid3", LayoutGrid], ["grid2", Columns2], ["list", List]] as const).map(([v, Icon]) => (
-                <button key={v} onClick={() => setView(v as ViewMode)} title={v}
-                        className={`w-[30px] h-7 rounded-[7px] flex items-center justify-center ${view === v ? "bg-[#eaf2ff] text-[#3b82f6]" : "text-[#9aa1b5]"}`}>
-                  <Icon className="h-4 w-4" />
-                </button>
-              ))}
-            </div>
-            <button onClick={() => setCreateOpen(true)}
-                    className="text-[12.5px] font-semibold text-white rounded-[10px] px-4 py-2.5 inline-flex items-center gap-1.5"
-                    style={{ background: "linear-gradient(135deg,#22c55e,#16a34a)" }}>
-              <Plus className="h-4 w-4" /> New program
-            </button>
           </div>
         </div>
 
@@ -226,70 +245,62 @@ export function GamificationHome() {
                 <div
                   key={p.id}
                   onClick={() => navigate(`/gamification-admin/program/${p.id}`)}
-                  className={`rounded-[16px] p-4 relative cursor-pointer transition-transform hover:-translate-y-0.5 ${
-                    isList ? "flex flex-row items-center gap-4 min-h-0 px-4 py-3.5" : "flex flex-col min-h-[128px]"
+                  className={`group rounded-[20px] p-5 relative cursor-pointer bg-white transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_18px_40px_-24px_rgba(28,36,64,.45)] ${
+                    isList ? "flex flex-row items-center gap-4 min-h-0 px-5 py-4" : "flex flex-col min-h-[186px]"
                   }`}
-                  style={{
-                    background: `linear-gradient(150deg, ${cat.fill}, ${cat.f2})`,
-                    color: cat.tx,
-                    border: `1px solid ${LINE}`,
-                  }}
+                  style={{ border: `1px solid ${LINE}` }}
                 >
-                  <div className={`${isList ? "" : "mb-auto"} w-[38px] h-[38px] rounded-[11px] bg-white flex items-center justify-center shrink-0`}
-                       style={{ color: cat.ac, boxShadow: "0 3px 8px -4px rgba(28,36,64,.3)" }}>
-                    <Trophy className="h-[19px] w-[19px]" />
+                  <div className={`${isList ? "" : "mb-3"} w-[42px] h-[42px] rounded-[13px] flex items-center justify-center shrink-0`}
+                       style={{ background: cat.fill, color: cat.ac }}>
+                    <Trophy className="h-[20px] w-[20px]" />
                   </div>
-                  <div className={isList ? "flex-1 min-w-0" : "mt-1"}>
-                    <div className="text-[14.5px] font-bold tracking-tight truncate">{p.name}</div>
-                    <div className="text-[11px] mt-0.5" style={{ color: SEC }}>{cat.label}</div>
+                  <div className={isList ? "flex-1 min-w-0" : ""}>
+                    <div className="text-[15px] font-bold tracking-tight truncate" style={{ color: INK }}>{p.name}</div>
+                    <div className="text-[11.5px] mt-0.5" style={{ color: MUT }}>{cat.label}</div>
                   </div>
-                  <div className={`flex items-center gap-[18px] ${isList ? "" : "mt-auto pt-3 border-t border-white/70"}`}>
+                  <div className={`flex items-center gap-5 ${isList ? "" : "mt-auto pt-3.5"}`}
+                       style={isList ? undefined : { borderTop: `1px solid ${LINE}` }}>
                     <div className="flex flex-col">
-                      <span className="text-[19px] font-extrabold leading-none">{on}</span>
-                      <span className="text-[9px] uppercase tracking-[0.08em] mt-0.5" style={{ color: SEC }}>active</span>
+                      <span className="text-[19px] font-extrabold leading-none" style={{ color: cat.tx }}>{on}</span>
+                      <span className="text-[9px] uppercase tracking-[0.08em] mt-1" style={{ color: MUT }}>active</span>
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-[19px] font-extrabold leading-none">{acts.length}</span>
-                      <span className="text-[9px] uppercase tracking-[0.08em] mt-0.5" style={{ color: SEC }}>total</span>
+                      <span className="text-[19px] font-extrabold leading-none" style={{ color: INK }}>{acts.length}</span>
+                      <span className="text-[9px] uppercase tracking-[0.08em] mt-1" style={{ color: MUT }}>total</span>
                     </div>
-                    {isList && (
-                      <div className="ml-auto w-[26px] h-[26px] rounded-lg bg-white flex items-center justify-center" style={{ color: cat.ac }}>
-                        <ChevronRight className="h-4 w-4" />
-                      </div>
-                    )}
+                    <div className="ml-auto w-[28px] h-[28px] rounded-[9px] flex items-center justify-center transition-colors"
+                         style={{ background: cat.fill, color: cat.ac }}>
+                      <ChevronRight className="h-4 w-4" />
+                    </div>
                   </div>
-                  <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-white ${isList ? "order-3 ml-auto" : "absolute top-3.5 right-3.5"}`}
-                        style={{ color: cat.tx }}>
+                  <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full ${isList ? "order-3" : "absolute top-4 right-4"}`}
+                        style={{ background: p.is_active ? "#e9f7ef" : "#f1f2f7", color: p.is_active ? "#178a5a" : MUT }}>
                     {p.is_active ? "Active" : "Draft"}
                   </span>
                 </div>
               );
             })}
             {!programs.length && (
-              <div className="bg-white rounded-[16px] p-8 text-center text-sm col-span-full" style={{ border: `1px solid ${LINE}`, color: MUT }}>
+              <div className="bg-white rounded-[20px] p-8 text-center text-sm col-span-full" style={{ border: `1px solid ${LINE}`, color: MUT }}>
                 No programs yet — create your first reward program.
               </div>
             )}
           </div>
         )}
 
-        {/* STATS STRIP (mobile / tablet only — desktop shows it next to the hero) */}
-        <div className="xl:hidden mt-[18px] mb-3.5">{statsStrip}</div>
-
-
         {/* HELP */}
-        <div className="bg-white rounded-[14px] px-4 py-3.5 flex items-center gap-3.5" style={{ border: `1px solid ${LINE}` }}>
-          <div className="w-[38px] h-[38px] rounded-[11px] bg-[#fdf3e3] text-amber-500 flex items-center justify-center shrink-0">
+        <div className="bg-white rounded-[20px] px-5 py-4 flex items-center gap-4 mt-6" style={{ border: `1px solid ${LINE}` }}>
+          <div className="w-[38px] h-[38px] rounded-[12px] bg-[#fdf3e3] text-amber-500 flex items-center justify-center shrink-0">
             <HelpCircle className="h-5 w-5" />
           </div>
           <div>
             <div className="text-[13px] font-semibold">Focus products &amp; rewards setup</div>
-            <div className="text-[11px] mt-0.5" style={{ color: SEC }}>
+            <div className="text-[11.5px] mt-0.5" style={{ color: SEC }}>
               Flag the products that earn extra points, then configure programs and activities.
             </div>
           </div>
           <button onClick={() => navigate("/gamification-admin/focus-products")}
-                  className="ml-auto text-[12.5px] rounded-[9px] px-3.5 py-2 inline-flex items-center gap-1.5"
+                  className="ml-auto text-[12.5px] rounded-[10px] px-3.5 py-2 inline-flex items-center gap-1.5 hover:bg-[#f4f5f9] transition-colors"
                   style={{ border: `1px solid ${LINE}`, color: SEC }}>
             Focus products <ExternalLink className="h-3.5 w-3.5" />
           </button>
@@ -300,3 +311,4 @@ export function GamificationHome() {
     </div>
   );
 }
+
