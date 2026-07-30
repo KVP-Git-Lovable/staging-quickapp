@@ -2057,6 +2057,30 @@ function PdfTemplatePanel({ value, onChange, onPreview, previewOpen }: PdfTempla
         <FileType2 size={14} /> PDF template
       </div>
 
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Theme</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {PDF_THEMES.map(th => {
+            const active = (t.theme ?? 'default') === th.id;
+            return (
+              <button
+                key={th.id}
+                type="button"
+                onClick={() => set('theme', th.id)}
+                className={cn(
+                  'flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors bg-background',
+                  active ? 'border-[#534ab7] ring-1 ring-[#534ab7]/40 font-medium' : 'border-border text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span className="h-3.5 w-3.5 rounded-full shrink-0 border border-black/10" style={{ background: th.accent }} />
+                <span className="truncate">{th.label}</span>
+                {active && <Check size={13} className="ml-auto text-[#534ab7]" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Branding</Label>
@@ -2074,6 +2098,7 @@ function PdfTemplatePanel({ value, onChange, onPreview, previewOpen }: PdfTempla
           <Seg options={ORIENTATIONS} value={t.orientation ?? 'auto'} onChange={v => set('orientation', v)} />
         </div>
       </div>
+
 
       <div className="h-px bg-[#afa9ec]/50" />
 
