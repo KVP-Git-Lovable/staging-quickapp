@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon, Eye, RefreshCw } from 'lucide-react';
 import { PdfInlinePreview } from './PdfInlinePreview';
+import { PDF_THEMES, getPdfTheme } from '@/lib/pdfThemes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -997,7 +998,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               <div><span className="font-medium">Format:</span> {format} {pushToPhone ? '· + phone push' : ''}</div>
               {format === 'pdf' && (
                 <div className="text-[12px] text-muted-foreground pl-1">
-                  PDF template · Header: <b>{pdfTemplate.header_style || 'standard'}</b>
+                  PDF template · Theme: <b>{getPdfTheme(pdfTemplate.theme).label}</b>
+                  {' · '}Header: <b>{pdfTemplate.header_style || 'standard'}</b>
                   {' · '}Orientation: <b>{pdfTemplate.orientation || 'auto'}</b>
                   {' · '}Branding: <b>{pdfTemplate.branding || 'company'}</b>
                   {pdfTemplate.footer_note ? <> · Footer: <b>{pdfTemplate.footer_note}</b></> : null}
