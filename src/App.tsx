@@ -64,6 +64,7 @@ import AiWorkflowsPage from "./modules/quickapp-ai/pages/AiWorkflowsPage";
 import AiInsightsPage from "./modules/quickapp-ai/pages/AiInsightsPage";
 import SahayaPage from "./modules/quickapp-ai/pages/SahayaPage";
 import NotificationDetail from "./pages/NotificationDetail";
+import NotificationHistory from "./pages/NotificationHistory";
 import { MyVisits } from "./pages/MyVisits";
 import { OrderEntry } from "./pages/OrderEntry";
 import CounterSales from "./pages/CounterSales";
