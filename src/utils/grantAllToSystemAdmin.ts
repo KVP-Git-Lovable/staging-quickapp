@@ -44,10 +44,15 @@ export async function grantAllToSystemAdmin(): Promise<GrantAllResult> {
   const allObjectNames = Array.from(new Set(getAllModulePermissionItems()));
 
   // 2) Fetch existing rows for this profile
-  const { data: existing, error: existErr } = await supabase
-    .from('profile_object_permissions')
-    .select('object_name, permission_type, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
-    .eq('profile_id', profileId);
+  const { data: existing, error: existErr } = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from('profile_object_permissions')
+      .select('object_name, permission_type, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
+      .eq('profile_id', profileId)
+      .order('object_name', { ascending: true })
+      .range(from, to)
+  );
+
 
   if (existErr) throw existErr;
 
