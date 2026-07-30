@@ -449,6 +449,15 @@ export async function renderReportPdf(
         cellPadding: { top: 7, right: 8, bottom: 7, left: 8 },
       },
       columnStyles,
+      // columnStyles only apply to BODY cells in jspdf-autotable v3, which is
+      // why headers/totals used to drift left while numbers were right-aligned.
+      // Force head + foot to inherit the column's alignment.
+      didParseCell: (data: any) => {
+        if (data.section === 'head' || data.section === 'foot') {
+          const st = columnStyles[data.column.index];
+          if (st?.halign) data.cell.styles.halign = st.halign;
+        }
+      },
     });
 
   });
