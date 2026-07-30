@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getPdfTheme, type PdfTheme } from '@/lib/pdfThemes';
 
 interface Dataset {
   key: string;
@@ -101,6 +102,7 @@ const MEASURE_LOOKS_LIKE_MONEY = /amount|total|value|revenue|sales|price|cost|gs
 export function PdfInlinePreview(props: PdfInlinePreviewProps) {
   const { open, template: t, name, dataset, layout, rows, columns, values, filters, refreshKey } = props;
 
+  const theme = getPdfTheme(t?.theme);
   const brandingMode = t?.branding ?? 'company';
   const branding = useBranding(brandingMode, filters.distributor_id);
 
@@ -253,6 +255,7 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
           <div className="w-full h-full flex flex-col p-6">
             {/* Header */}
             <PdfHeader
+              theme={theme}
               style={headerStyle}
               title={title}
               subtitle={subtitle}
@@ -289,16 +292,16 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
               ) : (
                 <table className="w-full border-collapse table-fixed">
                   <thead>
-                    <tr className="border-b border-neutral-300 bg-neutral-50">
+                    <tr className="border-b border-neutral-300" style={{ backgroundColor: theme.headFill }}>
                       {visibleColumns.map(col => (
                         <th
                           key={col}
                           className={cn(
-                            'py-1.5 px-2 font-semibold text-neutral-700 text-[9px] truncate',
+                            'py-1.5 px-2 font-semibold text-[9px] truncate',
                             numericColumns.has(col) ? 'text-right' : 'text-left'
                           )}
                         >
-                          {dimByKey[col] || col}
+                          <span style={{ color: theme.headText }}>{dimByKey[col] || col}</span>
                         </th>
                       ))}
                     </tr>
@@ -365,8 +368,9 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
 }
 
 function PdfHeader({
-  style, title, subtitle, branding, brandingMode, showPeriod, showContact, periodLabel,
+  theme, style, title, subtitle, branding, brandingMode, showPeriod, showContact, periodLabel,
 }: {
+  theme: PdfTheme;
   style: 'standard' | 'centered' | 'band' | 'compact';
   title: string;
   subtitle: string;
@@ -387,7 +391,7 @@ function PdfHeader({
 
   if (style === 'centered') {
     return (
-      <div className="text-center border-b border-neutral-300 pb-3">
+      <div className="text-center pb-3 border-b-2" style={{ borderColor: theme.accent }}>
         {logo && <div className="flex justify-center mb-1.5">{logo}</div>}
         {companyName && <div className="text-[11px] font-semibold text-neutral-800">{companyName}</div>}
         {contactLine && <div className="text-[8px] text-neutral-500 mt-0.5">{contactLine}</div>}
@@ -401,7 +405,7 @@ function PdfHeader({
   if (style === 'band') {
     return (
       <div>
-        <div className="bg-neutral-900 text-white px-3 py-2 -mx-6 -mt-6 flex items-center gap-3">
+        <div className="text-white px-3 py-2 -mx-6 -mt-6 flex items-center gap-3" style={{ backgroundColor: theme.band }}>
           {logo && <div className="bg-white rounded-sm p-1">{logo}</div>}
           <div className="flex-1">
             <div className="text-[11px] font-semibold uppercase tracking-wide">{companyName}</div>
@@ -421,7 +425,7 @@ function PdfHeader({
 
   if (style === 'compact') {
     return (
-      <div className="flex items-center justify-between border-b border-neutral-300 pb-2 gap-3">
+      <div className="flex items-center justify-between pb-2 gap-3 border-b-2" style={{ borderColor: theme.accent }}>
         <div className="flex items-center gap-2 min-w-0">
           {logo}
           <div className="min-w-0">
@@ -438,7 +442,7 @@ function PdfHeader({
 
   // Standard
   return (
-    <div className="flex items-start justify-between border-b border-neutral-300 pb-3 gap-4">
+    <div className="flex items-start justify-between pb-3 gap-4 border-b-2" style={{ borderColor: theme.accent }}>
       <div className="min-w-0">
         {companyName && <div className="text-[11px] font-semibold text-neutral-800">{companyName}</div>}
         {contactLine && <div className="text-[8px] text-neutral-500">{contactLine}</div>}
