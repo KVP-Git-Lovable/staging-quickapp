@@ -946,6 +946,14 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
               </div>
             </div>
 
+            <RetailerCurrencyField
+              className="space-y-1"
+              value={currency}
+              onChange={(v) => { setCurrencyTouched(true); setCurrency(v); }}
+            />
+
+
+
             <div className={cn("space-y-2", locationError && !retailerData.latitude && "ring-2 ring-destructive rounded-md p-2")}>
               <Label htmlFor="address">Address * {locationError && !retailerData.latitude && <span className="text-destructive text-xs ml-1">(GPS location required)</span>}</Label>
               <div className="flex gap-2">
