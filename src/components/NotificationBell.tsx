@@ -15,6 +15,7 @@ import { ReportNotificationDialog } from '@/components/notifications/ReportNotif
 export function NotificationBell() {
   const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, dismiss } = useNotifications();
   const [openReport, setOpenReport] = useState<Notification | null>(null);
+  const navigate = useNavigate();
 
   const formatTime = (dateString: string) => {
     try {
@@ -144,7 +145,7 @@ export function NotificationBell() {
             className="h-7 text-xs gap-1"
             onClick={() => navigate('/notifications/history')}
           >
-            <History className="h-3.5 w-3.5" />
+            <HistoryIcon className="h-3.5 w-3.5" />
             History
           </Button>
         </div>
