@@ -163,9 +163,11 @@ export function GamificationHome() {
           <div className="relative flex flex-col lg:flex-row items-center gap-8 w-full">
             <div className="flex-1 min-w-0 w-full">
               <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70 mb-3">Rewards engine</div>
-              <h1 className="text-[34px] sm:text-[46px] xl:text-[54px] font-extrabold tracking-tight leading-[1.05] m-0 text-white">
+              <h1 className="font-pixel text-[22px] sm:text-[32px] xl:text-[40px] leading-[1.25] m-0 text-white"
+                  style={{ textShadow: "3px 3px 0 rgba(124,58,237,.75), 0 0 22px rgba(167,139,250,.55)" }}>
                 GAMIFICATION
               </h1>
+
               <p className="text-[13.5px] xl:text-[15px] mt-3.5 max-w-[560px] leading-relaxed text-white/75">
                 Build reward programs, define activities that earn points, and automatically reward your field teams.
               </p>
