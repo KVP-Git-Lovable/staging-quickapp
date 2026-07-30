@@ -27,7 +27,7 @@ export default function GamificationAdmin() {
 
   return (
     <Layout>
-      <div className="w-full px-2 sm:px-4 py-4 sm:py-6">
+      <div className="w-full -mx-0 px-3 sm:px-5 xl:px-7 py-5 min-h-screen" style={{ background: "#eef0f4" }}>
         <div className="flex gap-5 items-start">
           <GamificationSidebar />
           <div className="min-w-0 flex-1">
