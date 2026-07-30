@@ -477,7 +477,10 @@ const PriceBookAdmin = () => {
                 </span>
               )}
             </div>
+
+            <PriceBookWarnings book={book} className="pt-1" />
           </div>
+
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
