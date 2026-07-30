@@ -509,9 +509,14 @@ function AddRetailerSheet({ open, onOpenChange, coords, onCreated }: {
     const { data, error } = await (supabase as any).from('retailers').insert(payload).select('*').single();
     setSaving(false);
     if (error) { toast.error(error.message); return; }
+    if (data?.id) {
+      const { awardRetailerCreated } = await import('@/utils/gamificationEventDispatcher');
+      awardRetailerCreated({ id: data.id, latitude: data.latitude, longitude: data.longitude, source: 'employee_portal' });
+    }
     toast.success('Retailer added');
     setName(''); setPhone(''); setAddress(''); setNotes(''); setPhoto(null); setPreview(null); setTerritoryId('');
     onCreated({ ...data, __isNew: true });
+
   }
 
   return (

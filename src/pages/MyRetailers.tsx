@@ -827,7 +827,10 @@ export const MyRetailers = () => {
       maybeTriggerWhatsAppVerification(data.id, payload.phone);
       const { sendRetailerWelcomeWhatsApp } = await import('@/utils/retailerWelcomeWhatsAppTrigger');
       sendRetailerWelcomeWhatsApp(data.id, payload.phone);
+      const { awardRetailerCreated } = await import('@/utils/gamificationEventDispatcher');
+      awardRetailerCreated({ id: data.id, latitude: (data as any).latitude, longitude: (data as any).longitude, source: 'my_retailers' });
     }
+
     toast({ title: 'Added', description: `${newForm.name} saved successfully. Fill in additional details now.` });
     setAddOpen(false);
     setNewForm({ name: '', phone: '', address: '', entity_type: 'retailer', beat_id: '' });

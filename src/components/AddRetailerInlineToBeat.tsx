@@ -632,7 +632,10 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
       maybeTriggerWhatsAppVerification(data.id, payload.phone);
       const { sendRetailerWelcomeWhatsApp } = await import('@/utils/retailerWelcomeWhatsAppTrigger');
       sendRetailerWelcomeWhatsApp(data.id, payload.phone);
+      const { awardRetailerCreated } = await import('@/utils/gamificationEventDispatcher');
+      awardRetailerCreated({ id: data.id, latitude: payload.latitude, longitude: payload.longitude, source: 'beat_inline' });
     }
+
 
     toast({ title: 'Retailer Added', description: `${retailerData.name} added to ${beatName}` });
     

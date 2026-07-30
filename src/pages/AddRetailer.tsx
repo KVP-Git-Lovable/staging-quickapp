@@ -1116,8 +1116,18 @@ export const AddRetailer = () => {
       // Note: Welcome message no longer auto-sent. User chooses WhatsApp/SMS/Call from post-save dialog.
 
       if (result.success) {
+        if (result.data?.id && !result.offline) {
+          const { awardRetailerCreated } = await import('@/utils/gamificationEventDispatcher');
+          awardRetailerCreated({
+            id: result.data.id,
+            latitude: payload.latitude,
+            longitude: payload.longitude,
+            source: 'add_retailer',
+          });
+        }
         let title = 'Retailer Created';
         let description = `${retailerData.name} created successfully.`;
+
 
         if (result.offline) {
           title = 'Retailer Saved Offline';
