@@ -109,6 +109,12 @@ export const CONDITION_FIELDS: Record<string, { value: string; label: string }[]
   attendance_check_in: [{ value: "check_in_hour", label: "Check-in hour" }],
   attendance_full_day: [{ value: "worked_hours", label: "Hours worked" }],
   attendance_on_time: [{ value: "check_in_hour", label: "Check-in hour" }],
+  attendance_streak: [
+    { value: "streak_days", label: "Consecutive days present" },
+    { value: "no_leave_this_month", label: "No leave taken this month" },
+    { value: "leave_days_this_month", label: "Leave days taken this month" },
+    { value: "is_month_end", label: "Is last working day of the month" },
+  ],
 };
 
 export const OPERATORS = [
