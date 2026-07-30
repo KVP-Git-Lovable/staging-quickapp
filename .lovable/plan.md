@@ -1,54 +1,68 @@
-# QuickApp AI — new navigation module
+## Verified current state (staging aoxdosjkwqyuvccuwhzc)
 
-A new top-level module that becomes the home for every AI capability. It reuses the existing Copilot chat and Madad help agent as-is; no AI backend, edge function, or business logic changes.
+- `gamification_games` (12 cols), `gamification_actions` (16 cols), `gamification_points` (9 cols), `gamification_daily_tracking` (7 cols), `leaderboard_snapshots` (10 cols) all exist with the columns you listed.
+- Counts confirmed: 2 games, 2 actions, 122 point rows, 610 points, 0 daily-tracking rows, 5 snapshot rows.
+- `gamification_settings` and `activity_tiers` do **not** exist — both are new.
+- `user_period_targets` exists and has `kpi_id`, `period_type`, `period_start/end`, `achievement_percent` — the tiered archetype can read it as designed. `target_kpi_definitions` exists.
+- `products` has **no** `is_focused` column — needs adding for the Product archetype.
+- Award path today is app code: `src/utils/gamificationPointsAwarder.ts`, called from `Cart.tsx`, `VisitCard.tsx`, `CompetitionDataForm.tsx`, `RetailerFeedbackModal.tsx`, `BrandingRequestModal.tsx`, `noOrderUtils.ts`, `orderCancellation.ts`. Admin UI is `src/components/GamificationManagement.tsx`.
+- `gamification_workflow_light.html` is not in the project — Phase 1 screens wait on your attachment before final styling.
 
-## Navigation
+## Phase 0 — Schema extend (additive, staging)
 
-- Add a `quickapp-ai` item to the Navbar's `navigationItems` array in `src/components/Navbar.tsx` (label "QuickApp AI", `Sparkles`/`BrainCircuit` icon, gradient colour consistent with siblings), so it appears in the main menu grid and participates in the existing customization/feature-flag filtering.
-- Repoint the top-bar Sparkles shortcut from `/copilot` to `/quickapp-ai` (both entry points, per your answer).
-- Register routes in `src/App.tsx` under `<ProtectedRoute>`:
-  - `/quickapp-ai` → redirects to `/quickapp-ai/chat`
-  - `/quickapp-ai/chat`, `/quickapp-ai/workflows`, `/quickapp-ai/insights`, `/quickapp-ai/sahaya`
-- Existing `/copilot` and `/copilot/:threadId` routes stay working and untouched.
+One migration, no drops:
+- `gamification_actions` += `conditions_json`, `expiry_type`, `expiry_days`, `validity_from`, `validity_to`, `cap_scope`, `cap_value`, `redemption_min`, `award_mode`, `leaderboard`, `eligibility_mode`, `eligibility_ids uuid[]`, `is_tiered`, `kpi_id`, `target_period`, `tier_mode`, `is_system`.
+- `gamification_points` += `expires_at`, `status` (default `active`), `period_key`, `retailer_id`.
+- `gamification_games` += `category`, `icon`, `color`.
+- `gamification_daily_tracking` += `period_key` (+ unique index on user/action/period_key) for month and retailer scopes; retailer scope adds `retailer_id`.
+- New `activity_tiers` (action_id fk, threshold_pct, points, sort).
+- New single-row `gamification_settings` (engine_enabled, currency_name, point_conversion, timezone, leaderboard_enabled, notifications_enabled, default_award_mode, approval_fallback).
+- `products` += `is_focused boolean default false`.
+- GRANTs + RLS on the two new tables (read for authenticated, write for admins via existing `is_admin_or_manager()`).
 
-## Module shell
+## Phase 0b — Data migration
 
-New `src/modules/quickapp-ai/` folder with a layout page holding a left secondary nav (Chat · AI Workflows · AI Insights · QuickApp Sahaya). It uses the app's existing `NavLink` active styling (`bg-primary/10 text-primary font-medium`), collapses to a horizontal scroll strip on mobile, and renders the selected section beside it. Sections are lazy-mounted so the workflows/insights pages never load chat state.
+- All 122 rows: `status='active'`, `expires_at =` **financial year end (31 Mar)** relative to cutover.
+- Mark `first_order_new_retailer` and `productive_visit` `is_system=true`, fill their new policy columns with defaults (expiry `fy_end`, cap scope per their existing `max_daily_awards`, leaderboard on).
+- Reconcile `points_to_rupee_conversion` from the 2 games into `gamification_settings.point_conversion`; flag if they differ.
+- Verify no orphan point rows.
 
-## Page 1 — Chat
+## Phase 1 — Admin frontend
 
-Renders the existing Copilot experience with **zero duplication**: the Chat section mounts the current `CopilotPage` content (conversation sidebar, ticker, `ChatWindow`, utility panel) unchanged. Threads keep their existing `/copilot/:threadId` URLs — selecting a conversation navigates there, exactly as today. Streaming, history, markdown, auth, loading and error states are inherited verbatim.
+New module under `src/components/gamification/`, replacing `GamificationManagement.tsx` as the entry:
+1.1 Overview — hero, global-config card (edit → `gamification_settings`), program grid with 3/2/list views, 8 category colours, computed stat strip.
+1.2 New program form → `gamification_games`.
+1.3 Program detail — colour band, linked-module note, activity cards (badge + name + status only).
+1.4 Activity form base — details / trigger + conditions (scoped by category) / reward (read-only conversion line) / policy.
+1.5 Product archetype — focus-flag panel, `is_focused` toggle in product editor + bulk mark, zero-flag warning.
+1.6 Beat growth — metric, compare-against, min growth %, to `conditions_json`.
+1.7 Capture — read-only trigger panel, daily cap required.
+1.8 Target tiered — live KPI dropdown, tier table → `activity_tiers`, highest-only fixed, empty-Targets warning.
+1.9 Eligibility picker — all / manager (via `get_all_subordinates`) / territory / specific users.
 
-## Page 2 — AI Workflows (scaffold)
+Rules enforced throughout: live reads only, no "audit" wording, conversion global only, toggle labelled "Activity active".
 
-Header "AI Workflows" + the requested subtitle, then three cards:
+## Phase 2 — Award engine (Postgres)
 
-1. **Workflow Builder** — a static connected-block diagram:
-```text
-Start → Fetch Retailers → Analyse Orders → Generate Insights → Review → Deploy
-```
-rendered as vertical (mobile) / horizontal (desktop) nodes with connectors.
-2. **AI Agents** — six agent cards (Sales Coach, Visit Optimiser, Churn Detector, Collections Assistant, Stock Advisor, Beat Planner), each with icon, one-line description and a "Coming Soon"/"Prototype" status badge.
-3. **Deployment Pipeline** — `Workflow → Validation → Simulation → Production → Monitoring` diagram plus three dummy metric tiles (Success Rate, Avg Response Time, Executions Today).
+Built as functions + triggers + cron, each with a `dry_run` guard driven by `gamification_settings.engine_enabled`:
+1. `gam_award_event(...)` — matches active activities on trigger + conditions + eligibility + validity, inserts ledger rows with computed `expires_at`.
+2. Eligibility resolver (manager subtree resolved at award time).
+3. Cap enforcement — drop-on-hit using `gamification_daily_tracking` at the activity's scope.
+4. Nightly cron marks `status='expired'`.
+5. Month-close job for tiered activities — highest tier met from `user_period_targets.achievement_percent`, one row per period_key.
+6. Redemption — oldest-first `status='redeemed'`, respecting `redemption_min`.
+7. Notifications on award via existing `notifications` table.
+8. Repoint the leaderboard snapshot job to sum active, non-expired, leaderboard-enabled rows.
+9. Cutover: enable engine + delete the `gamificationPointsAwarder` call sites in the same release; watch for duplicate `reference_id` inserts.
 
-A prominent **Create Workflow** button at the bottom that shows a "Coming Soon" toast.
+Dry-run first: engine writes to a shadow table until totals reconcile against expected balances.
 
-## Page 3 — AI Insights (static, backend-ready)
+## Phase 3 — Rep-facing
 
-Header "AI Insights" + the requested subtitle, then ten insight cards driven by a typed array in `src/modules/quickapp-ai/data/insightSeeds.ts`: Churn Risk, Low Productivity Retailers, Long Visit Duration, Outstanding Collections, Missed Visit Targets, Beat Optimisation, Upsell-Ready Retailers, Declining Order Values, New Product Opportunities, Seasonal Opportunities.
+3.1 Wallet — balance, ₹ value, expiring-soon, award history (vivid theme).
+3.2 Leaderboard — untouched, data repoint only.
+3.3 Reward moment — celebration card off the award notification.
 
-Each card shows priority badge, title, markdown explanation, business impact, confidence %, expandable details, feedback thumbs, and a **Take Action** button (toast for now). The `AiInsight` type and `InsightCard` component are shaped so a future hook can supply the same objects from the backend — including optional `streaming`, `citations[]` and `actionHref` fields the UI already renders when present.
+## Sequence and gates
 
-## Page 4 — QuickApp Sahaya (Help)
-
-Reuses the existing Madad agent: renders the current `MadadHelpButton` (unchanged component, unchanged `madad-help-call` edge function) as the primary "Call Madad" action, wrapped in a help-centre panel explaining that Madad rings the signed-in user's registered number, with the existing help-article content surfaced alongside it.
-
-## Technical notes
-
-- TypeScript throughout, semantic design tokens only (no hardcoded colours), light/dark safe, loading skeletons on the chat mount, toasts for not-yet-available actions.
-- **No backend changes**: `copilot-agent`, `aiIntentRouter.ts`, `togetherClient.ts`, deterministic SQL grounding builders, and all other modules are untouched. The current regex-first → AI-router-fallback classification stays exactly as deployed; the module folder is structured so an AI-first router can be swapped in later without touching page code.
-- No duplicate Together.ai client, no new chat implementation, no new auth path.
-
-## Out of scope
-
-Orders, retailers, visits, dashboard, reports, auth, and existing Copilot backend behaviour are not modified.
+Phase 0 → 0b (I can run and verify these immediately) → Phase 1 (starts once you attach `gamification_workflow_light.html`) → Phase 2 dry-run → sign-off → hard cutover → Phase 3. Production `etabpbfokzhhfuybeieu` only after staging sign-off; I will not touch it in this build.
