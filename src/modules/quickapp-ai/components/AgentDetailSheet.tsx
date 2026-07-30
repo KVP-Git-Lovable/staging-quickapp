@@ -20,6 +20,43 @@ function fmtTime(iso?: string | null) {
   return new Date(iso).toLocaleString();
 }
 
+/**
+ * Read-only explanatory copy. Keep in step with the deterministic scoring
+ * inputs in supabase/functions/ai-workflow-run — this list does not drive it.
+ */
+const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: string }> = {
+  visit_optimiser: {
+    signals: [
+      "Days since last retailer visit",
+      "Pending payment / outstanding dues",
+      "Recent retailer productivity",
+      "Historical order value",
+      "Visit frequency",
+      "Retailer priority score",
+      "Beat sequencing",
+      "Geographic proximity",
+      "Route efficiency",
+      "Existing visit plan for today",
+    ],
+    note: "These factors are analysed using deterministic business rules before AI generates a human-readable recommendation. No business data is modified during Simulation.",
+  },
+  churn_detector: {
+    signals: [
+      "Recent order values",
+      "Previous sales period comparison",
+      "90-day sales trend",
+      "Retailer ordering frequency",
+      "Declining purchase patterns",
+      "Confirmed order history",
+      "Historical productivity",
+      "Visit history",
+      "Existing retailer performance indicators",
+    ],
+    note: "Simulation analyses historical business data using deterministic calculations only. AI summarises the findings after the analysis completes.",
+  },
+};
+
+
 export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }: Props) {
   const [running, setRunning] = useState(false);
   const [liveResult, setLiveResult] = useState<any>(null);
