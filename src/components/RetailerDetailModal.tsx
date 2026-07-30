@@ -1342,6 +1342,14 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       )}
                     </div>
                   </div>
+                  {isEditing ? (
+                    <RetailerCurrencyField
+                      className="space-y-1"
+                      value={(formData as any).currency ?? null}
+                      onChange={(v) => setFormData({ ...formData, currency: v } as any)}
+                      retailerId={formData.id}
+                    />
+                  ) : null}
                   <div>
                     <Label className="text-xs text-muted-foreground">Photo URL</Label>
                     {isEditing ? (
