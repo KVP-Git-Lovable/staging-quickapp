@@ -21,11 +21,16 @@ interface RoutePermissionGuardProps {
  * No special admin bypass - System Administrator has all permissions in DB.
  */
 export const RoutePermissionGuard = ({ children, permissionPrefix, moduleName }: RoutePermissionGuardProps) => {
-  const { permissions, isLoading, hasModuleAccess } = useProfilePermissions();
+  const { permissions, isLoading, isFetching, isPlaceholderData, hasModuleAccess } = useProfilePermissions();
   const { securityProfileName, loading: authLoading } = useAuth();
 
+  const granted = hasModuleAccess(permissionPrefix);
+  // Never deny on a cached/in-flight snapshot — a freshly granted module would
+  // otherwise be blocked until the local permission cache expired.
+  const usingStaleSnapshot = !granted && (isPlaceholderData || isFetching);
+
   // Still loading permissions
-  if (isLoading || authLoading) {
+  if (isLoading || authLoading || usingStaleSnapshot) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -40,7 +45,7 @@ export const RoutePermissionGuard = ({ children, permissionPrefix, moduleName }:
   if (permissions.length === 0) return <PermissionRedirect moduleName={moduleName} />;
 
   // Check if user has can_read on any object matching the prefix
-  if (hasModuleAccess(permissionPrefix)) {
+  if (granted) {
     return <>{children}</>;
   }
 

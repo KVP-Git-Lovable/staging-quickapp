@@ -94,7 +94,7 @@ Object.entries(ADMIN_MODULE_PERMISSION_MAP).forEach(([feature, path]) => {
 export const useProfilePermissions = () => {
   const { user } = useAuth();
 
-  const { data: permissions = [], isLoading, isPlaceholderData } = useQuery({
+  const { data: permissions = [], isLoading, isFetching, isPlaceholderData, refetch } = useQuery({
     queryKey: ['profile-permissions', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -152,10 +152,12 @@ export const useProfilePermissions = () => {
       const cached = getCachedPermissions(user.id);
       return cached ? (cached as ProfilePermission[]) : undefined;
     },
-    staleTime: 30 * 60 * 1000,    // 30 min — background refresh only
+    staleTime: 2 * 60 * 1000,     // 2 min — permission grants must land quickly
     gcTime: 60 * 60 * 1000,       // keep in memory for 1 hour
     refetchOnWindowFocus: false,   // don't re-fetch on tab switch
-    refetchOnMount: false,         // cached data is sufficient on mount
+    // Always revalidate on mount: cached (placeholder) permissions can predate a
+    // newly granted module and would otherwise deny access until the cache expires.
+    refetchOnMount: 'always',
   });
 
   // Dev-mode: validate that all UI permission keys exist in DB
@@ -230,6 +232,8 @@ export const useProfilePermissions = () => {
   return {
     permissions,
     isLoading,
+    isFetching,
+    refetch,
     isPlaceholderData, // useful for debugging: true = showing cached data
     hasAnyAdminPermission,
     hasPermission,
