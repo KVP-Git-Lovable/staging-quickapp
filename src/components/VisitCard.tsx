@@ -1990,7 +1990,8 @@ export const VisitCard = ({
             await awardPointsForVisitCompletion({
               userId,
               retailerId: prevVisit.retailer_id,
-              hasOrder: true
+              hasOrder: true,
+              visitId: prevVisit.id
             });
           }
         }

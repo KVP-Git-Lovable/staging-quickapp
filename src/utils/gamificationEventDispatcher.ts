@@ -100,3 +100,29 @@ export function awardRetailerVerified(retailerId: string, verificationScore?: nu
     context: { verification_score: verificationScore ?? null },
   });
 }
+
+/**
+ * Deterministic UUID derived from arbitrary strings.
+ * Used as `reference_id` for events that have no natural row id (e.g. "20 visits
+ * completed today"), so the engine's built-in idempotency check still prevents
+ * double-awarding without any client-side "already awarded?" logic.
+ */
+export function stableEventId(...parts: (string | number | null | undefined)[]): string {
+  const input = parts.map((p) => String(p ?? "")).join("|");
+  const hash = (seed: number) => {
+    let h = seed >>> 0;
+    for (let i = 0; i < input.length; i++) {
+      h ^= input.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h.toString(16).padStart(8, "0");
+  };
+  const hex = hash(0x811c9dc5) + hash(0x01000193) + hash(0xdeadbeef) + hash(0x9e3779b9);
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    "5" + hex.slice(13, 16),
+    ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16) + hex.slice(17, 20),
+    hex.slice(20, 32),
+  ].join("-");
+}
