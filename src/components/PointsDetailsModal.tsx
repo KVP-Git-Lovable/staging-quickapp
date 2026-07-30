@@ -247,6 +247,8 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
       const exportData = filteredPoints.map(point => ({
         "Date & Time": format(new Date(point.earned_at), "dd MMM yyyy, HH:mm"),
         "Game Name": point.game_name,
+        "Activity": point.action_name || "-",
+
         "Retailer Name": point.retailer_name || "-",
         "Reference": point.reference_id || "-",
         "Points": point.points
