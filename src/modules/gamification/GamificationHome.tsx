@@ -141,7 +141,7 @@ export function GamificationHome() {
     : "grid gap-4 grid-cols-1 2xl:grid-cols-2";
 
   return (
-    <div className="-mx-2 sm:-mx-4 -my-4 sm:-my-6 px-4 sm:px-6 xl:px-8 py-6 xl:py-8 min-h-screen" style={{ background: PAGE, color: INK }}>
+    <div className="min-h-screen" style={{ color: INK }}>
       <div className="mx-auto w-full max-w-[1600px]">
         {/* HERO */}
         <div
