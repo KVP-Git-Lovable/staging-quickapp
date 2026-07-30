@@ -78,6 +78,28 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+// Fit an image inside a box while preserving its aspect ratio (never stretch).
+// Returns the centred draw rectangle inside the box.
+function fitImage(
+  doc: any,
+  dataUrl: string,
+  boxX: number,
+  boxY: number,
+  boxW: number,
+  boxH: number,
+): { x: number; y: number; w: number; h: number } {
+  let ratio = 1;
+  try {
+    const p = doc.getImageProperties(dataUrl);
+    if (p?.width && p?.height) ratio = p.width / p.height;
+  } catch (_) { /* fall back to square */ }
+  let w = boxW;
+  let h = w / ratio;
+  if (h > boxH) { h = boxH; w = h * ratio; }
+  return { x: boxX + (boxW - w) / 2, y: boxY + (boxH - h) / 2, w, h };
+}
+
+
 function fmtCell(value: unknown, col: ReportColumn, brand: Branding, unicodeSafe: boolean): string {
   if (value === null || value === undefined || value === '') return '';
   if (col.numeric) {
