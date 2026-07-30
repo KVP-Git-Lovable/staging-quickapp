@@ -474,6 +474,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                         <TableRow>
                           <TableHead className="text-xs">Date & Time</TableHead>
                           <TableHead className="text-xs">Game Name</TableHead>
+                          <TableHead className="text-xs">Activity</TableHead>
                           <TableHead className="text-xs">Retailer Name</TableHead>
                           <TableHead className="text-xs">Reference</TableHead>
                           <TableHead className="text-right text-xs">Points</TableHead>
@@ -482,7 +483,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                       <TableBody>
                         {filteredPoints.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                            <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                               No points earned in this period
                             </TableCell>
                           </TableRow>
@@ -493,6 +494,8 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                                 {format(new Date(point.earned_at), "dd MMM yyyy, HH:mm")}
                               </TableCell>
                               <TableCell className="text-xs">{point.game_name}</TableCell>
+                              <TableCell className="text-xs">{point.action_name || "-"}</TableCell>
+
                               <TableCell className="text-xs">
                                 {point.retailer_name && point.retailer_id ? (
                                   <a
