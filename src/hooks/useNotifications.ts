@@ -201,7 +201,7 @@ export function useNotificationHistory() {
       .eq('is_read', true)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .limit(300);
+      .limit(2000);
 
     if (error) console.error('Error fetching notification history:', error);
     setHistory((data || []) as Notification[]);

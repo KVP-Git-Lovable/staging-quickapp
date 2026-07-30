@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search, History, RefreshCw } from 'lucide-react';
+import {
+  NotificationDateFilter,
+  isWithinRange,
+  type RangePreset,
+  type CustomRange,
+} from '@/components/notifications/NotificationDateFilter';
+import { NotificationPagination } from '@/components/notifications/NotificationPagination';
+
+const PAGE_SIZE = 100;
 
 interface NotificationRow {
   id: string;
@@ -25,6 +34,9 @@ interface NotificationRow {
 export const NotificationHistoryTab: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'read' | 'unread'>('all');
+  const [preset, setPreset] = useState<RangePreset>('all');
+  const [custom, setCustom] = useState<CustomRange>({ from: '', to: '' });
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['admin-notification-history'],
@@ -33,7 +45,7 @@ export const NotificationHistoryTab: React.FC = () => {
         .from('notifications')
         .select('id, user_id, title, message, type, is_read, read_at, created_at, delivery_status, deleted_at')
         .order('created_at', { ascending: false })
-        .limit(500);
+        .limit(2000);
       if (error) throw error;
 
       const notifications = (rows || []) as unknown as NotificationRow[];
@@ -65,9 +77,18 @@ export const NotificationHistoryTab: React.FC = () => {
         n.title?.toLowerCase().includes(q) ||
         n.message?.toLowerCase().includes(q) ||
         n.recipient?.toLowerCase().includes(q);
-      return matchesStatus && matchesQuery;
+      return matchesStatus && matchesQuery && isWithinRange(n.created_at, preset, custom);
     });
-  }, [data, search, statusFilter]);
+  }, [data, search, statusFilter, preset, custom]);
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const pagedRows = useMemo(
+    () => rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [rows, page]
+  );
+
+  useEffect(() => { setPage(1); }, [search, statusFilter, preset, custom.from, custom.to]);
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
 
   const readCount = (data || []).filter(n => n.is_read).length;
 
@@ -105,6 +126,12 @@ export const NotificationHistoryTab: React.FC = () => {
             <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
           </Button>
         </div>
+        <NotificationDateFilter
+          preset={preset}
+          onPresetChange={setPreset}
+          custom={custom}
+          onCustomChange={setCustom}
+        />
       </CardHeader>
       <CardContent className="overflow-x-auto">
         {isLoading ? (
@@ -125,7 +152,7 @@ export const NotificationHistoryTab: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map(n => (
+              {pagedRows.map(n => (
                 <TableRow key={n.id}>
                   <TableCell className="font-medium max-w-[220px] truncate">{n.title}</TableCell>
                   <TableCell className="max-w-[280px] truncate text-muted-foreground text-xs">{n.message}</TableCell>
@@ -149,6 +176,13 @@ export const NotificationHistoryTab: React.FC = () => {
             </TableBody>
           </Table>
         )}
+        <NotificationPagination
+          page={page}
+          pageCount={pageCount}
+          total={rows.length}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       </CardContent>
     </Card>
   );
