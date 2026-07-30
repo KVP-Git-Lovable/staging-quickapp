@@ -1,47 +1,30 @@
-## Goal
+## 1. Simulation Considerations panel
 
-Turn `/quickapp-ai/workflows` from a static page into a working feature, with the visual design unchanged. Only **Visit Optimiser** and **Churn Detector** become interactive; the other four cards stay exactly as they are, "Coming Soon" and non-clickable.
+File: `src/modules/quickapp-ai/components/AgentDetailSheet.tsx`
 
-Note: the prompt referenced an `auto-plan-visit` Edge Function and an `fn_declining_retailers()` database function — neither exists in this project. Per your answer, the agents reuse the closest existing equivalents (confirmed by inspection):
-- Visit Optimiser → the deterministic stop-scoring inputs already used by `ai-route-suggestion` / `ai-weekly-route-plan` (recency, pending dues, productivity, geo proximity).
-- Churn Detector → the deterministic declining-retailer calculation already implemented in `copilot-visit-actions` (90-day vs prior-90-day order-value drop).
+- Add a static, per-agent lookup keyed by the agent key already stored in `ai_agents` (`visit_optimiser`, `churn_detector`), each holding a heading, a list of deterministic signals, and a footnote. Purely presentational constants — no queries, no props, no effect on `runSimulation`.
+- Render the panel inside the existing drawer, directly **above** the "Run Simulation" button (below the status/stage/duration tiles), so it is always visible whether or not a run has happened.
+- Visit Optimiser signals: days since last retailer visit, pending payment / outstanding dues, recent retailer productivity, historical order value, visit frequency, retailer priority score, beat sequencing, geographic proximity, route efficiency, existing visit plan for today.
+  Footnote: "These factors are analysed using deterministic business rules before AI generates a human-readable recommendation. No business data is modified during Simulation."
+- Churn Detector signals: recent order values, previous sales period comparison, 90-day sales trend, retailer ordering frequency, declining purchase patterns, confirmed order history, historical productivity, visit history, existing retailer performance indicators.
+  Footnote: "Simulation analyses historical business data using deterministic calculations only. AI summarises the findings after the analysis completes."
+- Agents without an entry (the `coming_soon` ones) simply render nothing — no layout change for them.
 
-Neither existing Edge Function is modified; the logic is called/derived through the same read-only queries, not rewritten with new business rules.
+Styling: reuse the existing callout language already used elsewhere in the drawer (rounded border + tinted background + compact padding + small text). Soft cream/amber tint (`amber-50` background, `amber-200` border, `amber-900` text, dark-mode-safe variants), a small `Info` icon from the lucide set already imported in the file, heading "Simulation Considerations", and the signals as a compact two-column bulleted list on wider drawers.
 
-## Database (two new tables only)
+Behaviour: read-only text only — no state, no handlers, no network calls, no change to simulation results or history rendering.
 
-**`ai_agents`** — catalogue behind the six cards: `id`, `key`, `name`, `description`, `status` (`prototype` | `coming_soon` | `live`), `category`, `sort_order`, `created_at`. Seeded with the six existing cards using today's exact names, descriptions and badge text, in the current order, so the page renders identically.
+## 2. QuickApp AI navigation icon
 
-**`workflow_executions`** — append-only execution log: `id`, `agent_id`, `stage` (`workflow` | `validation` | `simulation` | `production` | `monitoring`), `status` (`running` | `success` | `failed`), `started_at`, `completed_at`, `duration_ms`, `error_message`, `triggered_by`, `result` (jsonb summary for the panel).
+File: `src/components/Navbar.tsx`
 
-Both get GRANTs plus RLS: authenticated users read `ai_agents`; users read/insert their own `workflow_executions` (service role full access for the function). No existing table, policy, trigger, index or function is touched.
+- The side menu item `{ id: 'quickapp-ai', icon: BrainCircuit, ... }` currently uses `BrainCircuit`. Change its `icon` to `Sparkles` — the same lucide component already imported in this file and rendered in the topbar shortcut (`<Sparkles size={18} />`).
+- The item's coloured gradient container (`from-blue-500 to-violet-600`) and all sizing/label logic stay exactly as they are; only the icon component changes.
+- No other nav entries touched. `BrainCircuit` stays imported only if still used elsewhere in the file; otherwise the import is trimmed.
 
-## Backend — one new Edge Function `ai-workflow-run`
-
-Additive; nothing existing is edited.
-
-1. Authenticates the caller (same pattern as `copilot-visit-actions`).
-2. Inserts a `workflow_executions` row with `status='running'`, `stage='simulation'`.
-3. Runs the deterministic branch for the requested agent, **read-only**:
-   - *Churn Detector*: 90d vs prior-90d order value per retailer, cancelled orders excluded, ranked by drop — same rules as the existing Copilot implementation.
-   - *Visit Optimiser*: today's planned retailers scored on days-since-last-visit, pending dues, recent productivity and geo clustering, returning an ordered stop list — same signals the existing route-suggestion payload is built from.
-4. Passes only the finished deterministic facts to Together.AI for a short human-readable summary, reusing the existing `togetherClient.ts` + `MODEL` config already in `copilot-visit-actions` (import, no new client, no new model config, no new auth/retry code).
-5. Updates the same row to `success` (with `duration_ms` and result) or `failed` (with `error_message`) — including on timeout or validation error, so history is always complete.
-
-Simulation writes nothing else: no WhatsApp, no plans, visits, orders, retailers, targets or notifications.
-
-## Frontend — `AiWorkflowsPage.tsx` only
-
-Same JSX structure, classes, icons, copy and spacing; only data sources change.
-
-- Cards render from `ai_agents` (fallback to the current static array while loading, so there is no layout shift).
-- Clicking Visit Optimiser or Churn Detector opens a shadcn `Sheet` (the drawer pattern already used elsewhere in the app) showing the latest execution's status, stage, duration and timestamp, plus a single **Run Simulation** action and the returned result list + AI summary. The four Coming Soon cards keep no click handler.
-- Deployment Pipeline: the existing `StepChain` gets a highlighted-stage prop driven by the selected agent's latest execution; Production/Monitoring render disabled.
-- Metrics computed from `workflow_executions` (scoped to the selected agent, or all agents when none is selected): success rate = success / (success + failed); average `duration_ms` excluding running rows; executions today using the app's configured timezone via the existing `useAppTimezone` helpers.
-- **Create Workflow** button keeps its current appearance and its existing "coming soon" toast.
+Optionally (say if you want it): the QuickApp AI module's own sidebar header in `AiModuleShell.tsx` also shows a `BrainCircuit` next to the "QuickApp AI" title — I can switch that to `Sparkles` too for consistency. Default is to leave it unchanged unless you confirm.
 
 ## Technical notes
 
-- New files: one migration, `supabase/functions/ai-workflow-run/index.ts`, a `useAiWorkflows` hook and an agent-detail sheet component under `src/modules/quickapp-ai/`.
-- Edited file: `src/modules/quickapp-ai/pages/AiWorkflowsPage.tsx` (data wiring only).
-- Out of scope and untouched: Copilot Chat, AI Insights, `copilot-agent`, `copilot-visit-actions`, Together.AI config, navigation, and all other modules.
+- No database, edge function, or hook changes. `ai-workflow-run` and `useAiWorkflows` are untouched.
+- Signal lists are UI copy, not derived from the engine, so they carry a short code comment noting they must be kept in step with `supabase/functions/ai-workflow-run` scoring inputs.

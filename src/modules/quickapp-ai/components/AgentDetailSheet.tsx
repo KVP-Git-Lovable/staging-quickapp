@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Loader2, Play, Sparkles } from "lucide-react";
+import { Info, Loader2, Play, Sparkles } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,43 @@ function fmtTime(iso?: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString();
 }
+
+/**
+ * Read-only explanatory copy. Keep in step with the deterministic scoring
+ * inputs in supabase/functions/ai-workflow-run — this list does not drive it.
+ */
+const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: string }> = {
+  visit_optimiser: {
+    signals: [
+      "Days since last retailer visit",
+      "Pending payment / outstanding dues",
+      "Recent retailer productivity",
+      "Historical order value",
+      "Visit frequency",
+      "Retailer priority score",
+      "Beat sequencing",
+      "Geographic proximity",
+      "Route efficiency",
+      "Existing visit plan for today",
+    ],
+    note: "These factors are analysed using deterministic business rules before AI generates a human-readable recommendation. No business data is modified during Simulation.",
+  },
+  churn_detector: {
+    signals: [
+      "Recent order values",
+      "Previous sales period comparison",
+      "90-day sales trend",
+      "Retailer ordering frequency",
+      "Declining purchase patterns",
+      "Confirmed order history",
+      "Historical productivity",
+      "Visit history",
+      "Existing retailer performance indicators",
+    ],
+    note: "Simulation analyses historical business data using deterministic calculations only. AI summarises the findings after the analysis completes.",
+  },
+};
+
 
 export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }: Props) {
   const [running, setRunning] = useState(false);
@@ -78,6 +115,27 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
               {latest.error_message}
             </p>
           )}
+
+          {agent && SIMULATION_CONSIDERATIONS[agent.key] && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
+                <Info className="h-3.5 w-3.5" />
+                Simulation Considerations
+              </div>
+              <ul className="grid gap-x-3 gap-y-1 text-[11px] text-amber-900/90 dark:text-amber-100/80 sm:grid-cols-2">
+                {SIMULATION_CONSIDERATIONS[agent.key].signals.map((s) => (
+                  <li key={s} className="flex items-start gap-1.5">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-500" />
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2.5 border-t border-amber-200/70 pt-2 text-[11px] leading-relaxed text-amber-800/90 dark:border-amber-900/50 dark:text-amber-100/70">
+                {SIMULATION_CONSIDERATIONS[agent.key].note}
+              </p>
+            </div>
+          )}
+
 
           <Button className="w-full gap-2" onClick={handleRun} disabled={running}>
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}

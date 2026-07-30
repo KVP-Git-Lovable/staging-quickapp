@@ -1,4 +1,4 @@
-import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff, AlertTriangle, Sparkles, BrainCircuit } from "lucide-react";
+import { Menu, X, LogOut, ArrowLeft, Wifi, WifiOff, AlertTriangle, Sparkles } from "lucide-react";
 
 
 import { toast } from 'sonner';
@@ -143,7 +143,7 @@ export const Navbar = memo(() => {
     baseItems.push(
       // { id: 'projects', icon: FolderKanban, label: 'Projects', href: "/projects", color: "from-sky-500 to-sky-600" }, // ARCHIVED: Projects module hidden
       ...(canAccessQuickAppAi
-        ? [{ id: 'quickapp-ai', icon: BrainCircuit, label: 'QuickApp AI', href: "/quickapp-ai", color: "from-blue-500 to-violet-600" }]
+        ? [{ id: 'quickapp-ai', icon: Sparkles, label: 'QuickApp AI', href: "/quickapp-ai", color: "from-blue-500 to-violet-600" }]
         : []),
       { id: 'my-competency', icon: Target, label: t('nav.competency'), href: "/competency-dashboard", color: "from-indigo-500 to-indigo-600" },
       { id: 'help-center', icon: HelpCircle, label: t('nav.helpCenter'), href: "/help-center", color: "from-teal-500 to-teal-600" },
