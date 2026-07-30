@@ -287,7 +287,8 @@ export async function renderReportPdf(
     const logoBoxW = 26, logoBoxH = 26;
     let leftX = margin;
     if (brand.logo_data_url && brand.logo_format) {
-      doc.addImage(brand.logo_data_url, brand.logo_format, margin, cursorY, logoBoxW, logoBoxH);
+      const f = fitImage(doc, brand.logo_data_url, margin, cursorY, logoBoxW, logoBoxH);
+      doc.addImage(brand.logo_data_url, brand.logo_format, f.x, f.y, f.w, f.h);
       leftX = margin + logoBoxW + 8;
     }
     doc.setFont(fontFamily, 'bold'); doc.setFontSize(13); doc.setTextColor(20);
