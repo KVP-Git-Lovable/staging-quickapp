@@ -19,6 +19,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { PriceBookFeatureToggle } from '@/components/pricebooks/PriceBookFeatureToggle';
+import { PriceBookWarnings } from '@/components/pricebooks/PriceBookWarnings';
 
 interface PriceBook {
   id: string;
@@ -475,7 +477,10 @@ const PriceBookAdmin = () => {
                 </span>
               )}
             </div>
+
+            <PriceBookWarnings book={book} className="pt-1" />
           </div>
+
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -764,6 +769,10 @@ const PriceBookAdmin = () => {
           </Dialog>
           </div>
         </div>
+
+        <PriceBookFeatureToggle />
+
+
 
         {/* Clone Dialog */}
         <Dialog open={isCloneOpen} onOpenChange={setIsCloneOpen}>

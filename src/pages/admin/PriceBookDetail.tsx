@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { formatCurrency, resolveRate, type RatesMap } from '@/lib/money';
 import PriceBookExcelActions from '@/components/pricebook/PriceBookExcelActions';
+import { PriceBookWarnings } from '@/components/pricebooks/PriceBookWarnings';
 
 interface PriceBook {
   id: string;
@@ -421,6 +422,9 @@ const PriceBookDetail = () => {
               </p>
             </div>
           </div>
+
+          <PriceBookWarnings book={priceBook as any} />
+
           <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-12 lg:justify-end">
             <Button variant="outline" onClick={() => syncAllProducts('default')} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
