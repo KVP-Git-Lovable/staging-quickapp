@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon, Eye, RefreshCw } from 'lucide-react';
 import { PdfInlinePreview } from './PdfInlinePreview';
+import { PDF_THEMES, getPdfTheme } from '@/lib/pdfThemes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -997,7 +998,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               <div><span className="font-medium">Format:</span> {format} {pushToPhone ? '· + phone push' : ''}</div>
               {format === 'pdf' && (
                 <div className="text-[12px] text-muted-foreground pl-1">
-                  PDF template · Header: <b>{pdfTemplate.header_style || 'standard'}</b>
+                  PDF template · Theme: <b>{getPdfTheme(pdfTemplate.theme).label}</b>
+                  {' · '}Header: <b>{pdfTemplate.header_style || 'standard'}</b>
                   {' · '}Orientation: <b>{pdfTemplate.orientation || 'auto'}</b>
                   {' · '}Branding: <b>{pdfTemplate.branding || 'company'}</b>
                   {pdfTemplate.footer_note ? <> · Footer: <b>{pdfTemplate.footer_note}</b></> : null}
@@ -2057,6 +2059,30 @@ function PdfTemplatePanel({ value, onChange, onPreview, previewOpen }: PdfTempla
         <FileType2 size={14} /> PDF template
       </div>
 
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Theme</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {PDF_THEMES.map(th => {
+            const active = (t.theme ?? 'default') === th.id;
+            return (
+              <button
+                key={th.id}
+                type="button"
+                onClick={() => set('theme', th.id)}
+                className={cn(
+                  'flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors bg-background',
+                  active ? 'border-[#534ab7] ring-1 ring-[#534ab7]/40 font-medium' : 'border-border text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <span className="h-3.5 w-3.5 rounded-full shrink-0 border border-black/10" style={{ background: th.accent }} />
+                <span className="truncate">{th.label}</span>
+                {active && <Check size={13} className="ml-auto text-[#534ab7]" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Branding</Label>
@@ -2074,6 +2100,7 @@ function PdfTemplatePanel({ value, onChange, onPreview, previewOpen }: PdfTempla
           <Seg options={ORIENTATIONS} value={t.orientation ?? 'auto'} onChange={v => set('orientation', v)} />
         </div>
       </div>
+
 
       <div className="h-px bg-[#afa9ec]/50" />
 
