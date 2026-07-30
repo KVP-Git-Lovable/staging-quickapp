@@ -35,13 +35,55 @@ export function filterEligibleActions(
   });
 }
 
+// Evaluate an activity's conditions_json (array of {field, operator, value})
+// against the facts of the event. An activity with conditions only awards when
+// EVERY condition passes. Unknown facts fail closed so a "cash only" activity
+// never fires on a credit order.
+export function evaluateConditions(conditionsJson: any, facts: Record<string, any>) {
+  const list = Array.isArray(conditionsJson) ? conditionsJson : [];
+  if (list.length === 0) return true;
+  return list.every((c: any) => {
+    if (!c?.field) return true;
+    const actual = facts[c.field];
+    const op = c.operator || "=";
+    if (op === "is_true") return actual === true;
+    if (op === "is_false") return actual === false;
+    if (actual === undefined || actual === null) return false;
+    const expectedRaw = c.value;
+    const numActual = Number(actual);
+    const numExpected = Number(expectedRaw);
+    const bothNumeric = !Number.isNaN(numActual) && !Number.isNaN(numExpected) && String(expectedRaw).trim() !== "";
+    if (bothNumeric) {
+      switch (op) {
+        case ">=": return numActual >= numExpected;
+        case ">": return numActual > numExpected;
+        case "<=": return numActual <= numExpected;
+        case "<": return numActual < numExpected;
+        case "=": return numActual === numExpected;
+        case "!=": return numActual !== numExpected;
+      }
+    }
+    const strActual = String(actual).trim().toLowerCase();
+    const strExpected = String(expectedRaw ?? "").trim().toLowerCase();
+    switch (op) {
+      case "=": return strActual === strExpected;
+      case "!=": return strActual !== strExpected;
+      case "contains": return strActual.includes(strExpected);
+      default: return false;
+    }
+  });
+}
+
 interface OrderContext {
   userId: string;
   retailerId: string;
   orderValue: number;
   orderItems: { product_id: string; quantity: number }[];
   isFirstOrder?: boolean;
+  /** 'cash' | 'upi' | 'cheque' | 'credit' … used by condition rules */
+  paymentMode?: string;
 }
+
 
 interface VisitContext {
   userId: string;
@@ -95,9 +137,20 @@ export async function awardPointsForOrder(context: OrderContext) {
   const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.role_id, todayDateOnly);
   if (!actions || actions.length === 0) return;
 
+  const orderFacts: Record<string, any> = {
+    order_value: orderValue,
+    line_count: orderItems?.length ?? 0,
+    payment_mode: context.paymentMode ?? null,
+  };
+
   for (const action of actions) {
     const game = applicableGames.find(g => g.id === action.game_id);
     if (!game) continue;
+
+    // Respect the activity's configured trigger conditions (e.g. payment mode = cash)
+    if (!evaluateConditions((action as any).conditions_json, orderFacts)) continue;
+
+
 
       let shouldAward = false;
       let pointsToAward = action.points;

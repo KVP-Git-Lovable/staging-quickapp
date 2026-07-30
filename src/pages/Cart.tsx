@@ -1757,8 +1757,12 @@ export const Cart = () => {
                 product_id: item.product_id,
                 quantity: item.quantity,
               })),
-              isFirstOrder
+              isFirstOrder,
+              // Full credit orders have no payment method — report "credit" so
+              // activities conditioned on payment mode (e.g. cash) don't fire.
+              paymentMode: paymentType === "credit" || !paymentMethod ? "credit" : paymentMethod,
             });
+
 
             // Update retailer sequence
             await updateRetailerSequence(currentUserId, validRetailerId);
