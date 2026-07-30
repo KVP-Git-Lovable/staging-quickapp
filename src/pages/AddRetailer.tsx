@@ -105,6 +105,15 @@ export const AddRetailer = () => {
   // State to track the scanned board photo URL
   const [scannedBoardPhotoUrl, setScannedBoardPhotoUrl] = useState<string | null>(null);
   
+  // Default currency for NEW retailers: distributor's currency, else company base currency.
+  const primaryDistributorId = retailerData.selectedDistributors?.[0] || null;
+  const { data: currencyConfig } = useRetailerCurrencyConfig();
+  const { data: distributorCurrency } = useDistributorCurrency(primaryDistributorId);
+  useEffect(() => {
+    if (isEditMode || currencyTouched || !currencyConfig?.multiEnabled) return;
+    setCurrency(distributorCurrency || currencyConfig.baseCurrency || null);
+  }, [isEditMode, currencyTouched, currencyConfig, distributorCurrency]);
+
   const contactTitles = ["Shop owner", "Support staff", "Family member", "Others"];
 
   const [isSaving, setIsSaving] = useState(false);
