@@ -19,9 +19,15 @@ export function ProgramForm({ open, onOpenChange }: { open: boolean; onOpenChang
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("orders");
   const [isActive, setIsActive] = useState(true);
+  const today = new Date().toISOString().slice(0, 10);
+  const nextYear = new Date(Date.now() + 365 * 864e5).toISOString().slice(0, 10);
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(nextYear);
 
   const create = async () => {
     if (!name.trim()) return toast.error("Give the program a name");
+    if (!startDate || !endDate) return toast.error("Pick a start and end date");
+    if (endDate < startDate) return toast.error("End date must be after the start date");
     setSaving(true);
     const { error } = await supabase.from("gamification_games").insert({
       name: name.trim(),
@@ -30,7 +36,10 @@ export function ProgramForm({ open, onOpenChange }: { open: boolean; onOpenChang
       color: categoryMeta(category).color,
       is_active: isActive,
       is_all_territories: true,
+      start_date: startDate,
+      end_date: endDate,
     });
+
     setSaving(false);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["gam-programs"] });
