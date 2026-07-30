@@ -81,3 +81,6 @@ verify_jwt = false
 
 
 
+
+[functions.ai-workflow-run]
+verify_jwt = true
