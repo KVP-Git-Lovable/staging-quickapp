@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Shield, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { clearAllCachedPermissions } from '@/utils/cachedAuthIntegrity';
+import { fetchAllRows } from '@/utils/fetchAllRows';
+
 import { CRUDFlags, PermissionMap } from './PermissionLayerTable';
 import { HierarchicalPermissionEditor } from './HierarchicalPermissionEditor';
 
