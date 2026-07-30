@@ -2516,7 +2516,9 @@ export const Cart = () => {
                       ? `Edit Order${editInvoiceNumber ? ` #${editInvoiceNumber}` : ''}`
                       : 'Cart'}
                   </CardTitle>
-                  <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
+                  <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">
+                    {retailerName} · Currency: {txnCurrency}
+                  </p>
                 </div>
               </div>
               
