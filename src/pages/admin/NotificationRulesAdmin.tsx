@@ -167,6 +167,7 @@ const NotificationRulesAdmin = () => {
             <TabsList>
               <TabsTrigger value="rules">Notification Center</TabsTrigger>
               <TabsTrigger value="reports">Report Subscriptions</TabsTrigger>
+              <TabsTrigger value="history">Notification History</TabsTrigger>
             </TabsList>
 
             <TabsContent value="rules" className="space-y-6">
