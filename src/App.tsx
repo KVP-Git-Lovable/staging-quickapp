@@ -625,7 +625,7 @@ const AppContent = () => {
         <Route path="/gps-track-management" element={<ProtectedRoute><GPSTrackManagement /></ProtectedRoute>} />
         <Route path="/retail-management" element={<ProtectedRoute><RetailManagement /></ProtectedRoute>} />
         <Route path="/van-sales-management" element={<ProtectedRoute><VanSalesManagement /></ProtectedRoute>} />
-        <Route path="/gamification-admin" element={<ProtectedRoute><GamificationAdmin /></ProtectedRoute>} />
+        <Route path="/gamification-admin/*" element={<ProtectedRoute><GamificationAdmin /></ProtectedRoute>} />
         <Route path="/credit-management" element={<ProtectedRoute><CreditManagement /></ProtectedRoute>} />
         <Route path="/retailer-loyalty-admin" element={<ProtectedRoute><RetailerLoyaltyAdmin /></ProtectedRoute>} />
         <Route path="/retailer-loyalty" element={<ProtectedRoute><RetailerLoyalty /></ProtectedRoute>} />
