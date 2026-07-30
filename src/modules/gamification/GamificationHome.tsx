@@ -134,31 +134,55 @@ export function GamificationHome() {
   ];
 
   const gridClass =
-    view === "grid3" ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-    : view === "grid2" ? "grid gap-3 sm:grid-cols-2"
-    : "grid gap-3 grid-cols-1";
+    view === "grid3" ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+    : view === "grid2" ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+    : "grid gap-3 grid-cols-1 2xl:grid-cols-2";
+
+  const statsStrip = (
+    <div
+      className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-2 bg-white rounded-[16px] overflow-hidden"
+      style={{ border: `1px solid ${LINE}` }}
+    >
+      {stats.map((s, i) => (
+        <div key={s.label} className="flex items-center gap-3 p-4 xl:p-5"
+             style={{ borderRight: i < stats.length - 1 ? `1px solid ${LINE}` : "none", borderBottom: `1px solid ${LINE}` }}>
+          <div className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-white shrink-0" style={{ background: s.bg }}>
+            <s.icon className="h-[17px] w-[17px]" />
+          </div>
+          <div>
+            <div className="text-[17px] font-extrabold leading-none" style={{ color: INK }}>{s.value}</div>
+            <div className="text-[10.5px] mt-0.5" style={{ color: MUT }}>{s.label}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
-    <div className="-mx-2 sm:-mx-4 -my-4 sm:-my-6 px-4 py-5" style={{ background: PAGE, color: INK }}>
-      <div className="max-w-[940px] mx-auto">
-        {/* HERO */}
-        <div className="rounded-[20px] px-6 py-5 relative overflow-hidden mb-2.5"
-             style={{ background: "linear-gradient(120deg,#fff4e6 0%,#ffeede 46%,#fdf0e7 100%)" }}>
-          <Sparkles className="absolute h-3.5 w-3.5 text-amber-500" style={{ left: "52%", top: "26%" }} />
-          <Star className="absolute h-3.5 w-3.5 text-pink-500" style={{ left: "64%", top: "60%" }} />
-          <Coins className="absolute h-3 w-3 text-violet-500" style={{ left: "78%", top: "22%" }} />
-          <div className="font-pixel text-[9px] uppercase tracking-[0.14em] mb-3.5 text-orange-600">Rewards engine</div>
-          <h1 className="font-pixel text-[20px] sm:text-[26px] leading-[1.15] m-0 text-orange-600"
-              style={{ textShadow: "2px 2px 0 rgba(251,146,60,.4)" }}>
-            GAMIFICATION
-          </h1>
-          <p className="text-[12.5px] mt-3 max-w-[360px] leading-relaxed" style={{ color: SEC }}>
-            Build programs, define the activities that earn points, and let the engine reward your field team automatically.
-          </p>
-          <Trophy className="absolute right-5 top-1/2 -translate-y-1/2 h-14 w-14 text-amber-500 opacity-90" />
+    <div className="-mx-2 sm:-mx-4 -my-4 sm:-my-6 px-4 py-5 xl:px-8 2xl:px-12 min-h-screen" style={{ background: PAGE, color: INK }}>
+      <div className="mx-auto w-full max-w-[940px] xl:max-w-none">
+        {/* HERO + STATS (side by side on desktop) */}
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)] xl:items-stretch mb-2.5">
+          <div className="rounded-[20px] px-6 py-5 xl:px-10 xl:py-8 relative overflow-hidden"
+               style={{ background: "linear-gradient(120deg,#fff4e6 0%,#ffeede 46%,#fdf0e7 100%)" }}>
+            <Sparkles className="absolute h-3.5 w-3.5 text-amber-500" style={{ left: "52%", top: "26%" }} />
+            <Star className="absolute h-3.5 w-3.5 text-pink-500" style={{ left: "64%", top: "60%" }} />
+            <Coins className="absolute h-3 w-3 text-violet-500" style={{ left: "78%", top: "22%" }} />
+            <div className="font-pixel text-[9px] uppercase tracking-[0.14em] mb-3.5 text-orange-600">Rewards engine</div>
+            <h1 className="font-pixel text-[20px] sm:text-[26px] xl:text-[34px] leading-[1.15] m-0 text-orange-600"
+                style={{ textShadow: "2px 2px 0 rgba(251,146,60,.4)" }}>
+              GAMIFICATION
+            </h1>
+            <p className="text-[12.5px] xl:text-[14px] mt-3 max-w-[360px] xl:max-w-[520px] leading-relaxed" style={{ color: SEC }}>
+              Build programs, define the activities that earn points, and let the engine reward your field team automatically.
+            </p>
+            <Trophy className="absolute right-5 top-1/2 -translate-y-1/2 h-14 w-14 xl:h-20 xl:w-20 text-amber-500 opacity-90" />
+          </div>
+          <div className="hidden xl:block">{statsStrip}</div>
         </div>
 
         <GlobalConfigBar />
+
 
         {/* SECTION LABEL */}
         <div className="flex items-center justify-between gap-3 flex-wrap mb-3.5 px-0.5">
