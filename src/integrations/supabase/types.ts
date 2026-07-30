@@ -397,6 +397,44 @@ export type Database = {
           },
         ]
       }
+      activity_tiers: {
+        Row: {
+          action_id: string
+          created_at: string
+          id: string
+          points: number
+          sort: number
+          threshold_pct: number
+          updated_at: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          id?: string
+          points?: number
+          sort?: number
+          threshold_pct: number
+          updated_at?: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          id?: string
+          points?: number
+          sort?: number
+          threshold_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_tiers_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       activity_types: {
         Row: {
           code: string
@@ -8706,56 +8744,113 @@ export type Database = {
         Row: {
           action_name: string
           action_type: string
+          award_mode: string
           base_daily_target: number | null
+          cap_scope: string
+          cap_value: number | null
+          conditions_json: Json
           consecutive_orders_required: number | null
           created_at: string
+          description: string | null
+          eligibility_ids: string[]
+          eligibility_mode: string
+          expiry_days: number | null
+          expiry_type: string
           focused_products: string[] | null
           game_id: string
           id: string
           is_enabled: boolean | null
+          is_system: boolean
+          is_tiered: boolean
+          kpi_id: string | null
+          leaderboard: boolean
           max_awardable_activities: number | null
           max_daily_awards: number | null
           metadata: Json | null
           min_growth_percentage: number | null
           points: number
+          redemption_min: number | null
+          target_period: string | null
           target_type: string | null
+          tier_mode: string
+          trigger_type: string | null
           updated_at: string
+          validity_from: string | null
+          validity_to: string | null
         }
         Insert: {
           action_name: string
           action_type: string
+          award_mode?: string
           base_daily_target?: number | null
+          cap_scope?: string
+          cap_value?: number | null
+          conditions_json?: Json
           consecutive_orders_required?: number | null
           created_at?: string
+          description?: string | null
+          eligibility_ids?: string[]
+          eligibility_mode?: string
+          expiry_days?: number | null
+          expiry_type?: string
           focused_products?: string[] | null
           game_id: string
           id?: string
           is_enabled?: boolean | null
+          is_system?: boolean
+          is_tiered?: boolean
+          kpi_id?: string | null
+          leaderboard?: boolean
           max_awardable_activities?: number | null
           max_daily_awards?: number | null
           metadata?: Json | null
           min_growth_percentage?: number | null
           points?: number
+          redemption_min?: number | null
+          target_period?: string | null
           target_type?: string | null
+          tier_mode?: string
+          trigger_type?: string | null
           updated_at?: string
+          validity_from?: string | null
+          validity_to?: string | null
         }
         Update: {
           action_name?: string
           action_type?: string
+          award_mode?: string
           base_daily_target?: number | null
+          cap_scope?: string
+          cap_value?: number | null
+          conditions_json?: Json
           consecutive_orders_required?: number | null
           created_at?: string
+          description?: string | null
+          eligibility_ids?: string[]
+          eligibility_mode?: string
+          expiry_days?: number | null
+          expiry_type?: string
           focused_products?: string[] | null
           game_id?: string
           id?: string
           is_enabled?: boolean | null
+          is_system?: boolean
+          is_tiered?: boolean
+          kpi_id?: string | null
+          leaderboard?: boolean
           max_awardable_activities?: number | null
           max_daily_awards?: number | null
           metadata?: Json | null
           min_growth_percentage?: number | null
           points?: number
+          redemption_min?: number | null
+          target_period?: string | null
           target_type?: string | null
+          tier_mode?: string
+          trigger_type?: string | null
           updated_at?: string
+          validity_from?: string | null
+          validity_to?: string | null
         }
         Relationships: [
           {
@@ -8773,6 +8868,8 @@ export type Database = {
           count: number | null
           created_at: string | null
           id: string
+          period_key: string | null
+          retailer_id: string | null
           tracking_date: string
           updated_at: string | null
           user_id: string
@@ -8782,6 +8879,8 @@ export type Database = {
           count?: number | null
           created_at?: string | null
           id?: string
+          period_key?: string | null
+          retailer_id?: string | null
           tracking_date: string
           updated_at?: string | null
           user_id: string
@@ -8791,6 +8890,8 @@ export type Database = {
           count?: number | null
           created_at?: string | null
           id?: string
+          period_key?: string | null
+          retailer_id?: string | null
           tracking_date?: string
           updated_at?: string | null
           user_id?: string
@@ -8808,10 +8909,13 @@ export type Database = {
       gamification_games: {
         Row: {
           baseline_target: number | null
+          category: string
+          color: string | null
           created_at: string
           created_by: string | null
           description: string | null
           end_date: string
+          icon: string | null
           id: string
           is_active: boolean | null
           is_all_territories: boolean | null
@@ -8823,10 +8927,13 @@ export type Database = {
         }
         Insert: {
           baseline_target?: number | null
+          category?: string
+          color?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           end_date: string
+          icon?: string | null
           id?: string
           is_active?: boolean | null
           is_all_territories?: boolean | null
@@ -8838,10 +8945,13 @@ export type Database = {
         }
         Update: {
           baseline_target?: number | null
+          category?: string
+          color?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
           end_date?: string
+          icon?: string | null
           id?: string
           is_active?: boolean | null
           is_all_territories?: boolean | null
@@ -8857,34 +8967,46 @@ export type Database = {
         Row: {
           action_id: string
           earned_at: string
+          expires_at: string | null
           game_id: string | null
           id: string
           metadata: Json | null
+          period_key: string | null
           points: number
           reference_id: string | null
           reference_type: string | null
+          retailer_id: string | null
+          status: string
           user_id: string | null
         }
         Insert: {
           action_id: string
           earned_at?: string
+          expires_at?: string | null
           game_id?: string | null
           id?: string
           metadata?: Json | null
+          period_key?: string | null
           points: number
           reference_id?: string | null
           reference_type?: string | null
+          retailer_id?: string | null
+          status?: string
           user_id?: string | null
         }
         Update: {
           action_id?: string
           earned_at?: string
+          expires_at?: string | null
           game_id?: string | null
           id?: string
           metadata?: Json | null
+          period_key?: string | null
           points?: number
           reference_id?: string | null
           reference_type?: string | null
+          retailer_id?: string | null
+          status?: string
           user_id?: string | null
         }
         Relationships: [
@@ -8987,6 +9109,51 @@ export type Database = {
           retailer_id?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      gamification_settings: {
+        Row: {
+          approval_fallback: string
+          created_at: string
+          currency_name: string
+          default_award_mode: string
+          engine_enabled: boolean
+          id: string
+          leaderboard_enabled: boolean
+          notifications_enabled: boolean
+          point_conversion: number
+          singleton: boolean
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          approval_fallback?: string
+          created_at?: string
+          currency_name?: string
+          default_award_mode?: string
+          engine_enabled?: boolean
+          id?: string
+          leaderboard_enabled?: boolean
+          notifications_enabled?: boolean
+          point_conversion?: number
+          singleton?: boolean
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          approval_fallback?: string
+          created_at?: string
+          currency_name?: string
+          default_award_mode?: string
+          engine_enabled?: boolean
+          id?: string
+          leaderboard_enabled?: boolean
+          notifications_enabled?: boolean
+          point_conversion?: number
+          singleton?: boolean
+          timezone?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -16563,6 +16730,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_discontinued: boolean | null
+          is_focused: boolean
           is_focused_product: boolean | null
           last_cost_update: string | null
           manufacturer: string | null
@@ -16615,6 +16783,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_discontinued?: boolean | null
+          is_focused?: boolean
           is_focused_product?: boolean | null
           last_cost_update?: string | null
           manufacturer?: string | null
@@ -16667,6 +16836,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_discontinued?: boolean | null
+          is_focused?: boolean
           is_focused_product?: boolean | null
           last_cost_update?: string | null
           manufacturer?: string | null
