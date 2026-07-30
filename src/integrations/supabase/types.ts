@@ -8970,6 +8970,13 @@ export type Database = {
             referencedRelation: "gamification_actions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "gamification_points_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
         ]
       }
       gamification_redemptions: {

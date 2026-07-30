@@ -223,12 +223,24 @@ const _fetchPointsForDateImpl = async (uid: string, date: string): Promise<Point
   const dateEnd = new Date(date);
   dateEnd.setHours(23, 59, 59, 999);
 
-  const { data: pointsRaw } = await supabase
+  let { data: pointsRaw, error: pointsError } = await supabase
     .from('gamification_points')
     .select('points, reference_id, metadata, gamification_games(name), gamification_actions(action_name)')
     .eq('user_id', uid)
     .gte('earned_at', dateStart.toISOString())
     .lte('earned_at', dateEnd.toISOString());
+
+  // Fallback: if the embedded relations fail (e.g. missing FK), still show totals
+  if (pointsError) {
+    console.warn('[points] embed query failed, falling back to plain select:', pointsError.message);
+    const fallback = await supabase
+      .from('gamification_points')
+      .select('points, reference_id, metadata')
+      .eq('user_id', uid)
+      .gte('earned_at', dateStart.toISOString())
+      .lte('earned_at', dateEnd.toISOString());
+    pointsRaw = (fallback.data as any) || [];
+  }
 
   const total = pointsRaw?.reduce((sum, p) => sum + (p.points || 0), 0) || 0;
   const byRetailer = new Map<
