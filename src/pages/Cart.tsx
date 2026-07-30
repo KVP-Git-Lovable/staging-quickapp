@@ -1749,6 +1749,10 @@ export const Cart = () => {
             const isFirstOrder = previousOrdersCount === 0;
 
             // Award gamification points
+            // Update retailer sequence first so consecutive-order conditions
+            // evaluate against the count including this order
+            await updateRetailerSequence(currentUserId, validRetailerId);
+
             await awardPointsForOrder({
               userId: currentUserId,
               retailerId: validRetailerId,
@@ -1763,10 +1767,6 @@ export const Cart = () => {
               // activities conditioned on payment mode (e.g. cash) don't fire.
               paymentMode: paymentType === "credit" || !paymentMethod ? "credit" : paymentMethod,
             });
-
-
-            // Update retailer sequence
-            await updateRetailerSequence(currentUserId, validRetailerId);
 
             // Award retailer loyalty points
             await awardLoyaltyPointsForOrder({
