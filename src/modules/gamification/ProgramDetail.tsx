@@ -67,7 +67,7 @@ export function ProgramDetail() {
 
   return (
     <div className="-mx-2 sm:-mx-4 -my-4 sm:-my-6 px-4 py-5 min-h-screen" style={{ background: PAGE, color: INK }}>
-      <div className="max-w-[940px] mx-auto">
+      <div className="mx-auto w-full max-w-[940px] xl:max-w-none xl:px-6 2xl:px-12">
         <button onClick={() => navigate("/gamification-admin")}
                 className="inline-flex items-center gap-1.5 text-[12.5px] mb-4" style={{ color: SEC }}>
           <ArrowLeft className="h-4 w-4" /> All programs
