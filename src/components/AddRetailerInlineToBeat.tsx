@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { addRetailerToSnapshot, updateBeatPlanInSnapshot } from "@/lib/myVisitsSnapshot";
+import { RetailerCurrencyField } from "@/components/retailer/RetailerCurrencyField";
+import { useRetailerCurrencyConfig, useDistributorCurrency } from "@/hooks/useRetailerCurrency";
 
 interface AddRetailerInlineToBeatProps {
   open: boolean;
