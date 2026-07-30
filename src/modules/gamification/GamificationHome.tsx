@@ -273,22 +273,9 @@ export function GamificationHome() {
           </div>
         )}
 
-        {/* STATS STRIP */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 bg-white rounded-[16px] overflow-hidden mt-[18px] mb-3.5"
-             style={{ border: `1px solid ${LINE}` }}>
-          {stats.map((s, i) => (
-            <div key={s.label} className="flex items-center gap-3 p-4"
-                 style={{ borderRight: i < stats.length - 1 ? `1px solid ${LINE}` : "none" }}>
-              <div className="w-[34px] h-[34px] rounded-[10px] flex items-center justify-center text-white shrink-0" style={{ background: s.bg }}>
-                <s.icon className="h-[17px] w-[17px]" />
-              </div>
-              <div>
-                <div className="text-[17px] font-extrabold leading-none" style={{ color: INK }}>{s.value}</div>
-                <div className="text-[10.5px] mt-0.5" style={{ color: MUT }}>{s.label}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+        {/* STATS STRIP (mobile / tablet only — desktop shows it next to the hero) */}
+        <div className="xl:hidden mt-[18px] mb-3.5">{statsStrip}</div>
+
 
         {/* HELP */}
         <div className="bg-white rounded-[14px] px-4 py-3.5 flex items-center gap-3.5" style={{ border: `1px solid ${LINE}` }}>
