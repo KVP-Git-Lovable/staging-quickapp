@@ -465,3 +465,11 @@ body::after {
     scrollbar-color: hsl(var(--primary) / 0.4) hsl(var(--muted));
   }
 }
+
+@layer utilities {
+  .font-pixel {
+    font-family: 'Press Start 2P', 'Courier New', monospace;
+    letter-spacing: 0.03em;
+    line-height: 1.6;
+  }
+}
