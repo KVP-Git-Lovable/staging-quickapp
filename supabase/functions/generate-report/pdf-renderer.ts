@@ -254,16 +254,11 @@ export async function renderReportPdf(
     let x = margin + 14;
     if (brand.logo_data_url && brand.logo_format) {
       const plateW = 74, plateH = 40;
+      const plateY = cursorY + (bandH - plateH) / 2;
       doc.setFillColor(255, 255, 255);
-      doc.roundedRect(x, cursorY + (bandH - plateH) / 2, plateW, plateH, 3, 3, 'F');
-      doc.addImage(
-        brand.logo_data_url,
-        brand.logo_format,
-        x + 6,
-        cursorY + (bandH - plateH) / 2 + 5,
-        plateW - 12,
-        plateH - 10,
-      );
+      doc.roundedRect(x, plateY, plateW, plateH, 3, 3, 'F');
+      const f = fitImage(doc, brand.logo_data_url, x + 6, plateY + 5, plateW - 12, plateH - 10);
+      doc.addImage(brand.logo_data_url, brand.logo_format, f.x, f.y, f.w, f.h);
       x += plateW + 14;
     }
 
