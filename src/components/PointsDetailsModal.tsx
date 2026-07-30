@@ -172,19 +172,24 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
       setSuggestedTimeFilter(null);
     }
 
-    // Collect all retailer IDs from multiple sources
+    // Resolve the retailer id for a points row from every place it can live
+    const resolveRetailerId = (item: any): string | null => {
+      const metadata = (item.metadata || {}) as Record<string, any>;
+      const ctx = (metadata.context || {}) as Record<string, any>;
+      return (
+        item.retailer_id ||
+        ctx.retailer_id ||
+        metadata.retailer_id ||
+        (item.reference_type === "retailer" ? item.reference_id : null) ||
+        null
+      );
+    };
+
+    // Collect all retailer IDs
     const retailerIds = new Set<string>();
-    
-    (data || []).forEach(item => {
-      // Check metadata for retailer_id (most reliable source)
-      const metadata = item.metadata as Record<string, any> | null;
-      if (metadata?.retailer_id) {
-        retailerIds.add(metadata.retailer_id);
-      }
-      // reference_id might be retailer_id directly
-      if (item.reference_id) {
-        retailerIds.add(item.reference_id);
-      }
+    (data || []).forEach((item: any) => {
+      const rid = resolveRetailerId(item);
+      if (rid) retailerIds.add(rid);
     });
 
     // Fetch retailer names for all collected IDs
@@ -204,10 +209,9 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
     }
 
     const formattedData: PointDetail[] = (data || []).map((item: any) => {
-      // Get retailer ID from metadata first (most reliable), then reference_id
-      const metadata = item.metadata as Record<string, any> | null;
-      const retailerId = metadata?.retailer_id || item.reference_id || null;
+      const retailerId = resolveRetailerId(item);
       const retailerName = retailerId ? retailerMap.get(retailerId) || null : null;
+
 
       return {
         id: item.id,
