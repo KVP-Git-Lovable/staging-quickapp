@@ -33,6 +33,8 @@ import { TargetVsActualCard } from "./performance/TargetVsActualCard";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { CreditHistorySection } from "./CreditHistorySection";
 import { RetailerCustomerPortalSection } from "./retailer/RetailerCustomerPortalSection";
+import { RetailerCurrencyField } from "./retailer/RetailerCurrencyField";
+import { useRetailerCurrencyConfig } from "@/hooks/useRetailerCurrency";
 
 
 interface RetailerInvoice {
@@ -79,6 +81,7 @@ interface Retailer {
   potential?: string | null;
   competitors?: string[] | null;
   gst_number?: string | null;
+  currency?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   photo_url?: string | null;
@@ -144,6 +147,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const navigate = useNavigate();
   const [formData, setFormData] = useState<Retailer | null>(null);
   const [isEditing, setIsEditing] = useState(startInEditMode);
+  const { data: currencyConfig } = useRetailerCurrencyConfig();
   const [loading, setLoading] = useState(false);
   const [beats, setBeats] = useState<{ beat_id: string; beat_name: string }[]>([]);
   const [territories, setTerritories] = useState<{ id: string; name: string; region: string }[]>([]);
@@ -674,6 +678,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           beat_id: formData.beat_id,
           beat_name: selectedBeat?.beat_name || formData.beat_id,
           territory_id: formData.territory_id || null,
+          ...(currencyConfig?.multiEnabled ? { currency: formData.currency ?? null } : {}),
           distributor_id: (formData as any).distributor_id ?? null,
           photo_url: (formData as any).photo_url ?? null,
           manual_credit_score: formData.manual_credit_score,
@@ -829,7 +834,14 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold truncate">{formData.name}</h3>
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="text-lg font-semibold truncate">{formData.name}</h3>
+              {currencyConfig?.multiEnabled && (
+                <Badge variant="outline" className="text-[10px] font-semibold shrink-0">
+                  {formData.currency || currencyConfig.baseCurrency}
+                </Badge>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-2 mt-1.5 text-xs">
               <div>
                 <span className="text-muted-foreground">Beat:</span>{' '}
@@ -1342,6 +1354,14 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
                       )}
                     </div>
                   </div>
+                  {isEditing ? (
+                    <RetailerCurrencyField
+                      className="space-y-1"
+                      value={(formData as any).currency ?? null}
+                      onChange={(v) => setFormData({ ...formData, currency: v } as any)}
+                      retailerId={formData.id}
+                    />
+                  ) : null}
                   <div>
                     <Label className="text-xs text-muted-foreground">Photo URL</Label>
                     {isEditing ? (

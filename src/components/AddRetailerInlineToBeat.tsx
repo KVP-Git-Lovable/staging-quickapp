@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { addRetailerToSnapshot, updateBeatPlanInSnapshot } from "@/lib/myVisitsSnapshot";
+import { RetailerCurrencyField } from "@/components/retailer/RetailerCurrencyField";
+import { useRetailerCurrencyConfig, useDistributorCurrency } from "@/hooks/useRetailerCurrency";
 
 interface AddRetailerInlineToBeatProps {
   open: boolean;
@@ -76,6 +78,18 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
     photo_url: "",
     manual_credit_score: ""
   });
+
+  // Transaction currency: default from distributor, else company base currency.
+  const [currency, setCurrency] = useState<string | null>(null);
+  const [currencyTouched, setCurrencyTouched] = useState(false);
+  const { data: currencyConfig } = useRetailerCurrencyConfig();
+  const { data: distributorCurrency } = useDistributorCurrency(retailerData.selectedDistributors?.[0] || null);
+  useEffect(() => {
+    if (currencyTouched || !currencyConfig?.multiEnabled) return;
+    setCurrency(distributorCurrency || currencyConfig.baseCurrency || null);
+  }, [currencyTouched, currencyConfig, distributorCurrency]);
+
+
 
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
@@ -497,6 +511,7 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
       manual_credit_score: retailerData.manual_credit_score ? parseFloat(retailerData.manual_credit_score) : null,
       owner_id: selectedOwnerId || user.id,
       owner_name: selectedOwnerName || null,
+      ...(currencyConfig?.multiEnabled ? { currency: currency || null } : {}),
     };
 
     // NEW OFFLINE FEATURE: Save offline or online based on connectivity
@@ -931,6 +946,14 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
                 />
               </div>
             </div>
+
+            <RetailerCurrencyField
+              className="space-y-1"
+              value={currency}
+              onChange={(v) => { setCurrencyTouched(true); setCurrency(v); }}
+            />
+
+
 
             <div className={cn("space-y-2", locationError && !retailerData.latitude && "ring-2 ring-destructive rounded-md p-2")}>
               <Label htmlFor="address">Address * {locationError && !retailerData.latitude && <span className="text-destructive text-xs ml-1">(GPS location required)</span>}</Label>

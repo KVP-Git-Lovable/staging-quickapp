@@ -25,6 +25,8 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { useConnectivity } from "@/hooks/useConnectivity";
 import { useCompanyData } from "@/hooks/useCompanyData";
+import { RetailerCurrencyField } from "@/components/retailer/RetailerCurrencyField";
+import { useRetailerCurrencyConfig, useDistributorCurrency } from "@/hooks/useRetailerCurrency";
 
 export const AddRetailer = () => {
   const { t } = useTranslation();
@@ -96,9 +98,22 @@ export const AddRetailer = () => {
     };
   });
   
+  // Transaction currency (multi-currency onboarding). null = inherit default.
+  const [currency, setCurrency] = useState<string | null>(editingRetailer?.currency ?? null);
+  const [currencyTouched, setCurrencyTouched] = useState(false);
+
   // State to track the scanned board photo URL
   const [scannedBoardPhotoUrl, setScannedBoardPhotoUrl] = useState<string | null>(null);
   
+  // Default currency for NEW retailers: distributor's currency, else company base currency.
+  const primaryDistributorId = retailerData.selectedDistributors?.[0] || null;
+  const { data: currencyConfig } = useRetailerCurrencyConfig();
+  const { data: distributorCurrency } = useDistributorCurrency(primaryDistributorId);
+  useEffect(() => {
+    if (isEditMode || currencyTouched || !currencyConfig?.multiEnabled) return;
+    setCurrency(distributorCurrency || currencyConfig.baseCurrency || null);
+  }, [isEditMode, currencyTouched, currencyConfig, distributorCurrency]);
+
   const contactTitles = ["Shop owner", "Support staff", "Family member", "Others"];
 
   const [isSaving, setIsSaving] = useState(false);
@@ -1041,6 +1056,7 @@ export const AddRetailer = () => {
       state: retailerData.state || null,
       owner_id: selectedOwnerId || null,
       owner_name: selectedOwnerName || null,
+      ...(currencyConfig?.multiEnabled ? { currency: currency || null } : {}),
     };
 
     if (isEditMode && editingRetailer?.id) {
@@ -1439,6 +1455,15 @@ export const AddRetailer = () => {
                   className="bg-background"
                 />
               </div>
+
+              <RetailerCurrencyField
+                className="space-y-1"
+                value={currency}
+                onChange={(v) => { setCurrencyTouched(true); setCurrency(v); }}
+                retailerId={isEditMode ? editingRetailer?.id : null}
+              />
+
+
 
               <div className="space-y-2">
                 <Label htmlFor="phone">{t('retailer.phone')} *</Label>
