@@ -116,6 +116,27 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
             </p>
           )}
 
+          {agent && SIMULATION_CONSIDERATIONS[agent.key] && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-900 dark:text-amber-200">
+                <Info className="h-3.5 w-3.5" />
+                Simulation Considerations
+              </div>
+              <ul className="grid gap-x-3 gap-y-1 text-[11px] text-amber-900/90 dark:text-amber-100/80 sm:grid-cols-2">
+                {SIMULATION_CONSIDERATIONS[agent.key].signals.map((s) => (
+                  <li key={s} className="flex items-start gap-1.5">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-amber-500" />
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2.5 border-t border-amber-200/70 pt-2 text-[11px] leading-relaxed text-amber-800/90 dark:border-amber-900/50 dark:text-amber-100/70">
+                {SIMULATION_CONSIDERATIONS[agent.key].note}
+              </p>
+            </div>
+          )}
+
+
           <Button className="w-full gap-2" onClick={handleRun} disabled={running}>
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {running ? "Running simulation…" : "Run Simulation"}
