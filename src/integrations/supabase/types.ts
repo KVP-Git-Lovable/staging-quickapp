@@ -397,6 +397,121 @@ export type Database = {
           },
         ]
       }
+      activity_tiers: {
+        Row: {
+          action_id: string
+          created_at: string
+          id: string
+          points: number
+          sort: number
+          threshold_pct: number
+          updated_at: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          id?: string
+          points?: number
+          sort?: number
+          threshold_pct: number
+          updated_at?: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          id?: string
+          points?: number
+          sort?: number
+          threshold_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_tiers_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      activity_types: {
+        Row: {
+          code: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          default_duration_minutes: number | null
+          description: string | null
+          id: string
+          is_active: boolean
+          is_category: boolean
+          is_sales_activity: boolean
+          location_required: boolean
+          name: string
+          parent_id: string | null
+          photo_required: boolean
+          productivity_weight: number
+          requires_check_in: boolean
+          show_in_picker: boolean
+          sort_order: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_duration_minutes?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_category?: boolean
+          is_sales_activity?: boolean
+          location_required?: boolean
+          name: string
+          parent_id?: string | null
+          photo_required?: boolean
+          productivity_weight?: number
+          requires_check_in?: boolean
+          show_in_picker?: boolean
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_duration_minutes?: number | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_category?: boolean
+          is_sales_activity?: boolean
+          location_required?: boolean
+          name?: string
+          parent_id?: string | null
+          photo_required?: boolean
+          productivity_weight?: number
+          requires_check_in?: boolean
+          show_in_picker?: boolean
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_types_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "activity_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       additional_expenses: {
         Row: {
           amount: number
@@ -8770,7 +8885,15 @@ export type Database = {
           validity_from?: string | null
           validity_to?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gamification_actions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gamification_daily_tracking: {
         Row: {
@@ -8815,6 +8938,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      gamification_games: {
+        Row: {
+          baseline_target: number | null
+          category: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_all_territories: boolean | null
+          name: string
+          points_to_rupee_conversion: number
+          start_date: string
+          territories: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          baseline_target?: number | null
+          category?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_all_territories?: boolean | null
+          name: string
+          points_to_rupee_conversion?: number
+          start_date: string
+          territories?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          baseline_target?: number | null
+          category?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_all_territories?: boolean | null
+          name?: string
+          points_to_rupee_conversion?: number
+          start_date?: string
+          territories?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       gamification_points: {
         Row: {
@@ -8870,6 +9050,13 @@ export type Database = {
             referencedRelation: "gamification_actions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "gamification_points_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
         ]
       }
       gamification_redemptions: {
@@ -8918,7 +9105,15 @@ export type Database = {
           voucher_amount?: number
           voucher_code?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gamification_redemptions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gamification_retailer_sequences: {
         Row: {
@@ -27923,6 +28118,46 @@ export type Database = {
       }
     }
     Views: {
+      activity_daily_summary: {
+        Row: {
+          activity_points: number | null
+          completed_activities: number | null
+          completed_activity_minutes: number | null
+          date: string | null
+          total_activities: number | null
+          total_activity_minutes: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      activity_type_productivity: {
+        Row: {
+          activities: number | null
+          activity_type: string | null
+          completed: number | null
+          date: string | null
+          is_sales_activity: boolean | null
+          minutes: number | null
+          points: number | null
+          user_id: string | null
+          weight: number | null
+        }
+        Relationships: []
+      }
+      field_productivity_daily: {
+        Row: {
+          activity_minutes: number | null
+          activity_points: number | null
+          completed_activities: number | null
+          date: string | null
+          overall_field_productivity: number | null
+          productive_sales_visits: number | null
+          total_activity_visits: number | null
+          total_sales_visits: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       orders_total_amount: {
         Row: {
           total_amount: number | null
