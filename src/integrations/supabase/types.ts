@@ -8824,7 +8824,7 @@ export type Database = {
           count: number | null
           created_at: string | null
           id: string
-          period_key: string | null
+          period_key: string
           retailer_id: string | null
           tracking_date: string
           updated_at: string | null
@@ -8835,7 +8835,7 @@ export type Database = {
           count?: number | null
           created_at?: string | null
           id?: string
-          period_key?: string | null
+          period_key: string
           retailer_id?: string | null
           tracking_date: string
           updated_at?: string | null
@@ -8846,7 +8846,7 @@ export type Database = {
           count?: number | null
           created_at?: string | null
           id?: string
-          period_key?: string | null
+          period_key?: string
           retailer_id?: string | null
           tracking_date?: string
           updated_at?: string | null
