@@ -78,6 +78,28 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+// Fit an image inside a box while preserving its aspect ratio (never stretch).
+// Returns the centred draw rectangle inside the box.
+function fitImage(
+  doc: any,
+  dataUrl: string,
+  boxX: number,
+  boxY: number,
+  boxW: number,
+  boxH: number,
+): { x: number; y: number; w: number; h: number } {
+  let ratio = 1;
+  try {
+    const p = doc.getImageProperties(dataUrl);
+    if (p?.width && p?.height) ratio = p.width / p.height;
+  } catch (_) { /* fall back to square */ }
+  let w = boxW;
+  let h = w / ratio;
+  if (h > boxH) { h = boxH; w = h * ratio; }
+  return { x: boxX + (boxW - w) / 2, y: boxY + (boxH - h) / 2, w, h };
+}
+
+
 function fmtCell(value: unknown, col: ReportColumn, brand: Branding, unicodeSafe: boolean): string {
   if (value === null || value === undefined || value === '') return '';
   if (col.numeric) {
@@ -155,7 +177,8 @@ export async function renderReportPdf(
       const blockW = pageW - margin * 2;
       let y = cursorY;
       if (brand.logo_data_url && brand.logo_format) {
-        doc.addImage(brand.logo_data_url, brand.logo_format, margin + (blockW - logoBoxW) / 2, y, logoBoxW, logoBoxH);
+        const f = fitImage(doc, brand.logo_data_url, margin + (blockW - logoBoxW) / 2, y, logoBoxW, logoBoxH);
+        doc.addImage(brand.logo_data_url, brand.logo_format, f.x, f.y, f.w, f.h);
         y += logoBoxH + 6;
       }
       if (brand.header_name) {
@@ -184,7 +207,8 @@ export async function renderReportPdf(
     } else {
       let leftX = margin;
       if (brand.logo_data_url && brand.logo_format) {
-        doc.addImage(brand.logo_data_url, brand.logo_format, margin, cursorY, logoBoxW, logoBoxH);
+        const f = fitImage(doc, brand.logo_data_url, margin, cursorY, logoBoxW, logoBoxH);
+        doc.addImage(brand.logo_data_url, brand.logo_format, f.x, f.y, f.w, f.h);
         leftX = margin + logoBoxW + 10;
       }
       let ty = cursorY + 2;
@@ -230,16 +254,11 @@ export async function renderReportPdf(
     let x = margin + 14;
     if (brand.logo_data_url && brand.logo_format) {
       const plateW = 74, plateH = 40;
+      const plateY = cursorY + (bandH - plateH) / 2;
       doc.setFillColor(255, 255, 255);
-      doc.roundedRect(x, cursorY + (bandH - plateH) / 2, plateW, plateH, 3, 3, 'F');
-      doc.addImage(
-        brand.logo_data_url,
-        brand.logo_format,
-        x + 6,
-        cursorY + (bandH - plateH) / 2 + 5,
-        plateW - 12,
-        plateH - 10,
-      );
+      doc.roundedRect(x, plateY, plateW, plateH, 3, 3, 'F');
+      const f = fitImage(doc, brand.logo_data_url, x + 6, plateY + 5, plateW - 12, plateH - 10);
+      doc.addImage(brand.logo_data_url, brand.logo_format, f.x, f.y, f.w, f.h);
       x += plateW + 14;
     }
 
@@ -268,7 +287,8 @@ export async function renderReportPdf(
     const logoBoxW = 26, logoBoxH = 26;
     let leftX = margin;
     if (brand.logo_data_url && brand.logo_format) {
-      doc.addImage(brand.logo_data_url, brand.logo_format, margin, cursorY, logoBoxW, logoBoxH);
+      const f = fitImage(doc, brand.logo_data_url, margin, cursorY, logoBoxW, logoBoxH);
+      doc.addImage(brand.logo_data_url, brand.logo_format, f.x, f.y, f.w, f.h);
       leftX = margin + logoBoxW + 8;
     }
     doc.setFont(fontFamily, 'bold'); doc.setFontSize(13); doc.setTextColor(20);
@@ -429,6 +449,15 @@ export async function renderReportPdf(
         cellPadding: { top: 7, right: 8, bottom: 7, left: 8 },
       },
       columnStyles,
+      // columnStyles only apply to BODY cells in jspdf-autotable v3, which is
+      // why headers/totals used to drift left while numbers were right-aligned.
+      // Force head + foot to inherit the column's alignment.
+      didParseCell: (data: any) => {
+        if (data.section === 'head' || data.section === 'foot') {
+          const st = columnStyles[data.column.index];
+          if (st?.halign) data.cell.styles.halign = st.halign;
+        }
+      },
     });
 
   });
