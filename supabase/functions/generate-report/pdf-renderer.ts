@@ -177,7 +177,8 @@ export async function renderReportPdf(
       const blockW = pageW - margin * 2;
       let y = cursorY;
       if (brand.logo_data_url && brand.logo_format) {
-        doc.addImage(brand.logo_data_url, brand.logo_format, margin + (blockW - logoBoxW) / 2, y, logoBoxW, logoBoxH);
+        const f = fitImage(doc, brand.logo_data_url, margin + (blockW - logoBoxW) / 2, y, logoBoxW, logoBoxH);
+        doc.addImage(brand.logo_data_url, brand.logo_format, f.x, f.y, f.w, f.h);
         y += logoBoxH + 6;
       }
       if (brand.header_name) {
