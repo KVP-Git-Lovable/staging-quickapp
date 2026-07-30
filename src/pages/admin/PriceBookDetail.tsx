@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { formatCurrency, resolveRate, type RatesMap } from '@/lib/money';
 import PriceBookExcelActions from '@/components/pricebook/PriceBookExcelActions';
+import { PriceBookWarnings } from '@/components/pricebooks/PriceBookWarnings';
 
 interface PriceBook {
   id: string;
