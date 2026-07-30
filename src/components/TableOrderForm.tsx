@@ -1749,7 +1749,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         </Button>
         
         <div className="text-right space-y-1">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Currency: {txnCurrency}</p>
           <div className="flex justify-end items-center gap-2">
+
             <p className="text-sm text-muted-foreground">Subtotal:</p>
             <p className="text-sm font-medium">{fmtMoney(getTotalValue())}</p>
           </div>
