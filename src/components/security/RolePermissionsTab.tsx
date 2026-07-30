@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Shield, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { clearAllCachedPermissions } from '@/utils/cachedAuthIntegrity';
+import { fetchAllRows } from '@/utils/fetchAllRows';
+
 import { CRUDFlags, PermissionMap } from './PermissionLayerTable';
 import { HierarchicalPermissionEditor } from './HierarchicalPermissionEditor';
 
@@ -80,11 +82,16 @@ export const RolePermissionsTab = () => {
   const { isLoading } = useQuery({
     queryKey: ['profile-hierarchical-permissions', selectedProfileId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profile_object_permissions')
-        .select('object_name, permission_type, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
-        .eq('profile_id', selectedProfileId)
-        .in('permission_type', ['module', 'field', 'action', 'widget', 'feature']);
+      const { data, error } = await fetchAllRows<any>((from, to) =>
+        supabase
+          .from('profile_object_permissions')
+          .select('object_name, permission_type, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
+          .eq('profile_id', selectedProfileId)
+          .in('permission_type', ['module', 'field', 'action', 'widget', 'feature'])
+          .order('object_name', { ascending: true })
+          .range(from, to)
+      );
+
 
       if (error) throw error;
 

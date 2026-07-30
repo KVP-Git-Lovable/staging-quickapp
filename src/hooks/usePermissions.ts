@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/utils/fetchAllRows';
+
 import { useAuth } from '@/hooks/useAuth';
 
 export interface PermissionFlags {
@@ -51,11 +53,16 @@ export function usePermissions() {
 
     const [profileRes, setRes, coverageRes, userOverridesRes] = await Promise.all([
       profileId
-        ? supabase
-            .from('profile_object_permissions')
-            .select('object_name, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
-            .eq('profile_id', profileId)
+        ? fetchAllRows<any>((from, to) =>
+            supabase
+              .from('profile_object_permissions')
+              .select('object_name, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
+              .eq('profile_id', profileId)
+              .order('object_name', { ascending: true })
+              .range(from, to)
+          )
         : Promise.resolve({ data: [] as any[] }),
+
       supabase
         .from('permission_set_group_users')
         .select(
