@@ -162,7 +162,7 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
         <div className="space-y-5">
           {/* 1. Activity details */}
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Activity details</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="font-pixel text-[8.5px] uppercase tracking-[0.05em] text-[#9aa1b5] leading-relaxed">1 · ACTIVITY DETAILS</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div>
                 <Label>Name</Label>
@@ -181,7 +181,7 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
 
           {/* 2. Trigger & conditions */}
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Trigger &amp; conditions</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="font-pixel text-[8.5px] uppercase tracking-[0.05em] text-[#9aa1b5] leading-relaxed">2 · TRIGGER & CONDITIONS</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div>
                 <Label>Trigger type</Label>
@@ -346,7 +346,7 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
 
           {/* 3. Reward */}
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Reward</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="font-pixel text-[8.5px] uppercase tracking-[0.05em] text-[#9aa1b5] leading-relaxed">3 · REWARD</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {!isTiered && (
                 <div>
@@ -363,7 +363,7 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
 
           {/* 4. Policy */}
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Policy</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="font-pixel text-[8.5px] uppercase tracking-[0.05em] text-[#9aa1b5] leading-relaxed">4 · POLICY · THIS ACTIVITY</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>

@@ -8,7 +8,7 @@ export type ProgramCategory =
   | "targets"
   | "captures";
 
-export const CATEGORIES: {
+export interface CategoryMeta {
   value: ProgramCategory;
   label: string;
   color: string;
@@ -16,19 +16,29 @@ export const CATEGORIES: {
   border: string;
   text: string;
   dot: string;
-}[] = [
-  { value: "orders", label: "Orders", color: "blue", tint: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", dot: "bg-blue-400" },
-  { value: "visits", label: "Visits", color: "teal", tint: "bg-teal-50", border: "border-teal-200", text: "text-teal-700", dot: "bg-teal-400" },
-  { value: "retailers", label: "Retailers", color: "green", tint: "bg-green-50", border: "border-green-200", text: "text-green-700", dot: "bg-green-400" },
-  { value: "attendance", label: "Attendance", color: "amber", tint: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-400" },
-  { value: "products", label: "Products", color: "purple", tint: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", dot: "bg-purple-400" },
-  { value: "beats", label: "Beats", color: "coral", tint: "bg-orange-50", border: "border-orange-200", text: "text-orange-700", dot: "bg-orange-400" },
-  { value: "targets", label: "Targets", color: "indigo", tint: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-400" },
-  { value: "captures", label: "Captures", color: "pink", tint: "bg-pink-50", border: "border-pink-200", text: "text-pink-700", dot: "bg-pink-400" },
+  /** gradient start / end fills from the approved light palette */
+  fill: string;
+  f2: string;
+  /** accent + text hex from the approved light palette */
+  ac: string;
+  tx: string;
+  icon: string;
+}
+
+export const CATEGORIES: CategoryMeta[] = [
+  { value: "orders", label: "Orders", color: "blue", tint: "bg-blue-50", border: "border-blue-200", text: "text-blue-700", dot: "bg-blue-400", fill: "#eaf2ff", f2: "#dbeafe", ac: "#3b82f6", tx: "#1d4ed8", icon: "shopping-cart" },
+  { value: "visits", label: "Visits", color: "teal", tint: "bg-teal-50", border: "border-teal-200", text: "text-teal-700", dot: "bg-teal-400", fill: "#e7f7f1", f2: "#d3f0e6", ac: "#14b8a6", tx: "#0f766e", icon: "map-pin" },
+  { value: "retailers", label: "Retailers", color: "green", tint: "bg-green-50", border: "border-green-200", text: "text-green-700", dot: "bg-green-400", fill: "#eef7e4", f2: "#e2f0d0", ac: "#84cc16", tx: "#4d7c0f", icon: "store" },
+  { value: "attendance", label: "Attendance", color: "amber", tint: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-400", fill: "#fdf3e3", f2: "#fbe8ca", ac: "#f59e0b", tx: "#b45309", icon: "user-check" },
+  { value: "products", label: "Products", color: "purple", tint: "bg-purple-50", border: "border-purple-200", text: "text-purple-700", dot: "bg-purple-400", fill: "#f0edfd", f2: "#e6e0fb", ac: "#8b5cf6", tx: "#6d28d9", icon: "package" },
+  { value: "beats", label: "Beats", color: "coral", tint: "bg-orange-50", border: "border-orange-200", text: "text-orange-700", dot: "bg-orange-400", fill: "#fdeceb", f2: "#fbdcd9", ac: "#f2603c", tx: "#be3d2e", icon: "route" },
+  { value: "targets", label: "Targets", color: "indigo", tint: "bg-indigo-50", border: "border-indigo-200", text: "text-indigo-700", dot: "bg-indigo-400", fill: "#ebedfd", f2: "#dde1fb", ac: "#6366f1", tx: "#4338ca", icon: "target" },
+  { value: "captures", label: "Captures", color: "pink", tint: "bg-pink-50", border: "border-pink-200", text: "text-pink-700", dot: "bg-pink-400", fill: "#fdeaf2", f2: "#fbd8e6", ac: "#ec4899", tx: "#be185d", icon: "clipboard" },
 ];
 
 export const categoryMeta = (value?: string | null) =>
   CATEGORIES.find((c) => c.value === value) ?? CATEGORIES[0];
+
 
 export const LINKED_MODULE_NOTE: Partial<Record<ProgramCategory, string>> = {
   products: "Linked to Product Management — activities award when an order contains a product flagged Focused, read live.",
