@@ -834,7 +834,14 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold truncate">{formData.name}</h3>
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="text-lg font-semibold truncate">{formData.name}</h3>
+              {currencyConfig?.multiEnabled && (
+                <Badge variant="outline" className="text-[10px] font-semibold shrink-0">
+                  {formData.currency || currencyConfig.baseCurrency}
+                </Badge>
+              )}
+            </div>
             <div className="grid grid-cols-3 gap-2 mt-1.5 text-xs">
               <div>
                 <span className="text-muted-foreground">Beat:</span>{' '}
