@@ -127,6 +127,9 @@ export function GamificationHome() {
   const { data: settings } = useGamSettings();
   const { data: pointsYtd = 0 } = usePointsIssuedYtd();
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const deleteProgram = useDeleteProgram();
+
   const [view, setView] = useState<ViewMode>("grid3");
 
   const activeActivities = allActivities.filter((a: any) => a.is_enabled).length;
