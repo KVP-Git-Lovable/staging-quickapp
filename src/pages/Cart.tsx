@@ -108,7 +108,6 @@ const getDisplayRate = (item: CartItem) => {
 };
 
 export const Cart = () => {
-  const { format: fmtMoney } = useCurrency();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const visitId = searchParams.get("visitId") || '';
@@ -119,6 +118,10 @@ export const Cart = () => {
   const isEditMode = !!editOrderId;
   const source = searchParams.get("source") || '';
   const isAdminEdit = source === 'admin' && isEditMode;
+  // Order money is shown in the TRANSACTION currency and never converted.
+  const { currency: txnCurrency, format: fmtMoney } = useOrderCurrency(
+    retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null
+  );
   const { isPaymentProofMandatory } = usePaymentProofMandatory();
   const connectivityStatus = useConnectivity();
   const { isEnabled: isD1DeliveryEnabled } = useD1Delivery();
