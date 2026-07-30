@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ArrowLeft, Bell, History, Search, Trash2 } from 'lucide-react';
@@ -8,12 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useNotificationHistory } from '@/hooks/useNotifications';
+import {
+  NotificationDateFilter,
+  isWithinRange,
+  type RangePreset,
+  type CustomRange,
+} from '@/components/notifications/NotificationDateFilter';
+import { NotificationPagination } from '@/components/notifications/NotificationPagination';
+
+const PAGE_SIZE = 100;
 
 export default function NotificationHistory() {
   const navigate = useNavigate();
   const { history, isLoading, remove, clearAll } = useNotificationHistory();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [preset, setPreset] = useState<RangePreset>('all');
+  const [custom, setCustom] = useState<CustomRange>({ from: '', to: '' });
+  const [page, setPage] = useState(1);
 
   const types = useMemo(
     () => Array.from(new Set(history.map(n => n.type).filter(Boolean))) as string[],
@@ -28,9 +40,18 @@ export default function NotificationHistory() {
         !q ||
         n.title?.toLowerCase().includes(q) ||
         n.message?.toLowerCase().includes(q);
-      return matchesType && matchesQuery;
+      return matchesType && matchesQuery && isWithinRange(n.created_at, preset, custom);
     });
-  }, [history, search, typeFilter]);
+  }, [history, search, typeFilter, preset, custom]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
+
+  useEffect(() => { setPage(1); }, [search, typeFilter, preset, custom.from, custom.to]);
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
 
   return (
     <Layout>
@@ -89,6 +110,13 @@ export default function NotificationHistory() {
             )}
           </div>
 
+          <NotificationDateFilter
+            preset={preset}
+            onPresetChange={setPreset}
+            custom={custom}
+            onCustomChange={setCustom}
+          />
+
           {isLoading ? (
             <p className="text-sm text-muted-foreground py-10 text-center">Loading...</p>
           ) : filtered.length === 0 ? (
@@ -98,7 +126,7 @@ export default function NotificationHistory() {
             </div>
           ) : (
             <div className="space-y-2">
-              {filtered.map(n => (
+              {paged.map(n => (
                 <Card key={n.id} className="p-3">
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
@@ -130,6 +158,13 @@ export default function NotificationHistory() {
                   </div>
                 </Card>
               ))}
+              <NotificationPagination
+                page={page}
+                pageCount={pageCount}
+                total={filtered.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </div>
