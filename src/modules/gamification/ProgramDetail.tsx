@@ -32,6 +32,11 @@ export function ProgramDetail() {
   const { data: focusedCount = 0 } = useFocusedProductCount();
   const [editing, setEditing] = useState<any | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [deleteActivityTarget, setDeleteActivityTarget] = useState<any | null>(null);
+  const [deleteProgramOpen, setDeleteProgramOpen] = useState(false);
+  const deleteActivity = useDeleteActivity();
+  const deleteProgram = useDeleteProgram();
+
 
   const { data: tierRanges = {} } = useQuery({
     queryKey: ["gam-tier-ranges", programId, activities.length],
