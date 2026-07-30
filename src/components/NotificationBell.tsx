@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Bell, CheckCheck, X } from 'lucide-react';
+import { Bell, CheckCheck, X, History as HistoryIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications, type Notification } from '@/hooks/useNotifications';
 import {
