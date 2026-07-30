@@ -22,7 +22,7 @@ import { calculateOrderWithSchemes, calculateSchemeDiscountForComparison, Scheme
 import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
 import { resolveProduct, type ResolvedProduct } from "@/utils/resolveProduct";
 import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { useOrderCurrency } from "@/hooks/useOrderCurrency";
 import { usePriceBookPrices } from "@/hooks/usePriceBookPrices";
 interface Product {
   id: string;
@@ -135,7 +135,6 @@ export interface VoiceAutoFillResult {
 }
 
 export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormProps>(({ onCartUpdate, products, loading, onReloadProducts, onStockUpdate }, ref) => {
-  const { format: fmtMoney } = useCurrency();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const visitId = searchParams.get("visitId") || '';
@@ -151,6 +150,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const priceLocked = isEditMode && editPolicy.edit_lock_price && !isAdminEdit;
   // Phase 3: price-book pricing (feature-flagged, offline-safe, DB-resolved).
   const { resolveLinePrice } = usePriceBookPrices(retailerId);
+  // Order amounts are always shown in the retailer's TRANSACTION currency (never converted).
+  const { currency: txnCurrency, format: fmtMoney } = useOrderCurrency(retailerId);
 
   // PERF: disable noisy logs in hot paths
   const DEV_LOG = false;
@@ -1570,7 +1571,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                   : (shownRate * qtyNum).toFixed(2);
                                 return (
                                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                  <label className="text-[9px] text-muted-foreground">Unit ₹</label>
+                                  <label className="text-[9px] text-muted-foreground">Unit ({txnCurrency})</label>
                                   <Input
                                     type="text"
                                     inputMode="decimal"
@@ -1579,7 +1580,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                     onBlur={(e) => onBlurAdminPrice(row.id, 'rate', e.target.value)}
                                     className="h-6 w-20 text-[10px] px-1.5"
                                   />
-                                  <label className="text-[9px] text-muted-foreground">Line ₹</label>
+                                  <label className="text-[9px] text-muted-foreground">Line ({txnCurrency})</label>
                                   <Input
                                     type="text"
                                     inputMode="decimal"
