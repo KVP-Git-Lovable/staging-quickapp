@@ -81,6 +81,7 @@ interface Retailer {
   potential?: string | null;
   competitors?: string[] | null;
   gst_number?: string | null;
+  currency?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   photo_url?: string | null;
@@ -146,6 +147,7 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
   const navigate = useNavigate();
   const [formData, setFormData] = useState<Retailer | null>(null);
   const [isEditing, setIsEditing] = useState(startInEditMode);
+  const { data: currencyConfig } = useRetailerCurrencyConfig();
   const [loading, setLoading] = useState(false);
   const [beats, setBeats] = useState<{ beat_id: string; beat_name: string }[]>([]);
   const [territories, setTerritories] = useState<{ id: string; name: string; region: string }[]>([]);
