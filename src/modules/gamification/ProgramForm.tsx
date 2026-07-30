@@ -45,6 +45,8 @@ export function ProgramForm({ open, onOpenChange }: { open: boolean; onOpenChang
     qc.invalidateQueries({ queryKey: ["gam-programs"] });
     toast.success("Program created");
     setName(""); setDescription(""); setCategory("orders"); setIsActive(true);
+    setStartDate(today); setEndDate(nextYear);
+
     onOpenChange(false);
   };
 
