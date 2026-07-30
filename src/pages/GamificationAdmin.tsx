@@ -5,6 +5,8 @@ import { Loader2 } from "lucide-react";
 import { GamificationHome } from "@/modules/gamification/GamificationHome";
 import { ProgramDetail } from "@/modules/gamification/ProgramDetail";
 import { FocusProducts } from "@/modules/gamification/FocusProducts";
+import { GamificationSidebar } from "@/modules/gamification/GamificationSidebar";
+
 
 export default function GamificationAdmin() {
   const { hasAdminAccess, loading } = useAdminAccess();
@@ -26,13 +28,19 @@ export default function GamificationAdmin() {
   return (
     <Layout>
       <div className="w-full px-2 sm:px-4 py-4 sm:py-6">
-        <Routes>
-          <Route index element={<GamificationHome />} />
-          <Route path="program/:programId" element={<ProgramDetail />} />
-          <Route path="focus-products" element={<FocusProducts />} />
-          <Route path="*" element={<Navigate to="/gamification-admin" replace />} />
-        </Routes>
+        <div className="flex gap-5 items-start">
+          <GamificationSidebar />
+          <div className="min-w-0 flex-1">
+            <Routes>
+              <Route index element={<GamificationHome />} />
+              <Route path="program/:programId" element={<ProgramDetail />} />
+              <Route path="focus-products" element={<FocusProducts />} />
+              <Route path="*" element={<Navigate to="/gamification-admin" replace />} />
+            </Routes>
+          </div>
+        </div>
       </div>
     </Layout>
   );
 }
+

@@ -12,6 +12,8 @@ import {
 import { categoryMeta } from "./constants";
 import { useActivities, useGamSettings, usePointsIssuedYtd, usePrograms, useUpdateGamSettings } from "./hooks";
 import { ProgramForm } from "./ProgramForm";
+import heroTrophy from "./assets/hero-trophy.png";
+
 
 const PAGE = "#eef0f4";
 const INK = "#1c2440";
