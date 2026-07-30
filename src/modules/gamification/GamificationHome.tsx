@@ -7,11 +7,16 @@ import {
 } from "@/components/ui/select";
 import {
   ChevronDown, Gamepad2, Plus, Star, Trophy, Loader2, HelpCircle, ExternalLink,
-  Sparkles, Coins, LayoutGrid, Columns2, List, ChevronRight, Zap, Gift, Users,
+  Sparkles, Coins, LayoutGrid, Columns2, List, ChevronRight, Zap, Gift, Users, Trash2,
 } from "lucide-react";
 import { categoryMeta } from "./constants";
-import { useActivities, useGamSettings, usePointsIssuedYtd, usePrograms, useUpdateGamSettings } from "./hooks";
+import { useActivities, useDeleteProgram, useGamSettings, usePointsIssuedYtd, usePrograms, useUpdateGamSettings } from "./hooks";
 import { ProgramForm } from "./ProgramForm";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 const PAGE = "#eef0f4";
 const INK = "#1c2440";
