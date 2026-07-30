@@ -1758,6 +1758,7 @@ export const Cart = () => {
                 quantity: item.quantity,
               })),
               isFirstOrder,
+              orderId: order.id,
               // Full credit orders have no payment method — report "credit" so
               // activities conditioned on payment mode (e.g. cash) don't fire.
               paymentMode: paymentType === "credit" || !paymentMethod ? "credit" : paymentMethod,
