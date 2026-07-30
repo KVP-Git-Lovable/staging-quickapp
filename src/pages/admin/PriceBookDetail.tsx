@@ -421,6 +421,9 @@ const PriceBookDetail = () => {
               </p>
             </div>
           </div>
+
+          <PriceBookWarnings book={priceBook as any} />
+
           <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-12 lg:justify-end">
             <Button variant="outline" onClick={() => syncAllProducts('default')} disabled={syncing}>
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
