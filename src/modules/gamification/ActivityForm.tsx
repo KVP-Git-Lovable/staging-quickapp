@@ -87,7 +87,10 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
     if (category === "captures" && (!form.cap_value || Number(form.cap_value) <= 0)) {
       return toast.error("Capture activities need a daily cap");
     }
-    if (isTiered && !form.kpi_id) return toast.error("Choose a KPI from the Targets module");
+    const activeKpis = kpis.filter((k: any) => k.is_active);
+    if (isTiered && activeKpis.length > 0 && !form.kpi_id) {
+      return toast.error("Choose a KPI from the Targets module");
+    }
 
     setSaving(true);
     const [expType, expDays] = String(form.expiry).split(":");
