@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Gift, Package, ShoppingCart } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { formatCurrency } from "@/lib/money";
 
 interface OrderSummaryItem {
   id: string;
@@ -24,6 +25,8 @@ interface OrderSummaryModalProps {
   totalSavings: number;
   onAddToCart: () => void;
   productName?: string;
+  /** Transaction currency of the order. Falls back to the company base currency. */
+  currency?: string;
 }
 
 export const OrderSummaryModal = ({ 
@@ -33,9 +36,14 @@ export const OrderSummaryModal = ({
   totalAmount, 
   totalSavings, 
   onAddToCart,
-  productName = "Product"
+  productName = "Product",
+  currency
 }: OrderSummaryModalProps) => {
-  const { format } = useCurrency();
+  // Order money is shown in the transaction currency and never converted.
+  const { baseCurrency, locale } = useCurrency();
+  const txnCurrency = currency || baseCurrency;
+  const format = (amount: number | string | null | undefined) =>
+    formatCurrency(amount, txnCurrency, locale);
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
@@ -43,6 +51,7 @@ export const OrderSummaryModal = ({
           <DialogTitle className="flex items-center gap-2">
             <Package size={20} />
             View Order — {productName}
+            <span className="ml-2 text-xs font-normal text-muted-foreground">Currency: {txnCurrency}</span>
           </DialogTitle>
         </DialogHeader>
         
