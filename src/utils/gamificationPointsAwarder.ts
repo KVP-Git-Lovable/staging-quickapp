@@ -202,6 +202,24 @@ export async function awardPointsForTotalVisits(userId: string, visitDate: strin
   });
 }
 
+/** Approved (non-LOP-agnostic) leave days taken by a user in a given month. */
+async function getLeaveDaysThisMonth(userId: string, ref: Date): Promise<number> {
+  const start = new Date(ref.getFullYear(), ref.getMonth(), 1);
+  const end = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+  const iso = (d: Date) => d.toISOString().split("T")[0];
+
+  const { data, error } = await supabase
+    .from("leave_applications")
+    .select("days_requested, start_date, end_date, status")
+    .eq("user_id", userId)
+    .in("status", ["approved", "pending"])
+    .lte("start_date", iso(end))
+    .gte("end_date", iso(start));
+
+  if (error || !data) return 0;
+  return data.reduce((sum, row: any) => sum + Number(row.days_requested || 1), 0);
+}
+
 /** Attendance check-in event (trigger + thresholds configured in admin). */
 export async function awardPointsForAttendance(params: {
   userId: string;
@@ -212,9 +230,16 @@ export async function awardPointsForAttendance(params: {
   const { userId, attendanceId, checkInTime, streakDays } = params;
   if (!userId) return;
   const d = checkInTime ? new Date(checkInTime) : new Date();
+  const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const leaveDays = await getLeaveDaysThisMonth(userId, d);
+
   const facts = {
     check_in_hour: d.getHours() + d.getMinutes() / 60,
     streak_days: streakDays ?? null,
+    leave_days_this_month: leaveDays,
+    no_leave_this_month: leaveDays === 0,
+    is_month_end: d.getDate() === monthEnd.getDate(),
+    month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
   };
   const ref = attendanceId ?? stableEventId(userId, "attendance", today());
   await awardGamificationEvent("attendance_on_time", {
@@ -223,12 +248,11 @@ export async function awardPointsForAttendance(params: {
     userId,
     context: facts,
   });
-  if (streakDays != null) {
-    await awardGamificationEvent("attendance_streak", {
-      referenceType: "attendance",
-      referenceId: stableEventId(userId, "attendance_streak", today()),
-      userId,
-      context: facts,
-    });
-  }
+  await awardGamificationEvent("attendance_streak", {
+    referenceType: "attendance",
+    referenceId: stableEventId(userId, "attendance_streak", today()),
+    userId,
+    context: facts,
+  });
 }
+
