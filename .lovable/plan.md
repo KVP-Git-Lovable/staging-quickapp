@@ -1,30 +1,30 @@
-## 1. Simulation Considerations panel
+## What I found (verified)
 
-File: `src/modules/quickapp-ai/components/AgentDetailSheet.tsx`
+- The **Retailer growth** program has 3 activities in the database: `retailer_created` (15 pts, enabled), `first_order_new_retailer` (5 pts, enabled), `retailer_active_streak` (50 pts, disabled).
+- `gamification_points` shows **0 awards ever** for `New retailer created` and `Retailer active 30 days`; `First order from new retailer` last awarded 2026-07-22.
+- Reason: the app awards points from a **hardcoded switch** in `src/utils/gamificationPointsAwarder.ts`. It only has branches for `order_placed`, `first_order_new_retailer`, `daily_target`, `focused_product_sales`, `productive_visit`, `consecutive_orders`, `monthly_growth`. There is **no `retailer_created` branch and no call at all when a retailer is created** (searched every retailer insert path: `MyRetailers.tsx`, `AddRetailerInlineToBeat.tsx`, `EmployeePortalHome.tsx`, `AddRetailer.tsx`) — so that trigger can never fire.
+- A fully data-driven engine already exists in Postgres: `gam_award_event(p_user_id, p_trigger_type, ...)`, which reads `trigger_type`, `conditions_json`, eligibility, validity, caps and expiry straight from the tables. It is currently unused by the frontend, and `gamification_settings.engine_enabled = false`, so even if called it would only dry-run.
 
-- Add a static, per-agent lookup keyed by the agent key already stored in `ai_agents` (`visit_optimiser`, `churn_detector`), each holding a heading, a list of deterministic signals, and a footnote. Purely presentational constants — no queries, no props, no effect on `runSimulation`.
-- Render the panel inside the existing drawer, directly **above** the "Run Simulation" button (below the status/stage/duration tiles), so it is always visible whether or not a run has happened.
-- Visit Optimiser signals: days since last retailer visit, pending payment / outstanding dues, recent retailer productivity, historical order value, visit frequency, retailer priority score, beat sequencing, geographic proximity, route efficiency, existing visit plan for today.
-  Footnote: "These factors are analysed using deterministic business rules before AI generates a human-readable recommendation. No business data is modified during Simulation."
-- Churn Detector signals: recent order values, previous sales period comparison, 90-day sales trend, retailer ordering frequency, declining purchase patterns, confirmed order history, historical productivity, visit history, existing retailer performance indicators.
-  Footnote: "Simulation analyses historical business data using deterministic calculations only. AI summarises the findings after the analysis completes."
-- Agents without an entry (the `coming_soon` ones) simply render nothing — no layout change for them.
+So: the trigger/condition mapping exists in data, but nothing dispatches retailer events into it.
 
-Styling: reuse the existing callout language already used elsewhere in the drawer (rounded border + tinted background + compact padding + small text). Soft cream/amber tint (`amber-50` background, `amber-200` border, `amber-900` text, dark-mode-safe variants), a small `Info` icon from the lucide set already imported in the file, heading "Simulation Considerations", and the signals as a compact two-column bulleted list on wider drawers.
+## Plan
 
-Behaviour: read-only text only — no state, no handlers, no network calls, no change to simulation results or history rendering.
+1. **Generic dispatcher (removes hardcoding)**
+   Add `src/utils/gamificationEventDispatcher.ts` with one function:
+   `awardGamificationEvent(triggerType, { referenceType, referenceId, retailerId, context })` that calls the `gam_award_event` RPC and dispatches the existing `pointsEarned` UI event when any row returns `awarded = true`. No trigger names, points, or conditions in code — the DB decides.
 
-## 2. QuickApp AI navigation icon
+2. **Wire the retailer triggers**
+   - `retailer_created`: call the dispatcher after a successful retailer insert in `MyRetailers.tsx`, `AddRetailerInlineToBeat.tsx`, `EmployeePortalHome.tsx`, and the AddRetailer save path — passing context facts (`has_gps`, `source`) so conditions like "GPS captured" evaluate.
+   - `retailer_verified`: call it from the retailer verification path with `verification_score` in context.
+   - Idempotency is already handled in the engine via `reference_id` (the retailer id), so re-saves won't double-award.
 
-File: `src/components/Navbar.tsx`
+3. **Turn the engine on**
+   Set `gamification_settings.engine_enabled = true` so `gam_award_event` writes instead of dry-running. (Confirm with you before flipping, since it makes every enabled activity live.)
 
-- The side menu item `{ id: 'quickapp-ai', icon: BrainCircuit, ... }` currently uses `BrainCircuit`. Change its `icon` to `Sparkles` — the same lucide component already imported in this file and rendered in the topbar shortcut (`<Sparkles size={18} />`).
-- The item's coloured gradient container (`from-blue-500 to-violet-600`) and all sizing/label logic stay exactly as they are; only the icon component changes.
-- No other nav entries touched. `BrainCircuit` stays imported only if still used elsewhere in the file; otherwise the import is trimmed.
-
-Optionally (say if you want it): the QuickApp AI module's own sidebar header in `AiModuleShell.tsx` also shows a `BrainCircuit` next to the "QuickApp AI" title — I can switch that to `Sparkles` too for consistency. Default is to leave it unchanged unless you confirm.
+4. **`retailer_active_streak`**
+   This one needs a periodic evaluation (a retailer ordering for 30 consecutive days), not an event. It stays disabled for now; I'll note it as a follow-up scheduled job rather than fake it client-side.
 
 ## Technical notes
 
-- No database, edge function, or hook changes. `ai-workflow-run` and `useAiWorkflows` are untouched.
-- Signal lists are UI copy, not derived from the engine, so they carry a short code comment noting they must be kept in step with `supabase/functions/ai-workflow-run` scoring inputs.
+- The existing hardcoded awarder stays in place for the order/visit flows for now, to avoid double-awarding; the dispatcher is only used for triggers it does not handle. A later cleanup can migrate order/visit flows onto `gam_award_event` too and delete the switch.
+- No schema changes required — only a settings flag update plus frontend calls.
