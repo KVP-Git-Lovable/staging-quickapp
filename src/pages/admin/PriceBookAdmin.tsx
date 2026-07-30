@@ -765,6 +765,10 @@ const PriceBookAdmin = () => {
           </div>
         </div>
 
+        <PriceBookFeatureToggle />
+
+
+
         {/* Clone Dialog */}
         <Dialog open={isCloneOpen} onOpenChange={setIsCloneOpen}>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
