@@ -304,6 +304,32 @@ export function GamificationHome() {
         </div>
 
         <ProgramForm open={createOpen} onOpenChange={setCreateOpen} />
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete program?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{deleteTarget?.name}” and all of its activities will be permanently removed.
+                Programs whose activities have already awarded points cannot be deleted — set them to Draft instead.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  const id = deleteTarget?.id;
+                  setDeleteTarget(null);
+                  if (id) deleteProgram.mutate(id);
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </div>
   );
