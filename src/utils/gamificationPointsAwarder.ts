@@ -137,9 +137,20 @@ export async function awardPointsForOrder(context: OrderContext) {
   const actions = filterEligibleActions(rawActions, userId, (userProfile as any)?.role_id, todayDateOnly);
   if (!actions || actions.length === 0) return;
 
+  const orderFacts: Record<string, any> = {
+    order_value: orderValue,
+    line_count: orderItems?.length ?? 0,
+    payment_mode: context.paymentMode ?? null,
+  };
+
   for (const action of actions) {
     const game = applicableGames.find(g => g.id === action.game_id);
     if (!game) continue;
+
+    // Respect the activity's configured trigger conditions (e.g. payment mode = cash)
+    if (!evaluateConditions((action as any).conditions_json, orderFacts)) continue;
+
+
 
       let shouldAward = false;
       let pointsToAward = action.points;
