@@ -28578,6 +28578,64 @@ export type Database = {
           phone: string
         }[]
       }
+      gam_award_event: {
+        Args: {
+          p_context?: Json
+          p_dry_run?: boolean
+          p_reference_id?: string
+          p_reference_type?: string
+          p_retailer_id?: string
+          p_trigger_type: string
+          p_user_id: string
+        }
+        Returns: {
+          action_id: string
+          action_name: string
+          awarded: boolean
+          points: number
+          reason: string
+        }[]
+      }
+      gam_compute_expiry: {
+        Args: { p_expiry_days: number; p_expiry_type: string; p_ts?: string }
+        Returns: string
+      }
+      gam_conditions_match: {
+        Args: { p_conditions: Json; p_context: Json }
+        Returns: boolean
+      }
+      gam_consume_cap: {
+        Args: {
+          p_action_id: string
+          p_retailer_id: string
+          p_ts: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      gam_evaluate_target_tiers: {
+        Args: { p_dry_run?: boolean; p_period_key?: string }
+        Returns: number
+      }
+      gam_expire_points: { Args: never; Returns: number }
+      gam_fy_end: { Args: { p_ts?: string }; Returns: string }
+      gam_is_eligible: {
+        Args: { p_action_id: string; p_user_id: string }
+        Returns: boolean
+      }
+      gam_period_key: {
+        Args: { p_scope: string; p_ts?: string }
+        Returns: string
+      }
+      gam_redeem_points: {
+        Args: { p_amount: number; p_user_id: string }
+        Returns: number
+      }
+      gam_refresh_leaderboard: {
+        Args: { p_period_type?: string }
+        Returns: number
+      }
+      gam_user_balance: { Args: { p_user_id: string }; Returns: number }
       generate_delivery_challan: {
         Args: { p_packing_list_id: string }
         Returns: Json
