@@ -1056,6 +1056,7 @@ export const AddRetailer = () => {
       state: retailerData.state || null,
       owner_id: selectedOwnerId || null,
       owner_name: selectedOwnerName || null,
+      ...(currencyConfig?.multiEnabled ? { currency: currency || null } : {}),
     };
 
     if (isEditMode && editingRetailer?.id) {
