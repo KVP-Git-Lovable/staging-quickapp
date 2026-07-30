@@ -198,7 +198,58 @@ export function ProgramDetail() {
           category={(program.category ?? "orders") as ProgramCategory}
           activity={editing}
         />
+
+        <AlertDialog open={!!deleteActivityTarget} onOpenChange={(o) => !o && setDeleteActivityTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete activity?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{deleteActivityTarget?.action_name}” and its tiers will be permanently removed.
+                Activities that have already awarded points cannot be deleted — turn them off instead.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  const id = deleteActivityTarget?.id;
+                  setDeleteActivityTarget(null);
+                  if (id) deleteActivity.mutate(id);
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={deleteProgramOpen} onOpenChange={setDeleteProgramOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete program?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{program.name}” and its {activities.length} activit{activities.length === 1 ? "y" : "ies"} will be
+                permanently removed. Programs whose activities have already awarded points cannot be deleted —
+                set them to Draft instead.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  setDeleteProgramOpen(false);
+                  deleteProgram.mutate(program.id, { onSuccess: () => navigate("/gamification-admin") });
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
+
     </div>
   );
 }
