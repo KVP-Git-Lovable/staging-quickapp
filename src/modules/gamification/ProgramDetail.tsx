@@ -149,7 +149,16 @@ export function ProgramDetail() {
                           : { background: PAGE, color: MUT, border: `1px solid ${LINE}` }}>
                     {a.is_enabled ? "On" : "Off"}
                   </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteActivityTarget(a); }}
+                    title="Delete activity"
+                    aria-label={`Delete ${a.action_name}`}
+                    className="w-8 h-8 rounded-[9px] flex items-center justify-center shrink-0 hover:bg-[#fdecea] transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" style={{ color: "#c0392b" }} />
+                  </button>
                 </div>
+
 
                 {(a.trigger_type === "focused_product_sales") && (
                   <div className="px-4 py-2.5 text-[11.5px] flex items-center gap-2"
