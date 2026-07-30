@@ -133,13 +133,20 @@ export function NotificationBell() {
           )}
         </div>
 
-        {notifications.length > 0 && (
-          <div className="px-4 py-2 border-t text-center">
-            <span className="text-xs text-muted-foreground">
-              {notifications.length} notification{notifications.length === 1 ? '' : 's'}
-            </span>
-          </div>
-        )}
+        <div className="px-4 py-2 border-t flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {notifications.length} unread
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={() => navigate('/notifications/history')}
+          >
+            <History className="h-3.5 w-3.5" />
+            History
+          </Button>
+        </div>
       </PopoverContent>
       <ReportNotificationDialog notification={openReport} onClose={() => setOpenReport(null)} />
     </Popover>
