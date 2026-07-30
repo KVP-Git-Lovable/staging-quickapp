@@ -298,6 +298,10 @@ const NotificationRulesAdmin = () => {
             <TabsContent value="reports">
               <ReportSubscriptionsTab />
             </TabsContent>
+
+            <TabsContent value="history">
+              <NotificationHistoryTab />
+            </TabsContent>
           </Tabs>
         </div>
       </div>
