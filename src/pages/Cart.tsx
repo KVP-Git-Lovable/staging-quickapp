@@ -43,6 +43,7 @@ import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
 import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useOrderCurrency } from "@/hooks/useOrderCurrency";
 
 interface CartItem {
   id: string;
