@@ -74,7 +74,18 @@ export function ProgramForm({ open, onOpenChange }: { open: boolean; onOpenChang
               </SelectContent>
             </Select>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Start date</Label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>End date</Label>
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+          </div>
           <div>
+
             <Label>Colour</Label>
             <div className="flex flex-wrap gap-2 mt-2">
               {CATEGORIES.map((c) => (
