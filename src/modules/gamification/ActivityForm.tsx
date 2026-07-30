@@ -87,8 +87,10 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
     if (category === "captures" && (!form.cap_value || Number(form.cap_value) <= 0)) {
       return toast.error("Capture activities need a daily cap");
     }
-    const activeKpis = kpis.filter((k: any) => k.is_active);
-    if (isTiered && activeKpis.length > 0 && !form.kpi_id) {
+    if (isTiered && kpis.length === 0) {
+      return toast.error("No KPIs defined yet. Set up KPIs in the Targets module first.");
+    }
+    if (isTiered && !form.kpi_id) {
       return toast.error("Choose a KPI from the Targets module");
     }
 
@@ -437,7 +439,7 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
 
           <div className="flex justify-end gap-2 pb-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>
+            <Button onClick={save} disabled={saving || (isTiered && kpis.length === 0)}>
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Save activity
             </Button>
           </div>
