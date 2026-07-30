@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { NotificationRuleForm } from '@/components/admin/NotificationRuleForm';
 import { BannerHistorySection } from '@/components/admin/BannerHistorySection';
+import { NotificationHistoryTab } from '@/components/admin/NotificationHistoryTab';
 import { ReportSubscriptionsTab } from '@/components/admin/reports/ReportSubscriptionsTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
