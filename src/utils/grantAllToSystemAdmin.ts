@@ -1,4 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAllRows } from '@/utils/fetchAllRows';
+
 import { getAllModulePermissionItems } from '@/components/security/permissionModules';
 
 const SYSTEM_ADMIN_PROFILE_NAME = 'System Administrator';
