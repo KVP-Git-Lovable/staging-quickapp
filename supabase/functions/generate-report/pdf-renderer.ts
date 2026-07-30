@@ -42,7 +42,16 @@ export interface PdfTemplate {
   include_totals?: boolean;
   include_page_numbers?: boolean;
   footer_note?: string;
+  theme?: 'default' | 'amber' | 'blue_black' | 'light_pink';
 }
+
+// Mirror of src/lib/pdfThemes.ts (edge functions cannot import from src/).
+const PDF_THEMES: Record<string, { accent: string | null; band: string; headFill: string; headText: string }> = {
+  default: { accent: null, band: '#111111', headFill: '#f6f6f4', headText: '#464646' },
+  amber: { accent: '#f59e0b', band: '#78350f', headFill: '#fef3c7', headText: '#78350f' },
+  blue_black: { accent: '#2563eb', band: '#0f172a', headFill: '#dbeafe', headText: '#1e3a8a' },
+  light_pink: { accent: '#ec4899', band: '#831843', headFill: '#fce7f3', headText: '#831843' },
+};
 
 const DEFAULTS: Required<Omit<PdfTemplate, 'title_override' | 'subtitle' | 'footer_note'>> & {
   title_override: string;
@@ -60,6 +69,7 @@ const DEFAULTS: Required<Omit<PdfTemplate, 'title_override' | 'subtitle' | 'foot
   include_totals: true,
   include_page_numbers: true,
   footer_note: '',
+  theme: 'default',
 };
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -123,7 +133,11 @@ export async function renderReportPdf(
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 32;
-  const brandRgb = hexToRgb(brand.brand_color);
+  const themeDef = PDF_THEMES[(t as any).theme as string] ?? PDF_THEMES.default;
+  const brandRgb = hexToRgb(themeDef.accent ?? brand.brand_color);
+  const bandRgb = hexToRgb(themeDef.band);
+  const headFillRgb = hexToRgb(themeDef.headFill);
+  const headTextRgb = hexToRgb(themeDef.headText);
 
   const displayTitle = (t.title_override || model.title || 'Report').trim();
   const displaySubtitle = (t.subtitle || model.subtitle || '').trim();
@@ -210,7 +224,7 @@ export async function renderReportPdf(
     // report title beside it, period/date range right-aligned.
     const bandH = 64;
     const bandW = pageW - margin * 2;
-    doc.setFillColor(17, 17, 17);
+    doc.setFillColor(bandRgb[0], bandRgb[1], bandRgb[2]);
     doc.roundedRect(margin, cursorY, bandW, bandH, 4, 4, 'F');
 
     let x = margin + 14;
@@ -396,8 +410,8 @@ export async function renderReportPdf(
         minCellHeight: 18,
       },
       headStyles: {
-        fillColor: [246, 246, 244],
-        textColor: [70, 70, 70],
+        fillColor: headFillRgb,
+        textColor: headTextRgb,
         fontStyle: 'bold',
         fontSize: Math.max(6.5, bodyFontSize - 0.5),
         font: fontFamily,
