@@ -33,6 +33,8 @@ import { TargetVsActualCard } from "./performance/TargetVsActualCard";
 import { CreditScoreDisplay } from "./CreditScoreDisplay";
 import { CreditHistorySection } from "./CreditHistorySection";
 import { RetailerCustomerPortalSection } from "./retailer/RetailerCustomerPortalSection";
+import { RetailerCurrencyField } from "./retailer/RetailerCurrencyField";
+import { useRetailerCurrencyConfig } from "@/hooks/useRetailerCurrency";
 
 
 interface RetailerInvoice {
