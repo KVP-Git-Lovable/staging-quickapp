@@ -1,68 +1,47 @@
-## Verified current state (staging aoxdosjkwqyuvccuwhzc)
+## Goal
 
-- `gamification_games` (12 cols), `gamification_actions` (16 cols), `gamification_points` (9 cols), `gamification_daily_tracking` (7 cols), `leaderboard_snapshots` (10 cols) all exist with the columns you listed.
-- Counts confirmed: 2 games, 2 actions, 122 point rows, 610 points, 0 daily-tracking rows, 5 snapshot rows.
-- `gamification_settings` and `activity_tiers` do **not** exist — both are new.
-- `user_period_targets` exists and has `kpi_id`, `period_type`, `period_start/end`, `achievement_percent` — the tiered archetype can read it as designed. `target_kpi_definitions` exists.
-- `products` has **no** `is_focused` column — needs adding for the Product archetype.
-- Award path today is app code: `src/utils/gamificationPointsAwarder.ts`, called from `Cart.tsx`, `VisitCard.tsx`, `CompetitionDataForm.tsx`, `RetailerFeedbackModal.tsx`, `BrandingRequestModal.tsx`, `noOrderUtils.ts`, `orderCancellation.ts`. Admin UI is `src/components/GamificationManagement.tsx`.
-- `gamification_workflow_light.html` is not in the project — Phase 1 screens wait on your attachment before final styling.
+Turn `/quickapp-ai/workflows` from a static page into a working feature, with the visual design unchanged. Only **Visit Optimiser** and **Churn Detector** become interactive; the other four cards stay exactly as they are, "Coming Soon" and non-clickable.
 
-## Phase 0 — Schema extend (additive, staging)
+Note: the prompt referenced an `auto-plan-visit` Edge Function and an `fn_declining_retailers()` database function — neither exists in this project. Per your answer, the agents reuse the closest existing equivalents (confirmed by inspection):
+- Visit Optimiser → the deterministic stop-scoring inputs already used by `ai-route-suggestion` / `ai-weekly-route-plan` (recency, pending dues, productivity, geo proximity).
+- Churn Detector → the deterministic declining-retailer calculation already implemented in `copilot-visit-actions` (90-day vs prior-90-day order-value drop).
 
-One migration, no drops:
-- `gamification_actions` += `conditions_json`, `expiry_type`, `expiry_days`, `validity_from`, `validity_to`, `cap_scope`, `cap_value`, `redemption_min`, `award_mode`, `leaderboard`, `eligibility_mode`, `eligibility_ids uuid[]`, `is_tiered`, `kpi_id`, `target_period`, `tier_mode`, `is_system`.
-- `gamification_points` += `expires_at`, `status` (default `active`), `period_key`, `retailer_id`.
-- `gamification_games` += `category`, `icon`, `color`.
-- `gamification_daily_tracking` += `period_key` (+ unique index on user/action/period_key) for month and retailer scopes; retailer scope adds `retailer_id`.
-- New `activity_tiers` (action_id fk, threshold_pct, points, sort).
-- New single-row `gamification_settings` (engine_enabled, currency_name, point_conversion, timezone, leaderboard_enabled, notifications_enabled, default_award_mode, approval_fallback).
-- `products` += `is_focused boolean default false`.
-- GRANTs + RLS on the two new tables (read for authenticated, write for admins via existing `is_admin_or_manager()`).
+Neither existing Edge Function is modified; the logic is called/derived through the same read-only queries, not rewritten with new business rules.
 
-## Phase 0b — Data migration
+## Database (two new tables only)
 
-- All 122 rows: `status='active'`, `expires_at =` **financial year end (31 Mar)** relative to cutover.
-- Mark `first_order_new_retailer` and `productive_visit` `is_system=true`, fill their new policy columns with defaults (expiry `fy_end`, cap scope per their existing `max_daily_awards`, leaderboard on).
-- Reconcile `points_to_rupee_conversion` from the 2 games into `gamification_settings.point_conversion`; flag if they differ.
-- Verify no orphan point rows.
+**`ai_agents`** — catalogue behind the six cards: `id`, `key`, `name`, `description`, `status` (`prototype` | `coming_soon` | `live`), `category`, `sort_order`, `created_at`. Seeded with the six existing cards using today's exact names, descriptions and badge text, in the current order, so the page renders identically.
 
-## Phase 1 — Admin frontend
+**`workflow_executions`** — append-only execution log: `id`, `agent_id`, `stage` (`workflow` | `validation` | `simulation` | `production` | `monitoring`), `status` (`running` | `success` | `failed`), `started_at`, `completed_at`, `duration_ms`, `error_message`, `triggered_by`, `result` (jsonb summary for the panel).
 
-New module under `src/components/gamification/`, replacing `GamificationManagement.tsx` as the entry:
-1.1 Overview — hero, global-config card (edit → `gamification_settings`), program grid with 3/2/list views, 8 category colours, computed stat strip.
-1.2 New program form → `gamification_games`.
-1.3 Program detail — colour band, linked-module note, activity cards (badge + name + status only).
-1.4 Activity form base — details / trigger + conditions (scoped by category) / reward (read-only conversion line) / policy.
-1.5 Product archetype — focus-flag panel, `is_focused` toggle in product editor + bulk mark, zero-flag warning.
-1.6 Beat growth — metric, compare-against, min growth %, to `conditions_json`.
-1.7 Capture — read-only trigger panel, daily cap required.
-1.8 Target tiered — live KPI dropdown, tier table → `activity_tiers`, highest-only fixed, empty-Targets warning.
-1.9 Eligibility picker — all / manager (via `get_all_subordinates`) / territory / specific users.
+Both get GRANTs plus RLS: authenticated users read `ai_agents`; users read/insert their own `workflow_executions` (service role full access for the function). No existing table, policy, trigger, index or function is touched.
 
-Rules enforced throughout: live reads only, no "audit" wording, conversion global only, toggle labelled "Activity active".
+## Backend — one new Edge Function `ai-workflow-run`
 
-## Phase 2 — Award engine (Postgres)
+Additive; nothing existing is edited.
 
-Built as functions + triggers + cron, each with a `dry_run` guard driven by `gamification_settings.engine_enabled`:
-1. `gam_award_event(...)` — matches active activities on trigger + conditions + eligibility + validity, inserts ledger rows with computed `expires_at`.
-2. Eligibility resolver (manager subtree resolved at award time).
-3. Cap enforcement — drop-on-hit using `gamification_daily_tracking` at the activity's scope.
-4. Nightly cron marks `status='expired'`.
-5. Month-close job for tiered activities — highest tier met from `user_period_targets.achievement_percent`, one row per period_key.
-6. Redemption — oldest-first `status='redeemed'`, respecting `redemption_min`.
-7. Notifications on award via existing `notifications` table.
-8. Repoint the leaderboard snapshot job to sum active, non-expired, leaderboard-enabled rows.
-9. Cutover: enable engine + delete the `gamificationPointsAwarder` call sites in the same release; watch for duplicate `reference_id` inserts.
+1. Authenticates the caller (same pattern as `copilot-visit-actions`).
+2. Inserts a `workflow_executions` row with `status='running'`, `stage='simulation'`.
+3. Runs the deterministic branch for the requested agent, **read-only**:
+   - *Churn Detector*: 90d vs prior-90d order value per retailer, cancelled orders excluded, ranked by drop — same rules as the existing Copilot implementation.
+   - *Visit Optimiser*: today's planned retailers scored on days-since-last-visit, pending dues, recent productivity and geo clustering, returning an ordered stop list — same signals the existing route-suggestion payload is built from.
+4. Passes only the finished deterministic facts to Together.AI for a short human-readable summary, reusing the existing `togetherClient.ts` + `MODEL` config already in `copilot-visit-actions` (import, no new client, no new model config, no new auth/retry code).
+5. Updates the same row to `success` (with `duration_ms` and result) or `failed` (with `error_message`) — including on timeout or validation error, so history is always complete.
 
-Dry-run first: engine writes to a shadow table until totals reconcile against expected balances.
+Simulation writes nothing else: no WhatsApp, no plans, visits, orders, retailers, targets or notifications.
 
-## Phase 3 — Rep-facing
+## Frontend — `AiWorkflowsPage.tsx` only
 
-3.1 Wallet — balance, ₹ value, expiring-soon, award history (vivid theme).
-3.2 Leaderboard — untouched, data repoint only.
-3.3 Reward moment — celebration card off the award notification.
+Same JSX structure, classes, icons, copy and spacing; only data sources change.
 
-## Sequence and gates
+- Cards render from `ai_agents` (fallback to the current static array while loading, so there is no layout shift).
+- Clicking Visit Optimiser or Churn Detector opens a shadcn `Sheet` (the drawer pattern already used elsewhere in the app) showing the latest execution's status, stage, duration and timestamp, plus a single **Run Simulation** action and the returned result list + AI summary. The four Coming Soon cards keep no click handler.
+- Deployment Pipeline: the existing `StepChain` gets a highlighted-stage prop driven by the selected agent's latest execution; Production/Monitoring render disabled.
+- Metrics computed from `workflow_executions` (scoped to the selected agent, or all agents when none is selected): success rate = success / (success + failed); average `duration_ms` excluding running rows; executions today using the app's configured timezone via the existing `useAppTimezone` helpers.
+- **Create Workflow** button keeps its current appearance and its existing "coming soon" toast.
 
-Phase 0 → 0b (I can run and verify these immediately) → Phase 1 (starts once you attach `gamification_workflow_light.html`) → Phase 2 dry-run → sign-off → hard cutover → Phase 3. Production `etabpbfokzhhfuybeieu` only after staging sign-off; I will not touch it in this build.
+## Technical notes
+
+- New files: one migration, `supabase/functions/ai-workflow-run/index.ts`, a `useAiWorkflows` hook and an agent-detail sheet component under `src/modules/quickapp-ai/`.
+- Edited file: `src/modules/quickapp-ai/pages/AiWorkflowsPage.tsx` (data wiring only).
+- Out of scope and untouched: Copilot Chat, AI Insights, `copilot-agent`, `copilot-visit-actions`, Together.AI config, navigation, and all other modules.
