@@ -127,6 +127,7 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
         points,
         reference_type,
         reference_id,
+        retailer_id,
         metadata,
         gamification_games(name),
         gamification_actions(action_name, action_type, gamification_games(name))
