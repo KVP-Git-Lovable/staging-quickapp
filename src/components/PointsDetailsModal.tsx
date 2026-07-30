@@ -450,6 +450,12 @@ export function PointsDetailsModal({ open, onOpenChange, userId, timeFilter: ini
                           <div className="font-medium text-xs truncate">
                             {point.game_name}
                           </div>
+                          {point.action_name && (
+                            <div className="text-[10px] text-muted-foreground truncate">
+                              {point.action_name}
+                            </div>
+                          )}
+
                           {point.retailer_name && (
                             <div className="text-[10px] text-primary truncate">
                               {point.retailer_name}
