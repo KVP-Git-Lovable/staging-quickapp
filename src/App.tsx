@@ -64,6 +64,7 @@ import AiWorkflowsPage from "./modules/quickapp-ai/pages/AiWorkflowsPage";
 import AiInsightsPage from "./modules/quickapp-ai/pages/AiInsightsPage";
 import SahayaPage from "./modules/quickapp-ai/pages/SahayaPage";
 import NotificationDetail from "./pages/NotificationDetail";
+import NotificationHistory from "./pages/NotificationHistory";
 import { MyVisits } from "./pages/MyVisits";
 import { OrderEntry } from "./pages/OrderEntry";
 import CounterSales from "./pages/CounterSales";
@@ -657,6 +658,7 @@ const AppContent = () => {
         <Route path="/admin/retailer-external-db" element={<ProtectedRoute><RetailerExternalDBPage /></ProtectedRoute>} />
         <Route path="/admin/retailer-unsorted" element={<ProtectedRoute><RetailerUnsortedPage /></ProtectedRoute>} />
         <Route path="/admin/notification-rules" element={<ProtectedRoute><NotificationRulesAdmin /></ProtectedRoute>} />
+        <Route path="/notifications/history" element={<ProtectedRoute><NotificationHistory /></ProtectedRoute>} />
         <Route path="/notifications/:id" element={<ProtectedRoute><NotificationDetail /></ProtectedRoute>} />
         <Route path="/admin/activity-types" element={<ProtectedRoute><ActivityTypeManagement /></ProtectedRoute>} />
         <Route path="/admin/activity-coordinator" element={<ProtectedRoute><ActivityCoordinator /></ProtectedRoute>} />

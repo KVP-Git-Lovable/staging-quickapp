@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { NotificationRuleForm } from '@/components/admin/NotificationRuleForm';
 import { BannerHistorySection } from '@/components/admin/BannerHistorySection';
+import { NotificationHistoryTab } from '@/components/admin/NotificationHistoryTab';
 import { ReportSubscriptionsTab } from '@/components/admin/reports/ReportSubscriptionsTab';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
@@ -166,6 +167,7 @@ const NotificationRulesAdmin = () => {
             <TabsList>
               <TabsTrigger value="rules">Notification Center</TabsTrigger>
               <TabsTrigger value="reports">Report Subscriptions</TabsTrigger>
+              <TabsTrigger value="history">Notification History</TabsTrigger>
             </TabsList>
 
             <TabsContent value="rules" className="space-y-6">
@@ -297,6 +299,10 @@ const NotificationRulesAdmin = () => {
 
             <TabsContent value="reports">
               <ReportSubscriptionsTab />
+            </TabsContent>
+
+            <TabsContent value="history">
+              <NotificationHistoryTab />
             </TabsContent>
           </Tabs>
         </div>

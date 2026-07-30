@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Bell, CheckCheck, X } from 'lucide-react';
+import { Bell, CheckCheck, X, History as HistoryIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useNotifications, type Notification } from '@/hooks/useNotifications';
 import {
@@ -14,6 +15,7 @@ import { ReportNotificationDialog } from '@/components/notifications/ReportNotif
 export function NotificationBell() {
   const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, dismiss } = useNotifications();
   const [openReport, setOpenReport] = useState<Notification | null>(null);
+  const navigate = useNavigate();
 
   const formatTime = (dateString: string) => {
     try {
@@ -133,13 +135,20 @@ export function NotificationBell() {
           )}
         </div>
 
-        {notifications.length > 0 && (
-          <div className="px-4 py-2 border-t text-center">
-            <span className="text-xs text-muted-foreground">
-              {notifications.length} notification{notifications.length === 1 ? '' : 's'}
-            </span>
-          </div>
-        )}
+        <div className="px-4 py-2 border-t flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {notifications.length} unread
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={() => navigate('/notifications/history')}
+          >
+            <HistoryIcon className="h-3.5 w-3.5" />
+            History
+          </Button>
+        </div>
       </PopoverContent>
       <ReportNotificationDialog notification={openReport} onClose={() => setOpenReport(null)} />
     </Popover>
