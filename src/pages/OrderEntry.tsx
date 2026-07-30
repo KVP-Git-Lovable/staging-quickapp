@@ -112,8 +112,6 @@ interface ProductVariant {
   focused_territories?: string[] | null;
 }
 export const OrderEntry = () => {
-  // Order amounts render in the retailer's TRANSACTION currency (never converted).
-  const { currency: txnCurrency, format } = useOrderCurrency(retailerId);
   const {
     t
   } = useTranslation();
@@ -121,7 +119,10 @@ export const OrderEntry = () => {
   const [searchParams] = useSearchParams();
   const visitId = searchParams.get("visitId") || '';
   const retailerId = searchParams.get("retailerId") || '';
+  // Order amounts render in the retailer's TRANSACTION currency (never converted).
+  const { currency: txnCurrency, format } = useOrderCurrency(retailerId);
   const retailerName = searchParams.get("retailer") || "Retailer Name";
+
   const isPhoneOrder = searchParams.get("phoneOrder") === "true";
   const editOrderId = searchParams.get("editOrderId") || '';
   const isEditMode = !!editOrderId;
