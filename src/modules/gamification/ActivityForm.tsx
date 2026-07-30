@@ -87,8 +87,10 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
     if (category === "captures" && (!form.cap_value || Number(form.cap_value) <= 0)) {
       return toast.error("Capture activities need a daily cap");
     }
-    const activeKpis = kpis.filter((k: any) => k.is_active);
-    if (isTiered && activeKpis.length > 0 && !form.kpi_id) {
+    if (isTiered && kpis.length === 0) {
+      return toast.error("No KPIs defined yet. Set up KPIs in the Targets module first.");
+    }
+    if (isTiered && !form.kpi_id) {
       return toast.error("Choose a KPI from the Targets module");
     }
 
@@ -253,33 +255,39 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
                   <div className="rounded-lg border bg-indigo-50 border-indigo-200 p-3 text-sm text-indigo-900">
                     Reads the Targets module — each rep is scored on their own achievement %. No target is entered here.
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>KPI</Label>
-                      <Select value={form.kpi_id} onValueChange={(v) => set("kpi_id", v)}>
-                        <SelectTrigger><SelectValue placeholder="Choose a KPI" /></SelectTrigger>
-                        <SelectContent>
-                          {kpis.filter((k: any) => k.is_active).map((k: any) => (
-                            <SelectItem key={k.id} value={k.id}>{k.kpi_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  {kpis.length === 0 ? (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <span>
+                        No KPIs defined yet. Set up KPIs in the Targets module before this activity can award points.{" "}
+                        <Link to="/admin/performance-module" className="underline font-medium">Open Targets module</Link>
+                      </span>
                     </div>
-                    <div>
-                      <Label>Target period</Label>
-                      <Select value={form.target_period} onValueChange={(v) => set("target_period", v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {TARGET_PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label>KPI</Label>
+                        <Select value={form.kpi_id} onValueChange={(v) => set("kpi_id", v)}>
+                          <SelectTrigger><SelectValue placeholder="Choose a KPI" /></SelectTrigger>
+                          <SelectContent>
+                            {kpis.map((k: any) => (
+                              <SelectItem key={k.id} value={k.id}>{k.kpi_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Target period</Label>
+                        <Select value={form.target_period} onValueChange={(v) => set("target_period", v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {TARGET_PERIODS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </div>
-                  {kpis.filter((k: any) => k.is_active).length === 0 && (
-                    <p className="text-sm text-destructive flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4" /> No active KPIs in the Targets module — this activity will not award until Targets is set up.
-                    </p>
                   )}
+
 
                   <div className="space-y-2">
                     <Label>Tiers (achievement % ≥ → points)</Label>
@@ -431,7 +439,7 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
 
           <div className="flex justify-end gap-2 pb-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>
+            <Button onClick={save} disabled={saving || (isTiered && kpis.length === 0)}>
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Save activity
             </Button>
           </div>

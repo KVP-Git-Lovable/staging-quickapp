@@ -120,8 +120,10 @@ export const useTargetKpis = () =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from("target_kpi_definitions")
-        .select("id, kpi_name, is_active")
-        .order("kpi_name");
+        .select("id, kpi_name, is_active, display_order")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true })
+        .order("kpi_name", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
