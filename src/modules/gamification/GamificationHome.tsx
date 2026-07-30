@@ -7,11 +7,16 @@ import {
 } from "@/components/ui/select";
 import {
   ChevronDown, Gamepad2, Plus, Star, Trophy, Loader2, HelpCircle, ExternalLink,
-  Sparkles, Coins, LayoutGrid, Columns2, List, ChevronRight, Zap, Gift, Users,
+  Sparkles, Coins, LayoutGrid, Columns2, List, ChevronRight, Zap, Gift, Users, Trash2,
 } from "lucide-react";
 import { categoryMeta } from "./constants";
-import { useActivities, useGamSettings, usePointsIssuedYtd, usePrograms, useUpdateGamSettings } from "./hooks";
+import { useActivities, useDeleteProgram, useGamSettings, usePointsIssuedYtd, usePrograms, useUpdateGamSettings } from "./hooks";
 import { ProgramForm } from "./ProgramForm";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 const PAGE = "#eef0f4";
 const INK = "#1c2440";
@@ -122,6 +127,9 @@ export function GamificationHome() {
   const { data: settings } = useGamSettings();
   const { data: pointsYtd = 0 } = usePointsIssuedYtd();
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const deleteProgram = useDeleteProgram();
+
   const [view, setView] = useState<ViewMode>("grid3");
 
   const activeActivities = allActivities.filter((a: any) => a.is_enabled).length;
@@ -238,7 +246,18 @@ export function GamificationHome() {
                         style={{ color: cat.tx }}>
                     {p.is_active ? "Active" : "Draft"}
                   </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(p); }}
+                    title="Delete program"
+                    aria-label={`Delete ${p.name}`}
+                    className={`w-[26px] h-[26px] rounded-lg bg-white/80 hover:bg-white flex items-center justify-center transition-colors ${
+                      isList ? "order-4 shrink-0" : "absolute bottom-3.5 right-3.5"
+                    }`}
+                  >
+                    <Trash2 className="h-[13px] w-[13px]" style={{ color: "#c0392b" }} />
+                  </button>
                 </div>
+
               );
             })}
             {!programs.length && (
@@ -285,6 +304,32 @@ export function GamificationHome() {
         </div>
 
         <ProgramForm open={createOpen} onOpenChange={setCreateOpen} />
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete program?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{deleteTarget?.name}” and all of its activities will be permanently removed.
+                Programs whose activities have already awarded points cannot be deleted — set them to Draft instead.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  const id = deleteTarget?.id;
+                  setDeleteTarget(null);
+                  if (id) deleteProgram.mutate(id);
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </div>
   );

@@ -99,6 +99,77 @@ export const useActivityTiers = (actionId?: string) =>
     },
   });
 
+const countPointsFor = async (actionIds: string[]) => {
+  if (!actionIds.length) return 0;
+  const { count, error } = await supabase
+    .from("gamification_points")
+    .select("id", { count: "exact", head: true })
+    .in("action_id", actionIds);
+  if (error) throw error;
+  return count ?? 0;
+};
+
+/** Delete a single activity (and its tiers). Blocked when points were already awarded. */
+export const useDeleteActivity = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (actionId: string) => {
+      const awarded = await countPointsFor([actionId]);
+      if (awarded > 0) {
+        throw new Error(
+          `This activity has already awarded ${awarded} point record(s) and cannot be deleted. Turn it off instead to stop future awards.`,
+        );
+      }
+      const { error: tErr } = await supabase.from("activity_tiers").delete().eq("action_id", actionId);
+      if (tErr) throw tErr;
+      const { error } = await supabase.from("gamification_actions").delete().eq("id", actionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["gam-activities"] });
+      qc.invalidateQueries({ queryKey: ["gam-tier-ranges"] });
+      toast.success("Activity deleted");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Could not delete activity"),
+  });
+};
+
+/** Delete a program with all its activities and tiers. Blocked when any points were awarded. */
+export const useDeleteProgram = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (programId: string) => {
+      const { data: actions, error: aErr } = await supabase
+        .from("gamification_actions")
+        .select("id")
+        .eq("game_id", programId);
+      if (aErr) throw aErr;
+      const ids = (actions ?? []).map((a: any) => a.id);
+      const awarded = await countPointsFor(ids);
+      if (awarded > 0) {
+        throw new Error(
+          `This program's activities have already awarded ${awarded} point record(s) and cannot be deleted. Set the program to Draft instead.`,
+        );
+      }
+      if (ids.length) {
+        const { error: tErr } = await supabase.from("activity_tiers").delete().in("action_id", ids);
+        if (tErr) throw tErr;
+        const { error: acErr } = await supabase.from("gamification_actions").delete().in("id", ids);
+        if (acErr) throw acErr;
+      }
+      const { error } = await supabase.from("gamification_games").delete().eq("id", programId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["gam-programs"] });
+      qc.invalidateQueries({ queryKey: ["gam-activities"] });
+      toast.success("Program deleted");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Could not delete program"),
+  });
+};
+
+
 export const usePointsIssuedYtd = () =>
   useQuery({
     queryKey: ["gam-points-ytd"],

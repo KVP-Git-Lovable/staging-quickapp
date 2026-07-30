@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Loader2, Tag, Info, Hourglass, Gauge, Gift, Trophy, SlidersHorizontal, Calendar, Target as TargetIcon } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Tag, Info, Hourglass, Gauge, Gift, Trophy, SlidersHorizontal, Calendar, Target as TargetIcon, Trash2 } from "lucide-react";
 import { categoryMeta, LINKED_MODULE_NOTE, ProgramCategory } from "./constants";
-import { useActivities, useFocusedProductCount, useProgram } from "./hooks";
+import { useActivities, useDeleteActivity, useDeleteProgram, useFocusedProductCount, useProgram } from "./hooks";
 import { ActivityForm } from "./ActivityForm";
 import { CategoryIcon } from "./CategoryIcon";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 const PAGE = "#eef0f4";
 const INK = "#1c2440";
@@ -27,6 +32,11 @@ export function ProgramDetail() {
   const { data: focusedCount = 0 } = useFocusedProductCount();
   const [editing, setEditing] = useState<any | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [deleteActivityTarget, setDeleteActivityTarget] = useState<any | null>(null);
+  const [deleteProgramOpen, setDeleteProgramOpen] = useState(false);
+  const deleteActivity = useDeleteActivity();
+  const deleteProgram = useDeleteProgram();
+
 
   const { data: tierRanges = {} } = useQuery({
     queryKey: ["gam-tier-ranges", programId, activities.length],
@@ -86,6 +96,15 @@ export function ProgramDetail() {
           <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/55">
             {program.is_active ? "Active" : "Draft"}
           </span>
+          <button
+            onClick={() => setDeleteProgramOpen(true)}
+            title="Delete program"
+            aria-label="Delete program"
+            className="w-8 h-8 rounded-[10px] bg-white/55 hover:bg-white flex items-center justify-center shrink-0 transition-colors"
+          >
+            <Trash2 className="h-4 w-4" style={{ color: "#c0392b" }} />
+          </button>
+
         </div>
 
         <div className="bg-white rounded-[13px] px-4 py-3 text-[12.5px] flex items-start gap-2.5 mb-6 leading-relaxed"
@@ -130,7 +149,16 @@ export function ProgramDetail() {
                           : { background: PAGE, color: MUT, border: `1px solid ${LINE}` }}>
                     {a.is_enabled ? "On" : "Off"}
                   </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeleteActivityTarget(a); }}
+                    title="Delete activity"
+                    aria-label={`Delete ${a.action_name}`}
+                    className="w-8 h-8 rounded-[9px] flex items-center justify-center shrink-0 hover:bg-[#fdecea] transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" style={{ color: "#c0392b" }} />
+                  </button>
                 </div>
+
 
                 {(a.trigger_type === "focused_product_sales") && (
                   <div className="px-4 py-2.5 text-[11.5px] flex items-center gap-2"
@@ -170,7 +198,58 @@ export function ProgramDetail() {
           category={(program.category ?? "orders") as ProgramCategory}
           activity={editing}
         />
+
+        <AlertDialog open={!!deleteActivityTarget} onOpenChange={(o) => !o && setDeleteActivityTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete activity?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{deleteActivityTarget?.action_name}” and its tiers will be permanently removed.
+                Activities that have already awarded points cannot be deleted — turn them off instead.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  const id = deleteActivityTarget?.id;
+                  setDeleteActivityTarget(null);
+                  if (id) deleteActivity.mutate(id);
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={deleteProgramOpen} onOpenChange={setDeleteProgramOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete program?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{program.name}” and its {activities.length} activit{activities.length === 1 ? "y" : "ies"} will be
+                permanently removed. Programs whose activities have already awarded points cannot be deleted —
+                set them to Draft instead.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  setDeleteProgramOpen(false);
+                  deleteProgram.mutate(program.id, { onSuccess: () => navigate("/gamification-admin") });
+                }}
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
+
     </div>
   );
 }
