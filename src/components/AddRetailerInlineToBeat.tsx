@@ -79,6 +79,18 @@ export const AddRetailerInlineToBeat = ({ open, onClose, beatName, beatId, onRet
     manual_credit_score: ""
   });
 
+  // Transaction currency: default from distributor, else company base currency.
+  const [currency, setCurrency] = useState<string | null>(null);
+  const [currencyTouched, setCurrencyTouched] = useState(false);
+  const { data: currencyConfig } = useRetailerCurrencyConfig();
+  const { data: distributorCurrency } = useDistributorCurrency(retailerData.selectedDistributors?.[0] || null);
+  useEffect(() => {
+    if (currencyTouched || !currencyConfig?.multiEnabled) return;
+    setCurrency(distributorCurrency || currencyConfig.baseCurrency || null);
+  }, [currencyTouched, currencyConfig, distributorCurrency]);
+
+
+
   const categories = ["Category A", "Category B", "Category C"];
   const parentTypes = ["Company", "Super Stockist", "Distributor"];
   const retailTypes = ["Grocery Store", "Supermarket", "Convenience Store", "Provision Store", "General Store", "Milk Parlour", "Hotel", "Other"];
