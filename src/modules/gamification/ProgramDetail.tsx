@@ -96,6 +96,15 @@ export function ProgramDetail() {
           <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/55">
             {program.is_active ? "Active" : "Draft"}
           </span>
+          <button
+            onClick={() => setDeleteProgramOpen(true)}
+            title="Delete program"
+            aria-label="Delete program"
+            className="w-8 h-8 rounded-[10px] bg-white/55 hover:bg-white flex items-center justify-center shrink-0 transition-colors"
+          >
+            <Trash2 className="h-4 w-4" style={{ color: "#c0392b" }} />
+          </button>
+
         </div>
 
         <div className="bg-white rounded-[13px] px-4 py-3 text-[12.5px] flex items-start gap-2.5 mb-6 leading-relaxed"
