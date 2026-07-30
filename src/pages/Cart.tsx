@@ -43,6 +43,7 @@ import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
 import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useOrderCurrency } from "@/hooks/useOrderCurrency";
 
 interface CartItem {
   id: string;
@@ -108,7 +109,6 @@ const getDisplayRate = (item: CartItem) => {
 };
 
 export const Cart = () => {
-  const { format: fmtMoney } = useCurrency();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const visitId = searchParams.get("visitId") || '';
@@ -119,6 +119,10 @@ export const Cart = () => {
   const isEditMode = !!editOrderId;
   const source = searchParams.get("source") || '';
   const isAdminEdit = source === 'admin' && isEditMode;
+  // Order money is shown in the TRANSACTION currency and never converted.
+  const { currency: txnCurrency, format: fmtMoney } = useOrderCurrency(
+    retailerId && retailerId !== '.' && retailerId.length > 1 ? retailerId : null
+  );
   const { isPaymentProofMandatory } = usePaymentProofMandatory();
   const connectivityStatus = useConnectivity();
   const { isEnabled: isD1DeliveryEnabled } = useD1Delivery();
@@ -2512,7 +2516,9 @@ export const Cart = () => {
                       ? `Edit Order${editInvoiceNumber ? ` #${editInvoiceNumber}` : ''}`
                       : 'Cart'}
                   </CardTitle>
-                  <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">{retailerName}</p>
+                  <p className="text-[10px] sm:text-xs text-primary-foreground/80 leading-tight truncate">
+                    {retailerName} · Currency: {txnCurrency}
+                  </p>
                 </div>
               </div>
               
