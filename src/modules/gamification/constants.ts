@@ -62,14 +62,22 @@ export const TRIGGERS: Record<ProgramCategory, { value: string; label: string }[
     { value: "retailer_created", label: "New retailer added" },
     { value: "retailer_verified", label: "Retailer verified" },
     { value: "first_order_new_retailer", label: "First order from a new retailer" },
+    { value: "retailer_active_streak", label: "Retailer stays active (streak)" },
   ],
   attendance: [
     { value: "attendance_check_in", label: "Day started (check-in)" },
     { value: "attendance_full_day", label: "Full day completed" },
     { value: "attendance_on_time", label: "On-time check-in" },
+    { value: "attendance_streak", label: "Attendance streak" },
   ],
-  products: [{ value: "focused_product_sales", label: "Order contains a focused product" }],
-  beats: [{ value: "beat_growth", label: "Beat growth achieved" }],
+  products: [
+    { value: "focused_product_sales", label: "Order contains a focused product" },
+    { value: "new_product_introduction", label: "First focus-product order for a retailer" },
+  ],
+  beats: [
+    { value: "beat_growth", label: "Beat growth achieved" },
+    { value: "beat_new_retailers", label: "New retailers added in a beat" },
+  ],
   targets: [{ value: "target_achievement", label: "Target achievement (period close)" }],
   captures: [
     { value: "competition_insight", label: "Competition intelligence submitted" },
