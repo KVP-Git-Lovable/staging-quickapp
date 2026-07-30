@@ -397,6 +397,44 @@ export type Database = {
           },
         ]
       }
+      activity_tiers: {
+        Row: {
+          action_id: string
+          created_at: string
+          id: string
+          points: number
+          sort: number
+          threshold_pct: number
+          updated_at: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          id?: string
+          points?: number
+          sort?: number
+          threshold_pct: number
+          updated_at?: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          id?: string
+          points?: number
+          sort?: number
+          threshold_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_tiers_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       additional_expenses: {
         Row: {
           amount: number
@@ -8770,7 +8808,15 @@ export type Database = {
           validity_from?: string | null
           validity_to?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gamification_actions_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "gamification_games"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gamification_daily_tracking: {
         Row: {
@@ -8815,6 +8861,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      gamification_games: {
+        Row: {
+          baseline_target: number | null
+          category: string
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          end_date: string
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_all_territories: boolean | null
+          name: string
+          start_date: string
+          territories: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          baseline_target?: number | null
+          category?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_all_territories?: boolean | null
+          name: string
+          start_date: string
+          territories?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          baseline_target?: number | null
+          category?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          end_date?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_all_territories?: boolean | null
+          name?: string
+          start_date?: string
+          territories?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       gamification_points: {
         Row: {
