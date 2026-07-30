@@ -32,7 +32,7 @@ import { useRetailerVisitTracking } from "@/hooks/useRetailerVisitTracking";
 import { RetailerVisitDetailsModal } from "@/components/RetailerVisitDetailsModal";
 import { getLocalTodayDate } from "@/utils/dateUtils";
 import { OrderGuideManualButton } from "@/components/OrderGuideManualButton";
-import { useCurrency } from "@/contexts/CurrencyContext";
+import { useOrderCurrency } from "@/hooks/useOrderCurrency";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -112,7 +112,8 @@ interface ProductVariant {
   focused_territories?: string[] | null;
 }
 export const OrderEntry = () => {
-  const { format } = useCurrency();
+  // Order amounts render in the retailer's TRANSACTION currency (never converted).
+  const { currency: txnCurrency, format } = useOrderCurrency(retailerId);
   const {
     t
   } = useTranslation();
@@ -2140,7 +2141,7 @@ export const OrderEntry = () => {
                 }
               }} className="text-primary-foreground hover:bg-primary-foreground/20 h-auto p-1.5 sm:p-2 min-w-[50px] sm:min-w-[60px]" disabled={getSelectionValue() === 0}>
                   <div className="text-center">
-                    <p className="text-[9px] sm:text-[10px] text-primary-foreground/80 leading-tight">Current</p>
+                    <p className="text-[9px] sm:text-[10px] text-primary-foreground/80 leading-tight">Current ({txnCurrency})</p>
                     <p className="text-xs sm:text-sm font-bold leading-tight break-all">
                       {format(getSelectionValue())}
                     </p>
@@ -3075,7 +3076,7 @@ export const OrderEntry = () => {
 
         
         {/* Order Summary Modal */}
-        <OrderSummaryModal isOpen={showOrderSummary} onClose={() => setShowOrderSummary(false)} items={getSelectionDetails().items} totalAmount={getSelectionValue()} totalSavings={getSelectionDetails().totalSavings} onAddToCart={handleAddAllToCart} productName={currentProductName} />
+        <OrderSummaryModal isOpen={showOrderSummary} onClose={() => setShowOrderSummary(false)} items={getSelectionDetails().items} totalAmount={getSelectionValue()} totalSavings={getSelectionDetails().totalSavings} currency={txnCurrency} onAddToCart={handleAddAllToCart} productName={currentProductName} />
         
         {/* Scheme Details Modal */}
         <SchemeDetailsModal isOpen={showSchemeModal} onClose={() => setShowSchemeModal(false)} productName={selectedProductForScheme?.name || "Product"} schemes={filteredSchemes} />
