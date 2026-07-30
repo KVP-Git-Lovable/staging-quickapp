@@ -6,7 +6,7 @@ import {
   streamChat,
   TogetherError,
   type ChatMessage,
-} from "../copilot-visit-actions/services/togetherClient.ts";
+} from "../_shared/together/togetherClient.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
