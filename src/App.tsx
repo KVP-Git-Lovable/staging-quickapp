@@ -657,6 +657,7 @@ const AppContent = () => {
         <Route path="/admin/retailer-external-db" element={<ProtectedRoute><RetailerExternalDBPage /></ProtectedRoute>} />
         <Route path="/admin/retailer-unsorted" element={<ProtectedRoute><RetailerUnsortedPage /></ProtectedRoute>} />
         <Route path="/admin/notification-rules" element={<ProtectedRoute><NotificationRulesAdmin /></ProtectedRoute>} />
+        <Route path="/notifications/history" element={<ProtectedRoute><NotificationHistory /></ProtectedRoute>} />
         <Route path="/notifications/:id" element={<ProtectedRoute><NotificationDetail /></ProtectedRoute>} />
         <Route path="/admin/activity-types" element={<ProtectedRoute><ActivityTypeManagement /></ProtectedRoute>} />
         <Route path="/admin/activity-coordinator" element={<ProtectedRoute><ActivityCoordinator /></ProtectedRoute>} />
