@@ -119,17 +119,31 @@ export const useProfilePermissions = () => {
           return cached ?? [];
         }
 
-        const { data: perms, error: permsError } = await supabase
-          .from('profile_object_permissions')
-          .select('object_name, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
-          .eq('profile_id', profilePerms.profile_id);
+        // PostgREST caps a single select at 1000 rows. Admin profiles exceed that,
+        // which silently dropped recently-added grants (e.g. module_quickapp_ai).
+        // Page through the full set explicitly.
+        const PAGE = 1000;
+        const all: ProfilePermission[] = [];
+        for (let from = 0; ; from += PAGE) {
+          const { data: page, error: permsError } = await supabase
+            .from('profile_object_permissions')
+            .select('object_name, can_read, can_create, can_edit, can_delete, can_view_all, can_modify_all')
+            .eq('profile_id', profilePerms.profile_id)
+            .order('object_name', { ascending: true })
+            .range(from, from + PAGE - 1);
 
-        if (permsError) {
-          console.error('[Permissions] perms failed, using cache:', permsError);
-          return cached ?? [];
+          if (permsError) {
+            console.error('[Permissions] perms failed, using cache:', permsError);
+            return cached ?? [];
+          }
+
+          const rows = (page || []) as ProfilePermission[];
+          all.push(...rows);
+          if (rows.length < PAGE) break;
         }
 
-        const result = (perms || []) as ProfilePermission[];
+        const result = all;
+
 
         console.info('[Permissions] Loaded', result.length, 'permissions for profile', profilePerms.profile_id);
 
