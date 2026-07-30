@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Loader2, Tag, Info, Hourglass, Gauge, Gift, Trophy, SlidersHorizontal, Calendar, Target as TargetIcon } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Tag, Info, Hourglass, Gauge, Gift, Trophy, SlidersHorizontal, Calendar, Target as TargetIcon, Trash2 } from "lucide-react";
 import { categoryMeta, LINKED_MODULE_NOTE, ProgramCategory } from "./constants";
-import { useActivities, useFocusedProductCount, useProgram } from "./hooks";
+import { useActivities, useDeleteActivity, useDeleteProgram, useFocusedProductCount, useProgram } from "./hooks";
 import { ActivityForm } from "./ActivityForm";
 import { CategoryIcon } from "./CategoryIcon";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 const PAGE = "#eef0f4";
 const INK = "#1c2440";
