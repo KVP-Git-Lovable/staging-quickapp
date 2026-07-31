@@ -33,19 +33,22 @@ interface NotificationRow {
 }
 
 /**
- * How a notification was fired. There are TWO manual paths, each stamping a
- * different marker:
- *   - notification rules  -> notify_send_test() sets metadata.is_test = true
- *   - report subscriptions-> "Run now" sets metadata.trigger_type = 'manual'
- *                            (a scheduled run sets 'scheduled')
- * Anything else came from an event trigger / schedule, i.e. automatic.
+ * How a notification was fired — i.e. did a human initiate it, or did the system?
+ * Manual covers three human-initiated paths, each identified differently:
+ *   - notification rules   -> notify_send_test() sets metadata.is_test = true
+ *   - report subscriptions -> "Run now" sets metadata.trigger_type = 'manual'
+ *                             (a scheduled run sets 'scheduled')
+ *   - broadcasts           -> type = 'broadcast' (an admin-composed announcement,
+ *                             which carries no metadata marker of its own)
+ * Anything else came from an event trigger or a schedule, i.e. automatic.
  */
 type FiredBy = 'manual' | 'auto';
-const firedByOf = (n: { metadata: Record<string, any> | null }): FiredBy => {
+const firedByOf = (n: { metadata: Record<string, any> | null; type: string | null }): FiredBy => {
   const m = n.metadata ?? {};
   const isTest = m.is_test === true || m.is_test === 'true';
   const manualTrigger = String(m.trigger_type ?? '').toLowerCase() === 'manual';
-  return isTest || manualTrigger ? 'manual' : 'auto';
+  const isBroadcast = String(n.type ?? '').toLowerCase() === 'broadcast';
+  return isTest || manualTrigger || isBroadcast ? 'manual' : 'auto';
 };
 
 export const NotificationHistoryTab: React.FC = () => {
@@ -214,7 +217,7 @@ export const NotificationHistoryTab: React.FC = () => {
                       }
                       title={
                         n.firedBy === 'manual'
-                          ? `Fired manually via "Run now"${n.testBatchId ? ` · batch ${n.testBatchId.slice(0, 8)}` : ''}`
+                          ? `${n.type === 'broadcast' ? 'Sent manually as a broadcast' : 'Fired manually via "Run now"'}${n.testBatchId ? ` · batch ${n.testBatchId.slice(0, 8)}` : ''}`
                           : 'Fired automatically by an event trigger or schedule'
                       }
                     >
