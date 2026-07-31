@@ -104,13 +104,24 @@ export const usePointsIssuedYtd = () =>
     queryKey: ["gam-points-ytd"],
     queryFn: async () => {
       const start = new Date(new Date().getFullYear(), 0, 1).toISOString();
-      const { data, error } = await supabase
-        .from("gamification_points")
-        .select("points")
-        .gte("earned_at", start)
-        .limit(5000);
-      if (error) throw error;
-      return (data ?? []).reduce((s: number, r: any) => s + Number(r.points || 0), 0);
+      // Paged rather than a flat .limit() — a fixed cap silently plateaus the
+      // tile once the year's ledger outgrows it, with no sign anything is wrong.
+      const PAGE_SIZE = 1000;
+      const MAX_PAGES = 100;
+      let total = 0;
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const from = page * PAGE_SIZE;
+        const { data, error } = await supabase
+          .from("gamification_points")
+          .select("points")
+          .gte("earned_at", start)
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        const rows = data ?? [];
+        total = rows.reduce((s: number, r: any) => s + Number(r.points || 0), total);
+        if (rows.length < PAGE_SIZE) break;
+      }
+      return total;
     },
   });
 

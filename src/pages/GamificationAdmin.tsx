@@ -1,15 +1,20 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { BarChart3, Coins, Gift, Loader2, Trophy, Zap } from "lucide-react";
 import { GamificationHome } from "@/modules/gamification/GamificationHome";
 import { ProgramDetail } from "@/modules/gamification/ProgramDetail";
 import { FocusProducts } from "@/modules/gamification/FocusProducts";
-import { GamificationSidebar } from "@/modules/gamification/GamificationSidebar";
+import { GamificationHero } from "@/modules/gamification/GamificationHero";
+import { GamificationTabs } from "@/modules/gamification/GamificationTabs";
+import { GlobalConfigBar } from "@/modules/gamification/GlobalConfigBar";
+import { SectionPlaceholder } from "@/modules/gamification/SectionPlaceholder";
 
 
 export default function GamificationAdmin() {
   const { hasAdminAccess, loading } = useAdminAccess();
+  const [configOpen, setConfigOpen] = useState(false);
 
   if (loading) {
     return (
@@ -28,13 +33,79 @@ export default function GamificationAdmin() {
   return (
     <Layout>
       <div className="w-full -mx-0 px-3 sm:px-5 xl:px-7 py-5 min-h-screen" style={{ background: "#eef0f4" }}>
-        <div className="flex gap-5 items-start">
-          <GamificationSidebar />
-          <div className="min-w-0 flex-1">
+        {/* No flex gap here on purpose — the sticky tab bar carries its own padding so
+            content scrolls underneath it without showing through a transparent band. */}
+        <div className="mx-auto w-full max-w-[1600px] flex flex-col">
+          <div className="mb-3">
+            <GamificationHero />
+          </div>
+
+          <GamificationTabs
+            settingsOpen={configOpen}
+            onToggleSettings={() => setConfigOpen((o) => !o)}
+          />
+
+          <div className="mb-3">
+            <GlobalConfigBar open={configOpen} onOpenChange={setConfigOpen} />
+          </div>
+
+          <div className="min-w-0">
             <Routes>
               <Route index element={<GamificationHome />} />
+              <Route path="programs" element={<GamificationHome />} />
               <Route path="program/:programId" element={<ProgramDetail />} />
               <Route path="focus-products" element={<FocusProducts />} />
+              <Route
+                path="activities"
+                element={
+                  <SectionPlaceholder
+                    icon={Zap}
+                    title="Activities"
+                    description="Every activity across all programs in one place — enable or disable them, set point values and configure tiers without opening each program."
+                  />
+                }
+              />
+              <Route
+                path="points"
+                element={
+                  <SectionPlaceholder
+                    icon={Coins}
+                    title="Points"
+                    description="The points ledger and per-user balances, with manual adjustments and a full audit trail of what was awarded and why."
+                  />
+                }
+              />
+              <Route
+                path="rewards"
+                element={
+                  <SectionPlaceholder
+                    icon={Gift}
+                    title="Rewards"
+                    description="The reward catalogue and redemption queue. Focus products already lives here and stays fully available in the meantime."
+                    link={{ label: "Focus products", to: "/gamification-admin/focus-products" }}
+                  />
+                }
+              />
+              <Route
+                path="leaderboard"
+                element={
+                  <SectionPlaceholder
+                    icon={Trophy}
+                    title="Leaderboard"
+                    description="Rankings across teams and periods, driven by the same points data the field app already shows to reps."
+                  />
+                }
+              />
+              <Route
+                path="reports"
+                element={
+                  <SectionPlaceholder
+                    icon={BarChart3}
+                    title="Reports"
+                    description="Scheduled and ad-hoc reporting on points issued, redemption rates and program performance over time."
+                  />
+                }
+              />
               <Route path="*" element={<Navigate to="/gamification-admin" replace />} />
             </Routes>
           </div>
@@ -43,4 +114,3 @@ export default function GamificationAdmin() {
     </Layout>
   );
 }
-
