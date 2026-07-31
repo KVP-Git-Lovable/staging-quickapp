@@ -2752,15 +2752,7 @@ export type Database = {
           timezone?: string
           updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "companies_base_currency_fk"
-            columns: ["base_currency"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
-        ]
+        Relationships: []
       }
       company_feature_config: {
         Row: {
@@ -3756,13 +3748,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "credit_ledger_ccy_fk"
-            columns: ["currency_code"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
-          {
             foreignKeyName: "credit_ledger_retailer_id_fkey"
             columns: ["retailer_id"]
             isOneToOne: false
@@ -4011,13 +3996,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "credit_notes_ccy_fk"
-            columns: ["currency_code"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
-          {
             foreignKeyName: "credit_notes_original_order_id_fkey"
             columns: ["original_order_id"]
             isOneToOne: false
@@ -4032,36 +4010,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      currencies: {
-        Row: {
-          code: string
-          created_at: string
-          decimals: number
-          is_active: boolean
-          name: string
-          symbol: string
-          symbol_position: string
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          decimals?: number
-          is_active?: boolean
-          name: string
-          symbol: string
-          symbol_position?: string
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          decimals?: number
-          is_active?: boolean
-          name?: string
-          symbol?: string
-          symbol_position?: string
-        }
-        Relationships: []
       }
       custom_invoice_templates: {
         Row: {
@@ -8003,22 +7951,7 @@ export type Database = {
           rate?: number
           source?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "exchange_rates_base_currency_fkey"
-            columns: ["base_currency"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "exchange_rates_quote_currency_fkey"
-            columns: ["quote_currency"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
-        ]
+        Relationships: []
       }
       expense_approval_rules: {
         Row: {
@@ -11088,13 +11021,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "invoices_ccy_fk"
-            columns: ["currency_code"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
-          {
             foreignKeyName: "invoices_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
@@ -12009,66 +11935,6 @@ export type Database = {
         }
         Relationships: []
       }
-      notification_rules: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          event_code: string
-          id: string
-          is_active: boolean
-          message_template: string
-          name: string | null
-          notification_channel: string
-          receiver_role: string | null
-          receiver_type: string
-          receiver_user_id: string | null
-          retailer_target_ids: string[] | null
-          retailer_target_type: string | null
-          source_table: string
-          timezone: string
-          title_template: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          event_code: string
-          id?: string
-          is_active?: boolean
-          message_template?: string
-          name?: string | null
-          notification_channel?: string
-          receiver_role?: string | null
-          receiver_type?: string
-          receiver_user_id?: string | null
-          retailer_target_ids?: string[] | null
-          retailer_target_type?: string | null
-          source_table: string
-          timezone?: string
-          title_template?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          event_code?: string
-          id?: string
-          is_active?: boolean
-          message_template?: string
-          name?: string | null
-          notification_channel?: string
-          receiver_role?: string | null
-          receiver_type?: string
-          receiver_user_id?: string | null
-          retailer_target_ids?: string[] | null
-          retailer_target_type?: string | null
-          source_table?: string
-          timezone?: string
-          title_template?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       notifications: {
         Row: {
           created_at: string
@@ -12646,13 +12512,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "order_items_ccy_fk"
-            columns: ["currency_code"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
-          {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
@@ -12890,13 +12749,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "orders_ccy_fk"
-            columns: ["currency_code"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "orders_counter_customer_id_fkey"
@@ -22934,13 +22786,6 @@ export type Database = {
             referencedRelation: "retailers"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "rpc_ccy_fk"
-            columns: ["currency_code"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
         ]
       }
       retailer_pending_audit: {
@@ -23449,13 +23294,6 @@ export type Database = {
           whatsapp_verified?: boolean
         }
         Relationships: [
-          {
-            foreignKeyName: "retailers_currency_fk"
-            columns: ["currency"]
-            isOneToOne: false
-            referencedRelation: "currencies"
-            referencedColumns: ["code"]
-          },
           {
             foreignKeyName: "retailers_distributor_id_fkey"
             columns: ["distributor_id"]
