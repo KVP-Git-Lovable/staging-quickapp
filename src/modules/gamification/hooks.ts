@@ -145,6 +145,84 @@ export const usePointsIssuedYtd = () =>
     },
   });
 
+/** id → full_name for the ledger. gamification_points.user_id has no FK to profiles,
+ *  so the join has to happen client-side. */
+export const useGamProfiles = () =>
+  useQuery({
+    queryKey: ["gam-profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("id, full_name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+/** Detail rows for the ledger table, newest first. Paged from the UI via `limit`. */
+export const usePointsLedger = (limit = 100) =>
+  useQuery({
+    queryKey: ["gam-points-ledger", limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("gamification_points")
+        .select(
+          "id, points, earned_at, expires_at, status, reference_type, reference_id, retailer_id, user_id, game_id, action_id, gamification_actions(action_name, is_tiered), gamification_games(name, category)"
+        )
+        .order("earned_at", { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+/** Totals and per-user balances over the WHOLE ledger — deliberately separate from
+ *  usePointsLedger so the headline figures stay correct no matter how few rows the
+ *  table has loaded. Paged for the same reason usePointsIssuedYtd is. */
+export const usePointsSummary = () =>
+  useQuery({
+    queryKey: ["gam-points-summary"],
+    queryFn: async () => {
+      const PAGE_SIZE = 1000;
+      const MAX_PAGES = 100;
+      const byUser = new Map<string, { points: number; awards: number; last: string | null }>();
+      let total = 0;
+      let awards = 0;
+      let earliest: string | null = null;
+
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const from = page * PAGE_SIZE;
+        const { data, error } = await supabase
+          .from("gamification_points")
+          .select("points, user_id, earned_at")
+          .order("earned_at", { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        const rows = data ?? [];
+        rows.forEach((r: any) => {
+          const p = Number(r.points || 0);
+          total += p;
+          awards += 1;
+          const key = r.user_id ?? "__none__";
+          const cur = byUser.get(key) ?? { points: 0, awards: 0, last: null };
+          cur.points += p;
+          cur.awards += 1;
+          if (!cur.last || r.earned_at > cur.last) cur.last = r.earned_at;
+          byUser.set(key, cur);
+          if (!earliest || r.earned_at < earliest) earliest = r.earned_at;
+        });
+        if (rows.length < PAGE_SIZE) break;
+      }
+
+      return {
+        total,
+        awards,
+        earliest,
+        byUser: Array.from(byUser.entries())
+          .map(([userId, v]) => ({ userId, ...v }))
+          .sort((a, b) => b.points - a.points),
+      };
+    },
+  });
+
 export const useTargetKpis = () =>
   useQuery({
     queryKey: ["gam-target-kpis"],

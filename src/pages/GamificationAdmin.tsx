@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { BarChart3, Coins, Gift, Loader2, Trophy } from "lucide-react";
+import { BarChart3, Gift, Loader2, Trophy } from "lucide-react";
 import { GamificationHome } from "@/modules/gamification/GamificationHome";
 import { ProgramDetail } from "@/modules/gamification/ProgramDetail";
 import { FocusProducts } from "@/modules/gamification/FocusProducts";
@@ -11,6 +11,7 @@ import { GamificationTabs } from "@/modules/gamification/GamificationTabs";
 import { GlobalConfigBar } from "@/modules/gamification/GlobalConfigBar";
 import { SectionPlaceholder } from "@/modules/gamification/SectionPlaceholder";
 import { ActivitiesList } from "@/modules/gamification/ActivitiesList";
+import { PointsLedger } from "@/modules/gamification/PointsLedger";
 
 
 export default function GamificationAdmin() {
@@ -57,16 +58,7 @@ export default function GamificationAdmin() {
               <Route path="program/:programId" element={<ProgramDetail />} />
               <Route path="focus-products" element={<FocusProducts />} />
               <Route path="activities" element={<ActivitiesList />} />
-              <Route
-                path="points"
-                element={
-                  <SectionPlaceholder
-                    icon={Coins}
-                    title="Points"
-                    description="The points ledger and per-user balances, with manual adjustments and a full audit trail of what was awarded and why."
-                  />
-                }
-              />
+              <Route path="points" element={<PointsLedger />} />
               <Route
                 path="rewards"
                 element={
