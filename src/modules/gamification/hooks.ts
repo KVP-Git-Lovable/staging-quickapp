@@ -84,6 +84,26 @@ export const useActivities = (programId?: string) =>
     },
   });
 
+export const useToggleActivity = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, is_enabled }: { id: string; is_enabled: boolean }) => {
+      const { error } = await supabase
+        .from("gamification_actions")
+        .update({ is_enabled })
+        .eq("id", id);
+      if (error) throw error;
+      return is_enabled;
+    },
+    onSuccess: (is_enabled) => {
+      // prefix match — clears both the "all" list and any per-program list
+      qc.invalidateQueries({ queryKey: ["gam-activities"] });
+      toast.success(is_enabled ? "Activity enabled" : "Activity disabled");
+    },
+    onError: (e: any) => toast.error(e.message ?? "Could not update the activity"),
+  });
+};
+
 export const useActivityTiers = (actionId?: string) =>
   useQuery({
     queryKey: ["gam-tiers", actionId],

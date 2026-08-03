@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { BarChart3, Coins, Gift, Loader2, Trophy, Zap } from "lucide-react";
+import { BarChart3, Coins, Gift, Loader2, Trophy } from "lucide-react";
 import { GamificationHome } from "@/modules/gamification/GamificationHome";
 import { ProgramDetail } from "@/modules/gamification/ProgramDetail";
 import { FocusProducts } from "@/modules/gamification/FocusProducts";
@@ -10,6 +10,7 @@ import { GamificationHero } from "@/modules/gamification/GamificationHero";
 import { GamificationTabs } from "@/modules/gamification/GamificationTabs";
 import { GlobalConfigBar } from "@/modules/gamification/GlobalConfigBar";
 import { SectionPlaceholder } from "@/modules/gamification/SectionPlaceholder";
+import { ActivitiesList } from "@/modules/gamification/ActivitiesList";
 
 
 export default function GamificationAdmin() {
@@ -55,16 +56,7 @@ export default function GamificationAdmin() {
               <Route path="programs" element={<GamificationHome />} />
               <Route path="program/:programId" element={<ProgramDetail />} />
               <Route path="focus-products" element={<FocusProducts />} />
-              <Route
-                path="activities"
-                element={
-                  <SectionPlaceholder
-                    icon={Zap}
-                    title="Activities"
-                    description="Every activity across all programs in one place — enable or disable them, set point values and configure tiers without opening each program."
-                  />
-                }
-              />
+              <Route path="activities" element={<ActivitiesList />} />
               <Route
                 path="points"
                 element={
