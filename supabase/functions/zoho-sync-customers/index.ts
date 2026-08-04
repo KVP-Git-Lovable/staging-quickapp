@@ -99,10 +99,11 @@ async function zohoWrite(
 
 
 /**
- * Zoho Books India rejects a contact (or applies the wrong tax) without
- * place_of_supply / gst_treatment / currency_code, so they are always sent.
+ * India GST fields (gst_treatment, gst_no, place_of_supply, pan_no) are only valid
+ * when the Zoho org has GST enabled — otherwise Zoho returns
+ * {"code":8,"message":"Invalid Element gst_treatment"}.
  */
-function buildContactPayload(r: Record<string, any>) {
+function buildContactPayload(r: Record<string, any>, gstEnabled: boolean) {
   const gst = typeof r.gst_number === 'string' ? r.gst_number.trim() : '';
   const hasValidGst = gst.length === 15;
 
@@ -110,13 +111,16 @@ function buildContactPayload(r: Record<string, any>) {
     contact_name: (r.name ?? '').trim(),
     company_name: r.legal_name || (r.name ?? '').trim(),
     contact_type: 'customer',
-    place_of_supply: r.state ?? null,
-    gst_treatment: hasValidGst ? 'business_gst' : 'consumer',
     currency_code: r.currency || 'INR',
   };
 
-  if (hasValidGst) payload.gst_no = gst;
-  if (r.pan_no) payload.pan_no = r.pan_no;
+  if (gstEnabled) {
+    payload.place_of_supply = r.state ?? null;
+    payload.gst_treatment = hasValidGst ? 'business_gst' : 'consumer';
+    if (hasValidGst) payload.gst_no = gst;
+    if (r.pan_no) payload.pan_no = r.pan_no;
+  }
+
   if (r.phone) payload.phone = r.phone;
   if (r.phone) payload.mobile = r.phone;
   if (r.email) payload.email = r.email;
