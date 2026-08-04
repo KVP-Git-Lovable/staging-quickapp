@@ -320,6 +320,50 @@ Deno.serve(async (req) => {
   });
 });
 
+/**
+ * Pivot long RPC output into the wide grid a matrix report is meant to be.
+ *
+ * get_sales_report returns long rows even for layout='matrix' — one row per
+ * rowKey x columnKey with the measure attached. The report builder pivots that
+ * client-side (see MatrixTable in ReportSubscriptionsTab), but nothing on the
+ * delivery path did, so a scheduled matrix report arrived as a flat three-column
+ * list instead of the grid shown in the preview. Same semantics as MatrixTable:
+ * first-seen ordering for both axes, measures summed per cell, and a trailing
+ * total column keyed by the measure.
+ */
+function pivotMatrixRows(rows: any[], rowKey?: string, columnKey?: string, valueKey?: string): any[] {
+  if (!rows.length || !rowKey || !columnKey || !valueKey) return rows;
+  const keys = Object.keys(rows[0] ?? {});
+  const isLong = keys.includes(rowKey) && keys.includes(columnKey) && keys.includes(valueKey);
+  if (!isLong) return rows; // already wide — leave it alone
+
+  const rowLabels: string[] = [];
+  const colLabels: string[] = [];
+  const cells: Record<string, Record<string, number>> = {};
+
+  for (const r of rows) {
+    const rv = String(r[rowKey] ?? '');
+    const cv = String(r[columnKey] ?? '');
+    const n = Number(r[valueKey]);
+    if (!rowLabels.includes(rv)) rowLabels.push(rv);
+    if (!colLabels.includes(cv)) colLabels.push(cv);
+    cells[rv] = cells[rv] || {};
+    cells[rv][cv] = (cells[rv][cv] || 0) + (Number.isFinite(n) ? n : 0);
+  }
+
+  return rowLabels.map((rv) => {
+    const out: Record<string, any> = { [rowKey]: rv };
+    let total = 0;
+    for (const c of colLabels) {
+      const v = cells[rv]?.[c] ?? 0;
+      out[c] = v;
+      total += v;
+    }
+    out[valueKey] = total;
+    return out;
+  });
+}
+
 async function callRpc(admin: any, source: string, def: any, filters: Record<string, unknown>): Promise<any[]> {
   const config = def.config ?? {};
   const rows = Array.isArray(config.rows) ? config.rows[0] : config.rows;
@@ -336,7 +380,12 @@ async function callRpc(admin: any, source: string, def: any, filters: Record<str
     p_filters: mergedFilters,
   });
   if (error) throw error;
-  return (data ?? []) as any[];
+  const out = (data ?? []) as any[];
+  // Applied here rather than in the PDF renderer so the Excel file and the
+  // summary digest get the same shape as the PDF.
+  return def.layout === 'matrix'
+    ? pivotMatrixRows(out, rows, cols, values[0])
+    : out;
 }
 
 function buildDigest(name: string, period: { label: string }, rows: any[]): string {
