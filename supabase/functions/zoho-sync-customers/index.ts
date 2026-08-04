@@ -207,10 +207,10 @@ async function syncOneRetailer(
     return { retailer_id: retailerId, name: retailer.name, status: 'dry_run', payload };
   }
 
-  const token = opts.token ?? (await getAccessToken());
   const isUpdate = Boolean(retailer.zoho_contact_id);
   const path = isUpdate ? `/contacts/${retailer.zoho_contact_id}` : '/contacts';
-  const result = await zohoWrite(isUpdate ? 'PUT' : 'POST', path, payload, token.accessToken, token.apiBase);
+  const result = await zohoWrite(isUpdate ? 'PUT' : 'POST', path, payload);
+
 
   const zohoOk = result.ok && (result.body?.code === 0 || result.body?.code === undefined);
 
