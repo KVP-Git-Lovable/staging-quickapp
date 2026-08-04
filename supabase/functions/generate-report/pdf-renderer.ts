@@ -348,8 +348,12 @@ export async function renderReportPdf(
   const cols = model.columns;
   const rowLabelCount = 1; // first column repeats
 
-  // Rough capacity: at 8pt font ~52 chars fit portrait, ~90 landscape.
-  const capacity = orientation === 'l' ? 12 : 7;
+  // Usable text width per column, once 16pt of horizontal cell padding is taken
+  // out, has to stay wide enough for real values ("Vijayanagar & Kuvempunagar",
+  // "A01 Aruna Chicken Sukka Masala 200G"). The old 12/7 packed 13 columns onto
+  // one landscape page at ~48pt of text each — under ten characters — so every
+  // column wrapped and rows grew to a dozen lines tall.
+  const capacity = orientation === 'l' ? 8 : 5;
 
   let chunks: number[][] = [];
   if (cols.length <= capacity || isEmpty) {
@@ -400,15 +404,25 @@ export async function renderReportPdf(
     // totals are never truncated), the dimension column takes the remaining
     // width. Alignment: numerics right, dimension left — applied to head,
     // body and foot via columnStyles.
+    // Every column carries a minCellWidth. Previously the first column was the
+    // only flexible one ('auto') while the rest were 'wrap'; once the wrap
+    // columns overflowed the table, autoTable squeezed that single flexible
+    // column down to one character, printing values vertically (P/I/E/C/E).
+    const usableW = pageW - margin * 2;
+    const minText = bodyFontSize <= 7 ? 34 : 40; // + 16pt padding
+    const minCellWidth = Math.max(
+      28,
+      Math.min(minText, Math.floor(usableW / Math.max(1, chunkIdxs.length)) - 4)
+    );
     const columnStyles: Record<number, any> = {};
     chunkIdxs.forEach((ci, idx) => {
       const c = cols[ci];
       if (c.numeric) {
-        columnStyles[idx] = { halign: 'right', cellWidth: 'wrap' };
+        columnStyles[idx] = { halign: 'right', cellWidth: 'auto', minCellWidth };
       } else if (idx === 0) {
-        columnStyles[idx] = { halign: 'left', cellWidth: 'auto', fontStyle: 'bold' };
+        columnStyles[idx] = { halign: 'left', cellWidth: 'auto', minCellWidth, fontStyle: 'bold' };
       } else {
-        columnStyles[idx] = { halign: 'left', cellWidth: 'wrap' };
+        columnStyles[idx] = { halign: 'left', cellWidth: 'auto', minCellWidth };
       }
     });
 
@@ -562,8 +576,11 @@ export function buildReportModel(params: {
           kl.includes('total') || kl.includes('value') || kl.includes('rate') ||
           kl.includes('sales')) currency = true;
     }
-    // First column, or one of the known row-label keys → dimension label.
-    const isRowLabelCol = idx === 0 || rowLabelKeys.has(k.toLowerCase());
+    // Only a genuine row-label key gets the dimension caption. Using idx === 0
+    // relabelled whatever the RPC happened to return first — e.g. a `uom`
+    // column headed "Order Date" while a real order_date column sat further
+    // right under the same heading.
+    const isRowLabelCol = rowLabelKeys.has(k.toLowerCase());
     const label = isRowLabelCol && !numeric ? dimensionDisplay : humanize(k);
     return { key: k, label, numeric, currency };
   });

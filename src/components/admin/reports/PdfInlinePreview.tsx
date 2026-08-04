@@ -3,6 +3,19 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, AlertTriangle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import * as pdfjsLib from 'pdfjs-dist';
+// Rendered to canvas rather than shown in an <iframe>: Chrome blocks its PDF
+// plugin inside sandboxed preview iframes ("This page has been blocked by
+// Chrome"). Worker bundled via Vite so a dynamic worker URL can't fail there.
+// @ts-ignore
+import PdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?worker';
+
+try {
+  // @ts-ignore — workerPort is the most reliable path inside iframes.
+  pdfjsLib.GlobalWorkerOptions.workerPort = new PdfWorker();
+} catch (e) {
+  console.warn('pdf.js worker init failed, falling back to fake worker', e);
+}
 
 interface Dataset {
   key: string;
@@ -101,6 +114,44 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
 
   useEffect(() => () => { if (lastUrl.current) URL.revokeObjectURL(lastUrl.current); }, []);
 
+  // Paint the PDF into canvases inside the scroll container.
+  const canvasHostRef = useRef<HTMLDivElement | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!(pdf.data instanceof Blob)) return;
+    let cancelled = false;
+    setRenderError(null);
+    (async () => {
+      try {
+        const buf = await pdf.data.arrayBuffer();
+        if (cancelled) return;
+        const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+        const host = canvasHostRef.current;
+        if (!host || cancelled) return;
+        host.innerHTML = '';
+        const hostWidth = Math.max(320, host.clientWidth - 24);
+        for (let i = 1; i <= doc.numPages; i++) {
+          if (cancelled) return;
+          const page = await doc.getPage(i);
+          const base = page.getViewport({ scale: 1 });
+          const scale = Math.min(2, Math.max(1, hostWidth / base.width));
+          const viewport = page.getViewport({ scale });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.className = 'shadow-sm rounded bg-white mx-auto block mb-3 max-w-full h-auto';
+          const ctx = canvas.getContext('2d')!;
+          host.appendChild(canvas);
+          await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
+        }
+      } catch (e: any) {
+        if (!cancelled) setRenderError(e?.message ?? 'Could not render the PDF');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [pdf.data]);
+
   if (!open) return null;
 
   const orientationSetting = (t?.orientation ?? 'auto') as 'auto' | 'portrait' | 'landscape';
@@ -143,13 +194,14 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
           <div className="h-full flex items-center justify-center gap-2 text-xs text-muted-foreground">
             <Loader2 size={14} className="animate-spin" /> Rendering PDF…
           </div>
-        ) : pdf.error ? (
+        ) : pdf.error || renderError ? (
           <div className="h-full flex items-center justify-center gap-2 text-xs text-destructive px-6 text-center">
-            <AlertTriangle size={14} /> Could not render the PDF preview. {(pdf.error as any)?.message ?? ''}
+            <AlertTriangle size={14} /> Could not render the PDF preview.{' '}
+            {renderError ?? (pdf.error as any)?.message ?? ''}
           </div>
-        ) : url ? (
-          <iframe title="Report PDF preview" src={`${url}#toolbar=0&navpanes=0&view=FitH`} className="w-full h-full" />
-        ) : null}
+        ) : (
+          <div ref={canvasHostRef} className="w-full h-full overflow-auto p-3 bg-muted/20" />
+        )}
       </div>
     </div>
   );
