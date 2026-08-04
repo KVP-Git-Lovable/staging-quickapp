@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, format } from 'date-fns';
-import { ArrowLeft, Bell, History, Search, Trash2 } from 'lucide-react';
+import { ArrowLeft, Bell, Download, Eye, History, Loader2, Search, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Layout } from '@/components/Layout';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,8 @@ import {
   type CustomRange,
 } from '@/components/notifications/NotificationDateFilter';
 import { NotificationPagination } from '@/components/notifications/NotificationPagination';
+import { ReportNotificationDialog } from '@/components/notifications/ReportNotificationDialog';
+import { downloadReportFile, getReportMeta } from '@/lib/reportFile';
 
 const PAGE_SIZE = 100;
 
@@ -26,6 +29,20 @@ export default function NotificationHistory() {
   const [preset, setPreset] = useState<RangePreset>('all');
   const [custom, setCustom] = useState<CustomRange>({ from: '', to: '' });
   const [page, setPage] = useState(1);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [openReport, setOpenReport] = useState<any | null>(null);
+
+  const handleDownload = async (n: any) => {
+    setDownloadingId(n.id);
+    try {
+      await downloadReportFile(n);
+    } catch (e) {
+      console.error(e);
+      toast.error("Couldn't download the report — please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const types = useMemo(
     () => Array.from(new Set(history.map(n => n.type).filter(Boolean))) as string[],
@@ -126,7 +143,10 @@ export default function NotificationHistory() {
             </div>
           ) : (
             <div className="space-y-2">
-              {paged.map(n => (
+              {paged.map(n => {
+                const report = getReportMeta(n);
+                const showReportActions = n.type === 'report_delivery' && report.hasFile;
+                return (
                 <Card key={n.id} className="p-3">
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0">
@@ -146,18 +166,48 @@ export default function NotificationHistory() {
                         {n.read_at && ` · Read on ${format(new Date(n.read_at), 'dd MMM yyyy, HH:mm')}`}
                       </p>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-muted-foreground"
-                      aria-label="Delete notification"
-                      onClick={() => remove(n.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {showReportActions && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground"
+                            aria-label={`View ${n.title ?? 'report'}`}
+                            title="View report"
+                            onClick={() => setOpenReport(n)}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground"
+                            aria-label={`Download ${n.title ?? 'report'}`}
+                            title="Download report"
+                            disabled={downloadingId === n.id}
+                            onClick={() => handleDownload(n)}
+                          >
+                            {downloadingId === n.id
+                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : <Download className="h-3.5 w-3.5" />}
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-muted-foreground"
+                        aria-label="Delete notification"
+                        onClick={() => remove(n.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </Card>
-              ))}
+                );
+              })}
               <NotificationPagination
                 page={page}
                 pageCount={pageCount}
@@ -169,6 +219,10 @@ export default function NotificationHistory() {
           )}
         </div>
       </div>
+      <ReportNotificationDialog
+        notification={openReport}
+        onClose={() => setOpenReport(null)}
+      />
     </Layout>
   );
 }

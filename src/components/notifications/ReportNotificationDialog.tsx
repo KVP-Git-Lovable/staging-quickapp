@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Loader2, FileText, Eye, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { downloadReportFile, fetchReportBlob, getReportMeta } from '@/lib/reportFile';
 import type { Notification } from '@/hooks/useNotifications';
 
 interface Props {
@@ -42,61 +42,16 @@ export function ReportNotificationDialog({ notification, onClose }: Props) {
 
   if (!notification) return null;
 
-  const meta = (notification.metadata ?? {}) as Record<string, any>;
-  const subscriptionId: string | undefined = meta.subscription_id;
-  const storagePath: string | undefined = meta.storage_path;
-  const format: string = meta.attachment_format ?? 'summary_only';
-  const period: string = meta.period ?? '';
-  const bodyMd: string = meta.body_md ?? '';
-
-  const isPdf = /\.pdf$/i.test(storagePath ?? '') || format === 'pdf';
-  const isSheet = /\.(xlsx|xls|csv)$/i.test(storagePath ?? '') || format === 'excel';
+  const { subscriptionId, storagePath, format, period, bodyMd, isPdf, isSheet } =
+    getReportMeta(notification);
   const canView = Boolean(storagePath) && (isPdf || isSheet);
   const isViewing = Boolean(pdfUrl || sheets);
-
-  const slugify = (s: string) =>
-    s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'report';
-
-  const deriveFilename = (signedUrl: string) => {
-    const ext = (storagePath?.match(/\.([a-z0-9]+)(?:\?|$)/i)?.[1]
-      || signedUrl.match(/\.([a-z0-9]+)(?:\?|$)/i)?.[1]
-      || 'xlsx').toLowerCase();
-    const base = slugify(notification.title || 'report');
-    const periodPart = period ? `-${slugify(period)}` : '';
-    return `${base}${periodPart}.${ext}`;
-  };
-
-  /**
-   * Sign and fetch in one go. The signed URL is only valid for 300s, so we always
-   * pull the bytes immediately rather than handing the URL to the browser.
-   */
-  const fetchReport = async (): Promise<{ blob: Blob; url: string } | null> => {
-    if (!subscriptionId || !storagePath) return null;
-    const { data, error } = await supabase.functions.invoke('sign-report-file', {
-      body: { subscription_id: subscriptionId, storage_path: storagePath },
-    });
-    if (error) throw error;
-    if (!data?.url) throw new Error('No URL returned');
-
-    const res = await fetch(data.url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return { blob: await res.blob(), url: data.url };
-  };
 
   const handleDownload = async () => {
     if (!subscriptionId || !storagePath) return;
     setDownloading(true);
     try {
-      const fetched = await fetchReport();
-      if (!fetched) return;
-      const objectUrl = URL.createObjectURL(fetched.blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = deriveFilename(fetched.url);
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      await downloadReportFile(notification);
     } catch (e: any) {
       console.error(e);
       toast.error(
@@ -111,7 +66,7 @@ export function ReportNotificationDialog({ notification, onClose }: Props) {
     if (!subscriptionId || !storagePath) return;
     setLoadingView(true);
     try {
-      const fetched = await fetchReport();
+      const fetched = await fetchReportBlob(subscriptionId, storagePath);
       if (!fetched) return;
 
       if (isPdf) {
