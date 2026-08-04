@@ -172,7 +172,7 @@ async function logSync(
 async function syncOneRetailer(
   db: ReturnType<typeof admin>,
   retailerId: string,
-  opts: { dryRun: boolean; syncedBy: string | null; token?: { accessToken: string; apiBase: string } },
+  opts: { dryRun: boolean; syncedBy: string | null },
 ): Promise<SyncOutcome> {
   const { data: retailer, error: rErr } = await db
     .from('retailers')
