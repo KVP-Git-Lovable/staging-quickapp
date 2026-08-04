@@ -1,19 +1,12 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-// Zoho is region-sharded: a refresh token only works on the datacenter it was
-// minted in. Try each until one accepts the token.
-const ZOHO_DCS = [
-  { accounts: 'https://accounts.zoho.in', api: 'https://www.zohoapis.in/books/v3' },
-  { accounts: 'https://accounts.zoho.com', api: 'https://www.zohoapis.com/books/v3' },
-  { accounts: 'https://accounts.zoho.eu', api: 'https://www.zohoapis.eu/books/v3' },
-  { accounts: 'https://accounts.zoho.com.au', api: 'https://www.zohoapis.com.au/books/v3' },
-];
-
-const CLIENT_ID = Deno.env.get('ZOHO_CLIENT_ID');
-const CLIENT_SECRET = Deno.env.get('ZOHO_CLIENT_SECRET');
-const REFRESH_TOKEN = Deno.env.get('ZOHO_REFRESH_TOKEN');
-const ORG_ID = Deno.env.get('ZOHO_ORG_ID');
+// Auth runs through the Lovable connector gateway — Lovable holds and refreshes
+// the Zoho OAuth token, so no client id / secret / refresh token is needed here.
+const GATEWAY_URL = 'https://connector-gateway.lovable.dev/zoho_books';
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const ZOHO_BOOKS_API_KEY = Deno.env.get('ZOHO_BOOKS_API_KEY');
+const PREFERRED_ORG_ID = Deno.env.get('ZOHO_ORG_ID') ?? null;
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -24,81 +17,77 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const admin = () => createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
-async function getAccessToken(): Promise<{ accessToken: string; apiBase: string }> {
-  const errors: string[] = [];
-
-  for (const dc of ZOHO_DCS) {
-    const params = new URLSearchParams({
-      grant_type: 'refresh_token',
-      client_id: CLIENT_ID!,
-      client_secret: CLIENT_SECRET!,
-      refresh_token: REFRESH_TOKEN!,
-    });
-
-    const res = await fetch(`${dc.accounts}/oauth/v2/token?${params.toString()}`, {
-      method: 'POST',
-    });
-    const body = await res.text();
-    let json: Record<string, unknown> = {};
-    try {
-      json = JSON.parse(body);
-    } catch {
-      // non-JSON body, treat as failure for this DC
-    }
-
-    if (res.ok && json.access_token) {
-      return { accessToken: json.access_token as string, apiBase: dc.api };
-    }
-    errors.push(`${dc.accounts} -> [${res.status}] ${body}`);
+function gatewayHeaders() {
+  if (!LOVABLE_API_KEY || !ZOHO_BOOKS_API_KEY) {
+    throw new Error('[400] Zoho Books connector is not linked to this project (missing LOVABLE_API_KEY or ZOHO_BOOKS_API_KEY)');
   }
-
-  throw new Error(`[400] Zoho token refresh failed on all datacenters: ${errors.join(' | ')}`);
+  return {
+    Authorization: `Bearer ${LOVABLE_API_KEY}`,
+    'X-Connection-Api-Key': ZOHO_BOOKS_API_KEY,
+    'Content-Type': 'application/json',
+  };
 }
 
-async function zohoGet(path: string, accessToken: string, apiBase: string) {
-  const url = new URL(`${apiBase}${path}`);
-  url.searchParams.set('organization_id', ORG_ID!);
+async function gatewayFetch(
+  method: 'GET' | 'POST' | 'PUT',
+  path: string,
+  orgId: string | null,
+  payload?: unknown,
+): Promise<{ ok: boolean; status: number; body: any; raw: string }> {
+  const url = new URL(`${GATEWAY_URL}${path}`);
+  if (orgId) url.searchParams.set('organization_id', orgId);
 
   const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Zoho-oauthtoken ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
+    method,
+    headers: gatewayHeaders(),
+    body: payload === undefined ? undefined : JSON.stringify(payload),
   });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`[${res.status}] Zoho GET ${path} failed: ${text}`);
+  const raw = await res.text();
+  let body: any = raw;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    // keep raw text
   }
-  return JSON.parse(text);
+  return { ok: res.ok, status: res.status, body, raw };
+}
+
+let cachedOrgId: string | null = null;
+
+/** Resolve the organization to operate on: preferred ZOHO_ORG_ID if visible, else default org. */
+async function getOrgId(): Promise<string> {
+  if (cachedOrgId) return cachedOrgId;
+  const res = await gatewayFetch('GET', '/organizations', null);
+  if (!res.ok) {
+    throw new Error(`[${res.status}] Zoho GET /organizations failed: ${res.raw}`);
+  }
+  const orgs: any[] = res.body?.organizations ?? [];
+  if (!orgs.length) throw new Error('[400] No Zoho Books organizations visible to this connection');
+  const match = PREFERRED_ORG_ID ? orgs.find((o) => String(o.organization_id) === String(PREFERRED_ORG_ID)) : null;
+  const chosen = match ?? orgs.find((o) => o.is_default_org) ?? orgs[0];
+  cachedOrgId = String(chosen.organization_id);
+  return cachedOrgId;
+}
+
+async function zohoGet(path: string) {
+  const orgId = await getOrgId();
+  const res = await gatewayFetch('GET', path, orgId);
+  if (!res.ok) {
+    throw new Error(`[${res.status}] Zoho GET ${path} failed: ${res.raw}`);
+  }
+  return res.body;
 }
 
 async function zohoWrite(
   method: 'POST' | 'PUT',
   path: string,
   payload: unknown,
-  accessToken: string,
-  apiBase: string,
 ): Promise<{ ok: boolean; status: number; body: any }> {
-  const url = new URL(`${apiBase}${path}`);
-  url.searchParams.set('organization_id', ORG_ID!);
-
-  const res = await fetch(url.toString(), {
-    method,
-    headers: {
-      Authorization: `Zoho-oauthtoken ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-  const text = await res.text();
-  let body: any = text;
-  try {
-    body = JSON.parse(text);
-  } catch {
-    // keep raw text
-  }
-  return { ok: res.ok, status: res.status, body };
+  const orgId = await getOrgId();
+  const { ok, status, body } = await gatewayFetch(method, path, orgId, payload);
+  return { ok, status, body };
 }
+
 
 /**
  * Zoho Books India rejects a contact (or applies the wrong tax) without
@@ -183,7 +172,7 @@ async function logSync(
 async function syncOneRetailer(
   db: ReturnType<typeof admin>,
   retailerId: string,
-  opts: { dryRun: boolean; syncedBy: string | null; token?: { accessToken: string; apiBase: string } },
+  opts: { dryRun: boolean; syncedBy: string | null },
 ): Promise<SyncOutcome> {
   const { data: retailer, error: rErr } = await db
     .from('retailers')
@@ -218,10 +207,10 @@ async function syncOneRetailer(
     return { retailer_id: retailerId, name: retailer.name, status: 'dry_run', payload };
   }
 
-  const token = opts.token ?? (await getAccessToken());
   const isUpdate = Boolean(retailer.zoho_contact_id);
   const path = isUpdate ? `/contacts/${retailer.zoho_contact_id}` : '/contacts';
-  const result = await zohoWrite(isUpdate ? 'PUT' : 'POST', path, payload, token.accessToken, token.apiBase);
+  const result = await zohoWrite(isUpdate ? 'PUT' : 'POST', path, payload);
+
 
   const zohoOk = result.ok && (result.body?.code === 0 || result.body?.code === undefined);
 
@@ -338,17 +327,16 @@ Deno.serve(async (req) => {
   }
 
   const missing = [
-    ['ZOHO_CLIENT_ID', CLIENT_ID],
-    ['ZOHO_CLIENT_SECRET', CLIENT_SECRET],
-    ['ZOHO_REFRESH_TOKEN', REFRESH_TOKEN],
-    ['ZOHO_ORG_ID', ORG_ID],
+    ['LOVABLE_API_KEY', LOVABLE_API_KEY],
+    ['ZOHO_BOOKS_API_KEY', ZOHO_BOOKS_API_KEY],
   ].filter(([, v]) => !v).map(([k]) => k);
 
   // dry runs need no credentials either
   const needsSecrets = !(dryRun && (mode === 'sync' || mode === 'sync_all'));
   if (missing.length && needsSecrets) {
-    return json({ error: 'Missing Zoho secrets', missing }, 500);
+    return json({ error: 'Zoho Books connector is not linked to this project', missing }, 500);
   }
+
 
   try {
     if (mode === 'sync' || mode === 'sync_all') {
@@ -366,11 +354,10 @@ Deno.serve(async (req) => {
 
       if (ids.length === 0) return json({ ok: true, dry_run: dryRun, processed: 0, results: [] });
 
-      const token = dryRun ? undefined : await getAccessToken();
       const results: SyncOutcome[] = [];
 
       for (let i = 0; i < ids.length; i += 1) {
-        results.push(await syncOneRetailer(db, ids[i], { dryRun, syncedBy, token }));
+        results.push(await syncOneRetailer(db, ids[i], { dryRun, syncedBy }));
         if (!dryRun && i < ids.length - 1) await sleep(CALL_DELAY_MS);
       }
 
@@ -382,13 +369,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, mode, dry_run: dryRun, processed: results.length, counts, results });
     }
 
-    const { accessToken, apiBase } = await getAccessToken();
-
     if (mode === 'customers') {
-      const data = await zohoGet('/contacts?contact_type=customer&per_page=25', accessToken, apiBase);
+      const orgId = await getOrgId();
+      const data = await zohoGet('/contacts?contact_type=customer&per_page=25');
       return json({
         ok: true,
-        organization_id: ORG_ID,
+        organization_id: orgId,
         count: data.contacts?.length ?? 0,
         customers: (data.contacts ?? []).map((c: Record<string, unknown>) => ({
           contact_id: c.contact_id,
@@ -402,17 +388,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Default: read-only verification of which org this token is authorized against
-    const orgs = await zohoGet('/organizations', accessToken, apiBase);
+    // Default: read-only verification of which org the connector is authorized against
+    const orgs = await zohoGet('/organizations');
+    const activeOrgId = await getOrgId();
 
     const list = orgs.organizations ?? [];
-    const active = list.find((o: Record<string, unknown>) => String(o.organization_id) === ORG_ID);
 
     return json({
       ok: true,
       token_valid: true,
-      configured_org_id: ORG_ID,
-      configured_org_accessible: Boolean(active),
+      auth_mode: 'lovable_connector_gateway',
+      configured_org_id: activeOrgId,
+      configured_org_accessible: list.some((o: Record<string, unknown>) => String(o.organization_id) === activeOrgId),
       organizations: list.map((o: Record<string, unknown>) => ({
         organization_id: o.organization_id,
         name: o.name,
@@ -420,8 +407,9 @@ Deno.serve(async (req) => {
         email: o.email,
         country: o.country,
         currency_code: o.currency_code,
-        is_configured: String(o.organization_id) === ORG_ID,
+        is_configured: String(o.organization_id) === activeOrgId,
       })),
+
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
