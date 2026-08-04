@@ -50,7 +50,7 @@ const ZohoBooksSync: React.FC = () => {
   const [dryRunResult, setDryRunResult] = useState<any | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
-  const allowed = can('zoho_sync', 'can_edit') || can('zoho_sync', 'edit') || hasAdminAccess;
+  const allowed = can('zoho_sync', 'edit') || hasAdminAccess;
 
   const nameById = useMemo(() => {
     const map: Record<string, string> = {};
