@@ -354,11 +354,10 @@ Deno.serve(async (req) => {
 
       if (ids.length === 0) return json({ ok: true, dry_run: dryRun, processed: 0, results: [] });
 
-      const token = dryRun ? undefined : await getAccessToken();
       const results: SyncOutcome[] = [];
 
       for (let i = 0; i < ids.length; i += 1) {
-        results.push(await syncOneRetailer(db, ids[i], { dryRun, syncedBy, token }));
+        results.push(await syncOneRetailer(db, ids[i], { dryRun, syncedBy }));
         if (!dryRun && i < ids.length - 1) await sleep(CALL_DELAY_MS);
       }
 
@@ -370,13 +369,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, mode, dry_run: dryRun, processed: results.length, counts, results });
     }
 
-    const { accessToken, apiBase } = await getAccessToken();
-
     if (mode === 'customers') {
-      const data = await zohoGet('/contacts?contact_type=customer&per_page=25', accessToken, apiBase);
+      const orgId = await getOrgId();
+      const data = await zohoGet('/contacts?contact_type=customer&per_page=25');
       return json({
         ok: true,
-        organization_id: ORG_ID,
+        organization_id: orgId,
         count: data.contacts?.length ?? 0,
         customers: (data.contacts ?? []).map((c: Record<string, unknown>) => ({
           contact_id: c.contact_id,
@@ -390,17 +388,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Default: read-only verification of which org this token is authorized against
-    const orgs = await zohoGet('/organizations', accessToken, apiBase);
+    // Default: read-only verification of which org the connector is authorized against
+    const orgs = await zohoGet('/organizations');
+    const activeOrgId = await getOrgId();
 
     const list = orgs.organizations ?? [];
-    const active = list.find((o: Record<string, unknown>) => String(o.organization_id) === ORG_ID);
 
     return json({
       ok: true,
       token_valid: true,
-      configured_org_id: ORG_ID,
-      configured_org_accessible: Boolean(active),
+      auth_mode: 'lovable_connector_gateway',
+      configured_org_id: activeOrgId,
+      configured_org_accessible: list.some((o: Record<string, unknown>) => String(o.organization_id) === activeOrgId),
       organizations: list.map((o: Record<string, unknown>) => ({
         organization_id: o.organization_id,
         name: o.name,
@@ -408,8 +407,9 @@ Deno.serve(async (req) => {
         email: o.email,
         country: o.country,
         currency_code: o.currency_code,
-        is_configured: String(o.organization_id) === ORG_ID,
+        is_configured: String(o.organization_id) === activeOrgId,
       })),
+
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
