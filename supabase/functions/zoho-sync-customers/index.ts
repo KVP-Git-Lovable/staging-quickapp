@@ -53,6 +53,7 @@ async function gatewayFetch(
 }
 
 let cachedOrgId: string | null = null;
+let cachedGstEnabled: boolean | null = null;
 
 /** Resolve the organization to operate on: preferred ZOHO_ORG_ID if visible, else default org. */
 async function getOrgId(): Promise<string> {
@@ -66,8 +67,16 @@ async function getOrgId(): Promise<string> {
   const match = PREFERRED_ORG_ID ? orgs.find((o) => String(o.organization_id) === String(PREFERRED_ORG_ID)) : null;
   const chosen = match ?? orgs.find((o) => o.is_default_org) ?? orgs[0];
   cachedOrgId = String(chosen.organization_id);
+  cachedGstEnabled = chosen.is_gst_enabled === true;
   return cachedOrgId;
 }
+
+/** True only when the active Zoho org has GST enabled (India GST fields are invalid otherwise). */
+async function isGstEnabled(): Promise<boolean> {
+  if (cachedGstEnabled === null) await getOrgId();
+  return cachedGstEnabled === true;
+}
+
 
 async function zohoGet(path: string) {
   const orgId = await getOrgId();
