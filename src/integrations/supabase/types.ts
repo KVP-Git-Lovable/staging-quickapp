@@ -12026,6 +12026,66 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_code: string
+          id: string
+          is_active: boolean
+          message_template: string
+          name: string | null
+          notification_channel: string
+          receiver_role: string | null
+          receiver_type: string
+          receiver_user_id: string | null
+          retailer_target_ids: string[] | null
+          retailer_target_type: string | null
+          source_table: string
+          timezone: string
+          title_template: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_code: string
+          id?: string
+          is_active?: boolean
+          message_template?: string
+          name?: string | null
+          notification_channel?: string
+          receiver_role?: string | null
+          receiver_type?: string
+          receiver_user_id?: string | null
+          retailer_target_ids?: string[] | null
+          retailer_target_type?: string | null
+          source_table: string
+          timezone?: string
+          title_template?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_code?: string
+          id?: string
+          is_active?: boolean
+          message_template?: string
+          name?: string | null
+          notification_channel?: string
+          receiver_role?: string | null
+          receiver_type?: string
+          receiver_user_id?: string | null
+          retailer_target_ids?: string[] | null
+          retailer_target_type?: string | null
+          source_table?: string
+          timezone?: string
+          title_template?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -23298,6 +23358,7 @@ export type Database = {
           last_order_value: number | null
           last_visit_date: string | null
           latitude: number | null
+          legacy_direct_paid: number
           legal_name: string | null
           location_tag: string | null
           logo_url: string | null
@@ -23383,6 +23444,7 @@ export type Database = {
           last_order_value?: number | null
           last_visit_date?: string | null
           latitude?: number | null
+          legacy_direct_paid?: number
           legal_name?: string | null
           location_tag?: string | null
           logo_url?: string | null
@@ -23468,6 +23530,7 @@ export type Database = {
           last_order_value?: number | null
           last_visit_date?: string | null
           latitude?: number | null
+          legacy_direct_paid?: number
           legal_name?: string | null
           location_tag?: string | null
           logo_url?: string | null
