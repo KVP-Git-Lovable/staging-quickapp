@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
-    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence, pdf_template')
+    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence, pdf_template, timezone')
     .eq('id', subscription_id)
     .maybeSingle();
   if (sErr || !sub) {
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
     sharedRows = await callRpc(admin, dataset.source, def, {
       date_from: period.date_from,
       date_to: period.date_to,
-    });
+    }, sub.timezone || 'Asia/Kolkata');
     sharedIsEmpty = sharedRows.length === 0;
     sharedDigest = buildDigest(sub.name, period, sharedRows);
     if (sub.attachment_format !== 'summary_only') {
@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
           date_from: period.date_from,
           date_to: period.date_to,
           scope_user_id: rid,
-        });
+        }, sub.timezone || 'Asia/Kolkata');
         isEmpty = rows.length === 0;
         digest = buildDigest(sub.name, period, rows);
         if (sub.attachment_format !== 'summary_only') {
@@ -364,7 +364,56 @@ function pivotMatrixRows(rows: any[], rowKey?: string, columnKey?: string, value
   });
 }
 
-async function callRpc(admin: any, source: string, def: any, filters: Record<string, unknown>): Promise<any[]> {
+/** Columns holding a clock time rather than a moment — check_in_time, check_out_time. */
+const TIME_COLUMN = /(^|_)time$/i;
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/**
+ * Render *_time columns as a bare HH:mm in the subscription's timezone.
+ *
+ * The RPCs return full timestamptz values ("2026-08-04T08:54:05.23+00:00"), and
+ * both renderers printed them verbatim, so the attendance register showed an ISO
+ * string where a check-in time belongs. Note the stored value is UTC: dropping
+ * the date alone would print 08:54 for someone who clocked in at 14:24 IST, so
+ * the conversion has to happen at the same time.
+ */
+function formatTimeCells(rows: any[], timezone: string): any[] {
+  if (!rows.length) return rows;
+  const timeKeys = Object.keys(rows[0] ?? {}).filter((k) => TIME_COLUMN.test(k));
+  if (!timeKeys.length) return rows;
+
+  let fmt: Intl.DateTimeFormat;
+  try {
+    fmt = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone,
+    });
+  } catch {
+    // Unknown tz string — fall back to UTC rather than dropping the column.
+    fmt = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'UTC',
+    });
+  }
+
+  return rows.map((r) => {
+    const out = { ...r };
+    for (const k of timeKeys) {
+      const v = out[k];
+      if (typeof v === 'string' && ISO_DATETIME.test(v)) {
+        const d = new Date(v);
+        if (!Number.isNaN(d.getTime())) out[k] = fmt.format(d);
+      }
+    }
+    return out;
+  });
+}
+
+async function callRpc(
+  admin: any,
+  source: string,
+  def: any,
+  filters: Record<string, unknown>,
+  timezone = 'Asia/Kolkata',
+): Promise<any[]> {
   const config = def.config ?? {};
   const rows = Array.isArray(config.rows) ? config.rows[0] : config.rows;
   const cols = Array.isArray(config.columns) ? config.columns[0] : config.columns;
@@ -380,12 +429,11 @@ async function callRpc(admin: any, source: string, def: any, filters: Record<str
     p_filters: mergedFilters,
   });
   if (error) throw error;
-  const out = (data ?? []) as any[];
+  let out = (data ?? []) as any[];
   // Applied here rather than in the PDF renderer so the Excel file and the
   // summary digest get the same shape as the PDF.
-  return def.layout === 'matrix'
-    ? pivotMatrixRows(out, rows, cols, values[0])
-    : out;
+  if (def.layout === 'matrix') out = pivotMatrixRows(out, rows, cols, values[0]);
+  return formatTimeCells(out, timezone);
 }
 
 function buildDigest(name: string, period: { label: string }, rows: any[]): string {
