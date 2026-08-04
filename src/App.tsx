@@ -185,6 +185,7 @@ import RecycleBinAdmin from "./pages/admin/RecycleBinAdmin";
 import DistributorPortalAdmin from "./pages/admin/DistributorPortalAdmin";
 import TargetVsActual from "./pages/admin/TargetVsActual";
 import PincodeMasterPage from "./pages/admin/PincodeMasterPage";
+import ZohoBooksSync from "./pages/ZohoBooksSync";
 import PincodeDetailPage from "./pages/admin/PincodeDetailPage";
 import HierarchyTargets from "./pages/admin/HierarchyTargets";
 import TaxMaster from "./pages/admin/TaxMaster";
@@ -652,6 +653,7 @@ const AppContent = () => {
         <Route path="/recycle-bin" element={<ProtectedRoute><RecycleBin /></ProtectedRoute>} />
         <Route path="/admin/recycle-bin" element={<ProtectedRoute><RecycleBinAdmin /></ProtectedRoute>} />
         <Route path="/admin/distributor-portal" element={<ProtectedRoute><DistributorPortalAdmin /></ProtectedRoute>} />
+        <Route path="/admin/zoho-sync" element={<ProtectedRoute><ZohoBooksSync /></ProtectedRoute>} />
         <Route path="/admin/pincode-master" element={<ProtectedRoute><PincodeMasterPage /></ProtectedRoute>} />
         <Route path="/admin/pincode-master/:pincode" element={<ProtectedRoute><PincodeDetailPage /></ProtectedRoute>} />
         <Route path="/admin/tax-master" element={<ProtectedRoute><TaxMaster /></ProtectedRoute>} />
