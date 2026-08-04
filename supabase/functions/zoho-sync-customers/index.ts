@@ -96,10 +96,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const accessToken = await getAccessToken();
+    const { accessToken, apiBase } = await getAccessToken();
 
     if (mode === 'customers') {
-      const data = await zohoGet('/contacts?contact_type=customer&per_page=25', accessToken);
+      const data = await zohoGet('/contacts?contact_type=customer&per_page=25', accessToken, apiBase);
       return json({
         ok: true,
         organization_id: ORG_ID,
@@ -117,7 +117,8 @@ Deno.serve(async (req) => {
     }
 
     // Default: read-only verification of which org this token is authorized against
-    const orgs = await zohoGet('/organizations', accessToken);
+    const orgs = await zohoGet('/organizations', accessToken, apiBase);
+
     const list = orgs.organizations ?? [];
     const active = list.find((o: Record<string, unknown>) => String(o.organization_id) === ORG_ID);
 
