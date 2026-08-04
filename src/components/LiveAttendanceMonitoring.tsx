@@ -228,11 +228,18 @@ const LiveAttendanceMonitoring = () => {
             lastVisitLocation = userVisitsToday[userVisitsToday.length - 1].check_in_location;
           }
           
-          // Calculate Active Market Hours from attendance check-in and check-out times
-          if (record.check_in_time && record.check_out_time) {
+          // Active Market Hours. Prefer the stored total_hours (computed by the
+          // trg_attendance_compute_hours DB trigger, so it is consistent with every
+          // other attendance screen); fall back to deriving it from the timestamps.
+          // A check-out at or before check-in is a data error, not zero hours — leave
+          // it null so it renders as "--" instead of a misleading 0.0h.
+          if (record.total_hours !== null && record.total_hours !== undefined) {
+            activeMarketHours = Number(record.total_hours);
+          } else if (record.check_in_time && record.check_out_time) {
             const checkInTime = new Date(record.check_in_time).getTime();
             const checkOutTime = new Date(record.check_out_time).getTime();
-            activeMarketHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+            const diff = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+            activeMarketHours = diff > 0 ? diff : null;
           }
           
           attendanceDataWithAbsent.push({
@@ -349,7 +356,9 @@ const LiveAttendanceMonitoring = () => {
     const totalHalfDay = todaysData.filter(record => record.status === 'half_day_leave' || record.status === 'half-day').length;
     const totalOnLeave = todaysData.filter(record => record.status === 'leave').length;
     
-    const presentData = todaysData.filter(r => (r.status === 'present' || r.status === 'regularized') && r.total_hours);
+    // `!= null` rather than a truthy test: a genuine 0-hour day must still count
+    // towards the average, otherwise it silently inflates the figure.
+    const presentData = todaysData.filter(r => (r.status === 'present' || r.status === 'regularized') && r.total_hours != null);
     const totalHours = presentData.reduce((sum, record) => sum + (record.total_hours || 0), 0);
     const averageHours = presentData.length > 0 ? totalHours / presentData.length : 0;
 
@@ -460,7 +469,7 @@ const LiveAttendanceMonitoring = () => {
         record.date,
         record.check_in_time ? format(new Date(record.check_in_time), 'HH:mm') : '--',
         record.check_out_time ? format(new Date(record.check_out_time), 'HH:mm') : '--',
-        record.active_market_hours ? `${record.active_market_hours.toFixed(1)}h` : '--',
+        record.active_market_hours != null ? `${record.active_market_hours.toFixed(2)}h` : '--',
         formatLocation(record.check_in_location, record.check_in_address),
         formatLocation(record.check_out_location, record.check_out_address)
       ].join(','))
@@ -748,7 +757,9 @@ const LiveAttendanceMonitoring = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {record.active_market_hours ? `${record.active_market_hours.toFixed(1)}h` : '--'}
+                      {record.active_market_hours != null
+                        ? `${Math.floor(record.active_market_hours)}h ${Math.round((record.active_market_hours % 1) * 60)}m`
+                        : '--'}
                     </TableCell>
                     <TableCell>
                       {getFaceMatchBadge(record.face_match_confidence)}
