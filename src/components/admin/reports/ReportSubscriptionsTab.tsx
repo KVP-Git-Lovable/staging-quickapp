@@ -62,6 +62,16 @@ const CADENCES = [
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
 ];
+/** Cadences whose reporting period is a single day.
+ *  Mirrors computePeriod() in supabase/functions/_shared/reportPeriod.ts. */
+const DAILY_CADENCES = new Set(['today', 'daily', 'weekday']);
+
+/** A daily report should describe the day it arrives on. Weekly and monthly still
+ *  default to the last completed period — a month-to-date total sent on the 1st
+ *  would be near-empty and read as broken. */
+const defaultPeriodBasisFor = (cadence: string): 'current' | 'previous' =>
+  DAILY_CADENCES.has(cadence) ? 'current' : 'previous';
+
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const FORMATS = [
   { value: 'summary_only', label: 'Summary only (in-app text)' },
@@ -630,13 +640,25 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
 
   // Step 2 — schedule + delivery
   const [cadence, setCadence] = useState(editing?.sub.cadence ?? 'daily');
+
+  /**
+   * A daily report is expected to be about the day it lands on, so it defaults to
+   * the current period. Weekly and monthly default to the last COMPLETED period —
+   * a month-to-date figure sent on the 1st would be near-empty and misleading.
+   */
+  const isDailyCadence = DAILY_CADENCES.has(cadence);
   const [fireDay, setFireDay] = useState(editing?.sub.fire_day ?? 'Mon');
   const [fireTime, setFireTime] = useState(String(editing?.sub.fire_time ?? '09:00').slice(0, 5));
   const [timezone, setTimezone] = useState(editing?.sub.timezone ?? 'Asia/Kolkata');
   const [format, setFormat] = useState(editing?.sub.attachment_format ?? 'summary_only');
   const [pushToPhone, setPushToPhone] = useState(editing?.sub.push_to_phone ?? false);
   const [periodBasis, setPeriodBasis] = useState<'current' | 'previous'>(
-    ((editing?.sub as any)?.period_basis as any) ?? 'previous'
+    ((editing?.sub as any)?.period_basis as any) ??
+      defaultPeriodBasisFor(editing?.sub.cadence ?? 'daily')
+  );
+  // Once the user picks a window explicitly we stop re-deriving it from cadence.
+  const [basisTouched, setBasisTouched] = useState(
+    Boolean((editing?.sub as any)?.period_basis)
   );
   const [scope, setScope] = useState(editing?.sub.scope ?? 'shared');
   const [recipientIds, setRecipientIds] = useState<string[]>(editing?.sub.recipient_user_ids ?? []);
@@ -808,7 +830,14 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Cadence</Label>
-                <Select value={cadence} onValueChange={setCadence}>
+                <Select
+                  value={cadence}
+                  onValueChange={(v) => {
+                    setCadence(v);
+                    // Follow the cadence's sensible default until the user overrides it.
+                    if (!basisTouched) setPeriodBasis(defaultPeriodBasisFor(v));
+                  }}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {CADENCES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
@@ -899,17 +928,31 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Reporting window</Label>
-                <Select value={periodBasis} onValueChange={(v) => setPeriodBasis(v as any)}>
+                <Select
+                  value={periodBasis}
+                  onValueChange={(v) => {
+                    setBasisTouched(true);
+                    setPeriodBasis(v as any);
+                  }}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="previous">Previous complete period (recommended)</SelectItem>
-                    <SelectItem value="current">Current period to date</SelectItem>
+                    <SelectItem value="current">
+                      {isDailyCadence ? 'This period to date (recommended)' : 'This period to date'}
+                    </SelectItem>
+                    <SelectItem value="previous">
+                      {isDailyCadence ? 'Previous complete period' : 'Previous complete period (recommended)'}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-[11px] text-muted-foreground">
-                  {periodBasis === 'previous'
-                    ? 'Reports cover the last completed period (yesterday for daily, last week for weekly, last month for monthly).'
-                    : 'Reports cover the current period up to the fire time — useful for intraday summaries.'}
+                  {periodBasis === 'current'
+                    ? isDailyCadence
+                      ? `Covers that same day's activity, up to the ${fireTime} send time.`
+                      : 'Covers the current period up to the send time — useful for progress summaries.'
+                    : isDailyCadence
+                      ? 'Covers the previous day. The report that arrives today describes yesterday.'
+                      : 'Covers the last completed period (last week for weekly, last month for monthly).'}
                 </p>
               </div>
               <div className="flex items-center gap-3 md:col-span-2 pt-2">
