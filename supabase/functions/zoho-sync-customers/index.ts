@@ -327,17 +327,16 @@ Deno.serve(async (req) => {
   }
 
   const missing = [
-    ['ZOHO_CLIENT_ID', CLIENT_ID],
-    ['ZOHO_CLIENT_SECRET', CLIENT_SECRET],
-    ['ZOHO_REFRESH_TOKEN', REFRESH_TOKEN],
-    ['ZOHO_ORG_ID', ORG_ID],
+    ['LOVABLE_API_KEY', LOVABLE_API_KEY],
+    ['ZOHO_BOOKS_API_KEY', ZOHO_BOOKS_API_KEY],
   ].filter(([, v]) => !v).map(([k]) => k);
 
   // dry runs need no credentials either
   const needsSecrets = !(dryRun && (mode === 'sync' || mode === 'sync_all'));
   if (missing.length && needsSecrets) {
-    return json({ error: 'Missing Zoho secrets', missing }, 500);
+    return json({ error: 'Zoho Books connector is not linked to this project', missing }, 500);
   }
+
 
   try {
     if (mode === 'sync' || mode === 'sync_all') {
