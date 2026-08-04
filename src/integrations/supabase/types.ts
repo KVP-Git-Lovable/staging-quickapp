@@ -23406,6 +23406,7 @@ export type Database = {
           verified_by_name: string | null
           whatsapp_verified: boolean
           zoho_contact_id: string | null
+          zoho_sync_enabled: boolean
           zoho_sync_error: string | null
           zoho_sync_status: string | null
           zoho_synced_at: string | null
@@ -23492,6 +23493,7 @@ export type Database = {
           verified_by_name?: string | null
           whatsapp_verified?: boolean
           zoho_contact_id?: string | null
+          zoho_sync_enabled?: boolean
           zoho_sync_error?: string | null
           zoho_sync_status?: string | null
           zoho_synced_at?: string | null
@@ -23578,6 +23580,7 @@ export type Database = {
           verified_by_name?: string | null
           whatsapp_verified?: boolean
           zoho_contact_id?: string | null
+          zoho_sync_enabled?: boolean
           zoho_sync_error?: string | null
           zoho_sync_status?: string | null
           zoho_synced_at?: string | null
@@ -28333,6 +28336,7 @@ export type Database = {
           pincode: string | null
           state: string | null
           zoho_contact_id: string | null
+          zoho_sync_enabled: boolean | null
           zoho_sync_status: string | null
         }
         Relationships: []
