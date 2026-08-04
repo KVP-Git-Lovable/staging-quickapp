@@ -15,6 +15,7 @@ import { ReportNotificationDialog } from '@/components/notifications/ReportNotif
 export function NotificationBell() {
   const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, dismiss } = useNotifications();
   const [openReport, setOpenReport] = useState<Notification | null>(null);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const navigate = useNavigate();
 
   const formatTime = (dateString: string) => {
@@ -26,7 +27,8 @@ export function NotificationBell() {
   };
 
   return (
-    <Popover>
+    <>
+    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
       <PopoverTrigger asChild>
         <button
           className="relative p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white"
@@ -82,7 +84,13 @@ export function NotificationBell() {
                 >
                   <button
                     onClick={() => {
-                      if (notification.type === 'report_delivery') setOpenReport(notification);
+                      if (notification.type === 'report_delivery') {
+                        // Close the list first — it renders at z-[100] and would
+                        // otherwise sit on top of the report dialog and swallow
+                        // clicks aimed at the dialog's close button.
+                        setPopoverOpen(false);
+                        setOpenReport(notification);
+                      }
                       if (!notification.is_read) markAsRead(notification.id);
                     }}
                     className="w-full text-left px-4 py-3 pr-9"
@@ -150,7 +158,9 @@ export function NotificationBell() {
           </Button>
         </div>
       </PopoverContent>
-      <ReportNotificationDialog notification={openReport} onClose={() => setOpenReport(null)} />
     </Popover>
+    {/* Rendered outside <Popover> so it isn't part of the popover's dismiss layer */}
+    <ReportNotificationDialog notification={openReport} onClose={() => setOpenReport(null)} />
+    </>
   );
 }
