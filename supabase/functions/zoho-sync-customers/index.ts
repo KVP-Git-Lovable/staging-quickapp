@@ -214,7 +214,7 @@ async function syncOneRetailer(
     return { retailer_id: retailerId, name: retailer.name, status: 'skipped', blocker };
   }
 
-  const payload = buildContactPayload(retailer);
+  const payload = buildContactPayload(retailer, await isGstEnabled());
 
   if (opts.dryRun) {
     return { retailer_id: retailerId, name: retailer.name, status: 'dry_run', payload };
