@@ -1,4 +1,5 @@
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // Zoho is region-sharded: a refresh token only works on the datacenter it was
 // minted in. Try each until one accepts the token.
@@ -13,6 +14,15 @@ const CLIENT_ID = Deno.env.get('ZOHO_CLIENT_ID');
 const CLIENT_SECRET = Deno.env.get('ZOHO_CLIENT_SECRET');
 const REFRESH_TOKEN = Deno.env.get('ZOHO_REFRESH_TOKEN');
 const ORG_ID = Deno.env.get('ZOHO_ORG_ID');
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+// Zoho Books allows ~100 calls/minute. Keep a gap between calls in sync_all.
+const CALL_DELAY_MS = 700;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const admin = () => createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 async function getAccessToken(): Promise<{ accessToken: string; apiBase: string }> {
   const errors: string[] = [];
@@ -62,6 +72,207 @@ async function zohoGet(path: string, accessToken: string, apiBase: string) {
   return JSON.parse(text);
 }
 
+async function zohoWrite(
+  method: 'POST' | 'PUT',
+  path: string,
+  payload: unknown,
+  accessToken: string,
+  apiBase: string,
+): Promise<{ ok: boolean; status: number; body: any }> {
+  const url = new URL(`${apiBase}${path}`);
+  url.searchParams.set('organization_id', ORG_ID!);
+
+  const res = await fetch(url.toString(), {
+    method,
+    headers: {
+      Authorization: `Zoho-oauthtoken ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  let body: any = text;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    // keep raw text
+  }
+  return { ok: res.ok, status: res.status, body };
+}
+
+/**
+ * Zoho Books India rejects a contact (or applies the wrong tax) without
+ * place_of_supply / gst_treatment / currency_code, so they are always sent.
+ */
+function buildContactPayload(r: Record<string, any>) {
+  const gst = typeof r.gst_number === 'string' ? r.gst_number.trim() : '';
+  const hasValidGst = gst.length === 15;
+
+  const payload: Record<string, any> = {
+    contact_name: (r.name ?? '').trim(),
+    company_name: r.legal_name || (r.name ?? '').trim(),
+    contact_type: 'customer',
+    place_of_supply: r.state ?? null,
+    gst_treatment: hasValidGst ? 'business_gst' : 'consumer',
+    currency_code: r.currency || 'INR',
+  };
+
+  if (hasValidGst) payload.gst_no = gst;
+  if (r.pan_no) payload.pan_no = r.pan_no;
+  if (r.phone) payload.phone = r.phone;
+  if (r.phone) payload.mobile = r.phone;
+  if (r.email) payload.email = r.email;
+
+  payload.contact_persons = [
+    {
+      first_name: (r.name ?? '').trim(),
+      email: r.email ?? undefined,
+      phone: r.phone ?? undefined,
+      mobile: r.phone ?? undefined,
+      is_primary_contact: true,
+    },
+  ];
+
+  if (r.city || r.state || r.pincode) {
+    payload.billing_address = {
+      address: r.address ?? undefined,
+      city: r.city ?? undefined,
+      state: r.state ?? undefined,
+      zip: r.pincode ?? undefined,
+      country: r.country || 'India',
+    };
+  }
+
+  return payload;
+}
+
+type SyncOutcome = {
+  retailer_id: string;
+  name: string;
+  status: 'synced' | 'updated' | 'skipped' | 'failed' | 'dry_run';
+  blocker?: string | null;
+  error?: string | null;
+  zoho_contact_id?: string | null;
+  payload?: Record<string, any>;
+};
+
+async function logSync(
+  db: ReturnType<typeof admin>,
+  row: {
+    retailer_id: string;
+    action: string;
+    http_status?: number | null;
+    error_message?: string | null;
+    request_payload?: unknown;
+    response_payload?: unknown;
+    synced_by?: string | null;
+  },
+) {
+  await db.from('zoho_sync_log').insert({
+    entity_type: 'retailer',
+    retailer_id: row.retailer_id,
+    action: row.action,
+    http_status: row.http_status ?? null,
+    error_message: row.error_message ?? null,
+    request_payload: (row.request_payload ?? null) as any,
+    response_payload: (row.response_payload ?? null) as any,
+    synced_by: row.synced_by ?? null,
+  });
+}
+
+async function syncOneRetailer(
+  db: ReturnType<typeof admin>,
+  retailerId: string,
+  opts: { dryRun: boolean; syncedBy: string | null; token?: { accessToken: string; apiBase: string } },
+): Promise<SyncOutcome> {
+  const { data: retailer, error: rErr } = await db
+    .from('retailers')
+    .select('id, name, legal_name, phone, email, address, city, state, pincode, country, gst_number, pan_no, currency, zoho_contact_id')
+    .eq('id', retailerId)
+    .maybeSingle();
+
+  if (rErr || !retailer) {
+    return { retailer_id: retailerId, name: '', status: 'failed', error: rErr?.message ?? 'Retailer not found' };
+  }
+
+  // Readiness gate — never burn a Zoho API call on a row Zoho will reject.
+  const { data: readiness } = await db
+    .from('zoho_sync_readiness')
+    .select('is_ready, blocker')
+    .eq('id', retailerId)
+    .maybeSingle();
+
+  if (readiness && readiness.is_ready === false) {
+    const blocker = readiness.blocker ?? 'not ready';
+    await logSync(db, { retailer_id: retailerId, action: 'skip', error_message: blocker, synced_by: opts.syncedBy });
+    await db
+      .from('retailers')
+      .update({ zoho_sync_status: 'skipped', zoho_sync_error: blocker })
+      .eq('id', retailerId);
+    return { retailer_id: retailerId, name: retailer.name, status: 'skipped', blocker };
+  }
+
+  const payload = buildContactPayload(retailer);
+
+  if (opts.dryRun) {
+    return { retailer_id: retailerId, name: retailer.name, status: 'dry_run', payload };
+  }
+
+  const token = opts.token ?? (await getAccessToken());
+  const isUpdate = Boolean(retailer.zoho_contact_id);
+  const path = isUpdate ? `/contacts/${retailer.zoho_contact_id}` : '/contacts';
+  const result = await zohoWrite(isUpdate ? 'PUT' : 'POST', path, payload, token.accessToken, token.apiBase);
+
+  const zohoOk = result.ok && (result.body?.code === 0 || result.body?.code === undefined);
+
+  if (!zohoOk) {
+    const message =
+      typeof result.body === 'object' && result.body?.message
+        ? String(result.body.message)
+        : typeof result.body === 'string'
+          ? result.body
+          : 'Zoho rejected the contact';
+    await logSync(db, {
+      retailer_id: retailerId,
+      action: isUpdate ? 'update' : 'create',
+      http_status: result.status,
+      error_message: message,
+      request_payload: payload,
+      response_payload: result.body,
+      synced_by: opts.syncedBy,
+    });
+    await db.from('retailers').update({ zoho_sync_status: 'failed', zoho_sync_error: message }).eq('id', retailerId);
+    return { retailer_id: retailerId, name: retailer.name, status: 'failed', error: message };
+  }
+
+  const contactId = result.body?.contact?.contact_id ?? retailer.zoho_contact_id ?? null;
+
+  await logSync(db, {
+    retailer_id: retailerId,
+    action: isUpdate ? 'update' : 'create',
+    http_status: result.status,
+    request_payload: payload,
+    response_payload: result.body,
+    synced_by: opts.syncedBy,
+  });
+
+  await db
+    .from('retailers')
+    .update({
+      zoho_contact_id: contactId,
+      zoho_synced_at: new Date().toISOString(),
+      zoho_sync_status: 'synced',
+      zoho_sync_error: null,
+    })
+    .eq('id', retailerId);
+
+  return {
+    retailer_id: retailerId,
+    name: retailer.name,
+    status: isUpdate ? 'updated' : 'synced',
+    zoho_contact_id: contactId,
+  };
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -74,6 +285,58 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
+  let mode = 'verify';
+  let dryRun = false;
+  let retailerIds: string[] = [];
+  let limit = 250;
+
+  try {
+    if (req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      if (body && typeof body.mode === 'string') mode = body.mode;
+      if (body && body.dry_run === true) dryRun = true;
+      if (body && Array.isArray(body.retailer_ids)) retailerIds = body.retailer_ids.filter((x: unknown) => typeof x === 'string');
+      if (body && typeof body.limit === 'number') limit = Math.min(Math.max(1, body.limit), 500);
+    }
+  } catch {
+    // ignore, keep defaults
+  }
+
+  const db = admin();
+
+  // Caller identity (best-effort, used only for audit rows)
+  let syncedBy: string | null = null;
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const { data } = await db.auth.getUser(authHeader.replace('Bearer ', ''));
+    syncedBy = data?.user?.id ?? null;
+  }
+
+  // readiness works WITHOUT Zoho secrets so data quality can be checked first.
+  if (mode === 'readiness') {
+    const { data, error } = await db.from('zoho_sync_readiness').select('blocker, is_ready, zoho_sync_status');
+    if (error) return json({ ok: false, error: error.message }, 500);
+
+    const rows = data ?? [];
+    const blockers: Record<string, number> = {};
+    let ready = 0;
+    const statuses: Record<string, number> = {};
+    for (const r of rows) {
+      if (r.is_ready) ready += 1;
+      else blockers[r.blocker ?? 'unknown'] = (blockers[r.blocker ?? 'unknown'] ?? 0) + 1;
+      const s = r.zoho_sync_status ?? 'not_synced';
+      statuses[s] = (statuses[s] ?? 0) + 1;
+    }
+    return json({
+      ok: true,
+      total: rows.length,
+      ready,
+      blocked: rows.length - ready,
+      blockers,
+      statuses,
+    });
+  }
+
   const missing = [
     ['ZOHO_CLIENT_ID', CLIENT_ID],
     ['ZOHO_CLIENT_SECRET', CLIENT_SECRET],
@@ -81,21 +344,44 @@ Deno.serve(async (req) => {
     ['ZOHO_ORG_ID', ORG_ID],
   ].filter(([, v]) => !v).map(([k]) => k);
 
-  if (missing.length) {
+  // dry runs need no credentials either
+  const needsSecrets = !(dryRun && (mode === 'sync' || mode === 'sync_all'));
+  if (missing.length && needsSecrets) {
     return json({ error: 'Missing Zoho secrets', missing }, 500);
   }
 
-  let mode = 'verify';
   try {
-    if (req.method === 'POST') {
-      const body = await req.json().catch(() => ({}));
-      if (body && typeof body.mode === 'string') mode = body.mode;
-    }
-  } catch {
-    // ignore, keep default mode
-  }
+    if (mode === 'sync' || mode === 'sync_all') {
+      let ids = retailerIds;
+      if (mode === 'sync_all' || ids.length === 0) {
+        const { data, error } = await db
+          .from('zoho_sync_readiness')
+          .select('id')
+          .eq('is_ready', true)
+          .limit(limit);
+        if (error) return json({ ok: false, error: error.message }, 500);
+        const readyIds = (data ?? []).map((r: any) => r.id).filter(Boolean);
+        ids = mode === 'sync_all' ? readyIds : ids;
+      }
 
-  try {
+      if (ids.length === 0) return json({ ok: true, dry_run: dryRun, processed: 0, results: [] });
+
+      const token = dryRun ? undefined : await getAccessToken();
+      const results: SyncOutcome[] = [];
+
+      for (let i = 0; i < ids.length; i += 1) {
+        results.push(await syncOneRetailer(db, ids[i], { dryRun, syncedBy, token }));
+        if (!dryRun && i < ids.length - 1) await sleep(CALL_DELAY_MS);
+      }
+
+      const counts = results.reduce<Record<string, number>>((acc, r) => {
+        acc[r.status] = (acc[r.status] ?? 0) + 1;
+        return acc;
+      }, {});
+
+      return json({ ok: true, mode, dry_run: dryRun, processed: results.length, counts, results });
+    }
+
     const { accessToken, apiBase } = await getAccessToken();
 
     if (mode === 'customers') {
