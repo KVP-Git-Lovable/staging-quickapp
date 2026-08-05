@@ -1245,14 +1245,9 @@ function Step1Body(p: Step1Props) {
     enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
     queryFn: async () => {
-      const payload = {
+      const payload: Record<string, unknown> = {
         p_layout: debounced.layout,
         p_rows: debounced.layout === 'tabular' ? null : (debounced.rows[0] || null),
-        // All selected group dimensions. get_sales_report groups by every one of
-        // them; omitting this keeps the legacy single-"grp" shape.
-        p_row_keys: debounced.layout === 'grouped' && debounced.rows.length > 1
-          ? debounced.rows
-          : null,
         p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
         p_values: debounced.values,
         p_filters: {
@@ -1262,6 +1257,12 @@ function Step1Body(p: Step1Props) {
           distributor_id: debounced.distributorId || null,
         },
       };
+      // Only send p_row_keys when it is actually needed. Adding the key
+      // unconditionally makes PostgREST look for an overload with that
+      // parameter, which fails for datasets whose function does not declare it.
+      if (debounced.layout === 'grouped' && debounced.rows.length > 1) {
+        payload.p_row_keys = debounced.rows;
+      }
       // eslint-disable-next-line no-console
       console.debug('[ReportPreview] rpc', dataset!.source, payload);
       const { data, error } = await supabase.rpc(dataset!.source as any, payload as any);

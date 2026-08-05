@@ -478,14 +478,20 @@ async function callRpc(
     ? config.values.map((v: any) => (typeof v === 'string' ? v : v.key))
     : [];
   const mergedFilters = { ...(config.filters ?? {}), ...filters };
-  const { data, error } = await admin.rpc(source, {
+  const rpcArgs: Record<string, unknown> = {
     p_layout: def.layout,
     p_rows: rows ?? null,
     p_columns: cols ?? null,
     p_values: values,
     p_filters: mergedFilters,
-    p_row_keys: def.layout === 'grouped' && rowKeys.length > 1 ? rowKeys : null,
-  });
+  };
+  // Only sent when genuinely needed: including the key unconditionally makes
+  // PostgREST look for an overload declaring it, which fails for datasets whose
+  // function has no p_row_keys parameter (e.g. get_attendance_report).
+  if (def.layout === 'grouped' && rowKeys.length > 1) {
+    rpcArgs.p_row_keys = rowKeys;
+  }
+  const { data, error } = await admin.rpc(source, rpcArgs);
   if (error) throw error;
   let out = (data ?? []) as any[];
   // Applied here rather than in the PDF renderer so the Excel file and the
