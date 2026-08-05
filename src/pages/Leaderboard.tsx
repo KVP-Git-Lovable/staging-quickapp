@@ -255,6 +255,7 @@ export default function Leaderboard() {
 
     // Calculate total redeemed points (approved + pending)
     const totalRedeemedPoints = redemptionsData?.reduce((sum, r) => sum + (r.points_redeemed || 0), 0) || 0;
+    setTotalRedeemed(totalRedeemedPoints);
 
     if (data) {
       const points: MyPoints = { today: 0, week: 0, month: 0, quarter: 0, year: 0, total: 0 };
