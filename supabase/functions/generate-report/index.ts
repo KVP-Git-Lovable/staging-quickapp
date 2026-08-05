@@ -364,6 +364,53 @@ function pivotMatrixRows(rows: any[], rowKey?: string, columnKey?: string, value
   });
 }
 
+/**
+ * Keep only the columns the report was actually configured with, in the order
+ * they were arranged.
+ *
+ * The RPCs return a fixed column list per layout regardless of what was picked:
+ * the `grouped` branch of get_sales_report always selects quantity, rate,
+ * revenue and new_retailers, and `tabular` always returns all 13 detail
+ * columns. The builder's preview tables filter that down to the selection
+ * (see SummaryTable / TabularTable in ReportSubscriptionsTab), but the delivery
+ * path rendered Object.keys() of the raw row — so a report configured with
+ * three measures arrived with an extra Rate column, and a 4-column tabular
+ * report arrived with 13.
+ */
+function projectSelectedColumns(rows: any[], def: any): any[] {
+  if (!rows.length) return rows;
+  const config = def?.config ?? {};
+  const keys = Object.keys(rows[0] ?? {});
+  const present = (list: any[]) =>
+    list.map((v: any) => (typeof v === 'string' ? v : v?.key)).filter((k: string) => k && keys.includes(k));
+
+  if (def?.layout === 'tabular') {
+    const selected = Array.isArray(config.rows) ? present(config.rows) : [];
+    if (!selected.length) return rows;
+    return rows.map((r) => {
+      const out: Record<string, any> = {};
+      for (const k of selected) out[k] = r[k];
+      return out;
+    });
+  }
+
+  if (def?.layout === 'grouped' || def?.layout === 'summary') {
+    const values = Array.isArray(config.values) ? present(config.values) : [];
+    if (!values.length) return rows;
+    // Grouped output names its dimension `grp`, so fall back to the first key
+    // exactly as SummaryTable does.
+    const rowKey = Array.isArray(config.rows) ? config.rows[0] : config.rows;
+    const groupCol = rowKey && keys.includes(rowKey) ? rowKey : keys[0];
+    return rows.map((r) => {
+      const out: Record<string, any> = { [groupCol]: r[groupCol] };
+      for (const k of values) out[k] = r[k];
+      return out;
+    });
+  }
+
+  return rows; // matrix is already pivoted into its own shape
+}
+
 /** Columns holding a clock time rather than a moment — check_in_time, check_out_time. */
 const TIME_COLUMN = /(^|_)time$/i;
 const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
@@ -433,6 +480,7 @@ async function callRpc(
   // Applied here rather than in the PDF renderer so the Excel file and the
   // summary digest get the same shape as the PDF.
   if (def.layout === 'matrix') out = pivotMatrixRows(out, rows, cols, values[0]);
+  out = projectSelectedColumns(out, def);
   return formatTimeCells(out, timezone);
 }
 
