@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     }
     const pv = body.preview;
     const { data: dataset } = await admin
-      .from('reportable_datasets').select('source').eq('key', pv.dataset_key).maybeSingle();
+      .from('reportable_datasets').select('source, measures').eq('key', pv.dataset_key).maybeSingle();
     if (!dataset) {
       return new Response(JSON.stringify({ error: 'Dataset not found' }), { status: 404, headers: corsHeaders });
     }
@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
       scopeLabel: 'Preview',
       filtersLabel: filtersLabelFrom(pv.config?.filters),
       rowDimensionKey: rowDimensionKeyFrom(pv.config),
+      measureAggs: measureAggsFrom(dataset),
     });
     const pdfBytes = await renderReportPdf(model, pv.pdf_template ?? {}, brand);
     return new Response(pdfBytes, {
@@ -117,7 +118,7 @@ Deno.serve(async (req) => {
 
   const { data: dataset } = await admin
     .from('reportable_datasets')
-    .select('source')
+    .select('source, measures')
     .eq('key', def.dataset_key)
     .maybeSingle();
   if (!dataset) {
@@ -176,6 +177,7 @@ Deno.serve(async (req) => {
       const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows, {
         pdfTemplate, brand, scopeLabel: 'Shared', filtersLabel,
         rowDimensionKey: rowDimensionKeyFrom(def.config),
+        measureAggs: measureAggsFrom(dataset),
       });
       const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
       const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
@@ -209,6 +211,7 @@ Deno.serve(async (req) => {
             filtersLabel,
             recipientName: recipientNames.get(rid) || null,
             rowDimensionKey: rowDimensionKeyFrom(def.config),
+        measureAggs: measureAggsFrom(dataset),
           });
           path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
           await admin.storage.from('report-files').upload(path, bytes, {
@@ -502,6 +505,17 @@ function buildDigest(name: string, period: { label: string }, rows: any[]): stri
   return lines.join('\n');
 }
 
+/** measures[] from reportable_datasets -> { key: agg }, so the renderer knows
+ *  which measures are additive. Nothing column-specific is assumed here. */
+function measureAggsFrom(dataset: any): Record<string, string> {
+  const out: Record<string, string> = {};
+  const list = Array.isArray(dataset?.measures) ? dataset.measures : [];
+  for (const m of list) {
+    if (m?.key && typeof m.agg === 'string') out[m.key] = m.agg;
+  }
+  return out;
+}
+
 async function renderFile(
   format: string,
   name: string,
@@ -514,6 +528,7 @@ async function renderFile(
     filtersLabel?: string | null;
     recipientName?: string | null;
     rowDimensionKey?: string | null;
+    measureAggs?: Record<string, string> | null;
   },
 ): Promise<Uint8Array> {
   if (format === 'pdf') {
@@ -525,6 +540,7 @@ async function renderFile(
       scopeLabel: opts.scopeLabel ?? null,
       filtersLabel: opts.filtersLabel ?? null,
       rowDimensionKey: opts.rowDimensionKey ?? null,
+      measureAggs: opts.measureAggs ?? null,
     });
     return renderReportPdf(model, opts.pdfTemplate ?? {}, opts.brand);
   }

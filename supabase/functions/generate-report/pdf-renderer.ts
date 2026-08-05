@@ -13,6 +13,9 @@ export interface ReportColumn {
   label: string;
   numeric: boolean;
   currency?: boolean;
+  /** False when the dataset declares a non-additive aggregate (e.g. avg) —
+   *  summing an average across groups produces a meaningless figure. */
+  summable?: boolean;
 }
 
 export interface ReportModel {
@@ -553,6 +556,8 @@ export function buildReportModel(params: {
   // Used to name the first (row-label) column instead of showing raw keys
   // like 'grp' or 'row_label'.
   rowDimensionKey?: string | null;
+  /** measure key -> aggregate declared on reportable_datasets (sum|avg|count). */
+  measureAggs?: Record<string, string> | null;
 }): ReportModel {
   const { reportName, period, rows } = params;
   const firstRow = rows[0] ?? {};
@@ -582,11 +587,16 @@ export function buildReportModel(params: {
     // right under the same heading.
     const isRowLabelCol = rowLabelKeys.has(k.toLowerCase());
     const label = isRowLabelCol && !numeric ? dimensionDisplay : humanize(k);
-    return { key: k, label, numeric, currency };
+    // 'avg' (and any other non-additive aggregate) must not be totalled.
+    const agg = params.measureAggs?.[k];
+    const summable = !agg || agg === 'sum' || agg === 'count';
+    return { key: k, label, numeric, currency, summable };
   });
 
   let totals: Record<string, number> | null = null;
-  const numericCols = columns.filter(c => c.numeric);
+  // Only additive measures get a total. A column the dataset declares as an
+  // average (e.g. rate = AVG(oi.rate)) has no meaningful sum across groups.
+  const numericCols = columns.filter(c => c.numeric && c.summable !== false);
   if (numericCols.length > 0 && rows.length > 0) {
     totals = {};
     for (const c of numericCols) {
