@@ -1,6 +1,7 @@
 import { Coins, Gamepad2, Gift, Sparkles, Star, Zap } from "lucide-react";
 import { useActivities, useGamSettings, usePointsIssuedYtd, usePrograms } from "./hooks";
-import heroTrophy from "./assets/hero-trophy.png";
+import { TrophyMark } from "@/components/gamification/TrophyMark";
+
 
 /**
  * Compact hero band. Same content as the original full-height hero — gradient,
@@ -78,14 +79,13 @@ export function GamificationHero() {
         </div>
 
         <div className="shrink-0">
-          <img
-            src={heroTrophy}
+          <TrophyMark
+            float
             alt="Rewards trophy illustration"
-            width={1024}
-            height={1024}
-            className="w-[92px] sm:w-[112px] xl:w-[128px] h-auto drop-shadow-[0_14px_28px_rgba(0,0,0,.28)]"
+            className="w-[92px] sm:w-[112px] xl:w-[128px] h-auto"
           />
         </div>
+
       </div>
     </div>
   );

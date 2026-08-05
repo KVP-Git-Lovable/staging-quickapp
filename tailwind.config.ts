@@ -137,7 +137,34 @@ export default {
 				'confetti-3': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(35px,-35px) scale(0.3)', opacity: '0' } },
 				'confetti-4': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(40px,25px) scale(0.3)', opacity: '0' } },
 				'confetti-5': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(-25px,40px) scale(0.3)', opacity: '0' } },
-				'confetti-6': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(30px,35px) scale(0.3)', opacity: '0' } }
+				'confetti-6': { '0%': { transform: 'translate(0,0) scale(1)', opacity: '1' }, '100%': { transform: 'translate(30px,35px) scale(0.3)', opacity: '0' } },
+				'confetti-fall': {
+					'0%': { transform: 'translateY(-10vh) rotate(0deg)', opacity: '0' },
+					'8%': { opacity: '1' },
+					'100%': { transform: 'translateY(112vh) rotate(720deg)', opacity: '0' }
+				},
+				'emoji-rise': {
+					'0%': { transform: 'translateY(0) scale(.7)', opacity: '0' },
+					'15%': { opacity: '1' },
+					'100%': { transform: 'translateY(-72vh) scale(1.15)', opacity: '0' }
+				},
+				'trophy-float': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-8px)' }
+				},
+				'trophy-pop': {
+					'0%': { transform: 'scale(.4) rotate(-12deg)', opacity: '0' },
+					'60%': { transform: 'scale(1.12) rotate(4deg)', opacity: '1' },
+					'100%': { transform: 'scale(1) rotate(0deg)', opacity: '1' }
+				},
+				'fade-in': {
+					'0%': { opacity: '0' },
+					'100%': { opacity: '1' }
+				},
+				'scale-in': {
+					'0%': { transform: 'scale(.94)', opacity: '0' },
+					'100%': { transform: 'scale(1)', opacity: '1' }
+				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
@@ -148,8 +175,15 @@ export default {
 				'confetti-3': 'confetti-3 2.1s ease-out infinite 0.4s',
 				'confetti-4': 'confetti-4 2.4s ease-out infinite 0.6s',
 				'confetti-5': 'confetti-5 2.2s ease-out infinite 0.3s',
-				'confetti-6': 'confetti-6 2.5s ease-out infinite 0.5s'
+				'confetti-6': 'confetti-6 2.5s ease-out infinite 0.5s',
+				'confetti-fall': 'confetti-fall 3s linear forwards',
+				'emoji-rise': 'emoji-rise 3.4s ease-out forwards',
+				'trophy-float': 'trophy-float 3.2s ease-in-out infinite',
+				'trophy-pop': 'trophy-pop .7s cubic-bezier(.34,1.56,.64,1) both',
+				'fade-in': 'fade-in .3s ease-out',
+				'scale-in': 'scale-in .35s ease-out both'
 			}
+
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
