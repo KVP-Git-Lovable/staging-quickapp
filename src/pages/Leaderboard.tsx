@@ -69,6 +69,7 @@ export default function Leaderboard() {
   const [leaderboard, setLeaderboard] = useState<UserPoints[]>([]);
   const [myPoints, setMyPoints] = useState<MyPoints>({ today: 0, week: 0, month: 0, quarter: 0, year: 0, total: 0 });
   const [availableToRedeem, setAvailableToRedeem] = useState(0);
+  const [totalRedeemed, setTotalRedeemed] = useState(0);
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
   const [games, setGames] = useState<GameWithPoints[]>([]);
   const [pointsBreakdown, setPointsBreakdown] = useState<PointsBreakdown[]>([]);
