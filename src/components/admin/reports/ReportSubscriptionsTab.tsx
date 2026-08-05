@@ -1248,6 +1248,11 @@ function Step1Body(p: Step1Props) {
       const payload = {
         p_layout: debounced.layout,
         p_rows: debounced.layout === 'tabular' ? null : (debounced.rows[0] || null),
+        // All selected group dimensions. get_sales_report groups by every one of
+        // them; omitting this keeps the legacy single-"grp" shape.
+        p_row_keys: debounced.layout === 'grouped' && debounced.rows.length > 1
+          ? debounced.rows
+          : null,
         p_columns: debounced.layout === 'matrix' ? (debounced.columns || null) : null,
         p_values: debounced.values,
         p_filters: {
@@ -1748,7 +1753,7 @@ function PreviewHero({ state, error, rowsData, layout, rowKey, selectedColumns, 
         ) : layout === 'tabular' ? (
           <TabularTable rowsData={rowsData} selectedColumns={selectedColumns || []} labelOf={labelOf} isMeasure={isMeasure} sort={sort} setSort={setSort} onRemoveColumn={onRemoveColumn} onReorderColumn={onReorderColumn} />
         ) : layout === 'grouped' ? (
-          <SummaryTable rowsData={rowsData} rowKey={rowKey} values={values} labelOf={labelOf} onRemoveValue={onRemoveValue} onReorderValue={onReorderValue} />
+          <SummaryTable rowsData={rowsData} rowKey={rowKey} rowKeys={selectedColumns} values={values} labelOf={labelOf} onRemoveValue={onRemoveValue} onReorderValue={onReorderValue} />
         ) : (
           <MatrixTable rowsData={rowsData} rowKey={rowKey} columnKey={columnKey} valueKey={values[0] || ''} labelOf={labelOf} onRemoveValue={onRemoveValue} />
         )}
@@ -1902,19 +1907,25 @@ function TabularTable({ rowsData, selectedColumns, labelOf, isMeasure, sort, set
   );
 }
 
-function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue, onReorderValue }: {
-  rowsData: any[]; rowKey: string; values: string[]; labelOf: (k: string) => string; onRemoveValue: (k: string) => void;
+function SummaryTable({ rowsData, rowKey, rowKeys = [], values, labelOf, onRemoveValue, onReorderValue }: {
+  rowsData: any[]; rowKey: string; rowKeys?: string[]; values: string[]; labelOf: (k: string) => string;
+  onRemoveValue: (k: string) => void;
   onReorderValue?: (fromKey: string, toKey: string) => void;
 }) {
   const keys = Object.keys(rowsData[0] ?? {});
-  const groupCol = rowKey && keys.includes(rowKey) ? rowKey : keys[0];
-  const valueCols = values.length ? values.filter(v => keys.includes(v)) : keys.filter(k => k !== groupCol);
+  // Grouping by several dimensions returns one named column each; a single
+  // dimension still comes back under the generic "grp".
+  const dimCols = rowKeys.filter(k => keys.includes(k));
+  const groupCols = dimCols.length ? dimCols : [rowKey && keys.includes(rowKey) ? rowKey : keys[0]];
+  const valueCols = values.length
+    ? values.filter(v => keys.includes(v))
+    : keys.filter(k => !groupCols.includes(k));
 
   return (
     <table className="w-full text-xs">
       <thead className="bg-muted/30 sticky top-0">
         <tr>
-          <ColMenu label={labelOf(groupCol)} keyName={groupCol} />
+          {groupCols.map(gc => <ColMenu key={gc} label={labelOf(gc)} keyName={gc} />)}
           {valueCols.map(k => (
             <ColMenu
               key={k}
@@ -1932,14 +1943,17 @@ function SummaryTable({ rowsData, rowKey, values, labelOf, onRemoveValue, onReor
       <tbody>
         {rowsData.map((r, i) => (
           <tr key={i} className="bg-muted/25 border-t border-border/50">
-            <td className="px-3 py-2 font-semibold text-foreground">{fmtCell(r?.[groupCol])}</td>
+            {groupCols.map(gc => (
+              <td key={gc} className="px-3 py-2 font-semibold text-foreground">{fmtCell(r?.[gc])}</td>
+            ))}
             {valueCols.map(k => (
               <td key={k} className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">{fmtCell(r?.[k])}</td>
             ))}
           </tr>
         ))}
         <tr className="bg-[#eaf3de] dark:bg-[#22350f] border-t-2 border-[#639922]/50">
-          <td className="px-3 py-2 font-bold text-[#3b6d11] dark:text-[#97c459]">Grand total</td>
+          <td className="px-3 py-2 font-bold text-[#3b6d11] dark:text-[#97c459]"
+              colSpan={groupCols.length}>Grand total</td>
           {valueCols.map(k => {
             const total = sumNumeric(rowsData, k);
             return (

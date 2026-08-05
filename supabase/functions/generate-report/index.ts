@@ -469,6 +469,11 @@ async function callRpc(
   const config = def.config ?? {};
   const rows = Array.isArray(config.rows) ? config.rows[0] : config.rows;
   const cols = Array.isArray(config.columns) ? config.columns[0] : config.columns;
+  // Every selected group dimension, not just the first. get_sales_report groups
+  // by all of them when p_row_keys is supplied and falls back to the legacy
+  // single "grp" column when it is not.
+  const rowKeys = (Array.isArray(config.rows) ? config.rows : [config.rows])
+    .filter((k: any) => typeof k === 'string' && k);
   const values = Array.isArray(config.values)
     ? config.values.map((v: any) => (typeof v === 'string' ? v : v.key))
     : [];
@@ -479,6 +484,7 @@ async function callRpc(
     p_columns: cols ?? null,
     p_values: values,
     p_filters: mergedFilters,
+    p_row_keys: def.layout === 'grouped' && rowKeys.length > 1 ? rowKeys : null,
   });
   if (error) throw error;
   let out = (data ?? []) as any[];
