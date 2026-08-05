@@ -23325,6 +23325,7 @@ export type Database = {
       }
       retailers: {
         Row: {
+          _pendingSync: boolean | null
           account_holder_name: string | null
           address: string
           advance_credit: number
@@ -23412,6 +23413,7 @@ export type Database = {
           zoho_synced_at: string | null
         }
         Insert: {
+          _pendingSync?: boolean | null
           account_holder_name?: string | null
           address: string
           advance_credit?: number
@@ -23499,6 +23501,7 @@ export type Database = {
           zoho_synced_at?: string | null
         }
         Update: {
+          _pendingSync?: boolean | null
           account_holder_name?: string | null
           address?: string
           advance_credit?: number
@@ -29044,6 +29047,17 @@ export type Database = {
         }[]
       }
       get_estimated_memory_usage: { Args: never; Returns: Json }
+      get_field_activity_report: {
+        Args: {
+          p_columns: string
+          p_filters: Json
+          p_layout: string
+          p_row_keys?: string[]
+          p_rows: string
+          p_values: string[]
+        }
+        Returns: Json[]
+      }
       get_leave_date_constraints: {
         Args: { p_leave_type_id: string; p_user_id: string }
         Returns: Json
@@ -29312,6 +29326,7 @@ export type Database = {
           p_columns: string
           p_filters: Json
           p_layout: string
+          p_row_keys?: string[]
           p_rows: string
           p_values: string[]
         }
