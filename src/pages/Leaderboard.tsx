@@ -490,7 +490,7 @@ export default function Leaderboard() {
           <Star className="pointer-events-none absolute h-3 w-3 text-amber-300/70 animate-pulse" style={{ left: "60%", top: "72%" }} />
 
           <div className="relative flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 pr-16 sm:pr-0">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
