@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Trophy, Award, Gift, Info, Loader2, Medal, TrendingUp, Target, Star, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Trophy, Award, Gift, Info, Loader2, Medal, TrendingUp, Target, Star, FileSpreadsheet, Sparkles } from "lucide-react";
 import { ModuleHelpButton } from "@/components/help/ModuleHelpButton";
 import { BadgesDisplay } from "@/components/BadgesDisplay";
 import { PointsDetailsModal } from "@/components/PointsDetailsModal";
