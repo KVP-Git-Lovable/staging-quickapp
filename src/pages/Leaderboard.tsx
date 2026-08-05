@@ -490,7 +490,7 @@ export default function Leaderboard() {
           <Star className="pointer-events-none absolute h-3 w-3 text-amber-300/70 animate-pulse" style={{ left: "60%", top: "72%" }} />
 
           <div className="relative flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 pr-16 sm:pr-0">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -514,8 +514,8 @@ export default function Leaderboard() {
                 Track your performance, earn points and redeem rewards.
               </p>
 
-              {/* glass stat chips */}
-              <div className="mt-3 -mx-1 px-1 flex gap-2 overflow-x-auto sm:overflow-visible sm:flex-wrap">
+              {/* glass stat chips — 2-up grid on phones so nothing is clipped */}
+              <div className="mt-3 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                 {[
                   {
                     icon: TrendingUp,
@@ -525,10 +525,12 @@ export default function Leaderboard() {
                   },
                   { icon: Target, bg: "#3b82f6", value: games.length, label: "Active games" },
                   { icon: Star, bg: "#f59e0b", value: getDisplayPoints(), label: `Points (${timeFilter})` },
-                ].map((s) => (
+                ].map((s, i) => (
                   <div
                     key={s.label}
-                    className="min-w-[138px] sm:min-w-0 shrink-0 flex items-center gap-2.5 rounded-[12px] px-3 py-2 bg-white/10 backdrop-blur-md"
+                    className={`flex items-center gap-2.5 rounded-[12px] px-3 py-2 bg-white/10 backdrop-blur-md min-w-0 ${
+                      i === 2 ? "col-span-2 sm:col-span-1" : ""
+                    }`}
                     style={{ border: "1px solid rgba(255,255,255,.16)" }}
                   >
                     <div className="w-[22px] h-[22px] rounded-[7px] flex items-center justify-center text-white shrink-0" style={{ background: s.bg }}>
@@ -541,6 +543,7 @@ export default function Leaderboard() {
                   </div>
                 ))}
               </div>
+
 
               <div className="flex flex-wrap gap-2 mt-3">
                 {[
@@ -560,9 +563,12 @@ export default function Leaderboard() {
               </div>
             </div>
 
-            <div className="shrink-0 hidden sm:block">
-              <TrophyMark float className="w-[92px] xl:w-[112px] h-auto" />
-            </div>
+            {/* trophy: floating corner mark on phones, inline column from sm up */}
+            <TrophyMark
+              float
+              className="absolute top-2 right-2 w-[58px] h-auto opacity-90 pointer-events-none sm:static sm:opacity-100 sm:shrink-0 sm:w-[92px] xl:w-[112px]"
+            />
+
 
           </div>
         </div>
