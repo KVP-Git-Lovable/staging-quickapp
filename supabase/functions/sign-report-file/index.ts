@@ -32,25 +32,36 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const { data: sub } = await admin
-      .from('report_subscriptions')
-      .select('recipient_user_ids, created_by')
-      .eq('id', subscription_id)
-      .maybeSingle();
+
+    // Path must live under this subscription's folder.
+    if (!storage_path.startsWith(`${subscription_id}/`)) {
+      return new Response(JSON.stringify({ error: 'Path mismatch' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     // Use is_admin_or_manager() for parity with the write path (RLS on report_subscriptions).
     const userClientForRpc = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: isAdminOrMgr } = await userClientForRpc.rpc('is_admin_or_manager');
-    const allowed = !!isAdminOrMgr || (!!sub && (sub.created_by === userId || (sub.recipient_user_ids ?? []).includes(userId)));
+    const { data: isAdmin } = await userClientForRpc.rpc('is_admin_or_manager');
+
+    // Reports are now scoped per recipient, and the file name carries the scope
+    // user's uuid — a guessable path. Membership of recipient_user_ids is
+    // therefore not enough: the caller must have been delivered THIS exact file.
+    // The delivery log is the record of that, so it is the authority here.
+    // Admins keep a blanket pass for the subscription history view.
+    let allowed = !!isAdmin;
+    if (!allowed) {
+      const { data: delivered } = await admin
+        .from('report_delivery_log')
+        .select('id')
+        .eq('subscription_id', subscription_id)
+        .eq('recipient_user_id', userId)
+        .eq('storage_path', storage_path)
+        .limit(1);
+      allowed = (delivered?.length ?? 0) > 0;
+    }
     if (!allowed) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    // Path must live under this subscription's folder
-    if (!storage_path.startsWith(`${subscription_id}/`)) {
-      return new Response(JSON.stringify({ error: 'Path mismatch' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const { data: signed, error: sErr } = await admin.storage.from('report-files').createSignedUrl(storage_path, 300);

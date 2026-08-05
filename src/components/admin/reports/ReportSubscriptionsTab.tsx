@@ -51,6 +51,7 @@ interface Subscription {
   attachment_format: string;
   push_to_phone: boolean;
   scope: string;
+  respect_hierarchy?: boolean;
   status: string;
   last_fired_at: string | null;
 }
@@ -661,6 +662,9 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
     Boolean((editing?.sub as any)?.period_basis)
   );
   const [scope, setScope] = useState(editing?.sub.scope ?? 'shared');
+  const [respectHierarchy, setRespectHierarchy] = useState(
+    (editing?.sub as any)?.respect_hierarchy !== false
+  );
   const [recipientIds, setRecipientIds] = useState<string[]>(editing?.sub.recipient_user_ids ?? []);
   const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
     ((editing?.sub as any)?.recipient_mode as any) ?? 'named_users'
@@ -745,6 +749,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             push_to_phone: pushToPhone,
             period_basis: periodBasis,
             scope: effectiveScope,
+            respect_hierarchy: respectHierarchy,
             pdf_template: format === 'pdf' ? pdfTemplate : {},
           } as any)
           .eq('id', editing.sub.id);
@@ -777,6 +782,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
         if (data) {
           await supabase.from('report_subscriptions').update({
             period_basis: periodBasis,
+            respect_hierarchy: respectHierarchy,
             pdf_template: format === 'pdf' ? pdfTemplate : {},
           } as any).eq('id', data);
         }
@@ -908,23 +914,55 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                   />
                 </div>
               )}
+              <div className="space-y-2 md:col-span-2">
+                <div className="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+                  <div className="space-y-0.5">
+                    <Label className="flex items-center gap-1.5">
+                      <NetworkIcon size={13} className="text-muted-foreground" />
+                      Respect reporting hierarchy
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Each recipient's report covers only themselves and the people below them
+                      in the reporting tree — never a peer or a manager above them. System
+                      admins still receive the organisation-wide report.
+                    </p>
+                  </div>
+                  <Switch checked={respectHierarchy} onCheckedChange={setRespectHierarchy} />
+                </div>
+                {!respectHierarchy && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-500">
+                    Every recipient will see the whole organisation's data, including people
+                    above them. Only turn this off for a deliberately org-wide report.
+                  </p>
+                )}
+              </div>
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5">
                   Scope
-                  {recipientMode === 'all_managers' && <LockIcon size={12} className="text-muted-foreground" />}
+                  {(recipientMode === 'all_managers' || respectHierarchy) && (
+                    <LockIcon size={12} className="text-muted-foreground" />
+                  )}
                 </Label>
-                <Select value={scope} onValueChange={setScope} disabled={recipientMode === 'all_managers'}>
+                <Select
+                  value={respectHierarchy ? 'per_recipient' : scope}
+                  onValueChange={setScope}
+                  disabled={recipientMode === 'all_managers' || respectHierarchy}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="shared">Shared — one report for everyone</SelectItem>
                     <SelectItem value="per_recipient">Per recipient — filtered by their scope</SelectItem>
                   </SelectContent>
                 </Select>
-                {recipientMode === 'all_managers' && (
+                {respectHierarchy ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Set by the hierarchy rule above.
+                  </p>
+                ) : recipientMode === 'all_managers' ? (
                   <p className="text-[11px] text-muted-foreground">
                     Per recipient is required so each manager sees only their own team.
                   </p>
-                )}
+                ) : null}
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label>Reporting window</Label>
@@ -1048,7 +1086,14 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                   {pdfTemplate.footer_note ? <> · Footer: <b>{pdfTemplate.footer_note}</b></> : null}
                 </div>
               )}
-              <div><span className="font-medium">Scope:</span> {recipientMode === 'all_managers' ? 'per_recipient (locked)' : scope}</div>
+              <div>
+                <span className="font-medium">Scope:</span>{' '}
+                {respectHierarchy
+                  ? 'per recipient — own team only (hierarchy enforced)'
+                  : recipientMode === 'all_managers'
+                    ? 'per_recipient (locked)'
+                    : `${scope} — organisation-wide, hierarchy off`}
+              </div>
               <div>
                 <span className="font-medium">Recipients:</span>{' '}
                 {recipientMode === 'all_managers'

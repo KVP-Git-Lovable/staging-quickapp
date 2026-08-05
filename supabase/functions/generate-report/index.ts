@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
-    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence, pdf_template, timezone')
+    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence, pdf_template, timezone, respect_hierarchy')
     .eq('id', subscription_id)
     .maybeSingle();
   if (sErr || !sub) {
@@ -138,6 +138,51 @@ Deno.serve(async (req) => {
   }
   recipients = Array.from(new Set(recipients));
 
+  // ---- Hierarchy scoping ----------------------------------------------------
+  // With respect_hierarchy on (the default), each recipient's file is built from
+  // their own slice of the employees.manager_id tree — themselves plus everyone
+  // beneath them — so nobody receives data for a peer or for someone above them.
+  // System admins are exempt and keep receiving the organisation-wide file.
+  const respectHierarchy = (sub as any).respect_hierarchy !== false;
+
+  const systemAdmins = new Set<string>();
+  if (respectHierarchy && recipients.length > 0) {
+    const { data: sa, error: saErr } = await admin.rpc('report_system_admins', { p_user_ids: recipients });
+    if (saErr) {
+      // Fail closed: an unresolved admin list must not silently widen anyone's view.
+      console.error('report_system_admins error', saErr);
+    } else {
+      (sa ?? []).forEach((r: any) => systemAdmins.add(r.user_id));
+    }
+  }
+
+  // A scope_user_id the report author pinned in the Build step. It is honoured
+  // only for recipients entitled to see that person; for anyone else it would
+  // reach outside their subtree, so their own id replaces it.
+  const authorScopeUserId: string | null = def.config?.filters?.scope_user_id ?? null;
+  const authorScopeAllowed = new Set<string>();
+  if (respectHierarchy && authorScopeUserId) {
+    for (const rid of recipients) {
+      if (systemAdmins.has(rid)) continue;
+      const { data: ok, error: vErr } = await admin.rpc('report_can_view_user', {
+        _viewer: rid, _target: authorScopeUserId,
+      });
+      if (vErr) console.error('report_can_view_user error', rid, vErr);
+      else if (ok === true) authorScopeAllowed.add(rid);
+    }
+  }
+
+  // null => no scope_user_id sent, so whatever the definition pins (possibly
+  // nothing, i.e. organisation-wide) stands. A uuid => that person's subtree.
+  const scopeUserFor = (rid: string): string | null => {
+    if (respectHierarchy) {
+      if (systemAdmins.has(rid)) return null;
+      if (authorScopeUserId && authorScopeAllowed.has(rid)) return null;
+      return rid;
+    }
+    return scope === 'per_recipient' ? rid : null;
+  };
+
   const outcomes: Array<Record<string, unknown>> = [];
 
   // Fetch branding once per run and reuse across recipients.
@@ -159,67 +204,62 @@ Deno.serve(async (req) => {
     (profs ?? []).forEach((p: any) => recipientNames.set(p.id, p.full_name || ''));
   }
 
-  // Shared: always call the RPC fresh and always render/upload — overwriting
-  // the storage object for this period so late-arriving data replaces the
-  // earlier (possibly empty) file.
-  let sharedPath: string | null = null;
-  let sharedDigest = '';
-  let sharedRows: any[] = [];
-  let sharedIsEmpty = false;
-  if (scope === 'shared' && recipients.length > 0) {
-    sharedRows = await callRpc(admin, dataset.source, def, {
+  // One build per distinct scope, not per recipient: everyone who resolves to
+  // the same view (all system admins, say) shares a single RPC call, render and
+  // storage object. Always regenerated and upserted so late-arriving data
+  // replaces an earlier — possibly empty — file for the same period.
+  interface BuiltReport { rows: any[]; digest: string; path: string | null; isEmpty: boolean }
+  const builds = new Map<string, BuiltReport>();
+
+  const buildForScope = async (scopeUserId: string | null): Promise<BuiltReport> => {
+    const cacheKey = scopeUserId ?? '__org__';
+    const cached = builds.get(cacheKey);
+    if (cached) return cached;
+
+    const rows = await callRpc(admin, dataset.source, def, {
       date_from: period.date_from,
       date_to: period.date_to,
+      // Omitted rather than nulled when unscoped: callRpc merges over the
+      // definition's own filters, and an explicit null would wipe a
+      // scope_user_id the author pinned in the Build step.
+      ...(scopeUserId ? { scope_user_id: scopeUserId } : {}),
     }, sub.timezone || 'Asia/Kolkata');
-    sharedIsEmpty = sharedRows.length === 0;
-    sharedDigest = buildDigest(sub.name, period, sharedRows);
+
+    const isEmpty = rows.length === 0;
+    const digest = buildDigest(sub.name, period, rows);
+    let path: string | null = null;
+
     if (sub.attachment_format !== 'summary_only') {
-      const bytes = await renderFile(sub.attachment_format, sub.name, period, sharedRows, {
-        pdfTemplate, brand, scopeLabel: 'Shared', filtersLabel,
+      const bytes = await renderFile(sub.attachment_format, sub.name, period, rows, {
+        pdfTemplate, brand,
+        scopeLabel: scopeUserId
+          ? `${recipientNames.get(scopeUserId) || 'Recipient'} & team`
+          : 'Organisation-wide',
+        filtersLabel,
+        recipientName: scopeUserId ? (recipientNames.get(scopeUserId) || null) : null,
         rowDimensionKey: rowDimensionKeyFrom(def.config),
         measureAggs: measureAggsFrom(dataset),
       });
-      const path = `${sub.id}/${period.key}/shared.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
-      const { error: upErr } = await admin.storage.from('report-files').upload(path, bytes, {
-        contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      const ext = sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx';
+      const candidate = `${sub.id}/${period.key}/${scopeUserId ?? 'shared'}.${ext}`;
+      const { error: upErr } = await admin.storage.from('report-files').upload(candidate, bytes, {
+        contentType: sub.attachment_format === 'pdf'
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         upsert: true,
       });
       if (upErr) console.error('upload err', upErr);
-      else sharedPath = path;
+      else path = candidate;
     }
-  }
+
+    const built: BuiltReport = { rows, digest, path, isEmpty };
+    builds.set(cacheKey, built);
+    return built;
+  };
 
   for (const rid of recipients) {
     try {
-      let path = sharedPath;
-      let digest = sharedDigest;
-      let rows = sharedRows;
-      let isEmpty = sharedIsEmpty;
-
-      if (scope === 'per_recipient') {
-        rows = await callRpc(admin, dataset.source, def, {
-          date_from: period.date_from,
-          date_to: period.date_to,
-          scope_user_id: rid,
-        }, sub.timezone || 'Asia/Kolkata');
-        isEmpty = rows.length === 0;
-        digest = buildDigest(sub.name, period, rows);
-        if (sub.attachment_format !== 'summary_only') {
-          const bytes = await renderFile(sub.attachment_format, sub.name, period, rows, {
-            pdfTemplate, brand,
-            scopeLabel: 'Per recipient',
-            filtersLabel,
-            recipientName: recipientNames.get(rid) || null,
-            rowDimensionKey: rowDimensionKeyFrom(def.config),
-        measureAggs: measureAggsFrom(dataset),
-          });
-          path = `${sub.id}/${period.key}/${rid}.${sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx'}`;
-          await admin.storage.from('report-files').upload(path, bytes, {
-            contentType: sub.attachment_format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            upsert: true,
-          });
-        }
-      }
+      const { rows, digest, path, isEmpty } = await buildForScope(scopeUserFor(rid));
 
       const bodyLine = isEmpty
         ? `${period.label} — No records for this period.`
@@ -236,6 +276,7 @@ Deno.serve(async (req) => {
         row_count: rows.length,
         is_empty: isEmpty,
         push_to_phone: sub.push_to_phone === true,
+        hierarchy_scoped: respectHierarchy && !systemAdmins.has(rid),
       };
       if (path) metadata.storage_path = path;
       if (sub.attachment_format === 'summary_only') metadata.body_md = digest;
