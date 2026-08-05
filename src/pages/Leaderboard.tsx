@@ -563,9 +563,12 @@ export default function Leaderboard() {
               </div>
             </div>
 
-            <div className="shrink-0 hidden sm:block">
-              <TrophyMark float className="w-[92px] xl:w-[112px] h-auto" />
-            </div>
+            {/* trophy: floating corner mark on phones, inline column from sm up */}
+            <TrophyMark
+              float
+              className="absolute top-2 right-2 w-[58px] h-auto opacity-90 pointer-events-none sm:static sm:opacity-100 sm:shrink-0 sm:w-[92px] xl:w-[112px]"
+            />
+
 
           </div>
         </div>
