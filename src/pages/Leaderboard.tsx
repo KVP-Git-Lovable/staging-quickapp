@@ -14,6 +14,7 @@ import { ModuleHelpButton } from "@/components/help/ModuleHelpButton";
 import { BadgesDisplay } from "@/components/BadgesDisplay";
 import { PointsDetailsModal } from "@/components/PointsDetailsModal";
 import { TrophyMark } from "@/components/gamification/TrophyMark";
+import { TrophyStage } from "@/components/gamification/TrophyStage";
 import { CelebrationOverlay } from "@/components/gamification/CelebrationOverlay";
 
 import { useNavigate } from "react-router-dom";
