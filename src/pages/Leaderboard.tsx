@@ -489,8 +489,9 @@ export default function Leaderboard() {
           <Sparkles className="pointer-events-none absolute h-3.5 w-3.5 text-white/40 animate-pulse" style={{ left: "48%", top: "16%" }} />
           <Star className="pointer-events-none absolute h-3 w-3 text-amber-300/70 animate-pulse" style={{ left: "60%", top: "72%" }} />
 
-          <div className="relative flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div className="flex-1 min-w-0 pr-16 sm:pr-0">
+          <div className="relative flex flex-row items-start sm:items-center gap-3 sm:gap-6">
+            <div className="flex-1 min-w-0">
+
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -514,8 +515,8 @@ export default function Leaderboard() {
                 Track your performance, earn points and redeem rewards.
               </p>
 
-              {/* glass stat chips — 2-up grid on phones so nothing is clipped */}
-              <div className="mt-3 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+              {/* glass stat chips — full-width stacked rows on phones */}
+              <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2">
                 {[
                   {
                     icon: TrendingUp,
@@ -525,14 +526,13 @@ export default function Leaderboard() {
                   },
                   { icon: Target, bg: "#3b82f6", value: games.length, label: "Active games" },
                   { icon: Star, bg: "#f59e0b", value: getDisplayPoints(), label: `Points (${timeFilter})` },
-                ].map((s, i) => (
+                ].map((s) => (
                   <div
                     key={s.label}
-                    className={`flex items-center gap-2.5 rounded-[12px] px-3 py-2 bg-white/10 backdrop-blur-md min-w-0 ${
-                      i === 2 ? "col-span-2 sm:col-span-1" : ""
-                    }`}
+                    className="flex items-center gap-2.5 rounded-[12px] px-3 py-2 bg-white/10 backdrop-blur-md min-w-0 w-full sm:w-auto"
                     style={{ border: "1px solid rgba(255,255,255,.16)" }}
                   >
+
                     <div className="w-[22px] h-[22px] rounded-[7px] flex items-center justify-center text-white shrink-0" style={{ background: s.bg }}>
                       <s.icon className="h-[13px] w-[13px]" />
                     </div>
@@ -544,33 +544,32 @@ export default function Leaderboard() {
                 ))}
               </div>
 
-
-              <div className="flex flex-wrap gap-2 mt-3">
-                {[
-                  { icon: Trophy, label: "Game Config", to: "/activities-info" },
-                  { icon: Award, label: "Badges", to: "/badges-info" },
-                  { icon: Info, label: "Policy", to: "/game-policy" },
-                ].map((b) => (
-                  <button
-                    key={b.label}
-                    onClick={() => navigate(b.to)}
-                    className="text-[11px] font-semibold text-white rounded-[10px] px-3 py-1.5 inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition-colors"
-                    style={{ border: "1px solid rgba(255,255,255,.16)" }}
-                  >
-                    <b.icon className="h-3.5 w-3.5" /> {b.label}
-                  </button>
-                ))}
-              </div>
             </div>
 
-            {/* trophy: floating corner mark on phones, inline column from sm up */}
+            {/* trophy: large illustration on the right, on phones too */}
             <TrophyMark
               float
-              className="absolute top-2 right-2 w-[58px] h-auto opacity-90 pointer-events-none sm:static sm:opacity-100 sm:shrink-0 sm:w-[92px] xl:w-[112px]"
+              className="shrink-0 w-[104px] xs:w-[124px] sm:w-[150px] xl:w-[190px] h-auto self-center"
             />
-
-
           </div>
+
+          <div className="relative mt-3 -mx-1 px-1 flex gap-2 overflow-x-auto sm:overflow-visible sm:flex-wrap">
+            {[
+              { icon: Trophy, label: "Game Config", to: "/activities-info" },
+              { icon: Award, label: "Badges", to: "/badges-info" },
+              { icon: Info, label: "Policy", to: "/game-policy" },
+            ].map((b) => (
+              <button
+                key={b.label}
+                onClick={() => navigate(b.to)}
+                className="shrink-0 text-[11px] font-semibold text-white rounded-[10px] px-3 py-1.5 inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,.16)" }}
+              >
+                <b.icon className="h-3.5 w-3.5" /> {b.label}
+              </button>
+            ))}
+          </div>
+
         </div>
 
         {/* ===== POINTS WALLET — the main highlight ===== */}
