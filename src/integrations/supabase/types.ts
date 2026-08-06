@@ -21440,6 +21440,7 @@ export type Database = {
           recipient_mode: string
           recipient_user_ids: string[]
           report_definition_id: string
+          respect_hierarchy: boolean
           scope: string
           status: string
           timezone: string
@@ -21463,6 +21464,7 @@ export type Database = {
           recipient_mode?: string
           recipient_user_ids?: string[]
           report_definition_id: string
+          respect_hierarchy?: boolean
           scope?: string
           status?: string
           timezone?: string
@@ -21486,6 +21488,7 @@ export type Database = {
           recipient_mode?: string
           recipient_user_ids?: string[]
           report_definition_id?: string
+          respect_hierarchy?: boolean
           scope?: string
           status?: string
           timezone?: string
@@ -29736,6 +29739,16 @@ export type Database = {
         Args: never
         Returns: {
           full_name: string
+          user_id: string
+        }[]
+      }
+      report_can_view_user: {
+        Args: { _target: string; _viewer: string }
+        Returns: boolean
+      }
+      report_system_admins: {
+        Args: { p_user_ids: string[] }
+        Returns: {
           user_id: string
         }[]
       }
