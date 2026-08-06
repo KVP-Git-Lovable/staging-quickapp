@@ -544,33 +544,32 @@ export default function Leaderboard() {
                 ))}
               </div>
 
-
-              <div className="flex flex-wrap gap-2 mt-3">
-                {[
-                  { icon: Trophy, label: "Game Config", to: "/activities-info" },
-                  { icon: Award, label: "Badges", to: "/badges-info" },
-                  { icon: Info, label: "Policy", to: "/game-policy" },
-                ].map((b) => (
-                  <button
-                    key={b.label}
-                    onClick={() => navigate(b.to)}
-                    className="text-[11px] font-semibold text-white rounded-[10px] px-3 py-1.5 inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition-colors"
-                    style={{ border: "1px solid rgba(255,255,255,.16)" }}
-                  >
-                    <b.icon className="h-3.5 w-3.5" /> {b.label}
-                  </button>
-                ))}
-              </div>
             </div>
 
-            {/* trophy: floating corner mark on phones, inline column from sm up */}
+            {/* trophy: large illustration on the right, on phones too */}
             <TrophyMark
               float
-              className="absolute top-2 right-2 w-[58px] h-auto opacity-90 pointer-events-none sm:static sm:opacity-100 sm:shrink-0 sm:w-[92px] xl:w-[112px]"
+              className="shrink-0 w-[104px] xs:w-[124px] sm:w-[150px] xl:w-[190px] h-auto self-center"
             />
-
-
           </div>
+
+          <div className="relative mt-3 -mx-1 px-1 flex gap-2 overflow-x-auto sm:overflow-visible sm:flex-wrap">
+            {[
+              { icon: Trophy, label: "Game Config", to: "/activities-info" },
+              { icon: Award, label: "Badges", to: "/badges-info" },
+              { icon: Info, label: "Policy", to: "/game-policy" },
+            ].map((b) => (
+              <button
+                key={b.label}
+                onClick={() => navigate(b.to)}
+                className="shrink-0 text-[11px] font-semibold text-white rounded-[10px] px-3 py-1.5 inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 transition-colors"
+                style={{ border: "1px solid rgba(255,255,255,.16)" }}
+              >
+                <b.icon className="h-3.5 w-3.5" /> {b.label}
+              </button>
+            ))}
+          </div>
+
         </div>
 
         {/* ===== POINTS WALLET — the main highlight ===== */}
