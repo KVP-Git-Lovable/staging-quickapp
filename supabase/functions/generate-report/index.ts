@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
       filtersLabel: filtersLabelFrom(pv.config?.filters),
       rowDimensionKey: rowDimensionKeyFrom(pv.config),
       measureAggs: measureAggsFrom(dataset),
+      measureFormats: measureFormatsFrom(dataset),
     });
     const pdfBytes = await renderReportPdf(model, pv.pdf_template ?? {}, brand);
     return new Response(pdfBytes, {
@@ -239,6 +240,7 @@ Deno.serve(async (req) => {
         recipientName: scopeUserId ? (recipientNames.get(scopeUserId) || null) : null,
         rowDimensionKey: rowDimensionKeyFrom(def.config),
         measureAggs: measureAggsFrom(dataset),
+        measureFormats: measureFormatsFrom(dataset),
       });
       const ext = sub.attachment_format === 'pdf' ? 'pdf' : 'xlsx';
       const candidate = `${sub.id}/${period.key}/${scopeUserId ?? 'shared'}.${ext}`;
@@ -569,6 +571,17 @@ function measureAggsFrom(dataset: any): Record<string, string> {
   return out;
 }
 
+/** measures[] -> { key: format }, so the renderer knows which columns are money
+ *  instead of guessing from the column name. */
+function measureFormatsFrom(dataset: any): Record<string, string> {
+  const out: Record<string, string> = {};
+  const list = Array.isArray(dataset?.measures) ? dataset.measures : [];
+  for (const m of list) {
+    if (m?.key && typeof m.format === 'string') out[m.key] = m.format;
+  }
+  return out;
+}
+
 async function renderFile(
   format: string,
   name: string,
@@ -582,6 +595,7 @@ async function renderFile(
     recipientName?: string | null;
     rowDimensionKey?: string | null;
     measureAggs?: Record<string, string> | null;
+    measureFormats?: Record<string, string> | null;
   },
 ): Promise<Uint8Array> {
   if (format === 'pdf') {
@@ -594,6 +608,7 @@ async function renderFile(
       filtersLabel: opts.filtersLabel ?? null,
       rowDimensionKey: opts.rowDimensionKey ?? null,
       measureAggs: opts.measureAggs ?? null,
+      measureFormats: opts.measureFormats ?? null,
     });
     return renderReportPdf(model, opts.pdfTemplate ?? {}, opts.brand);
   }

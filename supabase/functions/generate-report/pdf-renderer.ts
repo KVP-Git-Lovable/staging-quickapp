@@ -558,6 +558,8 @@ export function buildReportModel(params: {
   rowDimensionKey?: string | null;
   /** measure key -> aggregate declared on reportable_datasets (sum|avg|count). */
   measureAggs?: Record<string, string> | null;
+  /** measure key -> display format declared on reportable_datasets (currency|number). */
+  measureFormats?: Record<string, string> | null;
 }): ReportModel {
   const { reportName, period, rows } = params;
   const firstRow = rows[0] ?? {};
@@ -574,12 +576,20 @@ export function buildReportModel(params: {
       const n = typeof v === 'number' ? v : Number(v);
       if (!Number.isFinite(n)) { numeric = false; break; }
     }
+    // Whether a column is money is declared on the dataset's measure, not
+    // inferred from its name. The name match below is only a fallback for
+    // columns the dataset says nothing about, and it deliberately does not
+    // look for 'total' — that made "total_hours" print as "₹ 8.81".
     let currency = false;
     if (numeric) {
-      const kl = k.toLowerCase();
-      if (kl.includes('amount') || kl.includes('revenue') || kl.includes('price') ||
-          kl.includes('total') || kl.includes('value') || kl.includes('rate') ||
-          kl.includes('sales')) currency = true;
+      const declared = params.measureFormats?.[k];
+      if (declared) {
+        currency = declared === 'currency';
+      } else {
+        const kl = k.toLowerCase();
+        if (kl.includes('amount') || kl.includes('revenue') || kl.includes('price') ||
+            kl.includes('rate') || kl.includes('sales')) currency = true;
+      }
     }
     // Only a genuine row-label key gets the dimension caption. Using idx === 0
     // relabelled whatever the RPC happened to return first — e.g. a `uom`
