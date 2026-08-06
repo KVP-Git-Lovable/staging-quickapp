@@ -1,30 +1,46 @@
-## What I found (verified)
+# Zoho Books: Settings scope findings and path for Product/Tax/Unit/Price sync
 
-- The **Retailer growth** program has 3 activities in the database: `retailer_created` (15 pts, enabled), `first_order_new_retailer` (5 pts, enabled), `retailer_active_streak` (50 pts, disabled).
-- `gamification_points` shows **0 awards ever** for `New retailer created` and `Retailer active 30 days`; `First order from new retailer` last awarded 2026-07-22.
-- Reason: the app awards points from a **hardcoded switch** in `src/utils/gamificationPointsAwarder.ts`. It only has branches for `order_placed`, `first_order_new_retailer`, `daily_target`, `focused_product_sales`, `productive_visit`, `consecutive_orders`, `monthly_growth`. There is **no `retailer_created` branch and no call at all when a retailer is created** (searched every retailer insert path: `MyRetailers.tsx`, `AddRetailerInlineToBeat.tsx`, `EmployeePortalHome.tsx`, `AddRetailer.tsx`) — so that trigger can never fire.
-- A fully data-driven engine already exists in Postgres: `gam_award_event(p_user_id, p_trigger_type, ...)`, which reads `trigger_type`, `conditions_json`, eligibility, validity, caps and expiry straight from the tables. It is currently unused by the frontend, and `gamification_settings.engine_enabled = false`, so even if called it would only dry-run.
+## What I verified on your live connection
 
-So: the trigger/condition mapping exists in data, but nothing dispatches retailer events into it.
+Your linked connection (SHRAVAN's Zoho Books, region `in`) reports:
 
-## Plan
+- Granted scopes: `ZohoBooks.settings.READ`, `contacts.ALL`, `invoices.ALL`, `estimates.ALL`, `salesorders.ALL`, `purchaseorders.ALL`, `bills.ALL`, `expenses.ALL`, `projects.ALL`
+- Scopes the connector can additionally request: only `ZohoBooks.customerpayments.ALL` and `ZohoBooks.creditnotes.ALL`
 
-1. **Generic dispatcher (removes hardcoding)**
-   Add `src/utils/gamificationEventDispatcher.ts` with one function:
-   `awardGamificationEvent(triggerType, { referenceType, referenceId, retailerId, context })` that calls the `gam_award_event` RPC and dispatches the existing `pointsEarned` UI event when any row returns `awarded = true`. No trigger names, points, or conditions in code — the DB decides.
+So: **`ZohoBooks.settings.ALL` / `.CREATE` / `.UPDATE` are not offered by the built-in connector**, and I cannot add them by reconnecting — the reconnect scope picker only exposes the two scopes listed above. The built-in connector is intentionally read-only for Settings.
 
-2. **Wire the retailer triggers**
-   - `retailer_created`: call the dispatcher after a successful retailer insert in `MyRetailers.tsx`, `AddRetailerInlineToBeat.tsx`, `EmployeePortalHome.tsx`, and the AddRetailer save path — passing context facts (`has_gps`, `source`) so conditions like "GPS captured" evaluate.
-   - `retailer_verified`: call it from the retailer verification path with `verification_score` in context.
-   - Idempotency is already handled in the engine via `reference_id` (the retailer id), so re-saves won't double-award.
+A read-only smoke test confirmed the read side works today: `GET /items?organization_id=60080896175` returned HTTP 200 with your item `WOOD` (rate 20000, unit `box`). No data was created or modified.
 
-3. **Turn the engine on**
-   Set `gamification_settings.engine_enabled = true` so `gam_award_event` writes instead of dry-running. (Confirm with you before flipping, since it makes every enabled activity live.)
+## What that means for the four sync objects
 
-4. **`retailer_active_streak`**
-   This one needs a periodic evaluation (a retailer ordering for 30 consecutive days), not an event. It stays disabled for now; I'll note it as a follow-up scheduled job rather than fake it client-side.
+Items (Products), Taxes, Units, and Price Lists all live under Zoho's **Settings** scope family.
+
+| Direction | Supported by built-in connector |
+|---|---|
+| Read Zoho -> QuickApp (products, taxes, units, price lists) | Yes, works now with `settings.READ` |
+| Write QuickApp -> Zoho (create/update items, taxes, units, price lists) | No. Zoho will reject with an authorization error |
+
+Customer sync keeps working unchanged, because it uses `contacts.ALL`.
+
+## Recommended path
+
+Pick one of two:
+
+**Option A — Read-only sync through the built-in connector (no new setup).**
+Extend the existing `zoho-sync-customers` gateway pattern with new read-only modes that pull Zoho Items, Taxes, Units and Price Lists into QuickApp for mapping/reconciliation, showing a diff of "in Zoho but not in QuickApp" and vice versa. Zoho stays the master for these masters; QuickApp writes nothing.
+
+**Option B — Custom (self-managed) OAuth app for the write direction.**
+Register your own Zoho API Console client on the India DC with `ZohoBooks.settings.ALL` plus the other scopes you need, obtain a refresh token once, store `ZOHO_CLIENT_ID` / `ZOHO_CLIENT_SECRET` / `ZOHO_REFRESH_TOKEN` / `ZOHO_ORG_ID` as secrets, and have a dedicated edge function refresh tokens itself and push products/taxes/units/prices. This is the only way to get write access to Settings objects today. Keep the built-in connector for contacts/invoices so nothing existing regresses.
+
+A hybrid is fine too: built-in connector for contacts + invoices, custom OAuth client only for the Settings-scoped master data.
 
 ## Technical notes
 
-- The existing hardcoded awarder stays in place for the order/visit flows for now, to avoid double-awarding; the dispatcher is only used for triggers it does not handle. A later cleanup can migrate order/visit flows onto `gam_award_event` too and delete the switch.
-- No schema changes required — only a settings flag update plus frontend calls.
+- Gateway base stays `https://connector-gateway.lovable.dev/zoho_books`, paths after `/books/v3`, headers `Authorization: Bearer ${LOVABLE_API_KEY}` and `X-Connection-Api-Key: ${ZOHO_BOOKS_API_KEY}`.
+- Custom-OAuth calls would instead go direct to `https://www.zohoapis.in/books/v3/...` with `Authorization: Zoho-oauthtoken <access_token>`, refreshed via `https://accounts.zoho.in/oauth/v2/token`.
+- The `zoho_sync_enabled` gate in the readiness view stays untouched in either option.
+- GST-off handling already implemented for contacts applies equally to items (`hsn_or_sac`, `item_tax_preferences` only when GST is on).
+
+## Decision needed
+
+Do you want Option A (read-only pull, quick), Option B (custom OAuth so QuickApp can push masters into Zoho), or the hybrid?
