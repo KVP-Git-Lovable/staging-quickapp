@@ -515,8 +515,8 @@ export default function Leaderboard() {
                 Track your performance, earn points and redeem rewards.
               </p>
 
-              {/* glass stat chips — 2-up grid on phones so nothing is clipped */}
-              <div className="mt-3 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+              {/* glass stat chips — full-width stacked rows on phones */}
+              <div className="mt-3 flex flex-col sm:flex-row sm:flex-wrap gap-2">
                 {[
                   {
                     icon: TrendingUp,
@@ -526,14 +526,13 @@ export default function Leaderboard() {
                   },
                   { icon: Target, bg: "#3b82f6", value: games.length, label: "Active games" },
                   { icon: Star, bg: "#f59e0b", value: getDisplayPoints(), label: `Points (${timeFilter})` },
-                ].map((s, i) => (
+                ].map((s) => (
                   <div
                     key={s.label}
-                    className={`flex items-center gap-2.5 rounded-[12px] px-3 py-2 bg-white/10 backdrop-blur-md min-w-0 ${
-                      i === 2 ? "col-span-2 sm:col-span-1" : ""
-                    }`}
+                    className="flex items-center gap-2.5 rounded-[12px] px-3 py-2 bg-white/10 backdrop-blur-md min-w-0 w-full sm:w-auto"
                     style={{ border: "1px solid rgba(255,255,255,.16)" }}
                   >
+
                     <div className="w-[22px] h-[22px] rounded-[7px] flex items-center justify-center text-white shrink-0" style={{ background: s.bg }}>
                       <s.icon className="h-[13px] w-[13px]" />
                     </div>
