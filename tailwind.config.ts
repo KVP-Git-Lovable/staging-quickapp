@@ -157,6 +157,27 @@ export default {
 					'60%': { transform: 'scale(1.12) rotate(4deg)', opacity: '1' },
 					'100%': { transform: 'scale(1) rotate(0deg)', opacity: '1' }
 				},
+				'ray-spin': {
+					'0%': { transform: 'rotate(0deg)' },
+					'100%': { transform: 'rotate(360deg)' }
+				},
+				'glow-pulse': {
+					'0%, 100%': { opacity: '.75', transform: 'scale(1)' },
+					'50%': { opacity: '1', transform: 'scale(1.06)' }
+				},
+				'sparkle-twinkle': {
+					'0%, 100%': { opacity: '0', transform: 'scale(.5) rotate(0deg)' },
+					'50%': { opacity: '1', transform: 'scale(1.15) rotate(25deg)' }
+				},
+				'confetti-drift': {
+					'0%': { opacity: '0', transform: 'translateY(-6px) rotate(0deg)' },
+					'20%': { opacity: '1' },
+					'100%': { opacity: '0', transform: 'translateY(26px) rotate(220deg)' }
+				},
+				'ring-pulse': {
+					'0%, 100%': { opacity: '.55', transform: 'translateX(-50%) scale(.94)' },
+					'50%': { opacity: '1', transform: 'translateX(-50%) scale(1.04)' }
+				},
 				'fade-in': {
 					'0%': { opacity: '0' },
 					'100%': { opacity: '1' }
