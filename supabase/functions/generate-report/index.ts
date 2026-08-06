@@ -627,7 +627,12 @@ function filtersLabelFrom(filters: any): string | null {
   if (!filters || typeof filters !== 'object') return null;
   const parts: string[] = [];
   for (const [k, v] of Object.entries(filters)) {
-    if (v === null || v === undefined || v === '' || k === 'scope_user_id' || k === 'date_from' || k === 'date_to') continue;
+    // scope/date/sort are not filters — they are the window, the audience and
+    // the ordering. Listing them under "Filters" in the PDF meta block reads as
+    // if the data had been narrowed by them.
+    if (v === null || v === undefined || v === '' ||
+        k === 'scope_user_id' || k === 'date_from' || k === 'date_to' ||
+        k === 'sort_key' || k === 'sort_dir') continue;
     const label = k.replace(/_id$/, '').replace(/_/g, ' ');
     const val = typeof v === 'string' && v.length > 12 ? `${v.slice(0, 8)}\u2026` : String(v);
     parts.push(`${label}: ${val}`);

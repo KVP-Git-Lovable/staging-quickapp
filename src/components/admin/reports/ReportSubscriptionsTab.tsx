@@ -661,6 +661,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [basisTouched, setBasisTouched] = useState(
     Boolean((editing?.sub as any)?.period_basis)
   );
+  // Empty sort_key = the RPC's default order, which puts rows that actually
+  // sold ahead of the zero rows rather than interleaving them alphabetically.
+  const [sortKey, setSortKey] = useState<string>(editing?.def.config?.filters?.sort_key ?? '');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
+    (editing?.def.config?.filters?.sort_dir as any) === 'asc' ? 'asc' : 'desc'
+  );
   const [scope, setScope] = useState(editing?.sub.scope ?? 'shared');
   const [respectHierarchy, setRespectHierarchy] = useState(
     (editing?.sub as any)?.respect_hierarchy !== false
@@ -725,7 +731,14 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
         rows,
         columns: columns ? [columns] : [],
         values,
-        filters: { date_from: dateFrom, date_to: dateTo, scope_user_id: scopeUserId || null, distributor_id: distributorId || null },
+        filters: {
+          date_from: dateFrom,
+          date_to: dateTo,
+          scope_user_id: scopeUserId || null,
+          distributor_id: distributorId || null,
+          sort_key: sortKey || null,
+          sort_dir: sortKey ? sortDir : null,
+        },
       };
 
 
@@ -824,6 +837,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             dateTo={dateTo} setDateTo={setDateTo}
             scopeUserId={scopeUserId} setScopeUserId={setScopeUserId}
             distributorId={distributorId} setDistributorId={setDistributorId}
+            sortKey={sortKey} setSortKey={setSortKey}
+            sortDir={sortDir} setSortDir={setSortDir}
             onCancel={onClose}
             onNext={() => setStep(2)}
             canNext={!!canNext1}
@@ -909,6 +924,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                       date_to: dateTo,
                       scope_user_id: scopeUserId || null,
                       distributor_id: distributorId || null,
+                      sort_key: sortKey || null,
+                      sort_dir: sortKey ? sortDir : null,
                     }}
                     refreshKey={pdfPreviewRefreshKey}
                   />
@@ -1171,13 +1188,15 @@ interface Step1Props {
   dateTo: string; setDateTo: (v: string) => void;
   scopeUserId: string; setScopeUserId: (v: string) => void;
   distributorId: string; setDistributorId: (v: string) => void;
+  sortKey: string; setSortKey: (v: string) => void;
+  sortDir: 'asc' | 'desc'; setSortDir: (v: 'asc' | 'desc') => void;
   onCancel: () => void;
   onNext: () => void;
   canNext: boolean;
 }
 
 function Step1Body(p: Step1Props) {
-  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId, distributorId } = p;
+  const { dataset, layout, rows, columns, values, datasetKey, dateFrom, dateTo, scopeUserId, distributorId, sortKey, sortDir } = p;
   const { user } = useAuth();
   const { subordinates } = useSubordinates();
 
@@ -1258,6 +1277,22 @@ function Step1Body(p: Step1Props) {
     ? (scopeOptions.find(o => o.id === scopeUserId)?.label ?? 'Selected user')
     : 'Everyone I can see';
 
+  // Sortable columns are exactly what this report selected, in the order it
+  // arranged them — nothing enumerated here. The RPC whitelists the key against
+  // the same set, so anything stale just falls back to the default order.
+  const sortOptions = React.useMemo(() => {
+    const seen = new Set<string>();
+    const out: Array<{ key: string; label: string }> = [];
+    const push = (key: string, label: string) => {
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      out.push({ key, label });
+    };
+    rows.forEach(k => push(k, dims.find(d => d.key === k)?.label ?? k));
+    values.forEach(k => push(k, measures.find(m => m.key === k)?.label ?? k));
+    return out;
+  }, [rows, values, dims, measures]);
+
   const hasDistributorDim = dims.some(d => d.key === 'distributor');
   const { data: distributors = [] } = useQuery({
     queryKey: ['report-distributors'],
@@ -1273,11 +1308,11 @@ function Step1Body(p: Step1Props) {
     enabled: hasDistributorDim,
   });
 
-  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId });
+  const [debounced, setDebounced] = React.useState({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId, sortKey, sortDir });
   React.useEffect(() => {
-    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId }), 250);
+    const t = setTimeout(() => setDebounced({ datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId, sortKey, sortDir }), 250);
     return () => clearTimeout(t);
-  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId]);
+  }, [datasetKey, layout, rows, columns, values, dateFrom, dateTo, scopeUserId, distributorId, sortKey, sortDir]);
 
   const preview = useQuery({
     queryKey: [
@@ -1286,6 +1321,7 @@ function Step1Body(p: Step1Props) {
       debounced.rows.join(','), debounced.columns,
       debounced.values.join(','),
       debounced.dateFrom, debounced.dateTo, debounced.scopeUserId, debounced.distributorId,
+      debounced.sortKey, debounced.sortDir,
     ],
     enabled: !!dataset && !!dataset.source && (debounced.values.length > 0 || (debounced.layout === 'tabular' && debounced.rows.length > 0)),
     retry: false,
@@ -1300,6 +1336,8 @@ function Step1Body(p: Step1Props) {
           date_to: debounced.dateTo,
           scope_user_id: debounced.scopeUserId || null,
           distributor_id: debounced.distributorId || null,
+          sort_key: debounced.sortKey || null,
+          sort_dir: debounced.sortKey ? debounced.sortDir : null,
         },
       };
       // Only send p_row_keys when it is actually needed. Adding the key
@@ -1430,6 +1468,9 @@ function Step1Body(p: Step1Props) {
                   distributorId={distributorId} setDistributorId={p.setDistributorId}
                   distributors={distributors}
                   showDistributor={hasDistributorDim}
+                  sortKey={sortKey} setSortKey={p.setSortKey}
+                  sortDir={sortDir} setSortDir={p.setSortDir}
+                  sortOptions={sortOptions}
                 />
               }
             />
@@ -1673,7 +1714,7 @@ function EmptyChip({ text }: { text: string }) {
   return <span className="text-[11px] text-muted-foreground/60 italic px-2 py-1">{text}</span>;
 }
 
-function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel, distributorId, setDistributorId, distributors, showDistributor }: {
+function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel, distributorId, setDistributorId, distributors, showDistributor, sortKey, setSortKey, sortDir, setSortDir, sortOptions }: {
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
   scopeUserId: string; setScopeUserId: (v: string) => void;
@@ -1682,6 +1723,9 @@ function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, s
   distributorId?: string; setDistributorId?: (v: string) => void;
   distributors?: Array<{ id: string; name: string }>;
   showDistributor?: boolean;
+  sortKey?: string; setSortKey?: (v: string) => void;
+  sortDir?: 'asc' | 'desc'; setSortDir?: (v: 'asc' | 'desc') => void;
+  sortOptions?: Array<{ key: string; label: string }>;
 }) {
   return (
     <div className="space-y-3 text-xs">
@@ -1733,6 +1777,36 @@ function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, s
           </SelectContent>
         </Select>
       </div>
+      {setSortKey && setSortDir && (sortOptions?.length ?? 0) > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
+            <ArrowUpDown className="h-3 w-3" /> Sort by
+          </div>
+          <div className="flex gap-2">
+            <Select value={sortKey || '__default__'} onValueChange={(v) => setSortKey(v === '__default__' ? '' : v)}>
+              <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="__default__" className="text-xs">Default — rows with orders first</SelectItem>
+                {sortOptions!.map(o => (
+                  <SelectItem key={o.key} value={o.key} className="text-xs">{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sortDir ?? 'desc'} onValueChange={(v) => setSortDir(v as 'asc' | 'desc')} disabled={!sortKey}>
+              <SelectTrigger className="h-8 text-xs w-[104px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc" className="text-xs">Descending</SelectItem>
+                <SelectItem value="asc" className="text-xs">Ascending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            {sortKey
+              ? 'Applies to the preview and to every delivered report.'
+              : 'People who sold appear first; everyone else follows, ordered by the grouping columns.'}
+          </p>
+        </div>
+      )}
       {showDistributor && setDistributorId && (
         <div>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5">Distributor</div>
