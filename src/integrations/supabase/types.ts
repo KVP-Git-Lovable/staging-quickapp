@@ -4419,6 +4419,13 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "delivery_challan_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
         ]
       }
       delivery_challans: {
@@ -4843,6 +4850,13 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "distributor_business_plan_month_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
         ]
       }
       distributor_business_plan_months: {
@@ -5226,6 +5240,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributor_company_return_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -6082,6 +6103,13 @@ export type Database = {
             referencedRelation: "price_books"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "distributor_price_books_price_book_id_fkey"
+            columns: ["price_book_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_pricelist_sync_readiness"
+            referencedColumns: ["id"]
+          },
         ]
       }
       distributor_retailer_credit_limits: {
@@ -6382,6 +6410,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distributor_return_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -7866,6 +7901,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_stock_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -9706,6 +9748,13 @@ export type Database = {
             columns: ["tax_master_id"]
             isOneToOne: false
             referencedRelation: "tax_masters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hsn_master_tax_master_id_fkey"
+            columns: ["tax_master_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_tax_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -12684,6 +12733,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "order_items_variant_id_fkey"
             columns: ["variant_id"]
             isOneToOne: false
@@ -15353,10 +15409,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "price_book_entries_price_book_id_fkey"
+            columns: ["price_book_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_pricelist_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "price_book_entries_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_book_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -15393,6 +15463,11 @@ export type Database = {
           territory_id: string | null
           updated_at: string
           user_id: string | null
+          zoho_pricebook_id: string | null
+          zoho_sync_enabled: boolean
+          zoho_sync_error: string | null
+          zoho_sync_status: string
+          zoho_synced_at: string | null
           zone: string | null
         }
         Insert: {
@@ -15419,6 +15494,11 @@ export type Database = {
           territory_id?: string | null
           updated_at?: string
           user_id?: string | null
+          zoho_pricebook_id?: string | null
+          zoho_sync_enabled?: boolean
+          zoho_sync_error?: string | null
+          zoho_sync_status?: string
+          zoho_synced_at?: string | null
           zone?: string | null
         }
         Update: {
@@ -15445,6 +15525,11 @@ export type Database = {
           territory_id?: string | null
           updated_at?: string
           user_id?: string | null
+          zoho_pricebook_id?: string | null
+          zoho_sync_enabled?: boolean
+          zoho_sync_error?: string | null
+          zoho_sync_status?: string
+          zoho_synced_at?: string | null
           zone?: string | null
         }
         Relationships: [
@@ -15453,6 +15538,13 @@ export type Database = {
             columns: ["cloned_from"]
             isOneToOne: false
             referencedRelation: "price_books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_books_cloned_from_fkey"
+            columns: ["cloned_from"]
+            isOneToOne: false
+            referencedRelation: "zoho_pricelist_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -15655,6 +15747,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "primary_order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -16192,6 +16291,13 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_availability_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
         ]
       }
       product_categories: {
@@ -16258,6 +16364,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_price_list_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -16415,10 +16528,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "product_schemes_free_product_id_fkey"
+            columns: ["free_product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "product_schemes_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_schemes_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -16476,6 +16603,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_uom_mapping_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -16661,10 +16795,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "product_variants_tax_master_id_fkey"
             columns: ["tax_master_id"]
             isOneToOne: false
             referencedRelation: "tax_masters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_variants_tax_master_id_fkey"
+            columns: ["tax_master_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_tax_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -16722,6 +16870,11 @@ export type Database = {
           tax_master_id: string | null
           updated_at: string
           updated_by: string | null
+          zoho_item_id: string | null
+          zoho_sync_enabled: boolean
+          zoho_sync_error: string | null
+          zoho_sync_status: string
+          zoho_synced_at: string | null
         }
         Insert: {
           barcode?: string | null
@@ -16775,6 +16928,11 @@ export type Database = {
           tax_master_id?: string | null
           updated_at?: string
           updated_by?: string | null
+          zoho_item_id?: string | null
+          zoho_sync_enabled?: boolean
+          zoho_sync_error?: string | null
+          zoho_sync_status?: string
+          zoho_synced_at?: string | null
         }
         Update: {
           barcode?: string | null
@@ -16828,6 +16986,11 @@ export type Database = {
           tax_master_id?: string | null
           updated_at?: string
           updated_by?: string | null
+          zoho_item_id?: string | null
+          zoho_sync_enabled?: boolean
+          zoho_sync_error?: string | null
+          zoho_sync_status?: string
+          zoho_synced_at?: string | null
         }
         Relationships: [
           {
@@ -16842,6 +17005,13 @@ export type Database = {
             columns: ["tax_master_id"]
             isOneToOne: false
             referencedRelation: "tax_masters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_tax_master_id_fkey"
+            columns: ["tax_master_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_tax_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -25054,6 +25224,13 @@ export type Database = {
             referencedRelation: "tax_masters"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "tax_components_tax_master_id_fkey"
+            columns: ["tax_master_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_tax_sync_readiness"
+            referencedColumns: ["id"]
+          },
         ]
       }
       tax_masters: {
@@ -25080,6 +25257,11 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           version: number
+          zoho_sync_enabled: boolean
+          zoho_sync_error: string | null
+          zoho_sync_status: string
+          zoho_synced_at: string | null
+          zoho_tax_id: string | null
         }
         Insert: {
           apply_to_primary_orders?: boolean
@@ -25104,6 +25286,11 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           version?: number
+          zoho_sync_enabled?: boolean
+          zoho_sync_error?: string | null
+          zoho_sync_status?: string
+          zoho_synced_at?: string | null
+          zoho_tax_id?: string | null
         }
         Update: {
           apply_to_primary_orders?: boolean
@@ -25128,6 +25315,11 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           version?: number
+          zoho_sync_enabled?: boolean
+          zoho_sync_error?: string | null
+          zoho_sync_status?: string
+          zoho_synced_at?: string | null
+          zoho_tax_id?: string | null
         }
         Relationships: [
           {
@@ -25135,6 +25327,13 @@ export type Database = {
             columns: ["cloned_from_id"]
             isOneToOne: false
             referencedRelation: "tax_masters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_masters_cloned_from_id_fkey"
+            columns: ["cloned_from_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_tax_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -25177,6 +25376,13 @@ export type Database = {
             columns: ["tax_master_id"]
             isOneToOne: false
             referencedRelation: "tax_masters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tax_product_map_tax_master_id_fkey"
+            columns: ["tax_master_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_tax_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -25662,6 +25868,13 @@ export type Database = {
             referencedRelation: "products"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "user_business_plan_month_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_business_plan_months: {
@@ -25749,6 +25962,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_business_plan_products_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
         ]
@@ -26902,6 +27122,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "van_closing_stock_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "van_closing_stock_items_variant_id_fkey"
             columns: ["variant_id"]
             isOneToOne: false
@@ -27016,6 +27243,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "van_inward_grn_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "van_inward_grn_items_variant_id_fkey"
             columns: ["variant_id"]
             isOneToOne: false
@@ -27073,6 +27307,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_live_inventory_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -27154,6 +27395,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_order_fulfillment_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -27292,6 +27540,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_return_grn_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "zoho_item_sync_readiness"
             referencedColumns: ["id"]
           },
           {
@@ -28214,6 +28469,7 @@ export type Database = {
           error_message: string | null
           http_status: number | null
           id: string
+          record_id: string | null
           request_payload: Json | null
           response_payload: Json | null
           retailer_id: string | null
@@ -28226,6 +28482,7 @@ export type Database = {
           error_message?: string | null
           http_status?: number | null
           id?: string
+          record_id?: string | null
           request_payload?: Json | null
           response_payload?: Json | null
           retailer_id?: string | null
@@ -28238,6 +28495,7 @@ export type Database = {
           error_message?: string | null
           http_status?: number | null
           id?: string
+          record_id?: string | null
           request_payload?: Json | null
           response_payload?: Json | null
           retailer_id?: string | null
@@ -28326,6 +28584,69 @@ export type Database = {
           },
         ]
       }
+      zoho_item_sync_readiness: {
+        Row: {
+          blocker: string | null
+          id: string | null
+          is_ready: boolean | null
+          name: string | null
+          rate: number | null
+          sku: string | null
+          zoho_item_id: string | null
+          zoho_sync_status: string | null
+        }
+        Insert: {
+          blocker?: never
+          id?: string | null
+          is_ready?: never
+          name?: string | null
+          rate?: number | null
+          sku?: string | null
+          zoho_item_id?: string | null
+          zoho_sync_status?: string | null
+        }
+        Update: {
+          blocker?: never
+          id?: string | null
+          is_ready?: never
+          name?: string | null
+          rate?: number | null
+          sku?: string | null
+          zoho_item_id?: string | null
+          zoho_sync_status?: string | null
+        }
+        Relationships: []
+      }
+      zoho_pricelist_sync_readiness: {
+        Row: {
+          blocker: string | null
+          id: string | null
+          is_ready: boolean | null
+          name: string | null
+          synced_item_entries: number | null
+          zoho_pricebook_id: string | null
+          zoho_sync_status: string | null
+        }
+        Insert: {
+          blocker?: never
+          id?: string | null
+          is_ready?: never
+          name?: string | null
+          synced_item_entries?: never
+          zoho_pricebook_id?: string | null
+          zoho_sync_status?: string | null
+        }
+        Update: {
+          blocker?: never
+          id?: string | null
+          is_ready?: never
+          name?: string | null
+          synced_item_entries?: never
+          zoho_pricebook_id?: string | null
+          zoho_sync_status?: string | null
+        }
+        Relationships: []
+      }
       zoho_sync_readiness: {
         Row: {
           blocker: string | null
@@ -28344,6 +28665,36 @@ export type Database = {
           zoho_contact_id: string | null
           zoho_sync_enabled: boolean | null
           zoho_sync_status: string | null
+        }
+        Relationships: []
+      }
+      zoho_tax_sync_readiness: {
+        Row: {
+          blocker: string | null
+          id: string | null
+          is_ready: boolean | null
+          name: string | null
+          total_rate: number | null
+          zoho_sync_status: string | null
+          zoho_tax_id: string | null
+        }
+        Insert: {
+          blocker?: never
+          id?: string | null
+          is_ready?: never
+          name?: string | null
+          total_rate?: number | null
+          zoho_sync_status?: string | null
+          zoho_tax_id?: string | null
+        }
+        Update: {
+          blocker?: never
+          id?: string | null
+          is_ready?: never
+          name?: string | null
+          total_rate?: number | null
+          zoho_sync_status?: string | null
+          zoho_tax_id?: string | null
         }
         Relationships: []
       }
