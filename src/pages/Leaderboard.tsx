@@ -547,10 +547,7 @@ export default function Leaderboard() {
             </div>
 
             {/* trophy: large illustration on the right, on phones too */}
-            <TrophyMark
-              float
-              className="shrink-0 w-[104px] xs:w-[124px] sm:w-[150px] xl:w-[190px] h-auto self-center"
-            />
+            <TrophyStage className="shrink-0 w-[120px] xs:w-[140px] sm:w-[170px] xl:w-[210px] self-center" />
           </div>
 
           <div className="relative mt-3 -mx-1 px-1 flex gap-2 overflow-x-auto sm:overflow-visible sm:flex-wrap">

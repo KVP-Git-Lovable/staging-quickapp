@@ -200,6 +200,11 @@ export default {
 				'confetti-fall': 'confetti-fall 3s linear forwards',
 				'emoji-rise': 'emoji-rise 3.4s ease-out forwards',
 				'trophy-float': 'trophy-float 3.2s ease-in-out infinite',
+				'ray-spin': 'ray-spin 14s linear infinite',
+				'glow-pulse': 'glow-pulse 3.4s ease-in-out infinite',
+				'sparkle-twinkle': 'sparkle-twinkle 2.4s ease-in-out infinite',
+				'confetti-drift': 'confetti-drift 3.2s ease-in-out infinite',
+				'ring-pulse': 'ring-pulse 2.8s ease-in-out infinite',
 				'trophy-pop': 'trophy-pop .7s cubic-bezier(.34,1.56,.64,1) both',
 				'fade-in': 'fade-in .3s ease-out',
 				'scale-in': 'scale-in .35s ease-out both'
