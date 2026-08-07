@@ -137,6 +137,35 @@ export async function getOrdersForDate(
         .eq('status', 'confirmed')
         .eq('order_date', targetDate);
 
+      // Fetch orders the DB explicitly marks as replaced/cancelled so stale
+      // local copies (edited orders) don't get double-counted.
+      const { data: deadOrders } = await supabase
+        .from('orders')
+        .select('id, idempotency_key')
+        .eq('user_id', userId)
+        .eq('order_date', targetDate)
+        .in('status', ['replaced', 'cancelled']);
+
+      const deadIds = new Set<string>((deadOrders || []).map((o: any) => o.id));
+      const deadKeys = new Set<string>(
+        (deadOrders || []).filter((o: any) => o.idempotency_key).map((o: any) => o.idempotency_key)
+      );
+
+      if (deadIds.size > 0 || deadKeys.size > 0) {
+        for (let i = allOrders.length - 1; i >= 0; i--) {
+          const o = allOrders[i];
+          if (deadIds.has(o.id) || (o.idempotency_key && deadKeys.has(o.idempotency_key))) {
+            if (o._source === 'offline') sourceBreakdown.offline--;
+            if (o._source === 'snapshot') sourceBreakdown.snapshot--;
+            if (o._source === 'db') sourceBreakdown.db--;
+            allOrders.splice(i, 1);
+            seenIds.delete(o.id);
+            if (o.idempotency_key) seenIdempotencyKeys.delete(o.idempotency_key);
+          }
+        }
+        console.log(`🚫 [ordersForDate] Pruned replaced/cancelled orders (${deadIds.size} db rows)`);
+      }
+
       if (!error && dbOrders) {
         // Create sets for cleanup
         const dbOrderIds = new Set(dbOrders.map(o => o.id));
@@ -175,11 +204,12 @@ export async function getOrdersForDate(
         
         // CLEANUP: Actively remove synced orders from local storage
         // This prevents duplicates on next load
-        if (dbOrders.length > 0) {
-          cleanupSyncedOrdersFromLocal(dbOrderIds, dbIdempotencyKeysMap, userId, targetDate)
+        if (dbOrders.length > 0 || deadIds.size > 0 || deadKeys.size > 0) {
+          cleanupSyncedOrdersFromLocal(dbOrderIds, dbIdempotencyKeysMap, userId, targetDate, deadIds, deadKeys)
             .catch(err => console.warn('[ordersForDate] Cleanup error (non-fatal):', err));
         }
       }
+
     } catch (e) {
       console.warn('[ordersForDate] Error fetching from DB:', e);
     }
@@ -253,7 +283,9 @@ async function cleanupSyncedOrdersFromLocal(
   dbOrderIds: Set<string>,
   dbIdempotencyKeysMap: Map<string, string>,
   userId: string,
-  targetDate: string
+  targetDate: string,
+  deadIds: Set<string> = new Set(),
+  deadKeys: Set<string> = new Set()
 ): Promise<void> {
   try {
     // Get local orders
@@ -269,28 +301,34 @@ async function cleanupSyncedOrdersFromLocal(
       // Check if this local order exists in DB (by ID or idempotency_key)
       const existsById = dbOrderIds.has(localOrder.id);
       const existsByKey = localOrder.idempotency_key && dbIdempotencyKeysMap.has(localOrder.idempotency_key);
+      // Stale copies of orders the DB reports as replaced/cancelled
+      const isDead = deadIds.has(localOrder.id) ||
+        (localOrder.idempotency_key && deadKeys.has(localOrder.idempotency_key));
       
-      if (existsById || existsByKey) {
+      if (existsById || existsByKey || isDead) {
         await offlineStorage.delete(STORES.ORDERS, localOrder.id);
         cleanedCount++;
       }
     }
     
     if (cleanedCount > 0) {
-      console.log(`🧹 [ordersForDate] Cleaned ${cleanedCount} synced orders from local storage`);
+      console.log(`🧹 [ordersForDate] Cleaned ${cleanedCount} synced/stale orders from local storage`);
     }
     
     // Also clean snapshot duplicates
-    if (dbOrderIds.size > 0) {
+    if (dbOrderIds.size > 0 || deadIds.size > 0 || deadKeys.size > 0) {
       const snapshot = await loadMyVisitsSnapshot(userId, targetDate);
       if (snapshot && snapshot.orders && snapshot.orders.length > 0) {
         const originalCount = snapshot.orders.length;
         
-        // Remove orders that exist in DB
+        // Remove orders that exist in DB or were replaced/cancelled
         snapshot.orders = snapshot.orders.filter(o => 
           !dbOrderIds.has(o.id) && 
-          !(o.idempotency_key && dbIdempotencyKeysMap.has(o.idempotency_key))
+          !(o.idempotency_key && dbIdempotencyKeysMap.has(o.idempotency_key)) &&
+          !deadIds.has(o.id) &&
+          !(o.idempotency_key && deadKeys.has(o.idempotency_key))
         );
+
         
         const removedCount = originalCount - snapshot.orders.length;
         
