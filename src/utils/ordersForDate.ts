@@ -283,7 +283,9 @@ async function cleanupSyncedOrdersFromLocal(
   dbOrderIds: Set<string>,
   dbIdempotencyKeysMap: Map<string, string>,
   userId: string,
-  targetDate: string
+  targetDate: string,
+  deadIds: Set<string> = new Set(),
+  deadKeys: Set<string> = new Set()
 ): Promise<void> {
   try {
     // Get local orders
