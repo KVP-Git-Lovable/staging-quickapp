@@ -301,28 +301,34 @@ async function cleanupSyncedOrdersFromLocal(
       // Check if this local order exists in DB (by ID or idempotency_key)
       const existsById = dbOrderIds.has(localOrder.id);
       const existsByKey = localOrder.idempotency_key && dbIdempotencyKeysMap.has(localOrder.idempotency_key);
+      // Stale copies of orders the DB reports as replaced/cancelled
+      const isDead = deadIds.has(localOrder.id) ||
+        (localOrder.idempotency_key && deadKeys.has(localOrder.idempotency_key));
       
-      if (existsById || existsByKey) {
+      if (existsById || existsByKey || isDead) {
         await offlineStorage.delete(STORES.ORDERS, localOrder.id);
         cleanedCount++;
       }
     }
     
     if (cleanedCount > 0) {
-      console.log(`🧹 [ordersForDate] Cleaned ${cleanedCount} synced orders from local storage`);
+      console.log(`🧹 [ordersForDate] Cleaned ${cleanedCount} synced/stale orders from local storage`);
     }
     
     // Also clean snapshot duplicates
-    if (dbOrderIds.size > 0) {
+    if (dbOrderIds.size > 0 || deadIds.size > 0 || deadKeys.size > 0) {
       const snapshot = await loadMyVisitsSnapshot(userId, targetDate);
       if (snapshot && snapshot.orders && snapshot.orders.length > 0) {
         const originalCount = snapshot.orders.length;
         
-        // Remove orders that exist in DB
+        // Remove orders that exist in DB or were replaced/cancelled
         snapshot.orders = snapshot.orders.filter(o => 
           !dbOrderIds.has(o.id) && 
-          !(o.idempotency_key && dbIdempotencyKeysMap.has(o.idempotency_key))
+          !(o.idempotency_key && dbIdempotencyKeysMap.has(o.idempotency_key)) &&
+          !deadIds.has(o.id) &&
+          !(o.idempotency_key && deadKeys.has(o.idempotency_key))
         );
+
         
         const removedCount = originalCount - snapshot.orders.length;
         
