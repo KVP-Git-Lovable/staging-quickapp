@@ -137,6 +137,35 @@ export async function getOrdersForDate(
         .eq('status', 'confirmed')
         .eq('order_date', targetDate);
 
+      // Fetch orders the DB explicitly marks as replaced/cancelled so stale
+      // local copies (edited orders) don't get double-counted.
+      const { data: deadOrders } = await supabase
+        .from('orders')
+        .select('id, idempotency_key')
+        .eq('user_id', userId)
+        .eq('order_date', targetDate)
+        .in('status', ['replaced', 'cancelled']);
+
+      const deadIds = new Set<string>((deadOrders || []).map((o: any) => o.id));
+      const deadKeys = new Set<string>(
+        (deadOrders || []).filter((o: any) => o.idempotency_key).map((o: any) => o.idempotency_key)
+      );
+
+      if (deadIds.size > 0 || deadKeys.size > 0) {
+        for (let i = allOrders.length - 1; i >= 0; i--) {
+          const o = allOrders[i];
+          if (deadIds.has(o.id) || (o.idempotency_key && deadKeys.has(o.idempotency_key))) {
+            if (o._source === 'offline') sourceBreakdown.offline--;
+            if (o._source === 'snapshot') sourceBreakdown.snapshot--;
+            if (o._source === 'db') sourceBreakdown.db--;
+            allOrders.splice(i, 1);
+            seenIds.delete(o.id);
+            if (o.idempotency_key) seenIdempotencyKeys.delete(o.idempotency_key);
+          }
+        }
+        console.log(`🚫 [ordersForDate] Pruned replaced/cancelled orders (${deadIds.size} db rows)`);
+      }
+
       if (!error && dbOrders) {
         // Create sets for cleanup
         const dbOrderIds = new Set(dbOrders.map(o => o.id));
@@ -175,11 +204,12 @@ export async function getOrdersForDate(
         
         // CLEANUP: Actively remove synced orders from local storage
         // This prevents duplicates on next load
-        if (dbOrders.length > 0) {
-          cleanupSyncedOrdersFromLocal(dbOrderIds, dbIdempotencyKeysMap, userId, targetDate)
+        if (dbOrders.length > 0 || deadIds.size > 0 || deadKeys.size > 0) {
+          cleanupSyncedOrdersFromLocal(dbOrderIds, dbIdempotencyKeysMap, userId, targetDate, deadIds, deadKeys)
             .catch(err => console.warn('[ordersForDate] Cleanup error (non-fatal):', err));
         }
       }
+
     } catch (e) {
       console.warn('[ordersForDate] Error fetching from DB:', e);
     }
