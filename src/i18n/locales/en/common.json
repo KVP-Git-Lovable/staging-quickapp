@@ -479,6 +479,10 @@
     "syncHealth": {
       "title": "Sync Health",
       "desc": "Monitor sync failures, data integrity checks, and RLS security events"
+    },
+    "dbHealth": {
+      "title": "DB Health",
+      "desc": "Track tables, columns, RLS policies and cron jobs over time; detect drops"
     }
   }
 }

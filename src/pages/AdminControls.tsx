@@ -71,6 +71,7 @@ const AdminControls = () => {
     { title: t('adminModules.retailerExternalDb.title'), description: t('adminModules.retailerExternalDb.desc'), icon: Database, color: "orange", path: "/admin/retailer-external-db" },
     { title: t('adminModules.syncHealth.title'), description: t('adminModules.syncHealth.desc'), icon: Activity, color: "red", path: "/admin/sync-health" },
     { title: 'Zoho Books Sync', description: 'Validate and push retailers to Zoho Books as customer contacts', icon: Database, color: "green", path: "/admin/zoho-sync" },
+    { title: t('adminModules.dbHealth.title'), description: t('adminModules.dbHealth.desc'), icon: Database, color: "slate", path: "/admin/db-health" },
   ], [t]);
 
   const ALWAYS_VISIBLE_FOR_ADMIN = new Set(['/admin/uom-master', '/admin/beat-coordinator', '/admin/sync-health', '/admin/zoho-sync']);

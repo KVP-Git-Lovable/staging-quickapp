@@ -50,6 +50,7 @@ export const ADMIN_MODULE_PERMISSION_MAP: Record<string, string> = {
   'admin_notification_rules': '/admin/notification-rules',
   'admin_activity_master': '/admin/activity-types',
   'admin_activity_coordinator': '/admin/activity-coordinator',
+  'admin_db_health': '/admin/db-health',
 };
 
 // Sub-feature prefixes for modules where parent name doesn't match sub-feature naming
