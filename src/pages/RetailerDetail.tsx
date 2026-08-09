@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
-import { MapPin, Phone, Store, Package, Calendar, TrendingUp, CheckCircle2 } from "lucide-react";
+import { MapPin, Phone, Store, Package, Calendar, TrendingUp, CheckCircle2, Wallet, Receipt } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PaymentLedgerTab } from "@/components/retailer/PaymentLedgerTab";
+import { InvoicesTab } from "@/components/retailer/InvoicesTab";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -394,6 +397,31 @@ export const RetailerDetail = () => {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Payment ledger + invoices */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Payments &amp; Invoices</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="payments">
+              <TabsList>
+                <TabsTrigger value="payments">
+                  <Wallet className="h-3.5 w-3.5 mr-1" /> Payment ledger
+                </TabsTrigger>
+                <TabsTrigger value="invoices">
+                  <Receipt className="h-3.5 w-3.5 mr-1" /> Invoices
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="payments" className="mt-4">
+                <PaymentLedgerTab retailerId={retailer.id} />
+              </TabsContent>
+              <TabsContent value="invoices" className="mt-4">
+                <InvoicesTab retailerId={retailer.id} />
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

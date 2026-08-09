@@ -18,8 +18,11 @@ import { toast } from "@/hooks/use-toast";
 import { 
   Phone, MapPin, Edit2, ExternalLink, TrendingUp, Trash2, ShoppingCart, 
   Check, ChevronsUpDown, FileText, Download, Send, Loader2, ChevronLeft, 
-  ChevronRight, Calendar, BarChart3, User, Building, Gift, Target, CreditCard
+  ChevronRight, Calendar, BarChart3, User, Building, Gift, Target, CreditCard,
+  Wallet, Receipt
 } from "lucide-react";
+import { PaymentLedgerTab } from "@/components/retailer/PaymentLedgerTab";
+import { InvoicesTab } from "@/components/retailer/InvoicesTab";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { fetchAndGenerateInvoice } from "@/utils/invoiceGenerator";
@@ -902,9 +905,15 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
 
         {/* Tabs */}
         <Tabs defaultValue="details" className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-6 h-9">
+          <TabsList className="grid w-full grid-cols-8 h-9">
             <TabsTrigger value="details" className="text-xs">
               <User className="h-3 w-3 mr-1" /> Details
+            </TabsTrigger>
+            <TabsTrigger value="payments" className="text-xs">
+              <Wallet className="h-3 w-3 mr-1" /> Payments
+            </TabsTrigger>
+            <TabsTrigger value="invoices" className="text-xs">
+              <Receipt className="h-3 w-3 mr-1" /> Invoices
             </TabsTrigger>
             <TabsTrigger value="highlight" className="text-xs">
               <TrendingUp className="h-3 w-3 mr-1" /> Highlight
@@ -924,6 +933,16 @@ export const RetailerDetailModal = ({ isOpen, onClose, retailer, onSuccess, star
           </TabsList>
 
           <div className="flex-1 overflow-y-auto mt-3">
+            {/* Payment Ledger Tab */}
+            <TabsContent value="payments" className="mt-0">
+              {retailer?.id && <PaymentLedgerTab retailerId={retailer.id} />}
+            </TabsContent>
+
+            {/* Invoices Tab */}
+            <TabsContent value="invoices" className="mt-0">
+              {retailer?.id && <InvoicesTab retailerId={retailer.id} />}
+            </TabsContent>
+
             {/* Highlight Tab */}
             <TabsContent value="highlight" className="mt-0 space-y-4">
               {/* Key Metrics - Mobile responsive with truncation */}
