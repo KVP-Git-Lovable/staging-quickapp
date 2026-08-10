@@ -4321,6 +4321,122 @@ export type Database = {
         }
         Relationships: []
       }
+      db_health_objects: {
+        Row: {
+          detail: Json | null
+          id: number
+          object_name: string
+          object_schema: string
+          object_type: string
+          parent_name: string | null
+          snapshot_id: string
+        }
+        Insert: {
+          detail?: Json | null
+          id?: number
+          object_name: string
+          object_schema?: string
+          object_type: string
+          parent_name?: string | null
+          snapshot_id: string
+        }
+        Update: {
+          detail?: Json | null
+          id?: number
+          object_name?: string
+          object_schema?: string
+          object_type?: string
+          parent_name?: string | null
+          snapshot_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "db_health_objects_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "db_health_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      db_health_snapshots: {
+        Row: {
+          captured_at: string
+          captured_by: string | null
+          column_count: number | null
+          cron_job_active_count: number | null
+          cron_job_count: number | null
+          db_size_bytes: number | null
+          edge_function_hint: number | null
+          enum_count: number | null
+          extension_count: number | null
+          foreign_key_count: number | null
+          function_count: number | null
+          id: string
+          index_count: number | null
+          notes: string | null
+          rls_disabled_table_count: number | null
+          rls_enabled_table_count: number | null
+          rls_policy_count: number | null
+          sequence_count: number | null
+          source: string
+          table_count: number | null
+          total_row_estimate: number | null
+          trigger_count: number | null
+          view_count: number | null
+        }
+        Insert: {
+          captured_at?: string
+          captured_by?: string | null
+          column_count?: number | null
+          cron_job_active_count?: number | null
+          cron_job_count?: number | null
+          db_size_bytes?: number | null
+          edge_function_hint?: number | null
+          enum_count?: number | null
+          extension_count?: number | null
+          foreign_key_count?: number | null
+          function_count?: number | null
+          id?: string
+          index_count?: number | null
+          notes?: string | null
+          rls_disabled_table_count?: number | null
+          rls_enabled_table_count?: number | null
+          rls_policy_count?: number | null
+          sequence_count?: number | null
+          source?: string
+          table_count?: number | null
+          total_row_estimate?: number | null
+          trigger_count?: number | null
+          view_count?: number | null
+        }
+        Update: {
+          captured_at?: string
+          captured_by?: string | null
+          column_count?: number | null
+          cron_job_active_count?: number | null
+          cron_job_count?: number | null
+          db_size_bytes?: number | null
+          edge_function_hint?: number | null
+          enum_count?: number | null
+          extension_count?: number | null
+          foreign_key_count?: number | null
+          function_count?: number | null
+          id?: string
+          index_count?: number | null
+          notes?: string | null
+          rls_disabled_table_count?: number | null
+          rls_enabled_table_count?: number | null
+          rls_policy_count?: number | null
+          sequence_count?: number | null
+          source?: string
+          table_count?: number | null
+          total_row_estimate?: number | null
+          trigger_count?: number | null
+          view_count?: number | null
+        }
+        Relationships: []
+      }
       deleted_records_audit: {
         Row: {
           app_context: string | null
@@ -16391,6 +16507,7 @@ export type Database = {
           description: string | null
           discount_amount: number | null
           discount_percentage: number | null
+          discount_tax_treatment: string
           discount_unit: string | null
           discount_value_type: string | null
           end_date: string | null
@@ -16434,6 +16551,7 @@ export type Database = {
           description?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
+          discount_tax_treatment?: string
           discount_unit?: string | null
           discount_value_type?: string | null
           end_date?: string | null
@@ -16477,6 +16595,7 @@ export type Database = {
           description?: string | null
           discount_amount?: number | null
           discount_percentage?: number | null
+          discount_tax_treatment?: string
           discount_unit?: string | null
           discount_value_type?: string | null
           end_date?: string | null
@@ -28700,6 +28819,10 @@ export type Database = {
       }
     }
     Functions: {
+      _capture_db_health_snapshot_impl: {
+        Args: { p_source?: string }
+        Returns: string
+      }
       _post_credit_note_to_ledger: {
         Args: {
           p_actor: string
@@ -28872,6 +28995,10 @@ export type Database = {
       }
       can_view_employee: { Args: { _target_user_id: string }; Returns: boolean }
       can_view_profile: { Args: { _target_user_id: string }; Returns: boolean }
+      can_view_retailer_ledger: {
+        Args: { p_retailer_id: string }
+        Returns: boolean
+      }
       cancel_order_atomic: {
         Args: {
           p_cancelled_by: string
@@ -28886,6 +29013,10 @@ export type Database = {
       cancel_packing_list_reservations: {
         Args: { p_packing_list_id: string }
         Returns: Json
+      }
+      capture_db_health_snapshot: {
+        Args: { p_source?: string }
+        Returns: string
       }
       check_duplicate_competitor: {
         Args: { competitor_name_param: string }
@@ -29308,6 +29439,47 @@ export type Database = {
         }[]
       }
       get_database_metrics: { Args: never; Returns: Json }
+      get_db_health_drift: {
+        Args: { p_days?: number }
+        Returns: {
+          change_type: string
+          detail_after: Json
+          detail_before: Json
+          object_name: string
+          object_type: string
+          parent_name: string
+        }[]
+      }
+      get_db_health_object_history: {
+        Args: {
+          p_days?: number
+          p_object_name: string
+          p_object_type: string
+          p_parent_name?: string
+        }
+        Returns: {
+          captured_at: string
+          detail: Json
+          present: boolean
+        }[]
+      }
+      get_db_health_overview: { Args: never; Returns: Json }
+      get_db_health_trend: {
+        Args: { p_days?: number }
+        Returns: {
+          captured_at: string
+          column_count: number
+          cron_job_count: number
+          db_size_bytes: number
+          function_count: number
+          index_count: number
+          rls_disabled_table_count: number
+          rls_policy_count: number
+          source: string
+          table_count: number
+          trigger_count: number
+        }[]
+      }
       get_deleted_records: {
         Args: {
           p_deleted_by?: string
@@ -29596,6 +29768,38 @@ export type Database = {
           state: string
         }[]
       }
+      get_retailer_invoices: {
+        Args: { p_retailer_id: string }
+        Returns: {
+          has_pdf: boolean
+          invoice_date: string
+          invoice_id: string
+          invoice_number: string
+          order_id: string
+          order_status: string
+          status: string
+          storage_path: string
+          total_amount: number
+        }[]
+      }
+      get_retailer_payment_ledger: {
+        Args: { p_retailer_id: string }
+        Returns: {
+          collection_id: string
+          credit: number
+          debit: number
+          detail: string
+          entry_at: string
+          entry_type: string
+          is_credit_order: boolean
+          order_id: string
+          order_status: string
+          payment_method: string
+          payment_status: string
+          reference: string
+          running_balance: number
+        }[]
+      }
       get_retailer_unsorted_cities: {
         Args: { p_district: string; p_state: string }
         Returns: {
@@ -29852,6 +30056,7 @@ export type Database = {
         Args: { p_policy_id: string }
         Returns: undefined
       }
+      invoice_pdf_exists: { Args: { p_path: string }; Returns: boolean }
       invoice_secondary_packing_list_at_dispatch: {
         Args: { p_packing_list_id: string }
         Returns: Json
@@ -30029,6 +30234,10 @@ export type Database = {
       }
       process_monthly_leave_accrual: { Args: never; Returns: undefined }
       process_year_end_carry_forward: { Args: never; Returns: undefined }
+      prune_db_health_snapshots: {
+        Args: { p_keep_days?: number }
+        Returns: number
+      }
       push_retailer_notification: {
         Args: { p_actor_user_id: string; p_metadata?: Json; p_rule_id: string }
         Returns: number
