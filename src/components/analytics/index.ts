@@ -9,8 +9,9 @@ export { LeaderboardCard } from './LeaderboardCard';
 export { BusinessSummaryCard } from './BusinessSummaryCard';
 export { 
   BeatDetailsDialog, 
-  RetailerDetailsDialog, 
-  OrderDetailsDialog, 
+  RetailerDetailsDialog,
+  NewRetailersDialog,
+  OrderDetailsDialog,
   ProductBreakdownDialog, 
   PendingPaymentsDialog 
 } from './AnalyticsDetailDialogs';

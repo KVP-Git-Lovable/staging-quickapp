@@ -10,6 +10,8 @@ interface BusinessSummary {
   totalPieces: number;
   totalRevenue: number;
   pendingPayments: number;
+  /** Retailers first created inside the selected window — onboarding, not billing. */
+  newRetailers: number;
   quantityByUnit: { [unit: string]: number }; // Track quantities by actual unit
 }
 
@@ -44,6 +46,17 @@ interface ProductDetail {
   revenue: number;
 }
 
+export interface NewRetailerDetail {
+  id: string;
+  name: string;
+  beat_name: string;
+  added_by: string;
+  created_at: string;
+  verified: boolean;
+  orders_count: number;
+  revenue: number;
+}
+
 interface PendingPaymentDetail {
   retailer_name: string;
   order_date: string;
@@ -73,6 +86,7 @@ export const useBusinessMetrics = () => {
     totalPieces: 0,
     totalRevenue: 0,
     pendingPayments: 0,
+    newRetailers: 0,
     quantityByUnit: {}
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -87,6 +101,7 @@ export const useBusinessMetrics = () => {
   const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
   const [productDetails, setProductDetails] = useState<ProductDetail[]>([]);
   const [pendingPaymentDetails, setPendingPaymentDetails] = useState<PendingPaymentDetail[]>([]);
+  const [newRetailerDetails, setNewRetailerDetails] = useState<NewRetailerDetail[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
 
   const fetchSummary = useCallback(async (userIds: string[], dateRange: { from: Date; to: Date }, userNames?: string[]) => {
@@ -202,6 +217,21 @@ export const useBusinessMetrics = () => {
       });
       totalPieces = Math.round(totalKg * 100) / 100;
 
+      // Newly onboarded retailers. Deliberately independent of the order query:
+      // "Total Retailers" counts who was BILLED in the window, this counts who was
+      // ADDED in it, so a retailer onboarded but not yet sold to still shows up.
+      // created_by is the rep who added them; older rows only carry user_id.
+      let newRetailersQuery = supabase
+        .from('retailers')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', `${fromDate}T00:00:00`)
+        .lte('created_at', `${toDate}T23:59:59.999`);
+      if (userIds.length > 0) {
+        const list = userIds.join(',');
+        newRetailersQuery = newRetailersQuery.or(`created_by.in.(${list}),user_id.in.(${list})`);
+      }
+      const { count: newRetailersCount } = await newRetailersQuery;
+
       setSummary({
         totalBeats: totalBeatsCount,
         totalRetailers: totalRetailersCount,
@@ -210,6 +240,7 @@ export const useBusinessMetrics = () => {
         totalPieces,
         totalRevenue,
         pendingPayments,
+        newRetailers: newRetailersCount || 0,
         quantityByUnit
       });
     } catch (error) {
@@ -568,10 +599,84 @@ export const useBusinessMetrics = () => {
     }
   }, []);
 
+  /**
+   * The retailers behind the "New Retailers" card, with whoever added them and
+   * whether they have actually started ordering yet — an onboarded retailer with
+   * zero orders is the number worth chasing.
+   */
+  const fetchNewRetailerDetails = useCallback(async (userIds: string[], dateRange: { from: Date; to: Date }) => {
+    setDetailsLoading(true);
+    try {
+      const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+      const toDate = format(dateRange.to, 'yyyy-MM-dd');
+
+      let query = supabase
+        .from('retailers')
+        .select('id, name, beat_name, created_at, created_by, user_id, verified')
+        .gte('created_at', `${fromDate}T00:00:00`)
+        .lte('created_at', `${toDate}T23:59:59.999`)
+        .order('created_at', { ascending: false });
+      if (userIds.length > 0) {
+        const list = userIds.join(',');
+        query = query.or(`created_by.in.(${list}),user_id.in.(${list})`);
+      }
+      const { data: retailers, error } = await query;
+      if (error) throw error;
+
+      const rows = retailers || [];
+      const ids = rows.map(r => r.id);
+
+      // Name the adder, and count lifetime orders so "added but never ordered" is visible.
+      const adderIds = [...new Set(rows.map(r => r.created_by || r.user_id).filter(Boolean))] as string[];
+      const nameById = new Map<string, string>();
+      if (adderIds.length > 0) {
+        const { data: people } = await supabase
+          .from('profiles').select('id, full_name, username').in('id', adderIds);
+        (people || []).forEach((p: any) => nameById.set(p.id, p.full_name || p.username || 'Unknown'));
+      }
+
+      const stats = new Map<string, { orders: number; revenue: number }>();
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data: ord } = await supabase
+          .from('orders')
+          .select('retailer_id, total_amount')
+          .eq('status', 'confirmed')
+          .in('retailer_id', ids.slice(i, i + 200));
+        (ord || []).forEach((o: any) => {
+          const s = stats.get(o.retailer_id) || { orders: 0, revenue: 0 };
+          s.orders += 1;
+          s.revenue += Number(o.total_amount || 0);
+          stats.set(o.retailer_id, s);
+        });
+      }
+
+      setNewRetailerDetails(rows.map((r: any) => {
+        const s = stats.get(r.id) || { orders: 0, revenue: 0 };
+        return {
+          id: r.id,
+          name: r.name || 'Unnamed',
+          beat_name: r.beat_name || '',
+          added_by: nameById.get(r.created_by || r.user_id) || 'Unknown',
+          created_at: r.created_at,
+          verified: !!r.verified,
+          orders_count: s.orders,
+          revenue: s.revenue,
+        };
+      }));
+    } catch (error) {
+      console.error('Error fetching new retailer details:', error);
+      setNewRetailerDetails([]);
+    } finally {
+      setDetailsLoading(false);
+    }
+  }, []);
+
   return {
     summary,
     isLoading,
     fetchSummary,
+    newRetailerDetails,
+    fetchNewRetailerDetails,
     beatDetails,
     retailerDetails,
     orderDetails,

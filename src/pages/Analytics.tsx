@@ -13,7 +13,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area
 } from "recharts";
-import { ArrowLeft, TrendingUp, TrendingDown, Users, ShoppingCart, Target, Heart, RefreshCw, Activity, Info, Calendar as CalendarIcon, Sparkles, AlertTriangle, MessageSquare, X, MapPin, Store, Package, IndianRupee, CreditCard, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Users, ShoppingCart, Target, Heart, RefreshCw, Activity, Info, Calendar as CalendarIcon, Sparkles, AlertTriangle, MessageSquare, X, MapPin, Store, Package, IndianRupee, CreditCard, UserPlus, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +33,7 @@ import {
   BusinessSummaryCard,
   BeatDetailsDialog,
   RetailerDetailsDialog,
+  NewRetailersDialog,
   OrderDetailsDialog,
   ProductBreakdownDialog,
   AnalyticsTargetDashboard,
@@ -133,6 +134,7 @@ const Analytics = () => {
   const [showOrderDetails, setShowOrderDetails] = useState(false);
   const [showProductBreakdown, setShowProductBreakdown] = useState(false);
   const [showPendingPayments, setShowPendingPayments] = useState(false);
+  const [showNewRetailers, setShowNewRetailers] = useState(false);
   
   // Business metrics hook
   const {
@@ -149,7 +151,9 @@ const Analytics = () => {
     fetchRetailerDetails,
     fetchOrderDetails,
     fetchProductDetails,
-    fetchPendingPaymentDetails
+    fetchPendingPaymentDetails,
+    newRetailerDetails,
+    fetchNewRetailerDetails
   } = useBusinessMetrics();
 
   // Auto-refresh business metrics when filters change
@@ -1664,7 +1668,7 @@ const Analytics = () => {
               </Card>
 
               {/* Business Summary Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
                 <BusinessSummaryCard
                   title="Total Beats"
                   value={businessSummary.totalBeats}
@@ -1678,6 +1682,14 @@ const Analytics = () => {
                   icon={<Store size={16} className="text-blue-600" />}
                   iconBgClass="bg-blue-500/10"
                   onClick={() => { fetchRetailerDetails(effectiveUserIds, stableDashboardDateRange); setShowRetailerDetails(true); }}
+                  isLoading={businessLoading}
+                />
+                <BusinessSummaryCard
+                  title="New Retailers"
+                  value={businessSummary.newRetailers}
+                  icon={<UserPlus size={16} className="text-teal-600" />}
+                  iconBgClass="bg-teal-500/10"
+                  onClick={() => { fetchNewRetailerDetails(effectiveUserIds, stableDashboardDateRange); setShowNewRetailers(true); }}
                   isLoading={businessLoading}
                 />
                 <BusinessSummaryCard
@@ -1857,6 +1869,14 @@ const Analytics = () => {
             selectedUsers={effectiveUserIds.length > 0 ? effectiveUserIds.map(id => users.find(u => u.id === id)?.full_name || 'Unknown') : ['All Users']}
             dateRange={stableDashboardDateRange}
             data={retailerDetails}
+            isLoading={detailsLoading}
+          />
+          <NewRetailersDialog
+            open={showNewRetailers}
+            onOpenChange={setShowNewRetailers}
+            selectedUsers={effectiveUserIds.length > 0 ? effectiveUserIds.map(id => users.find(u => u.id === id)?.full_name || 'Unknown') : ['All Users']}
+            dateRange={stableDashboardDateRange}
+            data={newRetailerDetails}
             isLoading={detailsLoading}
           />
           <OrderDetailsDialog

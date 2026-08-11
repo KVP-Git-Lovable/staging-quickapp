@@ -5,8 +5,28 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
-import { ChevronRight, ArrowLeft, User, Store } from "lucide-react";
+import { ChevronRight, ArrowLeft, User, Store, Download, BadgeCheck } from "lucide-react";
  import { useHindiToEnglish } from "@/hooks/useHindiToEnglish";
+import { downloadCSV } from "@/utils/fileDownloader";
+import type { NewRetailerDetail } from "./useBusinessMetrics";
+
+/**
+ * Quote every cell and double inner quotes — a retailer name containing a comma
+ * or a quote would otherwise shift the remaining columns on that row. The BOM
+ * keeps Excel from mangling ₹ and Hindi/Kannada names.
+ */
+const exportRowsToCsv = async (
+  filename: string,
+  columns: { key: string; label: string }[],
+  rows: Record<string, unknown>[],
+) => {
+  const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [
+    columns.map(c => cell(c.label)).join(','),
+    ...rows.map(r => columns.map(c => cell(r[c.key])).join(',')),
+  ].join('\n');
+  await downloadCSV('﻿' + csv, filename);
+};
 
 interface BeatDetail {
   beat_name: string;
@@ -201,6 +221,110 @@ export const RetailerDetailsDialog = ({
                       ) : (
                         <span className="text-green-600">-</span>
                       )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export const NewRetailersDialog = ({
+  open,
+  onOpenChange,
+  selectedUsers,
+  dateRange,
+  data,
+  isLoading
+}: DialogProps & { data: NewRetailerDetail[]; isLoading: boolean }) => {
+  const { translateTexts, getTranslated } = useHindiToEnglish();
+
+  useEffect(() => {
+    if (data.length > 0) {
+      translateTexts([...data.map(r => r.name), ...data.map(r => r.beat_name).filter(Boolean)]);
+    }
+  }, [data]);
+
+  const yetToOrder = data.filter(r => r.orders_count === 0).length;
+
+  const handleExport = () =>
+    exportRowsToCsv(
+      `new-retailers-${format(dateRange.from, 'yyyy-MM-dd')}-to-${format(dateRange.to, 'yyyy-MM-dd')}`,
+      [
+        { key: 'name', label: 'Retailer' },
+        { key: 'beat_name', label: 'Beat' },
+        { key: 'added_by', label: 'Added By' },
+        { key: 'added_on', label: 'Added On' },
+        { key: 'verified', label: 'Verified' },
+        { key: 'orders_count', label: 'Orders Since' },
+        { key: 'revenue', label: 'Revenue' },
+        { key: 'id', label: 'Retailer ID' },
+      ],
+      data.map(r => ({
+        ...r,
+        added_on: format(new Date(r.created_at), 'dd/MM/yyyy HH:mm'),
+        verified: r.verified ? 'Yes' : 'No',
+        revenue: r.revenue.toFixed(2),
+      })),
+    );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[80vh]">
+        <DialogHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <DialogTitle>Newly Added Retailers</DialogTitle>
+              <DialogDescription>
+                {format(dateRange.from, 'MMM dd')} - {format(dateRange.to, 'MMM dd, yyyy')} • {selectedUsers.length} user(s)
+                {data.length > 0 && ` • ${data.length} added, ${yetToOrder} yet to order`}
+              </DialogDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={data.length === 0}>
+              <Download size={14} className="mr-2" /> Export CSV
+            </Button>
+          </div>
+        </DialogHeader>
+        <ScrollArea className="max-h-[60vh]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Retailer</TableHead>
+                <TableHead>Beat</TableHead>
+                <TableHead>Added By</TableHead>
+                <TableHead>Added On</TableHead>
+                <TableHead className="text-right">Orders Since</TableHead>
+                <TableHead className="text-right">Revenue</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+              ) : data.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No retailers were added in this period</TableCell></TableRow>
+              ) : (
+                data.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="font-medium">
+                      <span className="inline-flex items-center gap-1.5">
+                        {getTranslated(r.name)}
+                        {r.verified && <BadgeCheck size={13} className="text-green-600 shrink-0" />}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{r.beat_name ? getTranslated(r.beat_name) : '-'}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.added_by}</TableCell>
+                    <TableCell className="text-muted-foreground whitespace-nowrap">{format(new Date(r.created_at), 'dd MMM, HH:mm')}</TableCell>
+                    <TableCell className="text-right">
+                      {r.orders_count === 0
+                        ? <Badge variant="outline" className="text-amber-600 border-amber-300">Yet to order</Badge>
+                        : r.orders_count}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {r.revenue > 0 ? `₹${r.revenue.toLocaleString()}` : '-'}
                     </TableCell>
                   </TableRow>
                 ))
