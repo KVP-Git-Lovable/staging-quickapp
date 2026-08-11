@@ -41,6 +41,7 @@ import {
   useBusinessMetrics
 } from "@/components/analytics";
 import { RetailerMonthlyProductivitySection } from "@/components/analytics/RetailerMonthlyProductivitySection";
+import { SalesComparisonSection } from "@/components/analytics/SalesComparisonSection";
 import { SupervisorReport } from "@/components/analytics/SupervisorReport";
 import { FieldActivitySection } from "@/components/analytics/FieldActivitySection";
 import { CoverageMapSection } from "@/components/analytics/CoverageMapSection";
@@ -65,6 +66,7 @@ const Analytics = () => {
   const showTargetTab = canShowTab('analytics_order_details');
   const showProductsTab = canShowTab('analytics_product_breakdown');
   const showFieldActivityTab = hasSecurityProfile && hasFeaturePermission('analytics_field_activity', 'can_read');
+  const showSalesComparisonTab = canShowTab('analytics_business_summary');
   
   const { subordinateIds, isLoading: subordinatesLoading } = useSubordinates();
   const [hasLiked, setHasLiked] = useState(false);
@@ -1614,6 +1616,7 @@ const Analytics = () => {
                   {/* Calendar tab hidden per user request */}
                   {showProductsTab && <TabsTrigger value="products" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Products</TabsTrigger>}
                   {showFieldActivityTab && <TabsTrigger value="field-activity" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Field Activity</TabsTrigger>}
+                  {showSalesComparisonTab && <TabsTrigger value="sales-comparison" className="text-xs sm:text-sm px-2 sm:px-3 whitespace-nowrap">Sales Comparison</TabsTrigger>}
                   {/* Coverage tab hidden per user request */}
                 </TabsList>
               </div>
@@ -1842,6 +1845,12 @@ const Analytics = () => {
             </TabsContent>
 
             {/* Field Activity Tab */}
+            {showSalesComparisonTab && (
+              <TabsContent value="sales-comparison" className="space-y-4">
+                <SalesComparisonSection userIds={effectiveUserIds} />
+              </TabsContent>
+            )}
+
             {showFieldActivityTab && (
               <TabsContent value="field-activity" className="space-y-4">
                 <FieldActivitySection
