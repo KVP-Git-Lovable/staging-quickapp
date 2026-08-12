@@ -1730,6 +1730,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       payment_proof_url: paymentProofUrl || null,
       upi_last_four_code: row.paymentMethod === "upi" ? row.upiLastFourCode || null : null,
       idempotency_key: `counter_${user.id}_${row.uid}_${Date.now()}`,
+      sales_channel: eventContext?.visitId ? "event" : "counter",
       ...(eventContext?.visitId ? { visit_id: eventContext.visitId } : {}),
     };
     const items = filledItems.map((i) => ({
@@ -1911,6 +1912,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         payment_proof_url: paymentProofUrl || null,
         upi_last_four_code: r.paymentMethod === "upi" ? r.upiLastFourCode || null : null,
         idempotency_key: `counter_${user.id}_${r.uid}_${Date.now()}`,
+        sales_channel: eventContext?.visitId ? "event" : "counter",
         ...(eventContext?.visitId ? { visit_id: eventContext.visitId } : {}),
       };
       const items = filledItems.map((i) => ({
