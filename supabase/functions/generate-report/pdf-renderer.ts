@@ -30,6 +30,7 @@ export interface ReportModel {
     recipient_name?: string | null;
     scope_label?: string | null;
     filters_label?: string | null;
+    ai_summary?: string | null;
   };
 }
 
@@ -345,6 +346,29 @@ export async function renderReportPdf(
   }
 
 
+  // --- AI summary card: sits above the data, never in place of it ---
+  if (model.meta.ai_summary) {
+    const blockW = pageW - margin * 2;
+    const textW = blockW - 28;
+    doc.setFont(fontFamily, 'normal');
+    doc.setFontSize(9);
+    const lines: string[] = doc.splitTextToSize(String(model.meta.ai_summary), textW);
+    const blockH = 26 + lines.length * 12;
+
+    doc.setDrawColor(228);
+    doc.setFillColor(250, 250, 249);
+    doc.roundedRect(margin, cursorY, blockW, blockH, 3, 3, 'FD');
+    // Accent rail, so it reads as commentary rather than as reported figures.
+    doc.setFillColor(brandRgb[0], brandRgb[1], brandRgb[2]);
+    doc.rect(margin, cursorY + 3, 2.5, blockH - 6, 'F');
+
+    doc.setFont(fontFamily, 'bold'); doc.setFontSize(7); doc.setTextColor(150);
+    doc.text('SUMMARY', margin + 14, cursorY + 14);
+    doc.setFont(fontFamily, 'normal'); doc.setFontSize(9); doc.setTextColor(60);
+    lines.forEach((ln, i) => doc.text(ln, margin + 14, cursorY + 28 + i * 12));
+
+    cursorY += blockH + 14;
+  }
 
   // --- Wide-column handling: split into chunks that fit ---
   const isEmpty = model.rows.length === 0;
@@ -552,6 +576,7 @@ export function buildReportModel(params: {
   recipientName?: string | null;
   scopeLabel?: string | null;
   filtersLabel?: string | null;
+  aiSummary?: string | null;
   // Grouping dimension key from the report definition (e.g. 'user_id', 'beat', 'date').
   // Used to name the first (row-label) column instead of showing raw keys
   // like 'grp' or 'row_label'.
@@ -631,6 +656,7 @@ export function buildReportModel(params: {
       recipient_name: params.recipientName ?? null,
       scope_label: params.scopeLabel ?? null,
       filters_label: params.filtersLabel ?? null,
+      ai_summary: params.aiSummary ?? null,
     },
   };
 }
