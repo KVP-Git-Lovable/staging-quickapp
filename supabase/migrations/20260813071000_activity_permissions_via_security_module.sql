@@ -1,0 +1,30 @@
+-- Activity add/edit/delete as first-class objects in Security & Access Control.
+--
+-- Previously activity_events UPDATE and DELETE were gated on
+-- 'action_activity_create'/can_create — a permission named "create" deciding who
+-- may amend. "Can add but not amend" was impossible to express, and the Security
+-- module offered no toggle because the object did not exist.
+--
+-- Applied to staging as two migrations, in this order and for this reason:
+--   1. activity_permissions_via_security_module      -- grants first
+--   2. activity_events_rls_use_edit_delete_permissions -- policies second
+-- If the policies moved first, every user including administrators would lose
+-- the ability to edit an activity until the grants landed.
+--
+-- New objects: action_activity_edit, action_activity_delete (permission_type
+-- 'action', matching the other action_* objects).
+--
+-- Existing activities are unaffected: the new edit permission is seeded from each
+-- profile's current action_activity_create.can_create, so the set of people who
+-- can amend an activity is identical before and after.
+--
+-- DELETE gains a real gate. It was (auth.uid() = user_id) alone, so any user
+-- could delete their own activity whatever the Security module said.
+--
+-- System Administrator now holds every object in full, and a trigger
+-- (tg_grant_new_object_to_sysadmin) mirrors any future object to it on insert —
+-- user_has_permission has no admin short-circuit by design, so without this the
+-- first feature that forgets to grant itself locks administrators out of its own
+-- screen.
+--
+-- See the applied migrations for the exact statements.

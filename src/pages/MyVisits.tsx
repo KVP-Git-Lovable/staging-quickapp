@@ -1777,7 +1777,7 @@ export const MyVisits = () => {
           {/* Activity Events Table - shown above visit list, ONLY after parent data loads to prevent flicker */}
           {hasLoadedOnce && (isViewingSelf ? user?.id : selectedUserIds[0]) && (
             <ActivityEventsTable
-              onEditActivity={(row) => setEditActivity({
+              onEditActivity={can('action_activity_edit', 'edit') ? (row) => setEditActivity({
                 id: row.id,
                 activity_type: row.activity_type ?? null,
                 activity_date: row.activity_date,
@@ -1786,7 +1786,7 @@ export const MyVisits = () => {
                 to_date: row.to_date ?? null,
                 half_day_type: row.half_day_type ?? null,
                 expected_duration_minutes: (row as any).expected_duration_minutes ?? null,
-              })}
+              }) : undefined}
               userId={isViewingSelf ? user!.id : selectedUserIds[0]}
               selectedDate={selectedDate}
               onActivitiesLoaded={(count) => setHasActivities(count > 0)}
