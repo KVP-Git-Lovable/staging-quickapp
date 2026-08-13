@@ -174,12 +174,25 @@ const numberToWords = (num: number): string => {
 const normalizeItemForDisplay = (item: any) => {
   const unit = (item.unit || '').toLowerCase();
   const qty = Number(item.quantity) || 0;
-  // Use stored total from order_items (this is qty × rate before item-level discount)
+  // order_items.total is ALREADY NET of any discount: it is quantity x the
+  // discounted rate that was written at order time. order_items.discount_amount
+  // is the amount SAVED, recorded alongside it for display, not a further
+  // deduction.
+  //
+  // This used to read `storedTotal - discountAmt`, which charged the discount a
+  // second time. On a 50% scheme the two values are equal by definition, so
+  // every line rendered as exactly 0.00 — see the 12 Aug 2026 orders for
+  // Pushpagiri Store and ANEMAHAL SPICES & COFFEE, where a global 50% scheme was
+  // briefly live. At any other percentage it produced a wrong-but-plausible
+  // figure instead, which is why it went unnoticed for so long.
+  //
+  // The Math.max(0, ...) clamp is deliberately gone as well: it turned negative
+  // arithmetic into a clean-looking zero and hid the fault. A future error here
+  // should look obviously wrong.
   const storedTotal = Number(item.total) || 0;
-  // Item-level discount (may be 0 if discount was applied at order level)
+  // Amount saved on this line — display only.
   const discountAmt = Number(item.discount_amount) || 0;
-  // Compute actual line total after any item-level discount
-  const finalLineTotal = Math.max(0, storedTotal - discountAmt);
+  const finalLineTotal = storedTotal;
   
   const originalRate = Number(item.original_rate) || Number(item.rate || item.price) || 0;
   
@@ -680,9 +693,25 @@ async function generateTemplate4InvoiceLegacy(data: InvoiceData): Promise<Blob> 
     return sum + (item._storedTotal || 0);
   }, 0);
 
-  // Apply order-level discount if provided (from orders.discount_amount)
+  // orders.discount_amount is the sum of the per-line discounts ALREADY reflected
+  // in each line's net total, so it must not be subtracted from itemSubtotal
+  // again — that was the second of the two deductions that drove the subtotal to
+  // zero on a 50% scheme.
   const appliedOrderDiscount = orderDiscount || 0;
-  const subtotal = Math.max(0, itemSubtotal - appliedOrderDiscount);
+
+  // itemSubtotal is net of discount, and it is what tax and the grand total are
+  // computed from. The totals box, though, reads as a normal invoice:
+  //
+  //     SUB-TOTAL   gross (what the goods cost at list price)
+  //     DISCOUNT   -amount saved
+  //     GST         on the net
+  //     TOTAL
+  //
+  // so it needs the GROSS figure to show on the SUB-TOTAL line. Printing the net
+  // there and then also printing a DISCOUNT deduction below it would imply the
+  // discount comes off twice — the very thing this fix removes.
+  const itemSubtotalGross = itemSubtotal + appliedOrderDiscount;
+  const subtotal = itemSubtotal;
 
   // Sum per-line stored tax (CGST/SGST/IGST/CESS) — fallback per line via helper.
   const lineTaxes = cartItems.map((it: any) => _resolveLineTax(it));
@@ -777,9 +806,9 @@ async function generateTemplate4InvoiceLegacy(data: InvoiceData): Promise<Blob> 
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
   
-  // SUB-TOTAL (sum of item totals, before order-level discount)
+  // SUB-TOTAL at list price, so SUB-TOTAL - DISCOUNT = the taxable net below.
   doc.text("SUB-TOTAL", totalsBoxX + labelOffset, innerY);
-  doc.text(`Rs.${formatExact(itemSubtotal)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
+  doc.text(`Rs.${formatExact(itemSubtotalGross)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
   
   // Show order-level discount if applicable
   if (hasOrderLevelDiscount) {
