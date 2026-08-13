@@ -55,6 +55,7 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { usePaymentProofMandatory } from "@/hooks/usePaymentProofMandatory";
 import { offlineStorage } from "@/lib/offlineStorage";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
 
 // ---------- types ----------
 interface CounterCustomer {
@@ -210,7 +211,9 @@ function MobileCustomerCard({
                             sku: p.sku || null,
                             unit: p.unit || "Unit",
                             rate: Number(p.rate) || 0,
-                              original_rate: Number(p.rate) || 0,
+                            original_rate: Number(p.rate) || 0,
+                            conversion_to_base: null,
+                            price_basis_conversion: null,
                           })
                         }
                       />
@@ -242,22 +245,33 @@ function MobileCustomerCard({
                     </div>
                     <div>
                       <label className="text-[10px] text-muted-foreground">Unit</label>
-                      <Select
-                        value={item.unit}
-                        disabled={locked}
-                        onValueChange={(v) => onUpdateItem(item.uid, { unit: v })}
-                      >
-                        <SelectTrigger className="h-8 text-sm px-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from(new Set([item.unit, ...UOM_OPTIONS])).map((u) => (
-                            <SelectItem key={u} value={u}>
-                              {u}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {item.product_id ? (
+                        <LineItemUomSelect
+                          productId={item.product_id}
+                          value={item.unit}
+                          context="sales"
+                          hideWhenSingle={false}
+                          disabled={locked}
+                          className="h-8 text-sm px-2 w-full"
+                          onChange={(sel) => {
+                            const patch = uomSelectionPatch(
+                              item,
+                              products.find((p) => p.id === item.product_id),
+                              sel,
+                            );
+                            if (patch) onUpdateItem(item.uid, patch);
+                          }}
+                        />
+                      ) : (
+                        <Select value={item.unit} disabled>
+                          <SelectTrigger className="h-8 text-sm px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={item.unit}>{item.unit}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                     <div>
                       <label className="text-[10px] text-muted-foreground">Price</label>
@@ -657,6 +671,8 @@ function CounterCustomerCard({
                               unit: p.unit || "Unit",
                               rate: Number(p.rate) || 0,
                               original_rate: Number(p.rate) || 0,
+                              conversion_to_base: null,
+                              price_basis_conversion: null,
                             })
                           }
                           onEnter={() => {
@@ -664,22 +680,33 @@ function CounterCustomerCard({
                           }}
                         />
                       </div>
-                      <Select
-                        value={item.unit}
-                        disabled={locked}
-                        onValueChange={(v) => onUpdateItem(item.uid, { unit: v })}
-                      >
-                        <SelectTrigger className="h-9 rounded-lg text-xs sm:text-sm px-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from(new Set([item.unit, ...UOM_OPTIONS])).map((u) => (
-                            <SelectItem key={u} value={u}>
-                              {u}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {item.product_id ? (
+                        <LineItemUomSelect
+                          productId={item.product_id}
+                          value={item.unit}
+                          context="sales"
+                          hideWhenSingle={false}
+                          disabled={locked}
+                          className="h-9 rounded-lg text-xs sm:text-sm px-2 w-full"
+                          onChange={(sel) => {
+                            const patch = uomSelectionPatch(
+                              item,
+                              products.find((p) => p.id === item.product_id),
+                              sel,
+                            );
+                            if (patch) onUpdateItem(item.uid, patch);
+                          }}
+                        />
+                      ) : (
+                        <Select value={item.unit} disabled>
+                          <SelectTrigger className="h-9 rounded-lg text-xs sm:text-sm px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={item.unit}>{item.unit}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                       <Input
                         type="number"
                         min={0}
@@ -710,6 +737,17 @@ function CounterCustomerCard({
                           <span>
                             SKU: <span className="font-medium text-foreground/80">{item.sku}</span>
                           </span>
+                        )}
+                        {item.product_id && (
+                          <>
+                            {item.sku && <span className="opacity-40">|</span>}
+                            <span>
+                              Price:{" "}
+                              <span className="font-medium text-foreground/80">
+                                {format(Number(item.original_rate ?? item.rate) || 0)}
+                              </span>
+                            </span>
+                          </>
                         )}
                         {mrp && (
                           <>
@@ -1222,6 +1260,9 @@ interface CounterLineItem {
   discount: number;
   tax_rate: number;
   original_rate?: number;
+  // UOM-master snapshot for the selected unit (mirrors order entry).
+  conversion_to_base?: number | null;
+  price_basis_conversion?: number | null;
 }
 
 type RowStatus = "draft" | "saved" | "submitted";
@@ -1248,8 +1289,55 @@ interface CounterRow {
 }
 
 const DRAFT_KEY = "counter_sales_draft_v1";
-const UOM_OPTIONS = ["Pcs", "Box", "Bag", "Kg", "Ltr", "Pkt", "Carton", "Dozen"];
 const TAX_OPTIONS = [0, 5, 12, 18, 28];
+
+// Price for 1 selected unit = price-basis rate × (selected conversion / price-basis conversion).
+const uomUnitPrice = (baseRate: number, sel: LineItemUomSelection) => {
+  const factor =
+    sel.conversionToBase && sel.priceBasisConversionToBase
+      ? sel.conversionToBase / sel.priceBasisConversionToBase
+      : 1;
+  return +(baseRate * factor).toFixed(2);
+};
+
+/** Patch for a UOM change on a line item, mirroring order entry: the unit list
+ *  comes from the UOM master, price recomputes for the selected unit, and an
+ *  already-entered quantity converts between mapped units (12 PCS → 1 DOZEN).
+ *  Returns null when the selection matches the item — LineItemUomSelect
+ *  re-emits the current unit on load, which must not reset an edited rate. */
+const uomSelectionPatch = (
+  item: CounterLineItem,
+  product: { rate?: number | string } | undefined,
+  sel: LineItemUomSelection,
+): Partial<CounterLineItem> | null => {
+  if (
+    item.unit === sel.uomCode &&
+    (item.conversion_to_base ?? null) === (sel.conversionToBase ?? null) &&
+    (item.price_basis_conversion ?? null) === (sel.priceBasisConversionToBase ?? null)
+  ) {
+    return null;
+  }
+  const patch: Partial<CounterLineItem> = {
+    unit: sel.uomCode,
+    conversion_to_base: sel.conversionToBase ?? null,
+    price_basis_conversion: sel.priceBasisConversionToBase ?? null,
+  };
+  const baseRate = Number(product?.rate);
+  if (Number.isFinite(baseRate) && baseRate >= 0) {
+    const catalog = uomUnitPrice(baseRate, sel);
+    patch.rate = catalog;
+    patch.original_rate = catalog;
+  }
+  if (
+    item.conversion_to_base &&
+    sel.conversionToBase &&
+    item.quantity > 0 &&
+    item.unit !== sel.uomCode
+  ) {
+    patch.quantity = +((item.quantity * item.conversion_to_base) / sel.conversionToBase).toFixed(3);
+  }
+  return patch;
+};
 
 const newItem = (): CounterLineItem => ({
   uid: crypto.randomUUID(),
@@ -2350,29 +2438,42 @@ function OrderRow({
                     sku: p.sku || null,
                     unit: p.unit || "Unit",
                     rate: Number(p.rate) || 0,
-                              original_rate: Number(p.rate) || 0,
+                    original_rate: Number(p.rate) || 0,
+                    conversion_to_base: null,
+                    price_basis_conversion: null,
                   })
                 }
                 onEnter={() => {
                   if (idx === row.items.length - 1) onAddItemRow();
                 }}
               />
-              <Select
-                value={item.unit}
-                disabled={locked}
-                onValueChange={(v) => onUpdateItem(item.uid, { unit: v })}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.from(new Set([item.unit, ...UOM_OPTIONS])).map((u) => (
-                    <SelectItem key={u} value={u}>
-                      {u}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {item.product_id ? (
+                <LineItemUomSelect
+                  productId={item.product_id}
+                  value={item.unit}
+                  context="sales"
+                  hideWhenSingle={false}
+                  disabled={locked}
+                  className="h-9 w-full"
+                  onChange={(sel) => {
+                    const patch = uomSelectionPatch(
+                      item,
+                      products.find((p) => p.id === item.product_id),
+                      sel,
+                    );
+                    if (patch) onUpdateItem(item.uid, patch);
+                  }}
+                />
+              ) : (
+                <Select value={item.unit} disabled>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={item.unit}>{item.unit}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               <Input
                 type="number"
                 min={0}
@@ -2640,19 +2741,18 @@ function ProductPickerDialog({
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Unit</label>
-                <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from(new Set([unit, ...UOM_OPTIONS])).map((u) => (
-                      <SelectItem key={u} value={u}>
-                        {u}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <LineItemUomSelect
+                  productId={picked.id}
+                  value={unit}
+                  context="sales"
+                  hideWhenSingle={false}
+                  className="h-10 w-full"
+                  onChange={(sel) => {
+                    if (sel.uomCode === unit) return;
+                    setUnit(sel.uomCode);
+                    setPrice(uomUnitPrice(Number(picked.rate) || 0, sel));
+                  }}
+                />
               <div>
                 <label className="text-xs text-muted-foreground">Price ({currencySymbol})</label>
                 <Input
