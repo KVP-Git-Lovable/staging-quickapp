@@ -30543,6 +30543,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      report_apply_audience: {
+        Args: { p_filters: Json; p_scoped_user_ids: string[] }
+        Returns: string[]
+      }
       report_can_view_user: {
         Args: { _target: string; _viewer: string }
         Returns: boolean
