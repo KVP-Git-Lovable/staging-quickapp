@@ -1330,12 +1330,36 @@ function Step1Body(p: Step1Props) {
     if (f >= 0 && t >= 0) reorder(f, t);
   }, []);
 
+  // Who this subscription may be scoped to.
+  //
+  // This used to be built straight from useSubordinates, which quietly assumed
+  // administrator == manager. Four of production's nine System Administrators
+  // have no direct reports, so their dropdown listed nothing but themselves.
+  // get_report_scope_users decides server-side, gated on
+  // analytics_user_filter/can_view_all: administrators get every active user,
+  // managers keep their own subtree, reps get nothing extra.
+  const { data: scopeUsers = [] } = useQuery({
+    queryKey: ['report-scope-users', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_report_scope_users');
+      if (error) throw error;
+      return (data || []) as Array<{ user_id: string; full_name: string; level: number }>;
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const scopeOptions = React.useMemo(() => {
     const opts: Array<{ id: string; label: string; level: number }> = [];
     if (user?.id) opts.push({ id: user.id, label: 'Me (and my full hierarchy)', level: 0 });
-    subordinates.forEach(s => opts.push({ id: s.subordinate_user_id, label: s.full_name, level: s.level }));
+    // Fall back to the hierarchy hook if the RPC has not answered yet, so the
+    // list is never emptier than it used to be.
+    const source = scopeUsers.length
+      ? scopeUsers.map(u => ({ id: u.user_id, label: u.full_name, level: u.level }))
+      : subordinates.map(s => ({ id: s.subordinate_user_id, label: s.full_name, level: s.level }));
+    source.forEach(o => { if (o.id !== user?.id) opts.push(o); });
     return opts;
-  }, [subordinates, user?.id]);
+  }, [scopeUsers, subordinates, user?.id]);
   const scopeLabel = scopeUserId
     ? (scopeOptions.find(o => o.id === scopeUserId)?.label ?? 'Selected user')
     : 'Everyone I can see';

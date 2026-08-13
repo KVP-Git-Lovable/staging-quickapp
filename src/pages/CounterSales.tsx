@@ -2756,6 +2756,7 @@ function ProductPickerDialog({
                     setPrice(uomUnitPrice(Number(picked.rate) || 0, sel));
                   }}
                 />
+              </div>
               <div>
                 <label className="text-xs text-muted-foreground">Price ({currencySymbol})</label>
                 <Input
