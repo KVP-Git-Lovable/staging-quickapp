@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon, Eye, RefreshCw } from 'lucide-react';
+import { Plus, Pencil, Trash2, Zap, FileText, Loader2, Check, GripVertical, Users, Search, Filter, ArrowUpDown, ArrowUp, ArrowDown, LayoutGrid, List as ListIcon, MoreVertical, Calendar, Clock, FileSpreadsheet, FileType2, Send, TrendingUp, PlayCircle, CalendarClock, MailCheck, X, Rows3, Sigma, Database, ChevronDown, Lock as LockIcon, Network as NetworkIcon, Eye, RefreshCw, Sparkles } from 'lucide-react';
 import { PdfInlinePreview } from './PdfInlinePreview';
 import { PDF_THEMES, getPdfTheme } from '@/lib/pdfThemes';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -52,6 +53,8 @@ interface Subscription {
   push_to_phone: boolean;
   scope: string;
   respect_hierarchy?: boolean;
+  ai_enabled?: boolean;
+  ai_prompt?: string | null;
   status: string;
   last_fired_at: string | null;
 }
@@ -675,6 +678,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
     ((editing?.sub as any)?.recipient_mode as any) ?? 'named_users'
   );
+  const [aiEnabled, setAiEnabled] = useState<boolean>((editing?.sub as any)?.ai_enabled ?? false);
+  const [aiPrompt, setAiPrompt] = useState<string>((editing?.sub as any)?.ai_prompt ?? '');
   const [pdfTemplate, setPdfTemplate] = useState<any>(
     ((editing?.sub as any)?.pdf_template as any) ?? {}
   );
@@ -764,6 +769,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             scope: effectiveScope,
             respect_hierarchy: respectHierarchy,
             pdf_template: format === 'pdf' ? pdfTemplate : {},
+            ai_enabled: aiEnabled,
+            ai_prompt: aiEnabled ? aiPrompt.trim() : null,
           } as any)
           .eq('id', editing.sub.id);
         if (sErr) throw sErr;
@@ -797,6 +804,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             period_basis: periodBasis,
             respect_hierarchy: respectHierarchy,
             pdf_template: format === 'pdf' ? pdfTemplate : {},
+            ai_enabled: aiEnabled,
+            ai_prompt: aiEnabled ? aiPrompt.trim() : null,
           } as any).eq('id', data);
         }
         return data;
@@ -806,7 +815,10 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
     onError: (e: any) => toast.error(e.message || 'Failed to save'),
   });
 
-  const canNext1 = !!(name.trim() && datasetKey && (values.length > 0 || (layout === 'tabular' && rows.length > 0)));
+  // An AI-enabled report needs a prompt: report_subscriptions_ai_complete_chk
+  // rejects the save otherwise, and a DB error here reads as a mystery failure.
+  const aiReady = !aiEnabled || aiPrompt.trim().length > 0;
+  const canNext1 = !!(name.trim() && datasetKey && (values.length > 0 || (layout === 'tabular' && rows.length > 0)) && aiReady);
   const canNext2 = !!(fireTime && timezone && format && (recipientMode === 'all_managers' || recipientIds.length > 0));
 
   return (
@@ -839,6 +851,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             distributorId={distributorId} setDistributorId={setDistributorId}
             sortKey={sortKey} setSortKey={setSortKey}
             sortDir={sortDir} setSortDir={setSortDir}
+            aiEnabled={aiEnabled} setAiEnabled={setAiEnabled}
+            aiPrompt={aiPrompt} setAiPrompt={setAiPrompt}
             onCancel={onClose}
             onNext={() => setStep(2)}
             canNext={!!canNext1}
@@ -1104,6 +1118,12 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                 </div>
               )}
               <div>
+                <span className="font-medium">AI summary:</span>{' '}
+                {aiEnabled
+                  ? <>On — <span className="text-muted-foreground">{aiPrompt.trim().slice(0, 80)}{aiPrompt.trim().length > 80 ? '\u2026' : ''}</span></>
+                  : 'Off'}
+              </div>
+              <div>
                 <span className="font-medium">Scope:</span>{' '}
                 {respectHierarchy
                   ? 'per recipient — own team only (hierarchy enforced)'
@@ -1190,6 +1210,8 @@ interface Step1Props {
   distributorId: string; setDistributorId: (v: string) => void;
   sortKey: string; setSortKey: (v: string) => void;
   sortDir: 'asc' | 'desc'; setSortDir: (v: 'asc' | 'desc') => void;
+  aiEnabled: boolean; setAiEnabled: (v: boolean) => void;
+  aiPrompt: string; setAiPrompt: (v: string) => void;
   onCancel: () => void;
   onNext: () => void;
   canNext: boolean;
@@ -1500,6 +1522,51 @@ function Step1Body(p: Step1Props) {
           Pick a dataset above to start.
         </div>
       )}
+
+      {/* --- AI summary -------------------------------------------------- */}
+      <div className="rounded-xl border border-border p-4 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#534ab7] dark:text-[#afa9ec]" />
+              <Label htmlFor="ai-summary-toggle" className="text-sm font-medium">
+                Add an AI summary to this report
+              </Label>
+            </div>
+            <p className="text-[12px] text-muted-foreground max-w-xl">
+              A short written summary of this report&rsquo;s own data is added to the notification
+              and to the top of the PDF. The report data itself is never replaced.
+            </p>
+          </div>
+          <Switch id="ai-summary-toggle" checked={p.aiEnabled} onCheckedChange={p.setAiEnabled} />
+        </div>
+
+        {p.aiEnabled && (
+          <div className="space-y-2 pt-1">
+            <Label htmlFor="ai-summary-prompt" className="text-[12px]">
+              What should the AI summarise?
+            </Label>
+            <Textarea
+              id="ai-summary-prompt"
+              rows={4}
+              value={p.aiPrompt}
+              onChange={(e) => p.setAiPrompt(e.target.value)}
+              placeholder="Call out the biggest change versus usual, who is falling behind, and anything that needs action today."
+              aria-invalid={p.aiPrompt.trim().length === 0}
+            />
+            {p.aiPrompt.trim().length === 0 ? (
+              <p className="text-[12px] text-destructive">
+                Tell the AI what to summarise, or turn the summary off.
+              </p>
+            ) : (
+              <p className="text-[12px] text-muted-foreground">
+                The AI only sees this report&rsquo;s own rows, for the period and recipients you have
+                configured. It runs each time the report is sent.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       <DialogFooter className="pt-2">
         <Button variant="ghost" onClick={p.onCancel}>Cancel</Button>
