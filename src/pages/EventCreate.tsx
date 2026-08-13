@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 
+import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -199,10 +200,11 @@ export default function EventCreate() {
 
   return (
     <div className="min-h-screen bg-slate-50/60 dark:bg-muted/20">
+      <Navbar />
       {/* Sticky Header */}
       <div
         className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+
       >
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
