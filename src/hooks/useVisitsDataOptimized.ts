@@ -117,6 +117,12 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
     ? orders.filter(o => o.order_date === selectedDate)
     : orders;
   
+  // Activity visits (events, meetings, leave) carry retailer_id = null. A caller
+  // that derives its retailer list from visits therefore hands us an entry with
+  // no id, and counting it as a planned retailer double-counts the activity —
+  // once here and once again as an activity card in MyVisits.
+  const realRetailers = retailers.filter(r => r?.id);
+
   const retailersWithOrders = new Set(dateFilteredOrders.map(o => o.retailer_id));
   const visitsByRetailer = new Map<string, any[]>();
   
@@ -145,14 +151,14 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
     }
   });
 
-  retailers.forEach(r => {
+  realRetailers.forEach(r => {
     if (!countedRetailers.has(r.id)) planned++;
   });
 
   // Total planned = all retailers in the beat
   // SAFETY: If retailers array is momentarily empty (transient sync), use visited retailer count
   // This prevents totalPlanned from flashing to 0 during sync cycles
-  const totalPlanned = retailers.length > 0 ? retailers.length : countedRetailers.size;
+  const totalPlanned = realRetailers.length > 0 ? realRetailers.length : countedRetailers.size;
 
   // Teammate breakdown — rows tagged with _source === 'teammate' by the smart sync.
   const teamOrdersList = dateFilteredOrders.filter((o: any) => o?._source === 'teammate');
@@ -587,7 +593,7 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
     // Use visits as fallback to keep stats visible during transient empty-retailer state.
     const safeRetailers = retailers.length > 0
       ? retailers
-      : visits.filter((v: any) => v.planned_date === selectedDate && !v._source)
+      : visits.filter((v: any) => v.planned_date === selectedDate && !v._source && v.retailer_id)
                .map((v: any) => ({ id: v.retailer_id }));
     return calculateStats(visits, orders, safeRetailers, selectedDate);
   }, [visits, orders, retailers, selectedDate]);
