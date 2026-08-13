@@ -314,22 +314,24 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
 
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
                   {/* Left: identity */}
-                  <div className="flex items-center gap-3 lg:min-w-[220px]">
+                  <div className="flex items-center gap-3 min-w-0 lg:min-w-[220px]">
                     <div className="h-11 w-11 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 flex items-center justify-center text-sm font-semibold shrink-0">
                       {initials || 'EV'}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-sm truncate">{name}</h4>
-                        <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300">
+                    <div className="min-w-0 flex-1">
+                      {/* Name, type, status and time on one line. The badges and the
+                          time keep their size and the name is the only thing that
+                          gives, so a long event name truncates instead of pushing
+                          the status onto a second row. */}
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h4 className="font-semibold text-sm truncate min-w-0">{name}</h4>
+                        <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px] bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300">
                           Event
                         </Badge>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <Badge className={`text-[10px] px-2 py-0.5 border ${statusBadgeClass}`}>
+                        <Badge className={`shrink-0 whitespace-nowrap text-[10px] px-2 py-0.5 border ${statusBadgeClass}`}>
                           {statusLabel}
                         </Badge>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {timeLabel}
                         </span>
