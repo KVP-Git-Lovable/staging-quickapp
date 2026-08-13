@@ -262,19 +262,6 @@ export const MyVisits = () => {
    const activityViewUserId = isViewingSelf ? user?.id : selectedUserIds[0];
    const { items: activityVisitCards, refresh: refreshActivityVisits } = useActivityVisits(activityViewUserId, selectedDate);
    const [detailActivity, setDetailActivity] = useState<import('@/hooks/useActivityVisits').ActivityVisitCardModel | null>(null);
-  // The activity currently open for editing. Reuses AddActivityModal in edit mode
-  // rather than a second dialog, so the two cannot drift apart.
-  const [editActivity, setEditActivity] = useState<{
-    id: string;
-    activity_type: string | null;
-    activity_date: string;
-    duration_type: string | null;
-    from_date: string | null;
-    to_date: string | null;
-    half_day_type: string | null;
-    expected_duration_minutes?: number | null;
-  } | null>(null);
-
 
   // One-time fix: Restore cancelled visits to planned if day hasn't ended
   useEffect(() => {
@@ -1777,16 +1764,7 @@ export const MyVisits = () => {
           {/* Activity Events Table - shown above visit list, ONLY after parent data loads to prevent flicker */}
           {hasLoadedOnce && (isViewingSelf ? user?.id : selectedUserIds[0]) && (
             <ActivityEventsTable
-              onEditActivity={can('action_activity_edit', 'edit') ? (row) => setEditActivity({
-                id: row.id,
-                activity_type: row.activity_type ?? null,
-                activity_date: row.activity_date,
-                duration_type: row.duration_type ?? null,
-                from_date: row.from_date ?? null,
-                to_date: row.to_date ?? null,
-                half_day_type: row.half_day_type ?? null,
-                expected_duration_minutes: (row as any).expected_duration_minutes ?? null,
-              }) : undefined}
+              canEditEvent={can('action_activity_edit', 'edit')}
               userId={isViewingSelf ? user!.id : selectedUserIds[0]}
               selectedDate={selectedDate}
               onActivitiesLoaded={(count) => setHasActivities(count > 0)}
@@ -1968,19 +1946,6 @@ export const MyVisits = () => {
 
         {/* Activity Modal */}
         <AddActivityModal open={isActivityModalOpen} onOpenChange={setIsActivityModalOpen} />
-
-        {/* Same dialog, edit mode. Keyed on the activity id so reopening it for a
-            different row remounts with that row's values rather than stale state. */}
-        <AddActivityModal
-          key={editActivity?.id ?? 'edit-none'}
-          open={!!editActivity}
-          onOpenChange={(o) => { if (!o) setEditActivity(null); }}
-          editActivity={editActivity}
-          onSaved={() => {
-            refreshActivityVisits();
-            window.dispatchEvent(new CustomEvent('visitDataChanged'));
-          }}
-        />
 
 
         {/* Clear Cache Confirmation Dialog */}

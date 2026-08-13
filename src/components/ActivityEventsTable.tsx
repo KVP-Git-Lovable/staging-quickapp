@@ -22,7 +22,9 @@ interface ActivityEventsTableProps {
     visitStatus?: { status: string | null; check_in_time: string | null; check_out_time: string | null } | null,
   ) => void;
   /** Opens the scheduling dialog in edit mode for a not-yet-started activity. */
-  onEditActivity?: (activity: ActivityEvent) => void;
+  /** Shows Edit on Event cards. Events only — other activity types are not
+   *  editable from this list. */
+  canEditEvent?: boolean;
 }
 
 interface VisitStatus {
@@ -64,7 +66,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   },
 };
 
-export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, onActivityChanged, onOpenDetail, onEditActivity }: ActivityEventsTableProps) => {
+export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, onActivityChanged, onOpenDetail, canEditEvent }: ActivityEventsTableProps) => {
   const { fetchActivitiesForDate, updateActivityLocation } = useActivityEvents();
   const { types: activityTypeMaster } = useActivityTypes();
   const navigate = useNavigate();
@@ -291,6 +293,9 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                 : 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300';
             const statusLabel =
               status === 'productive' ? 'Completed' : status === 'in-progress' ? 'Active' : 'Upcoming';
+            // Drives both the button and the Open Event column span, so the grid
+            // never leaves a half-width orphan on a phone.
+            const showEdit = !!canEditEvent && status !== 'productive';
             const totals = activity.visit_id ? eventTotals[activity.visit_id] : undefined;
             const revenue = totals?.revenue || 0;
             const orderCount = totals?.orders || 0;
@@ -350,16 +355,20 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                     </div>
                   </div>
 
-                  {/* Right: actions */}
-                  <div className="flex flex-wrap lg:flex-nowrap gap-2 lg:justify-end">
+                  {/* Right: actions.
+                      Two even columns on a phone rather than flex-wrap: the four
+                      labels are different lengths, so wrapping left ragged rows
+                      with buttons of mismatched widths. Back to a single row from
+                      lg up, where there is width for all four. */}
+                  <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-nowrap lg:justify-end">
                     {/* An Event runs for hours or days, so it stays editable while it is
                         live — that is precisely when a wrong name or date needs fixing.
                         It locks once completed. */}
-                    {onEditActivity && status !== 'productive' && (
+                    {showEdit && (
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 text-xs gap-1"
+                        className="w-full lg:w-auto h-9 lg:h-8 text-xs gap-1"
                         onClick={(e) => {
                           e.stopPropagation();
                           // Events go to their own form, not the generic activity
@@ -375,7 +384,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                     )}
                     <Button
                       size="sm"
-                      className="h-8 text-xs gap-1"
+                      className={`w-full lg:w-auto h-9 lg:h-8 text-xs gap-1 ${showEdit ? '' : 'col-span-2 lg:col-span-1'}`}
                       onClick={() => activity.visit_id && navigate(`/event/${activity.visit_id}/orders`)}
                     >
                       <Play className="h-3.5 w-3.5" />
@@ -384,7 +393,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 text-xs gap-1"
+                      className="w-full lg:w-auto h-9 lg:h-8 text-xs gap-1"
                       onClick={() => activity.visit_id && navigate(`/event/${activity.visit_id}/stock`)}
                     >
                       <Package className="h-3.5 w-3.5" />
@@ -393,7 +402,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 text-xs gap-1"
+                      className="w-full lg:w-auto h-9 lg:h-8 text-xs gap-1"
                       onClick={() => activity.visit_id && navigate(`/event/${activity.visit_id}/summary`)}
                     >
                       <BarChart3 className="h-3.5 w-3.5" />
@@ -564,24 +573,6 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                       Ended: {formatTime(visitStatus!.check_out_time!)}
                     </span>
                   )}
-                </div>
-              )}
-
-              {/* Edit — deliberately NOT gated on isToday: an activity scheduled for
-                  next week is exactly the one most likely to need changing. Stays
-                  available while in progress and locks once complete, matching the
-                  check_out_time guard in updateActivity. */}
-              {onEditActivity && status !== 'productive' && !visitStatus?.check_out_time && (
-                <div className="pt-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs gap-1"
-                    onClick={(e) => { e.stopPropagation(); onEditActivity(activity); }}
-                  >
-                    <Pencil className="h-3 w-3" />
-                    Edit
-                  </Button>
                 </div>
               )}
 
