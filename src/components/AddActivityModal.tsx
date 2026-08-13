@@ -20,6 +20,22 @@ import { toast } from 'sonner';
 interface AddActivityModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Pass an existing activity to edit it instead of creating a new one. The same
+   * form is reused deliberately: a separate edit dialog would drift from this one
+   * every time a field is added here.
+   */
+  editActivity?: {
+    id: string;
+    activity_type: string | null;
+    activity_date: string;
+    duration_type: string | null;
+    from_date: string | null;
+    to_date: string | null;
+    half_day_type: string | null;
+    expected_duration_minutes?: number | null;
+  } | null;
+  onSaved?: () => void;
 }
 
 // Palette maps keyed by the master's `color` string.
@@ -77,9 +93,9 @@ const SectionCard = ({
 
 
 
-export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) => {
+export const AddActivityModal = ({ open, onOpenChange, editActivity = null, onSaved }: AddActivityModalProps) => {
   const { user } = useAuth();
-  const { createActivity } = useActivityEvents();
+  const { createActivity, updateActivity } = useActivityEvents();
   const { types: activityTypes } = useActivityTypes();
   const connectivity = useConnectivity();
   const isOnline = connectivity === 'online';
@@ -112,6 +128,23 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
 
   useEffect(() => { if (!open) resetForm(); }, [open]);
 
+  // Prefill from the activity being edited. Runs on open so reopening the dialog
+  // always reflects the row that was clicked, not whatever was typed last time.
+  useEffect(() => {
+    if (!open || !editActivity) return;
+    const parse = (d?: string | null) => (d ? new Date(`${d}T00:00:00`) : new Date());
+    setSelectedType(editActivity.activity_type ?? '');
+    const isMulti = editActivity.duration_type === 'multiple_days';
+    setDurationType(isMulti ? 'multiple_days' : 'single_day');
+    setActivityDate(parse(editActivity.activity_date));
+    setFromDate(parse(editActivity.from_date ?? editActivity.activity_date));
+    setToDate(parse(editActivity.to_date ?? editActivity.activity_date));
+    setHalfDay((editActivity.half_day_type as HalfDay) ?? 'full');
+    const mins = editActivity.expected_duration_minutes ?? null;
+    if (mins && [30, 60, 120, 240, 480].includes(mins)) setDurationPreset(mins as DurationPreset);
+    else if (mins) { setDurationPreset('custom'); setCustomMinutes(mins); }
+  }, [open, editActivity]);
+
   const expectedMinutes = (): number | undefined => {
     if (durationPreset === 'custom') {
       return Number.isFinite(customMinutes) && customMinutes > 0 ? Math.round(customMinutes) : undefined;
@@ -134,6 +167,26 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
       const isMulti = durationType === 'multiple_days';
       const totalDays = isMulti ? differenceInCalendarDays(toDate, fromDate) + 1 : undefined;
       const activity_date = isMulti ? format(fromDate, 'yyyy-MM-dd') : format(activityDate, 'yyyy-MM-dd');
+
+      if (editActivity) {
+        await updateActivity(editActivity.id, {
+          activity_name: selectedType,
+          activity_type: selectedType,
+          visit_category: selectedType,
+          activity_sub_type: selectedType,
+          duration_type: isMulti ? 'multiple_days' : 'single_day',
+          activity_date,
+          from_date: isMulti ? format(fromDate, 'yyyy-MM-dd') : null,
+          to_date:   isMulti ? format(toDate,   'yyyy-MM-dd') : null,
+          total_days: totalDays ?? null,
+          half_day_type: halfDay === 'full' ? null : halfDay,
+          expected_duration_minutes: expectedMinutes() ?? null,
+        } as any);
+        toast.success('Activity updated');
+        onSaved?.();
+        onOpenChange(false);
+        return;
+      }
 
       const res = await createActivity({
         activity_name: selectedType,
@@ -190,9 +243,11 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
                 <ActivityIcon className="h-4 w-4" />
               </div>
               <div>
-                <div className="font-bold">Schedule Activity</div>
+                <div className="font-bold">{editActivity ? 'Edit Activity' : 'Schedule Activity'}</div>
                 <div className="text-[10px] font-normal text-muted-foreground">
-                  Pick a category, choose when, and you're set.
+                  {editActivity
+                    ? 'Change the type, dates or duration. The visit moves with it.'
+                    : "Pick a category, choose when, and you're set."}
                 </div>
               </div>
             </DialogTitle>
@@ -439,7 +494,7 @@ export const AddActivityModal = ({ open, onOpenChange }: AddActivityModalProps) 
               {isSubmitting
                 ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 : <Rocket className="h-3 w-3 mr-1" />}
-              Schedule
+              {editActivity ? 'Save changes' : 'Schedule'}
             </Button>
           </div>
 

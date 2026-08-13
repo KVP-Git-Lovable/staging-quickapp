@@ -290,6 +290,108 @@ export const useActivityEvents = () => {
     }
   };
 
+  /**
+   * Edit a scheduled activity.
+   *
+   * createActivity writes TWO rows — a `visits` row and the `activity_events`
+   * row that points at it — so an edit has to keep them in step. Changing the
+   * date only on activity_events would leave the visit sitting on the old day,
+   * and My Visits reads the visit for status, so the activity would appear to
+   * vanish from the new date while still showing on the old one.
+   *
+   * Only a not-yet-started activity can be edited: once it has been checked
+   * into, the recorded times and GPS describe something that actually happened,
+   * and rewriting the plan underneath them would misrepresent it.
+   */
+  const updateActivity = async (
+    activityId: string,
+    params: Partial<CreateActivityParams>,
+  ): Promise<boolean> => {
+    if (!user?.id) return false;
+    try {
+      const { data: existing, error: readErr } = await supabase
+        .from('activity_events')
+        .select('id, visit_id, user_id, check_in_time, activity_date, from_date, to_date, duration_type')
+        .eq('id', activityId)
+        .maybeSingle();
+      if (readErr) throw readErr;
+      if (!existing) throw new Error('Activity not found');
+      if (existing.user_id !== user.id) throw new Error('You can only edit your own activities');
+      if (existing.check_in_time) throw new Error('This activity has already been started and can no longer be edited');
+
+      const patch: Record<string, unknown> = {};
+      const set = (k: string, v: unknown) => { if (v !== undefined) patch[k] = v; };
+      set('activity_name',  params.activity_name);
+      set('activity_type',  params.activity_type);
+      set('visit_category', params.visit_category);
+      set('activity_sub_type', params.activity_sub_type);
+      set('duration_type',  params.duration_type);
+      set('activity_date',  params.activity_date);
+      set('from_date',      params.from_date ?? null);
+      set('to_date',        params.to_date ?? null);
+      set('total_days',     params.total_days ?? null);
+      set('half_day_type',  params.half_day_type ?? null);
+      set('expected_duration_minutes', params.expected_duration_minutes ?? null);
+      set('remarks',        params.remarks);
+
+      if (Object.keys(patch).length === 0) return true;
+
+      // .select() on both writes is deliberate. activity_events and visits are
+      // guarded by DIFFERENT permissions — 'action_activity_create'/can_create and
+      // 'action_visit_edit'/can_edit respectively — so a user can hold one and not
+      // the other. When RLS rejects a row it is filtered, not raised: the update
+      // reports success having changed nothing. Without checking the returned rows
+      // the activity would move and the visit would silently stay behind.
+      const { data: aeRows, error: aeErr } = await supabase
+        .from('activity_events')
+        .update(patch as any)
+        .eq('id', activityId)
+        .select('id');
+      if (aeErr) throw aeErr;
+      if (!aeRows || aeRows.length === 0) {
+        throw new Error('You do not have permission to edit this activity');
+      }
+
+      // Keep the paired visit on the day the activity now sits on. Mirrors the
+      // plannedDate rule in createActivity.
+      const plannedDate =
+        (params.duration_type ?? undefined) === 'multiple_days' && params.from_date
+          ? params.from_date
+          : params.activity_date;
+
+      if (plannedDate && existing.visit_id) {
+        const { data: vRows, error: vErr } = await supabase
+          .from('visits')
+          .update({ planned_date: plannedDate } as any)
+          .eq('id', existing.visit_id)
+          .select('id');
+
+        if (vErr || !vRows || vRows.length === 0) {
+          // Put the activity back rather than leave it on a different day from its
+          // visit — My Visits reads the visit for status, so a split would make the
+          // activity look like it had moved and vanished at the same time.
+          await supabase
+            .from('activity_events')
+            .update({
+              activity_date: existing.activity_date,
+              from_date:     existing.from_date,
+              to_date:       existing.to_date,
+              duration_type: existing.duration_type,
+            } as any)
+            .eq('id', activityId);
+          throw new Error(
+            vErr?.message ?? 'You do not have permission to move the visit for this activity',
+          );
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[useActivityEvents] updateActivity:', err);
+      throw err;
+    }
+  };
+
   const updateActivityLocation = async (
     activityId: string,
     updates: {
@@ -363,6 +465,7 @@ export const useActivityEvents = () => {
     updateActivityLocation,
     updateVisitCheckOut,
     clearCache,
+    updateActivity,
   };
 };
 

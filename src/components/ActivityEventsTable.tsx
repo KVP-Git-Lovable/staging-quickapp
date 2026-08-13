@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Clock, MapPin, MessageSquare, Loader2, Play, CheckCircle2, Navigation, Timer, IndianRupee, ShoppingCart, Package, BarChart3 } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, MessageSquare, Loader2, Play, CheckCircle2, Navigation, Timer, IndianRupee, ShoppingCart, Package, BarChart3, Pencil } from 'lucide-react';
 import { useActivityEvents, ActivityEvent, formatActivityDuration } from '@/hooks/useActivityEvents';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -21,6 +21,8 @@ interface ActivityEventsTableProps {
     activity: ActivityEvent,
     visitStatus?: { status: string | null; check_in_time: string | null; check_out_time: string | null } | null,
   ) => void;
+  /** Opens the scheduling dialog in edit mode for a not-yet-started activity. */
+  onEditActivity?: (activity: ActivityEvent) => void;
 }
 
 interface VisitStatus {
@@ -62,7 +64,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   },
 };
 
-export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, onActivityChanged, onOpenDetail }: ActivityEventsTableProps) => {
+export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, onActivityChanged, onOpenDetail, onEditActivity }: ActivityEventsTableProps) => {
   const { fetchActivitiesForDate, updateActivityLocation } = useActivityEvents();
   const { types: activityTypeMaster } = useActivityTypes();
   const navigate = useNavigate();
@@ -541,6 +543,24 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                       Ended: {formatTime(visitStatus!.check_out_time!)}
                     </span>
                   )}
+                </div>
+              )}
+
+              {/* Edit — deliberately NOT gated on isToday: an activity scheduled for
+                  next week is exactly the one most likely to need changing. Hidden
+                  once it has been started, because the recorded times and GPS then
+                  describe something that actually happened. */}
+              {onEditActivity && status === 'planned' && !visitStatus?.check_in_time && (
+                <div className="pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1"
+                    onClick={(e) => { e.stopPropagation(); onEditActivity(activity); }}
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Edit
+                  </Button>
                 </div>
               )}
 
