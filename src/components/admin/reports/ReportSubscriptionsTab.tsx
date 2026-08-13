@@ -53,6 +53,7 @@ interface Subscription {
   push_to_phone: boolean;
   scope: string;
   respect_hierarchy?: boolean;
+  admin_scope?: string;
   ai_enabled?: boolean;
   ai_prompt?: string | null;
   status: string;
@@ -674,6 +675,9 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [respectHierarchy, setRespectHierarchy] = useState(
     (editing?.sub as any)?.respect_hierarchy !== false
   );
+  const [adminScope, setAdminScope] = useState<string>(
+    (editing?.sub as any)?.admin_scope ?? 'global'
+  );
   const [recipientIds, setRecipientIds] = useState<string[]>(editing?.sub.recipient_user_ids ?? []);
   const [recipientMode, setRecipientMode] = useState<'named_users' | 'all_managers'>(
     ((editing?.sub as any)?.recipient_mode as any) ?? 'named_users'
@@ -768,6 +772,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             period_basis: periodBasis,
             scope: effectiveScope,
             respect_hierarchy: respectHierarchy,
+            admin_scope: adminScope,
             pdf_template: format === 'pdf' ? pdfTemplate : {},
             ai_enabled: aiEnabled,
             ai_prompt: aiEnabled ? aiPrompt.trim() : null,
@@ -803,6 +808,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
           await supabase.from('report_subscriptions').update({
             period_basis: periodBasis,
             respect_hierarchy: respectHierarchy,
+            admin_scope: adminScope,
             pdf_template: format === 'pdf' ? pdfTemplate : {},
             ai_enabled: aiEnabled,
             ai_prompt: aiEnabled ? aiPrompt.trim() : null,
@@ -954,12 +960,28 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                     </Label>
                     <p className="text-[11px] text-muted-foreground">
                       Each recipient's report covers only themselves and the people below them
-                      in the reporting tree — never a peer or a manager above them. System
-                      admins still receive the organisation-wide report.
+                      in the reporting tree — never a peer or a manager above them.
                     </p>
                   </div>
                   <Switch checked={respectHierarchy} onCheckedChange={setRespectHierarchy} />
                 </div>
+                {respectHierarchy && (
+                  <div className="rounded-lg border border-border p-3 space-y-2">
+                    <Label className="text-[12px]">System administrators receive</Label>
+                    <Select value={adminScope} onValueChange={setAdminScope}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="global">Global — the whole organisation</SelectItem>
+                        <SelectItem value="own_hierarchy">Only their own hierarchy</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] text-muted-foreground">
+                      {adminScope === 'own_hierarchy'
+                        ? 'Admins are scoped to their own reporting tree, exactly like everyone else. Use this for a "how is my team doing" report.'
+                        : 'Admins are exempt from the hierarchy rule and receive the organisation-wide report. Use this for oversight.'}
+                    </p>
+                  </div>
+                )}
                 {!respectHierarchy && (
                   <p className="text-[11px] text-amber-600 dark:text-amber-500">
                     Every recipient will see the whole organisation's data, including people
@@ -1126,7 +1148,7 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
               <div>
                 <span className="font-medium">Scope:</span>{' '}
                 {respectHierarchy
-                  ? 'per recipient — own team only (hierarchy enforced)'
+                  ? `per recipient — own team only (hierarchy enforced); admins: ${adminScope === 'own_hierarchy' ? 'own hierarchy' : 'global'}`
                   : recipientMode === 'all_managers'
                     ? 'per_recipient (locked)'
                     : `${scope} — organisation-wide, hierarchy off`}

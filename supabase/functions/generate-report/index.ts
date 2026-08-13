@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
 
   const { data: sub, error: sErr } = await admin
     .from('report_subscriptions')
-    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence, pdf_template, timezone, respect_hierarchy, ai_enabled, ai_prompt')
+    .select('id, name, report_definition_id, recipient_user_ids, recipient_mode, attachment_format, push_to_phone, scope, cadence, pdf_template, timezone, respect_hierarchy, admin_scope, ai_enabled, ai_prompt')
     .eq('id', subscription_id)
     .maybeSingle();
   if (sErr || !sub) {
@@ -148,11 +148,14 @@ Deno.serve(async (req) => {
   // With respect_hierarchy on (the default), each recipient's file is built from
   // their own slice of the employees.manager_id tree — themselves plus everyone
   // beneath them — so nobody receives data for a peer or for someone above them.
-  // System admins are exempt and keep receiving the organisation-wide file.
+  // What a System Administrator gets is the author's choice, via admin_scope:
+  //   'global'        -> the organisation-wide file (the long-standing default)
+  //   'own_hierarchy' -> their own subtree, exactly like every other recipient
   const respectHierarchy = (sub as any).respect_hierarchy !== false;
+  const adminsSeeEverything = ((sub as any).admin_scope ?? 'global') !== 'own_hierarchy';
 
   const systemAdmins = new Set<string>();
-  if (respectHierarchy && recipients.length > 0) {
+  if (respectHierarchy && adminsSeeEverything && recipients.length > 0) {
     const { data: sa, error: saErr } = await admin.rpc('report_system_admins', { p_user_ids: recipients });
     if (saErr) {
       // Fail closed: an unresolved admin list must not silently widen anyone's view.
@@ -182,6 +185,8 @@ Deno.serve(async (req) => {
   // nothing, i.e. organisation-wide) stands. A uuid => that person's subtree.
   const scopeUserFor = (rid: string): string | null => {
     if (respectHierarchy) {
+      // systemAdmins is only populated when admin_scope = 'global', so an
+      // 'own_hierarchy' subscription falls through and scopes admins by id.
       if (systemAdmins.has(rid)) return null;
       if (authorScopeUserId && authorScopeAllowed.has(rid)) return null;
       return rid;
