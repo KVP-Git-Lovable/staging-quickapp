@@ -580,6 +580,7 @@ const AppContent = () => {
         <Route path="/order-entry" element={<ProtectedRoute><OrderEntry /></ProtectedRoute>} />
         <Route path="/counter-sales" element={<ProtectedRoute><CounterSales /></ProtectedRoute>} />
         <Route path="/event-create" element={<ProtectedRoute><EventCreate /></ProtectedRoute>} />
+        <Route path="/event/:id/details" element={<ProtectedRoute><EventCreate /></ProtectedRoute>} />
         <Route path="/event/:id/orders" element={<ProtectedRoute><EventOrders /></ProtectedRoute>} />
         <Route path="/event/:id/stock" element={<ProtectedRoute><EventStockTracker /></ProtectedRoute>} />
         <Route path="/event/:id/summary" element={<ProtectedRoute><EventSummary /></ProtectedRoute>} />

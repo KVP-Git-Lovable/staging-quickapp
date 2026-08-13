@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
   ArrowLeft, CalendarIcon, Save, Navigation, X, Loader2,
@@ -31,7 +31,13 @@ interface ProfileOption { id: string; full_name: string }
 export default function EventCreate() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // Edit mode: rendered at /event/:id/details (id = visit_id, same as other event routes)
+  const { id: visitId } = useParams<{ id: string }>();
+  const isEdit = !!visitId;
   const [submitting, setSubmitting] = useState(false);
+  const [loadingEvent, setLoadingEvent] = useState(isEdit);
+  const [eventRowId, setEventRowId] = useState<string | null>(null);
+  const [pendingRepIds, setPendingRepIds] = useState<string[] | null>(null);
 
   // Basic
   const [eventName, setEventName] = useState("");
@@ -72,6 +78,69 @@ export default function EventCreate() {
     () => profiles.filter((p) => !selectedReps.some((s) => s.id === p.id)),
     [profiles, selectedReps]
   );
+
+  // Edit mode: load the event that was filled in during creation and prefill the form.
+  useEffect(() => {
+    if (!visitId) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data: ev, error } = await supabase
+          .from("activity_events")
+          .select(
+            "id,event_name,activity_name,description,comments,remarks,activity_date,from_date,to_date,start_time,end_time,activity_place,landmark,start_latitude,start_longitude,budget,sales_target,expected_footfall,sales_reps"
+          )
+          .eq("visit_id", visitId)
+          .maybeSingle();
+        if (!alive) return;
+        if (error) throw error;
+        if (!ev) {
+          toast.error("Event not found");
+          navigate(-1);
+          return;
+        }
+        setEventRowId(ev.id);
+        setEventName(ev.event_name || ev.activity_name || "");
+        // Event type was stored as the prefix of remarks ("<type> — <description>")
+        const remarkType = (ev.remarks || "").split(" — ")[0].trim();
+        setEventType(EVENT_TYPES.includes(remarkType) ? remarkType : "Others");
+        setDescription(ev.description || "");
+        setComments(ev.comments || "");
+        const fromStr = ev.from_date || ev.activity_date;
+        const toStr = ev.to_date || ev.activity_date;
+        if (fromStr) setStartDate(new Date(`${fromStr}T00:00:00`));
+        if (toStr) setEndDate(new Date(`${toStr}T00:00:00`));
+        if (ev.start_time) setStartTime(format(new Date(ev.start_time), "HH:mm"));
+        if (ev.end_time) setEndTime(format(new Date(ev.end_time), "HH:mm"));
+        setAddress(ev.activity_place || "");
+        setLandmark(ev.landmark || "");
+        setLatitude(ev.start_latitude != null ? String(ev.start_latitude) : "");
+        setLongitude(ev.start_longitude != null ? String(ev.start_longitude) : "");
+        setBudget(ev.budget != null ? String(ev.budget) : "");
+        setSalesTarget(ev.sales_target != null ? String(ev.sales_target) : "");
+        setExpectedFootfall(ev.expected_footfall || "");
+        setPendingRepIds(ev.sales_reps || []);
+      } catch (e: any) {
+        console.error(e);
+        if (alive) toast.error(e?.message || "Failed to load event");
+      } finally {
+        if (alive) setLoadingEvent(false);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visitId]);
+
+  // Resolve saved rep ids to names once profiles are available.
+  useEffect(() => {
+    if (!pendingRepIds || profiles.length === 0) return;
+    setSelectedReps(
+      pendingRepIds.map(
+        (id) => profiles.find((p) => p.id === id) || { id, full_name: "Unknown member" }
+      )
+    );
+    setPendingRepIds(null);
+  }, [pendingRepIds, profiles]);
 
   const captureLocation = async () => {
     setCapturingGPS(true);
@@ -133,6 +202,49 @@ export default function EventCreate() {
       const startDateStr = format(startDate!, "yyyy-MM-dd");
       const endDateStr = format(endDate!, "yyyy-MM-dd");
       const isMulti = startDateStr !== endDateStr;
+
+      if (isEdit) {
+        if (!eventRowId) throw new Error("Event not loaded yet");
+        const startISO = new Date(`${startDateStr}T${startTime}:00`).toISOString();
+        const endISO = new Date(`${endDateStr}T${endTime}:00`).toISOString();
+
+        const { error: uErr } = await supabase
+          .from("activity_events")
+          .update({
+            activity_name: eventName,
+            event_name: eventName,
+            description: description || null,
+            comments: comments || null,
+            duration_type: isMulti ? "multiple_days" : "hour_based",
+            activity_date: startDateStr,
+            from_date: isMulti ? startDateStr : null,
+            to_date: isMulti ? endDateStr : null,
+            total_days: isMulti
+              ? Math.max(1, Math.round((endDate!.getTime() - startDate!.getTime()) / 86400000) + 1)
+              : 1,
+            start_time: startISO,
+            end_time: endISO,
+            activity_place: address,
+            landmark: landmark || null,
+            start_latitude: latitude ? Number(latitude) : null,
+            start_longitude: longitude ? Number(longitude) : null,
+            budget: Number(budget),
+            sales_target: salesTarget ? Number(salesTarget) : null,
+            expected_footfall: expectedFootfall || null,
+            sales_reps: selectedReps.map((r) => r.id),
+            remarks: `${eventType}${description ? ` — ${description}` : ""}`,
+          } as any)
+          .eq("id", eventRowId);
+        if (uErr) throw uErr;
+
+        // Keep the linked visit's planned date in sync with the event start date.
+        await supabase.from("visits").update({ planned_date: startDateStr } as any).eq("id", visitId!);
+
+        toast.success("Event updated successfully");
+        window.dispatchEvent(new Event("visitDataChanged"));
+        navigate(-1);
+        return;
+      }
 
       // 1) create visit
       const { data: visit, error: vErr } = await supabase
@@ -208,20 +320,28 @@ export default function EventCreate() {
             </Button>
             <div className="min-w-0">
               <h1 className="text-[15px] font-semibold leading-tight tracking-tight">Event Details</h1>
-              <p className="text-[11px] text-muted-foreground leading-tight">Add event information</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                {isEdit ? "View and update event information" : "Add event information"}
+              </p>
             </div>
           </div>
           <Button
             onClick={handleSave}
-            disabled={submitting}
+            disabled={submitting || loadingEvent}
             className="h-9 px-4 rounded-lg bg-gradient-to-b from-primary to-primary/90 shadow-sm hover:shadow"
           >
             {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-            Save
+            {isEdit ? "Update" : "Save"}
           </Button>
         </div>
       </div>
 
+      {loadingEvent ? (
+        <div className="flex items-center justify-center py-24 text-muted-foreground">
+          <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+          <span className="text-sm">Loading event…</span>
+        </div>
+      ) : (
       <div className="max-w-5xl mx-auto p-4 space-y-3">
         {/* Basic Information */}
         <SectionCard icon={<Info className="h-3.5 w-3.5" />} title="Basic Information">
@@ -400,6 +520,7 @@ export default function EventCreate() {
           </div>
         </SectionCard>
       </div>
+      )}
     </div>
   );
 }

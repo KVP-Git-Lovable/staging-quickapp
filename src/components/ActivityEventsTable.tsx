@@ -302,7 +302,16 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
               <div
                 key={activity.id}
                 id={`activity-event-${activity.id}`}
-                className="rounded-2xl border bg-card p-4 hover:shadow-md transition-shadow scroll-mt-24"
+                role={activity.visit_id ? 'button' : undefined}
+                tabIndex={activity.visit_id ? 0 : undefined}
+                onClick={() => activity.visit_id && navigate(`/event/${activity.visit_id}/details`)}
+                onKeyDown={(e) => {
+                  if (activity.visit_id && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    navigate(`/event/${activity.visit_id}/details`);
+                  }
+                }}
+                className={`rounded-2xl border bg-card p-4 hover:shadow-md transition-shadow scroll-mt-24 ${activity.visit_id ? 'cursor-pointer' : ''}`}
               >
 
                 <div className="flex flex-col lg:flex-row lg:items-center gap-4">
@@ -353,7 +362,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                     <Button
                       size="sm"
                       className="h-8 text-xs gap-1"
-                      onClick={() => activity.visit_id && navigate(`/event/${activity.visit_id}/orders`)}
+                      onClick={(e) => { e.stopPropagation(); activity.visit_id && navigate(`/event/${activity.visit_id}/orders`); }}
                     >
                       <Play className="h-3.5 w-3.5" />
                       Open Event
@@ -362,7 +371,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                       size="sm"
                       variant="outline"
                       className="h-8 text-xs gap-1"
-                      onClick={() => activity.visit_id && navigate(`/event/${activity.visit_id}/stock`)}
+                      onClick={(e) => { e.stopPropagation(); activity.visit_id && navigate(`/event/${activity.visit_id}/stock`); }}
                     >
                       <Package className="h-3.5 w-3.5" />
                       Stock Tracker
@@ -371,7 +380,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                       size="sm"
                       variant="outline"
                       className="h-8 text-xs gap-1"
-                      onClick={() => activity.visit_id && navigate(`/event/${activity.visit_id}/summary`)}
+                      onClick={(e) => { e.stopPropagation(); activity.visit_id && navigate(`/event/${activity.visit_id}/summary`); }}
                     >
                       <BarChart3 className="h-3.5 w-3.5" />
                       View Summary
@@ -387,7 +396,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                         size="sm"
                         variant="secondary"
                         className="h-7 text-xs gap-1"
-                        onClick={() => handleStartActivity(activity)}
+                        onClick={(e) => { e.stopPropagation(); handleStartActivity(activity); }}
                         disabled={actionLoading === activity.id + '-start'}
                       >
                         {actionLoading === activity.id + '-start' ? (
@@ -403,7 +412,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
                         size="sm"
                         variant="secondary"
                         className="h-7 text-xs gap-1"
-                        onClick={() => handleCompleteActivity(activity)}
+                        onClick={(e) => { e.stopPropagation(); handleCompleteActivity(activity); }}
                         disabled={actionLoading === activity.id + '-complete'}
                       >
                         {actionLoading === activity.id + '-complete' ? (
