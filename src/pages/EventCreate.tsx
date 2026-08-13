@@ -27,7 +27,7 @@ import { Geolocation } from "@capacitor/geolocation";
 
 const EVENT_TYPES = ["Sales Promotion", "Awareness Campaign", "Retail Activation", "Others"];
 
-interface ProfileOption { id: string; full_name: string }
+interface ProfileOption { id: string; full_name: string; is_active?: boolean | null }
 
 export default function EventCreate() {
   const navigate = useNavigate();
@@ -67,19 +67,39 @@ export default function EventCreate() {
   // Team
   const [selectedReps, setSelectedReps] = useState<ProfileOption[]>([]);
   const [repPickerOpen, setRepPickerOpen] = useState(false);
+  // The event's own user — whoever created it. They are the one person actually
+  // attached to the event (they hold the paired visit row), so they belong in the
+  // team and cannot be taken out of it.
+  const [loadedOwnerId, setLoadedOwnerId] = useState<string | null>(null);
+  // Creating: it is you. Editing: whoever the event belongs to, which need not
+  // be you — a manager can be editing someone else's event.
+  const ownerId = isEdit ? loadedOwnerId : user?.id ?? null;
 
   const { data: profiles = [] } = useQuery({
     queryKey: ["profiles-event-team"],
     queryFn: async () => {
-      const { data } = await supabase.from("profiles").select("id, full_name").order("full_name");
+      // is_active so the picker can leave out deactivated users. They are still
+      // fetched, because one already on an event must keep showing as a chip.
+      const { data } = await supabase.from("profiles").select("id, full_name, is_active").order("full_name");
       return (data || []) as ProfileOption[];
     },
     staleTime: 5 * 60 * 1000,
   });
 
+  const owner = useMemo(
+    () => profiles.find((p) => p.id === ownerId) ?? null,
+    [profiles, ownerId]
+  );
+
   const availableReps = useMemo(
-    () => profiles.filter((p) => !selectedReps.some((s) => s.id === p.id)),
-    [profiles, selectedReps]
+    () =>
+      profiles.filter(
+        (p) =>
+          p.id !== ownerId &&
+          p.is_active !== false &&
+          !selectedReps.some((s) => s.id === p.id)
+      ),
+    [profiles, selectedReps, ownerId]
   );
 
   const captureLocation = async () => {
@@ -134,6 +154,7 @@ export default function EventCreate() {
         if (!data || cancelled) return;
         const d = data as any;
         setActivityId(d.id);
+        setLoadedOwnerId(d.user_id ?? null);
         const toDate = (v?: string | null) => (v ? new Date(`${v}T00:00:00`) : undefined);
         const toTime = (iso?: string | null) =>
           iso ? new Date(iso).toTimeString().slice(0, 5) : undefined;
@@ -158,8 +179,12 @@ export default function EventCreate() {
         }
         if (Array.isArray(d.sales_reps) && d.sales_reps.length) {
           const { data: reps } = await supabase
-            .from("profiles").select("id, full_name").in("id", d.sales_reps);
-          if (reps && !cancelled) setSelectedReps(reps as any);
+            .from("profiles").select("id, full_name, is_active").in("id", d.sales_reps);
+          // Drop the owner: they render as their own pinned chip, and older
+          // events stored them in sales_reps while newer ones did not.
+          if (reps && !cancelled) {
+            setSelectedReps((reps as ProfileOption[]).filter((r) => r.id !== d.user_id));
+          }
         }
       } catch (e: any) {
         console.error(e);
@@ -186,7 +211,7 @@ export default function EventCreate() {
     if (!address.trim()) return "Address is required";
     if (!budget || isNaN(Number(budget))) return "Budget is required and must be numeric";
     if (salesTarget && isNaN(Number(salesTarget))) return "Sales Target must be numeric";
-    if (selectedReps.length === 0) return "At least one Sales Rep is required";
+    if (!ownerId && selectedReps.length === 0) return "At least one Sales Rep is required";
     if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) return "Invalid time format";
     return null;
   };
@@ -224,7 +249,8 @@ export default function EventCreate() {
         budget: Number(budget),
         sales_target: salesTarget ? Number(salesTarget) : null,
         expected_footfall: expectedFootfall || null,
-        sales_reps: selectedReps.map((r) => r.id),
+        // Owner first, so what is stored matches what the form shows.
+        sales_reps: Array.from(new Set([...(ownerId ? [ownerId] : []), ...selectedReps.map((r) => r.id)])),
         remarks: `${eventType}${description ? ` — ${description}` : ""}`,
       };
 
@@ -467,6 +493,17 @@ export default function EventCreate() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
             <Field label="Sales Reps Involved" required>
               <div className="rounded-lg border border-border/70 bg-background min-h-9 px-2 py-1.5 flex flex-wrap gap-1.5 items-center">
+                {/* The owner, pinned first and not removable — the event is on
+                    their calendar, so they cannot be dropped from its team. */}
+                {owner && (
+                  <Badge
+                    variant="secondary"
+                    className="rounded-full px-2 py-0.5 gap-1 text-xs font-medium bg-primary/10 text-primary border-0"
+                  >
+                    {owner.full_name}
+                    <span className="text-[10px] font-normal text-primary/70">Owner</span>
+                  </Badge>
+                )}
                 {selectedReps.map((r) => (
                   <Badge
                     key={r.id}
@@ -484,7 +521,7 @@ export default function EventCreate() {
                     </button>
                   </Badge>
                 ))}
-                {selectedReps.length === 0 && (
+                {!owner && selectedReps.length === 0 && (
                   <span className="text-xs text-muted-foreground px-1">No reps selected</span>
                 )}
               </div>
