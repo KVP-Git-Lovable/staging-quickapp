@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useLineItemUom } from "@/hooks/useLineItemUom";
+import type { ProductUnit } from "@/lib/uomEngine";
 import {
   Drawer,
   DrawerContent,
@@ -657,6 +659,10 @@ function CounterCustomerCard({
                               unit: p.unit || "Unit",
                               rate: Number(p.rate) || 0,
                               original_rate: Number(p.rate) || 0,
+                              catalog_rate: Number(p.rate) || 0,
+                              uom_id: null,
+                              uom_code: null,
+                              conversion_to_base: null,
                             })
                           }
                           onEnter={() => {
@@ -664,22 +670,11 @@ function CounterCustomerCard({
                           }}
                         />
                       </div>
-                      <Select
-                        value={item.unit}
+                      <CounterUomSelect
+                        item={item}
                         disabled={locked}
-                        onValueChange={(v) => onUpdateItem(item.uid, { unit: v })}
-                      >
-                        <SelectTrigger className="h-9 rounded-lg text-xs sm:text-sm px-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from(new Set([item.unit, ...UOM_OPTIONS])).map((u) => (
-                            <SelectItem key={u} value={u}>
-                              {u}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onPatch={(patch) => onUpdateItem(item.uid, patch)}
+                      />
                       <Input
                         type="number"
                         min={0}
@@ -710,6 +705,18 @@ function CounterCustomerCard({
                           <span>
                             SKU: <span className="font-medium text-foreground/80">{item.sku}</span>
                           </span>
+                        )}
+                        {item.product_id && (item.original_rate ?? 0) > 0 && (
+                          <>
+                            {item.sku && <span className="opacity-40">|</span>}
+                            <span>
+                              Price:{" "}
+                              <span className="font-medium text-foreground/80">
+                                {format(Number(item.original_rate) || 0)}
+                                {item.uom_code ? ` / ${item.uom_code}` : ""}
+                              </span>
+                            </span>
+                          </>
                         )}
                         {mrp && (
                           <>
@@ -1222,6 +1229,12 @@ interface CounterLineItem {
   discount: number;
   tax_rate: number;
   original_rate?: number;
+  // UOM-master snapshot (mirrors order entry). catalog_rate is the product's
+  // price at its price-basis unit, kept so unit switches can rescale the rate.
+  uom_id?: string | null;
+  uom_code?: string | null;
+  conversion_to_base?: number | null;
+  catalog_rate?: number;
 }
 
 type RowStatus = "draft" | "saved" | "submitted";
@@ -1248,7 +1261,121 @@ interface CounterRow {
 }
 
 const DRAFT_KEY = "counter_sales_draft_v1";
+// Legacy fallback only — used when a product has no UOM-master mappings.
 const UOM_OPTIONS = ["Pcs", "Box", "Bag", "Kg", "Ltr", "Pkt", "Carton", "Dozen"];
+
+// ===================================================================
+// UOM-MASTER UNIT SELECT — mirrors the order entry page: options come
+// from product_uom_mapping (context "sales"), the default sales unit is
+// auto-applied on product pick, and switching units rescales rate and
+// quantity via the conversion factors. Falls back to the legacy static
+// list for products with no mapped units.
+// ===================================================================
+function CounterUomSelect({
+  item,
+  disabled,
+  onPatch,
+}: {
+  item: CounterLineItem;
+  disabled?: boolean;
+  onPatch: (patch: Partial<CounterLineItem>) => void;
+}) {
+  const { loading, activeUnits, defaultUnit, priceBasisUnit } = useLineItemUom(
+    item.product_id || null,
+    "sales"
+  );
+  const mapped = activeUnits.length > 0;
+
+  const patchFor = (u: ProductUnit): Partial<CounterLineItem> => {
+    const priceBasisConv = priceBasisUnit?.conversionToBase || 1;
+    const factor = priceBasisConv > 0 ? u.conversionToBase / priceBasisConv : 1;
+    const catalog = item.catalog_rate ?? item.original_rate ?? item.rate ?? 0;
+    const newRate = +(catalog * factor).toFixed(2);
+    // Convert the entered quantity into the new unit (like order entry).
+    let quantity = item.quantity;
+    const oldConv = item.conversion_to_base;
+    if (oldConv && u.conversionToBase > 0 && quantity > 0) {
+      quantity = +((quantity * oldConv) / u.conversionToBase).toFixed(3);
+    }
+    return {
+      unit: u.code,
+      uom_id: u.uomId,
+      uom_code: u.code,
+      conversion_to_base: u.conversionToBase,
+      rate: newRate,
+      original_rate: newRate,
+      quantity,
+    };
+  };
+
+  // Auto-apply the default sales UOM once units load and the item's current
+  // unit isn't one of the product's mapped units (order-entry behavior).
+  useEffect(() => {
+    if (!item.product_id || loading || !mapped || !defaultUnit) return;
+    const match = activeUnits.find((u) => u.code === item.unit || u.name === item.unit);
+    if (!match) {
+      onPatch(patchFor(defaultUnit));
+    } else if (!item.uom_id) {
+      onPatch({
+        unit: match.code,
+        uom_id: match.uomId,
+        uom_code: match.code,
+        conversion_to_base: match.conversionToBase,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.product_id, loading, mapped, defaultUnit?.code, item.unit]);
+
+  if (!mapped) {
+    // Legacy product (no UOM mappings) or no product picked yet.
+    return (
+      <Select
+        value={item.unit}
+        disabled={disabled || loading}
+        onValueChange={(v) => onPatch({ unit: v, uom_id: null, uom_code: null, conversion_to_base: null })}
+      >
+        <SelectTrigger className="h-9 rounded-lg text-xs sm:text-sm px-2">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Array.from(new Set([item.unit, ...UOM_OPTIONS])).map((u) => (
+            <SelectItem key={u} value={u}>
+              {u}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  const selectedCode =
+    activeUnits.find((u) => u.code === item.unit || u.name === item.unit)?.code ||
+    defaultUnit?.code ||
+    "";
+
+  return (
+    <Select
+      value={selectedCode}
+      disabled={disabled}
+      onValueChange={(code) => {
+        const u = activeUnits.find((x) => x.code === code);
+        if (u) onPatch(patchFor(u));
+      }}
+    >
+      <SelectTrigger className="h-9 rounded-lg text-xs sm:text-sm px-2">
+        <SelectValue placeholder="Unit" />
+      </SelectTrigger>
+      <SelectContent>
+        {activeUnits.map((u) => (
+          <SelectItem key={u.uomId} value={u.code}>
+            {u.code}
+            {u.isBase ? " (base)" : ""}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 const TAX_OPTIONS = [0, 5, 12, 18, 28];
 
 const newItem = (): CounterLineItem => ({
@@ -1730,6 +1857,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       payment_proof_url: paymentProofUrl || null,
       upi_last_four_code: row.paymentMethod === "upi" ? row.upiLastFourCode || null : null,
       idempotency_key: `counter_${user.id}_${row.uid}_${Date.now()}`,
+      sales_channel: eventContext?.visitId ? "event" : "counter",
       ...(eventContext?.visitId ? { visit_id: eventContext.visitId } : {}),
     };
     const items = filledItems.map((i) => ({
@@ -1745,6 +1873,9 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       hsn_code: null,
       sgst_amount: 0,
       cgst_amount: 0,
+      uom_id: i.uom_id || null,
+      uom_code: i.uom_code || i.unit || null,
+      conversion_to_base: i.conversion_to_base || null,
     }));
     try {
       const res = await submitOrderWithOfflineSupport(orderData, items, {
@@ -1911,6 +2042,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         payment_proof_url: paymentProofUrl || null,
         upi_last_four_code: r.paymentMethod === "upi" ? r.upiLastFourCode || null : null,
         idempotency_key: `counter_${user.id}_${r.uid}_${Date.now()}`,
+        sales_channel: eventContext?.visitId ? "event" : "counter",
         ...(eventContext?.visitId ? { visit_id: eventContext.visitId } : {}),
       };
       const items = filledItems.map((i) => ({
@@ -1926,6 +2058,9 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         hsn_code: null,
         sgst_amount: 0,
         cgst_amount: 0,
+        uom_id: i.uom_id || null,
+        uom_code: i.uom_code || i.unit || null,
+        conversion_to_base: i.conversion_to_base || null,
       }));
       try {
         const res = await submitOrderWithOfflineSupport(orderData, items, {
