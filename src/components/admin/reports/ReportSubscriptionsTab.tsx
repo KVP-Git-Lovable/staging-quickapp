@@ -639,6 +639,17 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
   const [dateFrom, setDateFrom] = useState<string>(editing?.def.config?.filters?.date_from ?? iso30);
   const [dateTo, setDateTo] = useState<string>(editing?.def.config?.filters?.date_to ?? isoToday);
   const [scopeUserId, setScopeUserId] = useState<string>(editing?.def.config?.filters?.scope_user_id ?? '');
+  // Report audience: WHOSE data appears in the report. Distinct from
+  // recipient_user_ids, which is who receives it. Empty array = existing
+  // behaviour (everyone the scope allows).
+  const [audienceUserIds, setAudienceUserIds] = useState<string[]>(
+    Array.isArray(editing?.def.config?.filters?.audience_user_ids)
+      ? editing!.def.config.filters.audience_user_ids as string[]
+      : []
+  );
+  const [excludeInactive, setExcludeInactive] = useState<boolean>(
+    editing?.def.config?.filters?.exclude_inactive === true
+  );
   const [distributorId, setDistributorId] = useState<string>(editing?.def.config?.filters?.distributor_id ?? '');
 
 
@@ -745,6 +756,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
           date_to: dateTo,
           scope_user_id: scopeUserId || null,
           distributor_id: distributorId || null,
+          audience_user_ids: audienceUserIds.length ? audienceUserIds : null,
+          exclude_inactive: excludeInactive || null,
           sort_key: sortKey || null,
           sort_dir: sortKey ? sortDir : null,
         },
@@ -854,6 +867,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
             dateFrom={dateFrom} setDateFrom={setDateFrom}
             dateTo={dateTo} setDateTo={setDateTo}
             scopeUserId={scopeUserId} setScopeUserId={setScopeUserId}
+            audienceUserIds={audienceUserIds} setAudienceUserIds={setAudienceUserIds}
+            excludeInactive={excludeInactive} setExcludeInactive={setExcludeInactive}
             distributorId={distributorId} setDistributorId={setDistributorId}
             sortKey={sortKey} setSortKey={setSortKey}
             sortDir={sortDir} setSortDir={setSortDir}
@@ -944,6 +959,8 @@ function SubscriptionWizard({ datasets, editing, onClose, onSaved }: WizardProps
                       date_to: dateTo,
                       scope_user_id: scopeUserId || null,
                       distributor_id: distributorId || null,
+                      audience_user_ids: audienceUserIds.length ? audienceUserIds : null,
+                      exclude_inactive: excludeInactive || null,
                       sort_key: sortKey || null,
                       sort_dir: sortKey ? sortDir : null,
                     }}
@@ -1229,6 +1246,8 @@ interface Step1Props {
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
   scopeUserId: string; setScopeUserId: (v: string) => void;
+  audienceUserIds: string[]; setAudienceUserIds: React.Dispatch<React.SetStateAction<string[]>>;
+  excludeInactive: boolean; setExcludeInactive: (v: boolean) => void;
   distributorId: string; setDistributorId: (v: string) => void;
   sortKey: string; setSortKey: (v: string) => void;
   sortDir: 'asc' | 'desc'; setSortDir: (v: 'asc' | 'desc') => void;
@@ -1380,6 +1399,8 @@ function Step1Body(p: Step1Props) {
           date_to: debounced.dateTo,
           scope_user_id: debounced.scopeUserId || null,
           distributor_id: debounced.distributorId || null,
+          audience_user_ids: p.audienceUserIds?.length ? p.audienceUserIds : null,
+          exclude_inactive: p.excludeInactive || null,
           sort_key: debounced.sortKey || null,
           sort_dir: debounced.sortKey ? debounced.sortDir : null,
         },
@@ -1508,6 +1529,8 @@ function Step1Body(p: Step1Props) {
                   dateFrom={dateFrom} setDateFrom={p.setDateFrom}
                   dateTo={dateTo} setDateTo={p.setDateTo}
                   scopeUserId={scopeUserId} setScopeUserId={p.setScopeUserId}
+                  audienceUserIds={p.audienceUserIds} setAudienceUserIds={p.setAudienceUserIds}
+                  excludeInactive={p.excludeInactive} setExcludeInactive={p.setExcludeInactive}
                   scopeOptions={scopeOptions} scopeLabel={scopeLabel}
                   distributorId={distributorId} setDistributorId={p.setDistributorId}
                   distributors={distributors}
@@ -1803,12 +1826,16 @@ function EmptyChip({ text }: { text: string }) {
   return <span className="text-[11px] text-muted-foreground/60 italic px-2 py-1">{text}</span>;
 }
 
-function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel, distributorId, setDistributorId, distributors, showDistributor, sortKey, setSortKey, sortDir, setSortDir, sortOptions }: {
+function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, setScopeUserId, scopeOptions, scopeLabel, audienceUserIds, setAudienceUserIds, excludeInactive, setExcludeInactive, distributorId, setDistributorId, distributors, showDistributor, sortKey, setSortKey, sortDir, setSortDir, sortOptions }: {
   dateFrom: string; setDateFrom: (v: string) => void;
   dateTo: string; setDateTo: (v: string) => void;
   scopeUserId: string; setScopeUserId: (v: string) => void;
   scopeOptions: Array<{ id: string; label: string; level: number }>;
   scopeLabel: string;
+  audienceUserIds?: string[];
+  setAudienceUserIds?: React.Dispatch<React.SetStateAction<string[]>>;
+  excludeInactive?: boolean;
+  setExcludeInactive?: (v: boolean) => void;
   distributorId?: string; setDistributorId?: (v: string) => void;
   distributors?: Array<{ id: string; name: string }>;
   showDistributor?: boolean;
@@ -1866,6 +1893,69 @@ function FiltersPanel({ dateFrom, setDateFrom, dateTo, setDateTo, scopeUserId, s
           </SelectContent>
         </Select>
       </div>
+      {setAudienceUserIds && (
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 flex items-center gap-1">
+            <Users className="h-3 w-3" /> Report audience
+          </div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="h-8 w-full justify-between text-xs font-normal">
+                <span className="truncate">
+                  {(audienceUserIds?.length ?? 0) === 0
+                    ? 'All users in scope'
+                    : `${audienceUserIds!.length} user${audienceUserIds!.length === 1 ? '' : 's'} selected`}
+                </span>
+                <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-0" align="start">
+              <div className="flex items-center justify-between border-b px-3 py-2">
+                <span className="text-[11px] text-muted-foreground">
+                  {(audienceUserIds?.length ?? 0) === 0 ? 'No filter applied' : `${audienceUserIds!.length} of ${scopeOptions.length}`}
+                </span>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]"
+                    onClick={() => setAudienceUserIds(scopeOptions.map(o => o.id))}>Select all</Button>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-[11px]"
+                    onClick={() => setAudienceUserIds([])}>Clear</Button>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto p-1">
+                {scopeOptions.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">No users available</div>
+                ) : scopeOptions.map(o => {
+                  const checked = audienceUserIds?.includes(o.id) ?? false;
+                  return (
+                    <label key={o.id}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted/60">
+                      <Checkbox checked={checked}
+                        onCheckedChange={(v) => setAudienceUserIds(prev =>
+                          v ? Array.from(new Set([...prev, o.id])) : prev.filter(x => x !== o.id))} />
+                      <span className="text-xs" style={{ paddingLeft: `${Math.max(0, o.level - 1) * 8}px` }}>{o.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <p className="mt-1 text-[10px] text-muted-foreground">
+            Leave empty to include everyone the scope above allows.
+          </p>
+          {setExcludeInactive && (
+            <label className="mt-2 flex cursor-pointer items-start gap-2">
+              <Checkbox checked={!!excludeInactive}
+                onCheckedChange={(v) => setExcludeInactive(v === true)} className="mt-0.5" />
+              <span className="text-[11px] leading-snug">
+                Exclude inactive users
+                <span className="block text-muted-foreground">
+                  Checked at each run, so anyone deactivated later drops out on their own.
+                </span>
+              </span>
+            </label>
+          )}
+        </div>
+      )}
       {setSortKey && setSortDir && (sortOptions?.length ?? 0) > 0 && (
         <div>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium mb-1.5 flex items-center gap-1">

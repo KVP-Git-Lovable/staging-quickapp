@@ -1,0 +1,17 @@
+-- Report audience control: which users' data appears in a report.
+--
+-- Distinct from report_subscriptions.recipient_user_ids, which is who RECEIVES
+-- the report. This is who the report is ABOUT.
+--
+-- Stored in report_definitions.config.filters beside the existing scope_user_id
+-- and distributor_id, so generate-report carries it through with NO code change
+-- (callRpc already merges config.filters into p_filters verbatim):
+--
+--   "audience_user_ids": ["uuid", ...]   -- empty/absent => existing behaviour
+--   "exclude_inactive":  true            -- evaluated at generation time
+--
+-- SECURITY: report_apply_audience can only ever NARROW the set handed to it. Each
+-- RPC resolves the hierarchy scope first; the audience list is then intersected
+-- with it. A report author therefore cannot widen what a recipient sees.
+-- (function bodies as applied — see migrations report_audience_filter_helper,
+-- report_audience_fix_empty_intersection and report_rpcs_apply_audience_filter)
