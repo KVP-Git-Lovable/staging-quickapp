@@ -1554,7 +1554,10 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
           .neq("status", "cancelled")
           .order("created_at", { ascending: true });
         if (eventContext?.visitId) {
-          query = query.eq("visit_id", eventContext.visitId);
+          // Own entries only. Three reps can be billing the same stall at once,
+          // and this tab is the one you keep adding to — it must not fill up
+          // with rows you cannot edit. The whole team's orders are on Summary.
+          query = query.eq("visit_id", eventContext.visitId).eq("user_id", user.id);
         } else {
           // Regular counter sales: restore TODAY's counter orders for this user
           const today = getLocalTodayDate();

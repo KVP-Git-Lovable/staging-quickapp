@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { fetchEventByRouteId } from "@/lib/eventLookup";
 import CounterSales, { type EventContext } from "./CounterSales";
 
 export default function EventOrders() {
@@ -12,12 +12,12 @@ export default function EventOrders() {
   useEffect(() => {
     (async () => {
       if (!id) return;
-      const { data } = await supabase
-        .from("activity_events")
-        .select("activity_name, event_name, activity_date, start_time, end_time, activity_place")
-        .eq("visit_id", id)
-        .maybeSingle();
-      const a: any = data || {};
+      const data = await fetchEventByRouteId(
+        id,
+        "activity_name, event_name, activity_date, start_time, end_time, activity_place"
+      );
+      if (!data) { setLoading(false); return; }
+      const a: any = data;
       const fmtTime = (iso?: string | null) =>
         iso
           ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -32,7 +32,9 @@ export default function EventOrders() {
       const timeRange = [fmtTime(a.start_time), fmtTime(a.end_time)].filter(Boolean).join(" – ");
       const eventDate = [date, timeRange].filter(Boolean).join(", ");
       setCtx({
-        visitId: id,
+        // The EVENT's visit, not the route id — a rep opening their own visit
+        // must still write orders onto the event.
+        visitId: a.visit_id ?? id,
         eventName: a.event_name || a.activity_name || "Event",
         eventDate,
         location: a.activity_place || undefined,

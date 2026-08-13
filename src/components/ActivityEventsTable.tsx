@@ -84,6 +84,9 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
   const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [visitStatuses, setVisitStatuses] = useState<Record<string, VisitStatus>>({});
   const [eventTotals, setEventTotals] = useState<Record<string, { revenue: number; orders: number }>>({});
+  // event id -> the viewer's own visit row for it. Check-in, check-out and
+  // Complete all act on this, never on the event's shared visit.
+  const [myVisitIds, setMyVisitIds] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -104,27 +107,52 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
       setActivities(data);
       onActivitiesLoadedRef.current?.(data.length);
 
-      // Fetch visit statuses
+      // Fetch visit statuses.
+      //
+      // Two different visit ids are in play on a team event and mixing them up
+      // is the easy mistake here. `activity.visit_id` is the EVENT's visit —
+      // orders and totals hang off it and it is shared by the whole team. But
+      // check-in/check-out is per person: each rep has their own visit row for
+      // the event, so reading status off the shared id would show every rep the
+      // owner's progress. Status is keyed on the viewer's own row.
       const visitIds = data.map(a => a.visit_id).filter(Boolean);
+      const eventIds = data.map(a => a.id).filter(Boolean);
       if (visitIds.length > 0) {
         const { data: visits } = await supabase
           .from('visits')
-          .select('id, check_in_time, check_out_time, status')
-          .in('id', visitIds);
+          .select('id, check_in_time, check_out_time, status, activity_event_id')
+          .or(
+            [
+              `id.in.(${visitIds.join(',')})`,
+              ...(eventIds.length ? [`activity_event_id.in.(${eventIds.join(',')})`] : []),
+            ].join(',')
+          )
+          .eq('user_id', userId);
 
         if (visits) {
           const map: Record<string, VisitStatus> = {};
+          const mine: Record<string, string> = {};
           visits.forEach(v => {
-            map[v.id] = {
+            const st = {
               check_in_time: v.check_in_time,
               check_out_time: v.check_out_time,
               status: v.status,
             };
+            map[v.id] = st;
+            // Also file it under the event, so a participant whose own visit id
+            // differs from the event's still finds their own status.
+            if ((v as any).activity_event_id) {
+              map[(v as any).activity_event_id] = st;
+              mine[(v as any).activity_event_id] = v.id;
+            }
           });
           setVisitStatuses(map);
+          setMyVisitIds(mine);
         }
 
-        // Fetch real revenue/order totals per visit (events)
+        // Totals for the whole event, every team member's orders included —
+        // these are keyed on the event's shared visit id, so all three reps see
+        // the same figure on their card.
         const { data: orderRows } = await supabase
           .from('orders')
           .select('visit_id, total_amount, status')
@@ -182,8 +210,15 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
     }
   };
 
+  // The viewer's OWN visit row for this activity. On a team event that is not
+  // activity.visit_id — that one belongs to the owner and is shared for orders.
+  // Starting or completing through it would check the owner in instead.
+  const myVisitFor = (activity: ActivityEvent): string | null =>
+    myVisitIds[activity.id] ?? activity.visit_id ?? null;
+
   const handleStartActivity = async (activity: ActivityEvent) => {
-    if (!activity.visit_id) return;
+    const myVisitId = myVisitFor(activity);
+    if (!myVisitId) return;
     setActionLoading(activity.id + '-start');
     try {
       const now = new Date().toISOString();
@@ -196,7 +231,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
           check_in_time: now, 
           status: 'in-progress',
         } as any)
-        .eq('id', activity.visit_id);
+        .eq('id', myVisitId);
 
       if (visitError) throw visitError;
 
@@ -219,8 +254,9 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
   };
 
   const handleCompleteActivity = (activity: ActivityEvent) => {
-    if (!activity.visit_id) return;
-    setCompletionTarget({ id: activity.id, visitId: activity.visit_id });
+    const myVisitId = myVisitFor(activity);
+    if (!myVisitId) return;
+    setCompletionTarget({ id: activity.id, visitId: myVisitId });
   };
 
 
@@ -239,7 +275,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
   };
 
   const getActivityStatus = (activity: ActivityEvent): string => {
-    const visit = activity.visit_id ? visitStatuses[activity.visit_id] : null;
+    const visit = visitStatuses[activity.id] ?? (activity.visit_id ? visitStatuses[activity.visit_id] : null);
     if (!visit) return 'planned';
     if (visit.status === 'productive' || visit.check_out_time) return 'productive';
     if (visit.status === 'in-progress' || visit.check_in_time) return 'in-progress';
@@ -265,7 +301,7 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
       </CardHeader>
       <CardContent className="px-4 pb-3 space-y-2">
         {activities.map((activity) => {
-          const visitStatus = activity.visit_id ? visitStatuses[activity.visit_id] : null;
+          const visitStatus = visitStatuses[activity.id] ?? (activity.visit_id ? visitStatuses[activity.visit_id] : null);
           const status = getActivityStatus(activity);
           const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.planned;
           const StatusIcon = statusConfig.icon;
@@ -295,7 +331,11 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
               status === 'productive' ? 'Completed' : status === 'in-progress' ? 'Active' : 'Upcoming';
             // Drives both the button and the Open Event column span, so the grid
             // never leaves a half-width orphan on a phone.
-            const showEdit = !!canEditEvent && status !== 'productive';
+            // Owner only. An assigned rep works the event but does not get to
+            // rename or re-date it — and the RLS update policy would refuse
+            // them anyway, so showing the button would only produce an error.
+            const isOwner = !activity.user_id || activity.user_id === userId;
+            const showEdit = !!canEditEvent && isOwner && status !== 'productive';
             const totals = activity.visit_id ? eventTotals[activity.visit_id] : undefined;
             const revenue = totals?.revenue || 0;
             const orderCount = totals?.orders || 0;

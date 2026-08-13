@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Plus, Loader2, Trash2, Package, IndianRupee, MapPin, Calendar, Save, Search, ChevronDown, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchEventByRouteId } from "@/lib/eventLookup";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -118,11 +119,10 @@ export default function EventStockTracker() {
     (async () => {
       if (!id || !user?.id) return;
       setLoading(true);
-      const { data: evData } = await supabase
-        .from("activity_events")
-        .select("id,event_name,activity_name,activity_date,from_date,to_date,total_days,activity_place")
-        .eq("visit_id", id)
-        .maybeSingle();
+      const evData = await fetchEventByRouteId(
+        id,
+        "id,visit_id,event_name,activity_name,activity_date,from_date,to_date,total_days,activity_place"
+      );
       if (!evData) { toast.error("Event not found"); setLoading(false); return; }
       const ev = evData as EventInfo;
       setEvent(ev);

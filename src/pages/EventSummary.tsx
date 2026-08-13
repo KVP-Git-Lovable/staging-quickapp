@@ -5,6 +5,7 @@ import {
   Download, Play, BarChart3, Calendar, Clock, MapPin, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchEventByRouteId } from "@/lib/eventLookup";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -93,19 +94,22 @@ export default function EventSummary() {
     (async () => {
       setLoading(true);
       try {
-        const { data: ev } = await supabase
-          .from("activity_events")
-          .select("id,visit_id,event_name,activity_name,activity_type,activity_date,from_date,to_date,start_time,end_time,activity_place")
-          .eq("visit_id", id)
-          .maybeSingle();
+        const ev = await fetchEventByRouteId(
+          id,
+          "id,visit_id,event_name,activity_name,activity_type,activity_date,from_date,to_date,start_time,end_time,activity_place"
+        );
         if (!alive) return;
         if (!ev) { toast.error("Event not found"); setLoading(false); return; }
         setEvent(ev as EventInfo);
 
+        // Deliberately NOT filtered by user: Summary is the team view, showing
+        // what everyone working the event has taken. Keyed on the event's own
+        // visit id so a participant opening it through their own visit still
+        // sees the whole event.
         const { data: ordRows } = await supabase
           .from("orders")
-          .select("id,total_amount,retailer_id,retailer_name,counter_customer_id,order_date,created_at,status")
-          .eq("visit_id", id)
+          .select("id,total_amount,retailer_id,retailer_name,counter_customer_id,order_date,created_at,status,user_id")
+          .eq("visit_id", (ev as any).visit_id ?? id)
           .order("created_at", { ascending: true });
         const ords = (ordRows || []) as OrderRow[];
         if (!alive) return;

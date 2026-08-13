@@ -32,7 +32,7 @@ export function useActivityVisits(userId: string | undefined, date: string | und
     try {
       const { data: visits, error } = await supabase
         .from('visits')
-        .select('id, planned_date, check_in_time, check_out_time, status, visit_type')
+        .select('id, planned_date, check_in_time, check_out_time, status, visit_type, activity_event_id')
         .eq('user_id', userId)
         .eq('planned_date', date)
         .eq('visit_type', 'activity')
@@ -44,19 +44,35 @@ export function useActivityVisits(userId: string | undefined, date: string | und
         return;
       }
 
+      // Two ways a visit reaches its event. The owner's visit is named by
+      // activity_events.visit_id; an assigned rep has their own visit row that
+      // points at the event instead. Both must resolve, or the event simply
+      // never appears for the rep.
       const visitIds = visits.map(v => v.id);
+      const eventIds = Array.from(
+        new Set(visits.map((v: any) => v.activity_event_id).filter(Boolean))
+      );
       const { data: events } = await supabase
         .from('activity_events')
         .select('*')
-        .in('visit_id', visitIds)
+        .or(
+          [
+            `visit_id.in.(${visitIds.join(',')})`,
+            ...(eventIds.length ? [`id.in.(${eventIds.join(',')})`] : []),
+          ].join(',')
+        )
         .limit(500);
 
       const byVisit = new Map<string, any>();
-      (events || []).forEach(e => { if (e.visit_id) byVisit.set(e.visit_id, e); });
+      const byEventId = new Map<string, any>();
+      (events || []).forEach(e => {
+        if (e.visit_id) byVisit.set(e.visit_id, e);
+        if (e.id) byEventId.set(e.id, e);
+      });
 
       const rows: ActivityVisitCardModel[] = visits
         .map(v => {
-          const ev = byVisit.get(v.id);
+          const ev = byVisit.get(v.id) ?? byEventId.get((v as any).activity_event_id);
           if (!ev) return null;
           return {
             visitId: v.id,

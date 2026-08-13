@@ -283,6 +283,18 @@ export default function EventCreate() {
           }
         }
 
+        // Staff the event: creates a visit row for anyone newly assigned, and
+        // moves the team's rows if the date changed. Must run server-side —
+        // visits_insert requires auth.uid() = user_id, so this session cannot
+        // write onto another rep's calendar directly.
+        const { error: syncErr } = await supabase.rpc("event_sync_participants", {
+          p_event_id: activityId!,
+        } as any);
+        if (syncErr) {
+          console.error("[EventCreate] participant sync failed:", syncErr);
+          toast.warning("Event saved, but the team could not be updated. Reopen and save again.");
+        }
+
         toast.success("Event updated");
         window.dispatchEvent(new Event("visitDataChanged"));
         navigate("/visits/retailers");
@@ -303,14 +315,27 @@ export default function EventCreate() {
       if (vErr) throw vErr;
 
       // 2) create activity_event
-      const { error: aErr } = await supabase.from("activity_events").insert({
-        visit_id: visit.id,
-        user_id: user.id,
-        ...payload,
-      } as any);
+      const { data: created, error: aErr } = await supabase
+        .from("activity_events")
+        .insert({
+          visit_id: visit.id,
+          user_id: user.id,
+          ...payload,
+        } as any)
+        .select("id")
+        .maybeSingle();
       if (aErr) {
         await supabase.from("visits").delete().eq("id", visit.id);
         throw aErr;
+      }
+
+      // Same sync on create, so reps assigned up front get the event straight
+      // away rather than only after the first edit.
+      if (created?.id) {
+        const { error: syncErr } = await supabase.rpc("event_sync_participants", {
+          p_event_id: created.id,
+        } as any);
+        if (syncErr) console.error("[EventCreate] participant sync failed:", syncErr);
       }
 
       toast.success("Event created successfully");

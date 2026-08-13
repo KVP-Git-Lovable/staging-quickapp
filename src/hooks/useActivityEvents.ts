@@ -450,7 +450,10 @@ export const useActivityEvents = () => {
     const { data, error } = await supabase
       .from('activity_events')
       .select('*')
-      .eq('user_id', userId)
+      // Own activities, plus events this user has been assigned to. The two
+      // .or() calls are ANDed by PostgREST, giving (mine OR assigned) AND (on
+      // this date).
+      .or(`user_id.eq.${userId},sales_reps.cs.{${userId}}`)
       .or(`activity_date.eq.${date},and(from_date.lte.${date},to_date.gte.${date})`)
       .order('created_at', { ascending: false });
     if (error) { console.error('[useActivityEvents] fetchActivitiesForDate:', error); return []; }
