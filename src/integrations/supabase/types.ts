@@ -11124,6 +11124,33 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_generation_failures: {
+        Row: {
+          context: Json | null
+          failed_at: string
+          id: string
+          message: string | null
+          order_id: string | null
+          sqlstate: string | null
+        }
+        Insert: {
+          context?: Json | null
+          failed_at?: string
+          id?: string
+          message?: string | null
+          order_id?: string | null
+          sqlstate?: string | null
+        }
+        Update: {
+          context?: Json | null
+          failed_at?: string
+          id?: string
+          message?: string | null
+          order_id?: string | null
+          sqlstate?: string | null
+        }
+        Relationships: []
+      }
       invoice_items: {
         Row: {
           cgst_amount: number | null
@@ -12107,6 +12134,51 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_ai_log: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          dataset_key: string | null
+          duration_ms: number | null
+          error: string | null
+          id: string
+          model: string | null
+          notification_id: string | null
+          row_count: number | null
+          rule_id: string | null
+          scope_user_id: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          dataset_key?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          model?: string | null
+          notification_id?: string | null
+          row_count?: number | null
+          rule_id?: string | null
+          scope_user_id?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          dataset_key?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          model?: string | null
+          notification_id?: string | null
+          row_count?: number | null
+          rule_id?: string | null
+          scope_user_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       notification_event_log: {
         Row: {
           actor_user_id: string | null
@@ -12193,6 +12265,11 @@ export type Database = {
       }
       notification_rules: {
         Row: {
+          ai_dataset_key: string | null
+          ai_enabled: boolean
+          ai_lookback_days: number
+          ai_prompt: string | null
+          ai_scope: string
           created_at: string
           created_by: string | null
           event_code: string
@@ -12212,6 +12289,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_dataset_key?: string | null
+          ai_enabled?: boolean
+          ai_lookback_days?: number
+          ai_prompt?: string | null
+          ai_scope?: string
           created_at?: string
           created_by?: string | null
           event_code: string
@@ -12231,6 +12313,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_dataset_key?: string | null
+          ai_enabled?: boolean
+          ai_lookback_days?: number
+          ai_prompt?: string | null
+          ai_scope?: string
           created_at?: string
           created_by?: string | null
           event_code?: string
@@ -12249,7 +12336,15 @@ export type Database = {
           title_template?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notification_rules_ai_dataset_key_fkey"
+            columns: ["ai_dataset_key"]
+            isOneToOne: false
+            referencedRelation: "reportable_datasets"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -16491,6 +16586,57 @@ export type Database = {
           },
         ]
       }
+      product_scheme_audit: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          applicability_type: string | null
+          changed_fields: string[] | null
+          created_at: string
+          discount_amount: number | null
+          discount_percentage: number | null
+          id: string
+          is_active: boolean | null
+          new_row: Json | null
+          old_row: Json | null
+          scheme_id: string | null
+          scheme_name: string | null
+          scheme_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          applicability_type?: string | null
+          changed_fields?: string[] | null
+          created_at?: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          id?: string
+          is_active?: boolean | null
+          new_row?: Json | null
+          old_row?: Json | null
+          scheme_id?: string | null
+          scheme_name?: string | null
+          scheme_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          applicability_type?: string | null
+          changed_fields?: string[] | null
+          created_at?: string
+          discount_amount?: number | null
+          discount_percentage?: number | null
+          id?: string
+          is_active?: boolean | null
+          new_row?: Json | null
+          old_row?: Json | null
+          scheme_id?: string | null
+          scheme_name?: string | null
+          scheme_type?: string | null
+        }
+        Relationships: []
+      }
       product_schemes: {
         Row: {
           ai_suggestion_id: string | null
@@ -16503,6 +16649,7 @@ export type Database = {
           category_id: string | null
           condition_quantity: number | null
           created_at: string
+          created_by: string | null
           current_usage_count: number | null
           description: string | null
           discount_amount: number | null
@@ -16533,6 +16680,7 @@ export type Database = {
           target_product_ids: string[] | null
           tier_data: Json | null
           updated_at: string
+          updated_by: string | null
           validity_days: number | null
           variant_id: string | null
         }
@@ -16547,6 +16695,7 @@ export type Database = {
           category_id?: string | null
           condition_quantity?: number | null
           created_at?: string
+          created_by?: string | null
           current_usage_count?: number | null
           description?: string | null
           discount_amount?: number | null
@@ -16577,6 +16726,7 @@ export type Database = {
           target_product_ids?: string[] | null
           tier_data?: Json | null
           updated_at?: string
+          updated_by?: string | null
           validity_days?: number | null
           variant_id?: string | null
         }
@@ -16591,6 +16741,7 @@ export type Database = {
           category_id?: string | null
           condition_quantity?: number | null
           created_at?: string
+          created_by?: string | null
           current_usage_count?: number | null
           description?: string | null
           discount_amount?: number | null
@@ -16621,6 +16772,7 @@ export type Database = {
           target_product_ids?: string[] | null
           tier_data?: Json | null
           updated_at?: string
+          updated_by?: string | null
           validity_days?: number | null
           variant_id?: string | null
         }
@@ -21660,6 +21812,30 @@ export type Database = {
           },
         ]
       }
+      report_delivery_claims: {
+        Row: {
+          claimed_at: string
+          period: string
+          recipient_user_id: string
+          subscription_id: string
+          trigger_type: string
+        }
+        Insert: {
+          claimed_at?: string
+          period: string
+          recipient_user_id: string
+          subscription_id: string
+          trigger_type: string
+        }
+        Update: {
+          claimed_at?: string
+          period?: string
+          recipient_user_id?: string
+          subscription_id?: string
+          trigger_type?: string
+        }
+        Relationships: []
+      }
       report_delivery_log: {
         Row: {
           created_at: string
@@ -21712,6 +21888,9 @@ export type Database = {
       }
       report_subscriptions: {
         Row: {
+          admin_scope: string
+          ai_enabled: boolean
+          ai_prompt: string | null
           attachment_format: string
           cadence: string
           created_at: string
@@ -21736,6 +21915,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_scope?: string
+          ai_enabled?: boolean
+          ai_prompt?: string | null
           attachment_format?: string
           cadence: string
           created_at?: string
@@ -21760,6 +21942,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_scope?: string
+          ai_enabled?: boolean
+          ai_prompt?: string | null
           attachment_format?: string
           cadence?: string
           created_at?: string
@@ -28823,6 +29008,15 @@ export type Database = {
         Args: { p_source?: string }
         Returns: string
       }
+      _invoice_pad: {
+        Args: { p_value: number; p_width: number }
+        Returns: string
+      }
+      _invoice_setting: {
+        Args: { p_default: string; p_key: string }
+        Returns: string
+      }
+      _invoice_year_part: { Args: { p_on?: string }; Returns: string }
       _post_credit_note_to_ledger: {
         Args: {
           p_actor: string
@@ -28834,6 +29028,29 @@ export type Database = {
         Returns: undefined
       }
       _safe_uuid: { Args: { p: string }; Returns: string }
+      _sales_cmp_kg: {
+        Args: { p_quantity: number; p_unit: string }
+        Returns: number
+      }
+      _sales_cmp_orders: {
+        Args: {
+          p_filters?: Json
+          p_from: string
+          p_include_cancelled?: boolean
+          p_to: string
+        }
+        Returns: {
+          beat_id: string
+          credit_pending_amount: number
+          is_credit_order: boolean
+          order_date: string
+          order_id: string
+          retailer_id: string
+          status: string
+          total_amount: number
+          user_id: string
+        }[]
+      }
       activity_visit_action: {
         Args: {
           p_action: string
@@ -29078,6 +29295,10 @@ export type Database = {
       create_approval_workflow: {
         Args: { user_id_param: string }
         Returns: undefined
+      }
+      create_invoice_for_order: {
+        Args: { p_order_id: string }
+        Returns: string
       }
       create_packing_list_atomic: {
         Args: {
@@ -29839,6 +30060,22 @@ export type Database = {
           sold_qty: number
         }[]
       }
+      get_sales_comparison_detail: {
+        Args: {
+          p_compare_from?: string
+          p_compare_to?: string
+          p_filters?: Json
+          p_from: string
+          p_limit?: number
+          p_metric: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      get_sales_comparison_summary: {
+        Args: { p_filters?: Json; p_periods: Json }
+        Returns: Json
+      }
       get_sales_quantity_report: {
         Args: {
           p_date_from?: string
@@ -30238,6 +30475,10 @@ export type Database = {
         Args: { p_keep_days?: number }
         Returns: number
       }
+      prune_report_delivery_claims: {
+        Args: { p_keep_days?: number }
+        Returns: number
+      }
       push_retailer_notification: {
         Args: { p_actor_user_id: string; p_metadata?: Json; p_rule_id: string }
         Returns: number
@@ -30304,6 +30545,15 @@ export type Database = {
       }
       report_can_view_user: {
         Args: { _target: string; _viewer: string }
+        Returns: boolean
+      }
+      report_claim_delivery: {
+        Args: {
+          p_period: string
+          p_recipient_user_id: string
+          p_subscription_id: string
+          p_trigger_type: string
+        }
         Returns: boolean
       }
       report_system_admins: {
