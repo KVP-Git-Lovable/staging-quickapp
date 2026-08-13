@@ -28296,6 +28296,7 @@ export type Database = {
       }
       visits: {
         Row: {
+          activity_event_id: string | null
           cancel_source: string | null
           carried_from_date: string | null
           check_in_address: string | null
@@ -28327,6 +28328,7 @@ export type Database = {
           visit_type: string | null
         }
         Insert: {
+          activity_event_id?: string | null
           cancel_source?: string | null
           carried_from_date?: string | null
           check_in_address?: string | null
@@ -28358,6 +28360,7 @@ export type Database = {
           visit_type?: string | null
         }
         Update: {
+          activity_event_id?: string | null
           cancel_source?: string | null
           carried_from_date?: string | null
           check_in_address?: string | null
@@ -28388,7 +28391,15 @@ export type Database = {
           user_id?: string
           visit_type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "visits_activity_event_id_fkey"
+            columns: ["activity_event_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouses: {
         Row: {
@@ -29402,6 +29413,7 @@ export type Database = {
         Returns: undefined
       }
       eod_cancel_pending_visits: { Args: never; Returns: number }
+      event_sync_participants: { Args: { p_event_id: string }; Returns: Json }
       execute_stock_action: {
         Args: {
           p_action: string
@@ -29972,6 +29984,14 @@ export type Database = {
           state: string
         }[]
       }
+      get_report_scope_users: {
+        Args: never
+        Returns: {
+          full_name: string
+          level: number
+          user_id: string
+        }[]
+      }
       get_reporting_chain: {
         Args: { p_user_id: string }
         Returns: {
@@ -30310,6 +30330,14 @@ export type Database = {
       is_coordinator: { Args: { p_uid: string }; Returns: boolean }
       is_distributor_owner_of: {
         Args: { _distributor_id: string }
+        Returns: boolean
+      }
+      is_event_team_member: {
+        Args: { p_event_id: string; p_uid: string }
+        Returns: boolean
+      }
+      is_event_team_member_by_visit: {
+        Args: { p_uid: string; p_visit_id: string }
         Returns: boolean
       }
       is_manager: { Args: { user_id_param: string }; Returns: boolean }
