@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
 
 interface EventInfo {
   id: string;
@@ -35,7 +36,6 @@ interface Product {
   name: string;
   sku: string | null;
   rate: number | null;
-  unit: string | null;
   base_unit: string | null;
 }
 
@@ -64,7 +64,19 @@ interface DraftRow {
   stock_taken: string;
   sold_qty: string;
   price: number;
+  // UOM-master snapshot for the selected unit (mirrors order entry).
+  conversion_to_base?: number | null;
+  price_basis_conversion?: number | null;
 }
+
+// Price for 1 selected unit = price-basis rate × (selected conversion / price-basis conversion).
+const uomUnitPrice = (baseRate: number, sel: LineItemUomSelection) => {
+  const factor =
+    sel.conversionToBase && sel.priceBasisConversionToBase
+      ? sel.conversionToBase / sel.priceBasisConversionToBase
+      : 1;
+  return +(baseRate * factor).toFixed(2);
+};
 
 function buildDays(ev: EventInfo) {
   const start = ev.from_date || ev.activity_date;
@@ -154,15 +166,17 @@ export default function EventStockTracker() {
     })();
   }, [id, user?.id]);
 
-  // Load products
+  // Load products — same source and filter as order entry (products master:
+  // is_active true or null; there is no `unit` column, units live in the UOM master).
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("products")
-        .select("id,name,sku,rate,unit,base_unit")
-        .eq("is_active", true)
+        .select("id,name,sku,rate,base_unit")
+        .or("is_active.eq.true,is_active.is.null")
         .order("name")
         .limit(1000);
+      if (error) console.error("[EventStockTracker] products load failed:", error.message);
       setProducts((data as Product[]) || []);
     })();
   }, []);
@@ -171,7 +185,7 @@ export default function EventStockTracker() {
     if (!dayId) return;
     const { data } = await supabase
       .from("event_stock_items")
-      .select("id,product_id,stock_taken,sold_qty,price,updated_at,products(name,sku,unit,base_unit)")
+      .select("id,product_id,unit,stock_taken,sold_qty,price,updated_at,products(name,sku,base_unit)")
       .eq("event_stock_day_id", dayId)
       .order("created_at");
     const mapped: StockItem[] = (data || []).map((r: any) => ({
@@ -179,7 +193,7 @@ export default function EventStockTracker() {
       product_id: r.product_id,
       product_name: r.products?.name || "Product",
       product_sku: r.products?.sku || null,
-      unit: r.products?.unit || r.products?.base_unit || "Unit",
+      unit: r.unit || r.products?.base_unit || "Unit",
       stock_taken: Number(r.stock_taken) || 0,
       sold_qty: Number(r.sold_qty) || 0,
       price: Number(r.price) || 0,
@@ -299,6 +313,7 @@ export default function EventStockTracker() {
         .insert({
           event_stock_day_id: activeDayId,
           product_id: d.product_id!,
+          unit: d.unit || null,
           stock_taken: taken,
           sold_qty: sold,
           price: d.price,
@@ -429,18 +444,55 @@ export default function EventStockTracker() {
                     product_id: p.id,
                     product_name: p.name,
                     product_sku: p.sku,
-                    unit: p.unit || p.base_unit || "Unit",
+                    unit: p.base_unit || "Unit",
                     price: Number(p.rate) || 0,
+                    conversion_to_base: null,
+                    price_basis_conversion: null,
                   })}
                 />
-                <Select value={d.unit} onValueChange={(v) => updateDraft(d.key, { unit: v })}>
-                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {[d.unit, "Unit", "Box", "Pack", "Kg", "Litre"].filter((v, i, a) => v && a.indexOf(v) === i).map((u) => (
-                      <SelectItem key={u} value={u}>{u}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {d.product_id ? (
+                  <LineItemUomSelect
+                    productId={d.product_id}
+                    value={d.unit}
+                    context="sales"
+                    hideWhenSingle={false}
+                    className="h-10 w-full"
+                    onChange={(sel) => {
+                      if (
+                        d.unit === sel.uomCode &&
+                        (d.conversion_to_base ?? null) === (sel.conversionToBase ?? null) &&
+                        (d.price_basis_conversion ?? null) === (sel.priceBasisConversionToBase ?? null)
+                      ) {
+                        return;
+                      }
+                      const prod = products.find((p) => p.id === d.product_id);
+                      const patch: Partial<DraftRow> = {
+                        unit: sel.uomCode,
+                        conversion_to_base: sel.conversionToBase ?? null,
+                        price_basis_conversion: sel.priceBasisConversionToBase ?? null,
+                      };
+                      if (prod) patch.price = uomUnitPrice(Number(prod.rate) || 0, sel);
+                      // Convert already-entered quantities between mapped units (12 PIECE → BOX).
+                      if (d.conversion_to_base && sel.conversionToBase && d.unit !== sel.uomCode) {
+                        const conv = (v: string) => {
+                          const n = Number(v);
+                          if (!n || n <= 0) return v;
+                          return String(+((n * d.conversion_to_base!) / sel.conversionToBase).toFixed(3));
+                        };
+                        patch.stock_taken = conv(d.stock_taken);
+                        patch.sold_qty = conv(d.sold_qty);
+                      }
+                      updateDraft(d.key, patch);
+                    }}
+                  />
+                ) : (
+                  <Select value={d.unit} disabled>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={d.unit}>{d.unit}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
                 <Input type="number" min={0} placeholder="Enter qty"
                   value={d.stock_taken}
                   onChange={(e) => updateDraft(d.key, { stock_taken: e.target.value })}

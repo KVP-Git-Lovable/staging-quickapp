@@ -7982,6 +7982,7 @@ export type Database = {
           product_id: string
           sold_qty: number
           stock_taken: number
+          unit: string | null
           updated_at: string
         }
         Insert: {
@@ -7992,6 +7993,7 @@ export type Database = {
           product_id: string
           sold_qty?: number
           stock_taken?: number
+          unit?: string | null
           updated_at?: string
         }
         Update: {
@@ -8002,6 +8004,7 @@ export type Database = {
           product_id?: string
           sold_qty?: number
           stock_taken?: number
+          unit?: string | null
           updated_at?: string
         }
         Relationships: [
