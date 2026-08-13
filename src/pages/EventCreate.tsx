@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
-  CalendarIcon, Save, Navigation, X, Loader2,
+  CalendarIcon, Save, Navigation, X, Loader2, ArrowLeft,
   Info, MapPin, Wallet, Users, Target, UsersRound, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -310,7 +310,16 @@ export default function EventCreate() {
 
       >
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="h-9 w-9 rounded-lg shrink-0"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="min-w-0 flex-1">
             <h1 className="text-lg sm:text-xl font-bold leading-tight tracking-tight text-foreground truncate">
               {isEdit ? "Edit Event" : "Event Details"}
             </h1>
