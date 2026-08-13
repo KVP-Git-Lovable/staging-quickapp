@@ -281,6 +281,26 @@ Deno.serve(async (req) => {
 
   for (const rid of recipients) {
     try {
+      // Claim this delivery before doing any work. generate-report can be
+      // invoked more than once for the same dispatcher tick, and since
+      // report_delivery_log became append-only nothing collapses the repeats —
+      // production sent four copies of every scheduled report from 12 Aug 2026.
+      // The claim is a primary-key insert, so exactly one caller wins; the
+      // losers must produce no notification at all. Manual runs always claim.
+      const { data: claimed, error: claimErr } = await admin.rpc('report_claim_delivery', {
+        p_subscription_id: sub.id,
+        p_recipient_user_id: rid,
+        p_period: period.key,
+        p_trigger_type: triggerType,
+      });
+      if (claimErr) {
+        // Fail open: a broken claim must not stop reports going out entirely.
+        console.error('report_claim_delivery error', rid, claimErr);
+      } else if (claimed === false) {
+        outcomes.push({ recipient: rid, skipped: 'already_delivered_this_period' });
+        continue;
+      }
+
       const { rows, digest, path, isEmpty, aiSummary } = await buildForScope(scopeUserFor(rid));
 
       const bodyLine = isEmpty
