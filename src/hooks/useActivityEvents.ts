@@ -299,9 +299,10 @@ export const useActivityEvents = () => {
    * and My Visits reads the visit for status, so the activity would appear to
    * vanish from the new date while still showing on the old one.
    *
-   * Only a not-yet-started activity can be edited: once it has been checked
-   * into, the recorded times and GPS describe something that actually happened,
-   * and rewriting the plan underneath them would misrepresent it.
+   * Editable until it is FINISHED, not until it is started. An Event runs for
+   * hours or days, and correcting its name or dates while it is live is exactly
+   * when you need to. Once checked out it is history and the recorded times
+   * describe something that happened, so it locks.
    */
   const updateActivity = async (
     activityId: string,
@@ -311,13 +312,13 @@ export const useActivityEvents = () => {
     try {
       const { data: existing, error: readErr } = await supabase
         .from('activity_events')
-        .select('id, visit_id, user_id, check_in_time, activity_date, from_date, to_date, duration_type')
+        .select('id, visit_id, user_id, check_in_time, check_out_time, activity_date, from_date, to_date, duration_type')
         .eq('id', activityId)
         .maybeSingle();
       if (readErr) throw readErr;
       if (!existing) throw new Error('Activity not found');
       if (existing.user_id !== user.id) throw new Error('You can only edit your own activities');
-      if (existing.check_in_time) throw new Error('This activity has already been started and can no longer be edited');
+      if (existing.check_out_time) throw new Error('This activity is complete and can no longer be edited');
 
       const patch: Record<string, unknown> = {};
       const set = (k: string, v: unknown) => { if (v !== undefined) patch[k] = v; };

@@ -352,6 +352,27 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
 
                   {/* Right: actions */}
                   <div className="flex flex-wrap lg:flex-nowrap gap-2 lg:justify-end">
+                    {/* An Event runs for hours or days, so it stays editable while it is
+                        live — that is precisely when a wrong name or date needs fixing.
+                        It locks once completed. */}
+                    {onEditActivity && status !== 'productive' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Events go to their own form, not the generic activity
+                          // modal — that modal would overwrite activity_name with
+                          // the type ("test" becomes "Event") and cannot touch the
+                          // venue, budget, target, footfall or assigned reps.
+                          navigate(`/event/${activity.visit_id ?? activity.id}/edit`);
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       className="h-8 text-xs gap-1"
@@ -547,10 +568,10 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
               )}
 
               {/* Edit — deliberately NOT gated on isToday: an activity scheduled for
-                  next week is exactly the one most likely to need changing. Hidden
-                  once it has been started, because the recorded times and GPS then
-                  describe something that actually happened. */}
-              {onEditActivity && status === 'planned' && !visitStatus?.check_in_time && (
+                  next week is exactly the one most likely to need changing. Stays
+                  available while in progress and locks once complete, matching the
+                  check_out_time guard in updateActivity. */}
+              {onEditActivity && status !== 'productive' && !visitStatus?.check_out_time && (
                 <div className="pt-1">
                   <Button
                     size="sm"

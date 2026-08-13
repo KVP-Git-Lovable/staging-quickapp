@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import {
   CalendarIcon, Save, Navigation, X, Loader2,
@@ -31,6 +31,14 @@ interface ProfileOption { id: string; full_name: string }
 
 export default function EventCreate() {
   const navigate = useNavigate();
+  // Same page serves create and edit. An Event carries a dozen fields — name,
+  // address, GPS, budget, target, footfall, assigned reps — and a second form
+  // would drift from this one the moment any of them changes.
+  const { id: editEventId } = useParams<{ id: string }>();
+  const isEdit = !!editEventId;
+  const [loadingEvent, setLoadingEvent] = useState(false);
+  // Resolved from the loaded row: the route param may be the visit id.
+  const [activityId, setActivityId] = useState<string | null>(null);
   const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
@@ -104,6 +112,65 @@ export default function EventCreate() {
     }
   };
 
+  // Load the event being edited. activity_events is the source of truth; the
+  // paired visit only carries the planned date and status.
+  useEffect(() => {
+    if (!editEventId) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingEvent(true);
+      try {
+        // The sibling event routes (/event/:id/orders, /stock, /summary) key on
+        // visit_id, so this one does too — but accept either id, because the
+        // param reads identically at every call site and a mismatch here would
+        // just silently load nothing.
+        const { data, error } = await supabase
+          .from("activity_events")
+          .select("*")
+          .or(`id.eq.${editEventId},visit_id.eq.${editEventId}`)
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data || cancelled) return;
+        const d = data as any;
+        setActivityId(d.id);
+        const toDate = (v?: string | null) => (v ? new Date(`${v}T00:00:00`) : undefined);
+        const toTime = (iso?: string | null) =>
+          iso ? new Date(iso).toTimeString().slice(0, 5) : undefined;
+
+        setEventName(d.event_name ?? d.activity_name ?? "");
+        setDescription(d.description ?? "");
+        setComments(d.comments ?? "");
+        setStartDate(toDate(d.from_date ?? d.activity_date));
+        setEndDate(toDate(d.to_date ?? d.activity_date));
+        if (toTime(d.start_time)) setStartTime(toTime(d.start_time)!);
+        if (toTime(d.end_time)) setEndTime(toTime(d.end_time)!);
+        setAddress(d.activity_place ?? "");
+        setLandmark(d.landmark ?? "");
+        if (d.start_latitude != null) setLatitude(String(d.start_latitude));
+        if (d.start_longitude != null) setLongitude(String(d.start_longitude));
+        if (d.budget != null) setBudget(String(d.budget));
+        if (d.sales_target != null) setSalesTarget(String(d.sales_target));
+        setExpectedFootfall(d.expected_footfall ?? "");
+        // remarks was written as "<eventType> — <description>" on create.
+        if (typeof d.remarks === "string" && d.remarks.trim()) {
+          setEventType(d.remarks.split("—")[0].trim() || "Sales Promotion");
+        }
+        if (Array.isArray(d.sales_reps) && d.sales_reps.length) {
+          const { data: reps } = await supabase
+            .from("profiles").select("id, full_name").in("id", d.sales_reps);
+          if (reps && !cancelled) setSelectedReps(reps as any);
+        }
+      } catch (e: any) {
+        console.error(e);
+        toast.error(e?.message || "Could not load the event");
+      } finally {
+        if (!cancelled) setLoadingEvent(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [editEventId]);
+
   const addRep = (id: string) => {
     const p = profiles.find((x) => x.id === id);
     if (p) setSelectedReps((prev) => [...prev, p]);
@@ -135,6 +202,67 @@ export default function EventCreate() {
       const endDateStr = format(endDate!, "yyyy-MM-dd");
       const isMulti = startDateStr !== endDateStr;
 
+      const payload = {
+        activity_type: "Event",
+        activity_name: eventName,
+        event_name: eventName,
+        description: description || null,
+        comments: comments || null,
+        duration_type: isMulti ? "multiple_days" : "hour_based",
+        activity_date: startDateStr,
+        from_date: isMulti ? startDateStr : null,
+        to_date: isMulti ? endDateStr : null,
+        total_days: isMulti
+          ? Math.max(1, Math.round((endDate!.getTime() - startDate!.getTime()) / 86400000) + 1)
+          : 1,
+        start_time: new Date(`${startDateStr}T${startTime}:00`).toISOString(),
+        end_time: new Date(`${endDateStr}T${endTime}:00`).toISOString(),
+        activity_place: address,
+        landmark: landmark || null,
+        start_latitude: latitude ? Number(latitude) : null,
+        start_longitude: longitude ? Number(longitude) : null,
+        budget: Number(budget),
+        sales_target: salesTarget ? Number(salesTarget) : null,
+        expected_footfall: expectedFootfall || null,
+        sales_reps: selectedReps.map((r) => r.id),
+        remarks: `${eventType}${description ? ` — ${description}` : ""}`,
+      };
+
+      // ---- edit -------------------------------------------------------------
+      if (isEdit) {
+        if (!activityId) throw new Error("Event is still loading, please try again");
+        // .select() because RLS filters a rejected row rather than raising: the
+        // update would report success having changed nothing.
+        const { data: updated, error: uErr } = await supabase
+          .from("activity_events")
+          .update(payload as any)
+          .eq("id", activityId!)
+          .select("id, visit_id");
+        if (uErr) throw uErr;
+        if (!updated || updated.length === 0) {
+          throw new Error("You do not have permission to edit this event");
+        }
+
+        // Keep the paired visit on the day the event now starts, or My Visits
+        // shows it under the old date while the event says otherwise.
+        const visitId = (updated[0] as any).visit_id;
+        if (visitId) {
+          const { data: vRows, error: vuErr } = await supabase
+            .from("visits")
+            .update({ planned_date: startDateStr } as any)
+            .eq("id", visitId)
+            .select("id");
+          if (vuErr || !vRows || vRows.length === 0) {
+            throw new Error(vuErr?.message ?? "You do not have permission to move this event's visit");
+          }
+        }
+
+        toast.success("Event updated");
+        window.dispatchEvent(new Event("visitDataChanged"));
+        navigate("/visits/retailers");
+        return;
+      }
+
       // 1) create visit
       const { data: visit, error: vErr } = await supabase
         .from("visits")
@@ -149,35 +277,10 @@ export default function EventCreate() {
       if (vErr) throw vErr;
 
       // 2) create activity_event
-      const startISO = new Date(`${startDateStr}T${startTime}:00`).toISOString();
-      const endISO = new Date(`${endDateStr}T${endTime}:00`).toISOString();
-
       const { error: aErr } = await supabase.from("activity_events").insert({
         visit_id: visit.id,
         user_id: user.id,
-        activity_type: "Event",
-        activity_name: eventName,
-        event_name: eventName,
-        description: description || null,
-        comments: comments || null,
-        duration_type: isMulti ? "multiple_days" : "hour_based",
-        activity_date: startDateStr,
-        from_date: isMulti ? startDateStr : null,
-        to_date: isMulti ? endDateStr : null,
-        total_days: isMulti
-          ? Math.max(1, Math.round((endDate!.getTime() - startDate!.getTime()) / 86400000) + 1)
-          : 1,
-        start_time: startISO,
-        end_time: endISO,
-        activity_place: address,
-        landmark: landmark || null,
-        start_latitude: latitude ? Number(latitude) : null,
-        start_longitude: longitude ? Number(longitude) : null,
-        budget: Number(budget),
-        sales_target: salesTarget ? Number(salesTarget) : null,
-        expected_footfall: expectedFootfall || null,
-        sales_reps: selectedReps.map((r) => r.id),
-        remarks: `${eventType}${description ? ` — ${description}` : ""}`,
+        ...payload,
       } as any);
       if (aErr) {
         await supabase.from("visits").delete().eq("id", visit.id);
@@ -189,7 +292,7 @@ export default function EventCreate() {
       navigate("/visits/retailers");
     } catch (e: any) {
       console.error(e);
-      toast.error(e?.message || "Failed to create event");
+      toast.error(e?.message || (isEdit ? "Failed to update event" : "Failed to create event"));
     } finally {
       setSubmitting(false);
     }
@@ -209,17 +312,19 @@ export default function EventCreate() {
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-bold leading-tight tracking-tight text-foreground truncate">
-              Event Details
+              {isEdit ? "Edit Event" : "Event Details"}
             </h1>
-            <p className="text-xs text-muted-foreground leading-tight truncate">Add event information</p>
+            <p className="text-xs text-muted-foreground leading-tight truncate">
+              {isEdit ? "Update event information" : "Add event information"}
+            </p>
           </div>
           <Button
             onClick={handleSave}
-            disabled={submitting}
+            disabled={submitting || loadingEvent}
             className="h-9 px-4 rounded-lg shrink-0 bg-gradient-to-b from-primary to-primary/90 shadow-sm hover:shadow"
           >
             {submitting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-            Save
+            {isEdit ? "Save changes" : "Save"}
           </Button>
         </div>
       </div>
