@@ -193,7 +193,7 @@ export default function EventStockTracker() {
       product_id: r.product_id,
       product_name: r.products?.name || "Product",
       product_sku: r.products?.sku || null,
-      unit: r.unit || r.products?.base_unit || "Unit",
+      unit: r.unit || "",
       stock_taken: Number(r.stock_taken) || 0,
       sold_qty: Number(r.sold_qty) || 0,
       price: Number(r.price) || 0,
