@@ -653,7 +653,7 @@ function CounterCustomerCard({
             </div>
 
             {/* column headers */}
-            <div className="grid grid-cols-[minmax(0,1fr)_60px_44px_72px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1.5 sm:gap-3 px-1 pb-1.5 text-[9px] sm:text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+            <div className="grid grid-cols-[minmax(0,1fr)_52px_40px_60px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1 sm:gap-3 px-1 pb-1.5 text-[9px] sm:text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
               <div>Product</div>
               <div>Unit</div>
               <div>Qty</div>
@@ -669,7 +669,7 @@ function CounterCustomerCard({
                   Number(item.rate) !== Number(item.original_rate);
                 return (
                   <div key={item.uid} className="space-y-1">
-                    <div className="grid grid-cols-[minmax(0,1fr)_60px_44px_72px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1.5 sm:gap-3 items-center">
+                    <div className="grid grid-cols-[minmax(0,1fr)_52px_40px_60px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1 sm:gap-3 items-center">
                       <div className="min-w-0">
                         <InlineProductSelect
                           value={item}
@@ -702,7 +702,7 @@ function CounterCustomerCard({
                           context="sales"
                           hideWhenSingle={false}
                           disabled={locked}
-                          className="h-9 rounded-lg text-xs sm:text-sm px-2 w-full"
+                          className="h-9 rounded-lg text-[11px] sm:text-sm px-1.5 sm:px-2 w-full"
                           onChange={(sel) => {
                             const patch = uomSelectionPatch(
                               item,
@@ -2348,14 +2348,13 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                   </div>
                   <div className="min-w-0">
                     <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
-                      {eventContext ? "KG sold" : "Total Items"}
+                      {/* The label has to follow the number. It said "KG sold"
+                          while falling back to the item count, so 3 items read
+                          as 3 kg. */}
+                      {eventContext && totals.kg > 0 ? "KG sold" : "Items"}
                     </div>
                     <div className="text-sm sm:text-base font-bold leading-tight">
-                      {eventContext
-                        ? totals.kg > 0
-                          ? totals.kg.toFixed(2)
-                          : totals.items
-                        : totals.items}
+                      {eventContext && totals.kg > 0 ? totals.kg.toFixed(2) : totals.items}
                     </div>
                   </div>
                 </div>
@@ -2883,9 +2882,9 @@ function EventTeamSummary({ visitId }: { visitId: string }) {
         <div className="grid grid-cols-3 divide-x px-3 py-3">
           <Stat label="Customers" value={String(totals.customers)} />
           <Stat
-            label="KG sold"
-            value={totals.kg > 0 ? totals.kg.toFixed(2) : "—"}
-            hint={totals.kg > 0 ? undefined : `${totals.units} units · no weight set`}
+            label={totals.kg > 0 ? "KG sold" : "Units"}
+            value={totals.kg > 0 ? totals.kg.toFixed(2) : String(totals.units)}
+            hint={totals.kg > 0 ? undefined : "no weight set"}
           />
           <Stat label="Revenue" value={format(totals.revenue)} />
         </div>
@@ -3434,16 +3433,22 @@ function InlineProductSelect({
           type="button"
           disabled={disabled}
           className={cn(
-            "h-9 w-full rounded-md border border-input bg-background px-3 text-left text-sm",
-            "flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60",
+            "h-9 w-full rounded-md border border-input bg-background px-2.5 text-left text-sm",
+            "flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60",
             !value.product_id && "text-muted-foreground"
           )}
         >
-          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          {/* The magnifier only earns its ~22px while the field is empty and
+              still reads as a search box. Once a product is chosen the field is
+              a value, and on a phone that icon was truncating the name it was
+              supposed to help find — "A01 Aruna Go…". */}
+          {!value.product_id && (
+            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
           <span className="truncate">
             {value.product_id
               ? value.product_name
-              : "Search product by name, SKU or scan…"}
+              : "Search product or scan…"}
           </span>
         </button>
       </PopoverTrigger>
