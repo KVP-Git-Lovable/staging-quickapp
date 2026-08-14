@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
+import UomLabel from "@/components/uom/UomLabel";
 
 interface EventInfo {
   id: string;
@@ -104,7 +105,7 @@ const newDraft = (): DraftRow => ({
   product_id: null,
   product_name: "",
   product_sku: null,
-  unit: "Unit",
+  unit: "",
   stock_taken: "",
   sold_qty: "",
   price: 0,
@@ -193,7 +194,7 @@ export default function EventStockTracker() {
       product_id: r.product_id,
       product_name: r.products?.name || "Product",
       product_sku: r.products?.sku || null,
-      unit: r.unit || r.products?.base_unit || "Unit",
+      unit: r.unit || "",
       stock_taken: Number(r.stock_taken) || 0,
       sold_qty: Number(r.sold_qty) || 0,
       price: Number(r.price) || 0,
@@ -444,7 +445,9 @@ export default function EventStockTracker() {
                     product_id: p.id,
                     product_name: p.name,
                     product_sku: p.sku,
-                    unit: p.base_unit || "Unit",
+                    // Unit comes from the UOM master via LineItemUomSelect — never
+                    // from the legacy products.base_unit text column.
+                    unit: "",
                     price: Number(p.rate) || 0,
                     conversion_to_base: null,
                     price_basis_conversion: null,
@@ -453,7 +456,7 @@ export default function EventStockTracker() {
                 {d.product_id ? (
                   <LineItemUomSelect
                     productId={d.product_id}
-                    value={d.unit}
+                    value={d.unit || undefined}
                     context="sales"
                     hideWhenSingle={false}
                     className="h-10 w-full"
@@ -473,7 +476,7 @@ export default function EventStockTracker() {
                       };
                       if (prod) patch.price = uomUnitPrice(Number(prod.rate) || 0, sel);
                       // Convert already-entered quantities between mapped units (12 PIECE → BOX).
-                      if (d.conversion_to_base && sel.conversionToBase && d.unit !== sel.uomCode) {
+                      if (d.conversion_to_base && sel.conversionToBase && d.unit && d.unit !== sel.uomCode) {
                         const conv = (v: string) => {
                           const n = Number(v);
                           if (!n || n <= 0) return v;
@@ -486,12 +489,7 @@ export default function EventStockTracker() {
                     }}
                   />
                 ) : (
-                  <Select value={d.unit} disabled>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={d.unit}>{d.unit}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="h-10 flex items-center text-xs text-muted-foreground">—</div>
                 )}
                 <Input type="number" min={0} placeholder="Enter qty"
                   value={d.stock_taken}
@@ -554,7 +552,9 @@ export default function EventStockTracker() {
                       <div className="font-medium">{it.product_name}</div>
                       {it.product_sku && <div className="text-xs text-muted-foreground">SKU: {it.product_sku}</div>}
                     </td>
-                    <td className="px-3 py-3 text-muted-foreground">{it.unit}</td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      <UomLabel productId={it.product_id} snapshotCode={it.unit || null} />
+                    </td>
                     <td className="px-3 py-3">
                       <Input type="number" min={0} value={it.stock_taken}
                         onChange={(e) => updateField(it.id, "stock_taken", e.target.value)}

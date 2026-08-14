@@ -39,6 +39,8 @@ export interface PdfInlinePreviewProps {
     date_to: string;
     scope_user_id?: string | null;
     distributor_id?: string | null;
+    audience_user_ids?: string[] | null;
+    exclude_inactive?: boolean | null;
     sort_key?: string | null;
     sort_dir?: 'asc' | 'desc' | null;
   };
@@ -74,6 +76,8 @@ export function PdfInlinePreview(props: PdfInlinePreviewProps) {
           date_to: filters.date_to,
           scope_user_id: filters.scope_user_id || null,
           distributor_id: filters.distributor_id || null,
+          audience_user_ids: filters.audience_user_ids?.length ? filters.audience_user_ids : null,
+          exclude_inactive: filters.exclude_inactive || null,
           sort_key: filters.sort_key || null,
           sort_dir: filters.sort_key ? (filters.sort_dir || 'desc') : null,
         },
