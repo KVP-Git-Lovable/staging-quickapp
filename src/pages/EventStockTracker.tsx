@@ -294,20 +294,70 @@ export default function EventStockTracker() {
   };
   const addDraftRow = () => setDrafts((prev) => [...prev, newDraft()]);
 
+  // UOM conversion factors (code → conversion_to_base) for one product.
+  const fetchConvFactors = async (productId: string, codes: string[]) => {
+    const { data } = await supabase
+      .from("product_uom_mapping")
+      .select("conversion_to_base, uom_master(code)")
+      .eq("product_id", productId)
+      .neq("is_active", false);
+    const map: Record<string, number> = {};
+    (data || []).forEach((r: any) => {
+      const code = (r.uom_master?.code || "").toLowerCase();
+      if (code && codes.some((c) => c.toLowerCase() === code)) {
+        map[code] = Number(r.conversion_to_base) || 0;
+      }
+    });
+    return map;
+  };
+
   const saveDrafts = async () => {
     const valid = drafts.filter((d) => d.product_id && Number(d.stock_taken) > 0);
     if (!valid.length) {
       toast.error("Add at least one product with stock");
       return;
     }
-    const existingIds = new Set(items.map((i) => i.product_id));
-    const dups = valid.filter((d) => existingIds.has(d.product_id!));
-    if (dups.length) {
-      toast.error("Some products already exist for this day");
-      return;
-    }
     for (const d of valid) {
       const taken = Number(d.stock_taken) || 0;
+
+      // Orders may already have auto-created this product's row (sold_qty is
+      // being counted by the order trigger). Merge the entered Stock Taken
+      // onto it instead of rejecting the save — never overwrite sold_qty.
+      const existing = items.find((i) => i.product_id === d.product_id);
+      if (existing) {
+        let sold = existing.sold_qty;
+        let unit = existing.unit || d.unit || "";
+        if (d.unit && existing.unit && d.unit.toLowerCase() !== existing.unit.toLowerCase()) {
+          // Move the row to the unit chosen here, converting the auto-counted
+          // sold quantity so Remaining stays comparable.
+          const factors = await fetchConvFactors(d.product_id!, [existing.unit, d.unit]);
+          const from = factors[existing.unit.toLowerCase()];
+          const to = factors[d.unit.toLowerCase()];
+          if (from && to) {
+            sold = +((sold * from) / to).toFixed(3);
+            unit = d.unit;
+          } else {
+            toast.message(`${d.product_name}: kept unit ${existing.unit} (no conversion found)`);
+          }
+        }
+        const { data, error } = await supabase
+          .from("event_stock_items")
+          .update({
+            stock_taken: taken,
+            sold_qty: sold,
+            unit: unit || null,
+            price: d.price || existing.price,
+          })
+          .eq("id", existing.id)
+          .select("updated_at")
+          .single();
+        if (error) { toast.error(error.message); continue; }
+        setItems((prev) => prev.map((it) => it.id === existing.id
+          ? { ...it, stock_taken: taken, sold_qty: sold, unit, price: d.price || existing.price, updated_at: data?.updated_at || it.updated_at, state: "saved" }
+          : it));
+        continue;
+      }
+
       const sold = Math.min(Number(d.sold_qty) || 0, taken);
       const { data, error } = await supabase
         .from("event_stock_items")
@@ -609,7 +659,7 @@ export default function EventStockTracker() {
 
       <div className="text-xs text-muted-foreground flex items-center gap-2">
         <AlertCircle className="h-3.5 w-3.5" />
-        You can update the "Sold" quantity at any time throughout the day. Remaining and Sold Value are calculated automatically.
+        "Sold" updates automatically as event orders are submitted; you can still adjust it manually. Remaining and Sold Value are calculated automatically.
       </div>
 
       <AllDaysSummaryDialog open={summaryOpen} onOpenChange={setSummaryOpen} eventId={event.id} days={days} />
