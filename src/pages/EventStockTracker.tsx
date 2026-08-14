@@ -444,7 +444,9 @@ export default function EventStockTracker() {
                     product_id: p.id,
                     product_name: p.name,
                     product_sku: p.sku,
-                    unit: p.base_unit || "Unit",
+                    // Unit comes from the UOM master via LineItemUomSelect — never
+                    // from the legacy products.base_unit text column.
+                    unit: "",
                     price: Number(p.rate) || 0,
                     conversion_to_base: null,
                     price_basis_conversion: null,
@@ -453,7 +455,7 @@ export default function EventStockTracker() {
                 {d.product_id ? (
                   <LineItemUomSelect
                     productId={d.product_id}
-                    value={d.unit}
+                    value={d.unit || undefined}
                     context="sales"
                     hideWhenSingle={false}
                     className="h-10 w-full"
@@ -473,7 +475,7 @@ export default function EventStockTracker() {
                       };
                       if (prod) patch.price = uomUnitPrice(Number(prod.rate) || 0, sel);
                       // Convert already-entered quantities between mapped units (12 PIECE → BOX).
-                      if (d.conversion_to_base && sel.conversionToBase && d.unit !== sel.uomCode) {
+                      if (d.conversion_to_base && sel.conversionToBase && d.unit && d.unit !== sel.uomCode) {
                         const conv = (v: string) => {
                           const n = Number(v);
                           if (!n || n <= 0) return v;
@@ -486,12 +488,7 @@ export default function EventStockTracker() {
                     }}
                   />
                 ) : (
-                  <Select value={d.unit} disabled>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={d.unit}>{d.unit}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="h-10 flex items-center text-xs text-muted-foreground">—</div>
                 )}
                 <Input type="number" min={0} placeholder="Enter qty"
                   value={d.stock_taken}
