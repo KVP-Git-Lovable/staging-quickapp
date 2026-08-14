@@ -15,7 +15,7 @@ const corsHeaders = {
 
 const CONFIRMED = new Set(["confirmed", "delivered", "invoiced", "completed", "dispatched", "packed"]);
 const DAY_MS = 86_400_000;
-const SUPPORTED = new Set(["visit_optimiser", "churn_detector"]);
+const SUPPORTED = new Set(["visit_optimiser", "churn_detector", "beat_planner", "sales_coach"]);
 
 function jsonError(status: number, code: string, message: string) {
   return new Response(JSON.stringify({ error: message, code }), {
@@ -285,6 +285,277 @@ async function runVisitOptimiser(supabase: any, userId: string) {
   };
 }
 
+/** Beat Planner — deterministic beat coverage analysis for next month's plan. */
+async function runBeatPlanner(supabase: any, userId: string) {
+  const now = new Date();
+  const today = isoDate(now);
+  const since30 = isoDate(new Date(now.getTime() - 30 * DAY_MS));
+  const since90 = isoDate(new Date(now.getTime() - 90 * DAY_MS));
+  const STOPS_PER_DAY = 25;
+
+  // RLS scopes retailers to what the caller may see, same as the other runners.
+  const { data: retailers, error } = await supabase
+    .from("retailers")
+    .select("id, name, beat_name, priority, pending_amount, last_visit_date")
+    .limit(3000);
+  if (error) throw error;
+
+  if (!(retailers ?? []).length) {
+    return {
+      facts: `Today: ${today}\nNo retailers are visible to this user, so there is nothing to plan.`,
+      result: { kind: "beat_plan", rows: [], date: today, totalRetailers: 0 },
+      systemPrompt:
+        "You are QuickApp's Beat Planner agent. Reply with one short, friendly markdown line telling the user there are no retailers to plan beats for yet.",
+      userPrompt: "Draft next month's beat plan.",
+    };
+  }
+
+  const { data: recentVisits } = await supabase
+    .from("visits")
+    .select("id, retailer_id, planned_date")
+    .eq("user_id", userId)
+    .gte("planned_date", since30)
+    .lte("planned_date", today)
+    .limit(3000);
+
+  const { data: recentOrders } = await supabase
+    .from("orders")
+    .select("id, retailer_id, status, total_amount, order_date")
+    .eq("user_id", userId)
+    .gte("order_date", since90)
+    .limit(4000);
+
+  const visited = new Set<string>();
+  (recentVisits ?? []).forEach((v: any) => {
+    if (v.retailer_id) visited.add(String(v.retailer_id));
+  });
+
+  const orderValue = new Map<string, number>();
+  (recentOrders ?? []).forEach((o: any) => {
+    if (!CONFIRMED.has(String(o.status ?? "").toLowerCase())) return;
+    const rid = String(o.retailer_id ?? "");
+    if (!rid) return;
+    orderValue.set(rid, (orderValue.get(rid) ?? 0) + num(o.total_amount));
+  });
+
+  interface BeatAgg {
+    beat: string;
+    retailers: number;
+    visited30d: number;
+    pending: number;
+    orderValue: number;
+    daysSinceSum: number;
+    daysSinceCount: number;
+  }
+  const beats = new Map<string, BeatAgg>();
+  (retailers ?? []).forEach((r: any) => {
+    const beat = String(r.beat_name ?? "").trim() || "Unassigned";
+    const agg = beats.get(beat) ?? {
+      beat,
+      retailers: 0,
+      visited30d: 0,
+      pending: 0,
+      orderValue: 0,
+      daysSinceSum: 0,
+      daysSinceCount: 0,
+    };
+    const rid = String(r.id);
+    agg.retailers += 1;
+    if (visited.has(rid)) agg.visited30d += 1;
+    agg.pending += num(r.pending_amount);
+    agg.orderValue += orderValue.get(rid) ?? 0;
+    if (r.last_visit_date) {
+      agg.daysSinceSum += Math.max(
+        0,
+        Math.round((now.getTime() - new Date(r.last_visit_date).getTime()) / DAY_MS),
+      );
+      agg.daysSinceCount += 1;
+    }
+    beats.set(beat, agg);
+  });
+
+  const rows = [...beats.values()]
+    .map((b) => ({
+      beat: b.beat,
+      retailers: b.retailers,
+      visited30d: b.visited30d,
+      coveragePct: b.retailers ? Math.round((b.visited30d / b.retailers) * 100) : 0,
+      pending: Math.round(b.pending),
+      orderValue: Math.round(b.orderValue),
+      avgDaysSinceVisit: b.daysSinceCount ? Math.round(b.daysSinceSum / b.daysSinceCount) : null,
+      suggestedDays: Math.max(1, Math.ceil(b.retailers / STOPS_PER_DAY)),
+    }))
+    .sort((a, b) => a.coveragePct - b.coveragePct || b.retailers - a.retailers)
+    .slice(0, 12);
+
+  const totalRetailers = (retailers ?? []).length;
+
+  const facts = [
+    `Today: ${today}`,
+    `Retailers analysed: ${totalRetailers} across ${beats.size} beats. Coverage window: last 30 days of visits; order value: last 90 days (confirmed only).`,
+    `Suggested visit days assume about ${STOPS_PER_DAY} stops per day.`,
+    "",
+    "### Beats ordered by lowest coverage first",
+    rows
+      .map(
+        (b) =>
+          `- ${b.beat}: ${b.retailers} retailers, ${b.visited30d} visited in 30d (${b.coveragePct}% coverage), ` +
+          `pending ${inr(b.pending)}, 90d orders ${inr(b.orderValue)}, ` +
+          `avg ${b.avgDaysSinceVisit ?? "?"} days since last visit → suggest ${b.suggestedDays} visit day(s) next month`,
+      )
+      .join("\n"),
+  ].join("\n");
+
+  return {
+    facts,
+    result: { kind: "beat_plan", rows, date: today, totalRetailers },
+    systemPrompt:
+      "You are QuickApp's Beat Planner agent. Use ONLY the figures in the DATA block — never invent beats, retailers or numbers. " +
+      "Use ₹ for currency. Reply in compact markdown: one headline line, then up to five bullets recommending which beats to prioritise next month and why, " +
+      "then a single line starting with 'Suggested step:'. Keep it under 150 words and stay practical.",
+    userPrompt: "Draft next month's beat plan from my coverage data.",
+  };
+}
+
+/** Sales Coach — deterministic product-mix analysis per retailer. */
+async function runSalesCoach(supabase: any, userId: string) {
+  const now = new Date();
+  const today = isoDate(now);
+  const since90 = isoDate(new Date(now.getTime() - 90 * DAY_MS));
+
+  const { data: orders, error } = await supabase
+    .from("orders")
+    .select("id, retailer_id, status, total_amount, order_date")
+    .eq("user_id", userId)
+    .gte("order_date", since90)
+    .lte("order_date", today)
+    .order("order_date", { ascending: false })
+    .limit(2000);
+  if (error) throw error;
+
+  const confirmed = (orders ?? []).filter((o: any) =>
+    CONFIRMED.has(String(o.status ?? "").toLowerCase()),
+  );
+
+  if (!confirmed.length) {
+    return {
+      facts: `Today: ${today}\nNo confirmed orders in the last 90 days, so there is nothing to coach on yet.`,
+      result: { kind: "coach", rows: [], date: today, topProducts: [] },
+      systemPrompt:
+        "You are QuickApp's Sales Coach agent. Reply with one short, friendly markdown line telling the user there are no recent confirmed orders to coach on yet.",
+      userPrompt: "Coach me on my product mix.",
+    };
+  }
+
+  const orderRetailer = new Map<string, string>();
+  const retailerValue = new Map<string, number>();
+  confirmed.forEach((o: any) => {
+    const rid = String(o.retailer_id ?? "");
+    if (!rid) return;
+    orderRetailer.set(String(o.id), rid);
+    retailerValue.set(rid, (retailerValue.get(rid) ?? 0) + num(o.total_amount));
+  });
+
+  const orderIds = [...orderRetailer.keys()].slice(0, 1000);
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("order_id, product_name, quantity, total")
+    .in("order_id", orderIds)
+    .limit(8000);
+
+  const productValue = new Map<string, number>();
+  const retailerProducts = new Map<string, Map<string, number>>();
+  (items ?? []).forEach((it: any) => {
+    const rid = orderRetailer.get(String(it.order_id));
+    const product = String(it.product_name ?? "").trim();
+    if (!rid || !product) return;
+    const value = num(it.total);
+    productValue.set(product, (productValue.get(product) ?? 0) + value);
+    const perRetailer = retailerProducts.get(rid) ?? new Map<string, number>();
+    perRetailer.set(product, (perRetailer.get(product) ?? 0) + value);
+    retailerProducts.set(rid, perRetailer);
+  });
+
+  const topProducts = [...productValue.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, value]) => ({ name, value: Math.round(value) }));
+
+  const retailerIds = [...retailerValue.keys()];
+  const names = new Map<string, string>();
+  if (retailerIds.length) {
+    const { data: retailers } = await supabase
+      .from("retailers")
+      .select("id, name")
+      .in("id", retailerIds.slice(0, 1000));
+    (retailers ?? []).forEach((r: any) => names.set(String(r.id), String(r.name ?? "Retailer")));
+  }
+
+  const rows = retailerIds
+    .map((rid) => {
+      const bought = retailerProducts.get(rid) ?? new Map<string, number>();
+      const top = [...bought.entries()].sort((a, b) => b[1] - a[1])[0];
+      return {
+        retailerId: rid,
+        name: names.get(rid) ?? "Retailer",
+        orderValue: Math.round(retailerValue.get(rid) ?? 0),
+        distinctProducts: bought.size,
+        topProduct: top ? top[0] : null,
+        gapProducts: topProducts
+          .filter((p) => !bought.has(p.name))
+          .slice(0, 3)
+          .map((p) => p.name),
+      };
+    })
+    .sort((a, b) => b.orderValue - a.orderValue)
+    .slice(0, 10);
+
+  const facts = [
+    `Today: ${today}`,
+    `Confirmed orders analysed: ${confirmed.length} across ${retailerIds.length} retailers (last 90 days).`,
+    "",
+    "### My top products by value",
+    topProducts.length
+      ? topProducts.map((p, i) => `${i + 1}. ${p.name} — ${inr(p.value)}`).join("\n")
+      : "- No line items found.",
+    "",
+    "### Top retailers and their product mix",
+    rows
+      .map(
+        (r) =>
+          `- ${r.name}: ${inr(r.orderValue)} in 90d, ${r.distinctProducts} distinct product(s)` +
+          `${r.topProduct ? `, buys mostly ${r.topProduct}` : ""}` +
+          `${r.gapProducts.length ? `, not yet buying: ${r.gapProducts.join(", ")}` : ", already buys all top products"}`,
+      )
+      .join("\n"),
+  ].join("\n");
+
+  return {
+    facts,
+    result: { kind: "coach", rows, date: today, topProducts },
+    systemPrompt:
+      "You are QuickApp's Sales Coach agent. Use ONLY the figures in the DATA block — never invent retailers, products or numbers. " +
+      "Use ₹ for currency. Reply in compact markdown: one headline line, then up to five bullets coaching the rep on which products to pitch to which retailers, " +
+      "then a single line starting with 'Suggested step:'. Keep it under 150 words, stay encouraging and non-blaming.",
+    userPrompt: "Coach me on pitch and product mix per retailer.",
+  };
+}
+
+const RUNNERS: Record<
+  string,
+  (supabase: any, userId: string) => Promise<{
+    facts: string;
+    result: Record<string, unknown>;
+    systemPrompt: string;
+    userPrompt: string;
+  }>
+> = {
+  churn_detector: runChurnDetector,
+  visit_optimiser: runVisitOptimiser,
+  beat_planner: runBeatPlanner,
+  sales_coach: runSalesCoach,
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonError(405, "method_not_allowed", "Use POST");
@@ -333,10 +604,7 @@ Deno.serve(async (req) => {
     if (execError) throw execError;
     executionId = (execRow as any).id;
 
-    const run =
-      agentKey === "churn_detector"
-        ? await runChurnDetector(supabase, userId)
-        : await runVisitOptimiser(supabase, userId);
+    const run = await RUNNERS[agentKey](supabase, userId);
 
     // Narration only — never calculation.
     let summary = "";

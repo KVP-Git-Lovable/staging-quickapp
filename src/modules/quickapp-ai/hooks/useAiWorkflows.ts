@@ -26,7 +26,7 @@ export interface WorkflowExecution {
   result: any | null;
 }
 
-export const RUNNABLE_AGENTS = new Set(["visit_optimiser", "churn_detector"]);
+export const RUNNABLE_AGENTS = new Set(["visit_optimiser", "churn_detector", "beat_planner", "sales_coach"]);
 
 export const STATUS_LABEL: Record<AgentStatus, string> = {
   prototype: "Prototype",
