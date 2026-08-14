@@ -141,12 +141,23 @@ export default function AiWorkflowsPage() {
           <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map((a) => {
               const runnable = RUNNABLE_AGENTS.has(a.key) && !!a.id;
+              const isPrototype = a.status === "Prototype";
               return (
                 <div
                   key={a.name}
                   onClick={runnable ? () => setSelectedId(a.id) : undefined}
-                  className={`rounded-lg border border-border p-3 ${
-                    runnable ? "cursor-pointer transition-colors hover:bg-muted/50" : ""
+                  className={`rounded-lg border p-3 ${
+                    isPrototype
+                      ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/30"
+                      : "border-border"
+                  } ${
+                    runnable
+                      ? `cursor-pointer transition-colors ${
+                          isPrototype
+                            ? "hover:bg-emerald-100/70 dark:hover:bg-emerald-950/50"
+                            : "hover:bg-muted/50"
+                        }`
+                      : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
