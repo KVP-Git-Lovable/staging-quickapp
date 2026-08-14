@@ -793,6 +793,44 @@ function CounterCustomerCard({
 
           {/* PAYMENT MODE */}
           <div className="px-4 pt-4">
+            {eventMode ? (
+              /* At an event stall the customer pays on the spot and walks away
+                 with the goods — there is no credit relationship with a walk-in.
+                 So Full/Partial/Credit is a decision that never has a second
+                 answer here; the only real question is cash or UPI. Choosing a
+                 method IS the payment mode, recorded as a full payment. */
+              <>
+                <div className="text-[10px] uppercase tracking-[0.08em] font-semibold text-muted-foreground mb-2">
+                  Payment
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["cash", "upi"] as const).map((method) => {
+                    const active = paymentMethod === method;
+                    return (
+                      <button
+                        key={method}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          onPaymentMethodChange(method);
+                          onPaymentModeChange("full");
+                          onPatchRow({ partialAmount: "" });
+                        }}
+                        className={cn(
+                          "h-11 rounded-xl border text-sm font-medium transition-colors",
+                          active
+                            ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-500/15 dark:border-blue-500/40 dark:text-blue-300"
+                            : "bg-background border-border text-foreground/80 hover:bg-muted/40"
+                        )}
+                      >
+                        {method === "cash" ? "Cash" : "UPI"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+            <>
             <div className="text-[10px] uppercase tracking-[0.08em] font-semibold text-muted-foreground mb-2">
               Payment Mode
             </div>
@@ -855,7 +893,7 @@ function CounterCustomerCard({
             )}
 
             {/* PAYMENT METHOD — only when full or partial selected */}
-            {(paymentMode === "full" || paymentMode === "partial") && (
+            {!eventMode && (paymentMode === "full" || paymentMode === "partial") && (
               <div className="mt-3 space-y-2 p-2.5 border rounded-xl bg-muted/40">
                 <div className="text-[10px] uppercase tracking-[0.08em] font-semibold text-muted-foreground">
                   Payment Method
@@ -976,6 +1014,8 @@ function CounterCustomerCard({
                   </div>
                 )}
               </div>
+            )}
+            </>
             )}
           </div>
 
@@ -1693,7 +1733,13 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     if (filled.length === 0) return "Add at least one product";
     if (filled.some((i) => !i.quantity || i.quantity <= 0)) return "Quantity must be > 0";
     if (requirePayment) {
-      if (!r.paymentMode) return "Please select payment type";
+      // At an event the screen only offers Cash or UPI, so say that rather than
+      // asking for a "payment type" the rep was never shown.
+      if (eventContext) {
+        if (!r.paymentMethod) return "Select Cash or UPI";
+      } else if (!r.paymentMode) {
+        return "Please select payment type";
+      }
       if ((r.paymentMode === "full" || r.paymentMode === "partial") && !r.paymentMethod) {
         return "Please select payment method";
       }

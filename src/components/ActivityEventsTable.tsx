@@ -216,6 +216,9 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
   const myVisitFor = (activity: ActivityEvent): string | null =>
     myVisitIds[activity.id] ?? activity.visit_id ?? null;
 
+  const isOwnerOf = (activity: ActivityEvent): boolean =>
+    !activity.user_id || activity.user_id === userId;
+
   const handleStartActivity = async (activity: ActivityEvent) => {
     const myVisitId = myVisitFor(activity);
     if (!myVisitId) return;
@@ -224,24 +227,39 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
       const now = new Date().toISOString();
       const gps = await captureGPS();
 
-      // Update visit to in-progress with check_in_time
-      const { error: visitError } = await supabase
+      // Where you started goes on YOUR visit row, so three reps working one
+      // stall each record their own arrival rather than overwriting each other.
+      const { data: startedRows, error: visitError } = await supabase
         .from('visits')
-        .update({ 
-          check_in_time: now, 
+        .update({
+          check_in_time: now,
           status: 'in-progress',
+          ...(gps ? { check_in_location: { lat: gps.lat, lng: gps.lng, at: now } } : {}),
         } as any)
-        .eq('id', myVisitId);
+        .eq('id', myVisitId)
+        .select('id');
 
       if (visitError) throw visitError;
+      // RLS filters a rejected row instead of raising, so an update can report
+      // success having changed nothing.
+      if (!startedRows || startedRows.length === 0) {
+        throw new Error('You do not have permission to start this activity');
+      }
 
-      // Update activity_events with start location and time
-      await updateActivityLocation(activity.id, {
-        start_time: now,
-        ...(gps ? { start_latitude: gps.lat, start_longitude: gps.lng } : {}),
-      });
+      // The event row records the ACTUAL start in check_in_*, never in
+      // start_time — start_time holds the planned schedule the event was
+      // created with and is what the card shows. Owner only: the event has one
+      // official start, and RLS would refuse a participant here anyway.
+      if (isOwnerOf(activity)) {
+        await updateActivityLocation(activity.id, {
+          check_in_time: now,
+          ...(gps ? { check_in_latitude: gps.lat, check_in_longitude: gps.lng } : {}),
+        });
+      }
 
-      toast.success('Activity started — tracking in progress');
+      toast.success(
+        gps ? 'Started — time and location recorded' : 'Started — location unavailable, time recorded'
+      );
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
       onActivityChanged?.();
       await loadActivities();
