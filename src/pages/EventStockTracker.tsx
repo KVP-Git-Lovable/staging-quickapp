@@ -289,9 +289,6 @@ export default function EventStockTracker() {
   const updateDraft = (key: string, patch: Partial<DraftRow>) => {
     setDrafts((prev) => prev.map((d) => d.key === key ? { ...d, ...patch } : d));
   };
-  const removeDraft = (key: string) => {
-    setDrafts((prev) => prev.length === 1 ? [newDraft()] : prev.filter((d) => d.key !== key));
-  };
   const addDraftRow = () => setDrafts((prev) => [...prev, newDraft()]);
 
   // UOM conversion factors (code → conversion_to_base) for one product.
@@ -471,25 +468,17 @@ export default function EventStockTracker() {
       {/* Inline Entry Section */}
       <Card className="rounded-2xl">
         <CardContent className="p-4 space-y-3">
-          <div className="hidden md:grid grid-cols-[2fr,1fr,1fr,1fr,1fr,1fr,40px] gap-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          <div className="hidden md:grid grid-cols-[2fr,1fr,1fr] gap-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
             <div>Product</div>
             <div>Unit</div>
             <div>Stock Taken</div>
-            <div>Sold</div>
-            <div>Remaining</div>
-            <div>Sold Value</div>
-            <div>Actions</div>
           </div>
           {drafts.map((d) => {
-            const taken = Number(d.stock_taken) || 0;
-            const sold = Number(d.sold_qty) || 0;
-            const remaining = taken - sold;
-            const value = sold * d.price;
             const mobileLabel = "md:hidden text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block";
             return (
               <div
                 key={d.key}
-                className="rounded-xl border border-border p-3 space-y-2.5 md:rounded-none md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-[2fr,1fr,1fr,1fr,1fr,1fr,40px] md:gap-3 md:items-center"
+                className="rounded-xl border border-border p-3 space-y-2.5 md:rounded-none md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-[2fr,1fr,1fr] md:gap-3 md:items-center"
               >
                 <div>
                   <span className={mobileLabel}>Product</span>
@@ -542,7 +531,6 @@ export default function EventStockTracker() {
                             return String(+((n * d.conversion_to_base!) / sel.conversionToBase).toFixed(3));
                           };
                           patch.stock_taken = conv(d.stock_taken);
-                          patch.sold_qty = conv(d.sold_qty);
                         }
                         updateDraft(d.key, patch);
                       }}
@@ -557,28 +545,6 @@ export default function EventStockTracker() {
                     value={d.stock_taken}
                     onChange={(e) => updateDraft(d.key, { stock_taken: e.target.value })}
                     className="h-10" />
-                </div>
-                <div>
-                  <span className={mobileLabel}>Sold</span>
-                  <Input type="number" min={0} max={taken} placeholder="Enter sold qty"
-                    value={d.sold_qty}
-                    onChange={(e) => updateDraft(d.key, { sold_qty: e.target.value })}
-                    className="h-10" />
-                </div>
-                <div>
-                  <span className={mobileLabel}>Remaining</span>
-                  <Input value={remaining || 0} disabled className="h-10 bg-muted/50" />
-                </div>
-                <div>
-                  <span className={mobileLabel}>Sold Value</span>
-                  <Input value={inr(value)} disabled className="h-10 bg-muted/50" />
-                </div>
-                <div className="flex justify-end md:block">
-                  <Button variant="ghost" size="sm" className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
-                    onClick={() => removeDraft(d.key)}>
-                    <Trash2 className="h-4 w-4" />
-                    <span className="ml-1 text-xs md:hidden">Remove</span>
-                  </Button>
                 </div>
               </div>
             );
