@@ -16,7 +16,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import { toast } from "sonner";
-import Navbar from "@/components/Navbar";
+import { Navbar } from "@/components/Navbar";
 
 interface EventInfo {
   id: string;
