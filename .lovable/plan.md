@@ -24,3 +24,7 @@ Order Entry does none of this: it hands `productId` to the picker, and the picke
 - Reuses existing shared pieces — `LineItemUomSelect` (`context="sales"`, `hideWhenSingle={false}`), `useProductUnits`/`useLineItemUom`, and `UomLabel` for read-only labels. No new hooks.
 - `DEFAULT_DRAFT.unit` becomes an empty string; the row's `unit`, `conversion_to_base` and `price_basis_conversion` continue to be persisted as the snapshot on `event_stock_items` — no schema or migration changes.
 - The unit-conversion logic already present for quantity re-scaling (e.g. 12 PIECE to 1 BOX) stays untouched.
+
+## Prerequisite: fix the current build error
+
+`src/components/admin/reports/ReportSubscriptionsTab.tsx` passes `audience_user_ids` and `exclude_inactive` in the `filters` prop of `PdfInlinePreview`, but that component's `filters` type (declared around line 37 of `src/components/admin/reports/PdfInlinePreview.tsx`) doesn't include them, so TypeScript fails. Fix: widen the `filters` prop type in `PdfInlinePreview.tsx` to accept the optional `audience_user_ids: string[] | null` and `exclude_inactive: boolean | null` fields, and forward them into the preview payload so the inline preview honours the same audience filtering as the generated report.
