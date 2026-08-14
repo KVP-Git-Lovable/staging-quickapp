@@ -216,6 +216,7 @@ function MobileCustomerCard({
                             original_rate: Number(p.rate) || 0,
                             conversion_to_base: null,
                             price_basis_conversion: null,
+                            quantity: item.quantity || 1,
                           })
                         }
                       />
@@ -695,6 +696,7 @@ function CounterCustomerCard({
                               tax_rate: Number(p.gst_percentage) || 0,
                               conversion_to_base: null,
                               price_basis_conversion: null,
+                              quantity: item.quantity || 1,
                             })
                           }
                           onEnter={() => {
@@ -1468,7 +1470,9 @@ const newItem = (): CounterLineItem => ({
   category: null,
   sku: null,
   unit: "Unit",
-  quantity: 1,
+  // 0 until a product is picked (onPick sets it to 1) — a blank row showing
+  // Qty 1 while Price still read 0 was visually inconsistent.
+  quantity: 0,
   rate: 0,
   discount: 0,
   // 0, not 5. Tax is the product's, read from gst_percentage when one is
@@ -2689,6 +2693,7 @@ function OrderRow({
                     original_rate: Number(p.rate) || 0,
                     conversion_to_base: null,
                     price_basis_conversion: null,
+                    quantity: item.quantity || 1,
                   })
                 }
                 onEnter={() => {

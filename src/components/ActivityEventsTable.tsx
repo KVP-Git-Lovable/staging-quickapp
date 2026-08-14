@@ -104,8 +104,6 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
     }
     try {
       const data = await fetchActivitiesForDate(userId, selectedDate);
-      setActivities(data);
-      onActivitiesLoadedRef.current?.(data.length);
 
       // Fetch visit statuses.
       //
@@ -117,6 +115,10 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
       // owner's progress. Status is keyed on the viewer's own row.
       const visitIds = data.map(a => a.visit_id).filter(Boolean);
       const eventIds = data.map(a => a.id).filter(Boolean);
+      const visitMap: Record<string, VisitStatus> = {};
+      const mineMap: Record<string, string> = {};
+      const totalsMap: Record<string, { revenue: number; orders: number }> = {};
+
       if (visitIds.length > 0) {
         const { data: visits } = await supabase
           .from('visits')
@@ -130,24 +132,20 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
           .eq('user_id', userId);
 
         if (visits) {
-          const map: Record<string, VisitStatus> = {};
-          const mine: Record<string, string> = {};
           visits.forEach(v => {
             const st = {
               check_in_time: v.check_in_time,
               check_out_time: v.check_out_time,
               status: v.status,
             };
-            map[v.id] = st;
+            visitMap[v.id] = st;
             // Also file it under the event, so a participant whose own visit id
             // differs from the event's still finds their own status.
             if ((v as any).activity_event_id) {
-              map[(v as any).activity_event_id] = st;
-              mine[(v as any).activity_event_id] = v.id;
+              visitMap[(v as any).activity_event_id] = st;
+              mineMap[(v as any).activity_event_id] = v.id;
             }
           });
-          setVisitStatuses(map);
-          setMyVisitIds(mine);
         }
 
         // Totals for the whole event, every team member's orders included —
@@ -158,17 +156,25 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
           .select('visit_id, total_amount, status')
           .in('visit_id', visitIds);
 
-        const totals: Record<string, { revenue: number; orders: number }> = {};
         (orderRows || []).forEach((o: any) => {
           if (!o.visit_id) return;
           if (o.status === 'cancelled') return;
-          const t = totals[o.visit_id] || { revenue: 0, orders: 0 };
+          const t = totalsMap[o.visit_id] || { revenue: 0, orders: 0 };
           t.revenue += Number(o.total_amount) || 0;
           t.orders += 1;
-          totals[o.visit_id] = t;
+          totalsMap[o.visit_id] = t;
         });
-        setEventTotals(totals);
       }
+
+      // Commit activities together with the visit status/totals derived from
+      // them. Setting activities first (as a separate render) let the Start/
+      // Edit buttons flash based on stale or empty visit status for a beat
+      // before the real status landed a render later.
+      setActivities(data);
+      setVisitStatuses(visitMap);
+      setMyVisitIds(mineMap);
+      setEventTotals(totalsMap);
+      onActivitiesLoadedRef.current?.(data.length);
     } catch (err) {
       console.error('[ActivityEventsTable] Failed to load activities:', err);
     } finally {
