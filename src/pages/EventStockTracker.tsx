@@ -405,7 +405,9 @@ export default function EventStockTracker() {
   ]);
 
   return (
-    <div className="min-h-screen bg-muted/30 p-3 sm:p-6 space-y-4">
+    <div className="min-h-screen bg-muted/30">
+      <Navbar />
+      <div className="p-3 sm:p-6 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Button variant="ghost" size="sm" className="p-2" onClick={() => navigate(-1)}>
