@@ -16,6 +16,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import { toast } from "sonner";
+import { Navbar } from "@/components/Navbar";
 
 interface EventInfo {
   id: string;
@@ -265,17 +266,23 @@ export default function EventSummary() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-muted/20">
+        <Navbar />
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
-        <p className="text-sm text-muted-foreground">Event not found.</p>
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>Go back</Button>
+      <div className="min-h-screen bg-muted/20">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center gap-3 py-24">
+          <p className="text-sm text-muted-foreground">Event not found.</p>
+          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>Go back</Button>
+        </div>
       </div>
     );
   }
@@ -285,8 +292,9 @@ export default function EventSummary() {
 
   return (
     <div className="min-h-screen bg-muted/20">
+      <Navbar />
       {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-background border-b">
+      <div className="bg-background border-b">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
