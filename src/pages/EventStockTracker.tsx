@@ -736,7 +736,8 @@ export default function EventStockTracker() {
 
       <AllDaysSummaryDialog open={summaryOpen} onOpenChange={setSummaryOpen} eventId={event.id} days={days} />
     </div>
-  );
+  </div>
+);
 }
 
 function KpiCard({ label, value, suffix, iconBg, icon, valueClass }: {
