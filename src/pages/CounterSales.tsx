@@ -1391,10 +1391,18 @@ interface CounterRow {
 }
 
 const DRAFT_KEY = "counter_sales_draft_v1";
-// Per-event drafts. Keyed by the event's visit id so two events running on the
-// same device never inherit each other's half-finished customers.
-const draftKeyFor = (visitId?: string) =>
-  visitId ? `counter_sales_draft_event_${visitId}` : DRAFT_KEY;
+// Per-event, per-user drafts. A "Saved" row never touches the database — it
+// is pure client state (see saveRow) — so the only thing standing between one
+// rep's unsent customer and another rep's screen is this key. Every team
+// member at an event shares the same visitId; keying on that alone meant
+// whoever next opened the event ON THE SAME DEVICE inherited the previous
+// person's draft straight out of localStorage before either of them had
+// submitted anything. Scoping by user closes that — Yash's draft now lives
+// under a key Manish's session never reads.
+const draftKeyFor = (userId?: string, visitId?: string) => {
+  const who = userId || "anon";
+  return visitId ? `counter_sales_draft_event_${visitId}_${who}` : `${DRAFT_KEY}_${who}`;
+};
 const TAX_OPTIONS = [0, 5, 12, 18, 28];
 
 // Price for 1 selected unit = price-basis rate × (selected conversion / price-basis conversion).
@@ -1636,7 +1644,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
   // refresh or on navigating away — only submitted orders came back, because
   // those are read from the database. A stall runs for hours on a phone that
   // sleeps and reloads; losing a saved customer that way is losing a sale.
-  const draftKey = draftKeyFor(eventContext?.visitId);
+  const draftKey = draftKeyFor(user?.id, eventContext?.visitId);
 
   useEffect(() => {
     try {
