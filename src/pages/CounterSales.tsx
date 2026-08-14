@@ -48,6 +48,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
 import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 import { getLocalTodayDate } from "@/utils/dateUtils";
+import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -434,7 +435,16 @@ function CounterCustomerCard({
     (s, i) => s + (i.product_id ? itemDiscount(i) : 0),
     0
   );
-  const taxTotal = row.items.reduce((s, i) => s + (i.product_id ? itemTax(i) : 0), 0);
+  // Same helper the Cart and invoices use, so an event order is taxed by the
+  // same rules as every other order rather than by a constant.
+  const taxBreakdown = sumLineTaxes(
+    row.items
+      .filter((i) => i.product_id)
+      .map((i) =>
+        computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate }),
+      ),
+  );
+  const taxTotal = taxBreakdown.totalTax;
   const total = subtotal - discountTotal + taxTotal;
 
   const isWalkIn = row.customerType === "walkin";
@@ -651,9 +661,11 @@ function CounterCustomerCard({
 
             <div className="space-y-3">
               {row.items.map((item, idx) => {
-                const lineTotal = item.product_id ? itemAmount(item) : 0;
                 const product = products.find((p) => p.id === item.product_id);
                 const mrp = product?.mrp || product?.MRP;
+                const edited =
+                  Number(item.original_rate ?? 0) > 0 &&
+                  Number(item.rate) !== Number(item.original_rate);
                 return (
                   <div key={item.uid} className="space-y-1">
                     <div className="grid grid-cols-[minmax(0,1fr)_60px_44px_72px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1.5 sm:gap-3 items-center">
@@ -671,6 +683,8 @@ function CounterCustomerCard({
                               unit: p.unit || "Unit",
                               rate: Number(p.rate) || 0,
                               original_rate: Number(p.rate) || 0,
+                              // Same source the Cart and invoices use.
+                              tax_rate: Number((p as any).gst_percentage) || 0,
                               conversion_to_base: null,
                               price_basis_conversion: null,
                             })
@@ -714,7 +728,10 @@ function CounterCustomerCard({
                         value={item.quantity}
                         disabled={locked}
                         onChange={(e) => onUpdateItem(item.uid, { quantity: Number(e.target.value) || 0 })}
-                        className="h-9 rounded-lg text-xs sm:text-sm px-1.5 sm:px-2"
+                        className={cn(
+                          "h-9 rounded-lg text-xs sm:text-sm px-1.5 sm:px-2 text-center tabular-nums",
+                          NO_SPINNER,
+                        )}
                       />
                       <div className="relative">
                         <Input
@@ -725,57 +742,52 @@ function CounterCustomerCard({
                           value={item.rate}
                           disabled={locked}
                           onChange={(e) => onUpdateItem(item.uid, { rate: Number(e.target.value) || 0 })}
-                          className="h-9 rounded-lg text-xs sm:text-sm px-1.5 sm:px-2"
+                          className={cn(
+                            "h-9 rounded-lg text-xs sm:text-sm px-1.5 sm:px-2 tabular-nums",
+                            NO_SPINNER,
+                          )}
                         />
                       </div>
                     </div>
 
-                    {/* SKU/MRP/Total meta line */}
-                    <div className="flex items-center justify-between flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground px-1">
-                      <div className="flex items-center gap-2">
-                        {item.sku && (
-                          <span>
-                            SKU: <span className="font-medium text-foreground/80">{item.sku}</span>
-                          </span>
-                        )}
-                        {item.product_id && (
-                          <>
-                            {item.sku && <span className="opacity-40">|</span>}
-                            <span>
-                              Price:{" "}
-                              <span className="font-medium text-foreground/80">
-                                {format(Number(item.original_rate ?? item.rate) || 0)}
-                              </span>
+                    {/* Under the product: what it actually costs. The SKU code
+                        was here, but a rep pricing an order needs the catalogue
+                        price to compare against, not an internal code — and the
+                        price is editable, so the original has to stay visible.
+                        Line total is gone: the only total that matters is the
+                        one at the bottom, and showing it twice invites doubt
+                        about which is real. */}
+                    {item.product_id && (
+                      <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate">
+                            Price:{" "}
+                            <span className="font-medium text-foreground/80 tabular-nums">
+                              {format(Number(item.original_rate ?? item.rate) || 0)}
                             </span>
-                          </>
-                        )}
-                        {mrp && (
-                          <>
-                            <span className="opacity-40">|</span>
-                            <span>
-                              MRP: <span className="font-medium text-foreground/80">{format(Number(mrp))}</span>
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span>
-                          Total:{" "}
-                          <span className="font-semibold text-foreground">
-                            {format(lineTotal)}
                           </span>
-                        </span>
+                          {edited && (
+                            <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-400">
+                              edited
+                            </span>
+                          )}
+                          {mrp && (
+                            <span className="shrink-0 truncate opacity-80">
+                              MRP {format(Number(mrp))}
+                            </span>
+                          )}
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
                           disabled={locked || row.items.length === 1}
                           onClick={() => onRemoveItem(item.uid)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
@@ -1019,29 +1031,58 @@ function CounterCustomerCard({
             )}
           </div>
 
-          {/* TOTALS */}
+          {/* TOTALS — a statement, not a four-across grid. On a phone the grid
+              gave each figure a quarter of the width and equal weight, so the
+              amount the customer actually pays looked like the other three.
+              This reads top to bottom and ends on the total. */}
           <div className="px-4 pt-4 pb-3">
             <div className="rounded-xl bg-background border px-3 py-3">
-              <div className="grid grid-cols-4 gap-3 text-center">
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Subtotal</div>
-                  <div className="text-sm font-semibold">{format(subtotal)}</div>
+              <dl className="space-y-1 text-xs">
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-muted-foreground">Subtotal</dt>
+                  <dd className="tabular-nums">{format(subtotal)}</dd>
                 </div>
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Discount</div>
-                  <div className="text-sm font-semibold text-destructive">- {format(discountTotal)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-muted-foreground">GST</div>
-                  <div className="text-sm font-semibold">{format(taxTotal)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Total</div>
-                  <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                    {format(total)}
+                {discountTotal > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">Discount</dt>
+                    <dd className="tabular-nums text-destructive">- {format(discountTotal)}</dd>
                   </div>
+                )}
+                {/* Split the way an invoice does, from the product's own rate. */}
+                {taxBreakdown.cgst > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">CGST</dt>
+                    <dd className="tabular-nums">{format(taxBreakdown.cgst)}</dd>
+                  </div>
+                )}
+                {taxBreakdown.sgst > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">SGST</dt>
+                    <dd className="tabular-nums">{format(taxBreakdown.sgst)}</dd>
+                  </div>
+                )}
+                {taxBreakdown.igst > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">IGST</dt>
+                    <dd className="tabular-nums">{format(taxBreakdown.igst)}</dd>
+                  </div>
+                )}
+                {taxTotal === 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">Tax</dt>
+                    <dd className="tabular-nums text-muted-foreground">
+                      {format(0)}
+                      <span className="ml-1 text-[10px]">no tax master</span>
+                    </dd>
+                  </div>
+                )}
+                <div className="mt-1 flex items-baseline justify-between border-t pt-2">
+                  <dt className="text-sm font-semibold">Total</dt>
+                  <dd className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {format(total)}
+                  </dd>
                 </div>
-              </div>
+              </dl>
 
               {/* Action buttons */}
               <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t">
@@ -1389,7 +1430,10 @@ const newItem = (): CounterLineItem => ({
   quantity: 1,
   rate: 0,
   discount: 0,
-  tax_rate: 5,
+  // 0, not 5. Tax is the product's, read from gst_percentage when one is
+  // picked; an unmapped product is genuinely untaxed here, exactly as it is in
+  // the Cart. A hardcoded 5 quietly taxed 12%, 18% and 28% goods at 5%.
+  tax_rate: 0,
   original_rate: 0,
 });
 
@@ -1418,6 +1462,11 @@ const itemGrossRate = (i: CounterLineItem) => {
   const o = Number(i.original_rate) || 0;
   return o > r ? o : r;
 };
+// The number spinners are ~24px of a 44px column on a phone and nobody taps a
+// 1-step arrow to reach a quantity of 12. Typing is the interaction here.
+const NO_SPINNER =
+  "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0";
+
 const itemSubtotal = (i: CounterLineItem) =>
   (Number(i.quantity) || 0) * itemGrossRate(i);
 const itemDiscount = (i: CounterLineItem) => {
@@ -1879,9 +1928,13 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       unit: i.unit,
       quantity: i.quantity,
       total: itemAmount(i),
-      hsn_code: null,
-      sgst_amount: 0,
-      cgst_amount: 0,
+      hsn_code: (products.find((p) => p.id === i.product_id) as any)?.hsn_code ?? null,
+      // These were hardcoded 0, so the GST shown on screen never reached the
+      // database and the invoice printed no tax at all.
+      ...(() => {
+        const t = computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate });
+        return { sgst_amount: t.sgst, cgst_amount: t.cgst };
+      })(),
     }));
     try {
       const res = await submitOrderWithOfflineSupport(orderData, items, {
@@ -2060,9 +2113,11 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         unit: i.unit,
         quantity: i.quantity,
         total: itemAmount(i),
-        hsn_code: null,
-        sgst_amount: 0,
-        cgst_amount: 0,
+        hsn_code: (products.find((p) => p.id === i.product_id) as any)?.hsn_code ?? null,
+        ...(() => {
+          const t = computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate });
+          return { sgst_amount: t.sgst, cgst_amount: t.cgst };
+        })(),
       }));
       try {
         const res = await submitOrderWithOfflineSupport(orderData, items, {
