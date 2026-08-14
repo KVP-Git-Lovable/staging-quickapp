@@ -29,6 +29,9 @@ interface Props {
   /** When true and the product has only one active UOM, render nothing.
    *  When false, still render a disabled label (handy for table cells). */
   hideWhenSingle?: boolean;
+  /** Suppress the "1 X = Y = Z" helper line below the select — for tight
+   *  layouts (e.g. narrow mobile event-order rows) where it wraps/overflows. */
+  hideHelperLine?: boolean;
 }
 
 const toSel = (u: ProductUnit, priceBasisUnit?: ProductUnit | null): LineItemUomSelection => ({
@@ -54,6 +57,7 @@ export default function LineItemUomSelect({
   className,
   disabled,
   hideWhenSingle = true,
+  hideHelperLine = false,
 }: Props) {
   const { loading, activeUnits, defaultUnit, priceBasisUnit, isSingleUom } = useLineItemUom(productId, context);
   // Pulled separately for the secondary helper line. Same data source — React
@@ -76,6 +80,7 @@ export default function LineItemUomSelect({
   // from the already-loaded productUnits list. We never call convert() against
   // a unit that isn't in productUnits — legacy products simply show no helper.
   const helperLine = useMemo(() => {
+    if (hideHelperLine) return null;
     const selectedCode = value || defaultUnit?.code;
     if (!selectedCode || !productUnits || productUnits.length === 0) return null;
     const selected = productUnits.find(
@@ -108,7 +113,7 @@ export default function LineItemUomSelect({
     }
     if (parts.length === 0) return null;
     return `1 ${selected.code} = ${parts.join(' = ')}`;
-  }, [value, defaultUnit?.code, productUnits]);
+  }, [value, defaultUnit?.code, productUnits, hideHelperLine]);
 
   if (loading) {
     return <span className="text-xs text-muted-foreground">…</span>;

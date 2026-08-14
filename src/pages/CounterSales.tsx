@@ -708,6 +708,7 @@ function CounterCustomerCard({
                           value={item.unit}
                           context="sales"
                           hideWhenSingle={false}
+                          hideHelperLine={eventMode}
                           disabled={locked}
                           className="h-9 rounded-lg text-[11px] sm:text-sm px-1.5 sm:px-2 w-full"
                           onChange={(sel) => {
