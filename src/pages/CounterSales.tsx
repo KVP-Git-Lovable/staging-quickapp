@@ -48,6 +48,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
 import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 import { getLocalTodayDate } from "@/utils/dateUtils";
+import { OrderInvoiceButton } from "@/components/invoice/OrderInvoiceButton";
 import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -1383,6 +1384,10 @@ interface CounterRow {
   walkInName?: string;
   walkInPhone?: string;
   saveWalkIn?: boolean;
+  // The real orders.id once submitted. Client-generated up front (see
+  // submitOrderWithOfflineSupport) so it's known immediately, before sync
+  // completes — which is what lets the invoice button work right away.
+  orderId?: string;
 }
 
 const DRAFT_KEY = "counter_sales_draft_v1";
@@ -1710,6 +1715,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
           const oItems = itemsByOrder.get(o.id) || [];
           return {
             uid: `db_${o.id}`,
+            orderId: o.id,
             customer: {
               id: o.counter_customer_id || o.id,
               name: o.retailer_name || "Customer",
@@ -2007,7 +2013,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         connectivityStatus: navigator.onLine ? "online" : "offline",
       });
       if (res?.success) {
-        updateRow(uid, { status: "submitted", expanded: false });
+        updateRow(uid, { status: "submitted", expanded: false, orderId: res.order?.id });
         toast.success("Order submitted successfully");
         // Auto-update event stock tracker
         if (eventContext?.visitId && navigator.onLine) {
@@ -2200,7 +2206,13 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         if (res?.success) {
           successCount++;
           const idx = updated.findIndex((x) => x.uid === r.uid);
-          if (idx >= 0) updated[idx] = { ...updated[idx], status: "submitted", expanded: false };
+          if (idx >= 0)
+            updated[idx] = {
+              ...updated[idx],
+              status: "submitted",
+              expanded: false,
+              orderId: (res as any).order?.id,
+            };
           if (eventContext?.visitId && navigator.onLine) {
             try {
               await supabase.rpc("apply_event_stock_for_order" as any, {
@@ -2573,9 +2585,18 @@ function OrderRow({
 
         <div className="flex items-center justify-end gap-2">
           {row.status === "submitted" ? (
-            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15">
-              Submitted
-            </Badge>
+            <>
+              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15">
+                Submitted
+              </Badge>
+              {/* The order id is known the instant submit succeeds — captured
+                  client-side before sync even completes — so the invoice can
+                  be generated right here instead of sending the rep off to a
+                  global list of every order from every user to go find it. */}
+              {row.orderId && (
+                <OrderInvoiceButton orderId={row.orderId} iconOnly icon={<FileText className="h-3.5 w-3.5" />} />
+              )}
+            </>
           ) : row.status === "saved" ? (
             <>
               <Badge variant="secondary">
@@ -2944,15 +2965,12 @@ function EventTeamSummary({ visitId }: { visitId: string }) {
                 </div>
               )}
             </div>
-            <Button
-              size="icon"
-              variant="ghost"
+            <OrderInvoiceButton
+              orderId={o.id}
+              iconOnly
+              icon={<FileText className="h-4 w-4" />}
               className="h-8 w-8 shrink-0"
-              aria-label="Invoice"
-              onClick={() => navigate("/invoices")}
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ))}
       </Card>
@@ -3026,14 +3044,13 @@ function SummaryView({
                     {format(rowAmount(r))}
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-xl"
-                  onClick={() => navigate("/invoices")}
-                >
-                  <FileText className="h-3.5 w-3.5 mr-1" /> Download Invoice
-                </Button>
+                {r.orderId ? (
+                  <OrderInvoiceButton orderId={r.orderId} className="rounded-xl" />
+                ) : (
+                  <Button size="sm" variant="outline" className="rounded-xl" disabled>
+                    <FileText className="h-3.5 w-3.5 mr-1" /> Invoice unavailable
+                  </Button>
+                )}
               </div>
             </Card>
           );

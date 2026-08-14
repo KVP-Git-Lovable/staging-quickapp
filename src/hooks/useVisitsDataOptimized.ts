@@ -112,10 +112,16 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
     ? visits.filter(v => v.planned_date === selectedDate)
     : visits;
   
-  // Also filter orders by date
+  // Also filter orders by date, and to retailer orders only. Counter/event
+  // orders carry retailer_id = null, so a set built from o.retailer_id gets a
+  // literal `null` entry — never in countedRetailers, so it always reads as an
+  // extra productive retailer, and the reduce below adds its amount straight
+  // into a KPI titled "Today's Progress" for a beat that never saw it. This is
+  // the retailer/beat widget; activity and event figures are added separately
+  // by the caller (see actTotal/actProductive in MyVisits.tsx).
   const dateFilteredOrders = selectedDate
-    ? orders.filter(o => o.order_date === selectedDate)
-    : orders;
+    ? orders.filter(o => o.order_date === selectedDate && o.retailer_id)
+    : orders.filter(o => o.retailer_id);
   
   // Activity visits (events, meetings, leave) carry retailer_id = null. A caller
   // that derives its retailer list from visits therefore hands us an entry with

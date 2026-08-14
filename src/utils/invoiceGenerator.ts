@@ -1038,7 +1038,7 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
     // Fetch retailer details and order info from the original order
     const { data: order } = await supabase
       .from("orders")
-      .select("retailer_id, user_id, created_at")
+      .select("retailer_id, retailer_name, user_id, created_at")
       .eq("id", orderId)
       .single();
 
@@ -1064,7 +1064,11 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
     }
 
     if (!retailer) {
-      retailer = { name: "Customer", address: "", phone: "", gst_number: "", state: "" };
+      // A counter/event sale has no retailer row — retailer_id is null by
+      // design. The order still carries the walk-in's actual name in
+      // retailer_name; falling back to a bare "Customer" printed the same
+      // word on every stall invoice regardless of who bought.
+      retailer = { name: order?.retailer_name || "Customer", address: "", phone: "", gst_number: "", state: "" };
     }
 
     // Fetch salesman name
@@ -1226,7 +1230,9 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   }
 
   if (!retailer) {
-    retailer = { name: "Customer", address: "", phone: "", gst_number: "", state: "" };
+    // Same reasoning as the edited-invoice branch above: order.retailer_name
+    // is the walk-in's real name for a counter/event sale.
+    retailer = { name: order.retailer_name || "Customer", address: "", phone: "", gst_number: "", state: "" };
   }
 
   // Fetch beat name - try retailer.beat_name first, then lookup from beats table
