@@ -1780,7 +1780,11 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       rs.map((r) => (r.uid !== rowUid ? r : { ...r, items: [...r.items, newItem()] }))
     );
 
-  const addRow = () => setRows((rs) => [...rs, newRow()]);
+  // New customer goes to the TOP. At a stall you are always working the person
+  // in front of you, and appending buried the fresh card under every customer
+  // already served — more scrolling with every sale. Rows already saved or
+  // submitted still sink below the drafts (see orderedRows).
+  const addRow = () => setRows((rs) => [newRow(), ...rs]);
   const deleteRow = (uid: string) =>
     setRows((rs) => (rs.length === 1 ? [newRow()] : rs.filter((r) => r.uid !== uid)));
 
@@ -2240,6 +2244,8 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       [...rows]
         .map((row, originalIdx) => ({ row, originalIdx }))
         .sort((a, b) => {
+          // Finished rows sink; among the rest, insertion order — and because
+          // addRow prepends, that puts the newest customer first.
           const aDone = a.row.status === "saved" || a.row.status === "submitted" ? 1 : 0;
           const bDone = b.row.status === "saved" || b.row.status === "submitted" ? 1 : 0;
           if (aDone !== bDone) return aDone - bDone;
