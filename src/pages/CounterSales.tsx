@@ -1386,6 +1386,10 @@ interface CounterRow {
 }
 
 const DRAFT_KEY = "counter_sales_draft_v1";
+// Per-event drafts. Keyed by the event's visit id so two events running on the
+// same device never inherit each other's half-finished customers.
+const draftKeyFor = (visitId?: string) =>
+  visitId ? `counter_sales_draft_event_${visitId}` : DRAFT_KEY;
 const TAX_OPTIONS = [0, 5, 12, 18, 28];
 
 // Price for 1 selected unit = price-basis rate × (selected conversion / price-basis conversion).
@@ -1622,30 +1626,43 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
   }, [user]);
 
   // ---- restore draft ----
+  //
+  // Event drafts used to be session-only, so a Saved customer vanished on
+  // refresh or on navigating away — only submitted orders came back, because
+  // those are read from the database. A stall runs for hours on a phone that
+  // sleeps and reloads; losing a saved customer that way is losing a sale.
+  const draftKey = draftKeyFor(eventContext?.visitId);
+
   useEffect(() => {
-    // Skip restoring counter draft when bound to an event — drafts are session-only.
-    if (eventContext) return;
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
+      const raw = localStorage.getItem(draftKey);
       if (raw) {
         const parsed = JSON.parse(raw) as CounterRow[];
-        if (Array.isArray(parsed) && parsed.length) setRows(parsed);
+        if (Array.isArray(parsed) && parsed.length) {
+          setRows((prev) => {
+            // Submitted rows are restored from the database; never let a stale
+            // draft copy shadow them.
+            const fromDb = prev.filter((r) => r.status === "submitted");
+            const drafts = parsed.filter((r) => r.status !== "submitted");
+            const merged = [...drafts, ...fromDb];
+            return merged.length ? merged : prev;
+          });
+        }
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [draftKey]);
 
   useEffect(() => {
-    if (eventContext) return;
     try {
       const restorableRows = rows.filter((row) => row.status !== "submitted" && hasRestorableContent(row));
       if (restorableRows.length > 0) {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(restorableRows));
+        localStorage.setItem(draftKey, JSON.stringify(restorableRows));
       } else {
-        localStorage.removeItem(DRAFT_KEY);
+        localStorage.removeItem(draftKey);
       }
     } catch {}
-  }, [eventContext, rows]);
+  }, [draftKey, rows]);
 
   // ---- load already-submitted orders so the Summary tab persists across navigation ----
   useEffect(() => {
@@ -1678,7 +1695,9 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         const orderIds = orders.map((o: any) => o.id);
         const { data: itemsData } = await supabase
           .from("order_items")
-          .select("order_id, product_id, product_name, category, rate, unit, quantity, discount_amount, total")
+          .select(
+            "order_id, product_id, product_name, category, rate, unit, quantity, discount_amount, total, sgst_amount, cgst_amount",
+          )
           .in("order_id", orderIds);
         const itemsByOrder = new Map<string, any[]>();
         (itemsData || []).forEach((it: any) => {
@@ -1707,7 +1726,20 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                   quantity: Number(it.quantity) || 0,
                   rate: Number(it.rate) || 0,
                   discount: Number(it.discount_amount) || 0,
-                  tax_rate: 0,
+                  // Recover the rate that was actually charged. Hardcoding 0
+                  // here was invisible while order_items.total included tax;
+                  // now that total is the taxable amount and the tax sits in
+                  // sgst/cgst, a restored row rendered its pre-tax figure —
+                  // ₹300 on the Orders tab against ₹315 on Summary.
+                  tax_rate: (() => {
+                    const taxable = Number(it.total) || 0;
+                    const tax =
+                      (Number(it.sgst_amount) || 0) + (Number(it.cgst_amount) || 0);
+                    if (taxable > 0 && tax > 0) return (tax / taxable) * 100;
+                    // Older orders stored no tax; fall back to the product's
+                    // current rate rather than showing it as untaxed.
+                    return Number((products.find((p) => p.id === it.product_id) as any)?.gst_percentage) || 0;
+                  })(),
                 }))
               : [newItem()],
             status: "submitted",
@@ -2014,7 +2046,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
 
   const saveDraft = () => {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(rows));
+      localStorage.setItem(draftKey, JSON.stringify(rows));
       toast.success("Draft saved on this device");
     } catch (e: any) {
       toast.error("Could not save draft");
@@ -2023,7 +2055,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
 
   const clearDraft = () => {
     try {
-      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(draftKey);
     } catch {}
   };
 
@@ -2285,18 +2317,11 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                 </p>
               </div>
             </div>
-            <Button
-              onClick={submitAll}
-              disabled={submitting}
-              className="rounded-xl h-9 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm shrink-0 bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
-            >
-              {submitting ? (
-                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5 animate-spin" />
-              ) : (
-                <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-              )}
-              Submit All
-            </Button>
+            {/* No Submit All up here. The sticky bar at the bottom already
+                carries it, with the amount attached, and it sits under the
+                thumb rather than at the top of a scrolled page. Two buttons for
+                the same irreversible action, one of them without the total, is
+                how the wrong one gets pressed. */}
           </div>
 
           {/* Orders / Summary tabs */}
