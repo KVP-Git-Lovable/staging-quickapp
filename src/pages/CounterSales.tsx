@@ -678,15 +678,21 @@ function CounterCustomerCard({
                           disabled={locked}
                           onPick={(p) =>
                             onUpdateItem(item.uid, {
-                              product_id: p.id,
+                              // p.id is a synthetic key when p is a variant row
+                              // (base-id::variant-id) — the real product_id
+                              // always comes from p.product_id.
+                              product_id: p.product_id,
+                              variant_id: p.variant_id ?? null,
                               product_name: p.name,
                               category: p.category?.name || null,
                               sku: p.sku || null,
                               unit: p.unit || "Unit",
                               rate: Number(p.rate) || 0,
                               original_rate: Number(p.rate) || 0,
-                              // Same source the Cart and invoices use.
-                              tax_rate: Number((p as any).gst_percentage) || 0,
+                              // Same source the Cart and invoices use. A
+                              // variant with its own gst_percentage overrides
+                              // the base product's.
+                              tax_rate: Number(p.gst_percentage) || 0,
                               conversion_to_base: null,
                               price_basis_conversion: null,
                             })
@@ -1349,6 +1355,7 @@ function CustomerPickerDrawer({
 interface CounterLineItem {
   uid: string; // local row id
   product_id: string;
+  variant_id?: string | null;
   product_name: string;
   category?: string | null;
   sku?: string | null;
@@ -2004,6 +2011,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     };
     const items = filledItems.map((i) => ({
       product_id: i.product_id,
+      variant_id: i.variant_id || null,
       product_name: i.product_name,
       category: i.category || null,
       rate: i.rate,
@@ -2198,6 +2206,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       };
       const items = filledItems.map((i) => ({
         product_id: i.product_id,
+        variant_id: i.variant_id || null,
         product_name: i.product_name,
         category: i.category || null,
         rate: i.rate,
@@ -3468,18 +3477,59 @@ function InlineProductSelect({
     if (!open) setSearch("");
   }, [open]);
 
+  // Flatten each product's variants into their own selectable rows. Without
+  // this, a product with variants was invisible past its base entry — ADUKU
+  // 20G showed, but the 100G/250G/500G variants sitting right under it in the
+  // catalogue never appeared, so a rep at a stall simply could not sell them.
+  // product_id always stays the BASE id (order_items, stock tracking and tax
+  // lookups all key on it); variant_id rides alongside for display, price and
+  // its own GST/HSN when the variant overrides them.
+  const flatOptions = useMemo(() => {
+    const out: any[] = [];
+    for (const p of products) {
+      out.push({
+        id: p.id,
+        product_id: p.id,
+        variant_id: null,
+        name: p.name,
+        sku: p.sku,
+        rate: p.rate,
+        category: p.category,
+        gst_percentage: p.gst_percentage,
+        unit: p.unit,
+        hsn_code: (p as any).hsn_code,
+      });
+      for (const v of p.variants || []) {
+        if (v.is_active === false) continue;
+        out.push({
+          id: `${p.id}::${v.id}`,
+          product_id: p.id,
+          variant_id: v.id,
+          name: v.variant_name,
+          sku: v.sku,
+          rate: v.price,
+          category: p.category,
+          gst_percentage: v.gst_percentage ?? p.gst_percentage,
+          unit: v.base_unit || p.unit,
+          hsn_code: v.hsn_code ?? (p as any).hsn_code,
+        });
+      }
+    }
+    return out;
+  }, [products]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = !q
-      ? products
-      : products.filter(
+      ? flatOptions
+      : flatOptions.filter(
           (p) =>
             p.name?.toLowerCase().includes(q) ||
             p.sku?.toLowerCase().includes(q) ||
             p.category?.name?.toLowerCase().includes(q)
         );
     return list.slice(0, 50);
-  }, [products, search]);
+  }, [flatOptions, search]);
 
   return (
     <Popover open={open} onOpenChange={(v) => !disabled && setOpen(v)}>
@@ -3548,8 +3598,11 @@ function InlineProductSelect({
                       {p.sku ? `SKU: ${p.sku}` : p.category?.name || "—"}
                     </div>
                   </div>
-                  <div className="text-sm font-semibold shrink-0">
-                    {format(Number(p.rate || 0))}
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-semibold">{format(Number(p.rate || 0))}</div>
+                    {p.variant_id && (
+                      <div className="text-[9px] uppercase tracking-wide text-muted-foreground">variant</div>
+                    )}
                   </div>
                 </button>
               ))
