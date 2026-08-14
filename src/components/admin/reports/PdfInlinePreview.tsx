@@ -39,6 +39,8 @@ export interface PdfInlinePreviewProps {
     date_to: string;
     scope_user_id?: string | null;
     distributor_id?: string | null;
+    audience_user_ids?: string[] | null;
+    exclude_inactive?: boolean | null;
     sort_key?: string | null;
     sort_dir?: 'asc' | 'desc' | null;
   };
