@@ -104,7 +104,7 @@ const newDraft = (): DraftRow => ({
   product_id: null,
   product_name: "",
   product_sku: null,
-  unit: "Unit",
+  unit: "",
   stock_taken: "",
   sold_qty: "",
   price: 0,
