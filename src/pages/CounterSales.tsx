@@ -2161,6 +2161,21 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     ).length;
     const items = rows.reduce((s, r) => s + rowItemCount(r), 0);
     const grand = rows.reduce((s, r) => s + rowAmount(r), 0);
+    // Weight sold, where the catalogue actually knows the weight. Falls back to
+    // the item count in the tile rather than showing a confident 0.00 kg.
+    const kg = rows.reduce(
+      (s, r) =>
+        s +
+        r.items.reduce((a, i) => {
+          if (!i.product_id) return a;
+          const qty = Number(i.quantity) || 0;
+          if (/^kgs?$/i.test(i.unit || "")) return a + qty;
+          if (/^g(ram)?s?$/i.test(i.unit || "")) return a + qty / 1000;
+          const g = Number((products.find((p) => p.id === i.product_id) as any)?.net_weight_g) || 0;
+          return g ? a + (qty * g) / 1000 : a;
+        }, 0),
+      0,
+    );
     const subtotal = rows.reduce(
       (s, r) =>
         s +
@@ -2179,8 +2194,8 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       (s, r) => s + r.items.reduce((a, i) => a + (i.product_id ? itemTax(i) : 0), 0),
       0
     );
-    return { customers, items, grand, subtotal, discount, tax };
-  }, [rows]);
+    return { customers, items, grand, kg, subtotal, discount, tax };
+  }, [rows, products]);
 
   const orderedRows = useMemo(
     () =>
@@ -2257,10 +2272,17 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
           </Tabs>
 
           {tab === "summary" ? (
-            <SummaryView
-              rows={rows.filter((r) => r.status === "saved" || r.status === "submitted")}
-              onDelete={(uid) => deleteRow(uid)}
-            />
+            eventContext?.visitId ? (
+              // Events are worked by a team, so Summary reads the event's orders
+              // from the database rather than this device's local rows — the
+              // Orders tab is deliberately only yours, this is everyone's.
+              <EventTeamSummary visitId={eventContext.visitId} />
+            ) : (
+              <SummaryView
+                rows={rows.filter((r) => r.status === "saved" || r.status === "submitted")}
+                onDelete={(uid) => deleteRow(uid)}
+              />
+            )
           ) : (
           <>
           {/* Overview summary card */}
@@ -2281,8 +2303,16 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                     <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">Total Items</div>
-                    <div className="text-sm sm:text-base font-bold leading-tight">{totals.items}</div>
+                    <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
+                      {eventContext ? "KG sold" : "Total Items"}
+                    </div>
+                    <div className="text-sm sm:text-base font-bold leading-tight">
+                      {eventContext
+                        ? totals.kg > 0
+                          ? totals.kg.toFixed(2)
+                          : totals.items
+                        : totals.items}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2.5 pl-2 sm:pl-3 min-w-0">
@@ -2290,7 +2320,9 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                     <span className="text-amber-600 dark:text-amber-400 text-xs sm:text-sm font-bold">{currencySymbol}</span>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">Grand Total</div>
+                    <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
+                      {eventContext ? "Revenue" : "Grand Total"}
+                    </div>
                     <div className="text-sm sm:text-base font-bold leading-tight whitespace-nowrap">{format(totals.grand)}</div>
                   </div>
                 </div>
@@ -2663,6 +2695,213 @@ function OrderRow({
 // ===================================================================
 // SUMMARY VIEW
 // ===================================================================
+/**
+ * Event Summary — the whole team's orders, read from the database.
+ *
+ * The Orders tab is deliberately only your own entries: it is the tab you keep
+ * adding to, and it must not fill with rows you cannot edit. Summary is the
+ * other half of that decision — it answers "how did the stall do", which is a
+ * question about everyone working it, so every order shows who placed it.
+ *
+ * A list, not a grid of cards: these rows are scanned and compared, and cards
+ * put whitespace between figures that want to line up.
+ */
+function EventTeamSummary({ visitId }: { visitId: string }) {
+  const { format } = useCurrency();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data: ords, error: oErr } = await supabase
+          .from("orders")
+          .select("id, retailer_name, total_amount, created_at, user_id, status")
+          .eq("visit_id", visitId)
+          .neq("status", "cancelled")
+          .order("created_at", { ascending: false });
+        if (oErr) throw oErr;
+        const list = ords || [];
+        if (list.length === 0) {
+          if (!cancelled) setOrders([]);
+          return;
+        }
+
+        const ids = list.map((o: any) => o.id);
+        const [{ data: items }, { data: people }] = await Promise.all([
+          supabase
+            .from("order_items")
+            .select("order_id, product_id, product_name, quantity, unit, total")
+            .in("order_id", ids),
+          supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", Array.from(new Set(list.map((o: any) => o.user_id).filter(Boolean)))),
+        ]);
+
+        // Weight per product, so quantity can be expressed in KG.
+        const productIds = Array.from(
+          new Set((items || []).map((i: any) => i.product_id).filter(Boolean)),
+        );
+        let weights = new Map<string, number>();
+        if (productIds.length) {
+          const { data: prods } = await supabase
+            .from("products")
+            .select("id, net_weight_g")
+            .in("id", productIds);
+          weights = new Map(
+            (prods || [])
+              .filter((p: any) => p.net_weight_g)
+              .map((p: any) => [p.id, Number(p.net_weight_g)]),
+          );
+        }
+
+        const nameById = new Map((people || []).map((p: any) => [p.id, p.full_name]));
+        const itemsByOrder = new Map<string, any[]>();
+        (items || []).forEach((i: any) => {
+          const arr = itemsByOrder.get(i.order_id) || [];
+          arr.push(i);
+          itemsByOrder.set(i.order_id, arr);
+        });
+
+        if (cancelled) return;
+        setOrders(
+          list.map((o: any) => {
+            const its = itemsByOrder.get(o.id) || [];
+            return {
+              ...o,
+              placedBy: nameById.get(o.user_id) || "Unknown",
+              itemCount: its.length,
+              units: its.reduce((t, i) => t + (Number(i.quantity) || 0), 0),
+              kg: its.reduce((t, i) => {
+                const qty = Number(i.quantity) || 0;
+                // Already sold by weight, or convertible via the product's
+                // net weight. Anything else contributes nothing rather than
+                // being guessed at.
+                if (/^kgs?$/i.test(i.unit || "")) return t + qty;
+                if (/^g(ram)?s?$/i.test(i.unit || "")) return t + qty / 1000;
+                const g = weights.get(i.product_id);
+                return g ? t + (qty * g) / 1000 : t;
+              }, 0),
+            };
+          }),
+        );
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || "Could not load the event's orders");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visitId]);
+
+  const totals = orders.reduce(
+    (t, o) => ({
+      customers: t.customers,
+      kg: t.kg + o.kg,
+      units: t.units + o.units,
+      revenue: t.revenue + (Number(o.total_amount) || 0),
+    }),
+    { customers: 0, kg: 0, units: 0, revenue: 0 },
+  );
+  totals.customers = new Set(
+    orders.map((o) => (o.retailer_name || "").trim().toLowerCase()).filter(Boolean),
+  ).size;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading the event's orders…
+      </div>
+    );
+  }
+  if (error) {
+    return <Card className="rounded-2xl p-6 text-center text-sm text-destructive">{error}</Card>;
+  }
+  if (orders.length === 0) {
+    return (
+      <Card className="rounded-2xl p-10 text-center text-sm text-muted-foreground">
+        No orders yet at this event.
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <Card className="rounded-2xl">
+        <div className="grid grid-cols-3 divide-x px-3 py-3">
+          <Stat label="Customers" value={String(totals.customers)} />
+          <Stat
+            label="KG sold"
+            value={totals.kg > 0 ? totals.kg.toFixed(2) : "—"}
+            hint={totals.kg > 0 ? undefined : `${totals.units} units · no weight set`}
+          />
+          <Stat label="Revenue" value={format(totals.revenue)} />
+        </div>
+      </Card>
+
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-semibold">Orders at this event</h3>
+        <Badge variant="secondary">{orders.length}</Badge>
+      </div>
+
+      <Card className="rounded-2xl divide-y overflow-hidden">
+        {orders.map((o) => (
+          <div key={o.id} className="flex items-center gap-3 px-3 py-2.5">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{o.retailer_name || "Walk-in"}</div>
+              <div className="truncate text-[11px] text-muted-foreground">
+                {o.placedBy} ·{" "}
+                {new Date(o.created_at).toLocaleTimeString("en-IN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}{" "}
+                · {o.itemCount} item{o.itemCount !== 1 ? "s" : ""}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {format(Number(o.total_amount) || 0)}
+              </div>
+              {o.kg > 0 && (
+                <div className="text-[10px] tabular-nums text-muted-foreground">
+                  {o.kg.toFixed(2)} kg
+                </div>
+              )}
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 shrink-0"
+              aria-label="Invoice"
+              onClick={() => navigate("/invoices")}
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="min-w-0 px-2 text-center">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="truncate text-sm font-bold tabular-nums sm:text-base">{value}</div>
+      {hint && <div className="truncate text-[9px] text-muted-foreground">{hint}</div>}
+    </div>
+  );
+}
+
 function SummaryView({
   rows,
   onDelete,
