@@ -768,37 +768,39 @@ function CounterCustomerCard({
                         Line total is gone: the only total that matters is the
                         one at the bottom, and showing it twice invites doubt
                         about which is real. */}
-                    {item.product_id && (
-                      <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span className="truncate">
-                            Price:{" "}
-                            <span className="font-medium text-foreground/80 tabular-nums">
-                              {format(Number(item.original_rate ?? item.rate) || 0)}
+                    <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
+                      <div className="flex min-w-0 items-center gap-2">
+                        {item.product_id && (
+                          <>
+                            <span className="truncate">
+                              Price:{" "}
+                              <span className="font-medium text-foreground/80 tabular-nums">
+                                {format(Number(item.original_rate ?? item.rate) || 0)}
+                              </span>
                             </span>
-                          </span>
-                          {edited && (
-                            <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-400">
-                              edited
-                            </span>
-                          )}
-                          {mrp && (
-                            <span className="shrink-0 truncate opacity-80">
-                              MRP {format(Number(mrp))}
-                            </span>
-                          )}
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
-                          disabled={locked || row.items.length === 1}
-                          onClick={() => onRemoveItem(item.uid)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                            {edited && (
+                              <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-400">
+                                edited
+                              </span>
+                            )}
+                            {mrp && (
+                              <span className="shrink-0 truncate opacity-80">
+                                MRP {format(Number(mrp))}
+                              </span>
+                            )}
+                          </>
+                        )}
                       </div>
-                    )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+                        disabled={locked || row.items.length === 1}
+                        onClick={() => onRemoveItem(item.uid)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
