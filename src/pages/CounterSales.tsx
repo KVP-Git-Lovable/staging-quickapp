@@ -2279,15 +2279,15 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
           {/* Orders / Summary tabs */}
           <Tabs value={tab} onValueChange={(v) => setTab(v as "orders" | "summary")} className="mb-3">
             <TabsList className="grid grid-cols-2 w-full rounded-xl h-9">
+              {/* No counts. The Summary badge was especially misleading: it
+                  counted THIS device's rows, while the tab itself shows the
+                  whole team's orders from the database — so it read 0 next to a
+                  tab holding other people's orders. */}
               <TabsTrigger value="orders" className="rounded-lg text-xs sm:text-sm">
                 Orders
-                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">{rows.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="summary" className="rounded-lg text-xs sm:text-sm">
                 Summary
-                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
-                  {rows.filter((r) => r.status === "saved" || r.status === "submitted").length}
-                </Badge>
               </TabsTrigger>
             </TabsList>
           </Tabs>
