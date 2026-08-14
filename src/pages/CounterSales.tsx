@@ -1852,8 +1852,18 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     }
     setSubmittingRows((s) => new Set(s).add(uid));
     const filledItems = row.items.filter((i) => i.product_id);
-    const subtotal = filledItems.reduce((s, i) => s + itemAmount(i), 0);
-    const total = Math.round(subtotal);
+    // subtotal is the TAXABLE sum, tax added on top — the convention the rest
+    // of the app writes and sync_order_with_items_v2 enforces:
+    //   total_amount == sum(order_items.total) + sgst + cgst
+    // Using itemAmount here (taxable + tax) double-counted the tax the moment
+    // sgst/cgst stopped being hardcoded 0, and the server rejected every order.
+    const subtotal = filledItems.reduce((s, i) => s + itemTaxable(i), 0);
+    const taxSum = filledItems.reduce(
+      (s, i) =>
+        s + computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate }).totalTax,
+      0,
+    );
+    const total = Math.round(subtotal + taxSum);
     const isWalkIn = (row.customerType || "existing") === "walkin";
     let walkInCustomerId: string | null = null;
     if (isWalkIn && row.saveWalkIn && (row.walkInName || "").trim() && user) {
@@ -1946,7 +1956,8 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       discount_amount: Number(i.discount) || 0,
       unit: i.unit,
       quantity: i.quantity,
-      total: itemAmount(i),
+      // Excludes tax — cgst/sgst are carried separately below.
+      total: itemTaxable(i),
       hsn_code: (products.find((p) => p.id === i.product_id) as any)?.hsn_code ?? null,
       // These were hardcoded 0, so the GST shown on screen never reached the
       // database and the invoice printed no tax at all.
@@ -2047,8 +2058,14 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     const updated = [...rows];
     for (const r of submittableRows) {
       const filledItems = r.items.filter((i) => i.product_id);
-      const subtotal = filledItems.reduce((s, i) => s + itemAmount(i), 0);
-      const total = Math.round(subtotal);
+      // Taxable sum; tax added on top. See the note in submitRow.
+      const subtotal = filledItems.reduce((s, i) => s + itemTaxable(i), 0);
+      const taxSum = filledItems.reduce(
+        (s, i) =>
+          s + computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate }).totalTax,
+        0,
+      );
+      const total = Math.round(subtotal + taxSum);
       const isWalkIn = (r.customerType || "existing") === "walkin";
       let walkInCustomerId: string | null = null;
       if (isWalkIn && r.saveWalkIn && (r.walkInName || "").trim() && user) {
@@ -2133,7 +2150,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         discount_amount: Number(i.discount) || 0,
         unit: i.unit,
         quantity: i.quantity,
-        total: itemAmount(i),
+        total: itemTaxable(i),
         hsn_code: (products.find((p) => p.id === i.product_id) as any)?.hsn_code ?? null,
         ...(() => {
           const t = computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate });
