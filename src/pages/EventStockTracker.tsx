@@ -551,7 +551,9 @@ export default function EventStockTracker() {
                       <div className="font-medium">{it.product_name}</div>
                       {it.product_sku && <div className="text-xs text-muted-foreground">SKU: {it.product_sku}</div>}
                     </td>
-                    <td className="px-3 py-3 text-muted-foreground">{it.unit}</td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      <UomLabel productId={it.product_id} snapshotCode={it.unit || null} />
+                    </td>
                     <td className="px-3 py-3">
                       <Input type="number" min={0} value={it.stock_taken}
                         onChange={(e) => updateField(it.id, "stock_taken", e.target.value)}
