@@ -485,76 +485,101 @@ export default function EventStockTracker() {
             const sold = Number(d.sold_qty) || 0;
             const remaining = taken - sold;
             const value = sold * d.price;
+            const mobileLabel = "md:hidden text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block";
             return (
-              <div key={d.key} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,1fr,1fr,1fr,40px] gap-3 items-center">
-                <ProductPicker
-                  products={products}
-                  excludeIds={usedProductIds}
-                  selectedName={d.product_name}
-                  onSelect={(p) => updateDraft(d.key, {
-                    product_id: p.id,
-                    product_name: p.name,
-                    product_sku: p.sku,
-                    // Unit comes from the UOM master via LineItemUomSelect — never
-                    // from the legacy products.base_unit text column.
-                    unit: "",
-                    price: Number(p.rate) || 0,
-                    conversion_to_base: null,
-                    price_basis_conversion: null,
-                  })}
-                />
-                {d.product_id ? (
-                  <LineItemUomSelect
-                    productId={d.product_id}
-                    value={d.unit || undefined}
-                    context="sales"
-                    hideWhenSingle={false}
-                    className="h-10 w-full"
-                    onChange={(sel) => {
-                      if (
-                        d.unit === sel.uomCode &&
-                        (d.conversion_to_base ?? null) === (sel.conversionToBase ?? null) &&
-                        (d.price_basis_conversion ?? null) === (sel.priceBasisConversionToBase ?? null)
-                      ) {
-                        return;
-                      }
-                      const prod = products.find((p) => p.id === d.product_id);
-                      const patch: Partial<DraftRow> = {
-                        unit: sel.uomCode,
-                        conversion_to_base: sel.conversionToBase ?? null,
-                        price_basis_conversion: sel.priceBasisConversionToBase ?? null,
-                      };
-                      if (prod) patch.price = uomUnitPrice(Number(prod.rate) || 0, sel);
-                      // Convert already-entered quantities between mapped units (12 PIECE → BOX).
-                      if (d.conversion_to_base && sel.conversionToBase && d.unit && d.unit !== sel.uomCode) {
-                        const conv = (v: string) => {
-                          const n = Number(v);
-                          if (!n || n <= 0) return v;
-                          return String(+((n * d.conversion_to_base!) / sel.conversionToBase).toFixed(3));
-                        };
-                        patch.stock_taken = conv(d.stock_taken);
-                        patch.sold_qty = conv(d.sold_qty);
-                      }
-                      updateDraft(d.key, patch);
-                    }}
+              <div
+                key={d.key}
+                className="rounded-xl border border-border p-3 space-y-2.5 md:rounded-none md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-[2fr,1fr,1fr,1fr,1fr,1fr,40px] md:gap-3 md:items-center"
+              >
+                <div>
+                  <span className={mobileLabel}>Product</span>
+                  <ProductPicker
+                    products={products}
+                    excludeIds={usedProductIds}
+                    selectedName={d.product_name}
+                    onSelect={(p) => updateDraft(d.key, {
+                      product_id: p.id,
+                      product_name: p.name,
+                      product_sku: p.sku,
+                      // Unit comes from the UOM master via LineItemUomSelect — never
+                      // from the legacy products.base_unit text column.
+                      unit: "",
+                      price: Number(p.rate) || 0,
+                      conversion_to_base: null,
+                      price_basis_conversion: null,
+                    })}
                   />
-                ) : (
-                  <div className="h-10 flex items-center text-xs text-muted-foreground">—</div>
-                )}
-                <Input type="number" min={0} placeholder="Enter qty"
-                  value={d.stock_taken}
-                  onChange={(e) => updateDraft(d.key, { stock_taken: e.target.value })}
-                  className="h-10" />
-                <Input type="number" min={0} max={taken} placeholder="Enter sold qty"
-                  value={d.sold_qty}
-                  onChange={(e) => updateDraft(d.key, { sold_qty: e.target.value })}
-                  className="h-10" />
-                <Input value={remaining || 0} disabled className="h-10 bg-muted/50" />
-                <Input value={inr(value)} disabled className="h-10 bg-muted/50" />
-                <Button variant="ghost" size="sm" className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
-                  onClick={() => removeDraft(d.key)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                </div>
+                <div>
+                  <span className={mobileLabel}>Unit</span>
+                  {d.product_id ? (
+                    <LineItemUomSelect
+                      productId={d.product_id}
+                      value={d.unit || undefined}
+                      context="sales"
+                      hideWhenSingle={false}
+                      className="h-10 w-full"
+                      onChange={(sel) => {
+                        if (
+                          d.unit === sel.uomCode &&
+                          (d.conversion_to_base ?? null) === (sel.conversionToBase ?? null) &&
+                          (d.price_basis_conversion ?? null) === (sel.priceBasisConversionToBase ?? null)
+                        ) {
+                          return;
+                        }
+                        const prod = products.find((p) => p.id === d.product_id);
+                        const patch: Partial<DraftRow> = {
+                          unit: sel.uomCode,
+                          conversion_to_base: sel.conversionToBase ?? null,
+                          price_basis_conversion: sel.priceBasisConversionToBase ?? null,
+                        };
+                        if (prod) patch.price = uomUnitPrice(Number(prod.rate) || 0, sel);
+                        // Convert already-entered quantities between mapped units (12 PIECE → BOX).
+                        if (d.conversion_to_base && sel.conversionToBase && d.unit && d.unit !== sel.uomCode) {
+                          const conv = (v: string) => {
+                            const n = Number(v);
+                            if (!n || n <= 0) return v;
+                            return String(+((n * d.conversion_to_base!) / sel.conversionToBase).toFixed(3));
+                          };
+                          patch.stock_taken = conv(d.stock_taken);
+                          patch.sold_qty = conv(d.sold_qty);
+                        }
+                        updateDraft(d.key, patch);
+                      }}
+                    />
+                  ) : (
+                    <div className="h-10 flex items-center text-xs text-muted-foreground">—</div>
+                  )}
+                </div>
+                <div>
+                  <span className={mobileLabel}>Stock Taken</span>
+                  <Input type="number" min={0} placeholder="Enter qty"
+                    value={d.stock_taken}
+                    onChange={(e) => updateDraft(d.key, { stock_taken: e.target.value })}
+                    className="h-10" />
+                </div>
+                <div>
+                  <span className={mobileLabel}>Sold</span>
+                  <Input type="number" min={0} max={taken} placeholder="Enter sold qty"
+                    value={d.sold_qty}
+                    onChange={(e) => updateDraft(d.key, { sold_qty: e.target.value })}
+                    className="h-10" />
+                </div>
+                <div>
+                  <span className={mobileLabel}>Remaining</span>
+                  <Input value={remaining || 0} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div>
+                  <span className={mobileLabel}>Sold Value</span>
+                  <Input value={inr(value)} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div className="flex justify-end md:block">
+                  <Button variant="ghost" size="sm" className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
+                    onClick={() => removeDraft(d.key)}>
+                    <Trash2 className="h-4 w-4" />
+                    <span className="ml-1 text-xs md:hidden">Remove</span>
+                  </Button>
+                </div>
               </div>
             );
           })}
@@ -568,8 +593,86 @@ export default function EventStockTracker() {
         </CardContent>
       </Card>
 
-      {/* Saved Items Table */}
-      <Card className="rounded-2xl overflow-hidden">
+      {/* Saved Items — cards on mobile */}
+      <Card className="rounded-2xl overflow-hidden md:hidden">
+        {items.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            No saved entries yet. Add rows above and tap "Save Stock".
+          </div>
+        ) : (
+          <div className="divide-y">
+            {items.map((it, idx) => {
+              const remaining = it.stock_taken - it.sold_qty;
+              const value = it.sold_qty * it.price;
+              return (
+                <div
+                  key={it.id}
+                  className={cn(
+                    "p-3 space-y-2.5 transition-colors",
+                    it.state === "saving" && "bg-amber-50/40",
+                    it.state === "saved" && "bg-emerald-50/40"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium leading-snug">
+                        <span className="text-muted-foreground mr-1.5">{idx + 1}.</span>
+                        {it.product_name}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                        {it.product_sku && <span>SKU: {it.product_sku}</span>}
+                        <UomLabel productId={it.product_id} snapshotCode={it.unit || null} />
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" className="p-2 -mr-1 text-rose-500 hover:text-rose-600 hover:bg-rose-50 shrink-0"
+                      onClick={() => removeItem(it.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Stock Taken</span>
+                      <Input type="number" min={0} value={it.stock_taken}
+                        onChange={(e) => updateField(it.id, "stock_taken", e.target.value)}
+                        className="h-10" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Sold</span>
+                      <Input type="number" min={0} max={it.stock_taken} value={it.sold_qty}
+                        onChange={(e) => updateField(it.id, "sold_qty", e.target.value)}
+                        className={cn("h-10", it.error && "border-rose-400 focus-visible:ring-rose-300")} />
+                    </div>
+                  </div>
+                  {it.error && (
+                    <div className="text-[11px] text-rose-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> {it.error}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                    <span>
+                      Remaining: <span className="font-semibold text-emerald-700">{remaining}</span>
+                    </span>
+                    <span className="font-semibold">{inr(value)}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    {it.state === "saving" && (<><Loader2 className="h-3 w-3 animate-spin" /> Updating…</>)}
+                    {it.state === "saved" && (<><CheckCircle2 className="h-3 w-3 text-emerald-600" /> Saved</>)}
+                    {it.state === "error" && (<><AlertCircle className="h-3 w-3 text-rose-600" /> Error</>)}
+                    {it.state === "idle" && <>Updated {fmtTime(it.updated_at)}</>}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="p-3 flex items-center justify-between bg-muted/40 text-sm font-semibold">
+              <span>Total · {kpis.taken} taken · {kpis.sold} sold</span>
+              <span className="text-emerald-700">{kpis.remaining} left · {inr(kpis.value)}</span>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Saved Items Table — desktop */}
+      <Card className="rounded-2xl overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
