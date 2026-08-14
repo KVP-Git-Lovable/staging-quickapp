@@ -294,7 +294,7 @@ export default function EventSummary() {
     <div className="min-h-screen bg-muted/20">
       <Navbar />
       {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-background border-b">
+      <div className="bg-background border-b">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
