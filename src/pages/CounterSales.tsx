@@ -471,6 +471,7 @@ function CounterCustomerCard({
 
   const paymentMode = row.paymentMode || "";
   const paymentMethod = row.paymentMethod || "";
+  const paymentBlocked = !!eventMode && !paymentMethod;
   const paymentLabel: Record<string, { label: string; cls: string }> = {
     full: { label: "Full Payment", cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" },
     partial: { label: "Partial Payment", cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
@@ -1086,6 +1087,11 @@ function CounterCustomerCard({
 
               {/* Action buttons */}
               <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t">
+                {/* At an event the only payment decision is Cash or UPI, so an
+                    unanswered one blocks submission. Disabled rather than
+                    tap-then-toast — the button should look unavailable before
+                    it is pressed. validateRow still enforces it; this is the
+                    visible half of the same rule. */}
                 {row.status === "submitted" ? (
                   <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 h-9 px-4 rounded-xl">
                     Submitted
@@ -1095,7 +1101,12 @@ function CounterCustomerCard({
                     <Button variant="outline" onClick={onEdit} className="rounded-xl h-9">
                       <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
                     </Button>
-                    <Button onClick={onSubmit} disabled={submitting} className="rounded-xl h-9 bg-primary text-primary-foreground hover:bg-primary/90 px-5">
+                    <Button
+                      onClick={onSubmit}
+                      disabled={submitting || paymentBlocked}
+                      title={paymentBlocked ? "Select Cash or UPI first" : undefined}
+                      className="rounded-xl h-9 bg-primary text-primary-foreground hover:bg-primary/90 px-5"
+                    >
                       {submitting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
                       Submit
                     </Button>
@@ -1105,7 +1116,12 @@ function CounterCustomerCard({
                     <Button variant="outline" onClick={onSave} className="rounded-xl h-9">
                       <Save className="h-3.5 w-3.5 mr-1" /> Save
                     </Button>
-                    <Button onClick={onSubmit} disabled={submitting} className="rounded-xl h-9 bg-primary text-primary-foreground hover:bg-primary/90 px-5">
+                    <Button
+                      onClick={onSubmit}
+                      disabled={submitting || paymentBlocked}
+                      title={paymentBlocked ? "Select Cash or UPI first" : undefined}
+                      className="rounded-xl h-9 bg-primary text-primary-foreground hover:bg-primary/90 px-5"
+                    >
                       {submitting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
                       Submit
                     </Button>
@@ -1808,7 +1824,10 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
   const saveRow = (uid: string) => {
     const row = rows.find((r) => r.uid === uid);
     if (!row) return;
-    const err = validateRow(row);
+    // Saving collapses the card and it then reads as finished. At an event that
+    // must not be possible with the payment unanswered, or the rep discovers it
+    // only at Submit All, several customers later.
+    const err = validateRow(row, !!eventContext);
     if (err) {
       toast.error(err);
       return;
@@ -2017,7 +2036,9 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     for (const r of submittableRows) {
       const err = validateRow(r, true);
       if (err) {
-        toast.error(`Customer "${r.customer?.name || "?"}": ${err}`);
+        toast.error(
+          `${(r.walkInName || "").trim() || r.customer?.name || "Customer"}: ${err}`,
+        );
         return;
       }
     }
