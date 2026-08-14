@@ -41,7 +41,7 @@ import { useOrderBasedDelivery } from "@/hooks/useOrderBasedDelivery";
 import { useVanSales } from "@/hooks/useVanSales";
 import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
-import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
+import { computeLineTax, sumLineTaxes, roundHalfUp } from "@/utils/taxCalc";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useOrderCurrency } from "@/hooks/useOrderCurrency";
 
@@ -519,7 +519,17 @@ export const Cart = () => {
       if (!item) return 0;
       const subtotal = computeItemSubtotal(item);
       const discount = computeItemDiscount(item);
-      return Math.max(0, subtotal - discount);
+      // Rounded to the paise here, once, because this is the number every
+      // downstream consumer (order_items.total in storage, the tax basis,
+      // the order subtotal) is built from. Without this, quantity × rate
+      // stays a raw float (e.g. 0.2 × 342.86 = 68.572000000000003) that the
+      // DB's numeric(_,2) column quietly rounds to 68.57 on its own when the
+      // LINE is stored — but the order-level total was being summed from the
+      // unrounded 68.572, so it drifted a few paise from what the line items
+      // themselves actually add up to. A ₹404.50 order landed on 404.4988…
+      // and rounded DOWN to ₹404 instead of the correct ₹405 — right answer
+      // to the wrong number.
+      return roundHalfUp(Math.max(0, subtotal - discount));
     } catch (error) {
       console.error('Error computing total:', error);
       return 0;
@@ -704,9 +714,14 @@ export const Cart = () => {
   };
   const getAmountAfterDiscount = () => {
     try {
-      const subtotal = getSubtotal();
-      const discount = getDiscount();
-      return Math.max(0, subtotal - discount);
+      // Built from the SAME rounded per-line numbers lineTaxes (the tax
+      // basis) uses — not a separate subtotal-minus-discount computed from
+      // raw, unrounded getSubtotal()/getDiscount(). Two independently-drifting
+      // aggregates were the actual bug: this and the tax total could each be
+      // off by a paise or two in different directions, and by the time they
+      // were added and rounded to the final whole-rupee total, that was
+      // enough to tip a genuine ₹404.50 down to ₹404 instead of up to ₹405.
+      return cartItems.reduce((sum, item) => sum + computeItemTotal(item), 0);
     } catch (error) {
       console.error('Error computing amount after discount:', error);
       return 0;

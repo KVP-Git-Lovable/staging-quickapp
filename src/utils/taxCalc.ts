@@ -16,7 +16,7 @@ export interface LineTax {
   totalTax: number;
 }
 
-function roundHalfUp(n: number, decimals = 2): number {
+export function roundHalfUp(n: number, decimals = 2): number {
   if (!Number.isFinite(n)) return 0;
   const factor = Math.pow(10, decimals);
   // round-half-up handling negatives symmetrically
