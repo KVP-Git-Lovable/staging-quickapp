@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Navbar } from "@/components/Navbar";
 import { ArrowLeft, Plus, Loader2, Trash2, Package, IndianRupee, MapPin, Calendar, Save, Search, ChevronDown, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchEventByRouteId } from "@/lib/eventLookup";
@@ -404,7 +405,9 @@ export default function EventStockTracker() {
   ]);
 
   return (
-    <div className="min-h-screen bg-muted/30 p-3 sm:p-6 space-y-4">
+    <div className="min-h-screen bg-muted/30">
+      <Navbar />
+      <div className="p-3 sm:p-6 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Button variant="ghost" size="sm" className="p-2" onClick={() => navigate(-1)}>
@@ -733,7 +736,8 @@ export default function EventStockTracker() {
 
       <AllDaysSummaryDialog open={summaryOpen} onOpenChange={setSummaryOpen} eventId={event.id} days={days} />
     </div>
-  );
+  </div>
+);
 }
 
 function KpiCard({ label, value, suffix, iconBg, icon, valueClass }: {
