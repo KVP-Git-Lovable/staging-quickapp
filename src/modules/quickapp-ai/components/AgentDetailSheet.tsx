@@ -54,6 +54,31 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
     ],
     note: "Simulation analyses historical business data using deterministic calculations only. AI summarises the findings after the analysis completes.",
   },
+  beat_planner: {
+    signals: [
+      "Retailer count per beat",
+      "Beat coverage in the last 30 days",
+      "Days since last retailer visit",
+      "Pending payment / outstanding dues per beat",
+      "90-day confirmed order value per beat",
+      "Unassigned retailers",
+      "Stops-per-day capacity",
+      "Suggested visit days for next month",
+    ],
+    note: "These factors are analysed using deterministic business rules before AI generates a human-readable recommendation. No beats, plans or visits are modified during Simulation.",
+  },
+  sales_coach: {
+    signals: [
+      "90-day confirmed order history",
+      "Order value per retailer",
+      "Distinct products bought per retailer",
+      "Your top products by value",
+      "Products a retailer is not yet buying",
+      "Most-bought product per retailer",
+      "Line-item quantities and values",
+    ],
+    note: "Simulation analyses historical order data using deterministic calculations only. AI turns the findings into coaching tips after the analysis completes.",
+  },
 };
 
 
@@ -196,6 +221,61 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                       s.daysSinceLastVisit != null ? `${s.daysSinceLastVisit}d since visit` : null,
                       s.pending ? `₹${Math.round(s.pending).toLocaleString("en-IN")} pending` : null,
                       `${s.productivityPct}% productive`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {result?.kind === "beat_plan" && Array.isArray(result.rows) && (
+            <div className="space-y-1.5">
+              {result.rows.length === 0 && (
+                <p className="text-xs text-muted-foreground">No retailers found to plan beats for.</p>
+              )}
+              {result.rows.map((b: any) => (
+                <div key={b.beat} className="rounded-lg border border-border p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-medium">{b.beat}</span>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      {b.coveragePct}% covered
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {[
+                      `${b.retailers} retailers`,
+                      `${b.visited30d} visited in 30d`,
+                      b.pending ? `₹${Math.round(b.pending).toLocaleString("en-IN")} pending` : null,
+                      `${b.suggestedDays} visit day${b.suggestedDays !== 1 ? "s" : ""} suggested`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {result?.kind === "coach" && Array.isArray(result.rows) && (
+            <div className="space-y-1.5">
+              {result.rows.length === 0 && (
+                <p className="text-xs text-muted-foreground">No recent confirmed orders to coach on.</p>
+              )}
+              {result.rows.map((r: any) => (
+                <div key={r.retailerId} className="rounded-lg border border-border p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-medium">{r.name}</span>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      {r.distinctProducts} product{r.distinctProducts !== 1 ? "s" : ""}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {[
+                      `₹${Math.round(r.orderValue).toLocaleString("en-IN")} in 90d`,
+                      r.topProduct ? `top: ${r.topProduct}` : null,
+                      r.gapProducts?.length ? `pitch: ${r.gapProducts.join(", ")}` : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}
