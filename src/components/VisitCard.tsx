@@ -597,6 +597,12 @@ export const VisitCard = ({
     } catch { return false; }
   })();
   const isTodaysVisit = selectedDate === localTodayString || isBackdatedOrderAllowed;
+  // The business date this card's actions must stamp on visits/orders: the
+  // selected past day during a validated backdate session, otherwise today.
+  // Using plain "today" while backdating created a today-dated visit whose
+  // date mismatched the backdate context, making the cart drop the context
+  // (orders then lost the past date and skipped the reason prompt).
+  const effectiveVisitDate = isBackdatedOrderAllowed ? selectedDate : localTodayString;
 
   // Ensure visit tracking ends when this card unmounts or user navigates away
   // REMOVED: Do NOT call endTracking on unmount - it was incorrectly updating end_time to "now"
@@ -3123,7 +3129,7 @@ export const VisitCard = ({
                       return;
                     }
 
-                    const today = new Date().toISOString().split("T")[0];
+                    const today = effectiveVisitDate;
                     const cachedVisitKey = `visit_${userId}_${retailerId}_${today}`;
 
                     // If already cached, no need to hit Supabase again
@@ -3563,7 +3569,7 @@ export const VisitCard = ({
                     }
                   } = await supabase.auth.getUser();
                   if (user) {
-                    const today = getLocalTodayDate();
+                    const today = effectiveVisitDate;
                     const retailerId = visit.retailerId || visit.id;
 
                     // Auto check-out any previous in-progress visit before phone order
@@ -3758,7 +3764,7 @@ export const VisitCard = ({
                           }
                         } = await supabase.auth.getUser();
                         if (user) {
-                          const today = getLocalTodayDate();
+                          const today = effectiveVisitDate;
                           const retailerId = visit.retailerId || visit.id;
 
                           // Auto check-out any previous in-progress visit before proceeding
