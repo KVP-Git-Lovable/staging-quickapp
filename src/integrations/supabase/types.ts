@@ -7889,6 +7889,7 @@ export type Database = {
           product_id: string
           source: string
           user_id: string
+          variant_id: string | null
           visit_id: string | null
         }
         Insert: {
@@ -7906,6 +7907,7 @@ export type Database = {
           product_id: string
           source?: string
           user_id: string
+          variant_id?: string | null
           visit_id?: string | null
         }
         Update: {
@@ -7923,6 +7925,7 @@ export type Database = {
           product_id?: string
           source?: string
           user_id?: string
+          variant_id?: string | null
           visit_id?: string | null
         }
         Relationships: [
@@ -7984,6 +7987,7 @@ export type Database = {
           stock_taken: number
           unit: string | null
           updated_at: string
+          variant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -7995,6 +7999,7 @@ export type Database = {
           stock_taken?: number
           unit?: string | null
           updated_at?: string
+          variant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -8006,6 +8011,7 @@ export type Database = {
           stock_taken?: number
           unit?: string | null
           updated_at?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -8027,6 +8033,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_stock_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
