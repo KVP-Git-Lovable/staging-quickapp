@@ -351,7 +351,14 @@ export function UserFYPlanTarget({
     if (selectedPlan) {
       loadExistingTargets();
     }
-  }, [selectedPlan]);
+    // Deliberately keyed on the plan's identity, not the whole selectedPlan
+    // object. Editing Qty/Revenue Target (top card or per-month) replaces
+    // selectedPlan with a new object on every keystroke via setSelectedPlan —
+    // depending on the object itself re-ran this DB reload on every edit,
+    // overwriting in-progress unsaved changes with what's still in the
+    // database and flipping "Equally divide" back on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlan?.id]);
 
   const loadPlans = async () => {
     if (!effectiveUserId) return;
@@ -814,7 +821,11 @@ export function UserFYPlanTarget({
     if (productCategories.length > 0 && selectedPlan) {
       loadExistingTargets();
     }
-  }, [productCategories, retailerCategories, distributors, selectedPlan]);
+    // Same reasoning as the other loadExistingTargets effect above: key off
+    // the plan's identity, not the object reference, so editing Qty/Revenue
+    // Target doesn't itself trigger a reload that overwrites the edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productCategories, retailerCategories, distributors, selectedPlan?.id]);
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
