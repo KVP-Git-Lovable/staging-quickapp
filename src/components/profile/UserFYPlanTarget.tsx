@@ -669,14 +669,34 @@ export function UserFYPlanTarget({
     }
 
     // Initialize monthly targets with product breakdown
-    const hasExistingMonthData = monthData && monthData.length > 0;
     const hasExistingMonthProductData = monthProductData && monthProductData.length > 0;
-    
+
+    // Carry forward each month's SHARE of the total, not its raw saved
+    // quantity/revenue. A saved month row reflects whatever the annual
+    // target was the last time it was saved — using it verbatim meant every
+    // month kept showing that stale absolute number forever, even after the
+    // Qty/Revenue Target fields above were changed and saved. Deriving a
+    // percentage from what was saved, then applying it to the CURRENT
+    // selectedPlan totals, keeps the breakdown reconciled with the top
+    // card while still preserving an intentionally uneven split.
+    const savedMonthlyQtyTotal = (monthData || []).reduce((s, md) => s + (md.quantity_target || 0), 0);
+    const savedMonthlyRevTotal = (monthData || []).reduce((s, md) => s + (md.revenue_target || 0), 0);
+
     const newMonthTargets: MonthTarget[] = FY_MONTHS.map(m => {
       const existing = monthData?.find(md => md.month_number === m.number);
-      const monthQty = existing?.quantity_target || (hasExistingMonthData ? 0 : (selectedPlan.quantity_target || 0) / 12);
-      const monthRev = existing?.revenue_target || (hasExistingMonthData ? 0 : (selectedPlan.revenue_target || 0) / 12);
-      
+
+      let monthPct = 100 / 12;
+      if (existing) {
+        if (savedMonthlyRevTotal > 0) {
+          monthPct = ((existing.revenue_target || 0) / savedMonthlyRevTotal) * 100;
+        } else if (savedMonthlyQtyTotal > 0) {
+          monthPct = ((existing.quantity_target || 0) / savedMonthlyQtyTotal) * 100;
+        }
+      }
+
+      const monthQty = (monthPct / 100) * (selectedPlan.quantity_target || 0);
+      const monthRev = (monthPct / 100) * (selectedPlan.revenue_target || 0);
+
       // Get month-specific product targets or use global percentages
       const monthProducts: MonthProductTarget[] = allProducts.map(p => {
         const existingMonthProduct = monthProductData?.find(
@@ -715,7 +735,7 @@ export function UserFYPlanTarget({
       return {
         monthNumber: m.number,
         monthName: m.name,
-        percentage: 100 / 12,
+        percentage: monthPct,
         quantityTarget: monthQty,
         revenueTarget: monthRev,
         useProductPercentages: !hasExistingMonthProductData,
@@ -726,15 +746,14 @@ export function UserFYPlanTarget({
 
     const totalMonthlyQty = newMonthTargets.reduce((sum, m) => sum + m.quantityTarget, 0);
     const totalMonthlyRev = newMonthTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
-    
-    if (totalMonthlyRev > 0 && hasExistingMonthData) {
-      newMonthTargets.forEach(m => {
-        m.percentage = (m.revenueTarget / totalMonthlyRev) * 100;
-      });
-      setMonthEqualDivide(false);
-    } else {
-      setMonthEqualDivide(true);
-    }
+
+    // Equal-divide is the actual state, not an assumption: true whenever every
+    // month's derived share is (within rounding) an even 1/12, regardless of
+    // whether that's because nothing was saved yet or because a prior equal
+    // split was saved. A real custom split — e.g. more in Q4 — correctly
+    // leaves this false so the per-month percentage inputs stay visible.
+    const isEqualSplit = newMonthTargets.every(m => Math.abs(m.percentage - 100 / 12) < 0.05);
+    setMonthEqualDivide(isEqualSplit);
     setMonthTotalQuantity(totalMonthlyQty);
     setMonthTotalRevenue(totalMonthlyRev);
     setMonthTargets(newMonthTargets);
@@ -1483,6 +1502,10 @@ export function UserFYPlanTarget({
       const newTotalRev = newTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
       setMonthTotalQuantity(newTotalQty);
       setMonthTotalRevenue(newTotalRev);
+      // Editing a month directly is how the user builds up the annual number
+      // from the ground up — the FY Overview card above should show that sum
+      // live, not the last value typed into it (or saved) independently.
+      setSelectedPlan(prevPlan => prevPlan ? { ...prevPlan, quantity_target: newTotalQty, revenue_target: newTotalRev } : prevPlan);
       return newTargets.map(m => ({
         ...m,
         percentage: newTotalRev > 0 ? (m.revenueTarget / newTotalRev) * 100 : 100 / 12
