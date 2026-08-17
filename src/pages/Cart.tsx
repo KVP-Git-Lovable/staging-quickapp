@@ -175,18 +175,6 @@ export const Cart = () => {
     }
   }, [visitId]);
 
-  // Second guard using the visit's real planned_date (fetched below for UUID
-  // visit ids the regex above can't decode): a backdate context left over
-  // from working a past day must never stamp an order taken on a visit that
-  // belongs to a different day.
-  React.useEffect(() => {
-    if (!visitDate || !backdateCtx) return;
-    if (backdateCtx.date !== visitDate) {
-      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
-      setBackdateCtx(null);
-    }
-  }, [visitDate, backdateCtx]);
-
 
   const getEffectiveOrderDate = React.useCallback(
     () => backdateCtx?.date ?? getLocalTodayDate(),
@@ -268,6 +256,18 @@ export const Cart = () => {
   const [userId, setUserId] = React.useState<string | null>(null);
   const [loggedInUserName, setLoggedInUserName] = React.useState<string>("User");
   const [visitDate, setVisitDate] = React.useState<string | null>(null);
+
+  // Second guard using the visit's real planned_date (fetched async for UUID
+  // visit ids the offline-id regex above can't decode): a backdate context
+  // left over from working a past day must never stamp an order taken on a
+  // visit that belongs to a different day.
+  React.useEffect(() => {
+    if (!visitDate || !backdateCtx) return;
+    if (backdateCtx.date !== visitDate) {
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      setBackdateCtx(null);
+    }
+  }, [visitDate, backdateCtx]);
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
