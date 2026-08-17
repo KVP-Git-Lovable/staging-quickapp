@@ -27,7 +27,7 @@ import { visitStatusCache } from "@/lib/visitStatusCache";
 import { addOrderToSnapshot } from "@/lib/myVisitsSnapshot";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 import { calculateLocalVanStockUpdate } from "@/utils/localVanStockSync";
-import { getLocalTodayDate } from "@/utils/dateUtils";
+import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
 import { getOnBehalfContext, clearOnBehalfContext } from "@/lib/onBehalfContext";
 import { getOutOfBeatContext, clearOutOfBeatContext } from "@/lib/outOfBeatContext";
 import { useTodaysBeatIds } from "@/hooks/useTodaysBeatIds";
@@ -1827,9 +1827,14 @@ export const Cart = () => {
             const orderDate = new Date().toISOString().split('T')[0];
             await awardPointsForTotalVisits(currentUserId, orderDate);
 
-            // Create invoice record (for future editing/management)
-            const invoiceDate = new Date().toISOString().split('T')[0];
-            const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            // Create invoice record (for future editing/management). The
+            // invoice carries the order's business date — for a backdated
+            // order the day the sale happened, not the day it was keyed in —
+            // and the due date counts from that same day.
+            const invoiceDate = getEffectiveOrderDate();
+            const dueDateObj = new Date(invoiceDate + 'T00:00:00');
+            dueDateObj.setDate(dueDateObj.getDate() + 30);
+            const dueDate = toLocalISODate(dueDateObj);
 
             const { data: companyData } = await supabase
               .from('companies')
