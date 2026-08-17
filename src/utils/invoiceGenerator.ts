@@ -1359,8 +1359,22 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   );
 
   const displayInvoiceNumber = (order as any).invoice_number || `INV-${order.id.substring(0, 8).toUpperCase()}`;
-  const displayInvoiceDate = order.created_at ? new Date(order.created_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
-  const displayInvoiceTime = order.created_at ? new Date(order.created_at).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
+  // The invoice shows the order's business date (order_date): for a
+  // backdated order that is the day the sale happened, not the day it was
+  // keyed in. The time line is only meaningful when the two fall on the same
+  // day; a backdated invoice shows "—" instead of a misleading entry time.
+  const createdAt = order.created_at ? new Date(order.created_at) : new Date();
+  const orderDateStr: string | null =
+    typeof (order as any).order_date === 'string' && (order as any).order_date
+      ? String((order as any).order_date).slice(0, 10)
+      : null;
+  const localCreatedDate = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}-${String(createdAt.getDate()).padStart(2, '0')}`;
+  const displayInvoiceDate = orderDateStr
+    ? new Date(orderDateStr + 'T00:00:00').toLocaleDateString("en-GB")
+    : createdAt.toLocaleDateString("en-GB");
+  const displayInvoiceTime = (!orderDateStr || orderDateStr === localCreatedDate)
+    ? createdAt.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' })
+    : "—";
   const invoiceNumber = displayInvoiceNumber;
   
   // Get the selected template from company settings (default to template4)
