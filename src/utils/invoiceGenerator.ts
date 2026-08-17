@@ -450,9 +450,21 @@ async function generateTemplate4InvoiceLegacy(data: InvoiceData): Promise<Blob> 
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
   doc.text("INVOICE #:", pageWidth - 60, invoiceY);
+  const invLabelWidth = doc.getTextWidth("INVOICE #:");
   doc.setFont("helvetica", "normal");
+  // Same 45mm column as ROUTE/SALESMAN below. A wrapped invoice number would
+  // look broken across two lines, so shrink to fit on one instead — this was
+  // fine at the old 3-digit sequence width but silently overlapped the label
+  // once the sequence passed 4 digits (visually reading as a cut-off number).
+  const invAvailWidth = 45 - invLabelWidth - 2;
+  let invFontSize = 9;
+  while (invFontSize > 6 && doc.getTextWidth(invoiceNum) > invAvailWidth) {
+    invFontSize -= 0.5;
+    doc.setFontSize(invFontSize);
+  }
   doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
-  
+  doc.setFontSize(9);
+
   invoiceY += 6;
   doc.setFont("helvetica", "bold");
   doc.text("DATE:", pageWidth - 60, invoiceY);
