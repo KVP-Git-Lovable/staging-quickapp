@@ -175,6 +175,18 @@ export const Cart = () => {
     }
   }, [visitId]);
 
+  // Second guard using the visit's real planned_date (fetched below for UUID
+  // visit ids the regex above can't decode): a backdate context left over
+  // from working a past day must never stamp an order taken on a visit that
+  // belongs to a different day.
+  React.useEffect(() => {
+    if (!visitDate || !backdateCtx) return;
+    if (backdateCtx.date !== visitDate) {
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      setBackdateCtx(null);
+    }
+  }, [visitDate, backdateCtx]);
+
 
   const getEffectiveOrderDate = React.useCallback(
     () => backdateCtx?.date ?? getLocalTodayDate(),
@@ -768,17 +780,20 @@ export const Cart = () => {
   };
 
 
-  // Check if the visit date allows order submission
+  // Check if the visit date allows order submission. A past-date visit is
+  // submittable when it matches the validated backdate context (repeat orders
+  // on a backdated day reuse the visit created by the first order).
   const canSubmitOrder = () => {
     if (!visitDate) return true; // Allow if no visit date (backwards compatibility)
     const today = getLocalTodayDate(); // Get today's date in YYYY-MM-DD format (local timezone)
+    if (backdateCtx?.date === visitDate) return true;
     console.log('Visit date:', visitDate, 'Today:', today, 'Can submit:', visitDate === today);
     return visitDate === today;
   };
   const getSubmitButtonText = () => {
     if (!visitDate) return "Submit Order";
     const today = getLocalTodayDate();
-    if (visitDate === today) return "Submit Order";
+    if (visitDate === today || backdateCtx?.date === visitDate) return "Submit Order";
     return `Order will be placed on ${new Date(visitDate).toLocaleDateString()}`;
   };
   const handleCameraCapture = async (blob: Blob) => {
@@ -1687,10 +1702,17 @@ export const Cart = () => {
 
       // Navigate to My Visits page - snapshot is already updated
       console.log('✅ Navigating to My Visits');
-      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      // Keep the backdate context while the user is still working that past
+      // date — the next retailer's order must land on the same day and ask
+      // for a reason again. My Visits clears/replaces the context whenever a
+      // different date is selected. Returning with ?date= keeps the calendar
+      // on the day being worked instead of snapping back to today.
+      if (!isBackdated) {
+        try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      }
       clearOnBehalfContext();
       clearOutOfBeatContext();
-      navigate(isAdminEdit ? '/operations/edited-orders' : '/visits/retailers');
+      navigate(isAdminEdit ? '/operations/edited-orders' : `/visits/retailers?date=${getEffectiveOrderDate()}`);
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
       // Gamification, retailer sequences, and invoice DB records run in background
@@ -2459,11 +2481,14 @@ export const Cart = () => {
         markVisitDataChanged(orderDate);
       }
 
-      // Navigate back to My Visits
-      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      // Navigate back to My Visits (same backdate-context handling as the
+      // regular submit path above).
+      if (!isBackdated) {
+        try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      }
       clearOnBehalfContext();
       clearOutOfBeatContext();
-      navigate(isEditMode && isAdminEdit ? '/operations/edited-orders' : '/visits/retailers');
+      navigate(isEditMode && isAdminEdit ? '/operations/edited-orders' : `/visits/retailers?date=${getEffectiveOrderDate()}`);
 
     } catch (error: any) {
       console.error('Error submitting D-1 order:', error);

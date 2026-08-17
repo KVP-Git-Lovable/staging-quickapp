@@ -1093,6 +1093,25 @@ export const MyVisits = () => {
     }
   }, [backdateCfg]);
 
+  // Keep the backdate context in step with the date being viewed, however it
+  // was reached — hand-picked, deep link, or returning from the cart with
+  // ?date= after a backdated order. A past date with a context already
+  // validated for it is left alone (so the post-order return trip doesn't
+  // re-run the RPC); a past date without one gets validated; any other date
+  // makes a lingering past-date context stale, so it is dropped.
+  useEffect(() => {
+    const today = getLocalTodayDate();
+    if (selectedDate >= today) {
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      return;
+    }
+    try {
+      const raw = sessionStorage.getItem('backdated_order_context');
+      if (raw && JSON.parse(raw)?.date === selectedDate) return;
+    } catch {}
+    applyBackdateContext(selectedDate);
+  }, [selectedDate, applyBackdateContext]);
+
   const submitBackdateApprovalRequest = useCallback(async () => {
     if (!backdateApprovalPrompt) return;
     const iso = backdateApprovalPrompt.isoDate;
