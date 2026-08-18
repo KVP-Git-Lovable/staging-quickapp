@@ -13,13 +13,17 @@ import { toast } from 'sonner';
 /**
  * Month-wise target grid for a single employee.
  *
- * Shows Monthly Target, Working Days and an auto-calculated Daily Average for
- * every month of the FY plan. Monthly Target and Working Days are editable one
- * row at a time; Daily Average is always derived (target ÷ working days) and is
- * never stored or typed.
+ * Always renders every month in the plan's window, whether or not the employee
+ * already has a saved plan. Where nothing is stored yet the row is derived from
+ * the employee's allocated annual target (spread evenly) and the working days
+ * for that calendar month, so a manager can see and edit the breakdown before
+ * any plan exists. Saving a derived row creates the plan and the month row.
  *
- * Reads and writes only `user_business_plan_months` — no schema change, and no
- * effect on allocation maths, achievement calculations or the Targets tab.
+ * Monthly Target and Working Days are editable. Daily Average is always
+ * target ÷ working days — derived at render, never stored, never typed.
+ *
+ * Touches only `user_business_plans` and `user_business_plan_months`. No schema
+ * change, and no effect on allocation maths or the Targets tab.
  */
 
 const FY_MONTHS = [
@@ -36,6 +40,26 @@ const FY_MONTHS = [
   { number: 11, name: 'February' },
   { number: 12, name: 'March' },
 ];
+
+/**
+ * Calendar position of an FY month. fy_year 2027 means FY 2026-27, so FY month
+ * 1 (April) falls in 2026 and FY month 10 (January) falls in 2027.
+ */
+const calendarFor = (fyMonth: number, fyYear: number) =>
+  fyMonth <= 9
+    ? { monthIndex: fyMonth + 2, year: fyYear - 1 }
+    : { monthIndex: fyMonth - 10, year: fyYear };
+
+/** Working days = calendar days minus Sundays, matching the six-day week already stored. */
+const workingDaysFor = (fyMonth: number, fyYear: number): number => {
+  const { monthIndex, year } = calendarFor(fyMonth, fyYear);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  let sundays = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (new Date(year, monthIndex, day).getDay() === 0) sundays++;
+  }
+  return daysInMonth - sundays;
+};
 
 const formatNumber = (num: number) =>
   new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(num);
@@ -54,12 +78,22 @@ const formatDaily = (target: number, workingDays: number) => {
   return value === null ? '—' : value.toFixed(2);
 };
 
-interface MonthRow {
+interface StoredMonth {
   month_number: number;
   month_name: string | null;
   quantity_target: number;
   revenue_target: number;
   working_days: number;
+}
+
+interface GridRow {
+  monthNumber: number;
+  monthName: string;
+  quantityTarget: number;
+  revenueTarget: number;
+  workingDays: number;
+  /** False when the row is derived on the fly because nothing is saved yet. */
+  isStored: boolean;
 }
 
 interface DraftRow {
@@ -74,6 +108,10 @@ interface MonthlyTargetGridProps {
   fyYear: number;
   quantityUnit: string;
   enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean };
+  /** The employee's allocated annual quantity, used to seed unsaved months. */
+  annualQuantity?: number;
+  /** The employee's allocated annual revenue, used to seed unsaved months. */
+  annualRevenue?: number;
   targetStartMonth?: number;
   targetEndMonth?: number;
 }
@@ -84,6 +122,8 @@ export function MonthlyTargetGrid({
   fyYear,
   quantityUnit,
   enabledMetrics,
+  annualQuantity = 0,
+  annualRevenue = 0,
   targetStartMonth = 1,
   targetEndMonth = 12,
 }: MonthlyTargetGridProps) {
@@ -91,7 +131,6 @@ export function MonthlyTargetGrid({
   const [editingMonth, setEditingMonth] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftRow | null>(null);
 
-  // The plan row this employee's months hang off.
   const { data: plan, isLoading: planLoading } = useQuery({
     queryKey: ['ubp-plan', userId, fyYear],
     queryFn: async () => {
@@ -107,9 +146,9 @@ export function MonthlyTargetGrid({
     enabled: !!userId,
   });
 
-  const { data: months = [], isLoading: monthsLoading } = useQuery({
+  const { data: storedMonths = [], isLoading: monthsLoading } = useQuery({
     queryKey: ['ubp-months', plan?.id],
-    queryFn: async (): Promise<MonthRow[]> => {
+    queryFn: async (): Promise<StoredMonth[]> => {
       if (!plan?.id) return [];
       const { data, error } = await supabase
         .from('user_business_plan_months')
@@ -128,29 +167,112 @@ export function MonthlyTargetGrid({
     enabled: !!plan?.id,
   });
 
+  const activeMonths = useMemo(
+    () => FY_MONTHS.filter(m => m.number >= targetStartMonth && m.number <= targetEndMonth),
+    [targetStartMonth, targetEndMonth],
+  );
+
+  /**
+   * Every month in the window, stored values where they exist and an even split
+   * of the allocated annual target where they do not.
+   */
+  const rows: GridRow[] = useMemo(() => {
+    const stored = new Map(storedMonths.map(m => [m.month_number, m]));
+    const count = activeMonths.length || 1;
+    const seedQuantity = annualQuantity / count;
+    const seedRevenue = annualRevenue / count;
+
+    return activeMonths.map(month => {
+      const existing = stored.get(month.number);
+      if (existing) {
+        return {
+          monthNumber: month.number,
+          monthName: existing.month_name || month.name,
+          quantityTarget: existing.quantity_target,
+          revenueTarget: existing.revenue_target,
+          workingDays: existing.working_days || workingDaysFor(month.number, fyYear),
+          isStored: true,
+        };
+      }
+      return {
+        monthNumber: month.number,
+        monthName: month.name,
+        quantityTarget: enabledMetrics.quantity ? Math.round(seedQuantity) : 0,
+        revenueTarget: enabledMetrics.revenue ? Math.round(seedRevenue) : 0,
+        workingDays: workingDaysFor(month.number, fyYear),
+        isStored: false,
+      };
+    });
+  }, [storedMonths, activeMonths, annualQuantity, annualRevenue, enabledMetrics, fyYear]);
+
+  const totals = useMemo(() => ({
+    quantity: rows.reduce((sum, r) => sum + r.quantityTarget, 0),
+    revenue: rows.reduce((sum, r) => sum + r.revenueTarget, 0),
+    workingDays: rows.reduce((sum, r) => sum + r.workingDays, 0),
+  }), [rows]);
+
+  const unsavedCount = rows.filter(r => !r.isStored).length;
+
   const saveMutation = useMutation({
-    mutationFn: async ({ monthNumber, values }: { monthNumber: number; values: DraftRow }) => {
-      if (!plan?.id) throw new Error('No business plan for this user');
+    mutationFn: async ({ row, values }: { row: GridRow; values: DraftRow }) => {
+      // Create the plan the first time a month is saved for this employee.
+      let planId = plan?.id;
+      if (!planId) {
+        const { data: created, error: planError } = await supabase
+          .from('user_business_plans')
+          .insert({
+            user_id: userId,
+            year: fyYear,
+            quantity_target: annualQuantity,
+            revenue_target: annualRevenue,
+            quantity_unit: quantityUnit,
+            source: 'manual',
+          })
+          .select('id')
+          .single();
+        if (planError) throw planError;
+        planId = created.id;
+      }
+
       const payload: Record<string, number> = { working_days: values.workingDays };
       if (enabledMetrics.quantity) payload.quantity_target = values.quantityTarget;
       if (enabledMetrics.revenue) payload.revenue_target = values.revenueTarget;
 
-      const { error } = await supabase
+      const { data: existing, error: lookupError } = await supabase
         .from('user_business_plan_months')
-        .update(payload)
-        .eq('business_plan_id', plan.id)
-        .eq('month_number', monthNumber);
-      if (error) throw error;
-      return { monthNumber, values };
+        .select('id')
+        .eq('business_plan_id', planId)
+        .eq('month_number', row.monthNumber)
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+
+      if (existing) {
+        const { error } = await supabase
+          .from('user_business_plan_months')
+          .update(payload)
+          .eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('user_business_plan_months')
+          .insert({
+            business_plan_id: planId,
+            month_number: row.monthNumber,
+            month_name: row.monthName,
+            ...payload,
+          });
+        if (error) throw error;
+      }
+
+      return { row, values };
     },
-    onSuccess: ({ monthNumber, values }) => {
+    onSuccess: ({ row, values }) => {
+      queryClient.invalidateQueries({ queryKey: ['ubp-plan', userId, fyYear] });
       queryClient.invalidateQueries({ queryKey: ['ubp-months', plan?.id] });
-      const label = FY_MONTHS.find(m => m.number === monthNumber)?.name ?? `Month ${monthNumber}`;
       const primary = enabledMetrics.quantity ? values.quantityTarget : values.revenueTarget;
-      toast.success(
-        `${userName} — ${label} saved`,
-        { description: `${formatNumber(primary)} ÷ ${values.workingDays} days = ${formatDaily(primary, values.workingDays)} per day` },
-      );
+      toast.success(`${userName} — ${row.monthName} saved`, {
+        description: `${formatNumber(primary)} ÷ ${values.workingDays} days = ${formatDaily(primary, values.workingDays)} per day`,
+      });
       setEditingMonth(null);
       setDraft(null);
     },
@@ -160,25 +282,12 @@ export function MonthlyTargetGrid({
     },
   });
 
-  // Only months inside the plan's configured window.
-  const visibleMonths = useMemo(
-    () => months.filter(m => m.month_number >= targetStartMonth && m.month_number <= targetEndMonth),
-    [months, targetStartMonth, targetEndMonth],
-  );
-
-  const totals = useMemo(() => {
-    const quantity = visibleMonths.reduce((sum, m) => sum + m.quantity_target, 0);
-    const revenue = visibleMonths.reduce((sum, m) => sum + m.revenue_target, 0);
-    const workingDays = visibleMonths.reduce((sum, m) => sum + m.working_days, 0);
-    return { quantity, revenue, workingDays };
-  }, [visibleMonths]);
-
-  const startEdit = (row: MonthRow) => {
-    setEditingMonth(row.month_number);
+  const startEdit = (row: GridRow) => {
+    setEditingMonth(row.monthNumber);
     setDraft({
-      quantityTarget: row.quantity_target,
-      revenueTarget: row.revenue_target,
-      workingDays: row.working_days,
+      quantityTarget: row.quantityTarget,
+      revenueTarget: row.revenueTarget,
+      workingDays: row.workingDays,
     });
   };
 
@@ -202,26 +311,9 @@ export function MonthlyTargetGrid({
     );
   }
 
-  if (!plan) {
-    return (
-      <div className="ml-8 mb-2 text-xs text-muted-foreground italic px-3 py-2 rounded-md border border-dashed">
-        No monthly plan for {userName} in FY {fyYear}.
-      </div>
-    );
-  }
-
-  if (!visibleMonths.length) {
-    return (
-      <div className="ml-8 mb-2 text-xs text-muted-foreground italic px-3 py-2 rounded-md border border-dashed">
-        No months configured for this plan.
-      </div>
-    );
-  }
-
-  // Sum of months vs the annual figure stored on the plan — surfaced, never auto-corrected.
   const annual = enabledMetrics.quantity
-    ? Number(plan.quantity_target) || 0
-    : Number(plan.revenue_target) || 0;
+    ? (plan ? Number(plan.quantity_target) || 0 : annualQuantity)
+    : (plan ? Number(plan.revenue_target) || 0 : annualRevenue);
   const summed = enabledMetrics.quantity ? totals.quantity : totals.revenue;
   const drifted = Math.round(annual) !== Math.round(summed);
 
@@ -231,11 +323,18 @@ export function MonthlyTargetGrid({
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {userName} · FY {fyYear} monthly breakdown
         </span>
-        <span className="text-[11px] font-mono text-muted-foreground">
-          {totals.workingDays} working days
-          {totals.workingDays > 0 && (
-            <> · {formatDaily(annual, totals.workingDays)} {enabledMetrics.quantity ? quantityUnit : '₹'}/day avg</>
+        <span className="flex items-center gap-2">
+          {unsavedCount > 0 && (
+            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+              {unsavedCount === rows.length ? 'Not saved yet' : `${unsavedCount} unsaved`}
+            </Badge>
           )}
+          <span className="text-[11px] font-mono text-muted-foreground">
+            {totals.workingDays} working days
+            {totals.workingDays > 0 && (
+              <> · {formatDaily(annual, totals.workingDays)} {enabledMetrics.quantity ? quantityUnit : '₹'}/day avg</>
+            )}
+          </span>
         </span>
       </div>
 
@@ -262,21 +361,26 @@ export function MonthlyTargetGrid({
           </TableHeader>
 
           <TableBody>
-            {visibleMonths.map(row => {
-              const isEditing = editingMonth === row.month_number;
-              const label = row.month_name
-                || FY_MONTHS.find(m => m.number === row.month_number)?.name
-                || `Month ${row.month_number}`;
-
-              const shownQuantity = isEditing && draft ? draft.quantityTarget : row.quantity_target;
-              const shownRevenue = isEditing && draft ? draft.revenueTarget : row.revenue_target;
-              const shownDays = isEditing && draft ? draft.workingDays : row.working_days;
+            {rows.map(row => {
+              const isEditing = editingMonth === row.monthNumber;
+              const shownQuantity = isEditing && draft ? draft.quantityTarget : row.quantityTarget;
+              const shownRevenue = isEditing && draft ? draft.revenueTarget : row.revenueTarget;
+              const shownDays = isEditing && draft ? draft.workingDays : row.workingDays;
               const dailyBasis = enabledMetrics.quantity ? shownQuantity : shownRevenue;
               const daysInvalid = isEditing && !(shownDays >= 1 && shownDays <= 31);
 
               return (
-                <TableRow key={row.month_number} className={cn(isEditing && 'bg-muted/50')}>
-                  <TableCell className="text-sm font-medium">{label}</TableCell>
+                <TableRow key={row.monthNumber} className={cn(isEditing && 'bg-muted/50')}>
+                  <TableCell className="text-sm font-medium">
+                    <span className="flex items-center gap-1.5">
+                      {row.monthName}
+                      {!row.isStored && (
+                        <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal">
+                          draft
+                        </span>
+                      )}
+                    </span>
+                  </TableCell>
 
                   {enabledMetrics.quantity && (
                     <TableCell className="text-right">
@@ -288,11 +392,13 @@ export function MonthlyTargetGrid({
                           onChange={e => setDraft(d => d && { ...d, quantityTarget: parseNum(e.target.value) })}
                           placeholder="0"
                           className="h-8 w-24 text-right text-sm ml-auto"
-                          aria-label={`Monthly target for ${label}`}
+                          aria-label={`Monthly target for ${row.monthName}`}
                           autoFocus
                         />
                       ) : (
-                        <span className="text-sm font-mono">{formatNumber(row.quantity_target)}</span>
+                        <span className={cn('text-sm font-mono', !row.isStored && 'text-muted-foreground')}>
+                          {formatNumber(row.quantityTarget)}
+                        </span>
                       )}
                     </TableCell>
                   )}
@@ -307,10 +413,12 @@ export function MonthlyTargetGrid({
                           onChange={e => setDraft(d => d && { ...d, revenueTarget: parseNum(e.target.value) })}
                           placeholder="0"
                           className="h-8 w-28 text-right text-sm ml-auto"
-                          aria-label={`Monthly revenue target for ${label}`}
+                          aria-label={`Monthly revenue target for ${row.monthName}`}
                         />
                       ) : (
-                        <span className="text-sm font-mono">{formatNumber(row.revenue_target)}</span>
+                        <span className={cn('text-sm font-mono', !row.isStored && 'text-muted-foreground')}>
+                          {formatNumber(row.revenueTarget)}
+                        </span>
                       )}
                     </TableCell>
                   )}
@@ -325,14 +433,14 @@ export function MonthlyTargetGrid({
                           onChange={e => setDraft(d => d && { ...d, workingDays: Math.round(parseNum(e.target.value)) })}
                           placeholder="0"
                           className={cn('h-8 w-16 text-right text-sm', daysInvalid && 'border-destructive')}
-                          aria-label={`Working days in ${label}`}
+                          aria-label={`Working days in ${row.monthName}`}
                         />
                         {daysInvalid && (
                           <span className="text-[10px] text-destructive font-medium">1–31 required</span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-sm font-mono text-muted-foreground">{row.working_days}</span>
+                      <span className="text-sm font-mono text-muted-foreground">{row.workingDays}</span>
                     )}
                   </TableCell>
 
@@ -357,7 +465,7 @@ export function MonthlyTargetGrid({
                           size="sm"
                           className="h-7 px-2 text-xs gap-1"
                           disabled={draftInvalid || saveMutation.isPending}
-                          onClick={() => draft && saveMutation.mutate({ monthNumber: row.month_number, values: draft })}
+                          onClick={() => draft && saveMutation.mutate({ row, values: draft })}
                         >
                           {saveMutation.isPending
                             ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -381,7 +489,7 @@ export function MonthlyTargetGrid({
                         className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
                         disabled={editingMonth !== null}
                         onClick={() => startEdit(row)}
-                        aria-label={`Edit ${label}`}
+                        aria-label={`Edit ${row.monthName}`}
                       >
                         <Pencil className="h-3 w-3" /> Edit
                       </Button>
@@ -391,7 +499,6 @@ export function MonthlyTargetGrid({
               );
             })}
 
-            {/* Totals — recomputed from the rows, annual taken from the plan */}
             <TableRow className="bg-muted/40 hover:bg-muted/40 font-semibold">
               <TableCell className="text-sm">Total</TableCell>
               {enabledMetrics.quantity && (
@@ -419,7 +526,17 @@ export function MonthlyTargetGrid({
         </Table>
       </div>
 
-      {drifted && (
+      {unsavedCount > 0 && (
+        <div className="flex items-start gap-1.5 text-[11px] px-3 py-2 text-muted-foreground bg-muted/30 border-t">
+          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+          <span>
+            Draft months are an even split of the allocated annual target, with working days
+            taken from the calendar. Save a month to store it.
+          </span>
+        </div>
+      )}
+
+      {drifted && unsavedCount === 0 && (
         <div className="flex items-start gap-1.5 text-[11px] px-3 py-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-t">
           <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
           <span>

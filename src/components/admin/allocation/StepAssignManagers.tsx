@@ -469,6 +469,8 @@ export function StepAssignManagers({
                   fyYear={fyYear}
                   quantityUnit={quantityUnit}
                   enabledMetrics={enabledMetrics}
+                  annualQuantity={mgr.quantityTarget}
+                  annualRevenue={mgr.revenueTarget}
                   targetStartMonth={targetStartMonth}
                   targetEndMonth={targetEndMonth}
                 />
