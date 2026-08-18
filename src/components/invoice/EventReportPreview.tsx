@@ -187,9 +187,9 @@ export default function EventReportPreview({
                     <div style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: THEME.good, fontWeight: 700, marginBottom: 6 }}>
                       Highlights
                     </div>
-                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, lineHeight: 1.6, color: THEME.ink }}>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: THEME.ink, listStyleType: "disc" }}>
                       {aiInsights.highlights.map((h, i) => (
-                        <li key={i}>{h}</li>
+                        <li key={i} style={{ display: "list-item" }}>{h}</li>
                       ))}
                     </ul>
                   </div>
@@ -199,9 +199,9 @@ export default function EventReportPreview({
                     <div style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: THEME.warn, fontWeight: 700, marginBottom: 6 }}>
                       Watch-outs
                     </div>
-                    <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12.5, lineHeight: 1.6, color: THEME.ink }}>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12.5, lineHeight: 1.6, color: THEME.ink, listStyleType: "disc" }}>
                       {aiInsights.watchouts.map((w, i) => (
-                        <li key={i}>{w}</li>
+                        <li key={i} style={{ display: "list-item" }}>{w}</li>
                       ))}
                     </ul>
                   </div>

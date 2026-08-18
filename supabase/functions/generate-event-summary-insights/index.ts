@@ -13,6 +13,11 @@ const EMPTY_INSIGHTS = {
   watchouts: [] as string[],
 };
 
+// Pre-format every money figure as an Indian Rupee string before it reaches
+// the model, so the model only ever echoes a value — it never formats or
+// invents currency itself (left to its own devices it defaults to $).
+const inr = (n: unknown) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -50,15 +55,15 @@ serve(async (req) => {
         status: event?.status,
       },
       kpis: {
-        totalRevenue: kpis?.totalRevenue,
+        totalRevenue: inr(kpis?.totalRevenue),
         totalOrders: kpis?.totalOrders,
         totalCustomers: kpis?.customers,
         itemsSold: kpis?.itemsSold,
-        grossMarginPct: kpis?.margin,
+        grossMarginPct: `${(Number(kpis?.margin) || 0).toFixed(1)}%`,
       },
-      dayWise: (dayWise || []).slice(0, 14),
-      topProducts: (topProducts || []).slice(0, 10),
-      topCustomers: (topCustomers || []).slice(0, 10),
+      dayWise: (dayWise || []).slice(0, 14).map((d: any) => ({ ...d, revenue: inr(d.revenue) })),
+      topProducts: (topProducts || []).slice(0, 10).map((p: any) => ({ ...p, revenue: inr(p.revenue) })),
+      topCustomers: (topCustomers || []).slice(0, 10).map((c: any) => ({ ...c, revenue: inr(c.revenue) })),
     };
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -77,13 +82,13 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a sales operations analyst writing a short performance summary for a field sales event (e.g. a promotional stall, trade activation, or in-store push). You are given the event's real recorded orders, day-wise sales, top products, and top customers. Respond in JSON with exactly these fields:
+            content: `You are a sales operations analyst writing a short performance summary for a field sales event (e.g. a promotional stall, trade activation, or in-store push). You are given the event's real recorded orders, day-wise sales, top products, and top customers. The reader already sees Total Revenue, Total Orders, Total Customers, Items Sold, and Gross Margin as headline numbers directly above your summary — do not restate those same four totals, focus on what they don't already see. Respond in JSON with exactly these fields:
 
-1. narrative: A 2-4 sentence executive summary of how the event performed, written plainly for a sales manager — no fluff, cite real numbers from the data given.
-2. highlights: An array of 3-5 short strings, each one concrete positive or notable fact (e.g. a standout product, a strong customer, a good conversion pattern).
+1. narrative: A 2-4 sentence executive summary of how the event performed, written plainly for a sales manager — no fluff. Go beyond the headline totals: talk about concentration, spread, timing, or standout behavior.
+2. highlights: An array of 3-5 short strings, each one concrete positive or notable fact NOT already one of the five headline totals (e.g. a standout product, a strong customer, a good conversion pattern).
 3. watchouts: An array of 0-3 short strings flagging things worth a manager's attention (e.g. low product spread, a customer who didn't reorder, timing issues) — omit generic advice, only flag things the data actually shows. Return an empty array if nothing stands out.
 
-Only use facts present in the data. Do not invent numbers. Keep every string under 25 words.`,
+All money figures in the data are already formatted as Indian Rupee strings (e.g. "₹2,008") — reuse them exactly as given, character for character. Never write "$", "USD", or reformat a currency value yourself. Only use facts present in the data. Do not invent numbers. Keep every string under 25 words.`,
           },
           {
             role: 'user',
