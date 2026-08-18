@@ -59,6 +59,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import * as beatService from "@/services/beatService";
 import type { BeatWithAccess, BeatStats } from "@/services/beatService";
 import { DeactivateBeatWizard } from "@/components/DeactivateBeatWizard";
+import { BeatPlannerInsightsCard } from "@/components/BeatPlannerInsightsCard";
 import { ShareBeatModal } from "@/components/ShareBeatModal";
 import { CoverageModal } from "@/components/CoverageModal";
 import { TransferOwnershipModal } from "@/components/TransferOwnershipModal";
@@ -1560,6 +1561,9 @@ export const MyBeats = () => {
           </CardHeader>
         </Card>
 
+        {/* AI Beat Planner insights — consumes the existing QuickApp AI
+            beat_planner agent flow; displays actionable coverage guidance. */}
+        <BeatPlannerInsightsCard />
 
         {/* Compact stat cards (6) */}
         {(() => {
