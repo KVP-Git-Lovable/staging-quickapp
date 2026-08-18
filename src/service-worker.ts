@@ -10,12 +10,12 @@ interface PrecacheEntry {
 }
 import { precacheAndRoute, createHandlerBoundToURL, cleanupOutdatedCaches } from 'workbox-precaching';
 import { registerRoute } from 'workbox-routing';
-import { NetworkFirst } from 'workbox-strategies';
+import { NetworkFirst, NetworkOnly } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 
 // Version runtime caches to force fresh data after deploys
 // INCREMENT THIS VERSION TO FORCE COMPLETE CACHE REFRESH
-const RUNTIME_CACHE_VERSION = 'v22';
+const RUNTIME_CACHE_VERSION = 'v23';
 
 // Workbox will replace this with the list of files to precache.
 precacheAndRoute(self.__WB_MANIFEST);
@@ -165,6 +165,16 @@ registerRoute(
       );
     }
   },
+);
+
+// Target-plan tables must always be read live. NetworkFirst below can, on a
+// slow connection, hand back the cached PRE-SAVE response right after a user
+// saves their target and re-opens the screen — this route (registered first,
+// so it wins the match) forces those specific reads straight to the network.
+const TARGET_TABLE_PATH = /\/rest\/v1\/(user_business_plans|user_business_plan_months|user_business_plan_month_products|user_business_plan_products|user_business_plan_retailers|user_business_plan_distributors)(\?|$)/;
+registerRoute(
+  ({ url }) => url.hostname.endsWith('.supabase.co') && TARGET_TABLE_PATH.test(url.pathname + url.search),
+  new NetworkOnly(),
 );
 
 // Runtime caching: Supabase API - Use NetworkFirst with very short cache
