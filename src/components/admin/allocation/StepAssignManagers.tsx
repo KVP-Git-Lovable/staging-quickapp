@@ -251,15 +251,13 @@ export function StepAssignManagers({
             <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground">
               No Target
             </Badge>
-            {isSubManager && (
-              <span className="ml-auto">
-                <InlineStrategySelector
-                  value={nodeStrategy}
-                  onChange={(s) => onStrategyChange(node.userId, s)}
-                  hasSubordinates={isSubManager}
-                />
-              </span>
-            )}
+            <span className="ml-auto">
+              <InlineStrategySelector
+                value={nodeStrategy}
+                onChange={(s) => onStrategyChange(node.userId, s)}
+                hasSubordinates={isSubManager}
+              />
+            </span>
           </div>
         );
       }
@@ -274,6 +272,13 @@ export function StepAssignManagers({
               </AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium truncate">{node.fullName}</span>
+            <span className="ml-auto">
+              <InlineStrategySelector
+                value={nodeStrategy}
+                onChange={(s) => onStrategyChange(node.userId, s)}
+                hasSubordinates={false}
+              />
+            </span>
           </div>
         );
       }
