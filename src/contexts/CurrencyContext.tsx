@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+
 import { formatFromBase, type RatesMap } from '@/lib/money';
 
 interface CurrencyContextValue {
@@ -60,7 +60,19 @@ function buildRatesMap(rows: any[]): RatesMap {
 }
 
 export const CurrencyProvider = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
+  // Track auth directly from Supabase to avoid a circular import with useAuth.
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) setUserId(data.session?.user?.id ?? null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUserId(session?.user?.id ?? null);
+    });
+    return () => { active = false; sub.subscription.unsubscribe(); };
+  }, []);
+  const user = userId ? { id: userId } : null;
   const [baseCurrency, setBaseCurrency] = useState(DEFAULT_BASE);
   const [allowedCurrencies, setAllowedCurrencies] = useState<string[]>([DEFAULT_BASE]);
   const [multiEnabled, setMultiEnabled] = useState(false);
@@ -105,7 +117,7 @@ export const CurrencyProvider = ({ children }: { children: React.ReactNode }) =>
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => { void load(); }, [load]);
 

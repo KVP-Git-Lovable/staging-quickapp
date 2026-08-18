@@ -3,10 +3,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronDown, ChevronRight, Users, AlertTriangle, Split } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, AlertTriangle, Split, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineStrategySelector, StrategyBadge } from '../TargetStrategySelector';
 import type { TargetStrategy } from '../TargetStrategySelector';
+import { MonthlyTargetGrid } from './MonthlyTargetGrid';
 
 const formatNumber = (num: number) => new Intl.NumberFormat('en-IN').format(num);
 const formatCurrency = (num: number) => {
@@ -49,6 +50,9 @@ interface StepReviewSaveProps {
   onTargetChange: (userId: string, field: string, value: number) => void;
   onStrategyChange: (userId: string, strategy: TargetStrategy) => void;
   onSplitManager: (userId: string) => void;
+  fyYear: number;
+  targetStartMonth?: number;
+  targetEndMonth?: number;
 }
 
 export function StepReviewSave({
@@ -59,7 +63,21 @@ export function StepReviewSave({
   onTargetChange,
   onStrategyChange,
   onSplitManager,
+  fyYear,
+  targetStartMonth = 1,
+  targetEndMonth = 12,
 }: StepReviewSaveProps) {
+  // Which employees currently have their month-wise breakdown open.
+  const [monthsOpen, setMonthsOpen] = useState<Set<string>>(new Set());
+
+  const toggleMonths = (id: string) => {
+    setMonthsOpen(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const all = new Set<string>();
     const collect = (nodes: ReviewNode[]) => {
@@ -87,6 +105,7 @@ export function StepReviewSave({
     const vis = alloc?.visitsTarget ?? 0;
     const strategy = alloc?.targetStrategy ?? 'roll_down';
     const isNoTarget = strategy === 'no_target';
+    const isMonthsOpen = monthsOpen.has(node.userId);
 
     // Compute child sum for distribution warning (skip no_target children)
     let childSum = 0;
@@ -178,6 +197,16 @@ export function StepReviewSave({
                   <span className="text-xs text-muted-foreground">vis</span>
                 </div>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1"
+                onClick={() => toggleMonths(node.userId)}
+                aria-expanded={isMonthsOpen}
+              >
+                <CalendarDays className="h-3 w-3" />
+                {isMonthsOpen ? 'Hide months' : 'Months'}
+              </Button>
             </div>
             )}
           </div>
@@ -193,6 +222,21 @@ export function StepReviewSave({
             </div>
           )}
         </div>
+
+        {/* Month-wise targets, working days and auto-calculated daily average */}
+        {isMonthsOpen && !isNoTarget && (
+          <MonthlyTargetGrid
+            userId={node.userId}
+            userName={node.fullName}
+            fyYear={fyYear}
+            quantityUnit={quantityUnit}
+            enabledMetrics={enabledMetrics}
+            annualQuantity={qty}
+            annualRevenue={rev}
+            targetStartMonth={targetStartMonth}
+            targetEndMonth={targetEndMonth}
+          />
+        )}
 
         {isExp && hasChildren && node.children.map(c => renderNode(c, depth + 1))}
       </div>

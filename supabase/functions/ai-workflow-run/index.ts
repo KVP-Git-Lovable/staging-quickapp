@@ -7,6 +7,7 @@ import {
   TogetherError,
   type ChatMessage,
 } from "../_shared/together/togetherClient.ts";
+import { parseWorkflowConfig, runCustomWorkflow } from "./customWorkflow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -556,6 +557,124 @@ const RUNNERS: Record<
   sales_coach: runSalesCoach,
 };
 
+/**
+ * Custom-workflow execution branch ("Create Workflow"). Additive and
+ * isolated: it clones the narration/logging/error tail of the agent path
+ * instead of sharing it, so the existing agentKey path stays behaviourally
+ * identical. All block queries run under the EXECUTING user's RLS-scoped
+ * client, regardless of who created the workflow.
+ */
+async function handleCustomWorkflow(
+  supabase: any,
+  userId: string,
+  workflowId: string,
+  signal: AbortSignal,
+): Promise<Response> {
+  let executionId: string | null = null;
+  const startedAt = Date.now();
+
+  try {
+    const { data: workflow, error: wfError } = await supabase
+      .from("ai_workflows")
+      .select("id, name, config, is_active")
+      .eq("id", workflowId)
+      .maybeSingle();
+    if (wfError) throw wfError;
+    if (!workflow) return jsonError(404, "workflow_not_found", "Workflow not found");
+    if (!(workflow as any).is_active) {
+      return jsonError(400, "workflow_inactive", "This workflow has been deactivated");
+    }
+
+    // Validate BEFORE logging an execution row so a broken config doesn't
+    // pollute execution metrics with guaranteed failures.
+    let cfg;
+    try {
+      cfg = parseWorkflowConfig((workflow as any).config);
+    } catch {
+      return jsonError(400, "invalid_config", "Workflow configuration is invalid");
+    }
+
+    const { data: execRow, error: execError } = await supabase
+      .from("workflow_executions")
+      .insert({
+        workflow_id: (workflow as any).id,
+        stage: "simulation",
+        status: "running",
+        triggered_by: userId,
+      })
+      .select("id")
+      .single();
+    if (execError) throw execError;
+    executionId = (execRow as any).id;
+
+    const run = await runCustomWorkflow(supabase, userId, workflow as any, cfg);
+
+    // Narration only — never calculation (mirrors the agent path).
+    let summary = "";
+    const apiKey = Deno.env.get("TOGETHER_API_KEY");
+    if (apiKey) {
+      try {
+        const messages: ChatMessage[] = [
+          { role: "system", content: run.systemPrompt },
+          { role: "user", content: `DATA\n---\n${run.facts}\n---\n${run.userPrompt}` },
+        ];
+        const stream = await streamChat({ apiKey, messages, signal });
+        const drain = (async () => {
+          const reader = stream.tokens.getReader();
+          while (true) {
+            const { done } = await reader.read();
+            if (done) return;
+          }
+        })();
+        const [text] = await Promise.all([stream.fullText, drain]);
+        summary = text.trim();
+      } catch (aiErr) {
+        console.error("[ai-workflow-run] custom narration failed:", aiErr);
+      }
+    }
+
+    const durationMs = Date.now() - startedAt;
+    const result = { ...run.result, summary };
+
+    await supabase
+      .from("workflow_executions")
+      .update({
+        status: "success",
+        completed_at: new Date().toISOString(),
+        duration_ms: durationMs,
+        result,
+      })
+      .eq("id", executionId);
+
+    return new Response(
+      JSON.stringify({ executionId, workflowId: (workflow as any).id, stage: "simulation", durationMs, ...result }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (err) {
+    const message =
+      err instanceof TogetherError
+        ? `AI provider request failed (${err.code})`
+        : err instanceof Error
+          ? err.message
+          : "Unknown error";
+    console.error("[ai-workflow-run] custom workflow failed:", err);
+
+    if (executionId) {
+      await supabase
+        .from("workflow_executions")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          duration_ms: Date.now() - startedAt,
+          error_message: message.slice(0, 500),
+        })
+        .eq("id", executionId)
+        .then(() => {}, () => {});
+    }
+    return jsonError(500, "execution_failed", message);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonError(405, "method_not_allowed", "Use POST");
@@ -580,6 +699,17 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const agentKey = String((body as any)?.agentKey ?? "");
+
+    // Additive branch for custom workflows (Create Workflow). The agentKey
+    // path below is unchanged.
+    const workflowId = String((body as any)?.workflowId ?? "");
+    if (workflowId) {
+      if (agentKey) {
+        return jsonError(400, "ambiguous_target", "Send either agentKey or workflowId, not both");
+      }
+      return await handleCustomWorkflow(supabase, userId, workflowId, req.signal);
+    }
+
     if (!SUPPORTED.has(agentKey)) {
       return jsonError(400, "unsupported_agent", "This agent cannot be simulated yet");
     }
