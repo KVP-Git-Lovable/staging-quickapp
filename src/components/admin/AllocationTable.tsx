@@ -799,9 +799,6 @@ export function AllocationTable({
             onTargetChange={handleTargetChange}
             onStrategyChange={handleStrategyChange}
             onEqualSplit={handleEqualSplit}
-            fyYear={fyYear}
-            targetStartMonth={targetStartMonth}
-            targetEndMonth={targetEndMonth}
           />
         )}
 

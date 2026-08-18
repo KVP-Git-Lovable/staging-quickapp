@@ -50,15 +50,28 @@ const calendarFor = (fyMonth: number, fyYear: number) =>
     ? { monthIndex: fyMonth + 2, year: fyYear - 1 }
     : { monthIndex: fyMonth - 10, year: fyYear };
 
-/** Working days = calendar days minus Sundays, matching the six-day week already stored. */
-const workingDaysFor = (fyMonth: number, fyYear: number): number => {
+/**
+ * Fallback used only when Attendance has no working_days_config row for the
+ * month. Mirrors the Attendance module's own formula (total days − week offs −
+ * holidays), with Sunday as the week off, which is what week_off_config
+ * defaults to today.
+ */
+const fallbackWorkingDays = (
+  fyMonth: number,
+  fyYear: number,
+  holidayDates: Set<string>,
+): number => {
   const { monthIndex, year } = calendarFor(fyMonth, fyYear);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  let sundays = 0;
+  let workingDays = 0;
   for (let day = 1; day <= daysInMonth; day++) {
-    if (new Date(year, monthIndex, day).getDay() === 0) sundays++;
+    const date = new Date(year, monthIndex, day);
+    if (date.getDay() === 0) continue; // Sunday week off
+    const iso = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (holidayDates.has(iso)) continue; // declared holiday
+    workingDays++;
   }
-  return daysInMonth - sundays;
+  return workingDays;
 };
 
 const formatNumber = (num: number) =>
@@ -91,7 +104,10 @@ interface GridRow {
   monthName: string;
   quantityTarget: number;
   revenueTarget: number;
+  /** Sourced from Attendance — read-only in this grid. */
   workingDays: number;
+  /** True when working days came from Attendance's working_days_config. */
+  daysFromAttendance: boolean;
   /** False when the row is derived on the fly because nothing is saved yet. */
   isStored: boolean;
 }
@@ -99,7 +115,11 @@ interface GridRow {
 interface DraftRow {
   quantityTarget: number;
   revenueTarget: number;
-  workingDays: number;
+  /**
+   * Raw text while the Daily Average field is being typed in. Null means the
+   * daily average is showing its derived value from the monthly target.
+   */
+  dailyInput: string | null;
 }
 
 interface MonthlyTargetGridProps {
@@ -167,6 +187,51 @@ export function MonthlyTargetGrid({
     enabled: !!plan?.id,
   });
 
+  /**
+   * Working days come from the Attendance module. `working_days_config` is the
+   * configured source; `holidays` only feeds the fallback for months Attendance
+   * has not configured yet.
+   */
+  const { data: attendance } = useQuery({
+    queryKey: ['attendance-working-days', fyYear],
+    queryFn: async () => {
+      const years = [fyYear - 1, fyYear];
+      const [configRes, holidayRes] = await Promise.all([
+        supabase
+          .from('working_days_config')
+          .select('year, month, working_days')
+          .in('year', years),
+        supabase.from('holidays').select('date').in('year', years),
+      ]);
+      if (configRes.error) throw configRes.error;
+      if (holidayRes.error) throw holidayRes.error;
+
+      const configured = new Map<string, number>();
+      (configRes.data || []).forEach(row => {
+        configured.set(`${row.year}-${row.month}`, Number(row.working_days) || 0);
+      });
+      const holidayDates = new Set<string>(
+        (holidayRes.data || []).map(h => String(h.date).slice(0, 10)),
+      );
+      return { configured, holidayDates };
+    },
+  });
+
+  /** Resolve working days for an FY month: Attendance config first, else fallback. */
+  const resolveWorkingDays = useMemo(() => {
+    const configured = attendance?.configured ?? new Map<string, number>();
+    const holidayDates = attendance?.holidayDates ?? new Set<string>();
+    return (fyMonth: number): { days: number; fromAttendance: boolean } => {
+      const { monthIndex, year } = calendarFor(fyMonth, fyYear);
+      const key = `${year}-${monthIndex + 1}`;
+      const configuredDays = configured.get(key);
+      if (configuredDays !== undefined && configuredDays > 0) {
+        return { days: configuredDays, fromAttendance: true };
+      }
+      return { days: fallbackWorkingDays(fyMonth, fyYear, holidayDates), fromAttendance: false };
+    };
+  }, [attendance, fyYear]);
+
   const activeMonths = useMemo(
     () => FY_MONTHS.filter(m => m.number >= targetStartMonth && m.number <= targetEndMonth),
     [targetStartMonth, targetEndMonth],
@@ -183,6 +248,8 @@ export function MonthlyTargetGrid({
     const seedRevenue = annualRevenue / count;
 
     return activeMonths.map(month => {
+      // Working days always come from Attendance, never from the saved plan.
+      const { days, fromAttendance } = resolveWorkingDays(month.number);
       const existing = stored.get(month.number);
       if (existing) {
         return {
@@ -190,7 +257,8 @@ export function MonthlyTargetGrid({
           monthName: existing.month_name || month.name,
           quantityTarget: existing.quantity_target,
           revenueTarget: existing.revenue_target,
-          workingDays: existing.working_days || workingDaysFor(month.number, fyYear),
+          workingDays: days,
+          daysFromAttendance: fromAttendance,
           isStored: true,
         };
       }
@@ -199,11 +267,12 @@ export function MonthlyTargetGrid({
         monthName: month.name,
         quantityTarget: enabledMetrics.quantity ? Math.round(seedQuantity) : 0,
         revenueTarget: enabledMetrics.revenue ? Math.round(seedRevenue) : 0,
-        workingDays: workingDaysFor(month.number, fyYear),
+        workingDays: days,
+        daysFromAttendance: fromAttendance,
         isStored: false,
       };
     });
-  }, [storedMonths, activeMonths, annualQuantity, annualRevenue, enabledMetrics, fyYear]);
+  }, [storedMonths, activeMonths, annualQuantity, annualRevenue, enabledMetrics, resolveWorkingDays]);
 
   const totals = useMemo(() => ({
     quantity: rows.reduce((sum, r) => sum + r.quantityTarget, 0),
@@ -212,6 +281,7 @@ export function MonthlyTargetGrid({
   }), [rows]);
 
   const unsavedCount = rows.filter(r => !r.isStored).length;
+  const attendanceConfiguredCount = rows.filter(r => r.daysFromAttendance).length;
 
   const saveMutation = useMutation({
     mutationFn: async ({ row, values }: { row: GridRow; values: DraftRow }) => {
@@ -234,7 +304,9 @@ export function MonthlyTargetGrid({
         planId = created.id;
       }
 
-      const payload: Record<string, number> = { working_days: values.workingDays };
+      // working_days is written through from Attendance so the stored plan stays
+      // consistent with what the grid shows. It is not editable here.
+      const payload: Record<string, number> = { working_days: row.workingDays };
       if (enabledMetrics.quantity) payload.quantity_target = values.quantityTarget;
       if (enabledMetrics.revenue) payload.revenue_target = values.revenueTarget;
 
@@ -271,7 +343,7 @@ export function MonthlyTargetGrid({
       queryClient.invalidateQueries({ queryKey: ['ubp-months', plan?.id] });
       const primary = enabledMetrics.quantity ? values.quantityTarget : values.revenueTarget;
       toast.success(`${userName} — ${row.monthName} saved`, {
-        description: `${formatNumber(primary)} ÷ ${values.workingDays} days = ${formatDaily(primary, values.workingDays)} per day`,
+        description: `${formatNumber(primary)} ÷ ${row.workingDays} days = ${formatDaily(primary, row.workingDays)} per day`,
       });
       setEditingMonth(null);
       setDraft(null);
@@ -287,7 +359,7 @@ export function MonthlyTargetGrid({
     setDraft({
       quantityTarget: row.quantityTarget,
       revenueTarget: row.revenueTarget,
-      workingDays: row.workingDays,
+      dailyInput: null,
     });
   };
 
@@ -296,9 +368,26 @@ export function MonthlyTargetGrid({
     setDraft(null);
   };
 
+  /** Editing the monthly target: daily average goes back to being derived. */
+  const onTargetEdited = (field: 'quantityTarget' | 'revenueTarget', value: number) =>
+    setDraft(d => d && { ...d, [field]: value, dailyInput: null });
+
+  /**
+   * Editing the daily average: back-calculate the monthly target so that
+   * target ÷ working days still equals the average shown.
+   */
+  const onDailyEdited = (raw: string, workingDays: number) =>
+    setDraft(d => {
+      if (!d) return d;
+      const perDay = parseNum(raw);
+      const derivedTarget = Math.round(perDay * workingDays);
+      return enabledMetrics.quantity
+        ? { ...d, dailyInput: raw, quantityTarget: derivedTarget }
+        : { ...d, dailyInput: raw, revenueTarget: derivedTarget };
+    });
+
   const draftInvalid =
     !draft ||
-    !(draft.workingDays >= 1 && draft.workingDays <= 31) ||
     (enabledMetrics.quantity && draft.quantityTarget < 0) ||
     (enabledMetrics.revenue && draft.revenueTarget < 0);
 
@@ -349,13 +438,13 @@ export function MonthlyTargetGrid({
               {enabledMetrics.revenue && (
                 <TableHead className="text-xs text-right">Monthly Revenue (₹)</TableHead>
               )}
-              <TableHead className="text-xs text-right">Working Days</TableHead>
               <TableHead className="text-xs text-right">
                 <span className="inline-flex items-center gap-1 justify-end">
                   <Lock className="h-3 w-3 opacity-60" aria-hidden="true" />
-                  Daily Average
+                  Working Days
                 </span>
               </TableHead>
+              <TableHead className="text-xs text-right">Daily Average</TableHead>
               <TableHead className="text-xs text-center w-[130px]">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -365,9 +454,12 @@ export function MonthlyTargetGrid({
               const isEditing = editingMonth === row.monthNumber;
               const shownQuantity = isEditing && draft ? draft.quantityTarget : row.quantityTarget;
               const shownRevenue = isEditing && draft ? draft.revenueTarget : row.revenueTarget;
-              const shownDays = isEditing && draft ? draft.workingDays : row.workingDays;
+              const shownDays = row.workingDays; // always from Attendance
               const dailyBasis = enabledMetrics.quantity ? shownQuantity : shownRevenue;
-              const daysInvalid = isEditing && !(shownDays >= 1 && shownDays <= 31);
+              // While typing in the daily field, show the raw text; otherwise derive it.
+              const shownDaily = isEditing && draft?.dailyInput !== null && draft?.dailyInput !== undefined
+                ? draft.dailyInput
+                : formatDaily(dailyBasis, shownDays);
 
               return (
                 <TableRow key={row.monthNumber} className={cn(isEditing && 'bg-muted/50')}>
@@ -389,7 +481,7 @@ export function MonthlyTargetGrid({
                           type="text"
                           inputMode="decimal"
                           value={shownQuantity > 0 ? formatNumber(shownQuantity) : ''}
-                          onChange={e => setDraft(d => d && { ...d, quantityTarget: parseNum(e.target.value) })}
+                          onChange={e => onTargetEdited('quantityTarget', parseNum(e.target.value))}
                           placeholder="0"
                           className="h-8 w-24 text-right text-sm ml-auto"
                           aria-label={`Monthly target for ${row.monthName}`}
@@ -410,7 +502,7 @@ export function MonthlyTargetGrid({
                           type="text"
                           inputMode="decimal"
                           value={shownRevenue > 0 ? formatNumber(shownRevenue) : ''}
-                          onChange={e => setDraft(d => d && { ...d, revenueTarget: parseNum(e.target.value) })}
+                          onChange={e => onTargetEdited('revenueTarget', parseNum(e.target.value))}
                           placeholder="0"
                           className="h-8 w-28 text-right text-sm ml-auto"
                           aria-label={`Monthly revenue target for ${row.monthName}`}
@@ -423,39 +515,37 @@ export function MonthlyTargetGrid({
                     </TableCell>
                   )}
 
-                  <TableCell className="text-right">
-                    {isEditing ? (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          value={shownDays > 0 ? String(shownDays) : ''}
-                          onChange={e => setDraft(d => d && { ...d, workingDays: Math.round(parseNum(e.target.value)) })}
-                          placeholder="0"
-                          className={cn('h-8 w-16 text-right text-sm', daysInvalid && 'border-destructive')}
-                          aria-label={`Working days in ${row.monthName}`}
-                        />
-                        {daysInvalid && (
-                          <span className="text-[10px] text-destructive font-medium">1–31 required</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-sm font-mono text-muted-foreground">{row.workingDays}</span>
-                    )}
-                  </TableCell>
-
-                  {/* Auto-calculated — never editable */}
+                  {/* Working days — read-only, sourced from the Attendance module */}
                   <TableCell className="text-right">
                     <span
-                      className={cn(
-                        'inline-flex items-center gap-1 text-sm font-mono font-semibold justify-end',
-                        isEditing && 'px-2 py-1 rounded-md border border-dashed bg-background',
-                      )}
-                      title="Calculated automatically as Monthly Target ÷ Working Days"
+                      className="inline-flex items-center gap-1 text-sm font-mono text-muted-foreground justify-end"
+                      title={row.daysFromAttendance
+                        ? 'From Attendance › Working Days configuration'
+                        : 'Not configured in Attendance yet — calculated from the calendar (excludes Sundays and declared holidays)'}
                     >
-                      {isEditing && <Lock className="h-3 w-3 opacity-60" aria-hidden="true" />}
-                      {formatDaily(dailyBasis, shownDays)}
+                      <Lock className="h-3 w-3 opacity-50" aria-hidden="true" />
+                      {row.workingDays}
                     </span>
+                  </TableCell>
+
+                  {/* Editable — keeps target ÷ working days in step */}
+                  <TableCell className="text-right">
+                    {isEditing ? (
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={shownDaily}
+                        onChange={e => onDailyEdited(e.target.value, shownDays)}
+                        placeholder="0"
+                        className="h-8 w-24 text-right text-sm ml-auto"
+                        aria-label={`Daily average for ${row.monthName}`}
+                        disabled={shownDays <= 0}
+                      />
+                    ) : (
+                      <span className="text-sm font-mono font-semibold">
+                        {formatDaily(dailyBasis, shownDays)}
+                      </span>
+                    )}
                   </TableCell>
 
                   <TableCell className="text-center">
@@ -526,12 +616,24 @@ export function MonthlyTargetGrid({
         </Table>
       </div>
 
+      <div className="flex items-start gap-1.5 text-[11px] px-3 py-2 text-muted-foreground bg-muted/30 border-t">
+        <Lock className="h-3 w-3 shrink-0 mt-0.5 opacity-60" />
+        <span>
+          Working days come from Attendance and cannot be edited here
+          {attendanceConfiguredCount === 0
+            ? ' — no months are configured in Attendance › Working Days yet, so they are calculated from the calendar (excluding Sundays and declared holidays).'
+            : attendanceConfiguredCount < rows.length
+              ? ` — ${attendanceConfiguredCount} of ${rows.length} months are configured there; the rest are calculated from the calendar.`
+              : '.'}
+          {' '}Editing Daily Average adjusts the Monthly Target for that month, and vice versa.
+        </span>
+      </div>
+
       {unsavedCount > 0 && (
         <div className="flex items-start gap-1.5 text-[11px] px-3 py-2 text-muted-foreground bg-muted/30 border-t">
           <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
           <span>
-            Draft months are an even split of the allocated annual target, with working days
-            taken from the calendar. Save a month to store it.
+            Draft months are an even split of the allocated annual target. Save a month to store it.
           </span>
         </div>
       )}
