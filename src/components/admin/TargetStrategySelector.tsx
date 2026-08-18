@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
-import { ArrowUpCircle, ArrowDownCircle, Minus, Users, AlertTriangle, Ban } from 'lucide-react';
+import { ArrowUpCircle, ArrowDownCircle, Minus, Users, AlertTriangle, Ban, ChevronDown, Check } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Tooltip,
   TooltipContent,
@@ -29,6 +30,12 @@ interface InlineStrategySelectorProps {
   value: TargetStrategy;
   onChange: (strategy: TargetStrategy) => void;
   disabled?: boolean;
+  /**
+   * Whether this employee has anyone reporting to them. When false, Roll Down
+   * and Roll Up are hidden: both describe how a target moves between a manager
+   * and their team, so neither applies to someone without one.
+   */
+  hasSubordinates?: boolean;
 }
 
 export interface LevelInfo {
@@ -96,6 +103,26 @@ const strategyColors: Record<TargetStrategy, string> = {
   no_target: 'text-muted-foreground',
 };
 
+/**
+ * Short, plain-language explanations shown next to each option in the picker.
+ * Independent reads differently for someone with a team than for someone
+ * without one, so it carries both wordings.
+ */
+const shortDescriptions: Record<TargetStrategy, string> = {
+  roll_down: "Split this person's target among their team.",
+  roll_up: "Add up the team's targets to get this person's.",
+  independent: 'Has their own target, separate from the team.',
+  no_target: 'No target assigned. Left out of all distribution.',
+};
+
+const soloIndependentDescription = 'Carries their own target.';
+
+/** The options offered for an employee, given whether they have a team. */
+const strategyOptionsFor = (hasSubordinates: boolean): TargetStrategy[] =>
+  hasSubordinates
+    ? ['roll_down', 'roll_up', 'independent', 'no_target']
+    : ['independent', 'no_target'];
+
 // Full card-based selector for top-level usage
 export function TargetStrategySelector({ value, onChange, managerName }: TargetStrategySelectorProps) {
   return (
@@ -144,50 +171,97 @@ export function TargetStrategySelector({ value, onChange, managerName }: TargetS
   );
 }
 
-// Compact inline dropdown selector for per-row usage in AllocationTable
-export function InlineStrategySelector({ value, onChange, disabled }: InlineStrategySelectorProps) {
-  const Icon = strategyIcons[value];
-  
+/**
+ * Per-employee target assignment picker.
+ *
+ * Shows the current choice as a compact pill; clicking opens a short list of
+ * options, each with a one-line explanation. Employees with no subordinates are
+ * offered only Independent and No Target — Roll Down and Roll Up never appear
+ * for them, since both describe moving a target between a manager and a team.
+ */
+export function InlineStrategySelector({
+  value,
+  onChange,
+  disabled,
+  hasSubordinates = true,
+}: InlineStrategySelectorProps) {
+  const [open, setOpen] = React.useState(false);
+  const options = strategyOptionsFor(hasSubordinates);
+
+  // A stored Roll Down/Roll Up on someone who no longer has a team reads as
+  // Independent rather than showing an option that is not on offer.
+  const effective: TargetStrategy =
+    options.includes(value) ? value : 'independent';
+  const Icon = strategyIcons[effective];
+
+  const describe = (strategy: TargetStrategy) =>
+    strategy === 'independent' && !hasSubordinates
+      ? soloIndependentDescription
+      : shortDescriptions[strategy];
+
   return (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div>
-            <Select
-              value={value}
-              onValueChange={(v) => onChange(v as TargetStrategy)}
-              disabled={disabled}
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={`Target assignment: ${strategyLabels[effective]}`}
+          className={cn(
+            'inline-flex items-center gap-1 h-7 px-2 rounded-md border text-xs font-medium',
+            'bg-background hover:bg-muted/60 transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+            strategyColors[effective],
+          )}
+        >
+          <Icon className="h-3 w-3 shrink-0" />
+          <span>{strategyLabels[effective]}</span>
+          <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent align="start" className="w-[276px] p-1.5">
+        <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Target assignment
+        </p>
+
+        {options.map((strategy) => {
+          const OptionIcon = strategyIcons[strategy];
+          const isSelected = strategy === effective;
+          return (
+            <button
+              key={strategy}
+              type="button"
+              onClick={() => {
+                onChange(strategy);
+                setOpen(false);
+              }}
+              className={cn(
+                'w-full flex items-start gap-2 px-2 py-2 rounded-md text-left transition-colors',
+                isSelected ? 'bg-muted' : 'hover:bg-muted/60',
+              )}
             >
-              <SelectTrigger className={cn(
-                "h-7 w-[120px] text-xs gap-1 px-2",
-                strategyColors[value]
-              )}>
-                <Icon className="h-3 w-3 shrink-0" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {strategies.map((s) => {
-                  const SIcon = s.icon;
-                  return (
-                    <SelectItem key={s.value} value={s.value} className="text-xs">
-                      <div className="flex items-center gap-1.5">
-                        <SIcon className={cn('h-3 w-3', strategyColors[s.value])} />
-                        <span>{s.label}</span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[200px]">
-          <p className="text-xs">
-            {strategies.find(s => s.value === value)?.description}
+              <OptionIcon className={cn('h-3.5 w-3.5 mt-0.5 shrink-0', strategyColors[strategy])} />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-xs font-medium">{strategyLabels[strategy]}</span>
+                  {isSelected && <Check className="h-3 w-3 text-primary shrink-0" />}
+                </span>
+                <span className="block text-[11px] text-muted-foreground leading-snug mt-0.5">
+                  {describe(strategy)}
+                </span>
+              </span>
+            </button>
+          );
+        })}
+
+        {!hasSubordinates && (
+          <p className="px-2 pt-1.5 pb-1 text-[10px] text-muted-foreground leading-snug border-t mt-1">
+            No one reports to this employee, so Roll Down and Roll Up do not apply.
           </p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
