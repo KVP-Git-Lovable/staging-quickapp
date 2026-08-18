@@ -16,6 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm, TableOrderFormHandle } from "@/components/TableOrderForm";
+import { PitchSuggestionsCard } from "@/components/PitchSuggestionsCard";
 import { OrderSummaryModal } from "@/components/OrderSummaryModal";
 import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -2314,8 +2315,38 @@ export const OrderEntry = () => {
           </CardContent>
         </Card>
 
+        {/* AI Pitch Suggestions — deterministic signals narrated by Together.ai
+            (ai-pitch-suggestions edge function); Take Action auto-fills the
+            suggested lines via the same path Voice/Smart Basket use. */}
+        {validRetailerId && (orderMode === "grid" || orderMode === "table") && (
+          <PitchSuggestionsCard
+            retailerId={validRetailerId}
+            onAutoFill={(results) => {
+              if (orderMode === "table" && tableFormRef.current) {
+                tableFormRef.current.applyVoiceAutoFill(results);
+              } else {
+                results.forEach(result => {
+                  handleQuantityChange(result.productId, result.quantity);
+                  if (result.unit) {
+                    setSelectedUnits(prev => ({
+                      ...prev,
+                      [result.productId]: result.unit
+                    }));
+                  }
+                });
+              }
+              if (results.length > 0) {
+                toast({
+                  title: `✓ ${results.length} suggested product${results.length > 1 ? 's' : ''} filled in`,
+                  description: results.map(r => `${r.productName}: ${r.quantity}${r.unit ? ` ${r.unit}` : ''}`).join(', '),
+                });
+              }
+            }}
+          />
+        )}
+
         {/* Search Bar - Compact */}
-        
+
 
         {orderMode === "return-stock" ? <>
             {/* Return Stock Section */}

@@ -85,6 +85,9 @@ verify_jwt = false
 [functions.ai-workflow-run]
 verify_jwt = true
 
+[functions.ai-pitch-suggestions]
+verify_jwt = true
+
 [functions.zoho-sync-customers]
 verify_jwt = false
 
