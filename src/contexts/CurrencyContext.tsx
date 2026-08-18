@@ -60,7 +60,7 @@ function buildRatesMap(rows: any[]): RatesMap {
 }
 
 export const CurrencyProvider = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
+  const user = useAuthOptional()?.user ?? null;
   const [baseCurrency, setBaseCurrency] = useState(DEFAULT_BASE);
   const [allowedCurrencies, setAllowedCurrencies] = useState<string[]>([DEFAULT_BASE]);
   const [multiEnabled, setMultiEnabled] = useState(false);
