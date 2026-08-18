@@ -4,10 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { Users, ChevronDown, ChevronRight, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineStrategySelector } from '../TargetStrategySelector';
 import type { TargetStrategy } from '../TargetStrategySelector';
+import { MonthlyTargetGrid } from './MonthlyTargetGrid';
 
 const formatNumber = (num: number) => new Intl.NumberFormat('en-IN').format(num);
 const formatCurrency = (num: number) => {
@@ -66,6 +67,9 @@ interface StepAssignManagersProps {
   onTargetChange: (userId: string, field: string, value: number) => void;
   onStrategyChange: (userId: string, strategy: TargetStrategy) => void;
   onEqualSplit: () => void;
+  fyYear: number;
+  targetStartMonth?: number;
+  targetEndMonth?: number;
 }
 
 export function StepAssignManagers({
@@ -78,10 +82,24 @@ export function StepAssignManagers({
   onTargetChange,
   onStrategyChange,
   onEqualSplit,
+  fyYear,
+  targetStartMonth = 1,
+  targetEndMonth = 12,
 }: StepAssignManagersProps) {
   const [expandedManagers, setExpandedManagers] = React.useState<Set<string>>(() => {
     return new Set(managers.map((manager) => manager.userId));
   });
+
+  // Which employees currently have their month-wise breakdown open.
+  const [monthsOpen, setMonthsOpen] = React.useState<Set<string>>(new Set());
+
+  const toggleMonths = (userId: string) => {
+    setMonthsOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId); else next.add(userId);
+      return next;
+    });
+  };
 
   const allocatedQty = managers.reduce((s, m) => s + m.quantityTarget, 0);
   const allocatedRev = managers.reduce((s, m) => s + m.revenueTarget, 0);
@@ -432,7 +450,28 @@ export function StepAssignManagers({
                     />
                   </div>
                 )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs gap-1"
+                  onClick={() => toggleMonths(mgr.userId)}
+                  aria-expanded={monthsOpen.has(mgr.userId)}
+                >
+                  <CalendarDays className="h-3 w-3" />
+                  {monthsOpen.has(mgr.userId) ? 'Hide months' : 'Months'}
+                </Button>
               </div>
+              )}
+              {monthsOpen.has(mgr.userId) && mgr.targetStrategy !== 'no_target' && (
+                <MonthlyTargetGrid
+                  userId={mgr.userId}
+                  userName={mgr.fullName}
+                  fyYear={fyYear}
+                  quantityUnit={quantityUnit}
+                  enabledMetrics={enabledMetrics}
+                  targetStartMonth={targetStartMonth}
+                  targetEndMonth={targetEndMonth}
+                />
               )}
               {mgr.targetStrategy === 'no_target' && (
                 <div className="pl-[52px]">
