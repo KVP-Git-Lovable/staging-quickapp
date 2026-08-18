@@ -117,7 +117,7 @@ export const CurrencyProvider = ({ children }: { children: React.ReactNode }) =>
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => { void load(); }, [load]);
 
