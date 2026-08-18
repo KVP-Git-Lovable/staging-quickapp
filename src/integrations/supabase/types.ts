@@ -797,6 +797,39 @@ export type Database = {
           },
         ]
       }
+      ai_workflows: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       analytics_likes: {
         Row: {
           created_at: string
@@ -28667,7 +28700,7 @@ export type Database = {
       }
       workflow_executions: {
         Row: {
-          agent_id: string
+          agent_id: string | null
           completed_at: string | null
           created_at: string
           duration_ms: number | null
@@ -28678,9 +28711,10 @@ export type Database = {
           started_at: string
           status: Database["public"]["Enums"]["workflow_exec_status"]
           triggered_by: string | null
+          workflow_id: string | null
         }
         Insert: {
-          agent_id: string
+          agent_id?: string | null
           completed_at?: string | null
           created_at?: string
           duration_ms?: number | null
@@ -28691,9 +28725,10 @@ export type Database = {
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_exec_status"]
           triggered_by?: string | null
+          workflow_id?: string | null
         }
         Update: {
-          agent_id?: string
+          agent_id?: string | null
           completed_at?: string | null
           created_at?: string
           duration_ms?: number | null
@@ -28704,6 +28739,7 @@ export type Database = {
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_exec_status"]
           triggered_by?: string | null
+          workflow_id?: string | null
         }
         Relationships: [
           {
@@ -28711,6 +28747,13 @@ export type Database = {
             columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_executions_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflows"
             referencedColumns: ["id"]
           },
         ]
