@@ -60,7 +60,19 @@ function buildRatesMap(rows: any[]): RatesMap {
 }
 
 export const CurrencyProvider = ({ children }: { children: React.ReactNode }) => {
-  const user = useAuthOptional()?.user ?? null;
+  // Track auth directly from Supabase to avoid a circular import with useAuth.
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (active) setUserId(data.session?.user?.id ?? null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUserId(session?.user?.id ?? null);
+    });
+    return () => { active = false; sub.subscription.unsubscribe(); };
+  }, []);
+  const user = userId ? { id: userId } : null;
   const [baseCurrency, setBaseCurrency] = useState(DEFAULT_BASE);
   const [allowedCurrencies, setAllowedCurrencies] = useState<string[]>([DEFAULT_BASE]);
   const [multiEnabled, setMultiEnabled] = useState(false);
