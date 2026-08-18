@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { setCachedUser, clearCachedAuth, clearCachedPermissions } from '@/utils/cachedAuthIntegrity';
+import { setCachedUser, getValidatedCachedUser, clearCachedAuth, clearCachedPermissions } from '@/utils/cachedAuthIntegrity';
 import { devLog, devError } from '@/utils/devLog';
 import { monitoring } from '@/services/MonitoringService';
 import { Preferences } from '@capacitor/preferences';
