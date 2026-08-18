@@ -343,7 +343,14 @@ export function AllocationTable({
       subordinatesOnly.forEach((sub: { subordinate_user_id: string; level: number }) => {
         const profile = profileMap.get(sub.subordinate_user_id);
         const existingPlan = planMap.get(sub.subordinate_user_id);
-        const savedStrategy = (existingPlan?.target_strategy as TargetStrategy) || 'roll_down';
+        const rawStrategy = (existingPlan?.target_strategy as TargetStrategy) || 'roll_down';
+        const subCount = subordinateCounts.get(sub.subordinate_user_id) || 0;
+        // Roll Down and Roll Up describe how a target moves between a manager and
+        // their team, so neither means anything for someone with no subordinates.
+        // Such an employee simply carries their own target — Independent — unless
+        // they have been explicitly excluded.
+        const savedStrategy: TargetStrategy =
+          subCount === 0 && rawStrategy !== 'no_target' ? 'independent' : rawStrategy;
 
         nodeMap.set(sub.subordinate_user_id, {
           userId: sub.subordinate_user_id,
