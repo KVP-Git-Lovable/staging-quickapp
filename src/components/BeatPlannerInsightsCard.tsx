@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { toast } from "sonner";
 import {
-  CalendarPlus, ChevronDown, ChevronUp, Loader2, RefreshCw, Sparkles, Wand2,
+  CalendarPlus, ChevronDown, ChevronUp, Loader2, RefreshCw, Sparkles,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,15 +12,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { runSimulation } from "@/modules/quickapp-ai/hooks/useAiWorkflows";
 
 /**
- * Actionable Beat Planner insights for the My Beats page.
+ * Actionable Beat Planner insights for the My Beats page — fully automatic.
  *
  * Pure CONSUMER of the existing QuickApp AI Beat Planner agent: it calls the
  * same ai-workflow-run flow (deterministic beat-coverage analysis under the
- * user's RLS + Together.ai narration) and renders the stored result. The
- * agent's logic, prompts and execution logging are untouched — on load the
- * card shows the user's latest successful run, and Refresh triggers a new
- * run through the exact same pipeline the AI Workflows page uses.
+ * user's RLS + Together.ai narration) and renders the result. The agent's
+ * logic, prompts and execution logging are untouched. On mount the card
+ * shows the user's latest successful run instantly, then — when there is no
+ * run yet or the latest one is stale — triggers a fresh run in the
+ * background and updates in place. No button press is required.
  */
+
+/** Auto-refresh when the newest run is older than this. */
+const STALE_AFTER_MS = 10 * 60 * 1000;
 
 interface BeatPlanRow {
   beat: string;
@@ -69,56 +72,73 @@ export function BeatPlannerInsightsCard() {
   const [lastRunAt, setLastRunAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const autoRanRef = useRef(false);
 
-  // Latest successful Beat Planner run for this user (RLS-scoped).
-  const loadLatest = useCallback(async () => {
-    try {
-      const { data: agent } = await supabase
-        .from("ai_agents")
-        .select("id")
-        .eq("key", "beat_planner")
-        .maybeSingle();
-      if (!agent?.id) return;
-      const { data } = await supabase
-        .from("workflow_executions")
-        .select("result, started_at")
-        .eq("agent_id", agent.id)
-        .eq("status", "success")
-        .order("started_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const res = (data?.result ?? null) as BeatPlanResult | null;
-      if (res?.kind === "beat_plan") {
-        setResult(res);
-        setLastRunAt(data?.started_at ?? null);
-      }
-    } catch (e) {
-      console.error("[BeatPlannerInsights] load latest failed:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadLatest();
-  }, [loadLatest]);
-
-  const handleRun = async () => {
+  // Silent background run through the unchanged agent pipeline. Cached
+  // results stay on screen while the fresh analysis computes.
+  const runNow = useCallback(async () => {
     setRunning(true);
+    setFailed(false);
     try {
       const data = await runSimulation("beat_planner");
       if (data?.kind === "beat_plan") {
         setResult(data as BeatPlanResult);
         setLastRunAt(new Date().toISOString());
       }
-      toast.success("Beat insights updated");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Could not generate beat insights");
+    } catch (e) {
+      console.error("[BeatPlannerInsights] run failed:", e);
+      setFailed(true);
     } finally {
       setRunning(false);
     }
-  };
+  }, []);
+
+  // On mount: show the latest successful run instantly, then auto-refresh in
+  // the background when there is no run yet or it has gone stale.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      let latestAt: string | null = null;
+      try {
+        const { data: agent } = await supabase
+          .from("ai_agents")
+          .select("id")
+          .eq("key", "beat_planner")
+          .maybeSingle();
+        if (agent?.id) {
+          const { data } = await supabase
+            .from("workflow_executions")
+            .select("result, started_at")
+            .eq("agent_id", agent.id)
+            .eq("status", "success")
+            .order("started_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const res = (data?.result ?? null) as BeatPlanResult | null;
+          if (!cancelled && res?.kind === "beat_plan") {
+            setResult(res);
+            setLastRunAt(data?.started_at ?? null);
+            latestAt = data?.started_at ?? null;
+          }
+        }
+      } catch (e) {
+        console.error("[BeatPlannerInsights] load latest failed:", e);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+
+      const isStale = !latestAt || Date.now() - new Date(latestAt).getTime() > STALE_AFTER_MS;
+      if (!cancelled && isStale && !autoRanRef.current) {
+        autoRanRef.current = true;
+        void runNow();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [runNow]);
 
   const rows = useMemo(() => result?.rows ?? [], [result]);
   const visibleRows = showAll ? rows : rows.slice(0, PREVIEW_COUNT);
@@ -142,26 +162,45 @@ export function BeatPlannerInsightsCard() {
               </p>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant={result ? "outline" : "default"}
-            className="gap-1.5"
-            onClick={handleRun}
-            disabled={running}
-          >
-            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : result ? <RefreshCw className="h-3.5 w-3.5" /> : <Wand2 className="h-3.5 w-3.5" />}
-            {running ? "Analysing…" : result ? "Refresh" : "Generate insights"}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {running && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Analysing…
+              </span>
+            )}
+            {!running && result && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-muted-foreground"
+                title="Refresh insights"
+                onClick={runNow}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
 
-        {loading && !result && (
-          <p className="mt-3 text-xs text-muted-foreground">Checking your latest beat analysis…</p>
+        {(loading || running) && !result && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Analysing your beats — coverage, pending dues and suggested visit days are being
+              computed from your visits and orders…
+            </p>
+            <div className="grid gap-2 lg:grid-cols-2">
+              {[0, 1].map((i) => (
+                <div key={i} className="h-20 animate-pulse rounded-lg bg-muted/60" />
+              ))}
+            </div>
+          </div>
         )}
 
-        {!loading && !result && !running && (
+        {!loading && !running && !result && failed && (
           <p className="mt-3 text-xs text-muted-foreground">
-            Get a prioritised, data-driven view of which beats need attention — coverage, pending
-            dues and suggested visit days per beat, computed from your own visits and orders.
+            Beat insights are unavailable right now — they will refresh automatically the next time
+            you open this page.
           </p>
         )}
 
