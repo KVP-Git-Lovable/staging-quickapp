@@ -62,6 +62,10 @@ export const useAuth = () => {
   return context;
 };
 
+// Non-throwing variant for providers that may render before/outside AuthProvider
+// (e.g. during HMR or concurrent-render recovery).
+export const useAuthOptional = () => useContext(AuthContext);
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
