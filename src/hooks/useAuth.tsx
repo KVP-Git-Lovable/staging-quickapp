@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -70,6 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [securityProfileName, setSecurityProfileName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const activeUserIdRef = useRef<string | null>(null);
 
   /**
    * SECURITY: Purge per-user IndexedDB stores when the authenticated user changes.
@@ -252,9 +253,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (currentUser) {
           await purgeStaleUserDataIfIdentityChanged(currentUser.id);
-          setUserProfile(null);
-          setUserRole(null);
-          setSecurityProfileName(null);
+          const identityChanged = activeUserIdRef.current !== currentUser.id;
+          activeUserIdRef.current = currentUser.id;
+          // Keep the current profile/permissions stable during TOKEN_REFRESHED.
+          // Clearing these values on every refresh caused protected modules to
+          // disappear and redirect before the same profile was fetched again.
+          if (identityChanged) {
+            setUserProfile(null);
+            setUserRole(null);
+            setSecurityProfileName(null);
+          }
           setUser(currentUser);
           setCachedUser(currentUser);
           localStorage.setItem('cached_user_id', currentUser.id);
@@ -312,15 +320,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (session?.user) {
         await purgeStaleUserDataIfIdentityChanged(session.user.id);
-        setUserProfile(null);
-        setUserRole(null);
-        setSecurityProfileName(null);
+        const identityChanged = activeUserIdRef.current !== session.user.id;
+        activeUserIdRef.current = session.user.id;
+        if (identityChanged) {
+          setUserProfile(null);
+          setUserRole(null);
+          setSecurityProfileName(null);
+        }
         setUser(currentUser);
         setCachedUser(session.user);
         localStorage.setItem('cached_user_id', session.user.id);
-      } else {
-        setUser(null);
-        
+
         try {
           const role = await fetchUserRole(session.user.id);
           setUserRole(role);
@@ -355,6 +365,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUserProfile(basicProfile);
           localStorage.setItem('cached_profile', JSON.stringify(basicProfile));
         }
+      } else {
+        // Preserve the validated cached user during transient session failures;
+        // explicit SIGNED_OUT is handled by the auth-state listener above.
+        if (!getValidatedCachedUser()) setUser(null);
       }
       
       clearTimeout(loadingTimeout);
