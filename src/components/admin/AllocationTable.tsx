@@ -799,6 +799,9 @@ export function AllocationTable({
             onTargetChange={handleTargetChange}
             onStrategyChange={handleStrategyChange}
             onEqualSplit={handleEqualSplit}
+            fyYear={fyYear}
+            targetStartMonth={targetStartMonth}
+            targetEndMonth={targetEndMonth}
           />
         )}
 
@@ -817,6 +820,9 @@ export function AllocationTable({
               enabledMetrics={enabledMetrics}
               allocations={allocations as any}
               onTargetChange={handleTargetChange}
+              fyYear={fyYear}
+              targetStartMonth={targetStartMonth}
+              targetEndMonth={targetEndMonth}
             />
           </div>
         )}
@@ -831,6 +837,9 @@ export function AllocationTable({
             onTargetChange={handleTargetChange}
             onStrategyChange={handleStrategyChange}
             onSplitManager={openSplitDialog}
+            fyYear={fyYear}
+            targetStartMonth={targetStartMonth}
+            targetEndMonth={targetEndMonth}
           />
         )}
 

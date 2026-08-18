@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronDown, ChevronRight, Users, AlertTriangle, Pencil } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, ChevronRight, Users, AlertTriangle, Pencil, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StrategyBadge } from '../TargetStrategySelector';
 import type { TargetStrategy } from '../TargetStrategySelector';
+import { MonthlyTargetGrid } from './MonthlyTargetGrid';
 
 const formatNumber = (num: number) => new Intl.NumberFormat('en-IN').format(num);
 const formatCurrency = (num: number) => {
@@ -49,6 +51,9 @@ interface StepPreviewProps {
   enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean };
   allocations: Map<string, { quantityTarget: number; revenueTarget: number; visitsTarget: number; personalQuantityTarget?: number; personalRevenueTarget?: number; personalVisitsTarget?: number; targetStrategy: TargetStrategy }>;
   onTargetChange?: (userId: string, field: string, value: number) => void;
+  fyYear: number;
+  targetStartMonth?: number;
+  targetEndMonth?: number;
 }
 
 const parseNum = (value: string) => {
@@ -56,8 +61,28 @@ const parseNum = (value: string) => {
   return isNaN(num) ? 0 : num;
 };
 
-export function StepPreview({ roots, quantityUnit, enabledMetrics, allocations, onTargetChange }: StepPreviewProps) {
+export function StepPreview({
+  roots,
+  quantityUnit,
+  enabledMetrics,
+  allocations,
+  onTargetChange,
+  fyYear,
+  targetStartMonth = 1,
+  targetEndMonth = 12,
+}: StepPreviewProps) {
   const [editingUser, setEditingUser] = useState<string | null>(null);
+
+  // Which employees currently have their month-wise breakdown open.
+  const [monthsOpen, setMonthsOpen] = useState<Set<string>>(new Set());
+
+  const toggleMonths = (id: string) => {
+    setMonthsOpen(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const all = new Set<string>();
     const collect = (nodes: PreviewNode[]) => {
@@ -134,6 +159,16 @@ export function StepPreview({ roots, quantityUnit, enabledMetrics, allocations, 
           </div>
 
           {!isNoTarget && <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1"
+              onClick={() => toggleMonths(node.userId)}
+              aria-expanded={monthsOpen.has(node.userId)}
+            >
+              <CalendarDays className="h-3 w-3" />
+              {monthsOpen.has(node.userId) ? 'Hide months' : 'Months'}
+            </Button>
             {onTargetChange && !isManager && (
               <button
                 onClick={() => setEditingUser(isEditing ? null : node.userId)}
@@ -233,6 +268,19 @@ export function StepPreview({ roots, quantityUnit, enabledMetrics, allocations, 
             <AlertTriangle className="h-3 w-3 shrink-0" />
             {overUnder > 0 ? `${formatNumber(overUnder)} ${quantityUnit} not yet distributed to subordinates` : `Over-allocated by ${formatNumber(Math.abs(overUnder))} ${quantityUnit}`}
           </div>
+        )}
+
+        {/* Month-wise targets, working days and auto-calculated daily average */}
+        {monthsOpen.has(node.userId) && !isNoTarget && (
+          <MonthlyTargetGrid
+            userId={node.userId}
+            userName={node.fullName}
+            fyYear={fyYear}
+            quantityUnit={quantityUnit}
+            enabledMetrics={enabledMetrics}
+            targetStartMonth={targetStartMonth}
+            targetEndMonth={targetEndMonth}
+          />
         )}
 
         {isExp && hasChildren && node.children.map(c => renderNode(c, depth + 1))}
