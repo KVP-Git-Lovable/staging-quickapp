@@ -17,6 +17,8 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { Navbar } from "@/components/Navbar";
+import { renderEventReportToPdfBlob } from "@/utils/renderEventReportPdf";
+import type { EventReportAiInsights } from "@/components/invoice/EventReportPreview";
 
 interface EventInfo {
   id: string;
@@ -84,10 +86,11 @@ export default function EventSummary() {
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [items, setItems] = useState<OrderItemRow[]>([]);
-  const [stockCost, setStockCost] = useState(0); // sum(stock_taken * price) for margin proxy
+  const [stockPriceMap, setStockPriceMap] = useState<Record<string, number>>({}); // product_id -> price, for margin proxy
   const [granularity, setGranularity] = useState<"day" | "week" | "month">("day");
   const [showAllProducts, setShowAllProducts] = useState(false);
   const [showAllCustomers, setShowAllCustomers] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -111,6 +114,7 @@ export default function EventSummary() {
           .from("orders")
           .select("id,total_amount,retailer_id,retailer_name,counter_customer_id,order_date,created_at,status,user_id")
           .eq("visit_id", (ev as any).visit_id ?? id)
+          .neq("status", "cancelled")
           .order("created_at", { ascending: true });
         const ords = (ordRows || []) as OrderRow[];
         if (!alive) return;
@@ -128,7 +132,10 @@ export default function EventSummary() {
           setItems([]);
         }
 
-        // Stock cost proxy for gross margin
+        // Per-product price proxy for gross margin. Quantities come from the
+        // real order_items (the authoritative sale record) below, not from
+        // event_stock_items.sold_qty — that field is a separately-maintained
+        // tally that can drift from what was actually ordered.
         const { data: dayRows } = await supabase
           .from("event_stock_days")
           .select("id")
@@ -137,14 +144,13 @@ export default function EventSummary() {
         if (dayIds.length) {
           const { data: stockRows } = await supabase
             .from("event_stock_items")
-            .select("stock_taken,sold_qty,price")
+            .select("product_id,price")
             .in("event_stock_day_id", dayIds);
-          const cost = (stockRows || []).reduce(
-            (s: number, r: any) => s + (Number(r.sold_qty) || 0) * (Number(r.price) || 0) * 0.7,
-            0,
-          );
-          // 0.7 = assumed COGS factor when no explicit cost is captured.
-          setStockCost(cost);
+          const priceMap: Record<string, number> = {};
+          (stockRows || []).forEach((r: any) => {
+            if (r.product_id) priceMap[r.product_id] = Number(r.price) || 0;
+          });
+          setStockPriceMap(priceMap);
         }
       } finally {
         if (alive) setLoading(false);
@@ -163,9 +169,20 @@ export default function EventSummary() {
       if (key) customers.add(String(key));
     });
     const itemsSold = items.reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+    // Cost basis: real quantities sold (order_items) x per-product stock price,
+    // with the same 0.7 assumed-COGS factor used when no explicit cost is captured.
+    const qtyByProduct: Record<string, number> = {};
+    items.forEach((i: any) => {
+      if (!i.product_id) return;
+      qtyByProduct[i.product_id] = (qtyByProduct[i.product_id] || 0) + (Number(i.quantity) || 0);
+    });
+    const stockCost = Object.entries(qtyByProduct).reduce(
+      (s, [pid, qty]) => s + qty * (stockPriceMap[pid] || 0) * 0.7,
+      0,
+    );
     const margin = totalRevenue > 0 ? ((totalRevenue - stockCost) / totalRevenue) * 100 : 0;
     return { totalRevenue, totalOrders, customers: customers.size, itemsSold, margin };
-  }, [orders, items, stockCost]);
+  }, [orders, items, stockPriceMap]);
 
   // Day-wise summary
   const dayWise = useMemo(() => {
@@ -235,33 +252,75 @@ export default function EventSummary() {
     return false;
   }, [event]);
 
-  const handleDownload = () => {
-    // Lightweight CSV export — covers the "Download Report" CTA without heavy PDF deps.
-    const lines: string[] = [];
-    lines.push(`Event Summary,${(event?.event_name || event?.activity_name || "Event").replace(/,/g, " ")}`);
-    lines.push(`Total Revenue,${kpis.totalRevenue}`);
-    lines.push(`Total Orders,${kpis.totalOrders}`);
-    lines.push(`Total Customers,${kpis.customers}`);
-    lines.push(`Total Items Sold,${kpis.itemsSold}`);
-    lines.push(`Gross Margin %,${kpis.margin.toFixed(2)}`);
-    lines.push("");
-    lines.push("Day,Date,Orders,Items Sold,Revenue");
-    dayWise.forEach((r, idx) => {
-      lines.push(`Day ${idx + 1},${r.date},${r.orders},${r.items},${r.revenue}`);
-    });
-    lines.push("");
-    lines.push("Top Products,Qty,Revenue");
-    topProducts.slice(0, 20).forEach((p) => lines.push(`${p.name.replace(/,/g, " ")},${p.qty},${p.revenue}`));
-    lines.push("");
-    lines.push("Top Customers,Orders,Revenue");
-    topCustomers.slice(0, 20).forEach((c) => lines.push(`${c.name.replace(/,/g, " ")},${c.orders},${c.revenue}`));
-    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `event-summary-${event?.id || id}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!event || downloading) return;
+    setDownloading(true);
+    try {
+      // Same company lookup pattern invoices use — single active company row.
+      const { data: company } = await supabase
+        .from("companies")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      const eventPayload = {
+        name: event.event_name || event.activity_name || "Event",
+        place: event.activity_place || null,
+        type: event.activity_type || null,
+        date: event.from_date || event.activity_date || null,
+        status: isCompleted ? "Completed" : "Active",
+      };
+
+      // AI summary is best-effort — a slow or failed AI call should never
+      // block the report download, just ship without that section.
+      let aiInsights: EventReportAiInsights | null = null;
+      try {
+        const { data: aiData, error: aiError } = await supabase.functions.invoke(
+          "generate-event-summary-insights",
+          { body: { event: eventPayload, kpis, dayWise, topProducts, topCustomers } }
+        );
+        if (!aiError && aiData?.insights) aiInsights = aiData.insights;
+      } catch (aiErr) {
+        console.error("Event report AI summary failed, continuing without it:", aiErr);
+      }
+
+      const dateLabel =
+        fmtDate(event.from_date || event.activity_date) +
+        (event.to_date && event.to_date !== event.from_date ? ` – ${fmtDate(event.to_date)}` : "");
+
+      const blob = await renderEventReportToPdfBlob({
+        company: company || {},
+        event: {
+          name: eventPayload.name,
+          type: eventPayload.type || undefined,
+          place: eventPayload.place || undefined,
+          dateLabel,
+          status: eventPayload.status as "Completed" | "Active",
+        },
+        kpis,
+        dayWise,
+        topProducts,
+        topCustomers,
+        aiInsights,
+        generatedAt: new Date().toLocaleString([], {
+          day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+        }),
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `event-report-${eventPayload.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Report downloaded");
+    } catch (err) {
+      console.error("Failed to generate event report:", err);
+      toast.error("Failed to generate report");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (loading) {
@@ -317,9 +376,9 @@ export default function EventSummary() {
               )}
             </div>
           </div>
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={handleDownload}>
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Download Report</span>
+          <Button size="sm" variant="outline" className="gap-1.5" onClick={handleDownload} disabled={downloading}>
+            {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            <span className="hidden sm:inline">{downloading ? "Generating…" : "Download Report"}</span>
           </Button>
         </div>
       </div>
