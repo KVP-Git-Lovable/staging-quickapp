@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuthOptional } from '@/hooks/useAuth';
+
 import { formatFromBase, type RatesMap } from '@/lib/money';
 
 interface CurrencyContextValue {
