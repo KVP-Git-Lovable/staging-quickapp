@@ -148,7 +148,13 @@ function TargetFields({
   );
 }
 
-/** One metric row of the allocation summary. */
+/**
+ * One metric row of the allocation summary.
+ *
+ * Until anything has been given out, this leads with the annual target itself
+ * and says plainly that nothing has been distributed, rather than presenting a
+ * zero against the total as though a distribution had been attempted.
+ */
 function AllocationMetric({
   name,
   allocated,
@@ -163,6 +169,7 @@ function AllocationMetric({
   const pct = total > 0 ? Math.min(100, (allocated / total) * 100) : 0;
   const over = allocated > total;
   const complete = allocated === total;
+  const untouched = allocated === 0;
 
   return (
     <div>
@@ -171,23 +178,37 @@ function AllocationMetric({
           {name}
         </span>
         <span className="text-xs text-muted-foreground tabular-nums">
-          <span className="text-[15px] font-bold text-foreground">{format(allocated)}</span>
-          {' '}of {format(total)}
+          {untouched ? (
+            <span className="text-[15px] font-bold text-foreground">{format(total)}</span>
+          ) : (
+            <>
+              <span className="text-[15px] font-bold text-foreground">{format(allocated)}</span>
+              {' '}of {format(total)}
+            </>
+          )}
         </span>
       </div>
-      <Progress value={pct} className="h-1.5" />
+
+      <Progress value={untouched ? 0 : pct} className="h-1.5" />
+
       <div className="flex justify-end mt-1.5">
         <span
           className={cn(
             'text-xs font-semibold tabular-nums',
-            over ? 'text-destructive' : complete ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground',
+            over
+              ? 'text-destructive'
+              : complete
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-muted-foreground',
           )}
         >
-          {over
-            ? `Over by ${format(allocated - total)}`
-            : complete
-              ? '✓ Fully allocated'
-              : `${format(total - allocated)} remaining`}
+          {untouched
+            ? 'Not yet distributed'
+            : over
+              ? `Over by ${format(allocated - total)}`
+              : complete
+                ? '✓ Fully allocated'
+                : `${format(total - allocated)} remaining`}
         </span>
       </div>
     </div>
@@ -212,6 +233,12 @@ export function StepAssignManagers({
   const allocatedQty = managers.reduce((s, m) => s + m.quantityTarget, 0);
   const allocatedRev = managers.reduce((s, m) => s + m.revenueTarget, 0);
   const allocatedVis = managers.reduce((s, m) => s + m.visitsTarget, 0);
+
+  // Nothing has been given out yet for any enabled metric.
+  const nothingDistributed =
+    (!enabledMetrics.quantity || allocatedQty === 0) &&
+    (!enabledMetrics.revenue || allocatedRev === 0) &&
+    (!enabledMetrics.visits || allocatedVis === 0);
 
   const toggleManager = (userId: string) => {
     setExpandedManagers((prev) => {
@@ -306,7 +333,14 @@ export function StepAssignManagers({
       {/* Allocation summary */}
       <div className="rounded-xl border bg-muted/30 p-4 space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <span className="text-sm font-semibold">Total target to distribute</span>
+          <div>
+            <span className="text-sm font-semibold">Total target to distribute</span>
+            {nothingDistributed && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Enter a target for each manager, or split the total by team size.
+              </p>
+            )}
+          </div>
           <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={onEqualSplit}>
             <Users className="h-3.5 w-3.5" /> Split by Team Size
           </Button>
