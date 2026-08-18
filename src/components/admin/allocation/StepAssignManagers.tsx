@@ -119,6 +119,7 @@ export function StepAssignManagers({
               <InlineStrategySelector
                 value={nodeStrategy}
                 onChange={(s) => onStrategyChange(node.userId, s)}
+                hasSubordinates={isSubManager}
               />
             )}
           </div>
@@ -155,6 +156,7 @@ export function StepAssignManagers({
               <InlineStrategySelector
                 value={nodeStrategy}
                 onChange={(s) => onStrategyChange(node.userId, s)}
+                hasSubordinates={isSubManager}
               />
             </div>
             <p className="text-[10px] text-muted-foreground italic">
@@ -364,6 +366,7 @@ export function StepAssignManagers({
                 <InlineStrategySelector
                   value={mgr.targetStrategy}
                   onChange={(s) => onStrategyChange(mgr.userId, s)}
+                  hasSubordinates={mgr.subordinateCount > 0}
                 />
               </div>
 

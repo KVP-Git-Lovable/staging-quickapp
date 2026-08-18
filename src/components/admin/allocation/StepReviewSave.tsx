@@ -143,12 +143,11 @@ export function StepReviewSave({
                   <Users className="h-2.5 w-2.5" />{node.subordinateCount}
                 </Badge>
               )}
-              {isManager && (
-                <InlineStrategySelector
-                  value={strategy}
-                  onChange={(s) => onStrategyChange(node.userId, s)}
-                />
-              )}
+              <InlineStrategySelector
+                value={strategy}
+                onChange={(s) => onStrategyChange(node.userId, s)}
+                hasSubordinates={isManager}
+              />
             </div>
 
             {/* Editable target inputs — hidden for no_target */}
