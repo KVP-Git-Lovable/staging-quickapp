@@ -174,6 +174,7 @@ export function MonthlyTargetGrid({
         .from('user_business_plan_months')
         .select('month_number, month_name, quantity_target, revenue_target, working_days')
         .eq('business_plan_id', plan.id)
+        .eq('is_active', true)
         .order('month_number');
       if (error) throw error;
       return (data || []).map(m => ({
@@ -310,31 +311,26 @@ export function MonthlyTargetGrid({
       if (enabledMetrics.quantity) payload.quantity_target = values.quantityTarget;
       if (enabledMetrics.revenue) payload.revenue_target = values.revenueTarget;
 
-      const { data: existing, error: lookupError } = await supabase
+      // Deactivate the current active row (if any) rather than updating it in
+      // place, so the previous target stays queryable as history instead of
+      // being silently overwritten — same rule as every other target save.
+      const { error: deactivateError } = await supabase
         .from('user_business_plan_months')
-        .select('id')
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
         .eq('business_plan_id', planId)
         .eq('month_number', row.monthNumber)
-        .maybeSingle();
-      if (lookupError) throw lookupError;
+        .eq('is_active', true);
+      if (deactivateError) throw deactivateError;
 
-      if (existing) {
-        const { error } = await supabase
-          .from('user_business_plan_months')
-          .update(payload)
-          .eq('id', existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('user_business_plan_months')
-          .insert({
-            business_plan_id: planId,
-            month_number: row.monthNumber,
-            month_name: row.monthName,
-            ...payload,
-          });
-        if (error) throw error;
-      }
+      const { error: insertError } = await supabase
+        .from('user_business_plan_months')
+        .insert({
+          business_plan_id: planId,
+          month_number: row.monthNumber,
+          month_name: row.monthName,
+          ...payload,
+        });
+      if (insertError) throw insertError;
 
       return { row, values };
     },
