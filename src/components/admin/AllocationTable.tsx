@@ -159,6 +159,33 @@ const getContributorCountForNode = (
   return total;
 };
 
+/**
+ * The weight an excluded person still reserves in their manager's split.
+ *
+ * getContributorCountForNode returns 0 for No Target, which is right for
+ * roll-up sums but would hand their share to their siblings when a manager's
+ * target is split. This answers the different question — how large a slice
+ * would they have taken — so the slice can be reserved and then left unfilled.
+ * Descendants who are themselves excluded still count for nothing.
+ */
+const getReservedContributorCount = (
+  node: SubordinateAllocation,
+  allocations: Map<string, SubordinateAllocation>,
+  cache: Map<string, number>,
+): number => {
+  const currentAlloc = allocations.get(node.userId) || node;
+
+  if (node.children.length === 0) return 1;
+
+  const childContributors = node.children.reduce(
+    (sum, child) => sum + getContributorCountForNode(child, allocations, cache),
+    0,
+  );
+
+  // An excluded manager still occupies their own slot alongside their team.
+  return Math.max(1, childContributors + 1);
+};
+
 // A person excluded from targets contributes nothing to a roll-up, whatever
 // figure may still be sitting on their row from before they were excluded.
 const getEffectiveQuantity = (alloc: SubordinateAllocation) =>
@@ -222,12 +249,19 @@ function autoDistributeTargets(
       return;
     }
 
-    const weightedEntries = children
-      .filter(({ childAlloc }) => childAlloc.targetStrategy !== 'no_target')
-      .map(({ childNode, childAlloc }) => ({
-        userId: childAlloc.userId,
-        weight: Math.max(1, getContributors(childNode)),
-      }));
+    // Excluding one person must not change what anyone else receives, so an
+    // excluded child still reserves its slot in the split and is zeroed
+    // afterwards. Its share is simply not handed out, leaving the manager
+    // under-distributed by that amount rather than inflating the siblings.
+    const weightedEntries = children.map(({ childNode, childAlloc }) => ({
+      userId: childAlloc.userId,
+      weight: Math.max(
+        1,
+        childAlloc.targetStrategy === 'no_target'
+          ? getReservedContributorCount(childNode, allocations, contributorCache)
+          : getContributors(childNode),
+      ),
+    }));
 
     // Zero out no_target children
     children.forEach(({ childNode, childAlloc }) => {
