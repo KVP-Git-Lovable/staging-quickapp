@@ -60,6 +60,7 @@ import * as beatService from "@/services/beatService";
 import type { BeatWithAccess, BeatStats } from "@/services/beatService";
 import { DeactivateBeatWizard } from "@/components/DeactivateBeatWizard";
 import { BeatPlannerInsightsCard } from "@/components/BeatPlannerInsightsCard";
+import { useBeatPlannerInsights } from "@/hooks/useBeatPlannerInsights";
 import { ShareBeatModal } from "@/components/ShareBeatModal";
 import { CoverageModal } from "@/components/CoverageModal";
 import { TransferOwnershipModal } from "@/components/TransferOwnershipModal";
@@ -188,7 +189,11 @@ export const MyBeats = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
+  // AI Beat Planner insights (auto-loading/auto-running, shared between the
+  // summary card and the per-beat one-liners on each BeatCard).
+  const beatPlanInsights = useBeatPlannerInsights();
+
   // Hierarchical user filter - multi-select like MyRetailers
   const { isManager, subordinates, subordinateIds } = useSubordinates();
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
@@ -1562,8 +1567,9 @@ export const MyBeats = () => {
         </Card>
 
         {/* AI Beat Planner insights — consumes the existing QuickApp AI
-            beat_planner agent flow; displays actionable coverage guidance. */}
-        <BeatPlannerInsightsCard />
+            beat_planner agent flow; the narrative summary shows here while
+            each BeatCard below carries its own one-line insight. */}
+        <BeatPlannerInsightsCard insights={beatPlanInsights} />
 
         {/* Compact stat cards (6) */}
         {(() => {
@@ -1934,6 +1940,7 @@ export const MyBeats = () => {
                   key={beat.id}
                   beat={beat}
                   userId={user?.id || ''}
+                  planInsight={beatPlanInsights.insightFor(beat.name)}
                   accessType={beat.accessType}
                   coverageStartDate={beat.coverageStartDate}
                   coverageEndDate={beat.coverageEndDate}

@@ -16,6 +16,7 @@ import {
 import { useBeatMetrics } from '@/hooks/useBeatMetrics';
 import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
+import type { BeatPlanRow } from '@/hooks/useBeatPlannerInsights';
 
 export type BeatAccessType = 'OWNED' | 'CO_OWNER' | 'OPERATIONAL' | 'VIEW_ONLY' | 'COVERAGE';
 
@@ -50,6 +51,8 @@ interface BeatCardProps {
   onHistory?: () => void;
   /** When true bottom button is permanent Delete; when false it is Deactivate */
   isHardDeletable?: boolean;
+  /** This beat's row from the AI Beat Planner analysis (display only). */
+  planInsight?: BeatPlanRow | null;
 }
 
 function accessBadge(at: BeatAccessType, coverageEndDate?: string | null, coverageStartDate?: string | null) {
@@ -99,6 +102,7 @@ export function BeatCard({
   onClone,
   onHistory,
   isHardDeletable,
+  planInsight,
 }: BeatCardProps) {
   const { metrics, loading } = useBeatMetrics(beat.id, userId);
   const navigate = useNavigate();
@@ -238,6 +242,30 @@ export function BeatCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* AI Beat Planner one-liner (from the shared beat_planner analysis) */}
+        {planInsight && (
+          <div
+            className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] leading-tight ${
+              planInsight.coveragePct < 30
+                ? 'border-rose-200 bg-rose-50/80 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200'
+                : planInsight.coveragePct < 60
+                  ? 'border-amber-200 bg-amber-50/80 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200'
+                  : 'border-emerald-200 bg-emerald-50/80 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200'
+            }`}
+            title="From AI Beat Planner — computed from your visits and orders"
+          >
+            <Sparkles size={12} className="shrink-0" />
+            <span className="truncate">
+              {planInsight.coveragePct}% coverage ({planInsight.visited30d}/{planInsight.retailers} in 30d)
+              {planInsight.pending > 0
+                ? ` · ₹${Number(planInsight.pending).toLocaleString('en-IN', { maximumFractionDigits: 0 })} pending`
+                : ''}
+              {planInsight.avgDaysSinceVisit != null ? ` · ${planInsight.avgDaysSinceVisit}d since visit` : ''}
+              {` → plan ${planInsight.suggestedDays} day${planInsight.suggestedDays === 1 ? '' : 's'}`}
+            </span>
+          </div>
+        )}
+
         {/* Beat Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="text-center p-2 bg-muted/30 rounded-lg">
