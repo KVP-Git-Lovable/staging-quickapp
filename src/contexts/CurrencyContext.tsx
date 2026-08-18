@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthOptional } from '@/hooks/useAuth';
 import { formatFromBase, type RatesMap } from '@/lib/money';
 
 interface CurrencyContextValue {
@@ -60,7 +60,7 @@ function buildRatesMap(rows: any[]): RatesMap {
 }
 
 export const CurrencyProvider = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAuth();
+  const user = useAuthOptional()?.user ?? null;
   const [baseCurrency, setBaseCurrency] = useState(DEFAULT_BASE);
   const [allowedCurrencies, setAllowedCurrencies] = useState<string[]>([DEFAULT_BASE]);
   const [multiEnabled, setMultiEnabled] = useState(false);
