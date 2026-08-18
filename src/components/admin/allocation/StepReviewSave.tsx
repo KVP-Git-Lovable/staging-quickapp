@@ -231,6 +231,8 @@ export function StepReviewSave({
             fyYear={fyYear}
             quantityUnit={quantityUnit}
             enabledMetrics={enabledMetrics}
+            annualQuantity={qty}
+            annualRevenue={rev}
             targetStartMonth={targetStartMonth}
             targetEndMonth={targetEndMonth}
           />

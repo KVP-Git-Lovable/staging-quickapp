@@ -278,6 +278,8 @@ export function StepPreview({
             fyYear={fyYear}
             quantityUnit={quantityUnit}
             enabledMetrics={enabledMetrics}
+            annualQuantity={qty}
+            annualRevenue={rev}
             targetStartMonth={targetStartMonth}
             targetEndMonth={targetEndMonth}
           />
