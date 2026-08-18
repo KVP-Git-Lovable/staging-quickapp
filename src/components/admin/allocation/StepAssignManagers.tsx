@@ -61,14 +61,11 @@ interface StepAssignManagersProps {
   onEqualSplit: () => void;
 }
 
-/** The three metric field keys, either the plain set or the personal-target set. */
+/** The metric field keys written by this step. */
 const FIELD_KEYS = {
-  team: { quantity: 'quantityTarget', revenue: 'revenueTarget', visits: 'visitsTarget' },
-  personal: {
-    quantity: 'personalQuantityTarget',
-    revenue: 'personalRevenueTarget',
-    visits: 'personalVisitsTarget',
-  },
+  quantity: 'quantityTarget',
+  revenue: 'revenueTarget',
+  visits: 'visitsTarget',
 } as const;
 
 interface TargetFieldsProps {
@@ -228,76 +225,52 @@ export function StepAssignManagers({
     });
   };
 
+  /**
+   * One row format for every person under a manager: identity on the left, the
+   * target type picker right-aligned so the pickers line up down the column,
+   * and a single target field beneath at a fixed indent. Excluded people keep
+   * the row and the picker but drop the field.
+   */
   const renderDirectReports = (nodes: TeamNode[]): React.ReactNode => {
     return nodes.map((node) => {
       const isSubManager = node.subordinateCount > 0;
       const nodeStrategy = node.targetStrategy || 'roll_down';
+      const isExcluded = nodeStrategy === 'no_target';
 
-      // No Target users — name and badge only, no inputs
-      if (nodeStrategy === 'no_target') {
-        return (
-          <div
-            key={node.userId}
-            className="flex items-center gap-2.5 py-2.5 opacity-60 border-b last:border-b-0"
-          >
+      return (
+        <div
+          key={node.userId}
+          className={cn('py-3 border-b last:border-b-0', isExcluded && 'opacity-60')}
+        >
+          <div className="flex items-center gap-2.5">
             <Avatar className="h-7 w-7 shrink-0">
-              <AvatarFallback className="text-[9px] font-medium bg-muted text-muted-foreground">
+              <AvatarFallback
+                className={cn(
+                  'text-[9px] font-medium',
+                  isExcluded ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary',
+                )}
+              >
                 {getInitials(node.fullName)}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium text-muted-foreground line-through truncate">
+
+            <span
+              className={cn(
+                'text-sm font-medium truncate',
+                isExcluded && 'text-muted-foreground line-through',
+              )}
+            >
               {node.fullName}
             </span>
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 text-muted-foreground">
-              No Target
-            </Badge>
-            <span className="ml-auto">
-              <InlineStrategySelector
-                value={nodeStrategy}
-                onChange={(s) => onStrategyChange(node.userId, s)}
-                hasSubordinates={isSubManager}
-              />
-            </span>
-          </div>
-        );
-      }
 
-      // Regular team members — listed for context, no target entered here
-      if (!isSubManager) {
-        return (
-          <div key={node.userId} className="flex items-center gap-2.5 py-2.5 border-b last:border-b-0">
-            <Avatar className="h-7 w-7 shrink-0">
-              <AvatarFallback className="text-[9px] font-medium bg-primary/10 text-primary">
-                {getInitials(node.fullName)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-medium truncate">{node.fullName}</span>
-            <span className="ml-auto">
-              <InlineStrategySelector
-                value={nodeStrategy}
-                onChange={(s) => onStrategyChange(node.userId, s)}
-                hasSubordinates={false}
-              />
-            </span>
-          </div>
-        );
-      }
+            {isSubManager && (
+              <Badge variant="secondary" className="text-[9px] gap-0.5 px-1.5 py-0 h-4 shrink-0">
+                <Users className="h-2.5 w-2.5" />
+                {node.subordinateCount}
+              </Badge>
+            )}
 
-      // Sub-managers — same row treatment, plus their own target fields
-      return (
-        <div key={node.userId} className="py-3 border-b last:border-b-0">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <Avatar className="h-7 w-7 shrink-0">
-              <AvatarFallback className="text-[9px] font-medium bg-primary/10 text-primary">
-                {getInitials(node.fullName)}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-medium truncate">{node.fullName}</span>
-            <Badge variant="secondary" className="text-[9px] gap-0.5 px-1.5 py-0 h-4">
-              <Users className="h-2.5 w-2.5" />
-              {node.subordinateCount}
-            </Badge>
-            <span className="ml-auto">
+            <span className="ml-auto shrink-0">
               <InlineStrategySelector
                 value={nodeStrategy}
                 onChange={(s) => onStrategyChange(node.userId, s)}
@@ -306,52 +279,12 @@ export function StepAssignManagers({
             </span>
           </div>
 
-          {/* Independent keeps a personal target alongside the team target */}
-          {nodeStrategy === 'independent' ? (
-            <div className="grid gap-2.5 mt-3 pl-[38px] sm:grid-cols-2">
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">
-                  Personal target
-                </p>
-                <TargetFields
-                  compact
-                  userId={node.userId}
-                  keys={FIELD_KEYS.personal}
-                  values={{
-                    quantity: node.personalQuantityTarget || 0,
-                    revenue: node.personalRevenueTarget || 0,
-                    visits: node.personalVisitsTarget || 0,
-                  }}
-                  quantityUnit={quantityUnit}
-                  enabledMetrics={enabledMetrics}
-                  onTargetChange={onTargetChange}
-                />
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">
-                  Team target
-                </p>
-                <TargetFields
-                  compact
-                  userId={node.userId}
-                  keys={FIELD_KEYS.team}
-                  values={{
-                    quantity: node.quantityTarget || 0,
-                    revenue: node.revenueTarget || 0,
-                    visits: node.visitsTarget || 0,
-                  }}
-                  quantityUnit={quantityUnit}
-                  enabledMetrics={enabledMetrics}
-                  onTargetChange={onTargetChange}
-                />
-              </div>
-            </div>
-          ) : (
+          {!isExcluded && (
             <div className="mt-3 pl-[38px]">
               <TargetFields
                 compact
                 userId={node.userId}
-                keys={FIELD_KEYS.team}
+                keys={FIELD_KEYS}
                 values={{
                   quantity: node.quantityTarget || 0,
                   revenue: node.revenueTarget || 0,
@@ -457,7 +390,7 @@ export function StepAssignManagers({
                 <div className="px-4 pb-4 pl-[68px]">
                   <TargetFields
                     userId={mgr.userId}
-                    keys={FIELD_KEYS.team}
+                    keys={FIELD_KEYS}
                     values={{
                       quantity: mgr.quantityTarget,
                       revenue: mgr.revenueTarget,
