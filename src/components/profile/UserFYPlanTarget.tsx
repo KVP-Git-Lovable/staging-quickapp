@@ -499,25 +499,29 @@ export function UserFYPlanTarget({
     const { data: productData } = await supabase
       .from('user_business_plan_products')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Load retailer targets
     const { data: retailerData } = await supabase
       .from('user_business_plan_retailers')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Load monthly targets
     const { data: monthData } = await supabase
       .from('user_business_plan_months')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Load monthly product targets
     const { data: monthProductData } = await supabase
       .from('user_business_plan_month_products')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Check if we have existing product data
     const hasExistingProductData = productData && productData.length > 0;
@@ -770,7 +774,8 @@ export function UserFYPlanTarget({
     const { data: distributorData } = await supabase
       .from('user_business_plan_distributors')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Initialize distributor targets
     const hasExistingDistributorData = distributorData && distributorData.length > 0;
@@ -1320,11 +1325,13 @@ export function UserFYPlanTarget({
     if (!selectedPlan) return;
     
     try {
-      // Delete existing
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_distributors')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
       // Insert new
       const distributorsToInsert = distributorTargets.filter(d => d.quantityTarget > 0 || d.revenueTarget > 0).map(d => ({
@@ -1353,14 +1360,16 @@ export function UserFYPlanTarget({
     if (!selectedPlan) return;
     
     try {
-      // Delete existing
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_products')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
       // Insert new
-      const productsToInsert = categoryTargets.flatMap(cat => 
+      const productsToInsert = categoryTargets.flatMap(cat =>
         cat.products.filter(p => p.quantityTarget > 0 || p.revenueTarget > 0).map(p => ({
           business_plan_id: selectedPlan.id,
           product_id: p.productId,
@@ -1388,14 +1397,16 @@ export function UserFYPlanTarget({
     if (!selectedPlan) return;
     
     try {
-      // Delete existing
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_retailers')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
       // Insert new
-      const retailersToInsert = retailerCategoryTargets.flatMap(cat => 
+      const retailersToInsert = retailerCategoryTargets.flatMap(cat =>
         cat.retailers.filter(r => r.quantityTarget > 0 || r.revenueTarget > 0).map(r => ({
           business_plan_id: selectedPlan.id,
           retailer_id: r.retailerId,
@@ -1593,17 +1604,19 @@ export function UserFYPlanTarget({
     if (!selectedPlan) return;
     
     try {
-      // Delete existing month targets
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_months')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
-      // Delete existing month product targets
       await supabase
         .from('user_business_plan_month_products')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
       // Insert month targets
       const monthsToInsert = monthTargets.filter(m => m.quantityTarget > 0 || m.revenueTarget > 0).map(m => ({

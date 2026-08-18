@@ -246,7 +246,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
           distributor_name,
           business_plan_id
         `)
-        .eq('distributor_id', distributorId);
+        .eq('distributor_id', distributorId)
+        .eq('is_active', true);
 
       if (error) throw error;
       
@@ -324,7 +325,8 @@ export function DistributorFYPlan({ distributorId }: Props) {
             quantity_unit
           )
         `)
-        .eq('distributor_id', distributorId);
+        .eq('distributor_id', distributorId)
+        .eq('is_active', true);
 
       const fyAllocation = data?.find((d: any) => d.business_plan?.year === fyYear);
       

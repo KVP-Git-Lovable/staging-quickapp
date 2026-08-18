@@ -132,6 +132,7 @@ export function TargetVsActualCard({ entityType, entityId, beatTextId, userId }:
           .from('user_business_plan_retailers')
           .select('quantity_target, target_revenue, user_business_plans!inner(year, quantity_unit)')
           .eq('retailer_id', entityId)
+          .eq('is_active', true)
           .eq('user_business_plans.year', selectedFY);
 
         totalRevenueTarget = targetsData?.reduce((sum, t) => sum + Number(t.target_revenue || 0), 0) || 0;

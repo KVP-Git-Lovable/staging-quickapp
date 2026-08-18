@@ -191,6 +191,7 @@ export function useUserTargetProgress(
               .from('user_business_plan_months')
               .select('month_number, quantity_target, revenue_target, business_plan_id')
               .eq('business_plan_id', planData.id)
+              .eq('is_active', true)
               .order('month_number');
             monthData = monthResult.data || [];
           } else {

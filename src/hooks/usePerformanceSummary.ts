@@ -136,7 +136,8 @@ export function usePerformanceSummary(
         const { data: monthData } = await supabase
           .from('user_business_plan_months')
           .select('month_number, quantity_target, revenue_target')
-          .eq('business_plan_id', planData.id);
+          .eq('business_plan_id', planData.id)
+          .eq('is_active', true);
 
         // Fetch territory targets
         const { data: territoryTargets } = await supabase
@@ -154,7 +155,8 @@ export function usePerformanceSummary(
         const { data: retailerTargets } = await supabase
           .from('user_business_plan_retailers')
           .select('retailer_id, retailer_name, quantity_target, target_revenue')
-          .eq('business_plan_id', planData.id);
+          .eq('business_plan_id', planData.id)
+          .eq('is_active', true);
 
         // Calculate overall target based on period
         let overallRevenueTarget = 0;
