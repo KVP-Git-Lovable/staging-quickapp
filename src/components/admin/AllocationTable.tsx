@@ -159,14 +159,22 @@ const getContributorCountForNode = (
   return total;
 };
 
+// A person excluded from targets contributes nothing to a roll-up, whatever
+// figure may still be sitting on their row from before they were excluded.
 const getEffectiveQuantity = (alloc: SubordinateAllocation) =>
-  alloc.quantityTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalQuantityTarget : 0);
+  alloc.targetStrategy === 'no_target'
+    ? 0
+    : alloc.quantityTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalQuantityTarget : 0);
 
 const getEffectiveRevenue = (alloc: SubordinateAllocation) =>
-  alloc.revenueTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalRevenueTarget : 0);
+  alloc.targetStrategy === 'no_target'
+    ? 0
+    : alloc.revenueTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalRevenueTarget : 0);
 
 const getEffectiveVisits = (alloc: SubordinateAllocation) =>
-  alloc.visitsTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalVisitsTarget : 0);
+  alloc.targetStrategy === 'no_target'
+    ? 0
+    : alloc.visitsTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalVisitsTarget : 0);
 
 /**
  * Recursively auto-distribute targets based on per-user strategies and contributor count.
