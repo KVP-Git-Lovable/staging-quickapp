@@ -177,6 +177,57 @@ const getEffectiveVisits = (alloc: SubordinateAllocation) =>
     : alloc.visitsTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalVisitsTarget : 0);
 
 /**
+ * Hand a manager's total down to their team, all the way to the bottom.
+ *
+ * A manager who has been given a share of the annual target has to see that
+ * share reach the people under them, or the two disagree — and a Roll Up
+ * manager, whose figure is read back from the team, would then be overwritten
+ * with an unrelated number and the distributed total would drift away from the
+ * annual target.
+ *
+ * Independent managers hand down only the team's portion; the slice they hold
+ * themselves stays on their own row.
+ */
+const pushTargetsDown = (
+  userId: string,
+  next: Map<string, SubordinateAllocation>,
+  nodeById: Map<string, SubordinateAllocation>,
+  enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean },
+): void => {
+  const alloc = next.get(userId);
+  const node = nodeById.get(userId);
+  if (!alloc || !node || node.children.length === 0) return;
+  if (alloc.targetStrategy === 'no_target') return;
+
+  const activeChildren = node.children.filter(
+    (child) => next.get(child.userId)?.targetStrategy !== 'no_target',
+  );
+  if (!activeChildren.length) return;
+
+  const cache = new Map<string, number>();
+  const entries = activeChildren.map((child) => ({
+    userId: child.userId,
+    weight: Math.max(1, getContributorCountForNode(child, next, cache)),
+  }));
+
+  const quantitySplit = enabledMetrics.quantity ? splitByWeights(alloc.quantityTarget, entries) : new Map<string, number>();
+  const revenueSplit = enabledMetrics.revenue ? splitByWeights(alloc.revenueTarget, entries) : new Map<string, number>();
+  const visitsSplit = enabledMetrics.visits ? splitByWeights(alloc.visitsTarget, entries) : new Map<string, number>();
+
+  activeChildren.forEach((child) => {
+    const currentChild = next.get(child.userId);
+    if (!currentChild) return;
+    next.set(child.userId, {
+      ...currentChild,
+      quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(child.userId) || 0) : currentChild.quantityTarget,
+      revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(child.userId) || 0) : currentChild.revenueTarget,
+      visitsTarget: enabledMetrics.visits ? (visitsSplit.get(child.userId) || 0) : currentChild.visitsTarget,
+    });
+    pushTargetsDown(child.userId, next, nodeById, enabledMetrics);
+  });
+};
+
+/**
  * Recursively auto-distribute targets based on per-user strategies and contributor count.
  */
 function autoDistributeTargets(
@@ -200,8 +251,49 @@ function autoDistributeTargets(
     if (!children.length) return;
 
     if (strategy === 'roll_up') {
+      // A Roll Up manager reads their figure back from the team, but they have
+      // still been given a share of the annual target. Hand that share down
+      // first so the team adds up to it — otherwise reading it back replaces
+      // the share with whatever the team happened to be holding, and the
+      // distributed total drifts below the annual target.
+      const activeEntries = children
+        .filter(({ childAlloc }) => childAlloc.targetStrategy !== 'no_target')
+        .map(({ childNode }) => ({
+          userId: childNode.userId,
+          weight: Math.max(1, getContributors(childNode)),
+        }));
+
+      if (activeEntries.length) {
+        const qSplit = enabledMetrics.quantity ? splitByWeights(managerAlloc.quantityTarget, activeEntries) : new Map<string, number>();
+        const rSplit = enabledMetrics.revenue ? splitByWeights(managerAlloc.revenueTarget, activeEntries) : new Map<string, number>();
+        const vSplit = enabledMetrics.visits ? splitByWeights(managerAlloc.visitsTarget, activeEntries) : new Map<string, number>();
+
+        children.forEach(({ childNode, childAlloc }) => {
+          if (childAlloc.targetStrategy === 'no_target') {
+            allocations.set(childNode.userId, {
+              ...childAlloc,
+              quantityTarget: 0,
+              revenueTarget: 0,
+              visitsTarget: 0,
+              personalQuantityTarget: 0,
+              personalRevenueTarget: 0,
+              personalVisitsTarget: 0,
+            });
+            return;
+          }
+          allocations.set(childNode.userId, {
+            ...childAlloc,
+            quantityTarget: enabledMetrics.quantity ? (qSplit.get(childNode.userId) || 0) : childAlloc.quantityTarget,
+            revenueTarget: enabledMetrics.revenue ? (rSplit.get(childNode.userId) || 0) : childAlloc.revenueTarget,
+            visitsTarget: enabledMetrics.visits ? (vSplit.get(childNode.userId) || 0) : childAlloc.visitsTarget,
+          });
+        });
+      }
+
       children.forEach(({ childNode }) => distributeNode(childNode));
 
+      // Read the figure back. With the share handed down first this returns the
+      // same number, so Roll Up stays "the sum of the team" without losing it.
       let sumQ = 0;
       let sumR = 0;
       let sumV = 0;
@@ -562,6 +654,7 @@ export function AllocationTable({
         revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(id) || 0) : current.revenueTarget,
         visitsTarget: enabledMetrics.visits ? (visitsSplit.get(id) || 0) : current.visitsTarget,
       });
+      pushTargetsDown(id, next, nodeById, enabledMetrics);
     });
   }, [
     hierarchyRelations.parentByChild,
@@ -688,6 +781,7 @@ export function AllocationTable({
         revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(id) || 0) : current.revenueTarget,
         visitsTarget: enabledMetrics.visits ? (visitsSplit.get(id) || 0) : current.visitsTarget,
       });
+      pushTargetsDown(id, next, nodeById, enabledMetrics);
     });
   }, [
     hierarchyRelations.parentByChild,
@@ -700,48 +794,11 @@ export function AllocationTable({
     enabledMetrics,
   ]);
 
-  /**
-   * Push a manager's typed total down onto their team.
-   *
-   * A manager who hands their total downwards has to stay equal to what their
-   * team adds up to, so typing a new figure re-splits it across the active
-   * people below rather than leaving the two out of step. Independent is left
-   * alone — the figure typed there is the manager's own, not the team's.
-   */
   const distributeToChildrenAfterEdit = useCallback((
     userId: string,
     next: Map<string, SubordinateAllocation>,
   ) => {
-    const alloc = next.get(userId);
-    const node = nodeById.get(userId);
-    if (!alloc || !node || node.children.length === 0) return;
-    if (alloc.targetStrategy !== 'roll_down' && alloc.targetStrategy !== 'roll_up') return;
-
-    const activeChildren = node.children.filter(
-      (child) => next.get(child.userId)?.targetStrategy !== 'no_target',
-    );
-    if (!activeChildren.length) return;
-
-    const contributorCache = new Map<string, number>();
-    const weightedEntries = activeChildren.map((child) => ({
-      userId: child.userId,
-      weight: Math.max(1, getContributorCountForNode(child, next, contributorCache)),
-    }));
-
-    const quantitySplit = enabledMetrics.quantity ? splitByWeights(alloc.quantityTarget, weightedEntries) : new Map<string, number>();
-    const revenueSplit = enabledMetrics.revenue ? splitByWeights(alloc.revenueTarget, weightedEntries) : new Map<string, number>();
-    const visitsSplit = enabledMetrics.visits ? splitByWeights(alloc.visitsTarget, weightedEntries) : new Map<string, number>();
-
-    activeChildren.forEach((child) => {
-      const currentChild = next.get(child.userId);
-      if (!currentChild) return;
-      next.set(child.userId, {
-        ...currentChild,
-        quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(child.userId) || 0) : currentChild.quantityTarget,
-        revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(child.userId) || 0) : currentChild.revenueTarget,
-        visitsTarget: enabledMetrics.visits ? (visitsSplit.get(child.userId) || 0) : currentChild.visitsTarget,
-      });
-    });
+    pushTargetsDown(userId, next, nodeById, enabledMetrics);
   }, [nodeById, enabledMetrics]);
 
   const handleTargetChange = useCallback((userId: string, field: string, value: number) => {
