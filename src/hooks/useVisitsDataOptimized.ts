@@ -407,7 +407,14 @@ const moduleCache = new Map<string, {
   timestamp: number;
 }>();
 
-const getModuleCacheKey = (userId: string, date: string) => `${userId}:${date}`;
+// Bump when the retailer/beat-plan computation or clearing logic changes, so
+// this in-memory cache — read with zero staleness check on the very first
+// render, before any fetch or date-change handling runs — can't keep
+// replaying a wrong result computed under old logic for a date already
+// visited earlier in the tab's lifetime. An old-format key simply never
+// matches, so the seed is empty and a fresh, correctly-computed load runs.
+const MODULE_CACHE_VERSION = 'v2';
+const getModuleCacheKey = (userId: string, date: string) => `${MODULE_CACHE_VERSION}:${userId}:${date}`;
 
 export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: UseVisitsDataOptimizedProps) => {
   // The effective user ID to fetch data for:
