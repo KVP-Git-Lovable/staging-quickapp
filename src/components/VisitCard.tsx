@@ -3057,7 +3057,7 @@ export const VisitCard = ({
           >
             <TrendingDown size={13} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" />
             <span className="text-[12px] leading-snug text-amber-950 dark:text-amber-100">
-              {`Their orders have dipped ${visit.churnInsight.dropPct}% (₹${Number(visit.churnInsight.priorValue).toLocaleString('en-IN', { maximumFractionDigits: 0 })} → ₹${Number(visit.churnInsight.recentValue).toLocaleString('en-IN', { maximumFractionDigits: 0 })} vs the previous 90 days) — today's visit is a good ${visit.churnInsight.dropPct >= 60 ? 'opportunity' : 'moment'} to reconnect.`}
+              {`Their orders have dipped ${visit.churnInsight.dropPct}% (₹${Number(visit.churnInsight.priorValue).toLocaleString('en-IN', { maximumFractionDigits: 0 })} → ₹${Number(visit.churnInsight.recentValue).toLocaleString('en-IN', { maximumFractionDigits: 0 })} vs the previous 30 days) — today's visit is a good ${visit.churnInsight.dropPct >= 60 ? 'opportunity' : 'moment'} to reconnect.`}
             </span>
           </div>
         )}

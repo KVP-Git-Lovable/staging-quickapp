@@ -49,18 +49,19 @@ function haversineKm(a: [number, number], b: [number, number]) {
   return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** Churn Detector — same rules as the Copilot declining-retailer calculation. */
+/** Churn Detector — same rules as the Copilot declining-retailer calculation.
+ * Window: last 30 days vs the 30 days before (60 days of history). */
 async function runChurnDetector(supabase: any, userId: string) {
   const now = new Date();
   const today = isoDate(now);
-  const start180 = isoDate(new Date(now.getTime() - 180 * DAY_MS));
-  const cut90 = new Date(now.getTime() - 90 * DAY_MS).getTime();
+  const start60 = isoDate(new Date(now.getTime() - 60 * DAY_MS));
+  const cut30 = new Date(now.getTime() - 30 * DAY_MS).getTime();
 
   const { data: orders, error } = await supabase
     .from("orders")
     .select("id, retailer_id, total_amount, order_date, status")
     .eq("user_id", userId)
-    .gte("order_date", start180)
+    .gte("order_date", start60)
     .lte("order_date", today)
     .order("order_date", { ascending: false })
     .limit(4000);
@@ -73,7 +74,7 @@ async function runChurnDetector(supabase: any, userId: string) {
     const rid = String(o.retailer_id ?? "");
     if (!rid || !o.order_date) return;
     const t = new Date(`${String(o.order_date).slice(0, 10)}T00:00:00Z`).getTime();
-    const bucket = t >= cut90 ? recent : prior;
+    const bucket = t >= cut30 ? recent : prior;
     bucket.set(rid, (bucket.get(rid) ?? 0) + num(o.total_amount));
   });
 
@@ -105,9 +106,9 @@ async function runChurnDetector(supabase: any, userId: string) {
 
   const facts = [
     `Today: ${today}`,
-    `Retailers analysed: ${ids.length} (last 180 days of orders, cancelled excluded).`,
+    `Retailers analysed: ${ids.length} (last 60 days of orders, cancelled excluded).`,
     "",
-    "### Declining retailers — last 90 days vs the 90 days before",
+    "### Declining retailers — last 30 days vs the 30 days before",
     rows.length
       ? rows
           .map(
@@ -115,7 +116,7 @@ async function runChurnDetector(supabase: any, userId: string) {
               `- ${r.name}: ${inr(r.priorValue)} → ${inr(r.recentValue)} (down ${r.dropPct}%)`,
           )
           .join("\n")
-      : "- No retailer has reduced their order value over the last 90 days.",
+      : "- No retailer has reduced their order value over the last 30 days.",
   ].join("\n");
 
   return {
@@ -129,11 +130,12 @@ async function runChurnDetector(supabase: any, userId: string) {
   };
 }
 
-/** Visit Optimiser — deterministic stop scoring on today's planned visits. */
+/** Visit Optimiser — deterministic stop scoring on today's planned visits.
+ * History window: last 30 days of visits and orders. */
 async function runVisitOptimiser(supabase: any, userId: string) {
   const now = new Date();
   const today = isoDate(now);
-  const since = isoDate(new Date(now.getTime() - 90 * DAY_MS));
+  const since = isoDate(new Date(now.getTime() - 30 * DAY_MS));
 
   const { data: todayVisits, error } = await supabase
     .from("visits")
@@ -291,7 +293,6 @@ async function runBeatPlanner(supabase: any, userId: string) {
   const now = new Date();
   const today = isoDate(now);
   const since30 = isoDate(new Date(now.getTime() - 30 * DAY_MS));
-  const since90 = isoDate(new Date(now.getTime() - 90 * DAY_MS));
   const STOPS_PER_DAY = 25;
 
   // RLS scopes retailers to what the caller may see, same as the other runners.
@@ -323,7 +324,7 @@ async function runBeatPlanner(supabase: any, userId: string) {
     .from("orders")
     .select("id, retailer_id, status, total_amount, order_date")
     .eq("user_id", userId)
-    .gte("order_date", since90)
+    .gte("order_date", since30)
     .limit(4000);
 
   const visited = new Set<string>();
@@ -393,7 +394,7 @@ async function runBeatPlanner(supabase: any, userId: string) {
 
   const facts = [
     `Today: ${today}`,
-    `Retailers analysed: ${totalRetailers} across ${beats.size} beats. Coverage window: last 30 days of visits; order value: last 90 days (confirmed only).`,
+    `Retailers analysed: ${totalRetailers} across ${beats.size} beats. Coverage window: last 30 days of visits; order value: last 30 days (confirmed only).`,
     `Suggested visit days assume about ${STOPS_PER_DAY} stops per day.`,
     "",
     "### Beats ordered by lowest coverage first",
@@ -401,7 +402,7 @@ async function runBeatPlanner(supabase: any, userId: string) {
       .map(
         (b) =>
           `- ${b.beat}: ${b.retailers} retailers, ${b.visited30d} visited in 30d (${b.coveragePct}% coverage), ` +
-          `pending ${inr(b.pending)}, 90d orders ${inr(b.orderValue)}, ` +
+          `pending ${inr(b.pending)}, 30d orders ${inr(b.orderValue)}, ` +
           `avg ${b.avgDaysSinceVisit ?? "?"} days since last visit → suggest ${b.suggestedDays} visit day(s) next month`,
       )
       .join("\n"),
@@ -418,17 +419,18 @@ async function runBeatPlanner(supabase: any, userId: string) {
   };
 }
 
-/** Sales Coach — deterministic product-mix analysis per retailer. */
+/** Sales Coach — deterministic product-mix analysis per retailer.
+ * Window: last 30 days of confirmed orders. */
 async function runSalesCoach(supabase: any, userId: string) {
   const now = new Date();
   const today = isoDate(now);
-  const since90 = isoDate(new Date(now.getTime() - 90 * DAY_MS));
+  const since30 = isoDate(new Date(now.getTime() - 30 * DAY_MS));
 
   const { data: orders, error } = await supabase
     .from("orders")
     .select("id, retailer_id, status, total_amount, order_date")
     .eq("user_id", userId)
-    .gte("order_date", since90)
+    .gte("order_date", since30)
     .lte("order_date", today)
     .order("order_date", { ascending: false })
     .limit(2000);
@@ -440,7 +442,7 @@ async function runSalesCoach(supabase: any, userId: string) {
 
   if (!confirmed.length) {
     return {
-      facts: `Today: ${today}\nNo confirmed orders in the last 90 days, so there is nothing to coach on yet.`,
+      facts: `Today: ${today}\nNo confirmed orders in the last 30 days, so there is nothing to coach on yet.`,
       result: { kind: "coach", rows: [], date: today, topProducts: [] },
       systemPrompt:
         "You are QuickApp's Sales Coach agent. Reply with one short, friendly markdown line telling the user there are no recent confirmed orders to coach on yet.",
@@ -513,7 +515,7 @@ async function runSalesCoach(supabase: any, userId: string) {
 
   const facts = [
     `Today: ${today}`,
-    `Confirmed orders analysed: ${confirmed.length} across ${retailerIds.length} retailers (last 90 days).`,
+    `Confirmed orders analysed: ${confirmed.length} across ${retailerIds.length} retailers (last 30 days).`,
     "",
     "### My top products by value",
     topProducts.length
@@ -524,7 +526,7 @@ async function runSalesCoach(supabase: any, userId: string) {
     rows
       .map(
         (r) =>
-          `- ${r.name}: ${inr(r.orderValue)} in 90d, ${r.distinctProducts} distinct product(s)` +
+          `- ${r.name}: ${inr(r.orderValue)} in 30d, ${r.distinctProducts} distinct product(s)` +
           `${r.topProduct ? `, buys mostly ${r.topProduct}` : ""}` +
           `${r.gapProducts.length ? `, not yet buying: ${r.gapProducts.join(", ")}` : ", already buys all top products"}`,
       )

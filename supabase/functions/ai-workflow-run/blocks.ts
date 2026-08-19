@@ -400,12 +400,12 @@ export const BLOCKS: Record<string, { fn: BlockFn; paramSchema: z.ZodTypeAny; la
   declining_retailers: {
     fn: declining_retailers,
     label: "Declining retailers",
-    paramSchema: z.object({ windowDays: bounded(30, 180, 90), topN: bounded(3, 15, 10) }),
+    paramSchema: z.object({ windowDays: bounded(7, 180, 30), topN: bounded(3, 15, 10) }),
   },
   top_retailers: {
     fn: top_retailers,
     label: "Top retailers",
-    paramSchema: z.object({ windowDays: bounded(30, 180, 90), topN: bounded(3, 15, 10) }),
+    paramSchema: z.object({ windowDays: bounded(7, 180, 30), topN: bounded(3, 15, 10) }),
   },
   pending_dues: {
     fn: pending_dues,
@@ -420,7 +420,7 @@ export const BLOCKS: Record<string, { fn: BlockFn; paramSchema: z.ZodTypeAny; la
   product_mix: {
     fn: product_mix,
     label: "Product mix",
-    paramSchema: z.object({ windowDays: bounded(30, 180, 90), topN: bounded(3, 10, 5) }),
+    paramSchema: z.object({ windowDays: bounded(7, 180, 30), topN: bounded(3, 10, 5) }),
   },
   visit_productivity: {
     fn: visit_productivity,
