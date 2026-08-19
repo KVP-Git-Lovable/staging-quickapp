@@ -188,10 +188,20 @@ Deno.serve(async (req) => {
       .or("is_active.eq.true,is_active.is.null")
       .limit(1000);
     const masterByName = new Map<string, { id: string; name: string; unit: string }>();
+    const masterById = new Map<string, { id: string; name: string; unit: string }>();
     (master ?? []).forEach((p: any) => {
       const name = String(p.name ?? "").trim();
-      if (name) masterByName.set(name.toLowerCase(), { id: String(p.id), name, unit: String(p.base_unit ?? "") });
+      if (!name) return;
+      const entry = { id: String(p.id), name, unit: String(p.base_unit ?? "") };
+      masterByName.set(name.toLowerCase(), entry);
+      masterById.set(entry.id, entry);
     });
+
+    // History-based signals may reference discontinued products or stale ids.
+    // Only ACTIVE master products may be suggested — resolve by name, then by
+    // the historical product id; anything unresolved is dropped.
+    const resolveActive = (name: string, id: string | null) =>
+      masterByName.get(name.toLowerCase()) ?? (id ? masterById.get(id) : undefined);
 
     // ---- Build suggestions, priority: reorder-due → top-seller gaps → affinity ----
     const suggestions: Suggestion[] = [];
@@ -213,28 +223,34 @@ Deno.serve(async (req) => {
       }))
       .filter((p) => p.daysSince >= REORDER_DUE_DAYS)
       .sort((a, b) => b.daysSince - a.daysSince)
-      .forEach((p) =>
+      .forEach((p) => {
+        const m = resolveActive(p.name, p.id);
+        if (!m) return; // product no longer active — never suggest it
         push({
-          productId: p.id!,
-          name: p.name,
+          productId: m.id,
+          name: m.name,
           qty: p.avgQty,
-          unit: p.unit || masterByName.get(p.name.toLowerCase())?.unit || "",
+          unit: p.unit || m.unit || "",
           tag: "reorder",
           reason: `Bought ${p.lines}× before, last ${p.daysSince}d ago — likely due to reorder (usual qty ${p.avgQty})`,
-        }));
+        });
+      });
 
     // 2. Gap products: rep's top sellers the retailer hasn't bought yet.
     topSellers
       .filter((p) => !retProducts.has(p.name.toLowerCase()))
-      .forEach((p) =>
+      .forEach((p) => {
+        const m = resolveActive(p.name, p.id);
+        if (!m) return; // product no longer active — never suggest it
         push({
-          productId: p.id!,
-          name: p.name,
+          productId: m.id,
+          name: m.name,
           qty: Math.max(1, Math.round(p.qty / Math.max(1, p.lines))),
-          unit: p.unit || masterByName.get(p.name.toLowerCase())?.unit || "",
+          unit: p.unit || m.unit || "",
           tag: "top_seller",
           reason: `Your top seller (₹${Math.round(p.value).toLocaleString("en-IN")} in 90d) this store doesn't buy yet`,
-        }));
+        });
+      });
 
     // 3. Store-name/category affinity from the products master.
     const storeText = `${retailerName} ${retailerCategory}`.toLowerCase();
