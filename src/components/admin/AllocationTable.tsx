@@ -171,15 +171,15 @@ const getContributorCountForNode = (
  * their team carries, since their share passes through untouched.
  */
 const branchValue = (
-  alloc: Pick<SubordinateAllocation, 'targetStrategy' | 'children'> & Record<string, unknown>,
+  alloc: SubordinateAllocation,
   teamKey: 'quantityTarget' | 'revenueTarget' | 'visitsTarget',
   personalKey: 'personalQuantityTarget' | 'personalRevenueTarget' | 'personalVisitsTarget',
 ): number => {
-  const team = (alloc[teamKey] as number) || 0;
+  const team = alloc[teamKey] || 0;
   const hasTeam = alloc.children.length > 0;
 
   if (alloc.targetStrategy === 'no_target') return hasTeam ? team : 0;
-  if (alloc.targetStrategy === 'independent' && hasTeam) return team + (((alloc[personalKey] as number) || 0));
+  if (alloc.targetStrategy === 'independent' && hasTeam) return team + (alloc[personalKey] || 0);
   return team;
 };
 
