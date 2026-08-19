@@ -65,6 +65,27 @@ interface Suggestion {
   reason: string;
 }
 
+/**
+ * Realistic order line from history: the MEDIAN line quantity in the
+ * product's most frequently used unit. Averaging across mixed units (an
+ * "8000 Grams" line pooled with "2 PIECE" lines) produced absurd suggested
+ * quantities; the per-unit median mirrors what is actually ordered.
+ */
+function typicalLine(unitLines: Record<string, number[]>): { qty: number; unit: string } {
+  let unit = "";
+  let best: number[] = [];
+  for (const [u, arr] of Object.entries(unitLines)) {
+    if (arr.length > best.length) {
+      best = arr;
+      unit = u;
+    }
+  }
+  if (!best.length) return { qty: 1, unit };
+  const sorted = [...best].sort((a, b) => a - b);
+  const median = sorted[Math.floor((sorted.length - 1) / 2)];
+  return { qty: Math.max(1, Math.round(median)), unit };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonError(405, "method_not_allowed", "Use POST");
@@ -116,7 +137,7 @@ Deno.serve(async (req) => {
       CONFIRMED.has(String(o.status ?? "").toLowerCase()));
     const repOrderIds = repConfirmed.map((o: any) => String(o.id)).slice(0, 1000);
 
-    interface ProdAgg { id: string | null; name: string; unit: string; value: number; qty: number; lines: number }
+    interface ProdAgg { id: string | null; name: string; value: number; lines: number; unitLines: Record<string, number[]> }
     const repProducts = new Map<string, ProdAgg>();
     if (repOrderIds.length) {
       const { data: items } = await supabase
@@ -128,12 +149,12 @@ Deno.serve(async (req) => {
         const name = String(it.product_name ?? "").trim();
         if (!name) return;
         const key = name.toLowerCase();
-        const agg = repProducts.get(key) ?? { id: null, name, unit: "", value: 0, qty: 0, lines: 0 };
+        const agg = repProducts.get(key) ?? { id: null, name, value: 0, lines: 0, unitLines: {} };
         if (!agg.id && it.product_id) agg.id = String(it.product_id);
-        if (!agg.unit && it.unit) agg.unit = String(it.unit);
         agg.value += num(it.total);
-        agg.qty += num(it.quantity);
         agg.lines += 1;
+        const u = String(it.unit ?? "").trim();
+        (agg.unitLines[u] ??= []).push(num(it.quantity));
         repProducts.set(key, agg);
       });
     }
@@ -157,7 +178,7 @@ Deno.serve(async (req) => {
     const retOrderDate = new Map<string, string>();
     retConfirmed.forEach((o: any) => retOrderDate.set(String(o.id), String(o.order_date ?? "")));
 
-    interface RetAgg { id: string | null; name: string; unit: string; qty: number; lines: number; lastDate: string }
+    interface RetAgg { id: string | null; name: string; lines: number; lastDate: string; unitLines: Record<string, number[]> }
     const retProducts = new Map<string, RetAgg>();
     const retOrderIds = [...retOrderDate.keys()].slice(0, 500);
     if (retOrderIds.length) {
@@ -171,12 +192,12 @@ Deno.serve(async (req) => {
         if (!name) return;
         const key = name.toLowerCase();
         const date = retOrderDate.get(String(it.order_id)) ?? "";
-        const agg = retProducts.get(key) ?? { id: null, name, unit: "", qty: 0, lines: 0, lastDate: "" };
+        const agg = retProducts.get(key) ?? { id: null, name, lines: 0, lastDate: "", unitLines: {} };
         if (!agg.id && it.product_id) agg.id = String(it.product_id);
-        if (!agg.unit && it.unit) agg.unit = String(it.unit);
-        agg.qty += num(it.quantity);
         agg.lines += 1;
         if (date > agg.lastDate) agg.lastDate = date;
+        const u = String(it.unit ?? "").trim();
+        (agg.unitLines[u] ??= []).push(num(it.quantity));
         retProducts.set(key, agg);
       });
     }
@@ -219,20 +240,20 @@ Deno.serve(async (req) => {
       .map((p) => ({
         ...p,
         daysSince: Math.round((now.getTime() - new Date(`${p.lastDate}T00:00:00Z`).getTime()) / DAY_MS),
-        avgQty: Math.max(1, Math.round(p.qty / Math.max(1, p.lines))),
       }))
       .filter((p) => p.daysSince >= REORDER_DUE_DAYS)
       .sort((a, b) => b.daysSince - a.daysSince)
       .forEach((p) => {
         const m = resolveActive(p.name, p.id);
         if (!m) return; // product no longer active — never suggest it
+        const t = typicalLine(p.unitLines);
         push({
           productId: m.id,
           name: m.name,
-          qty: p.avgQty,
-          unit: p.unit || m.unit || "",
+          qty: t.qty,
+          unit: t.unit || m.unit || "",
           tag: "reorder",
-          reason: `Bought ${p.lines}× before, last ${p.daysSince}d ago — likely due to reorder (usual qty ${p.avgQty})`,
+          reason: `Bought ${p.lines}× before, last ${p.daysSince}d ago — likely due to reorder (usually ${t.qty}${t.unit ? ` ${t.unit}` : ""})`,
         });
       });
 
@@ -242,13 +263,14 @@ Deno.serve(async (req) => {
       .forEach((p) => {
         const m = resolveActive(p.name, p.id);
         if (!m) return; // product no longer active — never suggest it
+        const t = typicalLine(p.unitLines);
         push({
           productId: m.id,
           name: m.name,
-          qty: Math.max(1, Math.round(p.qty / Math.max(1, p.lines))),
-          unit: p.unit || m.unit || "",
+          qty: t.qty,
+          unit: t.unit || m.unit || "",
           tag: "top_seller",
-          reason: `Your top seller (₹${Math.round(p.value).toLocaleString("en-IN")} in 90d) this store doesn't buy yet`,
+          reason: `Your top seller (₹${Math.round(p.value).toLocaleString("en-IN")} in 90d) this store doesn't buy yet — typical line is ${t.qty}${t.unit ? ` ${t.unit}` : ""}`,
         });
       });
 

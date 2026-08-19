@@ -41,6 +41,10 @@ const TAG_STYLE: Record<PitchSuggestion["tag"], { label: string; cls: string }> 
 };
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
+// Bump when the suggestion logic changes server-side so stale cached results
+// (old quantities/products) are discarded immediately instead of surviving
+// the TTL window.
+const CACHE_VERSION = "v2";
 
 interface Props {
   retailerId: string;
@@ -58,7 +62,7 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
       return;
     }
     let cancelled = false;
-    const cacheKey = `pitch_suggestions_${retailerId}`;
+    const cacheKey = `pitch_suggestions_${CACHE_VERSION}_${retailerId}`;
 
     void (async () => {
       // Session cache so navigating back and forth doesn't re-run the AI.
