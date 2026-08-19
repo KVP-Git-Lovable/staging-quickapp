@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { TargetStrategy, SplitMethod } from './TargetStrategySelector';
 import { TargetSplitDialog } from './TargetSplitDialog';
-import { WizardProgress } from './target-config/WizardProgress';
 import { StrategyExplanationPanel } from './allocation/StrategyExplanationPanel';
 import { StepAssignManagers } from './allocation/StepAssignManagers';
 import { StepPreview } from './allocation/StepPreview';
@@ -73,6 +72,16 @@ interface AllocationTableProps {
   fyYear: number;
   targetStartMonth?: number;
   targetEndMonth?: number;
+  /**
+   * Report what has actually been handed out, and where the wizard is, so the
+   * page header above can show the live figures rather than a placeholder.
+   */
+  onProgressChange?: (progress: {
+    distributed: { quantity: number; revenue: number; visits: number };
+    currentStep: number;
+    steps: { id: number; title: string }[];
+    isBalanced: boolean;
+  }) => void;
 }
 
 const formatNumber = (num: number) => new Intl.NumberFormat('en-IN').format(num);
@@ -459,6 +468,7 @@ export function AllocationTable({
   fyYear,
   targetStartMonth = 1,
   targetEndMonth = 12,
+  onProgressChange,
 }: AllocationTableProps) {
   const queryClient = useQueryClient();
   const [allocations, setAllocations] = useState<Map<string, SubordinateAllocation>>(new Map());
@@ -1067,6 +1077,12 @@ export function AllocationTable({
     (!enabledMetrics.revenue || distributed.revenue === 0) &&
     (!enabledMetrics.visits || distributed.visits === 0);
 
+  // Hand the live figures to the page header, which owns the summary but has
+  // no way of its own to know what the hierarchy below adds up to.
+  useEffect(() => {
+    onProgressChange?.({ distributed, currentStep, steps: WIZARD_STEPS, isBalanced });
+  }, [onProgressChange, distributed, currentStep, isBalanced]);
+
   // Prepare manager rows for Step 1
   const managerRows = useMemo(() => {
     const toTeamNode = (node: SubordinateAllocation): TeamHierarchyNode => {
@@ -1138,29 +1154,6 @@ export function AllocationTable({
 
         {/* Strategy Explanation */}
         <StrategyExplanationPanel />
-
-        {/* Wizard Progress */}
-        <WizardProgress currentStep={currentStep} steps={WIZARD_STEPS} />
-
-        {/* Total target summary */}
-        <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/30 rounded-lg border mt-2">
-          <span className="text-sm font-medium text-muted-foreground">Annual Target:</span>
-          {enabledMetrics.quantity && (
-            <Badge variant="outline" className="font-mono text-sm">
-              {formatNumber(totalQuantity)} {quantityUnit}
-            </Badge>
-          )}
-          {enabledMetrics.revenue && (
-            <Badge variant="outline" className="font-mono text-sm">
-              {formatCurrency(totalRevenue)}
-            </Badge>
-          )}
-          {enabledMetrics.visits && (
-            <Badge variant="outline" className="font-mono text-sm">
-              {formatNumber(totalVisits)} visits
-            </Badge>
-          )}
-        </div>
       </CardHeader>
 
       <CardContent className="space-y-4">

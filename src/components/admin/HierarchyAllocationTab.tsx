@@ -37,6 +37,14 @@ interface HierarchyAllocationTabProps {
   selectedPlanId?: string;
 }
 
+/** What the allocation below reports up for the header to display. */
+interface AllocationProgress {
+  distributed: { quantity: number; revenue: number; visits: number };
+  currentStep: number;
+  steps: { id: number; title: string }[];
+  isBalanced: boolean;
+}
+
 export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllocationTabProps) {
   const { user } = useAuth();
   const [selectedNode, setSelectedNode] = useState<{
@@ -44,6 +52,10 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
     fullName: string;
     level: number;
   } | null>(null);
+
+  // The allocation totals live inside the table that computes them; the header
+  // shows them, so they are reported up rather than recalculated here.
+  const [progress, setProgress] = useState<AllocationProgress | null>(null);
 
   // Fetch config for the FY
   const { data: config, isLoading } = useQuery({
@@ -164,10 +176,13 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
         totalQuantity={config.total_quantity_target}
         totalRevenue={config.total_revenue_target}
         totalVisits={config.total_visits_target}
-        allocatedQuantity={0}
-        allocatedRevenue={0}
-        allocatedVisits={0}
+        allocatedQuantity={progress?.distributed.quantity ?? 0}
+        allocatedRevenue={progress?.distributed.revenue ?? 0}
+        allocatedVisits={progress?.distributed.visits ?? 0}
         selectedUserName={selectedNode?.fullName}
+        currentStep={progress?.currentStep}
+        steps={progress?.steps}
+        isBalanced={progress?.isBalanced ?? true}
       />
 
       {/* Allocation Table */}
@@ -187,6 +202,7 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
           fyYear={fyYear}
           targetStartMonth={config.target_start_month || 1}
           targetEndMonth={config.target_end_month || 12}
+          onProgressChange={setProgress}
         />
       )}
     </div>
