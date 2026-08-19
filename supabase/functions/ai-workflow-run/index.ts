@@ -345,7 +345,7 @@ async function runVisitOptimiser(supabase: any, userId: string) {
 
   const { data: histOrders } = await supabase
     .from("orders")
-    .select("id, retailer_id, visit_id, status, total_amount, order_date")
+    .select("id, retailer_id, visit_id, status, total_amount, order_date, created_at")
     .eq("user_id", userId)
     .in("retailer_id", retailerIds)
     .gte("order_date", since)
@@ -359,12 +359,37 @@ async function runVisitOptimiser(supabase: any, userId: string) {
 
   const orderCount = new Map<string, number>();
   const orderValue = new Map<string, number>();
+  const orderHours = new Map<string, number[]>();
   (histOrders ?? []).forEach((o: any) => {
     if (!CONFIRMED.has(String(o.status ?? "").toLowerCase())) return;
     const rid = String(o.retailer_id);
     orderCount.set(rid, (orderCount.get(rid) ?? 0) + 1);
     orderValue.set(rid, (orderValue.get(rid) ?? 0) + num(o.total_amount));
+    // Time-of-day signal: when does this store actually place orders?
+    // (IST — order created_at shifted from UTC by +5:30.)
+    if (o.created_at) {
+      const t = new Date(o.created_at);
+      if (!Number.isNaN(t.getTime())) {
+        const istHour = (t.getUTCHours() * 60 + t.getUTCMinutes() + 330) / 60 % 24;
+        const arr = orderHours.get(rid) ?? [];
+        arr.push(istHour);
+        orderHours.set(rid, arr);
+      }
+    }
   });
+
+  const hourLabel = (h: number) => {
+    const rounded = Math.round(h) % 24;
+    const ampm = rounded >= 12 ? "PM" : "AM";
+    const display = rounded % 12 === 0 ? 12 : rounded % 12;
+    return `${display} ${ampm}`;
+  };
+  const typicalHour = (rid: string): number | null => {
+    const arr = orderHours.get(rid);
+    if (!arr?.length) return null;
+    const sorted = [...arr].sort((a, b) => a - b);
+    return sorted[Math.floor((sorted.length - 1) / 2)];
+  };
 
   const scored = (retailers ?? []).map((r: any) => {
     const rid = String(r.id);
@@ -385,6 +410,7 @@ async function runVisitOptimiser(supabase: any, userId: string) {
       Math.min(10, num(orderValue.get(rid)) / 50000) +
       (priority === "A" ? 10 : priority === "B" ? 5 : 0);
 
+    const tHour = typicalHour(rid);
     return {
       retailerId: rid,
       name: String(r.name ?? "Retailer"),
@@ -396,16 +422,28 @@ async function runVisitOptimiser(supabase: any, userId: string) {
       orders,
       productivityPct: Math.round(productivity * 100),
       score: Math.round(score * 10) / 10,
+      typicalOrderHour: tHour,
+      typicalOrderTime: tHour != null ? hourLabel(tHour) : null,
       lat: r.latitude != null ? Number(r.latitude) : null,
       lng: r.longitude != null ? Number(r.longitude) : null,
     };
   });
 
-  // Highest-scoring stop first, then nearest-neighbour geo ordering to cut travel.
+  // Highest-scoring stop first, then nearest-neighbour geo ordering to cut
+  // travel. Among the strongest candidates, the route STARTS at the store
+  // whose order history says it buys earliest in the day.
   scored.sort((a, b) => b.score - a.score);
   const ordered: typeof scored = [];
   const pool = [...scored];
-  let current = pool.shift();
+  let startIdx = 0;
+  let earliest = Infinity;
+  pool.slice(0, 5).forEach((s, i) => {
+    if (s.typicalOrderHour != null && s.typicalOrderHour < earliest) {
+      earliest = s.typicalOrderHour;
+      startIdx = i;
+    }
+  });
+  let current = pool.length ? pool.splice(startIdx, 1)[0] : undefined;
   let totalKm = 0;
   while (current) {
     ordered.push(current);
@@ -441,7 +479,8 @@ async function runVisitOptimiser(supabase: any, userId: string) {
         (s) =>
           `${s.sequence}. ${s.name}${s.beat ? ` (${s.beat})` : ""} — score ${s.score}, ` +
           `last visited ${s.daysSinceLastVisit ?? "never"}${s.daysSinceLastVisit != null ? "d ago" : ""}, ` +
-          `pending ${inr(s.pending)}, ${s.orders}/${s.visits} visits productive (${s.productivityPct}%)`,
+          `pending ${inr(s.pending)}, ${s.orders}/${s.visits} visits productive (${s.productivityPct}%)` +
+          `${s.typicalOrderTime ? `, usually orders around ${s.typicalOrderTime}` : ""}`,
       )
       .join("\n"),
     ...newcomerFacts,
