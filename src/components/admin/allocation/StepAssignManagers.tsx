@@ -406,9 +406,9 @@ export function StepAssignManagers({
   onSplitEqually,
   onEqualSplit,
 }: StepAssignManagersProps) {
-  const [expandedManagers, setExpandedManagers] = React.useState<Set<string>>(() => {
-    return new Set(managers.map((manager) => manager.userId));
-  });
+  // Collapsed rather than expanded, so every team is open by default however
+  // long the hierarchy takes to arrive.
+  const [collapsedManagers, setCollapsedManagers] = React.useState<Set<string>>(new Set());
 
   // Each manager counts for their whole branch, not just the figure on their
   // own row — otherwise an Independent manager's own target, and the share
@@ -433,7 +433,7 @@ export function StepAssignManagers({
     (!enabledMetrics.visits || allocatedVis === 0);
 
   const toggleManager = (userId: string) => {
-    setExpandedManagers((prev) => {
+    setCollapsedManagers((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
         next.delete(userId);
@@ -444,11 +444,35 @@ export function StepAssignManagers({
     });
   };
 
+  /** The disclosure for one person's own team, at any depth. */
+  const renderTeamToggle = (userId: string, directCount: number, body: React.ReactNode) => {
+    const isExpanded = !collapsedManagers.has(userId);
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => toggleManager(userId)}
+          aria-expanded={isExpanded}
+          className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1"
+        >
+          <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-90')} />
+          <span>Reporting structure ({directCount} direct)</span>
+        </button>
+
+        {isExpanded && <div className="mt-1 ml-1.5 border-l-2 pl-4">{body}</div>}
+      </>
+    );
+  };
+
   /**
    * One row format for every person under a manager: identity on the left, the
    * target type picker right-aligned so the pickers line up down the column,
    * and a single target field beneath at a fixed indent. Excluded people keep
    * the row and the picker but drop the field.
+   *
+   * Anyone who manages others gets their own team nested beneath them, however
+   * deep the hierarchy runs — the whole tree carries targets, so the whole tree
+   * is shown rather than stopping a level below each top-level manager.
    */
   const renderDirectReports = (nodes: TeamNode[]): React.ReactNode => {
     return nodes.map((node) => {
@@ -515,6 +539,12 @@ export function StepAssignManagers({
                 enabledMetrics={enabledMetrics}
                 onTargetChange={onTargetChange}
               />
+            </div>
+          )}
+
+          {node.children.length > 0 && (
+            <div className="mt-2 pl-[38px]">
+              {renderTeamToggle(node.userId, node.children.length, renderDirectReports(node.children))}
             </div>
           )}
         </div>
@@ -586,7 +616,6 @@ export function StepAssignManagers({
       {/* Manager cards */}
       <div className="space-y-2.5">
         {managers.map((mgr) => {
-          const isExpanded = expandedManagers.has(mgr.userId);
           const isExcluded = mgr.targetStrategy === 'no_target';
 
           return (
@@ -646,23 +675,7 @@ export function StepAssignManagers({
               {/* Reporting structure */}
               {mgr.children.length > 0 && (
                 <div className="px-4 pb-4 pl-[68px]">
-                  <button
-                    type="button"
-                    onClick={() => toggleManager(mgr.userId)}
-                    aria-expanded={isExpanded}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors py-1"
-                  >
-                    <ChevronRight
-                      className={cn('h-3.5 w-3.5 transition-transform', isExpanded && 'rotate-90')}
-                    />
-                    <span>Reporting structure ({mgr.children.length} direct)</span>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="mt-1 ml-1.5 border-l-2 pl-4">
-                      {renderDirectReports(mgr.children)}
-                    </div>
-                  )}
+                  {renderTeamToggle(mgr.userId, mgr.children.length, renderDirectReports(mgr.children))}
                 </div>
               )}
             </div>
