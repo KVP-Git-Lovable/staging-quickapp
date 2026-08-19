@@ -46,6 +46,7 @@ interface SubordinateAllocation {
 interface TeamHierarchyNode {
   userId: string;
   fullName: string;
+  designation?: string;
   subordinateCount: number;
   children: TeamHierarchyNode[];
   quantityTarget?: number;
@@ -1073,6 +1074,7 @@ export function AllocationTable({
       return {
         userId: node.userId,
         fullName: node.fullName,
+        designation: node.designation,
         subordinateCount: node.subordinateCount,
         children: node.children.map(toTeamNode),
         quantityTarget: childAlloc?.quantityTarget ?? 0,

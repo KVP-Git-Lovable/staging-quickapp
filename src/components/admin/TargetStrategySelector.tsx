@@ -104,6 +104,22 @@ const strategyColors: Record<TargetStrategy, string> = {
 };
 
 /**
+ * The trigger reads as a status as much as a control: each target type carries
+ * its own tint and border, so a row's type is legible at a glance down a long
+ * hierarchy rather than only on inspection.
+ */
+const strategyPills: Record<TargetStrategy, string> = {
+  roll_down:
+    'text-blue-700 border-blue-200 bg-blue-50 hover:bg-blue-100 dark:text-blue-300 dark:border-blue-500/30 dark:bg-blue-950/40 dark:hover:bg-blue-950/70',
+  roll_up:
+    'text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-300 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/70',
+  independent:
+    'text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100 dark:text-amber-300 dark:border-amber-500/30 dark:bg-amber-950/40 dark:hover:bg-amber-950/70',
+  no_target:
+    'text-muted-foreground border-border bg-muted/60 hover:bg-muted',
+};
+
+/**
  * Short, plain-language explanations shown next to each option in the picker.
  * Independent reads differently for someone with a team than for someone
  * without one, so it carries both wordings.
@@ -207,16 +223,16 @@ export function InlineStrategySelector({
           disabled={disabled}
           aria-label={`Target assignment: ${strategyLabels[effective]}`}
           className={cn(
-            'inline-flex items-center gap-1 h-7 px-2 rounded-md border text-xs font-medium',
-            'bg-background hover:bg-muted/60 transition-colors',
+            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold',
+            'transition-colors hover:shadow-sm',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            'disabled:opacity-50 disabled:cursor-not-allowed',
-            strategyColors[effective],
+            'disabled:cursor-not-allowed disabled:opacity-50',
+            strategyPills[effective],
           )}
         >
-          <Icon className="h-3 w-3 shrink-0" />
+          <Icon className="h-3.5 w-3.5 shrink-0" />
           <span>{strategyLabels[effective]}</span>
-          <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
 
