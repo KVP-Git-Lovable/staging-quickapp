@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe, Pencil } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe, Pencil, TrendingDown } from "lucide-react";
 import { compressImageFile } from "@/utils/imageCompression";
 import { getResilientLocation } from "@/utils/gpsRouteOptimizer";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +97,14 @@ interface Visit {
   coveredForUserId?: string;
   coveredForUserName?: string;
   pendingSync?: boolean;
+  /** This retailer's row from the stored Churn Detector result (display only). */
+  churnInsight?: {
+    retailerId: string;
+    name: string;
+    recentValue: number;
+    priorValue: number;
+    dropPct: number;
+  };
 }
 interface VisitCardProps {
   visit: Visit;
@@ -3040,6 +3048,19 @@ export const VisitCard = ({
               </div>
             </div>}
         </div>
+
+        {/* Churn nudge — from the stored Churn Detector run (display only) */}
+        {visit.churnInsight && (
+          <div
+            className="mb-3 flex items-start gap-2 rounded-md border border-amber-200/70 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-100 px-2.5 py-2 dark:border-amber-900/40 dark:from-amber-950/40 dark:via-yellow-950/30 dark:to-orange-950/30"
+            title="From AI Churn Risk — computed from your order history"
+          >
+            <TrendingDown size={13} className="mt-0.5 shrink-0 text-amber-700 dark:text-amber-400" />
+            <span className="text-[12px] leading-snug text-amber-950 dark:text-amber-100">
+              {`Their orders have dipped ${visit.churnInsight.dropPct}% (₹${Number(visit.churnInsight.priorValue).toLocaleString('en-IN', { maximumFractionDigits: 0 })} → ₹${Number(visit.churnInsight.recentValue).toLocaleString('en-IN', { maximumFractionDigits: 0 })} vs the previous 90 days) — today's visit is a good ${visit.churnInsight.dropPct >= 60 ? 'opportunity' : 'moment'} to reconnect.`}
+            </span>
+          </div>
+        )}
 
         <div className="space-y-2">
           {/* First row - Check In, Order, Feedback, AI */}

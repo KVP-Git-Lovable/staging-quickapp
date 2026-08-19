@@ -30,6 +30,14 @@ interface Visit {
     visitTime?: string;
     ownActivity: boolean;
   };
+  /** This retailer's row from the stored Churn Detector result (display only). */
+  churnInsight?: {
+    retailerId: string;
+    name: string;
+    recentValue: number;
+    priorValue: number;
+    dropPct: number;
+  };
 }
 
 interface VirtualizedVisitListProps {
