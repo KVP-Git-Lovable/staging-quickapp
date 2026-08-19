@@ -55,6 +55,37 @@ interface BeatCardProps {
   planInsight?: BeatPlanRow | null;
 }
 
+/** Natural-language nudge built from the Beat Planner numbers, e.g.
+ * "Only 3 of this beat's 7 shops were visited in the last month; they owe
+ * ₹389 in total; on average you haven't been there in over 2 months — give
+ * this beat 1 day in the next plan." */
+function beatPlanSentence(p: BeatPlanRow): string {
+  const shops = p.retailers === 1 ? 'shop' : 'shops';
+  const coverage =
+    p.visited30d <= 0
+      ? `None of this beat's ${p.retailers} ${shops} were visited in the last month`
+      : p.visited30d >= p.retailers
+        ? `All ${p.retailers} ${shops} in this beat were visited in the last month`
+        : `${p.coveragePct < 60 ? 'Only ' : ''}${p.visited30d} of this beat's ${p.retailers} ${shops} were visited in the last month`;
+
+  const clauses = [coverage];
+  if (p.pending > 0) {
+    clauses.push(`they owe ₹${Number(p.pending).toLocaleString('en-IN', { maximumFractionDigits: 0 })} in total`);
+  }
+  const d = p.avgDaysSinceVisit;
+  if (d != null && d > 0) {
+    clauses.push(
+      d >= 60
+        ? `on average you haven't been there in over ${Math.floor(d / 30)} months`
+        : d >= 30
+          ? `on average you haven't been there in over a month`
+          : `your last visits average just ${d} day${d === 1 ? '' : 's'} ago`,
+    );
+  }
+  const days = p.suggestedDays === 1 ? '1 day' : `${p.suggestedDays} days`;
+  return `${clauses.join('; ')} — give this beat ${days} in the next plan.`;
+}
+
 function accessBadge(at: BeatAccessType, coverageEndDate?: string | null, coverageStartDate?: string | null) {
   switch (at) {
     case 'OWNED':
@@ -242,10 +273,10 @@ export function BeatCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* AI Beat Planner one-liner (from the shared beat_planner analysis) */}
+        {/* AI Beat Planner nudge (from the shared beat_planner analysis) */}
         {planInsight && (
           <div
-            className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-[11px] leading-tight ${
+            className={`flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-[11px] leading-snug ${
               planInsight.coveragePct < 30
                 ? 'border-rose-200 bg-rose-50/80 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200'
                 : planInsight.coveragePct < 60
@@ -254,15 +285,8 @@ export function BeatCard({
             }`}
             title="From AI Beat Planner — computed from your visits and orders"
           >
-            <Sparkles size={12} className="shrink-0" />
-            <span className="truncate">
-              {planInsight.coveragePct}% coverage ({planInsight.visited30d}/{planInsight.retailers} in 30d)
-              {planInsight.pending > 0
-                ? ` · ₹${Number(planInsight.pending).toLocaleString('en-IN', { maximumFractionDigits: 0 })} pending`
-                : ''}
-              {planInsight.avgDaysSinceVisit != null ? ` · ${planInsight.avgDaysSinceVisit}d since visit` : ''}
-              {` → plan ${planInsight.suggestedDays} day${planInsight.suggestedDays === 1 ? '' : 's'}`}
-            </span>
+            <Sparkles size={12} className="mt-0.5 shrink-0" />
+            <span>{beatPlanSentence(planInsight)}</span>
           </div>
         )}
 
