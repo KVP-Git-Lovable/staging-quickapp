@@ -159,33 +159,6 @@ const getContributorCountForNode = (
   return total;
 };
 
-/**
- * The weight an excluded person still reserves in their manager's split.
- *
- * getContributorCountForNode returns 0 for No Target, which is right for
- * roll-up sums but would hand their share to their siblings when a manager's
- * target is split. This answers the different question — how large a slice
- * would they have taken — so the slice can be reserved and then left unfilled.
- * Descendants who are themselves excluded still count for nothing.
- */
-const getReservedContributorCount = (
-  node: SubordinateAllocation,
-  allocations: Map<string, SubordinateAllocation>,
-  cache: Map<string, number>,
-): number => {
-  const currentAlloc = allocations.get(node.userId) || node;
-
-  if (node.children.length === 0) return 1;
-
-  const childContributors = node.children.reduce(
-    (sum, child) => sum + getContributorCountForNode(child, allocations, cache),
-    0,
-  );
-
-  // An excluded manager still occupies their own slot alongside their team.
-  return Math.max(1, childContributors + 1);
-};
-
 // A person excluded from targets contributes nothing to a roll-up, whatever
 // figure may still be sitting on their row from before they were excluded.
 const getEffectiveQuantity = (alloc: SubordinateAllocation) =>
@@ -249,19 +222,14 @@ function autoDistributeTargets(
       return;
     }
 
-    // Excluding one person must not change what anyone else receives, so an
-    // excluded child still reserves its slot in the split and is zeroed
-    // afterwards. Its share is simply not handed out, leaving the manager
-    // under-distributed by that amount rather than inflating the siblings.
-    const weightedEntries = children.map(({ childNode, childAlloc }) => ({
-      userId: childAlloc.userId,
-      weight: Math.max(
-        1,
-        childAlloc.targetStrategy === 'no_target'
-          ? getReservedContributorCount(childNode, allocations, contributorCache)
-          : getContributors(childNode),
-      ),
-    }));
+    // An excluded person drops out of the allocation entirely; the manager's
+    // total is shared among whoever is left.
+    const weightedEntries = children
+      .filter(({ childAlloc }) => childAlloc.targetStrategy !== 'no_target')
+      .map(({ childNode, childAlloc }) => ({
+        userId: childAlloc.userId,
+        weight: Math.max(1, getContributors(childNode)),
+      }));
 
     // Zero out no_target children
     children.forEach(({ childNode, childAlloc }) => {
@@ -506,6 +474,95 @@ export function AllocationTable({
     });
   }, [hierarchyRelations.childrenByParent, enabledMetrics]);
 
+  /**
+   * Re-share a fixed manager total across whoever is still active.
+   *
+   * Called when someone crosses into or out of No Target. The manager's total
+   * is unchanged — an excluded person drops out of the allocation and their
+   * share goes to the remaining active people; bringing someone back re-splits
+   * the same total to include them again. Weights follow the contributor count
+   * already used elsewhere, so a plain team divides evenly and a report who
+   * manages others takes a proportionally larger share.
+   */
+  const redistributeAmongSiblings = useCallback((userId: string, next: Map<string, SubordinateAllocation>) => {
+    const parentId = hierarchyRelations.parentByChild.get(userId);
+
+    // Which people share the pot, and how big is it.
+    const siblingIds = parentId
+      ? hierarchyRelations.childrenByParent.get(parentId) || []
+      : directReports.map((dr) => dr.userId);
+    if (siblingIds.length === 0) return;
+
+    const parentAlloc = parentId ? next.get(parentId) : undefined;
+
+    // A roll-up manager derives their figure from the team, so there is no
+    // fixed total to share out downwards.
+    if (parentAlloc?.targetStrategy === 'roll_up') return;
+
+    const pot = parentAlloc
+      ? {
+          quantity: parentAlloc.quantityTarget,
+          revenue: parentAlloc.revenueTarget,
+          visits: parentAlloc.visitsTarget,
+        }
+      : { quantity: totalQuantity, revenue: totalRevenue, visits: totalVisits };
+
+    // Nothing has been handed out at this level yet — leave it undistributed
+    // rather than filling targets in off the back of a dropdown change.
+    const alreadyAllocated = siblingIds.reduce((sum, id) => {
+      const alloc = next.get(id);
+      if (!alloc) return sum;
+      return sum + alloc.quantityTarget + alloc.revenueTarget + alloc.visitsTarget;
+    }, 0);
+    if (alreadyAllocated === 0) return;
+
+    const nodeById = new Map<string, SubordinateAllocation>();
+    const collect = (nodes: SubordinateAllocation[]) => {
+      nodes.forEach((node) => {
+        nodeById.set(node.userId, node);
+        if (node.children.length) collect(node.children);
+      });
+    };
+    collect(directReports);
+
+    const contributorCache = new Map<string, number>();
+    const activeIds = siblingIds.filter((id) => next.get(id)?.targetStrategy !== 'no_target');
+
+    // Everyone in this group is excluded — nothing left to share the pot.
+    if (!activeIds.length) return;
+
+    const weightedEntries = activeIds.map((id) => {
+      const node = nodeById.get(id);
+      return {
+        userId: id,
+        weight: node ? Math.max(1, getContributorCountForNode(node, next, contributorCache)) : 1,
+      };
+    });
+
+    const quantitySplit = enabledMetrics.quantity ? splitByWeights(pot.quantity, weightedEntries) : new Map<string, number>();
+    const revenueSplit = enabledMetrics.revenue ? splitByWeights(pot.revenue, weightedEntries) : new Map<string, number>();
+    const visitsSplit = enabledMetrics.visits ? splitByWeights(pot.visits, weightedEntries) : new Map<string, number>();
+
+    activeIds.forEach((id) => {
+      const current = next.get(id);
+      if (!current) return;
+      next.set(id, {
+        ...current,
+        quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(id) || 0) : current.quantityTarget,
+        revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(id) || 0) : current.revenueTarget,
+        visitsTarget: enabledMetrics.visits ? (visitsSplit.get(id) || 0) : current.visitsTarget,
+      });
+    });
+  }, [
+    hierarchyRelations.parentByChild,
+    hierarchyRelations.childrenByParent,
+    directReports,
+    totalQuantity,
+    totalRevenue,
+    totalVisits,
+    enabledMetrics,
+  ]);
+
   const cascadeRollUpToAncestors = useCallback((userId: string, next: Map<string, SubordinateAllocation>) => {
     let currentParent = hierarchyRelations.parentByChild.get(userId);
 
@@ -537,8 +594,11 @@ export function AllocationTable({
       const current = next.get(userId);
 
       if (current) {
+        const wasExcluded = current.targetStrategy === 'no_target';
+        const isExcluded = strategy === 'no_target';
+
         // When switching to no_target, zero out all targets
-        if (strategy === 'no_target') {
+        if (isExcluded) {
           next.set(userId, {
             ...current,
             targetStrategy: strategy,
@@ -553,6 +613,13 @@ export function AllocationTable({
           next.set(userId, { ...current, targetStrategy: strategy });
         }
 
+        // Only crossing into or out of No Target changes who shares the
+        // manager's total. Switching between Roll Down, Roll Up and
+        // Independent leaves the same people active, so nothing is re-split.
+        if (wasExcluded !== isExcluded) {
+          redistributeAmongSiblings(userId, next);
+        }
+
         if (strategy === 'roll_up') {
           recomputeRollUpManager(userId, next);
         }
@@ -562,7 +629,7 @@ export function AllocationTable({
 
       return next;
     });
-  }, [recomputeRollUpManager, cascadeRollUpToAncestors]);
+  }, [recomputeRollUpManager, cascadeRollUpToAncestors, redistributeAmongSiblings]);
 
   const handleEqualSplit = useCallback(() => {
     if (!directReports.length) return;
