@@ -15,7 +15,7 @@ export const PITCH_CACHE_TTL_MS = 10 * 60 * 1000;
 // Bump when the suggestion logic changes server-side so stale cached results
 // (old quantities/products) are discarded immediately instead of surviving
 // the TTL window.
-export const PITCH_CACHE_VERSION = "v3";
+export const PITCH_CACHE_VERSION = "v4";
 
 const cacheKey = (retailerId: string) => `pitch_suggestions_${PITCH_CACHE_VERSION}_${retailerId}`;
 

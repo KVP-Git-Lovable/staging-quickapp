@@ -66,7 +66,7 @@ const AFFINITY: Array<{ store: string[]; product: string[] }> = [
   { store: ["cosmetic", "beauty", "fancy"], product: ["soap", "shampoo", "cream", "powder", "lotion", "perfume", "oil"] },
 ];
 
-type Tag = "reorder" | "top_seller" | "store_match" | "beat_favourite";
+type Tag = "reorder" | "top_seller" | "store_match" | "beat_favourite" | "regular";
 
 interface Suggestion {
   productId: string;
@@ -328,7 +328,9 @@ Deno.serve(async (req) => {
       }))
       .filter((p) => p.daysSince >= REORDER_DUE_DAYS)
       .sort((a, b) => b.daysSince - a.daysSince)
-      .slice(0, 8);
+      // Capped so the pool (and the deterministic fallback's first six)
+      // always mixes already-bought products with new pitch products.
+      .slice(0, 4);
     const pushReorder = () =>
       reorderDue.forEach((p) => {
         const m = resolveActive(p.name, p.id);
@@ -343,6 +345,31 @@ Deno.serve(async (req) => {
           signal: `Bought ${p.lines}× before, last ${p.daysSince}d ago — likely due to reorder (usually ${t.qty}${t.unit ? ` ${t.unit}` : ""})`,
         });
       });
+
+    // Regulars: the store's previously ordered products (no quiet-days
+    // gate) — an active buyer's suggestion mix should show what they
+    // already take alongside the new products worth pitching.
+    const pushRegulars = () =>
+      [...retProducts.values()]
+        .filter((p) => p.id)
+        .sort((a, b) => b.lines - a.lines)
+        .slice(0, 3)
+        .forEach((p) => {
+          const m = resolveActive(p.name, p.id);
+          if (!m) return; // product no longer active — never suggest it
+          const t = typicalLine(p.unitLines);
+          const daysSince = p.lastDate
+            ? Math.round((now.getTime() - new Date(`${p.lastDate}T00:00:00Z`).getTime()) / DAY_MS)
+            : null;
+          addCandidate({
+            productId: m.id,
+            name: m.name,
+            qty: t.qty,
+            unit: t.unit || m.unit || "",
+            tag: "regular",
+            signal: `Their regular line — bought ${p.lines}× in 180d${daysSince != null ? `, last ${daysSince}d ago` : ""} (usually ${t.qty}${t.unit ? ` ${t.unit}` : ""})`,
+          });
+        });
 
     // Gap products: rep's top sellers the retailer hasn't bought yet.
     const pushTopSellers = () =>
@@ -411,7 +438,8 @@ Deno.serve(async (req) => {
     };
 
     // New retailers lead with what the beat actually buys and what fits the
-    // store; established retailers lead with reorders and proven sellers.
+    // store; established retailers mix what they already order (reorders +
+    // regular lines) with the new products worth pitching.
     if (isNewRetailer || retConfirmed.length === 0) {
       pushBeatFavourites();
       pushAffinity();
@@ -419,6 +447,7 @@ Deno.serve(async (req) => {
       pushReorder();
     } else {
       pushReorder();
+      pushRegulars();
       pushTopSellers();
       pushBeatFavourites();
       pushAffinity();
@@ -451,7 +480,10 @@ Deno.serve(async (req) => {
               "specific store's profile and situation — choose for the store, do not simply take the first entries, and make the mix feel " +
               "tailored (a bakery gets bakery-relevant picks, a new store gets an introduction mix). For each pick write one personalised " +
               "reason under 25 words, grounded ONLY in that candidate's stated signal and the store profile — never invent products, " +
-              "quantities or numbers. Also write \"summary\": compact markdown pitch coaching for the rep (one short headline, up to four " +
+              "quantities or numbers. Candidates tagged [reorder] or [regular] are products this store ALREADY buys — when the store has " +
+              "purchase history, your picks MUST include both at least 1-2 already-bought products (reorder/regular) AND at least 1-2 new " +
+              "products to pitch (top_seller/beat_favourite/store_match), candidates permitting. " +
+              "Also write \"summary\": compact markdown pitch coaching for the rep (one short headline, up to four " +
               "bullets about the picked products, then a single line starting with 'Suggested pitch:'), under 120 words, ₹ for currency, " +
               "friendly and practical" +
               (isNewRetailer ? ", opening with a warm note that this is a newly added retailer" : "") +
