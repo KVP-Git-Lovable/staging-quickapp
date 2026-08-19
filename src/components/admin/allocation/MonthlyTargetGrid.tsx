@@ -48,20 +48,14 @@ const describeError = (error: unknown): string => {
 };
 
 /**
- * Spread a total across months so the parts add up to it exactly.
+ * Comparisons on money and quantity, below anything the grid displays.
  *
- * Rounding each month on its own throws the remainder away: 1,667 across nine
- * months rounds to 185 apiece and totals 1,665, two short. The first few months
- * carry the leftover units instead, which is the same largest-remainder rule the
- * hierarchy split uses, so a target never quietly shrinks on its way to a month.
+ * An even share is rarely a whole number, so the monthly figures are kept as
+ * they fall and never rounded. Adding a dozen of them back up leaves the last
+ * few binary digits astray, which is not drift — this is the threshold that
+ * tells the two apart.
  */
-const spreadEvenly = (total: number, count: number): number[] => {
-  if (count <= 0) return [];
-  const safe = Math.max(0, Math.round(total || 0));
-  const base = Math.floor(safe / count);
-  const leftover = safe - base * count;
-  return Array.from({ length: count }, (_, index) => base + (index < leftover ? 1 : 0));
-};
+const AMOUNT_EPSILON = 0.005;
 
 const FY_MONTHS = [
   { number: 1, name: 'April' },
@@ -282,10 +276,13 @@ export function MonthlyTargetGrid({
   const rows: GridRow[] = useMemo(() => {
     const stored = new Map(storedMonths.map(m => [m.month_number, m]));
     const count = activeMonths.length || 1;
-    const quantitySeeds = spreadEvenly(annualQuantity, count);
-    const revenueSeeds = spreadEvenly(annualRevenue, count);
+    // Each month carries an equal share of the annual target, exactly as it
+    // falls. Rounding it to a whole number would make the months add up to
+    // something other than the target they came from.
+    const seedQuantity = annualQuantity / count;
+    const seedRevenue = annualRevenue / count;
 
-    return activeMonths.map((month, index) => {
+    return activeMonths.map(month => {
       // Working days always come from Attendance, never from the saved plan.
       const { days, fromAttendance } = resolveWorkingDays(month.number);
       const existing = stored.get(month.number);
@@ -303,8 +300,8 @@ export function MonthlyTargetGrid({
       return {
         monthNumber: month.number,
         monthName: month.name,
-        quantityTarget: enabledMetrics.quantity ? quantitySeeds[index] : 0,
-        revenueTarget: enabledMetrics.revenue ? revenueSeeds[index] : 0,
+        quantityTarget: enabledMetrics.quantity ? seedQuantity : 0,
+        revenueTarget: enabledMetrics.revenue ? seedRevenue : 0,
         workingDays: days,
         daysFromAttendance: fromAttendance,
         isStored: false,
@@ -412,7 +409,9 @@ export function MonthlyTargetGrid({
     setDraft(d => {
       if (!d) return d;
       const perDay = parseNum(raw);
-      const derivedTarget = Math.round(perDay * workingDays);
+      // Left unrounded, so typing a daily average and reading the monthly
+      // target back gives the same figure rather than one nudged by a unit.
+      const derivedTarget = perDay * workingDays;
       return enabledMetrics.quantity
         ? { ...d, dailyInput: raw, quantityTarget: derivedTarget }
         : { ...d, dailyInput: raw, revenueTarget: derivedTarget };
@@ -438,7 +437,7 @@ export function MonthlyTargetGrid({
   // itself — months adding up to one number, the total flagging another.
   const annual = enabledMetrics.quantity ? annualQuantity : annualRevenue;
   const summed = enabledMetrics.quantity ? totals.quantity : totals.revenue;
-  const drifted = Math.round(annual) !== Math.round(summed);
+  const drifted = Math.abs(annual - summed) > AMOUNT_EPSILON;
 
   return (
     <div className="ml-8 mb-3 rounded-lg border overflow-hidden">
