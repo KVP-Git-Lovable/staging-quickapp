@@ -74,10 +74,13 @@ const localToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-/** Usable = successful, right shape, carries the newRetailers field (runs
- * stored before the field existed must be regenerated), and run today. */
+/** Usable = successful, right shape, carries the newRetailers field and the
+ * per-stop typicalOrderHour field (runs stored before either field existed
+ * must be regenerated), and run today. */
 const isFresh = (res: RouteResult | null): boolean => {
   if (!res || res.kind !== "route" || !Array.isArray(res.newRetailers)) return false;
+  const stops = res.stops ?? [];
+  if (stops.length > 0 && !("typicalOrderHour" in stops[0])) return false;
   const today = new Date().toISOString().slice(0, 10);
   return res.date === today || res.date === localToday();
 };
