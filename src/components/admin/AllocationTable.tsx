@@ -367,12 +367,18 @@ export function AllocationTable({
           fullName: profile?.full_name || 'Unknown',
           profilePictureUrl: profile?.profile_picture_url || null,
           designation: profile?.designation || undefined,
-          quantityTarget: existingPlan?.quantity_target || 0,
-          revenueTarget: existingPlan?.revenue_target || 0,
+          // Amounts are not carried over from a previously saved plan. The
+          // annual target on the current plan is the only source for what gets
+          // handed out, so a figure saved against an older, larger annual
+          // target cannot reappear here and read as over-allocated.
+          // The saved target type is kept, since that is a per-person setting
+          // rather than an amount.
+          quantityTarget: 0,
+          revenueTarget: 0,
           visitsTarget: 0,
-          personalQuantityTarget: (existingPlan as any)?.personal_quantity_target || 0,
-          personalRevenueTarget: (existingPlan as any)?.personal_revenue_target || 0,
-          personalVisitsTarget: (existingPlan as any)?.personal_visits_target || 0,
+          personalQuantityTarget: 0,
+          personalRevenueTarget: 0,
+          personalVisitsTarget: 0,
           percentage: 0,
           existingPlanId: existingPlan?.id,
           level: sub.level,
@@ -563,17 +569,47 @@ export function AllocationTable({
     enabledMetrics,
   ]);
 
+  /**
+   * Keep every manager above a change equal to the sum of their team.
+   *
+   * Roll Up derives the manager's figure from the team by definition. Roll Down
+   * hands a total downwards, and once it has been handed out the two must agree
+   * — so editing one person's target moves their manager to match, rather than
+   * leaving a manager total that no longer equals what its team adds up to.
+   *
+   * A Roll Down manager whose team is still empty keeps its typed figure: that
+   * is the total waiting to be distributed, and pulling it down to zero would
+   * make the manager impossible to fill in.
+   *
+   * Independent is left alone. That manager holds a target of their own beside
+   * the team, so it is not the team's sum. No Target is left alone too.
+   */
   const cascadeRollUpToAncestors = useCallback((userId: string, next: Map<string, SubordinateAllocation>) => {
     let currentParent = hierarchyRelations.parentByChild.get(userId);
 
     while (currentParent) {
       const parentAlloc = next.get(currentParent);
-      if (parentAlloc?.targetStrategy === 'roll_up') {
+      const strategy = parentAlloc?.targetStrategy;
+
+      if (strategy === 'roll_up') {
         recomputeRollUpManager(currentParent, next);
+      } else if (strategy === 'roll_down') {
+        const childIds = hierarchyRelations.childrenByParent.get(currentParent) || [];
+        const teamTotal = childIds.reduce((sum, childId) => {
+          const childAlloc = next.get(childId);
+          if (!childAlloc) return sum;
+          return sum + getEffectiveQuantity(childAlloc) + getEffectiveRevenue(childAlloc) + getEffectiveVisits(childAlloc);
+        }, 0);
+
+        // Only mirror the team once something has actually been handed out.
+        if (teamTotal > 0) {
+          recomputeRollUpManager(currentParent, next);
+        }
       }
+
       currentParent = hierarchyRelations.parentByChild.get(currentParent);
     }
-  }, [hierarchyRelations.parentByChild, recomputeRollUpManager]);
+  }, [hierarchyRelations.parentByChild, hierarchyRelations.childrenByParent, recomputeRollUpManager]);
 
   // Handlers
   const handleTargetChange = useCallback((userId: string, field: string, value: number) => {
@@ -840,6 +876,9 @@ export function AllocationTable({
         quantityTarget: alloc?.quantityTarget ?? 0,
         revenueTarget: alloc?.revenueTarget ?? 0,
         visitsTarget: alloc?.visitsTarget ?? 0,
+        personalQuantityTarget: alloc?.personalQuantityTarget ?? 0,
+        personalRevenueTarget: alloc?.personalRevenueTarget ?? 0,
+        personalVisitsTarget: alloc?.personalVisitsTarget ?? 0,
         targetStrategy: (alloc?.targetStrategy ?? 'roll_down') as TargetStrategy,
         children: dr.children.map(toTeamNode),
       };
