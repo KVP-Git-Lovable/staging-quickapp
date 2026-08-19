@@ -26,6 +26,27 @@ import { toast } from 'sonner';
  * change, and no effect on allocation maths or the Targets tab.
  */
 
+/**
+ * What actually went wrong, in the toast.
+ *
+ * Supabase rejects a write with a plain `{ message, details, hint, code }`
+ * object rather than an Error, so testing `instanceof Error` threw the real
+ * reason away and left every failure reading "Unknown error".
+ */
+const describeError = (error: unknown): string => {
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const { message, details, hint, code } = error as Record<string, unknown>;
+    const parts = [message, details, hint].filter(
+      (part): part is string => typeof part === 'string' && part.length > 0,
+    );
+    if (parts.length) {
+      return typeof code === 'string' && code ? `${parts.join(' — ')} (${code})` : parts.join(' — ');
+    }
+  }
+  return 'Unknown error';
+};
+
 const FY_MONTHS = [
   { number: 1, name: 'April' },
   { number: 2, name: 'May' },
@@ -345,8 +366,7 @@ export function MonthlyTargetGrid({
       setDraft(null);
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Could not save this month', { description: message });
+      toast.error('Could not save this month', { description: describeError(error) });
     },
   });
 

@@ -158,25 +158,11 @@ export function StepPreview({
             {node.designation && <p className="text-[10px] text-muted-foreground">{node.designation}</p>}
           </div>
 
-          {!isNoTarget && <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs gap-1"
-              onClick={() => toggleMonths(node.userId)}
-              aria-expanded={monthsOpen.has(node.userId)}
-            >
-              <CalendarDays className="h-3 w-3" />
-              {monthsOpen.has(node.userId) ? 'Hide months' : 'Months'}
-            </Button>
-            {onTargetChange && !isManager && (
-              <button
-                onClick={() => setEditingUser(isEditing ? null : node.userId)}
-                className="p-1 hover:bg-muted/50 rounded text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Pencil className="h-3 w-3" />
-              </button>
-            )}
+          {!isNoTarget && <div className="flex shrink-0 items-center gap-2">
+            {/* Figures sit in one right-aligned column of fixed width, so every
+                row's number lands in the same place however deep it is nested
+                and whether or not it is being edited. */}
+            <div className="flex min-w-[172px] items-center justify-end gap-2.5">
             {isEditing && onTargetChange && !isManager ? (
               <>
                 {enabledMetrics.quantity && (
@@ -253,9 +239,38 @@ export function StepPreview({
                 )}
               </>
             )}
+            </div>
+
+            {/* Actions, in the same order on every row */}
+            {onTargetChange && !isManager && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn('h-7 w-7 shrink-0 p-0', isEditing && 'bg-muted text-foreground')}
+                onClick={() => setEditingUser(isEditing ? null : node.userId)}
+                aria-label={isEditing ? `Stop editing ${node.fullName}` : `Edit ${node.fullName}'s target`}
+                aria-pressed={isEditing}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-7 w-[104px] shrink-0 justify-center gap-1.5 px-2 text-xs',
+                monthsOpen.has(node.userId) && 'bg-muted text-foreground',
+              )}
+              onClick={() => toggleMonths(node.userId)}
+              aria-expanded={monthsOpen.has(node.userId)}
+            >
+              <CalendarDays className="h-3 w-3 shrink-0" />
+              {monthsOpen.has(node.userId) ? 'Hide months' : 'Months'}
+            </Button>
           </div>}
           {isNoTarget && (
-            <span className="text-xs text-muted-foreground italic">No target assigned</span>
+            <span className="shrink-0 text-xs italic text-muted-foreground">No target assigned</span>
           )}
         </div>
 
