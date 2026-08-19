@@ -39,6 +39,7 @@ import { useMyTerritoryIds } from "@/hooks/useMyTerritoryIds";
 import { setOutOfBeatContext, clearOutOfBeatContext } from "@/lib/outOfBeatContext";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertTriangle, MapPin } from "lucide-react";
+import { ChurnRiskCard } from "@/components/ChurnRiskCard";
 
 
 
@@ -987,6 +988,9 @@ export const MyRetailers = () => {
             </div>
           </CardHeader>
         </Card>
+
+        {/* Churn Risk nudges — consumer of the frozen churn_detector agent */}
+        <ChurnRiskCard />
 
         {/* Stats Dashboard — includes retailers without a beat */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
