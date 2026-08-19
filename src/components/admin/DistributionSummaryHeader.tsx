@@ -1,8 +1,6 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { Package, IndianRupee, Users, AlertTriangle, CheckCircle2, FileText, Archive } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Package, IndianRupee, Users, CheckCircle2, FileText, Archive, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type PlanStatus } from '@/hooks/useFYTargetPlans';
 
@@ -24,6 +22,11 @@ interface DistributionSummaryHeaderProps {
   allocatedRevenue: number;
   allocatedVisits: number;
   selectedUserName?: string;
+  /** The allocation wizard's position, shown as the strip along the bottom. */
+  currentStep?: number;
+  steps?: { id: number; title: string }[];
+  /** False while a manager and their team disagree somewhere in the tree. */
+  isBalanced?: boolean;
 }
 
 const formatNumber = (num: number) => new Intl.NumberFormat('en-IN').format(num);
@@ -34,11 +37,17 @@ const formatCurrency = (num: number) => {
   return `₹${formatNumber(num)}`;
 };
 
-const STATUS_BADGE: Record<string, { label: string; icon: React.ElementType; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-  draft: { label: 'Draft', icon: FileText, variant: 'secondary' },
-  active: { label: 'Active', icon: CheckCircle2, variant: 'default' },
-  closed: { label: 'Closed', icon: Archive, variant: 'outline' },
+const STATUS_CHIP: Record<string, { label: string; icon: React.ElementType; tone: string }> = {
+  draft: { label: 'Draft', icon: FileText, tone: 'text-slate-300 border-white/15 bg-white/5' },
+  active: { label: 'Active', icon: CheckCircle2, tone: 'text-emerald-300 border-emerald-400/30 bg-emerald-400/10' },
+  closed: { label: 'Closed', icon: Archive, tone: 'text-slate-400 border-white/10 bg-white/5' },
 };
+
+/** The brand navy, stated outright: `--primary` flips to gold in dark mode. */
+const NAVY = 'bg-[hsl(220_39%_11%)] dark:bg-[hsl(220_33%_13%)]';
+
+const CHIP = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold';
+const MICRO = 'text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400';
 
 export function DistributionSummaryHeader({
   targetPlanName,
@@ -54,43 +63,10 @@ export function DistributionSummaryHeader({
   allocatedRevenue,
   allocatedVisits,
   selectedUserName,
+  currentStep,
+  steps,
+  isBalanced = true,
 }: DistributionSummaryHeaderProps) {
-  const getDistributionPercent = () => {
-    if (enabledMetrics.quantity && totalQuantity > 0) {
-      return Math.min(100, Math.round((allocatedQuantity / totalQuantity) * 100));
-    }
-    if (enabledMetrics.revenue && totalRevenue > 0) {
-      return Math.min(100, Math.round((allocatedRevenue / totalRevenue) * 100));
-    }
-    if (enabledMetrics.visits && totalVisits > 0) {
-      return Math.min(100, Math.round((allocatedVisits / totalVisits) * 100));
-    }
-    return 0;
-  };
-
-  const distributionPercent = getDistributionPercent();
-
-  const getProgressColor = (pct: number) => {
-    if (pct >= 90) return 'bg-emerald-500';
-    if (pct >= 50) return 'bg-amber-500';
-    return 'bg-destructive';
-  };
-
-  const getStatusInfo = (pct: number) => {
-    if (pct >= 100) return { label: 'Fully Distributed', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400' };
-    if (pct >= 90) return { label: 'Almost Complete', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400' };
-    if (pct >= 50) return { label: 'Partially Distributed', icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400' };
-    return { label: 'Needs Distribution', icon: AlertTriangle, color: 'text-destructive' };
-  };
-
-  const status = getStatusInfo(distributionPercent);
-  const StatusIcon = status.icon;
-
-  // Determine which status badge to show
-  const effectiveStatus = planStatus || (isLocked ? 'active' : 'draft');
-  const statusBadge = STATUS_BADGE[effectiveStatus] || STATUS_BADGE.draft;
-  const BadgeIcon = statusBadge.icon;
-
   const metrics = [
     {
       enabled: enabledMetrics.quantity,
@@ -98,9 +74,8 @@ export function DistributionSummaryHeader({
       icon: Package,
       total: totalQuantity,
       allocated: allocatedQuantity,
-      remaining: totalQuantity - allocatedQuantity,
       unit: quantityUnit,
-      format: (n: number) => formatNumber(n),
+      format: formatNumber,
     },
     {
       enabled: enabledMetrics.revenue,
@@ -108,9 +83,8 @@ export function DistributionSummaryHeader({
       icon: IndianRupee,
       total: totalRevenue,
       allocated: allocatedRevenue,
-      remaining: totalRevenue - allocatedRevenue,
       unit: '',
-      format: (n: number) => formatCurrency(n),
+      format: formatCurrency,
     },
     {
       enabled: enabledMetrics.visits,
@@ -118,104 +92,191 @@ export function DistributionSummaryHeader({
       icon: Users,
       total: totalVisits,
       allocated: allocatedVisits,
-      remaining: totalVisits - allocatedVisits,
       unit: 'visits',
-      format: (n: number) => formatNumber(n),
+      format: formatNumber,
     },
   ].filter(m => m.enabled);
 
-  return (
-    <Card className="border-primary/20 overflow-hidden">
-      <div className={cn('h-1', getProgressColor(distributionPercent))} />
-      <CardContent className="py-4 space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <h3 className="font-semibold text-lg">
-              {targetPlanName || 'FY Sales Plan'}
-            </h3>
-            <Badge variant={statusBadge.variant} className="gap-1">
-              <BadgeIcon className="h-3 w-3" />
-              {statusBadge.label}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-sm font-medium">
-              FY {fyYear - 1}-{String(fyYear).slice(-2)}
-            </Badge>
-          </div>
-        </div>
+  // The headline follows the first enabled metric; the strip below carries the
+  // rest when more than one is in play.
+  const lead = metrics[0];
+  const distributionPercent = lead && lead.total > 0
+    ? Math.min(100, Math.round((lead.allocated / lead.total) * 100))
+    : 0;
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <StatusIcon className={cn('h-4 w-4', status.color)} />
-              <span className={cn('text-sm font-medium', status.color)}>
-                {status.label}
-              </span>
-            </div>
-            <span className="text-sm font-bold">{distributionPercent}%</span>
-          </div>
-          <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-secondary">
-            <div
-              className={cn('h-full rounded-full transition-all duration-500', getProgressColor(distributionPercent))}
-              style={{ width: `${Math.min(100, distributionPercent)}%` }}
-            />
-          </div>
-        </div>
+  const untouched = metrics.every(m => m.allocated === 0);
+  const complete = metrics.every(m => m.allocated === m.total) && !untouched && isBalanced;
+  const over = metrics.some(m => m.allocated > m.total);
+
+  const tone = untouched
+    ? { fig: 'text-slate-100', bar: 'bg-[hsl(35_65%_55%)]', cap: 'text-slate-400' }
+    : complete
+      ? { fig: 'text-emerald-300', bar: 'bg-emerald-400', cap: 'text-emerald-300' }
+      : { fig: 'text-rose-300', bar: 'bg-rose-400', cap: 'text-rose-300' };
+
+  const caption = (() => {
+    if (untouched) return 'Nothing distributed yet';
+    if (complete) return '100% allocated · every level reconciled';
+    if (over && lead) return `Over the annual target by ${lead.format(lead.allocated - lead.total)}`;
+    if (lead && lead.allocated < lead.total) return `${lead.format(lead.total - lead.allocated)} still to allocate`;
+    return 'Totals match, but a manager and their team disagree below';
+  })();
+
+  const effectiveStatus = planStatus || (isLocked ? 'active' : 'draft');
+  const statusChip = STATUS_CHIP[effectiveStatus] || STATUS_CHIP.draft;
+  const StatusIcon = statusChip.icon;
+
+  return (
+    <Card className={cn('overflow-hidden border-0 shadow-lg', NAVY)}>
+      {/* A gold rule across the top, fading out — the plan's own accent. */}
+      <div className="h-[3px] bg-gradient-to-r from-[hsl(35_65%_55%)] via-[hsl(35_65%_55%)]/25 to-transparent" />
+
+      {/* Plan identity */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 pb-3 pt-4">
+        <h3 className="font-heading text-[17px] font-semibold tracking-tight text-slate-50">
+          {targetPlanName || 'FY Sales Plan'}
+        </h3>
+
+        <span className={cn(CHIP, statusChip.tone)}>
+          <StatusIcon className="h-3 w-3" />
+          {statusChip.label}
+        </span>
+
+        <span className={cn(CHIP, 'border-white/10 bg-white/5 text-slate-300')}>
+          FY {fyYear - 1}-{String(fyYear).slice(-2)}
+        </span>
 
         {selectedUserName && (
-          <p className="text-sm text-muted-foreground">
-            Allocating for: <span className="font-medium text-foreground">{selectedUserName}</span>
-          </p>
+          <>
+            <span className="h-4 w-px bg-white/15" />
+            <span className="text-[13px] text-slate-400">
+              Allocating for <span className="font-bold text-slate-100">{selectedUserName}</span>
+            </span>
+          </>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <span className="flex-1" />
+
+        {enabledMetrics.quantity && (
+          <span className={cn(CHIP, 'border-white/10 bg-white/5 text-slate-300')}>
+            Quantity · {quantityUnit}
+          </span>
+        )}
+      </div>
+
+      {/* Headline figures */}
+      <div className="flex flex-wrap items-end gap-x-6 gap-y-4 px-5 pb-4">
+        {lead && (
+          <>
+            <div className="flex flex-col gap-0.5">
+              <span className={MICRO}>Annual target</span>
+              <span className="text-[23px] font-extrabold leading-tight tracking-tight tabular-nums text-slate-50">
+                {lead.format(lead.total)}
+                {lead.unit && <span className="ml-1 text-[12.5px] font-bold text-slate-400">{lead.unit}</span>}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-0.5">
+              <span className={MICRO}>Distributed</span>
+              <span className={cn('text-[23px] font-extrabold leading-tight tracking-tight tabular-nums', tone.fig)}>
+                {lead.format(lead.allocated)}
+                {lead.unit && <span className="ml-1 text-[12.5px] font-bold text-slate-400">{lead.unit}</span>}
+              </span>
+            </div>
+          </>
+        )}
+
+        <div className="flex min-w-[190px] flex-1 flex-col gap-1.5 pb-1">
+          <div className="h-2 overflow-hidden rounded-full bg-white/10">
+            <div
+              className={cn('h-full rounded-full transition-[width] duration-500', tone.bar)}
+              style={{ width: `${untouched ? 0 : distributionPercent}%` }}
+            />
+          </div>
+          <span className={cn('text-[11.5px] font-semibold', tone.cap)}>{caption}</span>
+        </div>
+      </div>
+
+      {/* Per-metric breakdown, when more than one metric is in play */}
+      {metrics.length > 1 && (
+        <div className="grid grid-cols-1 gap-px border-t border-white/10 bg-white/10 sm:grid-cols-3">
           {metrics.map(metric => {
             const MetricIcon = metric.icon;
-            const isOver = metric.remaining < 0;
+            const remaining = metric.total - metric.allocated;
+            const isOver = remaining < 0;
             const pct = metric.total > 0 ? Math.round((metric.allocated / metric.total) * 100) : 0;
 
             return (
-              <div key={metric.label} className="bg-muted/40 rounded-lg p-3 border space-y-2">
+              <div key={metric.label} className={cn('px-5 py-3', NAVY)}>
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-primary/10 rounded-md">
-                    <MetricIcon className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    {metric.label}
-                  </span>
-                  <Badge variant="outline" className="ml-auto text-[10px] px-1.5 py-0">
-                    {pct}%
-                  </Badge>
+                  <MetricIcon className="h-3.5 w-3.5 text-slate-400" />
+                  <span className={MICRO}>{metric.label}</span>
+                  <span className="ml-auto text-[11px] font-bold tabular-nums text-slate-400">{pct}%</span>
                 </div>
-
-                <div className="flex items-baseline justify-between">
-                  <div>
-                    <p className="text-lg font-bold">
-                      {metric.format(metric.total)}
-                    </p>
-                    {metric.unit && (
-                      <p className="text-xs text-muted-foreground">{metric.unit}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    Assigned: <span className="font-medium text-foreground">{metric.format(metric.allocated)}</span>
+                <p className="mt-1 text-[15px] font-extrabold tabular-nums text-slate-100">
+                  {metric.format(metric.allocated)}
+                  <span className="ml-1 text-[11.5px] font-semibold text-slate-500">
+                    of {metric.format(metric.total)}
                   </span>
-                  <span className={cn(
-                    'font-medium',
-                    isOver ? 'text-destructive' : metric.remaining === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-                  )}>
-                    {isOver ? `Over: ${metric.format(Math.abs(metric.remaining))}` : `Left: ${metric.format(metric.remaining)}`}
-                  </span>
-                </div>
+                </p>
+                <p
+                  className={cn(
+                    'mt-0.5 text-[11px] font-bold',
+                    isOver ? 'text-rose-300' : remaining === 0 ? 'text-emerald-300' : 'text-slate-400',
+                  )}
+                >
+                  {isOver
+                    ? `Over by ${metric.format(Math.abs(remaining))}`
+                    : remaining === 0
+                      ? 'Fully allocated'
+                      : `${metric.format(remaining)} left`}
+                </p>
               </div>
             );
           })}
         </div>
-      </CardContent>
+      )}
+
+      {/* Wizard steps */}
+      {steps && steps.length > 0 && (
+        <div className="flex border-t border-white/10 bg-black/20">
+          {steps.map(step => {
+            const done = currentStep !== undefined && currentStep > step.id;
+            const here = currentStep === step.id;
+
+            return (
+              <div
+                key={step.id}
+                className={cn(
+                  'flex flex-1 items-center gap-2.5 border-r border-white/10 px-5 py-2.5 last:border-r-0',
+                  here && 'bg-[hsl(35_65%_55%)]/[0.14]',
+                )}
+              >
+                <span
+                  className={cn(
+                    'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold',
+                    here
+                      ? 'bg-[hsl(35_65%_55%)] text-[hsl(220_39%_11%)]'
+                      : done
+                        ? 'bg-emerald-400/15 text-emerald-300'
+                        : 'bg-white/10 text-slate-400',
+                  )}
+                >
+                  {done ? <Check className="h-3 w-3" /> : step.id}
+                </span>
+                <span
+                  className={cn(
+                    'truncate text-[12.5px] font-bold',
+                    here ? 'text-slate-50' : done ? 'text-slate-300' : 'text-slate-400',
+                  )}
+                >
+                  {step.title}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }
