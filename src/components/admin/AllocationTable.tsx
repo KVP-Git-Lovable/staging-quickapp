@@ -606,10 +606,6 @@ export function AllocationTable({
 
     const parentAlloc = parentId ? next.get(parentId) : undefined;
 
-    // A roll-up manager derives their figure from the team, so there is no
-    // fixed total to share out downwards.
-    if (parentAlloc?.targetStrategy === 'roll_up') return;
-
     const pot = parentAlloc
       ? {
           quantity: parentAlloc.quantityTarget,
@@ -732,10 +728,6 @@ export function AllocationTable({
 
     const parentAlloc = parentId ? next.get(parentId) : undefined;
 
-    // A roll-up manager takes whatever the team adds up to, so there is no
-    // fixed pot to hold the group to.
-    if (parentAlloc?.targetStrategy === 'roll_up') return;
-
     const pot = parentAlloc
       ? {
           quantity: parentAlloc.quantityTarget,
@@ -761,6 +753,14 @@ export function AllocationTable({
 
     const edited = next.get(userId);
     if (!edited) return;
+
+    // Nothing has been handed to this group yet — there is no total to hold
+    // them to, so leave the others alone rather than zeroing them.
+    const potTotal =
+      (enabledMetrics.quantity ? pot.quantity : 0) +
+      (enabledMetrics.revenue ? pot.revenue : 0) +
+      (enabledMetrics.visits ? pot.visits : 0);
+    if (potTotal <= 0) return;
 
     const remaining = {
       quantity: Math.max(0, pot.quantity - getEffectiveQuantity(edited)),
@@ -878,6 +878,12 @@ export function AllocationTable({
               personalRevenueTarget: enabledMetrics.revenue ? r.personal : afterSwitch.personalRevenueTarget,
               personalVisitsTarget: enabledMetrics.visits ? v.personal : afterSwitch.personalVisitsTarget,
             });
+
+            // Carving the manager's slice shrinks what is left for the team, so
+            // hand the reduced figure down. Without this the team keeps the
+            // larger amounts they held a moment ago and the group overshoots
+            // the annual target by the manager's own share.
+            pushTargetsDown(userId, next, nodeById, enabledMetrics);
           }
         }
 
