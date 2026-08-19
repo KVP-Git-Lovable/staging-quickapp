@@ -78,7 +78,19 @@ export function SeedDummyDataCard() {
         if (error) throw error;
         beat = created;
       }
-      const beatLegacyId = String((beat as any).beat_id ?? (beat as any).id);
+      // The legacy text key is what orders.beat_id carries and what the
+      // orders RLS policy checks via user_has_beat_access(uid, beat_id) —
+      // an order without it violates row-level security. Backfill it if a
+      // previous run somehow left it empty.
+      let beatLegacyId = String((beat as any).beat_id ?? "");
+      if (!beatLegacyId) {
+        beatLegacyId = `beat_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+        const { error } = await supabase
+          .from("beats")
+          .update({ beat_id: beatLegacyId } as any)
+          .eq("id", (beat as any).id);
+        if (error) throw error;
+      }
 
       // 2. Demo retailers on the beat (reused when they already exist).
       const retailers: Array<{ id: string; name: string }> = [];
@@ -203,10 +215,14 @@ export function SeedDummyDataCard() {
         });
         const subtotal = +lines.reduce((s, l) => s + l.total, 0).toFixed(2);
 
-        const { data: order, error: orderErr } = await supabase
-          .from("orders")
-          .insert({
-            user_id: user.id,
+        // Write through the app's standard order sync RPC (security definer):
+        // it inserts the order AND its items, validates totals, recomputes
+        // retailer pending, and marks the visit productive — direct inserts
+        // would be blocked by the orders/order_items RLS policies.
+        const payload = {
+          order: {
+            id: crypto.randomUUID(),
+            idempotency_key: `sahaya_seed_${r.id}_${Date.now()}`,
             retailer_id: r.id,
             retailer_name: r.name,
             visit_id: todayVisitByRetailer.get(r.id) ?? null,
@@ -214,18 +230,26 @@ export function SeedDummyDataCard() {
             status: "confirmed",
             subtotal,
             total_amount: subtotal,
-            idempotency_key: `sahaya_seed_${r.id}_${Date.now()}`,
-          } as any)
-          .select("id")
-          .single();
-        if (orderErr) throw orderErr;
-
-        const { error: itemsErr } = await supabase
-          .from("order_items")
-          .insert(lines.map((l) => ({ ...l, order_id: String((order as any).id) })) as any);
-        if (itemsErr) throw itemsErr;
-        ordersCreated += 1;
-        itemsCreated += lines.length;
+            beat_id: beatLegacyId,
+          },
+          items: lines,
+        };
+        const { data: syncResult, error: syncErr } = await supabase.rpc(
+          "sync_order_with_items_v2" as any,
+          { p_payload: payload as any },
+        );
+        if (syncErr) throw syncErr;
+        const status = (syncResult as any)?.status;
+        if (status !== "ok" && status !== "duplicate") {
+          const errs = (syncResult as any)?.errors;
+          throw new Error(
+            `Order for ${r.name} failed: ${Array.isArray(errs) ? errs.join("; ") : String(status)}`,
+          );
+        }
+        if (status === "ok") {
+          ordersCreated += 1;
+          itemsCreated += lines.length;
+        }
       }
 
       const result: SeedSummary = {
