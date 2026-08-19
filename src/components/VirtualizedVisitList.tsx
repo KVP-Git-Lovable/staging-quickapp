@@ -38,6 +38,11 @@ interface Visit {
     priorValue: number;
     dropPct: number;
   };
+  /** Newly-added-retailer pitch reminder from the stored Visit Optimiser run. */
+  newRetailerInsight?: {
+    retailerId: string;
+    line: string;
+  };
 }
 
 interface VirtualizedVisitListProps {

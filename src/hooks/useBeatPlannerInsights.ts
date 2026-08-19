@@ -23,6 +23,8 @@ export interface BeatPlanRow {
   orderValue: number;
   avgDaysSinceVisit: number | null;
   suggestedDays: number;
+  /** Retailers added to this beat in the last 14 days (absent on older runs). */
+  newRetailers?: number;
 }
 
 export interface BeatPlanResult {
