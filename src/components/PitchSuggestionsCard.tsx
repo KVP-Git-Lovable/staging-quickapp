@@ -24,7 +24,7 @@ export interface PitchSuggestion {
   name: string;
   qty: number;
   unit: string;
-  tag: "reorder" | "top_seller" | "store_match" | "beat_favourite";
+  tag: "reorder" | "top_seller" | "store_match" | "beat_favourite" | "regular";
   reason: string;
 }
 
@@ -41,6 +41,7 @@ const TAG_STYLE: Record<PitchSuggestion["tag"], { label: string; cls: string }> 
   top_seller: { label: "Top seller", cls: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300" },
   store_match: { label: "Store match", cls: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-300" },
   beat_favourite: { label: "Beat favourite", cls: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300" },
+  regular: { label: "Regular buy", cls: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-300" },
 };
 // Server may introduce tags this build doesn't know yet — render, don't crash.
 const FALLBACK_TAG = { label: "Suggested", cls: "border-border bg-muted text-muted-foreground" };
