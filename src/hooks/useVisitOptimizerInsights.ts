@@ -39,18 +39,27 @@ export interface RouteStop {
   visits: number;
   orders: number;
   productivityPct: number;
+  /** Median hour of day this store places orders (IST); absent on old runs. */
+  typicalOrderHour?: number | null;
+  /** Display label for typicalOrderHour, e.g. "10 AM". */
+  typicalOrderTime?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface RouteResult {
   kind: string;
   date?: string;
   stops?: RouteStop[];
+  totalKm?: number;
   newRetailers?: NewRetailerInsight[];
 }
 
 export interface VisitOptimizerInsights {
   newRetailers: NewRetailerInsight[];
   stops: RouteStop[];
+  /** Estimated travel distance for the suggested order, km. */
+  totalKm: number;
   /** The agent-run date the stops belong to (stop ranks are day-specific). */
   routeDate: string | null;
   loading: boolean;
@@ -164,6 +173,7 @@ export function useVisitOptimizerInsights(): VisitOptimizerInsights {
   return {
     newRetailers: result?.newRetailers ?? [],
     stops: result?.stops ?? [],
+    totalKm: Number(result?.totalKm ?? 0),
     routeDate: result?.date ?? null,
     loading,
   };

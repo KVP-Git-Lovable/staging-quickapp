@@ -35,6 +35,7 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
       "Retailer priority class (A / B / C)",
       "GPS distance between stops (nearest-neighbour routing)",
       "Estimated total travel distance",
+      "Typical time of day each retailer places orders (last 30 days) — early orderers come first on the route",
       "Retailers newly added to a beat (last 14 days) — flagged as fresh pitching opportunities with an AI reminder line each",
     ],
     note: "Each stop gets a deterministic score from recency, dues, productivity, order value and priority, then stops are ordered geographically to cut travel. AI only explains the computed route and writes the newcomer pitch reminders — no plans or visits are modified.",

@@ -58,6 +58,7 @@ import { useChurnRisk, type ChurnRow } from "@/hooks/useChurnRisk";
 import { useVisitOptimizerInsights, type RouteStop } from "@/hooks/useVisitOptimizerInsights";
 import { useSalesCoachInsights, type CoachRow } from "@/hooks/useSalesCoachInsights";
 import { prefetchPitchSuggestions } from "@/utils/pitchSuggestionsCache";
+import { VisitOptimizerRouteCard } from "@/components/VisitOptimizerRouteCard";
 import type { VisitAiInsight } from "@/components/VisitCard";
 
 // UI display bar only: which detected declines are worth surfacing on a
@@ -408,8 +409,32 @@ export const MyVisits = () => {
   // Visit Optimiser (today's scored stops + newcomer pitch lines) and Sales
   // Coach (per-retailer 30d product mix), consumed from their stored runs
   // (display only — the hooks own any run policy, this page never triggers).
-  const { newRetailers: newcomerRows, stops: routeStops } = useVisitOptimizerInsights();
+  const {
+    newRetailers: newcomerRows,
+    stops: routeStops,
+    totalKm: routeTotalKm,
+    loading: routeLoading,
+  } = useVisitOptimizerInsights();
   const { rows: coachRows } = useSalesCoachInsights();
+
+  // "Suggest Route" state: when applied, the retailer list is re-arranged
+  // into the Visit Optimiser's stop order (display-only — nothing is written
+  // to the database). Remembered per day for this session.
+  const [routeApplied, setRouteApplied] = useState<boolean>(() => {
+    try {
+      return sessionStorage.getItem(`visit_route_applied_${getLocalTodayDate()}`) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const applyRouteOrder = useCallback((on: boolean) => {
+    setRouteApplied(on);
+    try {
+      const key = `visit_route_applied_${getLocalTodayDate()}`;
+      if (on) sessionStorage.setItem(key, "1");
+      else sessionStorage.removeItem(key);
+    } catch { /* ignore */ }
+  }, []);
   const newcomerByRetailer = useMemo(() => {
     const map = new Map<string, string>();
     newcomerRows.forEach((n) => {
@@ -1418,11 +1443,19 @@ export const MyVisits = () => {
     });
 
     // Apply sorting
+    const routeSortActive = routeApplied && selectedDate === getLocalTodayDate();
     return filtered.sort((a, b) => {
       // Pending-sync (offline-created) retailers always float to the top
       const ap = (a as any).pendingSync ? 1 : 0;
       const bp = (b as any).pendingSync ? 1 : 0;
       if (ap !== bp) return bp - ap;
+      // Suggested route applied: follow the Visit Optimiser stop order.
+      // Retailers the run doesn't cover keep their place after the route.
+      if (routeSortActive) {
+        const as = stopByRetailer.get(String(a.retailerId || a.id))?.sequence ?? Infinity;
+        const bs = stopByRetailer.get(String(b.retailerId || b.id))?.sequence ?? Infinity;
+        if (as !== bs) return as - bs;
+      }
       if (sortOrder === 'recent') {
         // Primary sort: use retailer createdAt from database (most reliable)
         const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -1477,7 +1510,7 @@ export const MyVisits = () => {
         return nameB.localeCompare(nameA);
       }
     });
-  }, [allVisits, searchTerm, statusFilter, filters, retailerStats, sortOrder]);
+  }, [allVisits, searchTerm, statusFilter, filters, retailerStats, sortOrder, routeApplied, selectedDate, stopByRetailer]);
   const visitsForSelectedDate = retailers;
 
   // Use progressStats from the optimized hook for accurate counts
@@ -1709,6 +1742,24 @@ export const MyVisits = () => {
             })()}
           </CardContent>
         </Card>
+
+        {/* AI Visit Optimizer — suggested route from the stored agent run.
+            Stop ranks are day-specific, so only shown when viewing today. */}
+        {isViewingSelf && selectedDate === getLocalTodayDate() && (
+          <VisitOptimizerRouteCard
+            stops={routeStops}
+            totalKm={routeTotalKm}
+            loading={routeLoading}
+            applied={routeApplied}
+            onSuggestRoute={() => {
+              applyRouteOrder(true);
+              toast.success("Route applied", {
+                description: "Retailers are now arranged in the AI-suggested visiting order.",
+              });
+            }}
+            onReset={() => applyRouteOrder(false)}
+          />
+        )}
 
         {/* Progress Card - filtered by permission */}
         {showTodaysProgress && <Card className="shadow-card bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
