@@ -545,6 +545,55 @@ Deno.serve(async (req) => {
       }));
     }
 
+    // Deterministic mix guard — the LLM prompt states the preference, but the
+    // business rule is enforced here: for a store with purchase history whose
+    // candidate pool contains both categories, the final suggestions must
+    // include at least one already-bought product (reorder/regular) AND at
+    // least one new pitch product. Missing-category candidates are appended
+    // in existing pool priority order (same dedupe-by-name, same active-only
+    // pool); if that overflows MAX_SUGGESTIONS, the over-represented side is
+    // trimmed from its tail, never dropping either category below one.
+    // New/no-history retailers are untouched.
+    const isBoughtTag = (t: Tag) => t === "reorder" || t === "regular";
+    if (!isNewRetailer && retConfirmed.length > 0 && suggestions.length) {
+      const poolHasBought = candidates.some((c) => isBoughtTag(c.tag));
+      const poolHasNew = candidates.some((c) => !isBoughtTag(c.tag));
+      if (poolHasBought && poolHasNew) {
+        const have = new Set(suggestions.map((s) => s.name.toLowerCase()));
+        const appendFromPool = (wantBought: boolean) => {
+          let appended = 0;
+          for (const c of candidates) {
+            if (appended >= 1) break;
+            if (isBoughtTag(c.tag) !== wantBought || have.has(c.name.toLowerCase())) continue;
+            suggestions.push({
+              productId: c.productId,
+              name: c.name,
+              qty: c.qty,
+              unit: c.unit,
+              tag: c.tag,
+              reason: c.signal,
+            });
+            have.add(c.name.toLowerCase());
+            appended += 1;
+          }
+        };
+        if (!suggestions.some((s) => isBoughtTag(s.tag))) appendFromPool(true);
+        if (!suggestions.some((s) => !isBoughtTag(s.tag))) appendFromPool(false);
+        while (suggestions.length > MAX_SUGGESTIONS) {
+          const boughtCount = suggestions.filter((s) => isBoughtTag(s.tag)).length;
+          const newCount = suggestions.length - boughtCount;
+          const dropBought = boughtCount >= newCount ? boughtCount > 1 : newCount <= 1;
+          const idx = suggestions
+            .map((s, i) => ({ s, i }))
+            .filter(({ s }) => isBoughtTag(s.tag) === dropBought)
+            .map(({ i }) => i)
+            .pop();
+          if (idx == null) break;
+          suggestions.splice(idx, 1);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         kind: "pitch",
