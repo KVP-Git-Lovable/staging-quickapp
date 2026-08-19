@@ -55,7 +55,9 @@ import { ActivityEventsTable } from "@/components/ActivityEventsTable";
 import { ActivityVisitDetail } from "@/components/ActivityVisitDetail";
 import { useActivityVisits } from "@/hooks/useActivityVisits";
 import { useChurnRisk, type ChurnRow } from "@/hooks/useChurnRisk";
-import { useNewRetailerInsights, type NewRetailerInsight } from "@/hooks/useNewRetailerInsights";
+import { useVisitOptimizerInsights, type RouteStop } from "@/hooks/useVisitOptimizerInsights";
+import { useSalesCoachInsights, type CoachRow } from "@/hooks/useSalesCoachInsights";
+import type { VisitAiInsight } from "@/components/VisitCard";
 
 // UI display bar only: which detected declines are worth surfacing on a
 // visit card. Unrelated to (and must never alter) the Churn Detector's own
@@ -63,6 +65,39 @@ import { useNewRetailerInsights, type NewRetailerInsight } from "@/hooks/useNewR
 const CHURN_INSIGHT_THRESHOLD = 30;
 // Newly created retailers are excluded from churn nudges for this long.
 const CHURN_INSIGHT_MIN_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
+const inrCompact = (n: number) =>
+  `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+
+/** Display-only sentences built from the stored agent numbers (same pattern
+ * as the beat-card nudge) — the agents computed the figures, we narrate. */
+function churnInsightLine(r: ChurnRow): string {
+  const tone = r.dropPct >= 60 ? "opportunity" : "moment";
+  return `Their orders have dipped ${r.dropPct}% (${inrCompact(r.priorValue)} → ${inrCompact(r.recentValue)} vs the previous 30 days) — today's visit is a good ${tone} to reconnect.`;
+}
+
+function routeInsightLine(s: RouteStop): string {
+  const parts: string[] = [];
+  parts.push(
+    s.daysSinceLastVisit == null
+      ? "you haven't logged a visit here yet"
+      : s.daysSinceLastVisit === 0
+        ? "you were here earlier today"
+        : `your last visit was ${s.daysSinceLastVisit} day${s.daysSinceLastVisit === 1 ? "" : "s"} ago`,
+  );
+  if (s.pending > 0) parts.push(`${inrCompact(s.pending)} is pending to collect`);
+  if (s.visits > 0) parts.push(`orders land on ${s.productivityPct}% of your visits`);
+  return `AI Visit Optimiser ranks this stop #${s.sequence} today — ${parts.join(", ")}.`;
+}
+
+function coachInsightLine(r: CoachRow): string {
+  const sold = `You've sold ${inrCompact(r.orderValue)} here in the last 30 days`;
+  const mostly = r.topProduct ? `, mostly ${r.topProduct}` : "";
+  const gaps = r.gapProducts?.length
+    ? ` — they aren't buying ${r.gapProducts.slice(0, 2).join(" or ")} yet, a good pitch for today`
+    : " — they already take your full top range, keep it stocked";
+  return `${sold}${mostly}${gaps}.`;
+}
 
 interface Visit {
   id: string;
@@ -82,10 +117,8 @@ interface Visit {
   orderValue?: number;
   noOrderReason?: "over-stocked" | "owner-not-available" | "store-closed" | "permanently-closed";
   distributor?: string;
-  /** This retailer's row from the stored Churn Detector result (display only). */
-  churnInsight?: ChurnRow;
-  /** Newly-added-retailer pitch reminder from the stored Visit Optimiser run. */
-  newRetailerInsight?: NewRetailerInsight;
+  /** One AI insight line for this retailer, from the stored agent runs. */
+  aiInsight?: VisitAiInsight;
 }
 const mockVisits: Visit[] = [{
   id: "1",
@@ -371,16 +404,32 @@ export const MyVisits = () => {
     return map;
   }, [churnResult]);
 
-  // Newly-added-retailer pitch reminders from the stored Visit Optimiser run
-  // (display only — the hook owns any run policy, this page never triggers).
-  const { newRetailers: newcomerRows } = useNewRetailerInsights();
+  // Visit Optimiser (today's scored stops + newcomer pitch lines) and Sales
+  // Coach (per-retailer 30d product mix), consumed from their stored runs
+  // (display only — the hooks own any run policy, this page never triggers).
+  const { newRetailers: newcomerRows, stops: routeStops } = useVisitOptimizerInsights();
+  const { rows: coachRows } = useSalesCoachInsights();
   const newcomerByRetailer = useMemo(() => {
-    const map = new Map<string, NewRetailerInsight>();
+    const map = new Map<string, string>();
     newcomerRows.forEach((n) => {
-      if (n.retailerId && n.line) map.set(String(n.retailerId), n);
+      if (n.retailerId && n.line) map.set(String(n.retailerId), n.line);
     });
     return map;
   }, [newcomerRows]);
+  const stopByRetailer = useMemo(() => {
+    const map = new Map<string, RouteStop>();
+    routeStops.forEach((s) => {
+      if (s.retailerId) map.set(String(s.retailerId), s);
+    });
+    return map;
+  }, [routeStops]);
+  const coachByRetailer = useMemo(() => {
+    const map = new Map<string, CoachRow>();
+    coachRows.forEach((r) => {
+      if (r.retailerId) map.set(String(r.retailerId), r);
+    });
+    return map;
+  }, [coachRows]);
 
   // Process retailers from optimized data - single source of truth
   const retailers = useMemo(() => {
@@ -461,17 +510,27 @@ export const MyVisits = () => {
       
       // Churn nudge (display only): retailer flagged by the stored Churn
       // Detector run, drop at/above the UI threshold, and not newly created.
-      const churnRow = churnByRetailer.get(String(retailer.id));
+      // One AI insight per card, most specific first: new retailer (AI pitch
+      // line) → churn nudge → today's Visit Optimiser stop → Sales Coach
+      // product-mix tip. All lines derive from the stored agent runs.
+      const rid = String(retailer.id);
+      const churnRow = churnByRetailer.get(rid);
       const isNewRetailer =
         retailer.created_at &&
         Date.now() - new Date(retailer.created_at).getTime() < CHURN_INSIGHT_MIN_AGE_MS;
-      // New-retailer pitch reminder wins over the churn nudge — a store this
-      // fresh has no decline story worth telling, and one banner per card.
-      const newRetailerInsight = newcomerByRetailer.get(String(retailer.id));
-      const churnInsight =
-        !newRetailerInsight && churnRow && churnRow.dropPct >= CHURN_INSIGHT_THRESHOLD && !isNewRetailer
-          ? churnRow
-          : undefined;
+      const newcomerLine = newcomerByRetailer.get(rid);
+      // Stop ranks are day-specific — only meaningful when viewing today.
+      const stop = selectedDate === getLocalTodayDate() ? stopByRetailer.get(rid) : undefined;
+      const coach = coachByRetailer.get(rid);
+      const aiInsight: VisitAiInsight | undefined = newcomerLine
+        ? { kind: "new", line: newcomerLine }
+        : churnRow && churnRow.dropPct >= CHURN_INSIGHT_THRESHOLD && !isNewRetailer
+          ? { kind: "churn", line: churnInsightLine(churnRow) }
+          : stop
+            ? { kind: "route", line: routeInsightLine(stop) }
+            : coach
+              ? { kind: "coach", line: coachInsightLine(coach) }
+              : undefined;
 
       return {
         id: retailer.id,
@@ -484,8 +543,7 @@ export const MyVisits = () => {
         status,
         visitType: visit?.visit_type || 'Regular Visit',
         createdAt: retailer.created_at || undefined,
-        churnInsight,
-        newRetailerInsight,
+        aiInsight,
         visitId: visit?.id,
         hasOrder,
         orderValue: totalOrderValue,
@@ -520,7 +578,7 @@ export const MyVisits = () => {
       prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: transformedRetailers };
     });
     return transformedRetailers;
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId, churnByRetailer, newcomerByRetailer]);
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId, churnByRetailer, newcomerByRetailer, stopByRetailer, coachByRetailer]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now
