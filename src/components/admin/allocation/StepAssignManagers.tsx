@@ -45,6 +45,9 @@ interface ManagerRow {
   quantityTarget: number;
   revenueTarget: number;
   visitsTarget: number;
+  personalQuantityTarget?: number;
+  personalRevenueTarget?: number;
+  personalVisitsTarget?: number;
   targetStrategy: TargetStrategy;
   children: TeamNode[];
 }
@@ -67,6 +70,22 @@ const FIELD_KEYS = {
   revenue: 'revenueTarget',
   visits: 'visitsTarget',
 } as const;
+
+/**
+ * An Independent manager holds a target of their own beside their team's, kept
+ * on the personal keys. Their single visible field edits that, so the manager's
+ * figure plus their team's adds up to the annual target rather than counting
+ * the team's share twice.
+ */
+const PERSONAL_KEYS = {
+  quantity: 'personalQuantityTarget',
+  revenue: 'personalRevenueTarget',
+  visits: 'personalVisitsTarget',
+} as const;
+
+/** Whether this person's own target lives on the personal keys. */
+const holdsPersonalTarget = (strategy: TargetStrategy | undefined, hasTeam: boolean) =>
+  strategy === 'independent' && hasTeam;
 
 interface TargetFieldsProps {
   userId: string;
@@ -342,12 +361,20 @@ export function StepAssignManagers({
                 compact
                 derived={nodeStrategy === 'roll_up' && isSubManager}
                 userId={node.userId}
-                keys={FIELD_KEYS}
-                values={{
-                  quantity: node.quantityTarget || 0,
-                  revenue: node.revenueTarget || 0,
-                  visits: node.visitsTarget || 0,
-                }}
+                keys={holdsPersonalTarget(nodeStrategy, isSubManager) ? PERSONAL_KEYS : FIELD_KEYS}
+                values={
+                  holdsPersonalTarget(nodeStrategy, isSubManager)
+                    ? {
+                        quantity: node.personalQuantityTarget || 0,
+                        revenue: node.personalRevenueTarget || 0,
+                        visits: node.personalVisitsTarget || 0,
+                      }
+                    : {
+                        quantity: node.quantityTarget || 0,
+                        revenue: node.revenueTarget || 0,
+                        visits: node.visitsTarget || 0,
+                      }
+                }
                 quantityUnit={quantityUnit}
                 enabledMetrics={enabledMetrics}
                 onTargetChange={onTargetChange}
@@ -412,12 +439,9 @@ export function StepAssignManagers({
           return (
             <div
               key={mgr.userId}
-              className={cn(
-                'rounded-xl border bg-card overflow-hidden transition-colors',
-                isExcluded && 'opacity-60',
-              )}
+              className="rounded-xl border bg-card overflow-hidden transition-colors"
             >
-              <div className="flex items-center gap-3 p-4">
+              <div className={cn('flex items-center gap-3 p-4', isExcluded && 'opacity-60')}>
                 <Avatar className="h-10 w-10 shrink-0">
                   <AvatarImage src={mgr.profilePictureUrl || undefined} alt={mgr.fullName} />
                   <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
@@ -456,12 +480,24 @@ export function StepAssignManagers({
                   <TargetFields
                     derived={mgr.targetStrategy === 'roll_up' && mgr.subordinateCount > 0}
                     userId={mgr.userId}
-                    keys={FIELD_KEYS}
-                    values={{
-                      quantity: mgr.quantityTarget,
-                      revenue: mgr.revenueTarget,
-                      visits: mgr.visitsTarget,
-                    }}
+                    keys={
+                      holdsPersonalTarget(mgr.targetStrategy, mgr.subordinateCount > 0)
+                        ? PERSONAL_KEYS
+                        : FIELD_KEYS
+                    }
+                    values={
+                      holdsPersonalTarget(mgr.targetStrategy, mgr.subordinateCount > 0)
+                        ? {
+                            quantity: mgr.personalQuantityTarget || 0,
+                            revenue: mgr.personalRevenueTarget || 0,
+                            visits: mgr.personalVisitsTarget || 0,
+                          }
+                        : {
+                            quantity: mgr.quantityTarget,
+                            revenue: mgr.revenueTarget,
+                            visits: mgr.visitsTarget,
+                          }
+                    }
                     quantityUnit={quantityUnit}
                     enabledMetrics={enabledMetrics}
                     onTargetChange={onTargetChange}
