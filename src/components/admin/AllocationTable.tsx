@@ -1187,7 +1187,6 @@ export function AllocationTable({
               quantityUnit={quantityUnit}
               enabledMetrics={enabledMetrics}
               allocations={allocations as any}
-              onTargetChange={handleTargetChange}
               fyYear={fyYear}
               targetStartMonth={targetStartMonth}
               targetEndMonth={targetEndMonth}

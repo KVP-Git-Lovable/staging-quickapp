@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronRight, Users, AlertTriangle, Pencil, CalendarDays } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, AlertTriangle, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StrategyBadge } from '../TargetStrategySelector';
 import type { TargetStrategy } from '../TargetStrategySelector';
@@ -45,34 +44,32 @@ export interface PreviewNode {
   children: PreviewNode[];
 }
 
+/**
+ * Read-only review of the whole hierarchy.
+ *
+ * Targets are not editable here. This step exists to check what the
+ * distribution came out as; the figures themselves are entered on Assign
+ * Managers, where the target types and the running totals are in view.
+ */
 interface StepPreviewProps {
   roots: PreviewNode[];
   quantityUnit: string;
   enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean };
   allocations: Map<string, { quantityTarget: number; revenueTarget: number; visitsTarget: number; personalQuantityTarget?: number; personalRevenueTarget?: number; personalVisitsTarget?: number; targetStrategy: TargetStrategy }>;
-  onTargetChange?: (userId: string, field: string, value: number) => void;
   fyYear: number;
   targetStartMonth?: number;
   targetEndMonth?: number;
 }
-
-const parseNum = (value: string) => {
-  const num = parseFloat(value.replace(/,/g, ''));
-  return isNaN(num) ? 0 : num;
-};
 
 export function StepPreview({
   roots,
   quantityUnit,
   enabledMetrics,
   allocations,
-  onTargetChange,
   fyYear,
   targetStartMonth = 1,
   targetEndMonth = 12,
 }: StepPreviewProps) {
-  const [editingUser, setEditingUser] = useState<string | null>(null);
-
   // Which employees currently have their month-wise breakdown open.
   const [monthsOpen, setMonthsOpen] = useState<Set<string>>(new Set());
 
@@ -114,7 +111,6 @@ export function StepPreview({
     const strategy = alloc?.targetStrategy ?? node.targetStrategy;
     const isIndependent = strategy === 'independent';
     const isNoTarget = strategy === 'no_target';
-    const isEditing = editingUser === node.userId;
 
     // Compute child sum for managers (skip for independent/no_target)
     let childSum = 0;
@@ -160,50 +156,9 @@ export function StepPreview({
 
           {!isNoTarget && <div className="flex shrink-0 items-center gap-2">
             {/* Figures sit in one right-aligned column of fixed width, so every
-                row's number lands in the same place however deep it is nested
-                and whether or not it is being edited. */}
+                row's number lands in the same place however deep it is nested. */}
             <div className="flex min-w-[172px] items-center justify-end gap-2.5">
-            {isEditing && onTargetChange && !isManager ? (
-              <>
-                {enabledMetrics.quantity && (
-                  <div className="flex items-center gap-1">
-                    <Input
-                      type="text"
-                      value={qty > 0 ? formatNumber(qty) : ''}
-                      onChange={(e) => onTargetChange(node.userId, 'quantityTarget', parseNum(e.target.value))}
-                      placeholder="0"
-                      className="h-7 w-20 text-right text-sm"
-                      autoFocus
-                    />
-                    <span className="text-[10px] text-muted-foreground">{quantityUnit}</span>
-                  </div>
-                )}
-                {enabledMetrics.revenue && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-muted-foreground">₹</span>
-                    <Input
-                      type="text"
-                      value={rev > 0 ? formatNumber(rev) : ''}
-                      onChange={(e) => onTargetChange(node.userId, 'revenueTarget', parseNum(e.target.value))}
-                      placeholder="0"
-                      className="h-7 w-24 text-right text-sm"
-                    />
-                  </div>
-                )}
-                {enabledMetrics.visits && (
-                  <div className="flex items-center gap-1">
-                    <Input
-                      type="text"
-                      value={vis > 0 ? formatNumber(vis) : ''}
-                      onChange={(e) => onTargetChange(node.userId, 'visitsTarget', Math.round(parseNum(e.target.value)))}
-                      placeholder="0"
-                      className="h-7 w-16 text-right text-sm"
-                    />
-                    <span className="text-[10px] text-muted-foreground">vis</span>
-                  </div>
-                )}
-              </>
-            ) : isIndependent && isManager ? (
+            {isIndependent && isManager ? (
               <>
                 {enabledMetrics.quantity && personalQty > 0 && (
                   <span className="text-sm font-mono font-semibold text-blue-600 dark:text-blue-400">
@@ -240,20 +195,6 @@ export function StepPreview({
               </>
             )}
             </div>
-
-            {/* Actions, in the same order on every row */}
-            {onTargetChange && !isManager && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn('h-7 w-7 shrink-0 p-0', isEditing && 'bg-muted text-foreground')}
-                onClick={() => setEditingUser(isEditing ? null : node.userId)}
-                aria-label={isEditing ? `Stop editing ${node.fullName}` : `Edit ${node.fullName}'s target`}
-                aria-pressed={isEditing}
-              >
-                <Pencil className="h-3 w-3" />
-              </Button>
-            )}
 
             <Button
               variant="ghost"
