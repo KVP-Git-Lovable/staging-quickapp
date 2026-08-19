@@ -699,7 +699,9 @@ async function runSalesCoach(supabase: any, userId: string) {
       };
     })
     .sort((a, b) => b.orderValue - a.orderValue)
-    .slice(0, 10);
+    // Stored rows feed the per-retailer visit-card insights, so keep more
+    // than the narration needs; the facts block below stays at 10.
+    .slice(0, 40);
 
   const facts = [
     `Today: ${today}`,
@@ -712,6 +714,7 @@ async function runSalesCoach(supabase: any, userId: string) {
     "",
     "### Top retailers and their product mix",
     rows
+      .slice(0, 10)
       .map(
         (r) =>
           `- ${r.name}: ${inr(r.orderValue)} in 30d, ${r.distinctProducts} distinct product(s)` +

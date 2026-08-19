@@ -3,13 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
- * Newly-added-retailer pitch reminders for the My Visits banners.
+ * Visit Optimiser insights for the My Visits banners.
  *
  * Isolated consumer of the visit_optimiser agent: it calls the existing
  * ai-workflow-run edge function with { agentKey: "visit_optimiser" } and reads
- * that agent's stored executions — the agent computes which retailers are
- * newly added and generates one friendly AI pitch line per newcomer. This
- * hook never computes or generates anything itself.
+ * that agent's stored executions. The agent computes today's scored stop
+ * order AND which retailers are newly added (with one friendly AI pitch line
+ * per newcomer). This hook never computes or generates anything itself.
  *
  * Run policy: display the latest successful execution for the current user.
  * Auto-run (at most once, concurrency-guarded) only when there is no usable
@@ -28,14 +28,31 @@ export interface NewRetailerInsight {
   line: string;
 }
 
+export interface RouteStop {
+  retailerId: string;
+  name: string;
+  beat: string | null;
+  sequence: number;
+  score: number;
+  pending: number;
+  daysSinceLastVisit: number | null;
+  visits: number;
+  orders: number;
+  productivityPct: number;
+}
+
 export interface RouteResult {
   kind: string;
   date?: string;
+  stops?: RouteStop[];
   newRetailers?: NewRetailerInsight[];
 }
 
-export interface NewRetailerInsights {
+export interface VisitOptimizerInsights {
   newRetailers: NewRetailerInsight[];
+  stops: RouteStop[];
+  /** The agent-run date the stops belong to (stop ranks are day-specific). */
+  routeDate: string | null;
   loading: boolean;
 }
 
@@ -56,7 +73,7 @@ const isFresh = (res: RouteResult | null): boolean => {
   return res.date === today || res.date === localToday();
 };
 
-export function useNewRetailerInsights(): NewRetailerInsights {
+export function useVisitOptimizerInsights(): VisitOptimizerInsights {
   const { user } = useAuth();
   const [result, setResult] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,7 +150,7 @@ export function useNewRetailerInsights(): NewRetailerInsights {
           autoRunInFlight = false;
         }
       } catch (e) {
-        console.error("[useNewRetailerInsights] load failed:", e);
+        console.error("[useVisitOptimizerInsights] load failed:", e);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -144,5 +161,10 @@ export function useNewRetailerInsights(): NewRetailerInsights {
     };
   }, [user?.id, loadLatest, runNow]);
 
-  return { newRetailers: result?.newRetailers ?? [], loading };
+  return {
+    newRetailers: result?.newRetailers ?? [],
+    stops: result?.stops ?? [],
+    routeDate: result?.date ?? null,
+    loading,
+  };
 }
