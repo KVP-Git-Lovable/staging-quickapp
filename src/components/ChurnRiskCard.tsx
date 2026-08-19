@@ -28,7 +28,7 @@ function churnSentences(result: ChurnResult): string[] {
 
   if (rows.length === 0) {
     return [
-      `All ${analysed} retailer${analysed === 1 ? "" : "s"} analysed are holding steady — none has cut their orders compared with the previous 90-day period.`,
+      `All ${analysed} retailer${analysed === 1 ? "" : "s"} analysed are holding steady — none has cut their orders compared with the previous 30-day period.`,
       "Keep the momentum going with your regular visit rhythm.",
     ];
   }
@@ -38,8 +38,8 @@ function churnSentences(result: ChurnResult): string[] {
 
   sentences.push(
     rows.length === 1
-      ? `1 of your ${analysed} retailers has reduced their orders in the last 90 days — they may need a little extra attention.`
-      : `${rows.length} of your ${analysed} retailers have reduced their orders in the last 90 days — they may need a little extra attention.`,
+      ? `1 of your ${analysed} retailers has reduced their orders in the last 30 days — they may need a little extra attention.`
+      : `${rows.length} of your ${analysed} retailers have reduced their orders in the last 30 days — they may need a little extra attention.`,
   );
 
   sentences.push(
@@ -56,7 +56,7 @@ function churnSentences(result: ChurnResult): string[] {
     );
     const stake = rows.reduce((s, r) => s + (Number(r.priorValue) || 0), 0);
     sentences.push(
-      `Together, these stores generated ${inr(stake)} in orders in the previous 90-day period — a good reason to reconnect before the dip grows.`,
+      `Together, these stores generated ${inr(stake)} in orders in the previous 30-day period — a good reason to reconnect before the dip grows.`,
     );
   }
 
@@ -109,7 +109,7 @@ export function ChurnRiskCard() {
 
         {(loading || running) && !result && (
           <p className="mt-3 text-xs text-amber-900/80 dark:text-amber-100/80">
-            Analysing your retailers — comparing each store's last 90 days of orders with the 90
+            Analysing your retailers — comparing each store's last 30 days of orders with the 30
             days before…
           </p>
         )}

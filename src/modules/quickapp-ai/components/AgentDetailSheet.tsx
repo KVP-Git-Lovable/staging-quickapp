@@ -30,8 +30,8 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
       "Today's planned visits",
       "Days since each retailer was last visited",
       "Pending payment / outstanding dues",
-      "Visit productivity — orders won per visit (90 days)",
-      "Confirmed order value in the last 90 days",
+      "Visit productivity — orders won per visit (30 days)",
+      "Confirmed order value in the last 30 days",
       "Retailer priority class (A / B / C)",
       "GPS distance between stops (nearest-neighbour routing)",
       "Estimated total travel distance",
@@ -40,10 +40,10 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
   },
   churn_detector: {
     signals: [
-      "Order value per retailer in the last 90 days",
-      "Order value in the 90 days before that",
+      "Order value per retailer in the last 30 days",
+      "Order value in the 30 days before that",
       "Percentage drop between the two periods",
-      "Full 180-day order history (cancelled orders excluded)",
+      "Full 60-day order history (cancelled orders excluded)",
       "Ranking by steepest decline, then by lost value",
       "Top 10 at-risk retailers",
     ],
@@ -55,7 +55,7 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
       "Beat coverage — share of retailers visited in the last 30 days",
       "Average days since last visit per beat",
       "Pending dues totalled per beat",
-      "Confirmed order value per beat (90 days)",
+      "Confirmed order value per beat (30 days)",
       "Field capacity of ~25 stops per visit day",
       "Suggested visit days per beat for next month",
     ],
@@ -63,7 +63,7 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
   },
   sales_coach: {
     signals: [
-      "Confirmed orders in the last 90 days",
+      "Confirmed orders in the last 30 days",
       "Line-item value per product across all your orders",
       "Your top 5 products by sales value",
       "Order value and distinct products bought per retailer",
@@ -189,7 +189,7 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     ₹{Math.round(r.priorValue).toLocaleString("en-IN")} → ₹
-                    {Math.round(r.recentValue).toLocaleString("en-IN")} (90 days)
+                    {Math.round(r.recentValue).toLocaleString("en-IN")} (30 days)
                   </p>
                 </div>
               ))}
@@ -267,7 +267,7 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {[
-                      `₹${Math.round(r.orderValue).toLocaleString("en-IN")} in 90d`,
+                      `₹${Math.round(r.orderValue).toLocaleString("en-IN")} in 30d`,
                       r.topProduct ? `top: ${r.topProduct}` : null,
                       r.gapProducts?.length ? `pitch: ${r.gapProducts.join(", ")}` : null,
                     ]
