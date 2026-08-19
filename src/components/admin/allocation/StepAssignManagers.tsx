@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { Users, ChevronRight } from 'lucide-react';
+import { Users, ChevronRight, Scale } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineStrategySelector } from '../TargetStrategySelector';
 import type { TargetStrategy } from '../TargetStrategySelector';
@@ -61,6 +61,9 @@ interface StepAssignManagersProps {
   enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean };
   onTargetChange: (userId: string, field: string, value: number) => void;
   onStrategyChange: (userId: string, strategy: TargetStrategy) => void;
+  /** One equal slice per team, whatever size each team is. */
+  onSplitEqually: () => void;
+  /** Slices weighted by head count, so every individual ends up equal. */
   onEqualSplit: () => void;
 }
 
@@ -73,9 +76,8 @@ const FIELD_KEYS = {
 
 /**
  * An Independent manager holds a target of their own beside their team's, kept
- * on the personal keys. Their single visible field edits that, so the manager's
- * figure plus their team's adds up to the annual target rather than counting
- * the team's share twice.
+ * on the personal keys. Both are shown and both are editable: the two added
+ * together are what that manager's branch is responsible for.
  */
 const PERSONAL_KEYS = {
   quantity: 'personalQuantityTarget',
@@ -83,9 +85,54 @@ const PERSONAL_KEYS = {
   visits: 'personalVisitsTarget',
 } as const;
 
-/** Whether this person's own target lives on the personal keys. */
+/** Whether this person carries a target of their own beside their team's. */
 const holdsPersonalTarget = (strategy: TargetStrategy | undefined, hasTeam: boolean) =>
   strategy === 'independent' && hasTeam;
+
+interface MetricValues {
+  quantity: number;
+  revenue: number;
+  visits: number;
+}
+
+/**
+ * What a whole branch is responsible for — the same rule the allocation uses.
+ *
+ * An Independent manager's own target sits beside their team's, so the branch
+ * is worth both added together. An excluded individual is worth nothing, while
+ * an excluded manager is worth what their team carries, since their share
+ * passes straight through to them.
+ */
+const branchValues = (row: {
+  targetStrategy?: TargetStrategy;
+  quantityTarget?: number;
+  revenueTarget?: number;
+  visitsTarget?: number;
+  personalQuantityTarget?: number;
+  personalRevenueTarget?: number;
+  personalVisitsTarget?: number;
+  children?: TeamNode[];
+  subordinateCount?: number;
+}): MetricValues => {
+  const hasTeam = (row.children?.length ?? row.subordinateCount ?? 0) > 0;
+  const team = {
+    quantity: row.quantityTarget || 0,
+    revenue: row.revenueTarget || 0,
+    visits: row.visitsTarget || 0,
+  };
+
+  if (row.targetStrategy === 'no_target') {
+    return hasTeam ? team : { quantity: 0, revenue: 0, visits: 0 };
+  }
+  if (holdsPersonalTarget(row.targetStrategy, hasTeam)) {
+    return {
+      quantity: team.quantity + (row.personalQuantityTarget || 0),
+      revenue: team.revenue + (row.personalRevenueTarget || 0),
+      visits: team.visits + (row.personalVisitsTarget || 0),
+    };
+  }
+  return team;
+};
 
 interface TargetFieldsProps {
   userId: string;
@@ -166,6 +213,120 @@ function TargetFields({
   );
 }
 
+interface PersonTargetsProps {
+  userId: string;
+  row: {
+    targetStrategy?: TargetStrategy;
+    quantityTarget?: number;
+    revenueTarget?: number;
+    visitsTarget?: number;
+    personalQuantityTarget?: number;
+    personalRevenueTarget?: number;
+    personalVisitsTarget?: number;
+  };
+  hasTeam: boolean;
+  quantityUnit: string;
+  enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean };
+  onTargetChange: (userId: string, field: string, value: number) => void;
+  compact?: boolean;
+}
+
+/**
+ * The target fields for one person.
+ *
+ * Most people carry a single figure. An Independent manager carries two — one
+ * of their own and one for their team — and what they are answerable for is the
+ * two added together, so both are shown side by side with that total spelled
+ * out rather than left for the reader to work out.
+ */
+function PersonTargets({
+  userId,
+  row,
+  hasTeam,
+  quantityUnit,
+  enabledMetrics,
+  onTargetChange,
+  compact,
+}: PersonTargetsProps) {
+  const teamValues = {
+    quantity: row.quantityTarget || 0,
+    revenue: row.revenueTarget || 0,
+    visits: row.visitsTarget || 0,
+  };
+
+  if (!holdsPersonalTarget(row.targetStrategy, hasTeam)) {
+    return (
+      <TargetFields
+        compact={compact}
+        userId={userId}
+        keys={FIELD_KEYS}
+        values={teamValues}
+        quantityUnit={quantityUnit}
+        enabledMetrics={enabledMetrics}
+        onTargetChange={onTargetChange}
+      />
+    );
+  }
+
+  const ownValues = {
+    quantity: row.personalQuantityTarget || 0,
+    revenue: row.personalRevenueTarget || 0,
+    visits: row.personalVisitsTarget || 0,
+  };
+  const total = {
+    quantity: teamValues.quantity + ownValues.quantity,
+    revenue: teamValues.revenue + ownValues.revenue,
+    visits: teamValues.visits + ownValues.visits,
+  };
+
+  const caption = 'text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80';
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className={cn(caption, 'mb-1.5')}>Own target</p>
+        <TargetFields
+          compact={compact}
+          userId={userId}
+          keys={PERSONAL_KEYS}
+          values={ownValues}
+          quantityUnit={quantityUnit}
+          enabledMetrics={enabledMetrics}
+          onTargetChange={onTargetChange}
+        />
+      </div>
+
+      <div>
+        <p className={cn(caption, 'mb-1.5')}>Team target</p>
+        <TargetFields
+          compact={compact}
+          userId={userId}
+          keys={FIELD_KEYS}
+          values={teamValues}
+          quantityUnit={quantityUnit}
+          enabledMetrics={enabledMetrics}
+          onTargetChange={onTargetChange}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-md bg-muted/50 px-2.5 py-1.5">
+        <span className={caption}>Total responsibility</span>
+        {enabledMetrics.quantity && (
+          <span className="text-xs font-semibold tabular-nums">
+            {formatNumber(total.quantity)} {quantityUnit}
+          </span>
+        )}
+        {enabledMetrics.revenue && (
+          <span className="text-xs font-semibold tabular-nums">{formatCurrency(total.revenue)}</span>
+        )}
+        {enabledMetrics.visits && (
+          <span className="text-xs font-semibold tabular-nums">{formatNumber(total.visits)} visits</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * One metric row of the allocation summary.
  *
@@ -242,15 +403,28 @@ export function StepAssignManagers({
   enabledMetrics,
   onTargetChange,
   onStrategyChange,
+  onSplitEqually,
   onEqualSplit,
 }: StepAssignManagersProps) {
   const [expandedManagers, setExpandedManagers] = React.useState<Set<string>>(() => {
     return new Set(managers.map((manager) => manager.userId));
   });
 
-  const allocatedQty = managers.reduce((s, m) => s + m.quantityTarget, 0);
-  const allocatedRev = managers.reduce((s, m) => s + m.revenueTarget, 0);
-  const allocatedVis = managers.reduce((s, m) => s + m.visitsTarget, 0);
+  // Each manager counts for their whole branch, not just the figure on their
+  // own row — otherwise an Independent manager's own target, and the share
+  // passing through an excluded one, would both go missing from the total.
+  const allocated = managers.reduce(
+    (sum, manager) => {
+      const branch = branchValues(manager);
+      return {
+        quantity: sum.quantity + branch.quantity,
+        revenue: sum.revenue + branch.revenue,
+        visits: sum.visits + branch.visits,
+      };
+    },
+    { quantity: 0, revenue: 0, visits: 0 },
+  );
+  const { quantity: allocatedQty, revenue: allocatedRev, visits: allocatedVis } = allocated;
 
   // Nothing has been given out yet for any enabled metric.
   const nothingDistributed =
@@ -324,25 +498,19 @@ export function StepAssignManagers({
             </span>
           </div>
 
+          {isExcluded && isSubManager && (
+            <div className="mt-2 pl-[38px] text-xs text-muted-foreground">
+              No Target — their share passes through to their team
+            </div>
+          )}
+
           {!isExcluded && (
             <div className="mt-3 pl-[38px]">
-              <TargetFields
+              <PersonTargets
                 compact
                 userId={node.userId}
-                keys={holdsPersonalTarget(nodeStrategy, isSubManager) ? PERSONAL_KEYS : FIELD_KEYS}
-                values={
-                  holdsPersonalTarget(nodeStrategy, isSubManager)
-                    ? {
-                        quantity: node.personalQuantityTarget || 0,
-                        revenue: node.personalRevenueTarget || 0,
-                        visits: node.personalVisitsTarget || 0,
-                      }
-                    : {
-                        quantity: node.quantityTarget || 0,
-                        revenue: node.revenueTarget || 0,
-                        visits: node.visitsTarget || 0,
-                      }
-                }
+                row={{ ...node, targetStrategy: nodeStrategy }}
+                hasTeam={isSubManager}
                 quantityUnit={quantityUnit}
                 enabledMetrics={enabledMetrics}
                 onTargetChange={onTargetChange}
@@ -363,13 +531,30 @@ export function StepAssignManagers({
             <span className="text-sm font-semibold">Total target to distribute</span>
             {nothingDistributed && (
               <p className="text-xs text-muted-foreground mt-0.5">
-                Enter a target for each manager, or split the total by team size.
+                Enter a target for each manager, or split the total automatically.
               </p>
             )}
           </div>
-          <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5" onClick={onEqualSplit}>
-            <Users className="h-3.5 w-3.5" /> Split by Team Size
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={onSplitEqually}
+              title="Every team gets the same amount, whatever size it is"
+            >
+              <Scale className="h-3.5 w-3.5" /> Split Equally
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={onEqualSplit}
+              title="Bigger teams get more, so every person ends up with the same"
+            >
+              <Users className="h-3.5 w-3.5" /> Split by Team Size
+            </Button>
+          </div>
         </div>
 
         {enabledMetrics.quantity && (
@@ -440,31 +625,17 @@ export function StepAssignManagers({
               {isExcluded ? (
                 <div className="px-4 pb-4 pl-[68px]">
                   <div className="rounded-lg border border-dashed bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-                    No Target — excluded from allocation
+                    {mgr.subordinateCount > 0
+                      ? 'No Target — holds nothing; their share passes through to their team'
+                      : 'No Target — excluded from allocation'}
                   </div>
                 </div>
               ) : (
                 <div className="px-4 pb-4 pl-[68px]">
-                  <TargetFields
+                  <PersonTargets
                     userId={mgr.userId}
-                    keys={
-                      holdsPersonalTarget(mgr.targetStrategy, mgr.subordinateCount > 0)
-                        ? PERSONAL_KEYS
-                        : FIELD_KEYS
-                    }
-                    values={
-                      holdsPersonalTarget(mgr.targetStrategy, mgr.subordinateCount > 0)
-                        ? {
-                            quantity: mgr.personalQuantityTarget || 0,
-                            revenue: mgr.personalRevenueTarget || 0,
-                            visits: mgr.personalVisitsTarget || 0,
-                          }
-                        : {
-                            quantity: mgr.quantityTarget,
-                            revenue: mgr.revenueTarget,
-                            visits: mgr.visitsTarget,
-                          }
-                    }
+                    row={mgr}
+                    hasTeam={mgr.subordinateCount > 0}
                     quantityUnit={quantityUnit}
                     enabledMetrics={enabledMetrics}
                     onTargetChange={onTargetChange}
