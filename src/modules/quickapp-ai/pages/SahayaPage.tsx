@@ -3,6 +3,7 @@ import { Phone, BookOpen, ShieldCheck, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MadadHelpButton } from "@/components/MadadHelpButton";
+import { SeedDummyDataCard } from "../components/SeedDummyDataCard";
 
 const points = [
   { icon: Phone, title: "Calls you back", text: "Madad rings the phone number saved on your profile — nothing to dial." },
@@ -64,6 +65,9 @@ export default function SahayaPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Demo-data seeding (additive; existing features untouched) */}
+        <SeedDummyDataCard />
       </div>
     </div>
   );
