@@ -211,10 +211,16 @@ async function fetchTopProductNames(
     .map(([name]) => name);
 }
 
-function newcomerFallbackLine(n: Newcomer, topProducts: string[]): string {
+function newcomerFallbackLine(n: Newcomer, topProducts: string[], idx: number): string {
   const age = n.daysOld === 0 ? "today" : `${n.daysOld} day${n.daysOld === 1 ? "" : "s"} ago`;
-  const opener = topProducts.length ? ` ${topProducts[0]} is a proven opener from your range.` : "";
-  return `New retailer — added to your ${n.beat} beat ${age}. A warm first pitch sets the tone: introduce your range and learn what this store sells best.${opener}`;
+  const opener = topProducts.length ? topProducts[0] : "";
+  // Rotating variants so fallback wording doesn't read identically card to card.
+  const variants = [
+    `Fresh face on your ${n.beat} beat — they joined ${age}! A warm first pitch sets the tone${opener ? `, and ${opener} makes a great opener` : ""}.`,
+    `Just joined ${n.beat} ${age} — perfect time to introduce yourself and learn what this store sells best${opener ? `. Try leading with ${opener}!` : "!"}`,
+    `Brand-new on ${n.beat} (added ${age})! First impressions count — bring your friendliest pitch${opener ? ` and a sample of ${opener}` : ""}.`,
+  ];
+  return variants[idx % variants.length];
 }
 
 /** One friendly AI pitch line per newcomer. The model personalises wording
@@ -223,8 +229,8 @@ function newcomerFallbackLine(n: Newcomer, topProducts: string[]): string {
  * newcomer always keeps a deterministic fallback line, so a provider
  * failure degrades wording, not the feature. */
 async function generateNewcomerLines(newcomers: Newcomer[], topProducts: string[]) {
-  newcomers.forEach((n) => {
-    n.line = newcomerFallbackLine(n, topProducts);
+  newcomers.forEach((n, i) => {
+    n.line = newcomerFallbackLine(n, topProducts, i);
   });
   const apiKey = Deno.env.get("TOGETHER_API_KEY");
   if (!apiKey || !newcomers.length) return;
@@ -244,8 +250,9 @@ async function generateNewcomerLines(newcomers: Newcomer[], topProducts: string[
         role: "system",
         content:
           "You write one short, friendly reminder line per newly added retailer for a field sales rep's visit list. " +
-          "Each line must (a) note the store is newly added, (b) suggest a concrete pitching opportunity personalised to that store's name/category, and " +
-          "(c) mention at most two product names, ONLY from yourTopProducts — never invent products, prices or facts. Under 35 words, warm and encouraging, no pressure language. " +
+          "Each line must (a) convey warmly that the store recently joined the rep's beat, (b) suggest a concrete pitching opportunity personalised to that store's name/category, and " +
+          "(c) mention at most two product names, ONLY from yourTopProducts — never invent products, prices or facts. Under 35 words, warm and encouraging, an exclamation mark where natural, no pressure language. " +
+          'CRITICAL: make each line feel personally written — no two lines may open with the same words, and never open with "New retailer" or "New store". ' +
           'Return STRICT JSON only — an array like [{"retailerId":"...","line":"..."}] covering every retailer. No markdown, no extra keys, no commentary.',
       },
       { role: "user", content: JSON.stringify(payload) },
@@ -352,8 +359,13 @@ async function aiOrderStops<
           "relative ordering, never move a distant stop earlier just because it orders earlier in the day; (2) WITHIN a near-tie group " +
           "(stores within about 1 km of each other), stores with earlier typical order times come first; (3) break remaining ties by " +
           "higher score. " +
-          'Return STRICT JSON only: {"order":[<every stop number exactly once>],"note":"one short friendly line explaining the ordering"} ' +
-          "— no markdown, no extra keys.",
+          'Also write "lines": one warm, personalised line for EACH stop, indexed by STOP NUMBER (lines[0] is stop 1). Each line is what a ' +
+          "friendly mentor would tell the rep about that store today: weave in that stop's stated facts only (its typical order time, last " +
+          "visit, pending amount or strike rate — never invented details), add one small concrete suggestion, use an exclamation mark where " +
+          "it feels natural, keep it under 32 words. CRITICAL: vary the wording — no two lines may open with the same words, and never open " +
+          'with "AI Visit Optimiser", "This stop", or the store name pattern repeated across lines. ' +
+          'Return STRICT JSON only: {"order":[<every stop number exactly once>],"note":"one short friendly line explaining the ordering",' +
+          '"lines":["<line for stop 1>", ...]} — no markdown, no extra keys.',
       },
       { role: "user", content: `STOPS\n---\n${lines}\n---\nChoose the visiting order.` },
     ];
@@ -389,6 +401,14 @@ async function aiOrderStops<
       }
     }
     const note = String(parsed?.note ?? "").trim().slice(0, 220);
+    // Optional per-stop lines (display wording only, facts unchanged):
+    // lines[k] belongs to stop number k+1. Missing/short arrays simply leave
+    // those stops on the client's fallback wording.
+    const lines: unknown[] = Array.isArray(parsed?.lines) ? parsed.lines : [];
+    baseline.forEach((s, k) => {
+      const line = typeof lines[k] === "string" ? String(lines[k]).trim().slice(0, 240) : "";
+      (s as Record<string, unknown>).insightLine = line;
+    });
     return { stops: order.map((n) => baseline[n - 1]), note };
   } catch (err) {
     console.error("[ai-workflow-run] AI stop ordering failed:", err);
@@ -592,16 +612,21 @@ async function runVisitOptimiser(supabase: any, userId: string) {
   // an accepted AI order is recomputed here — never by the model.
   let finalStops = stops;
   let routeNote = "";
+  let aiAccepted = false;
   const orderApiKey = Deno.env.get("TOGETHER_API_KEY");
   if (orderApiKey && stops.length >= 2 && stops.length <= 20) {
     const aiOrdered = await aiOrderStops(stops, orderApiKey);
     if (aiOrdered) {
       finalStops = aiOrdered.stops.map((s, i) => ({ ...s, sequence: i + 1 }));
       routeNote = aiOrdered.note;
+      aiAccepted = true;
     }
   }
+  // Every stop carries insightLine (possibly "") so consumers can detect the
+  // wording-capable schema; "" means the client uses its fallback wording.
+  finalStops = finalStops.map((s) => ({ ...s, insightLine: (s as any).insightLine ?? "" }));
   let finalKm = Math.round(totalKm * 10) / 10;
-  if (finalStops !== stops) {
+  if (aiAccepted) {
     let km = 0;
     for (let i = 1; i < finalStops.length; i++) {
       const a = finalStops[i - 1];

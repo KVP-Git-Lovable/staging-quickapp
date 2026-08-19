@@ -72,13 +72,28 @@ const inrCompact = (n: number) =>
   `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 /** Display-only sentences built from the stored agent numbers (same pattern
- * as the beat-card nudge) — the agents computed the figures, we narrate. */
+ * as the beat-card nudge) — the agents computed the figures, we narrate.
+ * Wording is drawn from small variant pools keyed by retailer id so cards
+ * read personally written rather than uniform; the figures never change. */
+const wordingIndex = (key: string, variants: number) => {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return h % variants;
+};
+
 function churnInsightLine(r: ChurnRow): string {
-  const tone = r.dropPct >= 60 ? "opportunity" : "moment";
-  return `Their orders have dipped ${r.dropPct}% (${inrCompact(r.priorValue)} → ${inrCompact(r.recentValue)} vs the previous 30 days) — today's visit is a good ${tone} to reconnect.`;
+  const drop = `${r.dropPct}% (${inrCompact(r.priorValue)} → ${inrCompact(r.recentValue)})`;
+  const variants = [
+    `They've eased off lately — orders are down ${drop} vs the previous 30 days. A warm visit today could bring things back around!`,
+    `Orders here have slipped ${drop} over the last 30 days — a great chance to reconnect and hear what's changed!`,
+    `This store used to order more — down ${drop} vs the previous 30 days. Drop in with a smile and a fresh pitch today!`,
+  ];
+  return variants[wordingIndex(r.retailerId, variants.length)];
 }
 
 function routeInsightLine(s: RouteStop): string {
+  // Prefer the AI-written line stored on the stop by the Visit Optimiser run.
+  if (s.insightLine) return s.insightLine;
   const parts: string[] = [];
   parts.push(
     s.daysSinceLastVisit == null
@@ -87,18 +102,33 @@ function routeInsightLine(s: RouteStop): string {
         ? "you were here earlier today"
         : `your last visit was ${s.daysSinceLastVisit} day${s.daysSinceLastVisit === 1 ? "" : "s"} ago`,
   );
-  if (s.pending > 0) parts.push(`${inrCompact(s.pending)} is pending to collect`);
+  if (s.pending > 0) parts.push(`${inrCompact(s.pending)} is waiting to be collected`);
   if (s.visits > 0) parts.push(`orders land on ${s.productivityPct}% of your visits`);
-  return `AI Visit Optimiser ranks this stop #${s.sequence} today — ${parts.join(", ")}.`;
+  const detail = parts.join(", ");
+  const variants = [
+    `Worth swinging by as stop #${s.sequence} today — ${detail}. A quick hello could go a long way!`,
+    `Today's route puts this one at #${s.sequence} — ${detail}. Good moment to check in!`,
+    `Pencilled in at #${s.sequence} on today's route: ${detail}. Make it count!`,
+  ];
+  return variants[wordingIndex(s.retailerId, variants.length)];
 }
 
 function coachInsightLine(r: CoachRow): string {
-  const sold = `You've sold ${inrCompact(r.orderValue)} here in the last 30 days`;
-  const mostly = r.topProduct ? `, mostly ${r.topProduct}` : "";
-  const gaps = r.gapProducts?.length
-    ? ` — they aren't buying ${r.gapProducts.slice(0, 2).join(" or ")} yet, a good pitch for today`
-    : " — they already take your full top range, keep it stocked";
-  return `${sold}${mostly}${gaps}.`;
+  const sold = inrCompact(r.orderValue);
+  const lead = r.topProduct ?? "";
+  const gaps = (r.gapProducts ?? []).slice(0, 2);
+  const gapText = gaps.join(" or ");
+  const variants = gaps.length
+    ? [
+        `A steady partner — ${sold} of orders in the last 30 days${lead ? `, mostly ${lead}` : ""} — and they haven't tried ${gapText} yet. Perfect pitch for today!`,
+        `You've built ${sold} of business here in a month${lead ? ` (${lead} leads the way)` : ""} — why not introduce ${gapText} today?`,
+        `Solid buyer: ${sold} in the last 30 days${lead ? `, mostly ${lead}` : ""}. ${gapText} is still missing from their shelf — worth a friendly nudge!`,
+      ]
+    : [
+        `One of your best relationships — ${sold} in the last 30 days, and they already take your full top range. Keep them stocked and smiling!`,
+        `${sold} of orders here in just 30 days, covering all your top products — a quick thank-you visit goes a long way!`,
+      ];
+  return variants[wordingIndex(r.retailerId, variants.length)];
 }
 
 interface Visit {

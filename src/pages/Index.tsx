@@ -15,6 +15,7 @@ import { DeviceInfoCard } from "@/components/home/DeviceInfoCard";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSignedUrl } from "@/hooks/useSignedUrl";
+import { prewarmVisitOptimizerInsights } from "@/hooks/useVisitOptimizerInsights";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +32,13 @@ const Index = () => {
   const { t } = useTranslation('common');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const dashboardUserId = user?.id;
+
+  // Warm today's Visit Optimiser run from the home page so the AI Visit
+  // Optimizer section on /visits/retailers renders instantly when opened.
+  // Guarded + best-effort: no-op when a fresh run already exists.
+  useEffect(() => {
+    if (user?.id) void prewarmVisitOptimizerInsights(user.id);
+  }, [user?.id]);
   const activeUserProfile = userProfile?.id === user?.id ? userProfile : null;
   const { todayData, performance, urgentItems, isLoading, lastUpdated, refresh } = useHomeDashboard(dashboardUserId, selectedDate);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string | null>(null);

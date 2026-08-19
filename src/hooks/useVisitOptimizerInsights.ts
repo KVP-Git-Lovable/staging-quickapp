@@ -43,6 +43,8 @@ export interface RouteStop {
   typicalOrderHour?: number | null;
   /** Display label for typicalOrderHour, e.g. "10 AM". */
   typicalOrderTime?: string | null;
+  /** AI-written warm one-liner for this stop ("" = use client fallback wording). */
+  insightLine?: string | null;
   lat?: number | null;
   lng?: number | null;
 }
@@ -86,10 +88,68 @@ const isFresh = (res: RouteResult | null): boolean => {
   if (!res || res.kind !== "route" || !Array.isArray(res.newRetailers)) return false;
   const stops = res.stops ?? [];
   if (stops.length > 0 && !("typicalOrderHour" in stops[0])) return false;
+  if (stops.length > 0 && !("insightLine" in stops[0])) return false;
   if (!("routeNote" in res)) return false;
   const today = new Date().toISOString().slice(0, 10);
   return res.date === today || res.date === localToday();
 };
+
+/** Newest successful visit_optimiser execution belonging to this user. */
+async function fetchLatestRun(userId: string): Promise<RouteResult | null> {
+  const { data: agent } = await supabase
+    .from("ai_agents")
+    .select("id")
+    .eq("key", "visit_optimiser")
+    .maybeSingle();
+  if (!agent?.id) return null;
+  const { data } = await supabase
+    .from("workflow_executions")
+    .select("result")
+    .eq("agent_id", agent.id)
+    .eq("status", "success")
+    .eq("triggered_by", userId)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const res = (data?.result ?? null) as RouteResult | null;
+  return res?.kind === "route" ? res : null;
+}
+
+/** Trigger one visit_optimiser run and return its result (null on failure). */
+async function triggerRun(): Promise<RouteResult | null> {
+  const { data: sess } = await supabase.auth.getSession();
+  const token = sess.session?.access_token;
+  if (!token) throw new Error("signed out");
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-workflow-run`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ agentKey: "visit_optimiser" }),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.error ?? `Run failed (${res.status})`);
+  return body?.kind === "route" ? (body as RouteResult) : null;
+}
+
+/**
+ * Warm today's Visit Optimiser run ahead of time (e.g. from the home page)
+ * so the AI Visit Optimizer section on /visits/retailers renders instantly.
+ * Same policy and concurrency guard as the hook: if a fresh run for today
+ * already exists nothing happens; otherwise exactly one run is triggered.
+ * Best-effort — never throws.
+ */
+export async function prewarmVisitOptimizerInsights(userId: string): Promise<void> {
+  if (!userId || autoRunInFlight) return;
+  autoRunInFlight = true;
+  try {
+    const latest = await fetchLatestRun(userId);
+    if (isFresh(latest)) return;
+    await triggerRun();
+  } catch (e) {
+    console.warn("[useVisitOptimizerInsights] prewarm failed:", e);
+  } finally {
+    autoRunInFlight = false;
+  }
+}
 
 export function useVisitOptimizerInsights(): VisitOptimizerInsights {
   const { user } = useAuth();
@@ -104,39 +164,11 @@ export function useVisitOptimizerInsights(): VisitOptimizerInsights {
     };
   }, []);
 
-  /** Newest successful visit_optimiser execution belonging to this user. */
-  const loadLatest = useCallback(async (userId: string) => {
-    const { data: agent } = await supabase
-      .from("ai_agents")
-      .select("id")
-      .eq("key", "visit_optimiser")
-      .maybeSingle();
-    if (!agent?.id) return null;
-    const { data } = await supabase
-      .from("workflow_executions")
-      .select("result")
-      .eq("agent_id", agent.id)
-      .eq("status", "success")
-      .eq("triggered_by", userId)
-      .order("started_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const res = (data?.result ?? null) as RouteResult | null;
-    return res?.kind === "route" ? res : null;
-  }, []);
+  const loadLatest = useCallback((userId: string) => fetchLatestRun(userId), []);
 
   const runNow = useCallback(async () => {
-    const { data: sess } = await supabase.auth.getSession();
-    const token = sess.session?.access_token;
-    if (!token) throw new Error("signed out");
-    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-workflow-run`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ agentKey: "visit_optimiser" }),
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok) throw new Error(body?.error ?? `Run failed (${res.status})`);
-    if (mountedRef.current && body?.kind === "route") setResult(body as RouteResult);
+    const body = await triggerRun();
+    if (mountedRef.current && body) setResult(body);
   }, []);
 
   useEffect(() => {
