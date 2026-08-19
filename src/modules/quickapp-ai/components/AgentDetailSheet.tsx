@@ -35,8 +35,9 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
       "Retailer priority class (A / B / C)",
       "GPS distance between stops (nearest-neighbour routing)",
       "Estimated total travel distance",
+      "Retailers newly added to a beat (last 14 days) — flagged as fresh pitching opportunities with an AI reminder line each",
     ],
-    note: "Each stop gets a deterministic score from recency, dues, productivity, order value and priority, then stops are ordered geographically to cut travel. AI only explains the computed route — no plans or visits are modified.",
+    note: "Each stop gets a deterministic score from recency, dues, productivity, order value and priority, then stops are ordered geographically to cut travel. AI only explains the computed route and writes the newcomer pitch reminders — no plans or visits are modified.",
   },
   churn_detector: {
     signals: [
@@ -58,6 +59,7 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
       "Confirmed order value per beat (30 days)",
       "Field capacity of ~25 stops per visit day",
       "Suggested visit days per beat for next month",
+      "Retailers newly added to each beat (last 14 days) — called out as fresh pitching opportunities",
     ],
     note: "Beats are ranked lowest-coverage-first and visit days are allocated from retailer counts and capacity. AI only turns the ranking into a recommendation — no beats, plans or visits are modified.",
   },
@@ -221,6 +223,19 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                   </p>
                 </div>
               ))}
+              {Array.isArray(result.newRetailers) && result.newRetailers.length > 0 && (
+                <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 p-2.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                  <p className="text-xs font-medium">
+                    Newly added retailers ({result.newRetailers.length})
+                  </p>
+                  {result.newRetailers.map((n: any) => (
+                    <p key={n.retailerId} className="mt-1 text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">{n.name}</span>
+                      {n.beat ? ` (${n.beat})` : ""} · added {n.daysOld}d ago — {n.line}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -241,6 +256,7 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                     {[
                       `${b.retailers} retailers`,
                       `${b.visited30d} visited in 30d`,
+                      b.newRetailers ? `${b.newRetailers} newly added` : null,
                       b.pending ? `₹${Math.round(b.pending).toLocaleString("en-IN")} pending` : null,
                       `${b.suggestedDays} visit day${b.suggestedDays !== 1 ? "s" : ""} suggested`,
                     ]

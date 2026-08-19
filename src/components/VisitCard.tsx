@@ -105,6 +105,11 @@ interface Visit {
     priorValue: number;
     dropPct: number;
   };
+  /** Newly-added-retailer pitch reminder from the stored Visit Optimiser run. */
+  newRetailerInsight?: {
+    retailerId: string;
+    line: string;
+  };
 }
 interface VisitCardProps {
   visit: Visit;
@@ -3048,6 +3053,19 @@ export const VisitCard = ({
               </div>
             </div>}
         </div>
+
+        {/* New-retailer pitch reminder — from the stored Visit Optimiser run (display only) */}
+        {visit.newRetailerInsight && (
+          <div
+            className="mb-3 flex items-start gap-2 rounded-md border border-emerald-200/70 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-100 px-2.5 py-2 dark:border-emerald-900/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-sky-950/30"
+            title="From AI Visit Optimiser — newly added retailer"
+          >
+            <Sparkles size={13} className="mt-0.5 shrink-0 text-emerald-700 dark:text-emerald-400" />
+            <span className="text-[12px] leading-snug text-emerald-950 dark:text-emerald-100">
+              {visit.newRetailerInsight.line}
+            </span>
+          </div>
+        )}
 
         {/* Churn nudge — from the stored Churn Detector run (display only) */}
         {visit.churnInsight && (

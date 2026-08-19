@@ -55,6 +55,7 @@ import { ActivityEventsTable } from "@/components/ActivityEventsTable";
 import { ActivityVisitDetail } from "@/components/ActivityVisitDetail";
 import { useActivityVisits } from "@/hooks/useActivityVisits";
 import { useChurnRisk, type ChurnRow } from "@/hooks/useChurnRisk";
+import { useNewRetailerInsights, type NewRetailerInsight } from "@/hooks/useNewRetailerInsights";
 
 // UI display bar only: which detected declines are worth surfacing on a
 // visit card. Unrelated to (and must never alter) the Churn Detector's own
@@ -83,6 +84,8 @@ interface Visit {
   distributor?: string;
   /** This retailer's row from the stored Churn Detector result (display only). */
   churnInsight?: ChurnRow;
+  /** Newly-added-retailer pitch reminder from the stored Visit Optimiser run. */
+  newRetailerInsight?: NewRetailerInsight;
 }
 const mockVisits: Visit[] = [{
   id: "1",
@@ -368,6 +371,17 @@ export const MyVisits = () => {
     return map;
   }, [churnResult]);
 
+  // Newly-added-retailer pitch reminders from the stored Visit Optimiser run
+  // (display only — the hook owns any run policy, this page never triggers).
+  const { newRetailers: newcomerRows } = useNewRetailerInsights();
+  const newcomerByRetailer = useMemo(() => {
+    const map = new Map<string, NewRetailerInsight>();
+    newcomerRows.forEach((n) => {
+      if (n.retailerId && n.line) map.set(String(n.retailerId), n);
+    });
+    return map;
+  }, [newcomerRows]);
+
   // Process retailers from optimized data - single source of truth
   const retailers = useMemo(() => {
     // SAFETY: Never return [] if we previously had retailers.
@@ -451,8 +465,11 @@ export const MyVisits = () => {
       const isNewRetailer =
         retailer.created_at &&
         Date.now() - new Date(retailer.created_at).getTime() < CHURN_INSIGHT_MIN_AGE_MS;
+      // New-retailer pitch reminder wins over the churn nudge — a store this
+      // fresh has no decline story worth telling, and one banner per card.
+      const newRetailerInsight = newcomerByRetailer.get(String(retailer.id));
       const churnInsight =
-        churnRow && churnRow.dropPct >= CHURN_INSIGHT_THRESHOLD && !isNewRetailer
+        !newRetailerInsight && churnRow && churnRow.dropPct >= CHURN_INSIGHT_THRESHOLD && !isNewRetailer
           ? churnRow
           : undefined;
 
@@ -468,6 +485,7 @@ export const MyVisits = () => {
         visitType: visit?.visit_type || 'Regular Visit',
         createdAt: retailer.created_at || undefined,
         churnInsight,
+        newRetailerInsight,
         visitId: visit?.id,
         hasOrder,
         orderValue: totalOrderValue,
@@ -502,7 +520,7 @@ export const MyVisits = () => {
       prevRetailersRef.current = { user: selectedViewUserId, date: selectedDate, items: transformedRetailers };
     });
     return transformedRetailers;
-  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId, churnByRetailer]);
+  }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId, churnByRetailer, newcomerByRetailer]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now

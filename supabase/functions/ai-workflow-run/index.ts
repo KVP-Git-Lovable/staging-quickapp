@@ -17,6 +17,10 @@ const corsHeaders = {
 const CONFIRMED = new Set(["confirmed", "delivered", "invoiced", "completed", "dispatched", "packed"]);
 const DAY_MS = 86_400_000;
 const SUPPORTED = new Set(["visit_optimiser", "churn_detector", "beat_planner", "sales_coach"]);
+// A retailer counts as "newly added" for this many days after creation —
+// shared by the Visit Optimiser newcomer pitch lines and the Beat Planner
+// per-beat newcomer counts.
+const NEW_RETAILER_DAYS = 14;
 
 function jsonError(status: number, code: string, message: string) {
   return new Response(JSON.stringify({ error: message, code }), {
@@ -130,6 +134,150 @@ async function runChurnDetector(supabase: any, userId: string) {
   };
 }
 
+interface Newcomer {
+  retailerId: string;
+  name: string;
+  beat: string;
+  category: string;
+  createdAt: string;
+  daysOld: number;
+  /** Friendly AI pitch reminder for this newcomer (fallback template if the
+   * provider is unavailable). */
+  line: string;
+}
+
+/** Retailers added to a beat within the last NEW_RETAILER_DAYS, newest first.
+ * RLS scopes the query to what the caller may see. */
+async function fetchNewcomers(supabase: any, now: Date): Promise<Newcomer[]> {
+  const cutoff = new Date(now.getTime() - NEW_RETAILER_DAYS * DAY_MS).toISOString();
+  const { data } = await supabase
+    .from("retailers")
+    .select("id, name, beat_name, category, created_at")
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(12);
+  return (data ?? [])
+    .filter((r: any) => String(r.beat_name ?? "").trim())
+    .map((r: any) => {
+      const createdAt = String(r.created_at ?? "");
+      const daysOld = createdAt
+        ? Math.max(0, Math.round((now.getTime() - new Date(createdAt).getTime()) / DAY_MS))
+        : 0;
+      return {
+        retailerId: String(r.id),
+        name: String(r.name ?? "Retailer"),
+        beat: String(r.beat_name).trim(),
+        category: String(r.category ?? "").trim(),
+        createdAt,
+        daysOld,
+        line: "",
+      };
+    });
+}
+
+/** Rep's confirmed top products by value in the last 30 days (names only) —
+ * the honest opener list newcomer pitch lines may reference. */
+async function fetchTopProductNames(
+  supabase: any,
+  userId: string,
+  sinceIso: string,
+  todayIso: string,
+): Promise<string[]> {
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("id, status")
+    .eq("user_id", userId)
+    .gte("order_date", sinceIso)
+    .lte("order_date", todayIso)
+    .limit(1000);
+  const ids = (orders ?? [])
+    .filter((o: any) => CONFIRMED.has(String(o.status ?? "").toLowerCase()))
+    .map((o: any) => String(o.id))
+    .slice(0, 800);
+  if (!ids.length) return [];
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("order_id, product_name, total")
+    .in("order_id", ids)
+    .limit(6000);
+  const byName = new Map<string, number>();
+  (items ?? []).forEach((it: any) => {
+    const name = String(it.product_name ?? "").trim();
+    if (name) byName.set(name, (byName.get(name) ?? 0) + num(it.total));
+  });
+  return [...byName.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name]) => name);
+}
+
+function newcomerFallbackLine(n: Newcomer, topProducts: string[]): string {
+  const age = n.daysOld === 0 ? "today" : `${n.daysOld} day${n.daysOld === 1 ? "" : "s"} ago`;
+  const opener = topProducts.length ? ` ${topProducts[0]} is a proven opener from your range.` : "";
+  return `New retailer — added to your ${n.beat} beat ${age}. A warm first pitch sets the tone: introduce your range and learn what this store sells best.${opener}`;
+}
+
+/** One friendly AI pitch line per newcomer. The model personalises wording
+ * to each store's name/category but may only mention products from the
+ * rep's own top-seller list — it never invents products or numbers. Every
+ * newcomer always keeps a deterministic fallback line, so a provider
+ * failure degrades wording, not the feature. */
+async function generateNewcomerLines(newcomers: Newcomer[], topProducts: string[]) {
+  newcomers.forEach((n) => {
+    n.line = newcomerFallbackLine(n, topProducts);
+  });
+  const apiKey = Deno.env.get("TOGETHER_API_KEY");
+  if (!apiKey || !newcomers.length) return;
+  try {
+    const payload = {
+      newRetailers: newcomers.map((n) => ({
+        retailerId: n.retailerId,
+        name: n.name,
+        beat: n.beat,
+        category: n.category || undefined,
+        daysOld: n.daysOld,
+      })),
+      yourTopProducts: topProducts,
+    };
+    const messages: ChatMessage[] = [
+      {
+        role: "system",
+        content:
+          "You write one short, friendly reminder line per newly added retailer for a field sales rep's visit list. " +
+          "Each line must (a) note the store is newly added, (b) suggest a concrete pitching opportunity personalised to that store's name/category, and " +
+          "(c) mention at most two product names, ONLY from yourTopProducts — never invent products, prices or facts. Under 35 words, warm and encouraging, no pressure language. " +
+          'Return STRICT JSON only — an array like [{"retailerId":"...","line":"..."}] covering every retailer. No markdown, no extra keys, no commentary.',
+      },
+      { role: "user", content: JSON.stringify(payload) },
+    ];
+    const stream = await streamChat({ apiKey, messages });
+    const drain = (async () => {
+      const reader = stream.tokens.getReader();
+      while (true) {
+        const { done } = await reader.read();
+        if (done) return;
+      }
+    })();
+    const [text] = await Promise.all([stream.fullText, drain]);
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) return;
+    const arr = JSON.parse(match[0]);
+    if (!Array.isArray(arr)) return;
+    const byId = new Map<string, string>();
+    arr.forEach((e: any) => {
+      const id = String(e?.retailerId ?? "");
+      const line = String(e?.line ?? "").trim();
+      if (id && line) byId.set(id, line.slice(0, 240));
+    });
+    newcomers.forEach((n) => {
+      const line = byId.get(n.retailerId);
+      if (line) n.line = line;
+    });
+  } catch (err) {
+    console.error("[ai-workflow-run] newcomer line generation failed:", err);
+  }
+}
+
 /** Visit Optimiser — deterministic stop scoring on today's planned visits.
  * History window: last 30 days of visits and orders. */
 async function runVisitOptimiser(supabase: any, userId: string) {
@@ -146,16 +294,37 @@ async function runVisitOptimiser(supabase: any, userId: string) {
     .limit(200);
   if (error) throw error;
 
+  // Newly added retailers get a friendly AI pitch reminder regardless of
+  // whether they are on today's route — /my-visits banners read this list
+  // for whichever day's visits are on screen.
+  const newcomers = await fetchNewcomers(supabase, now);
+  if (newcomers.length) {
+    const topProducts = await fetchTopProductNames(supabase, userId, since, today);
+    await generateNewcomerLines(newcomers, topProducts);
+  }
+  const newcomerFacts = newcomers.length
+    ? [
+        "",
+        `### Newly added retailers (last ${NEW_RETAILER_DAYS} days) — fresh pitching opportunities`,
+        newcomers
+          .map((n) => `- ${n.name} (${n.beat}${n.category ? `, ${n.category}` : ""}, added ${n.daysOld}d ago)`)
+          .join("\n"),
+      ]
+    : [];
+
   const retailerIds = [
     ...new Set((todayVisits ?? []).map((v: any) => v.retailer_id).filter(Boolean).map(String)),
   ];
 
   if (!retailerIds.length) {
     return {
-      facts: `Today: ${today}\nNo visits are planned for today, so there is nothing to optimise.`,
-      result: { kind: "route", stops: [], date: today, totalKm: 0 },
+      facts: [`Today: ${today}`, "No visits are planned for today, so there is nothing to optimise.", ...newcomerFacts].join("\n"),
+      result: { kind: "route", stops: [], date: today, totalKm: 0, newRetailers: newcomers },
       systemPrompt:
-        "You are QuickApp's Visit Optimiser agent. Reply with one short, friendly markdown line telling the user no visits are planned today.",
+        "You are QuickApp's Visit Optimiser agent. Use ONLY the DATA block. Reply with one short, friendly markdown line telling the user no visits are planned today" +
+        (newcomers.length
+          ? ", plus one warm line pointing out the newly added retailers as fresh pitching opportunities."
+          : "."),
       userPrompt: "Optimise today's beat.",
     };
   }
@@ -275,14 +444,22 @@ async function runVisitOptimiser(supabase: any, userId: string) {
           `pending ${inr(s.pending)}, ${s.orders}/${s.visits} visits productive (${s.productivityPct}%)`,
       )
       .join("\n"),
+    ...newcomerFacts,
   ].join("\n");
 
   return {
     facts,
-    result: { kind: "route", stops, date: today, totalKm: Math.round(totalKm * 10) / 10 },
+    result: {
+      kind: "route",
+      stops,
+      date: today,
+      totalKm: Math.round(totalKm * 10) / 10,
+      newRetailers: newcomers,
+    },
     systemPrompt:
       "You are QuickApp's Visit Optimiser agent. Use ONLY the figures in the DATA block — never invent retailers, numbers or distances. " +
       "Use ₹ for currency. Reply in compact markdown: one headline line, then up to five bullets explaining why the top stops come first, " +
+      "then, if the DATA lists newly added retailers, one warm bullet flagging them as fresh pitching opportunities, " +
       "then a single line starting with 'Suggested step:'. Keep it under 150 words and stay encouraging.",
     userPrompt: "Explain the optimised order for today's beat.",
   };
@@ -298,7 +475,7 @@ async function runBeatPlanner(supabase: any, userId: string) {
   // RLS scopes retailers to what the caller may see, same as the other runners.
   const { data: retailers, error } = await supabase
     .from("retailers")
-    .select("id, name, beat_name, priority, pending_amount, last_visit_date")
+    .select("id, name, beat_name, priority, pending_amount, last_visit_date, created_at")
     .limit(3000);
   if (error) throw error;
 
@@ -340,6 +517,8 @@ async function runBeatPlanner(supabase: any, userId: string) {
     orderValue.set(rid, (orderValue.get(rid) ?? 0) + num(o.total_amount));
   });
 
+  const newcomerCutoff = now.getTime() - NEW_RETAILER_DAYS * DAY_MS;
+
   interface BeatAgg {
     beat: string;
     retailers: number;
@@ -348,6 +527,7 @@ async function runBeatPlanner(supabase: any, userId: string) {
     orderValue: number;
     daysSinceSum: number;
     daysSinceCount: number;
+    newRetailers: number;
   }
   const beats = new Map<string, BeatAgg>();
   (retailers ?? []).forEach((r: any) => {
@@ -360,12 +540,16 @@ async function runBeatPlanner(supabase: any, userId: string) {
       orderValue: 0,
       daysSinceSum: 0,
       daysSinceCount: 0,
+      newRetailers: 0,
     };
     const rid = String(r.id);
     agg.retailers += 1;
     if (visited.has(rid)) agg.visited30d += 1;
     agg.pending += num(r.pending_amount);
     agg.orderValue += orderValue.get(rid) ?? 0;
+    if (r.created_at && new Date(r.created_at).getTime() >= newcomerCutoff) {
+      agg.newRetailers += 1;
+    }
     if (r.last_visit_date) {
       agg.daysSinceSum += Math.max(
         0,
@@ -386,6 +570,7 @@ async function runBeatPlanner(supabase: any, userId: string) {
       orderValue: Math.round(b.orderValue),
       avgDaysSinceVisit: b.daysSinceCount ? Math.round(b.daysSinceSum / b.daysSinceCount) : null,
       suggestedDays: Math.max(1, Math.ceil(b.retailers / STOPS_PER_DAY)),
+      newRetailers: b.newRetailers,
     }))
     .sort((a, b) => a.coveragePct - b.coveragePct || b.retailers - a.retailers)
     .slice(0, 12);
@@ -403,7 +588,9 @@ async function runBeatPlanner(supabase: any, userId: string) {
         (b) =>
           `- ${b.beat}: ${b.retailers} retailers, ${b.visited30d} visited in 30d (${b.coveragePct}% coverage), ` +
           `pending ${inr(b.pending)}, 30d orders ${inr(b.orderValue)}, ` +
-          `avg ${b.avgDaysSinceVisit ?? "?"} days since last visit → suggest ${b.suggestedDays} visit day(s) next month`,
+          `avg ${b.avgDaysSinceVisit ?? "?"} days since last visit` +
+          `${b.newRetailers ? `, ${b.newRetailers} newly added retailer(s) in the last ${NEW_RETAILER_DAYS}d` : ""}` +
+          ` → suggest ${b.suggestedDays} visit day(s) next month`,
       )
       .join("\n"),
   ].join("\n");
@@ -413,7 +600,8 @@ async function runBeatPlanner(supabase: any, userId: string) {
     result: { kind: "beat_plan", rows, date: today, totalRetailers },
     systemPrompt:
       "You are QuickApp's Beat Planner agent. Use ONLY the figures in the DATA block — never invent beats, retailers or numbers. " +
-      "Use ₹ for currency. Reply in compact markdown: one headline line, then up to five bullets recommending which beats to prioritise next month and why, " +
+      "Use ₹ for currency. Reply in compact markdown: one headline line, then up to five bullets recommending which beats to prioritise next month and why — " +
+      "where a beat has newly added retailers, call them out as fresh pitching opportunities — " +
       "then a single line starting with 'Suggested step:'. Keep it under 150 words and stay practical.",
     userPrompt: "Draft next month's beat plan from my coverage data.",
   };

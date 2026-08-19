@@ -23,13 +23,14 @@ export interface PitchSuggestion {
   name: string;
   qty: number;
   unit: string;
-  tag: "reorder" | "top_seller" | "store_match";
+  tag: "reorder" | "top_seller" | "store_match" | "beat_favourite";
   reason: string;
 }
 
 interface PitchResult {
   kind: string;
   retailerId: string;
+  isNewRetailer?: boolean;
   suggestions: PitchSuggestion[];
   summary?: string;
 }
@@ -38,13 +39,16 @@ const TAG_STYLE: Record<PitchSuggestion["tag"], { label: string; cls: string }> 
   reorder: { label: "Reorder due", cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300" },
   top_seller: { label: "Top seller", cls: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300" },
   store_match: { label: "Store match", cls: "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-300" },
+  beat_favourite: { label: "Beat favourite", cls: "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-300" },
 };
+// Server may introduce tags this build doesn't know yet — render, don't crash.
+const FALLBACK_TAG = { label: "Suggested", cls: "border-border bg-muted text-muted-foreground" };
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 // Bump when the suggestion logic changes server-side so stale cached results
 // (old quantities/products) are discarded immediately instead of surviving
 // the TTL window.
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 
 interface Props {
   retailerId: string;
@@ -140,6 +144,11 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
               <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
             </span>
             <p className="text-sm font-semibold">AI Pitch Suggestions</p>
+            {!loading && result?.isNewRetailer && (
+              <Badge variant="outline" className="text-[10px] border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                New retailer
+              </Badge>
+            )}
             {loading && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" /> analysing this store…
@@ -165,7 +174,7 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
         {!loading && suggestions.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {suggestions.map((s) => {
-              const tag = TAG_STYLE[s.tag];
+              const tag = TAG_STYLE[s.tag] ?? FALLBACK_TAG;
               return (
                 <span
                   key={s.productId + s.name}
