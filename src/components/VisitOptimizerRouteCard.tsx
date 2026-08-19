@@ -60,13 +60,15 @@ function nearbyClusters(stops: RouteStop[]): string[][] {
 interface Props {
   stops: RouteStop[];
   totalKm: number;
+  /** AI's one-line explanation of the chosen order (empty = baseline copy). */
+  routeNote?: string;
   loading: boolean;
   applied: boolean;
   onSuggestRoute: () => void;
   onReset: () => void;
 }
 
-export function VisitOptimizerRouteCard({ stops, totalKm, loading, applied, onSuggestRoute, onReset }: Props) {
+export function VisitOptimizerRouteCard({ stops, totalKm, routeNote, loading, applied, onSuggestRoute, onReset }: Props) {
   if (!loading && stops.length === 0) return null;
 
   const top = stops.slice(0, 5);
@@ -124,7 +126,9 @@ export function VisitOptimizerRouteCard({ stops, totalKm, loading, applied, onSu
             <p className="mt-2.5 text-xs text-amber-950 dark:text-amber-100">
               {`${stops.length} stop${stops.length === 1 ? "" : "s"} planned today`}
               {totalKm > 0 ? ` — about ${totalKm.toFixed(1)} km if you follow this order.` : "."}
-              {" Start where the day starts: stores that order early come first, and nearby stores are chained together to cut travel."}
+              {routeNote
+                ? ` ${routeNote}`
+                : " Start where the day starts: stores that order early come first, and nearby stores are chained together to cut travel."}
             </p>
 
             <ol className="mt-2 space-y-1">

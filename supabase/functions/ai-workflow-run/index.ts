@@ -278,6 +278,124 @@ async function generateNewcomerLines(newcomers: Newcomer[], topProducts: string[
   }
 }
 
+/** Near-tie groups for the Visit Optimiser: connected components of the
+ * <= 1.0 km proximity graph (edges = stop pairs within 1.0 km by the existing
+ * haversineKm). Stops without coordinates form no edges (singletons).
+ * Deterministic — the AI never interprets "near". */
+function nearTieComponents(stops: Array<{ lat: number | null; lng: number | null }>): number[] {
+  const n = stops.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const a = stops[i];
+      const b = stops[j];
+      if (
+        a.lat != null && a.lng != null && b.lat != null && b.lng != null &&
+        haversineKm([a.lat, a.lng], [b.lat, b.lng]) <= 1.0
+      ) {
+        parent[find(i)] = find(j);
+      }
+    }
+  }
+  return stops.map((_, i) => find(i));
+}
+
+/** AI-selected day ordering over the deterministic baseline route.
+ *
+ * The policy is FIXED server-side — the AI selects the day's ordering from
+ * the deterministic facts, it never invents policy, calculates, or alters
+ * facts: (1) proximity governs the macro-route — stops in DIFFERENT
+ * near-tie components must retain their baseline relative ordering;
+ * (2) typical order time is preferred within a component and for the start;
+ * (3) deterministic score breaks remaining ties.
+ *
+ * Two-layer deterministic validation: the returned order must be an exact
+ * permutation of 1..N, AND every cross-component pair must keep its baseline
+ * relative order (reordering is permitted only within a component). Any
+ * failure — parse, validation, provider — returns null and the caller keeps
+ * the deterministic baseline; the run never fails because of this step. */
+async function aiOrderStops<
+  T extends {
+    name: string;
+    score: number;
+    pending: number;
+    productivityPct: number;
+    typicalOrderTime?: string | null;
+    lat: number | null;
+    lng: number | null;
+  },
+>(baseline: T[], apiKey: string): Promise<{ stops: T[]; note: string } | null> {
+  try {
+    const comp = nearTieComponents(baseline);
+    const lines = baseline
+      .map((s, i) => {
+        const prev = i > 0 ? baseline[i - 1] : null;
+        const dPrev =
+          prev && prev.lat != null && prev.lng != null && s.lat != null && s.lng != null
+            ? `${haversineKm([prev.lat, prev.lng], [s.lat, s.lng]).toFixed(1)} km from the previous stop`
+            : "distance from the previous stop unknown";
+        return (
+          `${i + 1}. ${s.name} — near-tie group ${comp[i]}, ` +
+          `${s.typicalOrderTime ? `usually orders around ${s.typicalOrderTime}` : "no typical order time"}, ` +
+          `score ${s.score}, pending ${inr(s.pending)}, ${s.productivityPct}% strike rate, ${dPrev}`
+        );
+      })
+      .join("\n");
+    const messages: ChatMessage[] = [
+      {
+        role: "system",
+        content:
+          "You order a field sales rep's visit stops for the day. The numbered STOPS are the COMPLETE candidate list in deterministic " +
+          "baseline order — you may not add or remove stops and you may not change any stated fact; you may ONLY choose the visiting order. " +
+          "FIXED policy: (1) proximity governs the macro-route — stops belonging to DIFFERENT near-tie groups must retain their baseline " +
+          "relative ordering, never move a distant stop earlier just because it orders earlier in the day; (2) WITHIN a near-tie group " +
+          "(stores within about 1 km of each other), stores with earlier typical order times come first; (3) break remaining ties by " +
+          "higher score. " +
+          'Return STRICT JSON only: {"order":[<every stop number exactly once>],"note":"one short friendly line explaining the ordering"} ' +
+          "— no markdown, no extra keys.",
+      },
+      { role: "user", content: `STOPS\n---\n${lines}\n---\nChoose the visiting order.` },
+    ];
+    const stream = await streamChat({ apiKey, messages });
+    const drain = (async () => {
+      const reader = stream.tokens.getReader();
+      while (true) {
+        const { done } = await reader.read();
+        if (done) return;
+      }
+    })();
+    const [text] = await Promise.all([stream.fullText, drain]);
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]);
+    const order: number[] = Array.isArray(parsed?.order)
+      ? parsed.order.map((v: unknown) => Math.round(Number(v)))
+      : [];
+    // Layer 1: exact permutation of 1..N.
+    if (
+      order.length !== baseline.length ||
+      new Set(order).size !== baseline.length ||
+      order.some((v) => !Number.isInteger(v) || v < 1 || v > baseline.length)
+    ) {
+      return null;
+    }
+    // Layer 2: cross-component pairs keep their baseline relative order.
+    for (let a = 0; a < order.length; a++) {
+      for (let b = a + 1; b < order.length; b++) {
+        const i = order[a] - 1;
+        const j = order[b] - 1;
+        if (comp[i] !== comp[j] && i > j) return null;
+      }
+    }
+    const note = String(parsed?.note ?? "").trim().slice(0, 220);
+    return { stops: order.map((n) => baseline[n - 1]), note };
+  } catch (err) {
+    console.error("[ai-workflow-run] AI stop ordering failed:", err);
+    return null;
+  }
+}
+
 /** Visit Optimiser — deterministic stop scoring on today's planned visits.
  * History window: last 30 days of visits and orders. */
 async function runVisitOptimiser(supabase: any, userId: string) {
@@ -319,7 +437,7 @@ async function runVisitOptimiser(supabase: any, userId: string) {
   if (!retailerIds.length) {
     return {
       facts: [`Today: ${today}`, "No visits are planned for today, so there is nothing to optimise.", ...newcomerFacts].join("\n"),
-      result: { kind: "route", stops: [], date: today, totalKm: 0, newRetailers: newcomers },
+      result: { kind: "route", stops: [], date: today, totalKm: 0, newRetailers: newcomers, routeNote: "" },
       systemPrompt:
         "You are QuickApp's Visit Optimiser agent. Use ONLY the DATA block. Reply with one short, friendly markdown line telling the user no visits are planned today" +
         (newcomers.length
@@ -468,12 +586,39 @@ async function runVisitOptimiser(supabase: any, userId: string) {
 
   const stops = ordered.map((s, i) => ({ ...s, sequence: i + 1 }));
 
+  // AI-selected day ordering (additive; see aiOrderStops). The deterministic
+  // route above stays the baseline and the fallback; the AI only chooses an
+  // order within the fixed policy, validated deterministically. totalKm for
+  // an accepted AI order is recomputed here — never by the model.
+  let finalStops = stops;
+  let routeNote = "";
+  const orderApiKey = Deno.env.get("TOGETHER_API_KEY");
+  if (orderApiKey && stops.length >= 2 && stops.length <= 20) {
+    const aiOrdered = await aiOrderStops(stops, orderApiKey);
+    if (aiOrdered) {
+      finalStops = aiOrdered.stops.map((s, i) => ({ ...s, sequence: i + 1 }));
+      routeNote = aiOrdered.note;
+    }
+  }
+  let finalKm = Math.round(totalKm * 10) / 10;
+  if (finalStops !== stops) {
+    let km = 0;
+    for (let i = 1; i < finalStops.length; i++) {
+      const a = finalStops[i - 1];
+      const b = finalStops[i];
+      if (a.lat != null && a.lng != null && b.lat != null && b.lng != null) {
+        km += haversineKm([a.lat, a.lng], [b.lat, b.lng]);
+      }
+    }
+    finalKm = Math.round(km * 10) / 10;
+  }
+
   const facts = [
     `Today: ${today}`,
-    `Planned stops: ${stops.length}. Estimated route distance after optimisation: ${totalKm.toFixed(1)} km.`,
+    `Planned stops: ${finalStops.length}. Estimated route distance after optimisation: ${finalKm.toFixed(1)} km.`,
     "",
     "### Optimised stop order (score = recency + pending dues + productivity + priority)",
-    stops
+    finalStops
       .slice(0, 12)
       .map(
         (s) =>
@@ -490,10 +635,11 @@ async function runVisitOptimiser(supabase: any, userId: string) {
     facts,
     result: {
       kind: "route",
-      stops,
+      stops: finalStops,
       date: today,
-      totalKm: Math.round(totalKm * 10) / 10,
+      totalKm: finalKm,
       newRetailers: newcomers,
+      routeNote,
     },
     systemPrompt:
       "You are QuickApp's Visit Optimiser agent. Use ONLY the figures in the DATA block — never invent retailers, numbers or distances. " +

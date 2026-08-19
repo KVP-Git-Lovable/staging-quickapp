@@ -413,6 +413,7 @@ export const MyVisits = () => {
     newRetailers: newcomerRows,
     stops: routeStops,
     totalKm: routeTotalKm,
+    routeNote,
     loading: routeLoading,
   } = useVisitOptimizerInsights();
   const { rows: coachRows } = useSalesCoachInsights();
@@ -1749,6 +1750,7 @@ export const MyVisits = () => {
           <VisitOptimizerRouteCard
             stops={routeStops}
             totalKm={routeTotalKm}
+            routeNote={routeNote}
             loading={routeLoading}
             applied={routeApplied}
             onSuggestRoute={() => {
