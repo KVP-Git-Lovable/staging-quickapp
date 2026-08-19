@@ -1186,6 +1186,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       // Filter existing state to only keep items matching new date
       setVisits(prev => prev.filter(v => v.planned_date === selectedDate));
       setOrders(prev => prev.filter(o => o.order_date === selectedDate));
+      // Retailers and beat plans carry no per-item date field to filter by — they
+      // were left untouched here, so switching from a date with a beat planned to
+      // one without kept showing the previous date's retailers (and its "planned"
+      // status) until the new date's fetch happened to complete. Clear both so a
+      // stale cross-date list is never what's on screen, even momentarily; the
+      // cache/fetch below repopulates them correctly for the new date right after.
+      setRetailers([]);
+      setBeatPlans([]);
     }
     
     isFetchingRef.current = true;
