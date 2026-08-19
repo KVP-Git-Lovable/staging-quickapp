@@ -82,6 +82,14 @@ function beatPlanSentence(p: BeatPlanRow): string {
           : `your last visits average just ${d} day${d === 1 ? '' : 's'} ago`,
     );
   }
+  const n = p.newRetailers ?? 0;
+  if (n > 0) {
+    clauses.push(
+      n === 1
+        ? `1 new shop just joined this beat — a fresh chance to introduce your range`
+        : `${n} new shops just joined this beat — fresh chances to introduce your range`,
+    );
+  }
   const days = p.suggestedDays === 1 ? '1 day' : `${p.suggestedDays} days`;
   return `${clauses.join('; ')} — give this beat ${days} in the next plan.`;
 }

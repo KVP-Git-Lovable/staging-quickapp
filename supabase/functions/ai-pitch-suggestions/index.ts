@@ -1,18 +1,25 @@
 // QuickApp AI — per-retailer pitch suggestions for the Order Entry page.
 //
 // Same architecture as the ai-workflow-run agents (Visit Optimiser / Churn
-// Detector / Sales Coach): every suggestion is computed DETERMINISTICALLY
-// from SQL data under the caller's RLS-scoped client, and Together.ai only
-// narrates the computed facts — it never picks products or invents numbers.
+// Detector / Sales Coach): every candidate product, quantity and unit is
+// computed DETERMINISTICALLY from SQL data under the caller's RLS-scoped
+// client. Together.ai then SELECTS which candidates fit this specific store
+// and writes the personalised reasons — it can only choose from the
+// deterministic candidate list, never invent products, quantities or numbers.
+// If the provider is unavailable the deterministic priority order ships as-is.
 // Read-only: no tables are modified.
 //
 // Signals (the "simulation considerations" of this endpoint):
 // - The retailer's own purchase history (last 180 days): products bought,
-//   average quantity per order, days since last purchase → reorder-due items.
+//   typical line quantity, days since last purchase → reorder-due items.
 // - The rep's confirmed top sellers (last 90 days) the retailer is NOT yet
 //   buying → gap products, the same calculation the Sales Coach agent uses.
+// - Beat favourites: what OTHER stores on the same beat ordered in the last
+//   30 days — the opener signal for newly added retailers with no history.
 // - Store-name/category affinity: keyword match between the retailer's name
 //   or category and product names (e.g. "Medical store" → pharma items).
+// - New-retailer mode: a retailer created within the last 14 days gets a
+//   warm introduce-the-range pitch built from beat favourites + affinity.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   streamChat,
@@ -28,7 +35,10 @@ const corsHeaders = {
 const CONFIRMED = new Set(["confirmed", "delivered", "invoiced", "completed", "dispatched", "packed"]);
 const DAY_MS = 86_400_000;
 const MAX_SUGGESTIONS = 6;
+const MAX_CANDIDATES = 18;
 const REORDER_DUE_DAYS = 14;
+// Matches the ai-workflow-run agents' definition of a newly added retailer.
+const NEW_RETAILER_DAYS = 14;
 
 function jsonError(status: number, code: string, message: string) {
   return new Response(JSON.stringify({ error: message, code }), {
@@ -56,13 +66,25 @@ const AFFINITY: Array<{ store: string[]; product: string[] }> = [
   { store: ["cosmetic", "beauty", "fancy"], product: ["soap", "shampoo", "cream", "powder", "lotion", "perfume", "oil"] },
 ];
 
+type Tag = "reorder" | "top_seller" | "store_match" | "beat_favourite";
+
 interface Suggestion {
   productId: string;
   name: string;
   qty: number;
   unit: string;
-  tag: "reorder" | "top_seller" | "store_match";
+  tag: Tag;
   reason: string;
+}
+
+/** A deterministic candidate the AI may pick. qty/unit/signal are facts. */
+interface Candidate {
+  productId: string;
+  name: string;
+  qty: number;
+  unit: string;
+  tag: Tag;
+  signal: string;
 }
 
 /**
@@ -111,17 +133,25 @@ Deno.serve(async (req) => {
 
     const { data: retailer } = await supabase
       .from("retailers")
-      .select("id, name, category")
+      .select("id, name, category, beat_name, created_at")
       .eq("id", retailerId)
       .maybeSingle();
     if (!retailer) return jsonError(404, "retailer_not_found", "Retailer not found");
     const retailerName = String((retailer as any).name ?? "Retailer");
     const retailerCategory = String((retailer as any).category ?? "");
+    const retailerBeat = String((retailer as any).beat_name ?? "").trim();
+    const retailerCreatedAt = String((retailer as any).created_at ?? "");
 
     const now = new Date();
     const today = isoDate(now);
+    const since30 = isoDate(new Date(now.getTime() - 30 * DAY_MS));
     const since90 = isoDate(new Date(now.getTime() - 90 * DAY_MS));
     const since180 = isoDate(new Date(now.getTime() - 180 * DAY_MS));
+
+    const daysSinceCreated = retailerCreatedAt
+      ? Math.max(0, Math.round((now.getTime() - new Date(retailerCreatedAt).getTime()) / DAY_MS))
+      : null;
+    const isNewRetailer = daysSinceCreated != null && daysSinceCreated <= NEW_RETAILER_DAYS;
 
     // ---- Rep's confirmed orders, last 90 days (Sales Coach pattern) ----
     const { data: repOrders, error: repErr } = await supabase
@@ -202,6 +232,60 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---- Beat favourites: what OTHER stores on this beat ordered (30d) ----
+    // No user_id filter — RLS includes teammate orders on shared beats, which
+    // is exactly the opener signal a brand-new retailer needs.
+    interface BeatAgg { id: string | null; name: string; value: number; stores: Set<string>; unitLines: Record<string, number[]> }
+    const beatProducts = new Map<string, BeatAgg>();
+    if (retailerBeat) {
+      const { data: beatPeers } = await supabase
+        .from("retailers")
+        .select("id")
+        .eq("beat_name", retailerBeat)
+        .neq("id", retailerId)
+        .limit(300);
+      const peerIds = (beatPeers ?? []).map((r: any) => String(r.id));
+      if (peerIds.length) {
+        const { data: beatOrders } = await supabase
+          .from("orders")
+          .select("id, retailer_id, status")
+          .in("retailer_id", peerIds)
+          .gte("order_date", since30)
+          .lte("order_date", today)
+          .limit(1000);
+        const beatOrderRetailer = new Map<string, string>();
+        (beatOrders ?? []).forEach((o: any) => {
+          if (CONFIRMED.has(String(o.status ?? "").toLowerCase())) {
+            beatOrderRetailer.set(String(o.id), String(o.retailer_id ?? ""));
+          }
+        });
+        const beatOrderIds = [...beatOrderRetailer.keys()].slice(0, 800);
+        if (beatOrderIds.length) {
+          const { data: items } = await supabase
+            .from("order_items")
+            .select("order_id, product_id, product_name, quantity, total, unit")
+            .in("order_id", beatOrderIds)
+            .limit(6000);
+          (items ?? []).forEach((it: any) => {
+            const name = String(it.product_name ?? "").trim();
+            if (!name) return;
+            const key = name.toLowerCase();
+            const agg = beatProducts.get(key) ?? { id: null, name, value: 0, stores: new Set<string>(), unitLines: {} };
+            if (!agg.id && it.product_id) agg.id = String(it.product_id);
+            agg.value += num(it.total);
+            const rid = beatOrderRetailer.get(String(it.order_id));
+            if (rid) agg.stores.add(rid);
+            const u = String(it.unit ?? "").trim();
+            (agg.unitLines[u] ??= []).push(num(it.quantity));
+            beatProducts.set(key, agg);
+          });
+        }
+      }
+    }
+    const beatFavourites = [...beatProducts.values()]
+      .sort((a, b) => b.stores.size - a.stores.size || b.value - a.value)
+      .slice(0, 6);
+
     // ---- Products master for affinity + id/unit resolution ----
     const { data: master } = await supabase
       .from("products")
@@ -224,18 +308,19 @@ Deno.serve(async (req) => {
     const resolveActive = (name: string, id: string | null) =>
       masterByName.get(name.toLowerCase()) ?? (id ? masterById.get(id) : undefined);
 
-    // ---- Build suggestions, priority: reorder-due → top-seller gaps → affinity ----
-    const suggestions: Suggestion[] = [];
+    // ---- Deterministic candidate pool. Order = fallback priority. ----
+    const candidates: Candidate[] = [];
     const used = new Set<string>();
-    const push = (s: Suggestion) => {
-      const key = s.name.toLowerCase();
-      if (used.has(key) || suggestions.length >= MAX_SUGGESTIONS) return;
+    const addCandidate = (c: Candidate) => {
+      const key = c.name.toLowerCase();
+      if (used.has(key) || candidates.length >= MAX_CANDIDATES) return;
       used.add(key);
-      suggestions.push(s);
+      candidates.push(c);
     };
 
-    // 1. Reorder-due: bought before, quiet for REORDER_DUE_DAYS+.
-    [...retProducts.values()]
+    // Reorder-due: bought before, quiet for REORDER_DUE_DAYS+ (skipped
+    // naturally for new retailers — they have no history).
+    const reorderDue = [...retProducts.values()]
       .filter((p) => p.id && p.lastDate)
       .map((p) => ({
         ...p,
@@ -243,90 +328,139 @@ Deno.serve(async (req) => {
       }))
       .filter((p) => p.daysSince >= REORDER_DUE_DAYS)
       .sort((a, b) => b.daysSince - a.daysSince)
-      .forEach((p) => {
+      .slice(0, 8);
+    const pushReorder = () =>
+      reorderDue.forEach((p) => {
         const m = resolveActive(p.name, p.id);
         if (!m) return; // product no longer active — never suggest it
         const t = typicalLine(p.unitLines);
-        push({
+        addCandidate({
           productId: m.id,
           name: m.name,
           qty: t.qty,
           unit: t.unit || m.unit || "",
           tag: "reorder",
-          reason: `Bought ${p.lines}× before, last ${p.daysSince}d ago — likely due to reorder (usually ${t.qty}${t.unit ? ` ${t.unit}` : ""})`,
+          signal: `Bought ${p.lines}× before, last ${p.daysSince}d ago — likely due to reorder (usually ${t.qty}${t.unit ? ` ${t.unit}` : ""})`,
         });
       });
 
-    // 2. Gap products: rep's top sellers the retailer hasn't bought yet.
-    topSellers
-      .filter((p) => !retProducts.has(p.name.toLowerCase()))
-      .forEach((p) => {
-        const m = resolveActive(p.name, p.id);
-        if (!m) return; // product no longer active — never suggest it
-        const t = typicalLine(p.unitLines);
-        push({
-          productId: m.id,
-          name: m.name,
-          qty: t.qty,
-          unit: t.unit || m.unit || "",
-          tag: "top_seller",
-          reason: `Your top seller (₹${Math.round(p.value).toLocaleString("en-IN")} in 90d) this store doesn't buy yet — typical line is ${t.qty}${t.unit ? ` ${t.unit}` : ""}`,
+    // Gap products: rep's top sellers the retailer hasn't bought yet.
+    const pushTopSellers = () =>
+      topSellers
+        .filter((p) => !retProducts.has(p.name.toLowerCase()))
+        .forEach((p) => {
+          const m = resolveActive(p.name, p.id);
+          if (!m) return; // product no longer active — never suggest it
+          const t = typicalLine(p.unitLines);
+          addCandidate({
+            productId: m.id,
+            name: m.name,
+            qty: t.qty,
+            unit: t.unit || m.unit || "",
+            tag: "top_seller",
+            signal: `Your top seller (₹${Math.round(p.value).toLocaleString("en-IN")} in 90d) this store doesn't buy yet — typical line is ${t.qty}${t.unit ? ` ${t.unit}` : ""}`,
+          });
         });
-      });
 
-    // 3. Store-name/category affinity from the products master.
-    const storeText = `${retailerName} ${retailerCategory}`.toLowerCase();
-    const productKeywords = new Set<string>();
-    AFFINITY.forEach((a) => {
-      if (a.store.some((k) => storeText.includes(k))) a.product.forEach((k) => productKeywords.add(k));
-    });
-    // Direct token overlap too (e.g. "Tea Stall" → products containing "tea").
-    storeText.split(/[^a-z]+/).filter((t) => t.length > 3).forEach((t) => productKeywords.add(t));
-    if (productKeywords.size) {
+    // Beat favourites the retailer isn't already buying.
+    const pushBeatFavourites = () =>
+      beatFavourites
+        .filter((p) => !retProducts.has(p.name.toLowerCase()))
+        .forEach((p) => {
+          const m = resolveActive(p.name, p.id);
+          if (!m) return; // product no longer active — never suggest it
+          const t = typicalLine(p.unitLines);
+          addCandidate({
+            productId: m.id,
+            name: m.name,
+            qty: t.qty,
+            unit: t.unit || m.unit || "",
+            tag: "beat_favourite",
+            signal: `${p.stores.size} other store${p.stores.size === 1 ? "" : "s"} on the ${retailerBeat} beat ordered this in 30d — typical line is ${t.qty}${t.unit ? ` ${t.unit}` : ""}`,
+          });
+        });
+
+    // Store-name/category affinity from the products master.
+    const pushAffinity = () => {
+      const storeText = `${retailerName} ${retailerCategory}`.toLowerCase();
+      const productKeywords = new Set<string>();
+      AFFINITY.forEach((a) => {
+        if (a.store.some((k) => storeText.includes(k))) a.product.forEach((k) => productKeywords.add(k));
+      });
+      // Direct token overlap too (e.g. "Tea Stall" → products containing "tea").
+      storeText.split(/[^a-z]+/).filter((t) => t.length > 3).forEach((t) => productKeywords.add(t));
+      if (!productKeywords.size) return;
+      let added = 0;
       (master ?? []).forEach((p: any) => {
+        if (added >= 6) return;
         const pname = String(p.name ?? "").toLowerCase();
-        if (!pname) return;
+        if (!pname || used.has(pname)) return;
         const hit = [...productKeywords].find((k) => pname.includes(k));
         if (hit) {
-          push({
+          addCandidate({
             productId: String(p.id),
             name: String(p.name),
             qty: 1,
             unit: String(p.base_unit ?? ""),
             tag: "store_match",
-            reason: `Matches this store's profile ("${hit}")`,
+            signal: `Matches this store's profile ("${hit}")`,
           });
+          added += 1;
         }
       });
+    };
+
+    // New retailers lead with what the beat actually buys and what fits the
+    // store; established retailers lead with reorders and proven sellers.
+    if (isNewRetailer || retConfirmed.length === 0) {
+      pushBeatFavourites();
+      pushAffinity();
+      pushTopSellers();
+      pushReorder();
+    } else {
+      pushReorder();
+      pushTopSellers();
+      pushBeatFavourites();
+      pushAffinity();
     }
 
-    // ---- Facts for narration (numbers computed above; AI only narrates) ----
-    const tagLabel = { reorder: "Reorder due", top_seller: "Top-seller gap", store_match: "Store match" } as const;
-    const facts = [
-      `Today: ${today}`,
-      `Retailer: ${retailerName}${retailerCategory ? ` (${retailerCategory})` : ""}.`,
-      `Their confirmed orders in 180d: ${retConfirmed.length}; your confirmed orders analysed (90d): ${repConfirmed.length}.`,
-      "",
-      "### Suggested products to pitch",
-      suggestions.length
-        ? suggestions.map((s, i) => `${i + 1}. ${s.name} — qty ${s.qty}${s.unit ? ` ${s.unit}` : ""} [${tagLabel[s.tag]}] — ${s.reason}`).join("\n")
-        : "- No suggestions could be computed for this retailer yet.",
-    ].join("\n");
-
+    // ---- Together.ai selects which candidates fit THIS store ----
+    // The model can only pick from the numbered deterministic candidates;
+    // quantities, units and ids stay exactly as computed above.
+    let suggestions: Suggestion[] = [];
     let summary = "";
     const apiKey = Deno.env.get("TOGETHER_API_KEY");
-    if (apiKey && suggestions.length) {
+    if (apiKey && candidates.length) {
       try {
+        const profile = [
+          `Store: ${retailerName}`,
+          retailerCategory ? `Category: ${retailerCategory}` : "",
+          retailerBeat ? `Beat: ${retailerBeat}` : "",
+          isNewRetailer
+            ? `NEWLY ADDED retailer (${daysSinceCreated}d old) — no meaningful history yet; frame the pitch as a warm introduction to the range.`
+            : `Confirmed orders in 180d: ${retConfirmed.length}.`,
+        ].filter(Boolean).join("\n");
+        const candidateList = candidates
+          .map((c, i) => `${i + 1}. ${c.name} — qty ${c.qty}${c.unit ? ` ${c.unit}` : ""} [${c.tag}] — ${c.signal}`)
+          .join("\n");
         const messages: ChatMessage[] = [
           {
             role: "system",
             content:
-              "You are QuickApp's Pitch Assistant for field sales reps. Use ONLY the products and figures in the DATA block — " +
-              "never invent products, retailers or numbers. Use ₹ for currency. Reply in compact markdown: one short headline, " +
-              "then up to four bullets telling the rep how to pitch the listed products to this store and why, " +
-              "then a single line starting with 'Suggested pitch:'. Keep it under 120 words, friendly and practical.",
+              "You are QuickApp's Pitch Assistant for field sales reps. From the numbered CANDIDATES, pick the 4-6 that best fit THIS " +
+              "specific store's profile and situation — choose for the store, do not simply take the first entries, and make the mix feel " +
+              "tailored (a bakery gets bakery-relevant picks, a new store gets an introduction mix). For each pick write one personalised " +
+              "reason under 25 words, grounded ONLY in that candidate's stated signal and the store profile — never invent products, " +
+              "quantities or numbers. Also write \"summary\": compact markdown pitch coaching for the rep (one short headline, up to four " +
+              "bullets about the picked products, then a single line starting with 'Suggested pitch:'), under 120 words, ₹ for currency, " +
+              "friendly and practical" +
+              (isNewRetailer ? ", opening with a warm note that this is a newly added retailer" : "") +
+              ". Return STRICT JSON only: {\"picks\":[{\"n\":<candidate number>,\"reason\":\"...\"}],\"summary\":\"...\"} — no markdown fences, no extra keys.",
           },
-          { role: "user", content: `DATA\n---\n${facts}\n---\nCoach me on what to pitch at this store right now.` },
+          {
+            role: "user",
+            content: `STORE PROFILE\n---\n${profile}\n---\nCANDIDATES\n---\n${candidateList}\n---\nPick what I should pitch at this store right now.`,
+          },
         ];
         const stream = await streamChat({ apiKey, messages, signal: req.signal });
         const drain = (async () => {
@@ -337,10 +471,46 @@ Deno.serve(async (req) => {
           }
         })();
         const [text] = await Promise.all([stream.fullText, drain]);
-        summary = text.trim();
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+          const parsed = JSON.parse(match[0]);
+          const seen = new Set<number>();
+          const picked: Suggestion[] = [];
+          (Array.isArray(parsed?.picks) ? parsed.picks : []).forEach((p: any) => {
+            const n = Math.round(num(p?.n));
+            if (n < 1 || n > candidates.length || seen.has(n) || picked.length >= MAX_SUGGESTIONS) return;
+            seen.add(n);
+            const c = candidates[n - 1];
+            const reason = String(p?.reason ?? "").trim();
+            picked.push({
+              productId: c.productId,
+              name: c.name,
+              qty: c.qty,
+              unit: c.unit,
+              tag: c.tag,
+              reason: reason ? reason.slice(0, 200) : c.signal,
+            });
+          });
+          if (picked.length) {
+            suggestions = picked;
+            summary = String(parsed?.summary ?? "").trim();
+          }
+        }
       } catch (aiErr) {
-        console.error("[ai-pitch-suggestions] narration failed:", aiErr);
+        console.error("[ai-pitch-suggestions] selection failed:", aiErr);
       }
+    }
+
+    // Provider unavailable or unusable reply → deterministic priority order.
+    if (!suggestions.length) {
+      suggestions = candidates.slice(0, MAX_SUGGESTIONS).map((c) => ({
+        productId: c.productId,
+        name: c.name,
+        qty: c.qty,
+        unit: c.unit,
+        tag: c.tag,
+        reason: c.signal,
+      }));
     }
 
     return new Response(
@@ -349,6 +519,7 @@ Deno.serve(async (req) => {
         retailerId,
         retailerName,
         date: today,
+        isNewRetailer,
         suggestions,
         summary,
         analysed: { retailerOrders: retConfirmed.length, repOrders: repConfirmed.length },
