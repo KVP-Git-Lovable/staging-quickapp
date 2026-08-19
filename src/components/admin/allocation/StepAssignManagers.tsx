@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
-import { Users, ChevronRight, Lock } from 'lucide-react';
+import { Users, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { InlineStrategySelector } from '../TargetStrategySelector';
 import type { TargetStrategy } from '../TargetStrategySelector';
@@ -96,12 +96,6 @@ interface TargetFieldsProps {
   onTargetChange: (userId: string, field: string, value: number) => void;
   /** Slightly tighter sizing for rows nested under a manager. */
   compact?: boolean;
-  /**
-   * Roll Up derives this person's target from their team, so the figure is
-   * shown rather than typed — an editable box here would be overwritten by the
-   * next change a subordinate makes.
-   */
-  derived?: boolean;
 }
 
 /**
@@ -116,41 +110,26 @@ function TargetFields({
   enabledMetrics,
   onTargetChange,
   compact,
-  derived,
 }: TargetFieldsProps) {
   const label = 'block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5';
   const box = cn(
     'text-right font-semibold tabular-nums',
     compact ? 'h-8 w-[104px] text-sm' : 'h-10 w-[132px] text-[15px]',
   );
-  const readOnlyBox = cn(
-    'flex items-center justify-end gap-1.5 rounded-md border border-dashed bg-muted/40 px-3 font-semibold tabular-nums text-muted-foreground',
-    compact ? 'h-8 w-[104px] text-sm' : 'h-10 w-[132px] text-[15px]',
-  );
-
-  const readOnlyValue = (value: number, width?: string) => (
-    <div className={cn(readOnlyBox, width)} title="Added up from the team — not editable">
-      <Lock className="h-3 w-3 opacity-50 shrink-0" aria-hidden="true" />
-      {formatNumber(value)}
-    </div>
-  );
-
   return (
     <div className={cn('flex flex-wrap', compact ? 'gap-3' : 'gap-4')}>
       {enabledMetrics.quantity && (
         <div>
           <label className={label} htmlFor={`${userId}-${keys.quantity}`}>Quantity</label>
           <div className="flex items-center gap-2">
-            {derived ? readOnlyValue(values.quantity) : (
-              <Input
+            <Input
                 id={`${userId}-${keys.quantity}`}
                 type="text"
                 value={values.quantity > 0 ? formatNumber(values.quantity) : ''}
                 onChange={(e) => onTargetChange(userId, keys.quantity, parseNumber(e.target.value))}
                 placeholder="0"
-                className={box}
-              />
-            )}
+              className={box}
+            />
             <span className="text-xs font-medium text-muted-foreground">{quantityUnit}</span>
           </div>
         </div>
@@ -159,39 +138,29 @@ function TargetFields({
       {enabledMetrics.revenue && (
         <div>
           <label className={label} htmlFor={`${userId}-${keys.revenue}`}>Revenue (₹)</label>
-          {derived ? readOnlyValue(values.revenue, compact ? 'w-[120px]' : 'w-[148px]') : (
-            <Input
+          <Input
               id={`${userId}-${keys.revenue}`}
               type="text"
               value={values.revenue > 0 ? formatNumber(values.revenue) : ''}
               onChange={(e) => onTargetChange(userId, keys.revenue, parseNumber(e.target.value))}
               placeholder="0"
-              className={cn(box, compact ? 'w-[120px]' : 'w-[148px]')}
-            />
-          )}
+            className={cn(box, compact ? 'w-[120px]' : 'w-[148px]')}
+          />
         </div>
       )}
 
       {enabledMetrics.visits && (
         <div>
           <label className={label} htmlFor={`${userId}-${keys.visits}`}>Visits</label>
-          {derived ? readOnlyValue(values.visits, compact ? 'w-[84px]' : 'w-[104px]') : (
-            <Input
+          <Input
               id={`${userId}-${keys.visits}`}
               type="text"
               value={values.visits > 0 ? formatNumber(values.visits) : ''}
               onChange={(e) => onTargetChange(userId, keys.visits, Math.round(parseNumber(e.target.value)))}
               placeholder="0"
-              className={cn(box, compact ? 'w-[84px]' : 'w-[104px]')}
-            />
-          )}
+            className={cn(box, compact ? 'w-[84px]' : 'w-[104px]')}
+          />
         </div>
-      )}
-
-      {derived && (
-        <p className="w-full text-[11px] text-muted-foreground -mt-0.5">
-          Added up from this person's team. Change any of their targets and this updates.
-        </p>
       )}
     </div>
   );
@@ -359,7 +328,6 @@ export function StepAssignManagers({
             <div className="mt-3 pl-[38px]">
               <TargetFields
                 compact
-                derived={nodeStrategy === 'roll_up' && isSubManager}
                 userId={node.userId}
                 keys={holdsPersonalTarget(nodeStrategy, isSubManager) ? PERSONAL_KEYS : FIELD_KEYS}
                 values={
@@ -478,7 +446,6 @@ export function StepAssignManagers({
               ) : (
                 <div className="px-4 pb-4 pl-[68px]">
                   <TargetFields
-                    derived={mgr.targetStrategy === 'roll_up' && mgr.subordinateCount > 0}
                     userId={mgr.userId}
                     keys={
                       holdsPersonalTarget(mgr.targetStrategy, mgr.subordinateCount > 0)
