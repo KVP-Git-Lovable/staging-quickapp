@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { readPitchCache, writePitchCache } from "@/utils/pitchSuggestionsCache";
 import type { VoiceAutoFillResult } from "@/components/TableOrderForm";
 
 /**
@@ -44,12 +45,6 @@ const TAG_STYLE: Record<PitchSuggestion["tag"], { label: string; cls: string }> 
 // Server may introduce tags this build doesn't know yet — render, don't crash.
 const FALLBACK_TAG = { label: "Suggested", cls: "border-border bg-muted text-muted-foreground" };
 
-const CACHE_TTL_MS = 10 * 60 * 1000;
-// Bump when the suggestion logic changes server-side so stale cached results
-// (old quantities/products) are discarded immediately instead of surviving
-// the TTL window.
-const CACHE_VERSION = "v3";
-
 interface Props {
   retailerId: string;
   onAutoFill: (results: VoiceAutoFillResult[]) => void;
@@ -66,23 +61,18 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
       return;
     }
     let cancelled = false;
-    const cacheKey = `pitch_suggestions_${CACHE_VERSION}_${retailerId}`;
 
     void (async () => {
-      // Session cache so navigating back and forth doesn't re-run the AI.
-      try {
-        const raw = sessionStorage.getItem(cacheKey);
-        if (raw) {
-          const cached = JSON.parse(raw);
-          if (cached?.at && Date.now() - cached.at < CACHE_TTL_MS && cached.data?.kind === "pitch") {
-            if (!cancelled) {
-              setResult(cached.data);
-              setLoading(false);
-            }
-            return;
-          }
+      // Shared session cache — usually already warmed by the visits page
+      // (prefetchPitchSuggestions), so the card renders instantly here.
+      const cached = readPitchCache(retailerId);
+      if (cached) {
+        if (!cancelled) {
+          setResult(cached);
+          setLoading(false);
         }
-      } catch { /* ignore cache errors */ }
+        return;
+      }
 
       try {
         const { data: sess } = await supabase.auth.getSession();
@@ -97,9 +87,7 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
         if (!res.ok) throw new Error(body?.error ?? `Failed (${res.status})`);
         if (!cancelled && body?.kind === "pitch") {
           setResult(body);
-          try {
-            sessionStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), data: body }));
-          } catch { /* ignore quota */ }
+          writePitchCache(retailerId, body);
         }
       } catch (e) {
         console.error("[PitchSuggestions] load failed:", e);
@@ -135,13 +123,13 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
   if (!loading && suggestions.length === 0) return null;
 
   return (
-    <Card className="overflow-hidden border-violet-200/70 dark:border-violet-900/40">
-      <div className="h-0.5 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-amber-400" />
+    <Card className="overflow-hidden border-2 border-red-500 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-100 dark:border-red-600 dark:from-amber-950/40 dark:via-yellow-950/30 dark:to-orange-950/30">
+      <div className="h-1 bg-gradient-to-r from-red-500 via-amber-400 to-orange-500" />
       <CardContent className="p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/15 to-fuchsia-500/15">
-              <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-red-500/15 to-amber-500/20">
+              <Sparkles className="h-4 w-4 text-amber-700 dark:text-amber-400" />
             </span>
             <p className="text-sm font-semibold">AI Pitch Suggestions</p>
             {!loading && result?.isNewRetailer && (
@@ -156,7 +144,11 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
             )}
           </div>
           {!loading && suggestions.length > 0 && (
-            <Button size="sm" className="gap-1.5" onClick={handleTakeAction}>
+            <Button
+              size="sm"
+              className="gap-1.5 bg-black text-white hover:bg-black/85 dark:bg-black dark:text-white dark:hover:bg-black/85"
+              onClick={handleTakeAction}
+            >
               <Zap className="h-3.5 w-3.5" />
               Take Action
             </Button>
@@ -164,7 +156,7 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
         </div>
 
         {!loading && result?.summary && (
-          <div className="mt-2 rounded-lg bg-violet-50/70 p-2.5 dark:bg-violet-950/30">
+          <div className="mt-2 rounded-lg bg-white/60 p-2.5 dark:bg-black/20">
             <div className="prose prose-sm max-w-none text-xs leading-relaxed dark:prose-invert [&_p]:my-0.5 [&_ul]:my-0.5">
               <ReactMarkdown>{result.summary}</ReactMarkdown>
             </div>
@@ -179,7 +171,7 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
                 <span
                   key={s.productId + s.name}
                   title={s.reason}
-                  className="flex items-center gap-1.5 rounded-full border border-border bg-muted/40 py-1 pl-2.5 pr-1.5 text-xs"
+                  className="flex items-center gap-1.5 rounded-full border border-amber-200/80 bg-white/70 py-1 pl-2.5 pr-1.5 text-xs dark:border-amber-900/50 dark:bg-black/20"
                 >
                   <span className="font-medium">{s.name}</span>
                   <span className="text-muted-foreground">×{s.qty}{s.unit ? ` ${s.unit}` : ""}</span>

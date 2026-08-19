@@ -57,6 +57,7 @@ import { useActivityVisits } from "@/hooks/useActivityVisits";
 import { useChurnRisk, type ChurnRow } from "@/hooks/useChurnRisk";
 import { useVisitOptimizerInsights, type RouteStop } from "@/hooks/useVisitOptimizerInsights";
 import { useSalesCoachInsights, type CoachRow } from "@/hooks/useSalesCoachInsights";
+import { prefetchPitchSuggestions } from "@/utils/pitchSuggestionsCache";
 import type { VisitAiInsight } from "@/components/VisitCard";
 
 // UI display bar only: which detected declines are worth surfacing on a
@@ -579,6 +580,16 @@ export const MyVisits = () => {
     });
     return transformedRetailers;
   }, [optimizedRetailers, optimizedVisits, optimizedOrders, selectedDate, selectedViewUserId, churnByRetailer, newcomerByRetailer, stopByRetailer, coachByRetailer]);
+
+  // Warm the AI Pitch Suggestions cache for the day's retailers as soon as
+  // they appear in the visits list, so the Order Entry card renders
+  // instantly instead of loading on open. Best-effort background work —
+  // same endpoint, same cache the card uses, no logic change server-side.
+  useEffect(() => {
+    if (!isViewingSelf || !user?.id) return;
+    const ids = retailers.map((r: any) => String(r.id)).filter(Boolean);
+    if (ids.length) void prefetchPitchSuggestions(ids);
+  }, [retailers, isViewingSelf, user?.id]);
 
   // REMOVED: Don't clear retailers/beats on date change - causes flickering
   // The smart update in useVisitsDataOptimized handles this now
