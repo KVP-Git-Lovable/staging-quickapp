@@ -431,6 +431,19 @@ export function AllocationTable({
 
   const directReports = useMemo(() => hierarchyData?.roots || [], [hierarchyData]);
 
+  /** Every person in the tree by id, for weight lookups. */
+  const nodeById = useMemo(() => {
+    const map = new Map<string, SubordinateAllocation>();
+    const collect = (nodes: SubordinateAllocation[]) => {
+      nodes.forEach((node) => {
+        map.set(node.userId, node);
+        if (node.children.length) collect(node.children);
+      });
+    };
+    collect(directReports);
+    return map;
+  }, [directReports]);
+
   const hierarchyRelations = useMemo(() => {
     const parentByChild = new Map<string, string>();
     const childrenByParent = new Map<string, string[]>();
@@ -522,15 +535,6 @@ export function AllocationTable({
     }, 0);
     if (alreadyAllocated === 0) return;
 
-    const nodeById = new Map<string, SubordinateAllocation>();
-    const collect = (nodes: SubordinateAllocation[]) => {
-      nodes.forEach((node) => {
-        nodeById.set(node.userId, node);
-        if (node.children.length) collect(node.children);
-      });
-    };
-    collect(directReports);
-
     const contributorCache = new Map<string, number>();
     const activeIds = siblingIds.filter((id) => next.get(id)?.targetStrategy !== 'no_target');
 
@@ -563,6 +567,7 @@ export function AllocationTable({
     hierarchyRelations.parentByChild,
     hierarchyRelations.childrenByParent,
     directReports,
+    nodeById,
     totalQuantity,
     totalRevenue,
     totalVisits,
@@ -612,17 +617,146 @@ export function AllocationTable({
   }, [hierarchyRelations.parentByChild, hierarchyRelations.childrenByParent, recomputeRollUpManager]);
 
   // Handlers
+  /**
+   * Absorb a hand-typed figure so the group still adds up to its pot.
+   *
+   * Everyone under one manager shares a fixed total. When one of them is typed
+   * over, the difference has to land somewhere or the distributed total stops
+   * matching the annual target — so the remaining active people in that group
+   * re-split whatever is left, by the same weights used everywhere else.
+   *
+   * The person just edited is never touched again: their typed figure stands.
+   */
+  const rebalanceSiblingsAfterEdit = useCallback((
+    userId: string,
+    next: Map<string, SubordinateAllocation>,
+  ) => {
+    const parentId = hierarchyRelations.parentByChild.get(userId);
+    const siblingIds = parentId
+      ? hierarchyRelations.childrenByParent.get(parentId) || []
+      : directReports.map((dr) => dr.userId);
+    if (siblingIds.length < 2) return;
+
+    const parentAlloc = parentId ? next.get(parentId) : undefined;
+
+    // A roll-up manager takes whatever the team adds up to, so there is no
+    // fixed pot to hold the group to.
+    if (parentAlloc?.targetStrategy === 'roll_up') return;
+
+    const pot = parentAlloc
+      ? {
+          quantity: parentAlloc.quantityTarget,
+          revenue: parentAlloc.revenueTarget,
+          visits: parentAlloc.visitsTarget,
+        }
+      : { quantity: totalQuantity, revenue: totalRevenue, visits: totalVisits };
+
+    // Everyone else in the group who can still absorb the difference.
+    const othersIds = siblingIds.filter(
+      (id) => id !== userId && next.get(id)?.targetStrategy !== 'no_target',
+    );
+    if (!othersIds.length) return;
+
+    const contributorCache = new Map<string, number>();
+    const weightedEntries = othersIds.map((id) => {
+      const node = nodeById.get(id);
+      return {
+        userId: id,
+        weight: node ? Math.max(1, getContributorCountForNode(node, next, contributorCache)) : 1,
+      };
+    });
+
+    const edited = next.get(userId);
+    if (!edited) return;
+
+    const remaining = {
+      quantity: Math.max(0, pot.quantity - getEffectiveQuantity(edited)),
+      revenue: Math.max(0, pot.revenue - getEffectiveRevenue(edited)),
+      visits: Math.max(0, pot.visits - getEffectiveVisits(edited)),
+    };
+
+    const quantitySplit = enabledMetrics.quantity ? splitByWeights(remaining.quantity, weightedEntries) : new Map<string, number>();
+    const revenueSplit = enabledMetrics.revenue ? splitByWeights(remaining.revenue, weightedEntries) : new Map<string, number>();
+    const visitsSplit = enabledMetrics.visits ? splitByWeights(remaining.visits, weightedEntries) : new Map<string, number>();
+
+    othersIds.forEach((id) => {
+      const current = next.get(id);
+      if (!current) return;
+      next.set(id, {
+        ...current,
+        quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(id) || 0) : current.quantityTarget,
+        revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(id) || 0) : current.revenueTarget,
+        visitsTarget: enabledMetrics.visits ? (visitsSplit.get(id) || 0) : current.visitsTarget,
+      });
+    });
+  }, [
+    hierarchyRelations.parentByChild,
+    hierarchyRelations.childrenByParent,
+    directReports,
+    nodeById,
+    totalQuantity,
+    totalRevenue,
+    totalVisits,
+    enabledMetrics,
+  ]);
+
+  /**
+   * Push a manager's typed total down onto their team.
+   *
+   * A manager who hands their total downwards has to stay equal to what their
+   * team adds up to, so typing a new figure re-splits it across the active
+   * people below rather than leaving the two out of step. Independent is left
+   * alone — the figure typed there is the manager's own, not the team's.
+   */
+  const distributeToChildrenAfterEdit = useCallback((
+    userId: string,
+    next: Map<string, SubordinateAllocation>,
+  ) => {
+    const alloc = next.get(userId);
+    const node = nodeById.get(userId);
+    if (!alloc || !node || node.children.length === 0) return;
+    if (alloc.targetStrategy !== 'roll_down' && alloc.targetStrategy !== 'roll_up') return;
+
+    const activeChildren = node.children.filter(
+      (child) => next.get(child.userId)?.targetStrategy !== 'no_target',
+    );
+    if (!activeChildren.length) return;
+
+    const contributorCache = new Map<string, number>();
+    const weightedEntries = activeChildren.map((child) => ({
+      userId: child.userId,
+      weight: Math.max(1, getContributorCountForNode(child, next, contributorCache)),
+    }));
+
+    const quantitySplit = enabledMetrics.quantity ? splitByWeights(alloc.quantityTarget, weightedEntries) : new Map<string, number>();
+    const revenueSplit = enabledMetrics.revenue ? splitByWeights(alloc.revenueTarget, weightedEntries) : new Map<string, number>();
+    const visitsSplit = enabledMetrics.visits ? splitByWeights(alloc.visitsTarget, weightedEntries) : new Map<string, number>();
+
+    activeChildren.forEach((child) => {
+      const currentChild = next.get(child.userId);
+      if (!currentChild) return;
+      next.set(child.userId, {
+        ...currentChild,
+        quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(child.userId) || 0) : currentChild.quantityTarget,
+        revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(child.userId) || 0) : currentChild.revenueTarget,
+        visitsTarget: enabledMetrics.visits ? (visitsSplit.get(child.userId) || 0) : currentChild.visitsTarget,
+      });
+    });
+  }, [nodeById, enabledMetrics]);
+
   const handleTargetChange = useCallback((userId: string, field: string, value: number) => {
     setAllocations(prev => {
       const next = new Map(prev);
       const current = next.get(userId);
       if (current) {
         next.set(userId, { ...current, [field]: value });
+        distributeToChildrenAfterEdit(userId, next);
+        rebalanceSiblingsAfterEdit(userId, next);
         cascadeRollUpToAncestors(userId, next);
       }
       return next;
     });
-  }, [cascadeRollUpToAncestors]);
+  }, [cascadeRollUpToAncestors, rebalanceSiblingsAfterEdit, distributeToChildrenAfterEdit]);
 
   const handleStrategyChange = useCallback((userId: string, strategy: TargetStrategy) => {
     setAllocations(prev => {
@@ -654,6 +788,40 @@ export function AllocationTable({
         // Independent leaves the same people active, so nothing is re-split.
         if (wasExcluded !== isExcluded) {
           redistributeAmongSiblings(userId, next);
+        }
+
+        // An Independent manager carries a target of their own beside the
+        // team's. Coming from Roll Down or Roll Up the whole figure sits on the
+        // team, leaving the manager reading zero, so carve their slice out of
+        // it — one share for them, the rest still covering the team.
+        if (strategy === 'independent') {
+          const node = nodeById.get(userId);
+          const afterSwitch = next.get(userId);
+          if (node && afterSwitch && node.children.length > 0) {
+            const contributorCache = new Map<string, number>();
+            const shares = Math.max(1, getContributorCountForNode(node, next, contributorCache));
+
+            const carve = (teamTotal: number, personal: number) => {
+              // Already carved, or nothing to carve from.
+              if (personal > 0 || teamTotal <= 0) return { personal, team: teamTotal };
+              const own = Math.round(teamTotal / shares);
+              return { personal: own, team: Math.max(0, teamTotal - own) };
+            };
+
+            const q = carve(afterSwitch.quantityTarget, afterSwitch.personalQuantityTarget);
+            const r = carve(afterSwitch.revenueTarget, afterSwitch.personalRevenueTarget);
+            const v = carve(afterSwitch.visitsTarget, afterSwitch.personalVisitsTarget);
+
+            next.set(userId, {
+              ...afterSwitch,
+              quantityTarget: enabledMetrics.quantity ? q.team : afterSwitch.quantityTarget,
+              revenueTarget: enabledMetrics.revenue ? r.team : afterSwitch.revenueTarget,
+              visitsTarget: enabledMetrics.visits ? v.team : afterSwitch.visitsTarget,
+              personalQuantityTarget: enabledMetrics.quantity ? q.personal : afterSwitch.personalQuantityTarget,
+              personalRevenueTarget: enabledMetrics.revenue ? r.personal : afterSwitch.personalRevenueTarget,
+              personalVisitsTarget: enabledMetrics.visits ? v.personal : afterSwitch.personalVisitsTarget,
+            });
+          }
         }
 
         if (strategy === 'roll_up') {
