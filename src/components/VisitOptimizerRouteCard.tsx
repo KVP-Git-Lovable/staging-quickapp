@@ -1,4 +1,5 @@
-import { Loader2, Navigation, RotateCcw, Zap } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronUp, Loader2, Navigation, RotateCcw, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { RouteStop } from "@/hooks/useVisitOptimizerInsights";
@@ -69,6 +70,11 @@ interface Props {
 }
 
 export function VisitOptimizerRouteCard({ stops, totalKm, routeNote, loading, applied, onSuggestRoute, onReset }: Props) {
+  // Details (subtitle, day summary, stop list, clusters) are collapsed by
+  // default; only the title and Suggest Route stay visible until the user
+  // opens "See more...".
+  const [expanded, setExpanded] = useState(false);
+
   if (!loading && stops.length === 0) return null;
 
   const top = stops.slice(0, 5);
@@ -83,12 +89,7 @@ export function VisitOptimizerRouteCard({ stops, totalKm, routeNote, loading, ap
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-red-500/15 to-amber-500/20">
               <Navigation className="h-4 w-4 text-amber-700 dark:text-amber-400" />
             </span>
-            <div>
-              <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">AI Visit Optimizer</p>
-              <p className="text-[11px] leading-tight text-amber-900/70 dark:text-amber-200/70">
-                Best visiting order from your order times, GPS distances and dues
-              </p>
-            </div>
+            <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">AI Visit Optimizer</p>
             {loading && (
               <span className="flex items-center gap-1 text-xs text-amber-900/70 dark:text-amber-200/70">
                 <Loader2 className="h-3 w-3 animate-spin" /> planning…
@@ -121,8 +122,12 @@ export function VisitOptimizerRouteCard({ stops, totalKm, routeNote, loading, ap
           )}
         </div>
 
-        {!loading && stops.length > 0 && (
-          <>
+        {!loading && stops.length > 0 && expanded && (
+          <div id="visit-optimizer-details">
+            <p className="mt-2 text-[11px] leading-tight text-amber-900/70 dark:text-amber-200/70">
+              Best visiting order from your order times, GPS distances and dues
+            </p>
+
             <p className="mt-2.5 text-xs text-amber-950 dark:text-amber-100">
               {`${stops.length} stop${stops.length === 1 ? "" : "s"} planned today`}
               {totalKm > 0 ? ` — about ${totalKm.toFixed(1)} km if you follow this order.` : "."}
@@ -156,7 +161,20 @@ export function VisitOptimizerRouteCard({ stops, totalKm, routeNote, loading, ap
                 {c.slice(0, -1).join(", ")} and {c[c.length - 1]} are within about a kilometre of each other — cover them in one stretch.
               </p>
             ))}
-          </>
+          </div>
+        )}
+
+        {!loading && stops.length > 0 && (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls="visit-optimizer-details"
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-900/80 hover:text-amber-950 dark:text-amber-200/80 dark:hover:text-amber-100"
+          >
+            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {expanded ? "See less" : "See more..."}
+          </button>
         )}
       </CardContent>
     </Card>

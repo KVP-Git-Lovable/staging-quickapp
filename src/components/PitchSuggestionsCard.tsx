@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { Loader2, Sparkles, Zap } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Sparkles, Zap } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,9 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
   const [result, setResult] = useState<PitchResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
+  // Details (summary + suggestion chips) are collapsed by default; only the
+  // title and Take Action stay visible until the user opens "See more...".
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     if (!retailerId) {
@@ -156,31 +159,46 @@ export function PitchSuggestionsCard({ retailerId, onAutoFill }: Props) {
           )}
         </div>
 
-        {!loading && result?.summary && (
-          <div className="mt-2 rounded-lg bg-white/60 p-2.5 dark:bg-black/20">
-            <div className="prose prose-sm max-w-none text-xs leading-relaxed dark:prose-invert [&_p]:my-0.5 [&_ul]:my-0.5">
-              <ReactMarkdown>{result.summary}</ReactMarkdown>
+        {!loading && suggestions.length > 0 && expanded && (
+          <div id="pitch-suggestions-details">
+            {result?.summary && (
+              <div className="mt-2 rounded-lg bg-white/60 p-2.5 dark:bg-black/20">
+                <div className="prose prose-sm max-w-none text-xs leading-relaxed dark:prose-invert [&_p]:my-0.5 [&_ul]:my-0.5">
+                  <ReactMarkdown>{result.summary}</ReactMarkdown>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {suggestions.map((s) => {
+                const tag = TAG_STYLE[s.tag] ?? FALLBACK_TAG;
+                return (
+                  <span
+                    key={s.productId + s.name}
+                    title={s.reason}
+                    className="flex items-center gap-1.5 rounded-full border border-amber-200/80 bg-white/70 py-1 pl-2.5 pr-1.5 text-xs dark:border-amber-900/50 dark:bg-black/20"
+                  >
+                    <span className="font-medium">{s.name}</span>
+                    <span className="text-muted-foreground">×{s.qty}{s.unit ? ` ${s.unit}` : ""}</span>
+                    <Badge variant="outline" className={`text-[9px] ${tag.cls}`}>{tag.label}</Badge>
+                  </span>
+                );
+              })}
             </div>
           </div>
         )}
 
         {!loading && suggestions.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {suggestions.map((s) => {
-              const tag = TAG_STYLE[s.tag] ?? FALLBACK_TAG;
-              return (
-                <span
-                  key={s.productId + s.name}
-                  title={s.reason}
-                  className="flex items-center gap-1.5 rounded-full border border-amber-200/80 bg-white/70 py-1 pl-2.5 pr-1.5 text-xs dark:border-amber-900/50 dark:bg-black/20"
-                >
-                  <span className="font-medium">{s.name}</span>
-                  <span className="text-muted-foreground">×{s.qty}{s.unit ? ` ${s.unit}` : ""}</span>
-                  <Badge variant="outline" className={`text-[9px] ${tag.cls}`}>{tag.label}</Badge>
-                </span>
-              );
-            })}
-          </div>
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls="pitch-suggestions-details"
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-1.5 flex items-center gap-1 text-xs font-medium text-amber-900/80 hover:text-amber-950 dark:text-amber-200/80 dark:hover:text-amber-100"
+          >
+            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            {expanded ? "See less" : "See more..."}
+          </button>
         )}
       </CardContent>
     </Card>
