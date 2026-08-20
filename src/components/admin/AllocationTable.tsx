@@ -428,7 +428,13 @@ const findReconciliationIssues = (
     const alloc = allocations.get(node.userId);
     if (!alloc) return;
 
-    if (node.children.length > 0) {
+    // Someone excluded takes no part in any of this. They carry no target of
+    // their own, so there is nothing of theirs to hold their team against —
+    // whatever figure passes through them belongs to the team, not to them.
+    // Their team is still checked, one level down, on its own rows.
+    const excluded = alloc.targetStrategy === 'no_target';
+
+    if (!excluded && node.children.length > 0) {
       const stated =
         (enabledMetrics.quantity ? alloc.quantityTarget : 0) +
         (enabledMetrics.revenue ? alloc.revenueTarget : 0) +
@@ -747,21 +753,28 @@ export function AllocationTable({
   ]);
 
   /**
-   * Keep every Roll Up manager above a change equal to the sum of their team.
+   * Keep every derived figure above a change in step with the team below it.
    *
    * Roll Up derives the manager's figure from the team by definition, so it is
    * recomputed rather than typed.
    *
-   * Every other target type is left exactly as entered. A Roll Down manager's
-   * figure is the source their team is split from, not a mirror of it — if a
-   * hand-edit below leaves the two disagreeing, that is reported as a mismatch
-   * instead of being papered over by moving the manager to match.
+   * An excluded manager is recomputed too. The figure on their row is not a
+   * target of theirs — they hold nothing — it is only what passes through them
+   * to their team, so it follows the team rather than standing against it. That
+   * keeps a branch's contribution to the annual target truthful without ever
+   * treating an excluded person as though they had a target.
+   *
+   * Roll Down and Independent are left exactly as entered. A Roll Down
+   * manager's figure is the source their team is split from, not a mirror of it
+   * — if a hand-edit below leaves the two disagreeing, that is reported as a
+   * mismatch instead of being papered over by moving the manager to match.
    */
   const cascadeRollUpToAncestors = useCallback((userId: string, next: Map<string, SubordinateAllocation>) => {
     let currentParent = hierarchyRelations.parentByChild.get(userId);
 
     while (currentParent) {
-      if (next.get(currentParent)?.targetStrategy === 'roll_up') {
+      const strategy = next.get(currentParent)?.targetStrategy;
+      if (strategy === 'roll_up' || strategy === 'no_target') {
         recomputeRollUpManager(currentParent, next);
       }
       currentParent = hierarchyRelations.parentByChild.get(currentParent);
