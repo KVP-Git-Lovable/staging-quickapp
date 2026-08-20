@@ -26,6 +26,7 @@ import { useParameterDefinitions, useDeleteParameterDefinition } from '@/hooks/u
 import { CreateParameterDialog } from './CreateParameterDialog';
 import { fyMonthOptions, fyMonthsInRange, formatFYMonthRange } from '@/lib/fyMonths';
 import { buildMonthlyRows, monthlyRowsMatch } from './target-config/monthlyParameterRows';
+import { cn } from '@/lib/utils';
 
 // Icon map for dynamic rendering
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -60,6 +61,57 @@ interface BreakdownItem {
   metrics: Record<string, number>; // keyed by metric_id
   categoryId?: string;
   categoryName?: string;
+}
+
+/**
+ * Comparisons on money and quantity, below anything the breakdown displays.
+ *
+ * An even share is rarely a whole number, so shares are kept as they fall and
+ * never rounded. Adding a dozen of them back up leaves the last few binary
+ * digits astray, which is not a real shortfall — this is the threshold that
+ * tells a rounding artefact from a figure that genuinely does not add up.
+ */
+const AMOUNT_EPSILON = 0.005;
+
+/**
+ * A breakdown figure that can be typed as a decimal.
+ *
+ * The committed value is a number, but reformatting it on every keystroke
+ * swallows a half-written decimal: "13." parses to 13 and renders straight back
+ * as "13", so the point can never be typed at all. The raw text is held here
+ * while the field is being edited and released on blur, at which point the
+ * formatted number takes over again.
+ */
+function MetricAmountInput({
+  value,
+  onCommit,
+  formatNumber,
+  parseNumber,
+  ariaLabel,
+}: {
+  value: number;
+  onCommit: (value: number) => void;
+  formatNumber: (n: number) => string;
+  parseNumber: (v: string) => number;
+  ariaLabel: string;
+}) {
+  const [typing, setTyping] = useState<string | null>(null);
+
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      className="h-8 text-sm"
+      aria-label={ariaLabel}
+      placeholder="0"
+      value={typing ?? (value > 0 ? formatNumber(value) : '')}
+      onChange={(e) => {
+        setTyping(e.target.value);
+        onCommit(parseNumber(e.target.value));
+      }}
+      onBlur={() => setTyping(null)}
+    />
+  );
 }
 
 const PARAM_TAB_MAP: Record<string, { key: string; label: string; icon: string }> = {
@@ -1214,13 +1266,13 @@ function ProductCategoryGroups({
                   >
                     <span className="text-sm text-foreground truncate">{item.name}</span>
                     {activeMetrics.map(metric => (
-                      <Input
+                      <MetricAmountInput
                         key={metric.id}
-                        type="text"
-                        className="h-8 text-sm"
-                        value={(item.metrics[metric.id] ?? 0) > 0 ? formatNumber(item.metrics[metric.id] ?? 0) : ''}
-                        onChange={(e) => handleItemChange('product', item.id, metric.id, parseNumber(e.target.value))}
-                        placeholder="0"
+                        value={item.metrics[metric.id] ?? 0}
+                        onCommit={(value) => handleItemChange('product', item.id, metric.id, value)}
+                        formatNumber={formatNumber}
+                        parseNumber={parseNumber}
+                        ariaLabel={`${metric.name} for ${item.name}`}
                       />
                     ))}
                   </div>
@@ -1404,6 +1456,15 @@ function ParameterBreakdownSection({
     }));
   };
 
+  /**
+   * Split each metric's annual target evenly across the parameter's items.
+   *
+   * The share is taken exactly as it falls, decimals and all. Rounding each
+   * share to a whole number left the parts adding up to something other than
+   * the target they came from — 67 Kg over five months paid 13 a month and
+   * totalled 65, quietly losing 2 Kg. An exact share always sums back to the
+   * target, which is the only thing that makes the Total row trustworthy.
+   */
   const handleEqualDivide = (paramKey: string) => {
     const items = breakdownData[paramKey];
     if (!items || items.length === 0) return;
@@ -1412,14 +1473,14 @@ function ParameterBreakdownSection({
     const newItems = items.map(item => {
       const newMetrics = { ...item.metrics };
       activeMetrics.forEach(m => {
-        newMetrics[m.id] = Math.round((metricTargets[m.id] ?? 0) / count);
+        newMetrics[m.id] = (metricTargets[m.id] ?? 0) / count;
       });
       return { ...item, metrics: newMetrics };
     });
 
     setBreakdownData(prev => ({ ...prev, [paramKey]: newItems }));
     setEqualDivide(prev => ({ ...prev, [paramKey]: true }));
-    toast.success('Targets divided equally');
+    toast.success(`Divided equally across ${count} ${count === 1 ? 'item' : 'items'}`);
   };
 
   const getTotal = (paramKey: string, metricId: string) => {
@@ -1533,13 +1594,13 @@ function ParameterBreakdownSection({
                         >
                           <span className="text-sm font-medium text-foreground truncate">{item.name}</span>
                           {activeMetrics.map(metric => (
-                            <Input
+                            <MetricAmountInput
                               key={metric.id}
-                              type="text"
-                              className="h-8 text-sm"
-                              value={(item.metrics[metric.id] ?? 0) > 0 ? formatNumber(item.metrics[metric.id] ?? 0) : ''}
-                              onChange={(e) => handleItemChange(paramKey, item.id, metric.id, parseNumber(e.target.value))}
-                              placeholder="0"
+                              value={item.metrics[metric.id] ?? 0}
+                              onCommit={(value) => handleItemChange(paramKey, item.id, metric.id, value)}
+                              formatNumber={formatNumber}
+                              parseNumber={parseNumber}
+                              ariaLabel={`${metric.name} for ${item.name}`}
                             />
                           ))}
                         </div>
@@ -1553,11 +1614,33 @@ function ParameterBreakdownSection({
                     style={{ gridTemplateColumns: gridCols }}
                   >
                     <span className="text-sm text-foreground">Total</span>
-                    {activeMetrics.map(metric => (
-                      <span key={metric.id} className="text-sm text-foreground">
-                        {metric.unit === '₹' ? '₹' : ''}{formatNumber(getTotal(paramKey, metric.id))}
-                      </span>
-                    ))}
+                    {/* The sum against the target it is meant to add up to, so a
+                        hand-edited figure that breaks the total is visible here
+                        rather than only on save. */}
+                    {activeMetrics.map(metric => {
+                      const total = getTotal(paramKey, metric.id);
+                      const target = metricTargets[metric.id] ?? 0;
+                      const difference = total - target;
+                      const drifted = Math.abs(difference) > AMOUNT_EPSILON;
+                      const prefix = metric.unit === '₹' ? '₹' : '';
+                      return (
+                        <span key={metric.id} className="text-sm text-foreground">
+                          {prefix}{formatNumber(total)}
+                          {drifted && (
+                            <span
+                              className={cn(
+                                'ml-1.5 text-[11px] font-normal',
+                                difference > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-destructive',
+                              )}
+                            >
+                              {difference > 0
+                                ? `over by ${prefix}${formatNumber(difference)}`
+                                : `${prefix}${formatNumber(-difference)} short`}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                 </>
               )}
