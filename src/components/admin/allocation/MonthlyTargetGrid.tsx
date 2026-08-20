@@ -286,17 +286,12 @@ export function MonthlyTargetGrid({
   /**
    * Whether the saved months still describe the target being distributed.
    *
-   * They are set aside when the annual target has moved on, and when a saved
-   * month sits outside the current window, which means the months the target
-   * is spread over have changed and every share along with them.
+   * Only a change to the annual target sets them aside. Nothing else rewrites
+   * a figure that was entered by hand — where the months no longer add up, the
+   * shortfall is reported and the entered values are left exactly as they are.
    */
-  const savedMonthsAreStale = useMemo(() => {
-    if (savedAgainstAnnual !== null && Math.abs(savedAgainstAnnual - currentAnnual) > AMOUNT_EPSILON) {
-      return true;
-    }
-    const inWindow = new Set(activeMonths.map(m => m.number));
-    return storedMonths.some(m => !inWindow.has(m.month_number));
-  }, [savedAgainstAnnual, currentAnnual, activeMonths, storedMonths]);
+  const savedMonthsAreStale =
+    savedAgainstAnnual !== null && Math.abs(savedAgainstAnnual - currentAnnual) > AMOUNT_EPSILON;
 
   /**
    * Every month in the window, stored values where they exist and an even split
@@ -511,9 +506,13 @@ export function MonthlyTargetGrid({
   // from. The saved plan can hold an older annual target from a previous
   // distribution, and checking against that made the panel disagree with
   // itself — months adding up to one number, the total flagging another.
-  const annual = enabledMetrics.quantity ? annualQuantity : annualRevenue;
+  const annual = currentAnnual;
   const summed = enabledMetrics.quantity ? totals.quantity : totals.revenue;
-  const drifted = Math.abs(annual - summed) > AMOUNT_EPSILON;
+  // Positive when the months come to more than the annual target, negative when
+  // they fall short. Nothing is adjusted to close it — it is only reported.
+  const difference = summed - annual;
+  const drifted = Math.abs(difference) > AMOUNT_EPSILON;
+  const overAnnual = difference > 0;
 
   return (
     <div className="ml-8 mb-3 rounded-lg border overflow-hidden">
@@ -708,13 +707,21 @@ export function MonthlyTargetGrid({
               )}
               <TableCell className="text-right text-sm font-mono">{totals.workingDays}</TableCell>
               <TableCell className="text-right text-sm font-mono">
-                {formatDaily(annual, totals.workingDays)}
+                {formatDaily(summed, totals.workingDays)}
               </TableCell>
               <TableCell className="text-center">
                 {drifted ? (
-                  <Badge variant="outline" className="text-[10px] gap-1 text-destructive border-destructive/40">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'gap-1 whitespace-nowrap text-[10px]',
+                      overAnnual
+                        ? 'border-destructive/40 text-destructive'
+                        : 'border-amber-500/40 text-amber-600 dark:text-amber-400',
+                    )}
+                  >
                     <AlertTriangle className="h-2.5 w-2.5" />
-                    ≠ {formatNumber(annual)}
+                    {overAnnual ? 'Over by' : 'Short by'} {formatNumber(Math.abs(difference))}
                   </Badge>
                 ) : (
                   <Badge variant="secondary" className="text-[10px]">matches annual</Badge>
@@ -747,13 +754,31 @@ export function MonthlyTargetGrid({
         </div>
       )}
 
-      {drifted && unsavedCount === 0 && (
-        <div className="flex items-start gap-1.5 text-[11px] px-3 py-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-t">
-          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+      {/* What it would take to reconcile. Shown whenever the months do not add
+          up, saved or not, and never acted on — the figures entered stay put
+          and this only states the gap. */}
+      {drifted && (
+        <div
+          className={cn(
+            'flex items-start gap-2 border-t px-3 py-2 text-[11px]',
+            overAnnual
+              ? 'bg-destructive/10 text-destructive'
+              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400',
+          )}
+        >
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
           <span>
-            Months total {formatNumber(summed)} but the annual target on this plan is{' '}
-            {formatNumber(annual)}. The annual figure is left unchanged — adjust it in the
-            employee's plan if the months are correct.
+            <strong className="font-semibold">
+              {overAnnual ? 'Over the annual target by' : 'Below the annual target by'}{' '}
+              {formatNumber(Math.abs(difference))}
+              {enabledMetrics.quantity ? ` ${quantityUnit}` : ''}
+            </strong>
+            {' — '}
+            months total {formatNumber(summed)} against an annual target of {formatNumber(annual)}.
+            {overAnnual
+              ? ` Remove ${formatNumber(Math.abs(difference))} across the months to reconcile.`
+              : ` Add ${formatNumber(Math.abs(difference))} across the months to reconcile.`}
+            {' '}Nothing has been changed for you.
           </span>
         </div>
       )}
