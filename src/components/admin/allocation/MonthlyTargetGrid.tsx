@@ -270,8 +270,43 @@ export function MonthlyTargetGrid({
   );
 
   /**
+   * The annual figure the saved months were last spread over.
+   *
+   * Every month is a share of an annual target, so a share saved against one
+   * target says nothing once that target moves. Comparing the plan's own
+   * recorded figure against the one being distributed now is what tells the
+   * two apart — the months either belong to the current target or they are
+   * left over from a previous one.
+   */
+  const savedAgainstAnnual = plan
+    ? Number(enabledMetrics.quantity ? plan.quantity_target : plan.revenue_target) || 0
+    : null;
+  const currentAnnual = enabledMetrics.quantity ? annualQuantity : annualRevenue;
+
+  /**
+   * Whether the saved months still describe the target being distributed.
+   *
+   * They are set aside when the annual target has moved on, and when a saved
+   * month sits outside the current window, which means the months the target
+   * is spread over have changed and every share along with them.
+   */
+  const savedMonthsAreStale = useMemo(() => {
+    if (savedAgainstAnnual !== null && Math.abs(savedAgainstAnnual - currentAnnual) > AMOUNT_EPSILON) {
+      return true;
+    }
+    const inWindow = new Set(activeMonths.map(m => m.number));
+    return storedMonths.some(m => !inWindow.has(m.month_number));
+  }, [savedAgainstAnnual, currentAnnual, activeMonths, storedMonths]);
+
+  /**
    * Every month in the window, stored values where they exist and an even split
    * of the allocated annual target where they do not.
+   *
+   * A month edited by hand keeps its figure only while the annual target it was
+   * a share of still stands. Once that changes the whole window is rebuilt from
+   * the new target, hand-edited months included, so the distribution always adds
+   * back up to the target it belongs to rather than freezing a stale month in
+   * place and leaving the total short.
    */
   const rows: GridRow[] = useMemo(() => {
     const stored = new Map(storedMonths.map(m => [m.month_number, m]));
@@ -285,7 +320,7 @@ export function MonthlyTargetGrid({
     return activeMonths.map(month => {
       // Working days always come from Attendance, never from the saved plan.
       const { days, fromAttendance } = resolveWorkingDays(month.number);
-      const existing = stored.get(month.number);
+      const existing = savedMonthsAreStale ? undefined : stored.get(month.number);
       if (existing) {
         return {
           monthNumber: month.number,
@@ -307,7 +342,7 @@ export function MonthlyTargetGrid({
         isStored: false,
       };
     });
-  }, [storedMonths, activeMonths, annualQuantity, annualRevenue, enabledMetrics, resolveWorkingDays]);
+  }, [storedMonths, activeMonths, annualQuantity, annualRevenue, enabledMetrics, resolveWorkingDays, savedMonthsAreStale]);
 
   const totals = useMemo(() => ({
     quantity: rows.reduce((sum, r) => sum + r.quantityTarget, 0),
@@ -337,44 +372,85 @@ export function MonthlyTargetGrid({
           .single();
         if (planError) throw planError;
         planId = created.id;
+      } else if (savedAgainstAnnual !== null && Math.abs(savedAgainstAnnual - currentAnnual) > AMOUNT_EPSILON) {
+        // Record which annual target these months are a share of. Without this
+        // the plan keeps pointing at the figure it was last saved against, the
+        // months read as stale on every render, and a save could never stick.
+        const { error: anchorError } = await supabase
+          .from('user_business_plans')
+          .update(
+            enabledMetrics.quantity
+              ? { quantity_target: annualQuantity }
+              : { revenue_target: annualRevenue },
+          )
+          .eq('id', planId);
+        if (anchorError) throw anchorError;
       }
 
-      // working_days is written through from Attendance so the stored plan stays
-      // consistent with what the grid shows. It is not editable here.
-      const payload: Record<string, number> = { working_days: row.workingDays };
-      if (enabledMetrics.quantity) payload.quantity_target = values.quantityTarget;
-      if (enabledMetrics.revenue) payload.revenue_target = values.revenueTarget;
+      /**
+       * Normally one month is written. When the stored months are left over
+       * from a previous annual target the whole window goes down with it, at
+       * the figures already on screen, so what is saved is the distribution the
+       * user is looking at rather than one current month beside stale ones.
+       */
+      const writes = savedMonthsAreStale
+        ? rows.map(candidate =>
+            candidate.monthNumber === row.monthNumber
+              ? { row: candidate, values }
+              : {
+                  row: candidate,
+                  values: {
+                    quantityTarget: candidate.quantityTarget,
+                    revenueTarget: candidate.revenueTarget,
+                    dailyInput: null,
+                  } as DraftRow,
+                },
+          )
+        : [{ row, values }];
 
-      // Deactivate the current active row (if any) rather than updating it in
-      // place, so the previous target stays queryable as history instead of
-      // being silently overwritten — same rule as every other target save.
-      const { error: deactivateError } = await supabase
-        .from('user_business_plan_months')
-        .update({ is_active: false, deactivated_at: new Date().toISOString() })
-        .eq('business_plan_id', planId)
-        .eq('month_number', row.monthNumber)
-        .eq('is_active', true);
-      if (deactivateError) throw deactivateError;
+      for (const write of writes) {
+        // working_days is written through from Attendance so the stored plan
+        // stays consistent with what the grid shows. It is not editable here.
+        const payload: Record<string, number> = { working_days: write.row.workingDays };
+        if (enabledMetrics.quantity) payload.quantity_target = write.values.quantityTarget;
+        if (enabledMetrics.revenue) payload.revenue_target = write.values.revenueTarget;
 
-      const { error: insertError } = await supabase
-        .from('user_business_plan_months')
-        .insert({
-          business_plan_id: planId,
-          month_number: row.monthNumber,
-          month_name: row.monthName,
-          ...payload,
-        });
-      if (insertError) throw insertError;
+        // Deactivate the current active row (if any) rather than updating it in
+        // place, so the previous target stays queryable as history instead of
+        // being silently overwritten — same rule as every other target save.
+        const { error: deactivateError } = await supabase
+          .from('user_business_plan_months')
+          .update({ is_active: false, deactivated_at: new Date().toISOString() })
+          .eq('business_plan_id', planId)
+          .eq('month_number', write.row.monthNumber)
+          .eq('is_active', true);
+        if (deactivateError) throw deactivateError;
 
-      return { row, values };
+        const { error: insertError } = await supabase
+          .from('user_business_plan_months')
+          .insert({
+            business_plan_id: planId,
+            month_number: write.row.monthNumber,
+            month_name: write.row.monthName,
+            ...payload,
+          });
+        if (insertError) throw insertError;
+      }
+
+      return { row, values, rewroteWindow: writes.length > 1 };
     },
-    onSuccess: ({ row, values }) => {
+    onSuccess: ({ row, values, rewroteWindow }) => {
       queryClient.invalidateQueries({ queryKey: ['ubp-plan', userId, fyYear] });
       queryClient.invalidateQueries({ queryKey: ['ubp-months', plan?.id] });
       const primary = enabledMetrics.quantity ? values.quantityTarget : values.revenueTarget;
-      toast.success(`${userName} — ${row.monthName} saved`, {
-        description: `${formatNumber(primary)} ÷ ${row.workingDays} days = ${formatDaily(primary, row.workingDays)} per day`,
-      });
+      toast.success(
+        rewroteWindow ? `${userName} — all months saved` : `${userName} — ${row.monthName} saved`,
+        {
+          description: rewroteWindow
+            ? `Rebuilt against the current annual target of ${formatNumber(currentAnnual)}`
+            : `${formatNumber(primary)} ÷ ${row.workingDays} days = ${formatDaily(primary, row.workingDays)} per day`,
+        },
+      );
       setEditingMonth(null);
       setDraft(null);
     },
