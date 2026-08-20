@@ -122,19 +122,41 @@ const formatDaily = (target: number, workingDays: number) => {
   return value === null ? '—' : value.toFixed(2);
 };
 
+/** The three target metrics a plan can track, each distributed on its own. */
+type MetricKey = 'quantity' | 'revenue' | 'visits';
+
+const METRIC_KEYS: MetricKey[] = ['quantity', 'revenue', 'visits'];
+
+/** Column on `user_business_plan_months` holding this metric's monthly figure. */
+const MONTH_COLUMN: Record<MetricKey, 'quantity_target' | 'revenue_target' | 'visits_target'> = {
+  quantity: 'quantity_target',
+  revenue: 'revenue_target',
+  visits: 'visits_target',
+};
+
+/** Column on `user_business_plans` holding this metric's annual figure. */
+const PLAN_COLUMN: Record<MetricKey, 'quantity_target' | 'revenue_target' | 'visits_target'> = {
+  quantity: 'quantity_target',
+  revenue: 'revenue_target',
+  visits: 'visits_target',
+};
+
+type MetricAmounts = Record<MetricKey, number>;
+
+const zeroAmounts = (): MetricAmounts => ({ quantity: 0, revenue: 0, visits: 0 });
+
 interface StoredMonth {
   month_number: number;
   month_name: string | null;
-  quantity_target: number;
-  revenue_target: number;
+  amounts: MetricAmounts;
   working_days: number;
 }
 
 interface GridRow {
   monthNumber: number;
   monthName: string;
-  quantityTarget: number;
-  revenueTarget: number;
+  /** One figure per metric — each is a share of that metric's own annual target. */
+  amounts: MetricAmounts;
   /** Sourced from Attendance — read-only in this grid. */
   workingDays: number;
   /** True when working days came from Attendance's working_days_config. */
@@ -144,14 +166,18 @@ interface GridRow {
 }
 
 interface DraftRow {
-  quantityTarget: number;
-  revenueTarget: number;
+  amounts: MetricAmounts;
   /**
-   * Raw text while the Daily Average field is being typed in. Null means the
-   * daily average is showing its derived value from the monthly target.
+   * Raw text for whichever field is being typed in, so a half-written decimal
+   * such as "145." survives the keystroke. Reformatting the number on every
+   * change swallowed the point and made decimals impossible to enter.
    */
-  dailyInput: string | null;
+  typing: Partial<Record<string, string>>;
 }
+
+/** The field key used for a metric's monthly input, and for its daily average. */
+const monthlyField = (metric: MetricKey) => `monthly:${metric}`;
+const dailyField = (metric: MetricKey) => `daily:${metric}`;
 
 interface MonthlyTargetGridProps {
   userId: string;
@@ -163,6 +189,8 @@ interface MonthlyTargetGridProps {
   annualQuantity?: number;
   /** The employee's allocated annual revenue, used to seed unsaved months. */
   annualRevenue?: number;
+  /** The employee's allocated annual visits, used to seed unsaved months. */
+  annualVisits?: number;
   targetStartMonth?: number;
   targetEndMonth?: number;
 }
@@ -175,6 +203,7 @@ export function MonthlyTargetGrid({
   enabledMetrics,
   annualQuantity = 0,
   annualRevenue = 0,
+  annualVisits = 0,
   targetStartMonth = 1,
   targetEndMonth = 12,
 }: MonthlyTargetGridProps) {
@@ -182,12 +211,39 @@ export function MonthlyTargetGrid({
   const [editingMonth, setEditingMonth] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftRow | null>(null);
 
+  /**
+   * The metrics this plan tracks, each with its own annual target, its own even
+   * split across the months, and its own daily average. They are independent:
+   * quantity reconciling says nothing about revenue.
+   */
+  const metrics = useMemo(
+    () =>
+      METRIC_KEYS.filter(key => enabledMetrics[key]).map(key => ({
+        key,
+        annual: key === 'quantity' ? annualQuantity : key === 'revenue' ? annualRevenue : annualVisits,
+        unit: key === 'quantity' ? quantityUnit : key === 'revenue' ? '₹' : 'visits',
+        monthlyLabel:
+          key === 'quantity'
+            ? `Monthly Target (${quantityUnit})`
+            : key === 'revenue'
+              ? 'Monthly Revenue (₹)'
+              : 'Monthly Visits',
+        dailyLabel:
+          key === 'quantity'
+            ? `Daily Average Target (${quantityUnit})`
+            : key === 'revenue'
+              ? 'Daily Average Target (₹)'
+              : 'Daily Average Visits',
+      })),
+    [enabledMetrics, annualQuantity, annualRevenue, annualVisits, quantityUnit],
+  );
+
   const { data: plan, isLoading: planLoading } = useQuery({
     queryKey: ['ubp-plan', userId, fyYear],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_business_plans')
-        .select('id, quantity_target, revenue_target')
+        .select('id, quantity_target, revenue_target, visits_target')
         .eq('user_id', userId)
         .eq('year', fyYear)
         .maybeSingle();
@@ -203,7 +259,7 @@ export function MonthlyTargetGrid({
       if (!plan?.id) return [];
       const { data, error } = await supabase
         .from('user_business_plan_months')
-        .select('month_number, month_name, quantity_target, revenue_target, working_days')
+        .select('month_number, month_name, quantity_target, revenue_target, visits_target, working_days')
         .eq('business_plan_id', plan.id)
         .eq('is_active', true)
         .order('month_number');
@@ -211,8 +267,11 @@ export function MonthlyTargetGrid({
       return (data || []).map(m => ({
         month_number: m.month_number,
         month_name: m.month_name,
-        quantity_target: Number(m.quantity_target) || 0,
-        revenue_target: Number(m.revenue_target) || 0,
+        amounts: {
+          quantity: Number(m.quantity_target) || 0,
+          revenue: Number(m.revenue_target) || 0,
+          visits: Number((m as { visits_target?: number }).visits_target) || 0,
+        },
         working_days: Number(m.working_days) || 0,
       }));
     },
@@ -278,20 +337,25 @@ export function MonthlyTargetGrid({
    * two apart — the months either belong to the current target or they are
    * left over from a previous one.
    */
-  const savedAgainstAnnual = plan
-    ? Number(enabledMetrics.quantity ? plan.quantity_target : plan.revenue_target) || 0
-    : null;
-  const currentAnnual = enabledMetrics.quantity ? annualQuantity : annualRevenue;
-
   /**
-   * Whether the saved months still describe the target being distributed.
+   * Whether the saved months still describe the targets being distributed.
    *
-   * Only a change to the annual target sets them aside. Nothing else rewrites
-   * a figure that was entered by hand — where the months no longer add up, the
-   * shortfall is reported and the entered values are left exactly as they are.
+   * Only a change to an annual target sets them aside, and a change to any one
+   * metric's target restacks the whole grid, since a month row carries every
+   * metric together. Nothing else rewrites a figure entered by hand — where the
+   * months no longer add up, the shortfall is reported and the entered values
+   * are left exactly as they are.
    */
-  const savedMonthsAreStale =
-    savedAgainstAnnual !== null && Math.abs(savedAgainstAnnual - currentAnnual) > AMOUNT_EPSILON;
+  const savedMonthsAreStale = useMemo(() => {
+    if (!plan) return false;
+    // `visits_target` post-dates the checked-in Supabase types, so the row is
+    // read through an index signature rather than the generated shape.
+    const planRow = plan as Record<string, unknown>;
+    return metrics.some(metric => {
+      const savedAgainst = Number(planRow[PLAN_COLUMN[metric.key]]) || 0;
+      return Math.abs(savedAgainst - metric.annual) > AMOUNT_EPSILON;
+    });
+  }, [plan, metrics]);
 
   /**
    * Every month in the window, stored values where they exist and an even split
@@ -306,11 +370,15 @@ export function MonthlyTargetGrid({
   const rows: GridRow[] = useMemo(() => {
     const stored = new Map(storedMonths.map(m => [m.month_number, m]));
     const count = activeMonths.length || 1;
-    // Each month carries an equal share of the annual target, exactly as it
-    // falls. Rounding it to a whole number would make the months add up to
-    // something other than the target they came from.
-    const seedQuantity = annualQuantity / count;
-    const seedRevenue = annualRevenue / count;
+
+    // Every metric is split over the same months but entirely on its own, so
+    // each one's shares add back up to its own annual target. Shares are taken
+    // exactly as they fall — rounding to whole units would leave a metric's
+    // months totalling something other than the target they came from.
+    const seeds = zeroAmounts();
+    metrics.forEach(metric => {
+      seeds[metric.key] = metric.annual / count;
+    });
 
     return activeMonths.map(month => {
       // Working days always come from Attendance, never from the saved plan.
@@ -320,8 +388,7 @@ export function MonthlyTargetGrid({
         return {
           monthNumber: month.number,
           monthName: existing.month_name || month.name,
-          quantityTarget: existing.quantity_target,
-          revenueTarget: existing.revenue_target,
+          amounts: { ...existing.amounts },
           workingDays: days,
           daysFromAttendance: fromAttendance,
           isStored: true,
@@ -330,20 +397,43 @@ export function MonthlyTargetGrid({
       return {
         monthNumber: month.number,
         monthName: month.name,
-        quantityTarget: enabledMetrics.quantity ? seedQuantity : 0,
-        revenueTarget: enabledMetrics.revenue ? seedRevenue : 0,
+        amounts: { ...seeds },
         workingDays: days,
         daysFromAttendance: fromAttendance,
         isStored: false,
       };
     });
-  }, [storedMonths, activeMonths, annualQuantity, annualRevenue, enabledMetrics, resolveWorkingDays, savedMonthsAreStale]);
+  }, [storedMonths, activeMonths, metrics, resolveWorkingDays, savedMonthsAreStale]);
 
-  const totals = useMemo(() => ({
-    quantity: rows.reduce((sum, r) => sum + r.quantityTarget, 0),
-    revenue: rows.reduce((sum, r) => sum + r.revenueTarget, 0),
-    workingDays: rows.reduce((sum, r) => sum + r.workingDays, 0),
-  }), [rows]);
+  const totals = useMemo(() => {
+    const amounts = zeroAmounts();
+    METRIC_KEYS.forEach(key => {
+      amounts[key] = rows.reduce((sum, r) => sum + r.amounts[key], 0);
+    });
+    return { amounts, workingDays: rows.reduce((sum, r) => sum + r.workingDays, 0) };
+  }, [rows]);
+
+  /**
+   * How far each metric's months are from its annual target, and in which
+   * direction. Reported only — no figure is adjusted to close a gap.
+   */
+  const reconciliation = useMemo(
+    () =>
+      metrics.map(metric => {
+        const summed = totals.amounts[metric.key];
+        const difference = summed - metric.annual;
+        return {
+          ...metric,
+          summed,
+          difference,
+          drifted: Math.abs(difference) > AMOUNT_EPSILON,
+          over: difference > 0,
+        };
+      }),
+    [metrics, totals],
+  );
+
+  const anyDrift = reconciliation.some(m => m.drifted);
 
   const unsavedCount = rows.filter(r => !r.isStored).length;
   const attendanceConfiguredCount = rows.filter(r => r.daysFromAttendance).length;
@@ -360,6 +450,7 @@ export function MonthlyTargetGrid({
             year: fyYear,
             quantity_target: annualQuantity,
             revenue_target: annualRevenue,
+            visits_target: annualVisits,
             quantity_unit: quantityUnit,
             source: 'manual',
           })
@@ -367,17 +458,15 @@ export function MonthlyTargetGrid({
           .single();
         if (planError) throw planError;
         planId = created.id;
-      } else if (savedAgainstAnnual !== null && Math.abs(savedAgainstAnnual - currentAnnual) > AMOUNT_EPSILON) {
-        // Record which annual target these months are a share of. Without this
-        // the plan keeps pointing at the figure it was last saved against, the
+      } else if (savedMonthsAreStale) {
+        // Record which annual targets these months are a share of. Without this
+        // the plan keeps pointing at the figures it was last saved against, the
         // months read as stale on every render, and a save could never stick.
+        const anchor: Record<string, number> = {};
+        metrics.forEach(metric => { anchor[PLAN_COLUMN[metric.key]] = metric.annual; });
         const { error: anchorError } = await supabase
           .from('user_business_plans')
-          .update(
-            enabledMetrics.quantity
-              ? { quantity_target: annualQuantity }
-              : { revenue_target: annualRevenue },
-          )
+          .update(anchor)
           .eq('id', planId);
         if (anchorError) throw anchorError;
       }
@@ -392,14 +481,7 @@ export function MonthlyTargetGrid({
         ? rows.map(candidate =>
             candidate.monthNumber === row.monthNumber
               ? { row: candidate, values }
-              : {
-                  row: candidate,
-                  values: {
-                    quantityTarget: candidate.quantityTarget,
-                    revenueTarget: candidate.revenueTarget,
-                    dailyInput: null,
-                  } as DraftRow,
-                },
+              : { row: candidate, values: { amounts: candidate.amounts, typing: {} } as DraftRow },
           )
         : [{ row, values }];
 
@@ -407,8 +489,9 @@ export function MonthlyTargetGrid({
         // working_days is written through from Attendance so the stored plan
         // stays consistent with what the grid shows. It is not editable here.
         const payload: Record<string, number> = { working_days: write.row.workingDays };
-        if (enabledMetrics.quantity) payload.quantity_target = write.values.quantityTarget;
-        if (enabledMetrics.revenue) payload.revenue_target = write.values.revenueTarget;
+        metrics.forEach(metric => {
+          payload[MONTH_COLUMN[metric.key]] = write.values.amounts[metric.key];
+        });
 
         // Deactivate the current active row (if any) rather than updating it in
         // place, so the previous target stays queryable as history instead of
@@ -437,12 +520,13 @@ export function MonthlyTargetGrid({
     onSuccess: ({ row, values, rewroteWindow }) => {
       queryClient.invalidateQueries({ queryKey: ['ubp-plan', userId, fyYear] });
       queryClient.invalidateQueries({ queryKey: ['ubp-months', plan?.id] });
-      const primary = enabledMetrics.quantity ? values.quantityTarget : values.revenueTarget;
+      const lead = metrics[0];
+      const primary = lead ? values.amounts[lead.key] : 0;
       toast.success(
         rewroteWindow ? `${userName} — all months saved` : `${userName} — ${row.monthName} saved`,
         {
           description: rewroteWindow
-            ? `Rebuilt against the current annual target of ${formatNumber(currentAnnual)}`
+            ? 'Rebuilt against the current annual targets'
             : `${formatNumber(primary)} ÷ ${row.workingDays} days = ${formatDaily(primary, row.workingDays)} per day`,
         },
       );
@@ -456,11 +540,7 @@ export function MonthlyTargetGrid({
 
   const startEdit = (row: GridRow) => {
     setEditingMonth(row.monthNumber);
-    setDraft({
-      quantityTarget: row.quantityTarget,
-      revenueTarget: row.revenueTarget,
-      dailyInput: null,
-    });
+    setDraft({ amounts: { ...row.amounts }, typing: {} });
   };
 
   const cancelEdit = () => {
@@ -468,30 +548,38 @@ export function MonthlyTargetGrid({
     setDraft(null);
   };
 
-  /** Editing the monthly target: daily average goes back to being derived. */
-  const onTargetEdited = (field: 'quantityTarget' | 'revenueTarget', value: number) =>
-    setDraft(d => d && { ...d, [field]: value, dailyInput: null });
+  /**
+   * Editing a monthly target.
+   *
+   * The raw text is kept alongside the parsed number so a decimal can actually
+   * be typed — reformatting "145." back to "145" on every keystroke made the
+   * point impossible to enter. That metric's daily average goes back to being
+   * derived; the other metrics are untouched.
+   */
+  const onMonthlyEdited = (metric: MetricKey, raw: string) =>
+    setDraft(d =>
+      d && {
+        ...d,
+        amounts: { ...d.amounts, [metric]: parseNum(raw) },
+        typing: { ...d.typing, [monthlyField(metric)]: raw, [dailyField(metric)]: undefined },
+      },
+    );
 
   /**
-   * Editing the daily average: back-calculate the monthly target so that
-   * target ÷ working days still equals the average shown.
+   * Editing a daily average: back-calculate that metric's monthly target so
+   * target ÷ working days still equals the average shown. Left unrounded, so
+   * reading the average back returns what was typed.
    */
-  const onDailyEdited = (raw: string, workingDays: number) =>
-    setDraft(d => {
-      if (!d) return d;
-      const perDay = parseNum(raw);
-      // Left unrounded, so typing a daily average and reading the monthly
-      // target back gives the same figure rather than one nudged by a unit.
-      const derivedTarget = perDay * workingDays;
-      return enabledMetrics.quantity
-        ? { ...d, dailyInput: raw, quantityTarget: derivedTarget }
-        : { ...d, dailyInput: raw, revenueTarget: derivedTarget };
-    });
+  const onDailyEdited = (metric: MetricKey, raw: string, workingDays: number) =>
+    setDraft(d =>
+      d && {
+        ...d,
+        amounts: { ...d.amounts, [metric]: parseNum(raw) * workingDays },
+        typing: { ...d.typing, [dailyField(metric)]: raw, [monthlyField(metric)]: undefined },
+      },
+    );
 
-  const draftInvalid =
-    !draft ||
-    (enabledMetrics.quantity && draft.quantityTarget < 0) ||
-    (enabledMetrics.revenue && draft.revenueTarget < 0);
+  const draftInvalid = !draft || metrics.some(metric => draft.amounts[metric.key] < 0);
 
   if (planLoading || monthsLoading) {
     return (
@@ -501,18 +589,6 @@ export function MonthlyTargetGrid({
       </div>
     );
   }
-
-  // The figure being distributed right now, which is what the rows were seeded
-  // from. The saved plan can hold an older annual target from a previous
-  // distribution, and checking against that made the panel disagree with
-  // itself — months adding up to one number, the total flagging another.
-  const annual = currentAnnual;
-  const summed = enabledMetrics.quantity ? totals.quantity : totals.revenue;
-  // Positive when the months come to more than the annual target, negative when
-  // they fall short. Nothing is adjusted to close it — it is only reported.
-  const difference = summed - annual;
-  const drifted = Math.abs(difference) > AMOUNT_EPSILON;
-  const overAnnual = difference > 0;
 
   return (
     <div className="ml-8 mb-3 rounded-lg border overflow-hidden">
@@ -528,9 +604,13 @@ export function MonthlyTargetGrid({
           )}
           <span className="text-[11px] font-mono text-muted-foreground">
             {totals.workingDays} working days
-            {totals.workingDays > 0 && (
-              <> · {formatDaily(annual, totals.workingDays)} {enabledMetrics.quantity ? quantityUnit : '₹'}/day avg</>
-            )}
+            {totals.workingDays > 0 &&
+              reconciliation.map(metric => (
+                <span key={metric.key}>
+                  {' · '}
+                  {formatDaily(metric.summed, totals.workingDays)} {metric.unit}/day avg
+                </span>
+              ))}
           </span>
         </span>
       </div>
@@ -540,19 +620,20 @@ export function MonthlyTargetGrid({
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs">Month</TableHead>
-              {enabledMetrics.quantity && (
-                <TableHead className="text-xs text-right">Monthly Target ({quantityUnit})</TableHead>
-              )}
-              {enabledMetrics.revenue && (
-                <TableHead className="text-xs text-right">Monthly Revenue (₹)</TableHead>
-              )}
               <TableHead className="text-xs text-right">
-                <span className="inline-flex items-center gap-1 justify-end">
+                <span className="inline-flex items-center justify-end gap-1">
                   <Lock className="h-3 w-3 opacity-60" aria-hidden="true" />
                   Working Days
                 </span>
               </TableHead>
-              <TableHead className="text-xs text-right">Daily Average</TableHead>
+              {/* Each metric gets its own monthly figure and its own daily
+                  average, side by side, so the pair reads as one unit. */}
+              {metrics.map(metric => (
+                <React.Fragment key={metric.key}>
+                  <TableHead className="text-xs text-right">{metric.monthlyLabel}</TableHead>
+                  <TableHead className="text-xs text-right">{metric.dailyLabel}</TableHead>
+                </React.Fragment>
+              ))}
               <TableHead className="text-xs text-center w-[130px]">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -560,14 +641,7 @@ export function MonthlyTargetGrid({
           <TableBody>
             {rows.map(row => {
               const isEditing = editingMonth === row.monthNumber;
-              const shownQuantity = isEditing && draft ? draft.quantityTarget : row.quantityTarget;
-              const shownRevenue = isEditing && draft ? draft.revenueTarget : row.revenueTarget;
               const shownDays = row.workingDays; // always from Attendance
-              const dailyBasis = enabledMetrics.quantity ? shownQuantity : shownRevenue;
-              // While typing in the daily field, show the raw text; otherwise derive it.
-              const shownDaily = isEditing && draft?.dailyInput !== null && draft?.dailyInput !== undefined
-                ? draft.dailyInput
-                : formatDaily(dailyBasis, shownDays);
 
               return (
                 <TableRow key={row.monthNumber} className={cn(isEditing && 'bg-muted/50')}>
@@ -582,47 +656,6 @@ export function MonthlyTargetGrid({
                     </span>
                   </TableCell>
 
-                  {enabledMetrics.quantity && (
-                    <TableCell className="text-right">
-                      {isEditing ? (
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          value={shownQuantity > 0 ? formatNumber(shownQuantity) : ''}
-                          onChange={e => onTargetEdited('quantityTarget', parseNum(e.target.value))}
-                          placeholder="0"
-                          className="h-8 w-24 text-right text-sm ml-auto"
-                          aria-label={`Monthly target for ${row.monthName}`}
-                          autoFocus
-                        />
-                      ) : (
-                        <span className={cn('text-sm font-mono', !row.isStored && 'text-muted-foreground')}>
-                          {formatNumber(row.quantityTarget)}
-                        </span>
-                      )}
-                    </TableCell>
-                  )}
-
-                  {enabledMetrics.revenue && (
-                    <TableCell className="text-right">
-                      {isEditing ? (
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          value={shownRevenue > 0 ? formatNumber(shownRevenue) : ''}
-                          onChange={e => onTargetEdited('revenueTarget', parseNum(e.target.value))}
-                          placeholder="0"
-                          className="h-8 w-28 text-right text-sm ml-auto"
-                          aria-label={`Monthly revenue target for ${row.monthName}`}
-                        />
-                      ) : (
-                        <span className={cn('text-sm font-mono', !row.isStored && 'text-muted-foreground')}>
-                          {formatNumber(row.revenueTarget)}
-                        </span>
-                      )}
-                    </TableCell>
-                  )}
-
                   {/* Working days — read-only, sourced from the Attendance module */}
                   <TableCell className="text-right">
                     <span
@@ -636,25 +669,57 @@ export function MonthlyTargetGrid({
                     </span>
                   </TableCell>
 
-                  {/* Editable — keeps target ÷ working days in step */}
-                  <TableCell className="text-right">
-                    {isEditing ? (
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={shownDaily}
-                        onChange={e => onDailyEdited(e.target.value, shownDays)}
-                        placeholder="0"
-                        className="h-8 w-24 text-right text-sm ml-auto"
-                        aria-label={`Daily average for ${row.monthName}`}
-                        disabled={shownDays <= 0}
-                      />
-                    ) : (
-                      <span className="text-sm font-mono font-semibold">
-                        {formatDaily(dailyBasis, shownDays)}
-                      </span>
-                    )}
-                  </TableCell>
+                  {metrics.map((metric, index) => {
+                    const amount = isEditing && draft ? draft.amounts[metric.key] : row.amounts[metric.key];
+                    // While a field is being typed in, show the raw text so a
+                    // part-typed decimal is not reformatted out from under the
+                    // cursor. Otherwise show the formatted figure.
+                    const monthlyTyping = isEditing ? draft?.typing[monthlyField(metric.key)] : undefined;
+                    const dailyTyping = isEditing ? draft?.typing[dailyField(metric.key)] : undefined;
+
+                    return (
+                      <React.Fragment key={metric.key}>
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              value={monthlyTyping ?? (amount > 0 ? formatNumber(amount) : '')}
+                              onChange={e => onMonthlyEdited(metric.key, e.target.value)}
+                              placeholder="0"
+                              className="ml-auto h-8 w-28 text-right text-sm"
+                              aria-label={`${metric.monthlyLabel} for ${row.monthName}`}
+                              autoFocus={index === 0}
+                            />
+                          ) : (
+                            <span className={cn('text-sm font-mono', !row.isStored && 'text-muted-foreground')}>
+                              {formatNumber(amount)}
+                            </span>
+                          )}
+                        </TableCell>
+
+                        {/* Editable — keeps target ÷ working days in step */}
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              value={dailyTyping ?? formatDaily(amount, shownDays)}
+                              onChange={e => onDailyEdited(metric.key, e.target.value, shownDays)}
+                              placeholder="0"
+                              className="ml-auto h-8 w-24 text-right text-sm"
+                              aria-label={`${metric.dailyLabel} for ${row.monthName}`}
+                              disabled={shownDays <= 0}
+                            />
+                          ) : (
+                            <span className="text-sm font-mono font-semibold">
+                              {formatDaily(amount, shownDays)}
+                            </span>
+                          )}
+                        </TableCell>
+                      </React.Fragment>
+                    );
+                  })}
 
                   <TableCell className="text-center">
                     {isEditing ? (
@@ -699,34 +764,35 @@ export function MonthlyTargetGrid({
 
             <TableRow className="bg-muted/40 hover:bg-muted/40 font-semibold">
               <TableCell className="text-sm">Total</TableCell>
-              {enabledMetrics.quantity && (
-                <TableCell className="text-right text-sm font-mono">{formatNumber(totals.quantity)}</TableCell>
-              )}
-              {enabledMetrics.revenue && (
-                <TableCell className="text-right text-sm font-mono">{formatNumber(totals.revenue)}</TableCell>
-              )}
               <TableCell className="text-right text-sm font-mono">{totals.workingDays}</TableCell>
-              <TableCell className="text-right text-sm font-mono">
-                {formatDaily(summed, totals.workingDays)}
-              </TableCell>
-              <TableCell className="text-center">
-                {drifted ? (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'gap-1 whitespace-nowrap text-[10px]',
-                      overAnnual
-                        ? 'border-destructive/40 text-destructive'
-                        : 'border-amber-500/40 text-amber-600 dark:text-amber-400',
-                    )}
-                  >
-                    <AlertTriangle className="h-2.5 w-2.5" />
-                    {overAnnual ? 'Over by' : 'Short by'} {formatNumber(Math.abs(difference))}
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="text-[10px]">matches annual</Badge>
-                )}
-              </TableCell>
+              {reconciliation.map(metric => (
+                <React.Fragment key={metric.key}>
+                  <TableCell className="text-right text-sm font-mono">
+                    <span className="flex flex-col items-end gap-0.5">
+                      {formatNumber(metric.summed)}
+                      {metric.drifted ? (
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold',
+                            metric.over ? 'text-destructive' : 'text-amber-600 dark:text-amber-400',
+                          )}
+                        >
+                          <AlertTriangle className="h-2.5 w-2.5" />
+                          {metric.over ? 'Over by' : 'Short by'} {formatNumber(Math.abs(metric.difference))}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                          matches annual
+                        </span>
+                      )}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right text-sm font-mono">
+                    {formatDaily(metric.summed, totals.workingDays)}
+                  </TableCell>
+                </React.Fragment>
+              ))}
+              <TableCell />
             </TableRow>
           </TableBody>
         </Table>
@@ -757,31 +823,35 @@ export function MonthlyTargetGrid({
       {/* What it would take to reconcile. Shown whenever the months do not add
           up, saved or not, and never acted on — the figures entered stay put
           and this only states the gap. */}
-      {drifted && (
-        <div
-          className={cn(
-            'flex items-start gap-2 border-t px-3 py-2 text-[11px]',
-            overAnnual
-              ? 'bg-destructive/10 text-destructive'
-              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400',
-          )}
-        >
-          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-          <span>
-            <strong className="font-semibold">
-              {overAnnual ? 'Over the annual target by' : 'Below the annual target by'}{' '}
-              {formatNumber(Math.abs(difference))}
-              {enabledMetrics.quantity ? ` ${quantityUnit}` : ''}
-            </strong>
-            {' — '}
-            months total {formatNumber(summed)} against an annual target of {formatNumber(annual)}.
-            {overAnnual
-              ? ` Remove ${formatNumber(Math.abs(difference))} across the months to reconcile.`
-              : ` Add ${formatNumber(Math.abs(difference))} across the months to reconcile.`}
-            {' '}Nothing has been changed for you.
-          </span>
-        </div>
-      )}
+      {reconciliation
+        .filter(metric => metric.drifted)
+        .map(metric => (
+          <div
+            key={metric.key}
+            className={cn(
+              'flex items-start gap-2 border-t px-3 py-2 text-[11px]',
+              metric.over
+                ? 'bg-destructive/10 text-destructive'
+                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400',
+            )}
+          >
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>
+              <strong className="font-semibold">
+                {metric.monthlyLabel.replace('Monthly ', '')}:{' '}
+                {metric.over ? 'over the annual target by' : 'below the annual target by'}{' '}
+                {formatNumber(Math.abs(metric.difference))}
+              </strong>
+              {' — '}
+              months total {formatNumber(metric.summed)} against an annual target of{' '}
+              {formatNumber(metric.annual)}.
+              {metric.over
+                ? ` Remove ${formatNumber(Math.abs(metric.difference))} across the months to reconcile.`
+                : ` Add ${formatNumber(Math.abs(metric.difference))} across the months to reconcile.`}
+              {' '}Nothing has been changed for you.
+            </span>
+          </div>
+        ))}
     </div>
   );
 }

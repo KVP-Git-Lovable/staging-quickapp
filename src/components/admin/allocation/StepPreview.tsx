@@ -236,6 +236,7 @@ export function StepPreview({
             enabledMetrics={enabledMetrics}
             annualQuantity={qty}
             annualRevenue={rev}
+            annualVisits={vis}
             targetStartMonth={targetStartMonth}
             targetEndMonth={targetEndMonth}
           />
