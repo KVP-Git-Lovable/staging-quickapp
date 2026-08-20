@@ -404,9 +404,9 @@ async function aiOrderStops<
     // Optional per-stop lines (display wording only, facts unchanged):
     // lines[k] belongs to stop number k+1. Missing/short arrays simply leave
     // those stops on the client's fallback wording.
-    const lines: unknown[] = Array.isArray(parsed?.lines) ? parsed.lines : [];
+    const aiLines: unknown[] = Array.isArray(parsed?.lines) ? parsed.lines : [];
     baseline.forEach((s, k) => {
-      const line = typeof lines[k] === "string" ? String(lines[k]).trim().slice(0, 240) : "";
+      const line = typeof aiLines[k] === "string" ? String(aiLines[k]).trim().slice(0, 240) : "";
       (s as Record<string, unknown>).insightLine = line;
     });
     return { stops: order.map((n) => baseline[n - 1]), note };
