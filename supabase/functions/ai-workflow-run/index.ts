@@ -783,7 +783,9 @@ async function runBeatPlanner(supabase: any, userId: string) {
       newRetailers: b.newRetailers,
     }))
     .sort((a, b) => a.coveragePct - b.coveragePct || b.retailers - a.retailers)
-    .slice(0, 12);
+    // Stored rows feed the per-beat card one-liners, so keep more than the
+    // narration needs; the facts block below stays at 12.
+    .slice(0, 40);
 
   const totalRetailers = (retailers ?? []).length;
 
@@ -794,6 +796,7 @@ async function runBeatPlanner(supabase: any, userId: string) {
     "",
     "### Beats ordered by lowest coverage first",
     rows
+      .slice(0, 12)
       .map(
         (b) =>
           `- ${b.beat}: ${b.retailers} retailers, ${b.visited30d} visited in 30d (${b.coveragePct}% coverage), ` +
@@ -1181,12 +1184,17 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
+    // PostgREST/Supabase errors are plain objects, not Error instances — read
+    // their message/code so failures aren't reported as "Unknown error".
+    const pg = err as { message?: unknown; code?: unknown } | null;
     const message =
       err instanceof TogetherError
         ? `AI provider request failed (${err.code})`
         : err instanceof Error
           ? err.message
-          : "Unknown error";
+          : typeof pg?.message === "string" && pg.message
+            ? `${pg.message}${pg.code ? ` (${pg.code})` : ""}`
+            : "Unknown error";
     console.error("[ai-workflow-run] failed:", err);
 
     if (executionId) {

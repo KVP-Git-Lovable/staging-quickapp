@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -81,21 +81,40 @@ const localToday = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
+interface LatestRun {
+  result: RouteResult;
+  startedAt: string | null;
+}
+
+// Visits can be planned or removed at any point in the day, so a stored run
+// only represents the route for a short while (same policy as the Beat
+// Planner insights).
+const STALE_AFTER_MS = 10 * 60 * 1000;
+
 /** Usable = successful, right shape, carries the newRetailers field, the
  * per-stop typicalOrderHour field, and the routeNote field (runs stored
- * before any of these existed must be regenerated), and run today. */
-const isFresh = (res: RouteResult | null): boolean => {
+ * before any of these existed must be regenerated), run today, non-empty,
+ * and recent enough. */
+const isFresh = (run: LatestRun | null): boolean => {
+  const res = run?.result ?? null;
   if (!res || res.kind !== "route" || !Array.isArray(res.newRetailers)) return false;
   const stops = res.stops ?? [];
-  if (stops.length > 0 && !("typicalOrderHour" in stops[0])) return false;
-  if (stops.length > 0 && !("insightLine" in stops[0])) return false;
+  // A zero-stop run is only a placeholder (e.g. the morning prewarm before
+  // any visits were planned) — treat it as stale so planning visits later
+  // in the day triggers a fresh run instead of hiding the card until
+  // tomorrow.
+  if (stops.length === 0) return false;
+  if (!("typicalOrderHour" in stops[0])) return false;
+  if (!("insightLine" in stops[0])) return false;
   if (!("routeNote" in res)) return false;
   const today = new Date().toISOString().slice(0, 10);
-  return res.date === today || res.date === localToday();
+  if (res.date !== today && res.date !== localToday()) return false;
+  const startedAt = run?.startedAt ? new Date(run.startedAt).getTime() : 0;
+  return Date.now() - startedAt < STALE_AFTER_MS;
 };
 
 /** Newest successful visit_optimiser execution belonging to this user. */
-async function fetchLatestRun(userId: string): Promise<RouteResult | null> {
+async function fetchLatestRun(userId: string): Promise<LatestRun | null> {
   const { data: agent } = await supabase
     .from("ai_agents")
     .select("id")
@@ -104,7 +123,7 @@ async function fetchLatestRun(userId: string): Promise<RouteResult | null> {
   if (!agent?.id) return null;
   const { data } = await supabase
     .from("workflow_executions")
-    .select("result")
+    .select("result, started_at")
     .eq("agent_id", agent.id)
     .eq("status", "success")
     .eq("triggered_by", userId)
@@ -112,7 +131,8 @@ async function fetchLatestRun(userId: string): Promise<RouteResult | null> {
     .limit(1)
     .maybeSingle();
   const res = (data?.result ?? null) as RouteResult | null;
-  return res?.kind === "route" ? res : null;
+  if (res?.kind !== "route") return null;
+  return { result: res, startedAt: (data?.started_at as string) ?? null };
 }
 
 /** Trigger one visit_optimiser run and return its result (null on failure). */
@@ -151,11 +171,30 @@ export async function prewarmVisitOptimizerInsights(userId: string): Promise<voi
   }
 }
 
-export function useVisitOptimizerInsights(): VisitOptimizerInsights {
+/**
+ * @param expectedRetailerIds When the caller knows which retailers are on
+ *   today's visit list (e.g. the My Visits page viewing self/today), pass
+ *   their ids. A stored run whose stops don't cover exactly this set is
+ *   treated as stale — adding or removing a retailer/beat from today's
+ *   visits refreshes the route immediately instead of waiting out the TTL.
+ *   Pass null/undefined when the day's visit set is unknown.
+ */
+export function useVisitOptimizerInsights(
+  expectedRetailerIds?: string[] | null,
+): VisitOptimizerInsights {
   const { user } = useAuth();
   const [result, setResult] = useState<RouteResult | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  // Signature of the expected visit set, order-insensitive and deduped.
+  const expectedKey = useMemo(() => {
+    if (!expectedRetailerIds || expectedRetailerIds.length === 0) return null;
+    return [...new Set(expectedRetailerIds.map(String))].sort().join(",");
+  }, [expectedRetailerIds]);
+  // A run whose stops can never equal the expected set (e.g. a retailer
+  // without coordinates history still appears, but a cancelled visit does
+  // not) must not re-trigger forever: one refresh attempt per distinct set.
+  const attemptedSetsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     mountedRef.current = true;
@@ -179,20 +218,36 @@ export function useVisitOptimizerInsights(): VisitOptimizerInsights {
     let cancelled = false;
     const userId = user.id;
 
+    // Order-insensitive comparison of a run's stops against the expected
+    // visit set; without an expected set every run matches.
+    const matchesExpected = (run: LatestRun | null): boolean => {
+      if (!expectedKey || !run) return true;
+      const got = [...new Set((run.result.stops ?? []).map((s) => String(s.retailerId)))]
+        .sort()
+        .join(",");
+      return got === expectedKey;
+    };
+
     void (async () => {
       try {
         const latest = await loadLatest(userId);
         if (cancelled) return;
-        if (latest) setResult(latest);
-        if (isFresh(latest)) return;
+        if (latest) setResult(latest.result);
+        if (isFresh(latest) && matchesExpected(latest)) return;
+        if (isFresh(latest) && !matchesExpected(latest)) {
+          // Visit set changed since the run — refresh, but at most once per
+          // distinct set so an unsatisfiable set can't loop runs.
+          if (expectedKey && attemptedSetsRef.current.has(expectedKey)) return;
+          if (expectedKey) attemptedSetsRef.current.add(expectedKey);
+        }
         if (autoRunInFlight) return;
         autoRunInFlight = true;
         try {
           // Re-check first — a run may have completed while we queried.
           const recheck = await loadLatest(userId);
           if (cancelled) return;
-          if (isFresh(recheck)) {
-            setResult(recheck);
+          if (isFresh(recheck) && matchesExpected(recheck)) {
+            setResult(recheck!.result);
             return;
           }
           await runNow();
@@ -209,7 +264,7 @@ export function useVisitOptimizerInsights(): VisitOptimizerInsights {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, loadLatest, runNow]);
+  }, [user?.id, loadLatest, runNow, expectedKey]);
 
   return {
     newRetailers: result?.newRetailers ?? [],
