@@ -145,7 +145,11 @@ export const MyRetailers = () => {
     const row = (churnResult?.rows ?? []).find((x) => String(x.retailerId) === String(retailerId));
     return (
       <span
-        className="inline-flex shrink-0"
+        className={`inline-flex shrink-0 items-center justify-center rounded-sm border-2 border-red-500 p-0.5 ${
+          level === "worst"
+            ? "bg-red-100 dark:bg-red-950/50"
+            : "bg-amber-50 dark:bg-amber-950/50"
+        }`}
         title={
           row
             ? `Churn risk: orders down ${row.dropPct}% vs the previous 30 days`
