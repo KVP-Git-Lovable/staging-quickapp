@@ -293,7 +293,11 @@ export default function AiWorkflowsPage() {
         onCreated={refreshWorkflows}
       />
 
-      <CreateAgentDialog open={createAgentOpen} onOpenChange={setCreateAgentOpen} />
+      <CreateAgentDialog
+        open={createAgentOpen}
+        onOpenChange={setCreateAgentOpen}
+        onCreated={refreshWorkflows}
+      />
 
       <WorkflowDetailSheet
         workflow={selectedWorkflow}

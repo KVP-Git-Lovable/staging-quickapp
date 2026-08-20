@@ -91,3 +91,7 @@ verify_jwt = true
 [functions.zoho-sync-customers]
 verify_jwt = false
 
+[functions.ai-agent-builder]
+verify_jwt = true
+
+
