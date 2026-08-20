@@ -26125,27 +26125,33 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           distributor_id: string
           distributor_name: string
           id: string
+          is_active: boolean
           quantity_target: number | null
           revenue_target: number | null
         }
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           distributor_id: string
           distributor_name: string
           id?: string
+          is_active?: boolean
           quantity_target?: number | null
           revenue_target?: number | null
         }
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           distributor_id?: string
           distributor_name?: string
           id?: string
+          is_active?: boolean
           quantity_target?: number | null
           revenue_target?: number | null
         }
@@ -26170,7 +26176,9 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           id: string
+          is_active: boolean
           month_name: string
           month_number: number
           percentage: number | null
@@ -26183,7 +26191,9 @@ export type Database = {
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           month_name: string
           month_number: number
           percentage?: number | null
@@ -26196,7 +26206,9 @@ export type Database = {
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           month_name?: string
           month_number?: number
           percentage?: number | null
@@ -26234,34 +26246,43 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           id: string
+          is_active: boolean
           month_name: string
           month_number: number
           quantity_target: number | null
           revenue_target: number | null
           updated_at: string
+          visits_target: number
           working_days: number | null
         }
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           month_name: string
           month_number: number
           quantity_target?: number | null
           revenue_target?: number | null
           updated_at?: string
+          visits_target?: number
           working_days?: number | null
         }
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           month_name?: string
           month_number?: number
           quantity_target?: number | null
           revenue_target?: number | null
           updated_at?: string
+          visits_target?: number
           working_days?: number | null
         }
         Relationships: [
@@ -26278,7 +26299,9 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           id: string
+          is_active: boolean
           product_id: string
           product_name: string
           quantity_target: number | null
@@ -26287,7 +26310,9 @@ export type Database = {
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           product_id: string
           product_name: string
           quantity_target?: number | null
@@ -26296,7 +26321,9 @@ export type Database = {
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           product_id?: string
           product_name?: string
           quantity_target?: number | null
@@ -26330,8 +26357,10 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           growth_percent: number | null
           id: string
+          is_active: boolean
           last_year_revenue: number | null
           quantity_target: number | null
           retailer_id: string
@@ -26341,8 +26370,10 @@ export type Database = {
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           growth_percent?: number | null
           id?: string
+          is_active?: boolean
           last_year_revenue?: number | null
           quantity_target?: number | null
           retailer_id: string
@@ -26352,8 +26383,10 @@ export type Database = {
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           growth_percent?: number | null
           id?: string
+          is_active?: boolean
           last_year_revenue?: number | null
           quantity_target?: number | null
           retailer_id?: string
@@ -26502,6 +26535,7 @@ export type Database = {
           target_strategy: string
           updated_at: string
           user_id: string
+          visits_target: number
           year: number
         }
         Insert: {
@@ -26522,6 +26556,7 @@ export type Database = {
           target_strategy?: string
           updated_at?: string
           user_id: string
+          visits_target?: number
           year: number
         }
         Update: {
@@ -26542,6 +26577,7 @@ export type Database = {
           target_strategy?: string
           updated_at?: string
           user_id?: string
+          visits_target?: number
           year?: number
         }
         Relationships: [
