@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Lock, Pencil, Save, X, AlertTriangle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { fyMonthCalendar, fyMonthName, fyMonthsInRange, formatFYMonth, formatFYMonthRange } from '@/lib/fyMonths';
 
 /**
  * Month-wise target grid for a single employee.
@@ -57,30 +58,6 @@ const describeError = (error: unknown): string => {
  */
 const AMOUNT_EPSILON = 0.005;
 
-const FY_MONTHS = [
-  { number: 1, name: 'April' },
-  { number: 2, name: 'May' },
-  { number: 3, name: 'June' },
-  { number: 4, name: 'July' },
-  { number: 5, name: 'August' },
-  { number: 6, name: 'September' },
-  { number: 7, name: 'October' },
-  { number: 8, name: 'November' },
-  { number: 9, name: 'December' },
-  { number: 10, name: 'January' },
-  { number: 11, name: 'February' },
-  { number: 12, name: 'March' },
-];
-
-/**
- * Calendar position of an FY month. fy_year 2027 means FY 2026-27, so FY month
- * 1 (April) falls in 2026 and FY month 10 (January) falls in 2027.
- */
-const calendarFor = (fyMonth: number, fyYear: number) =>
-  fyMonth <= 9
-    ? { monthIndex: fyMonth + 2, year: fyYear - 1 }
-    : { monthIndex: fyMonth - 10, year: fyYear };
-
 /**
  * Fallback used only when Attendance has no working_days_config row for the
  * month. Mirrors the Attendance module's own formula (total days − week offs −
@@ -92,7 +69,7 @@ const fallbackWorkingDays = (
   fyYear: number,
   holidayDates: Set<string>,
 ): number => {
-  const { monthIndex, year } = calendarFor(fyMonth, fyYear);
+  const { monthIndex, year } = fyMonthCalendar(fyMonth, fyYear);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   let workingDays = 0;
   for (let day = 1; day <= daysInMonth; day++) {
@@ -154,7 +131,14 @@ interface StoredMonth {
 
 interface GridRow {
   monthNumber: number;
+  /** Plain FY month name — what is written to and read from the database. */
   monthName: string;
+  /**
+   * Month and year as shown on screen: 'April 26'. Derived from the plan's
+   * financial year at render, never stored, so an existing row picks up the
+   * year without a migration.
+   */
+  monthLabel: string;
   /** One figure per metric — each is a share of that metric's own annual target. */
   amounts: MetricAmounts;
   /** Sourced from Attendance — read-only in this grid. */
@@ -313,7 +297,7 @@ export function MonthlyTargetGrid({
     const configured = attendance?.configured ?? new Map<string, number>();
     const holidayDates = attendance?.holidayDates ?? new Set<string>();
     return (fyMonth: number): { days: number; fromAttendance: boolean } => {
-      const { monthIndex, year } = calendarFor(fyMonth, fyYear);
+      const { monthIndex, year } = fyMonthCalendar(fyMonth, fyYear);
       const key = `${year}-${monthIndex + 1}`;
       const configuredDays = configured.get(key);
       if (configuredDays !== undefined && configuredDays > 0) {
@@ -323,9 +307,19 @@ export function MonthlyTargetGrid({
     };
   }, [attendance, fyYear]);
 
+  /**
+   * The plan's month window, in FY order and labelled with the year each month
+   * falls in — the same window, and the same labels, the Targets tab shows
+   * against Target Duration and the Monthly parameter.
+   */
   const activeMonths = useMemo(
-    () => FY_MONTHS.filter(m => m.number >= targetStartMonth && m.number <= targetEndMonth),
-    [targetStartMonth, targetEndMonth],
+    () =>
+      fyMonthsInRange(targetStartMonth, targetEndMonth).map(number => ({
+        number,
+        name: fyMonthName(number),
+        label: formatFYMonth(number, fyYear),
+      })),
+    [targetStartMonth, targetEndMonth, fyYear],
   );
 
   /**
@@ -388,6 +382,7 @@ export function MonthlyTargetGrid({
         return {
           monthNumber: month.number,
           monthName: existing.month_name || month.name,
+          monthLabel: month.label,
           amounts: { ...existing.amounts },
           workingDays: days,
           daysFromAttendance: fromAttendance,
@@ -397,6 +392,7 @@ export function MonthlyTargetGrid({
       return {
         monthNumber: month.number,
         monthName: month.name,
+        monthLabel: month.label,
         amounts: { ...seeds },
         workingDays: days,
         daysFromAttendance: fromAttendance,
@@ -523,7 +519,7 @@ export function MonthlyTargetGrid({
       const lead = metrics[0];
       const primary = lead ? values.amounts[lead.key] : 0;
       toast.success(
-        rewroteWindow ? `${userName} — all months saved` : `${userName} — ${row.monthName} saved`,
+        rewroteWindow ? `${userName} — all months saved` : `${userName} — ${row.monthLabel} saved`,
         {
           description: rewroteWindow
             ? 'Rebuilt against the current annual targets'
@@ -593,8 +589,11 @@ export function MonthlyTargetGrid({
   return (
     <div className="ml-8 mb-3 rounded-lg border overflow-hidden">
       <div className="flex items-center justify-between gap-2 flex-wrap px-3 py-2 bg-muted/40 border-b">
+        {/* Named the same way as the Targets tab: the financial year, then the
+            duration the months were built from. */}
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {userName} · FY {fyYear} monthly breakdown
+          {userName} · FY {fyYear - 1}-{String(fyYear).slice(-2)}
+          {activeMonths.length > 0 && ` · ${formatFYMonthRange(targetStartMonth, targetEndMonth, fyYear)}`}
         </span>
         <span className="flex items-center gap-2">
           {unsavedCount > 0 && (
@@ -647,7 +646,7 @@ export function MonthlyTargetGrid({
                 <TableRow key={row.monthNumber} className={cn(isEditing && 'bg-muted/50')}>
                   <TableCell className="text-sm font-medium">
                     <span className="flex items-center gap-1.5">
-                      {row.monthName}
+                      {row.monthLabel}
                       {!row.isStored && (
                         <span className="text-[9px] uppercase tracking-wide text-muted-foreground font-normal">
                           draft
@@ -688,7 +687,7 @@ export function MonthlyTargetGrid({
                               onChange={e => onMonthlyEdited(metric.key, e.target.value)}
                               placeholder="0"
                               className="ml-auto h-8 w-28 text-right text-sm"
-                              aria-label={`${metric.monthlyLabel} for ${row.monthName}`}
+                              aria-label={`${metric.monthlyLabel} for ${row.monthLabel}`}
                               autoFocus={index === 0}
                             />
                           ) : (
@@ -708,7 +707,7 @@ export function MonthlyTargetGrid({
                               onChange={e => onDailyEdited(metric.key, e.target.value, shownDays)}
                               placeholder="0"
                               className="ml-auto h-8 w-24 text-right text-sm"
-                              aria-label={`${metric.dailyLabel} for ${row.monthName}`}
+                              aria-label={`${metric.dailyLabel} for ${row.monthLabel}`}
                               disabled={shownDays <= 0}
                             />
                           ) : (
@@ -752,7 +751,7 @@ export function MonthlyTargetGrid({
                         className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
                         disabled={editingMonth !== null}
                         onClick={() => startEdit(row)}
-                        aria-label={`Edit ${row.monthName}`}
+                        aria-label={`Edit ${row.monthLabel}`}
                       >
                         <Pencil className="h-3 w-3" /> Edit
                       </Button>

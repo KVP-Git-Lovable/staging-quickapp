@@ -24,6 +24,8 @@ import { useTargetPeriods } from '@/hooks/useTargetPeriods';
 import { generateInitialMonthlyTargets } from './target-config/AnnualMonthlyBreakdown';
 import { useParameterDefinitions, useDeleteParameterDefinition } from '@/hooks/useTargetParameters';
 import { CreateParameterDialog } from './CreateParameterDialog';
+import { fyMonthOptions, fyMonthsInRange, formatFYMonthRange } from '@/lib/fyMonths';
+import { buildMonthlyRows, monthlyRowsMatch } from './target-config/monthlyParameterRows';
 
 // Icon map for dynamic rendering
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -59,11 +61,6 @@ interface BreakdownItem {
   categoryId?: string;
   categoryName?: string;
 }
-
-const FY_MONTHS = [
-  'April', 'May', 'June', 'July', 'August', 'September',
-  'October', 'November', 'December', 'January', 'February', 'March',
-];
 
 const PARAM_TAB_MAP: Record<string, { key: string; label: string; icon: string }> = {
   product: { key: 'product', label: 'Products', icon: '📦' },
@@ -102,8 +99,6 @@ interface TargetConfig {
   target_end_month: number;
   plan_status: PlanStatus;
 }
-
-const FY_MONTH_OPTIONS = FY_MONTHS.map((name, i) => ({ value: i + 1, label: name }));
 
 interface TargetConfigTabProps {
   fyYear: number;
@@ -292,6 +287,23 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   const activeMetrics = useMemo(() =>
     metricDefinitions.filter(m => enabledMetricIds.has(m.id)),
     [metricDefinitions, enabledMetricIds]
+  );
+
+  /**
+   * The financial year the months belong to.
+   *
+   * A saved plan carries its own `fy_year`; a plan being created has only the
+   * year the tab is showing. Both name the year the FY ends in, so April is
+   * labelled with the year before it.
+   */
+  const planFYYear = config.fy_year || fyYear;
+
+  // Month pickers name the year as well, so 'January 27' cannot be mistaken for
+  // the January that came ten months before the window opened.
+  const monthOptions = useMemo(() => fyMonthOptions(planFYYear), [planFYYear]);
+  const durationMonths = useMemo(
+    () => fyMonthsInRange(config.target_start_month, config.target_end_month),
+    [config.target_start_month, config.target_end_month],
   );
 
   // Save mutation
@@ -889,7 +901,7 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
               <p className="text-xs text-muted-foreground mt-0.5">Select the months for which targets apply</p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Start Month</Label>
               <Select
@@ -907,7 +919,7 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FY_MONTH_OPTIONS.map((m) => (
+                  {monthOptions.map((m) => (
                     <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -923,12 +935,21 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FY_MONTH_OPTIONS.filter(m => m.value >= config.target_start_month).map((m) => (
+                  {monthOptions.filter(m => m.value >= config.target_start_month).map((m) => (
                     <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            {/* The window every downstream month list is built from, spelled out
+                so the duration and the Monthly parameter can be read together. */}
+            <Badge variant="secondary" className="h-9 gap-1.5 px-3 text-xs font-medium">
+              <Calendar className="h-3.5 w-3.5" />
+              {formatFYMonthRange(config.target_start_month, config.target_end_month, planFYYear)}
+              <span className="text-muted-foreground">
+                · {durationMonths.length} {durationMonths.length === 1 ? 'month' : 'months'}
+              </span>
+            </Badge>
           </div>
         </div>
 
@@ -988,17 +1009,12 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
 
         <Separator />
 
-        {/* Action Buttons */}
+        {/* Action Buttons — plan lifecycle on the left, Save on the right. */}
         <div className="flex items-center justify-between pt-2">
-          <Button variant="outline" onClick={handleSave} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {config.plan_status === 'draft' ? 'Save Draft' : 'Save Changes'}
-          </Button>
-          
           <div className="flex items-center gap-2">
             {config.plan_status === 'draft' && (
-              <Button 
-                onClick={() => handleStatusChange('active')} 
+              <Button
+                onClick={() => handleStatusChange('active')}
                 disabled={!canActivate || saveMutation.isPending}
                 className="gap-2"
               >
@@ -1022,6 +1038,11 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
               </>
             )}
           </div>
+
+          <Button variant="outline" onClick={handleSave} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            {config.plan_status === 'draft' ? 'Save Draft' : 'Save Changes'}
+          </Button>
         </div>
       </CardContent>
 
@@ -1243,12 +1264,16 @@ function ParameterBreakdownSection({
   parseNumber,
   quantityUnit,
 }: ParameterBreakdownProps) {
-  const enabledParams = useMemo(() => 
+  const enabledParams = useMemo(() =>
     Object.entries(config.enabled_parameters)
       .filter(([, v]) => v)
       .map(([k]) => k),
     [config.enabled_parameters]
   );
+
+  // The plan's own financial year, so a month row is labelled with the year it
+  // actually falls in.
+  const planFYYear = config.fy_year;
 
   useEffect(() => {
     if (enabledParams.length > 0 && (!activeParamTab || !enabledParams.includes(activeParamTab))) {
@@ -1311,37 +1336,64 @@ function ParameterBreakdownSection({
 
   // Initialize breakdown data when source data loads
   useEffect(() => {
-    const newData: Record<string, BreakdownItem[]> = { ...breakdownData };
     const emptyMetrics: Record<string, number> = {};
     activeMetrics.forEach(m => { emptyMetrics[m.id] = 0; });
 
-    if (config.enabled_parameters.product && products && !newData.product) {
-      newData.product = products.map(p => {
-        const cat = p.product_categories as any;
-        return { id: p.id, name: p.name, metrics: { ...emptyMetrics }, categoryId: cat?.id, categoryName: cat?.name ?? 'Uncategorized' };
-      });
-    }
-    if (config.enabled_parameters.distributor && distributors && !newData.distributor) {
-      newData.distributor = distributors.map(d => ({ id: d.id, name: d.name, metrics: { ...emptyMetrics } }));
-    }
-    if (config.enabled_parameters.territory && territories && !newData.territory) {
-      newData.territory = territories.map(t => ({ id: t.id, name: t.name, metrics: { ...emptyMetrics } }));
-    }
-    if (config.enabled_parameters.beat && beats && !newData.beat) {
-      newData.beat = beats.map(b => ({ id: b.id, name: b.name, metrics: { ...emptyMetrics } }));
-    }
-    if (config.enabled_parameters.monthly && !newData.monthly) {
-      const activeMonths = FY_MONTHS
-        .map((m, i) => ({ name: m, index: i }))
-        .filter((_, i) => (i + 1) >= config.target_start_month && (i + 1) <= config.target_end_month);
-      newData.monthly = activeMonths.map(m => ({ id: `month-${m.index}`, name: m.name, metrics: { ...emptyMetrics } }));
-    }
-    if (config.enabled_parameters.retailer && !newData.retailer) {
-      newData.retailer = [];
-    }
+    setBreakdownData(prev => {
+      const newData: Record<string, BreakdownItem[]> = { ...prev };
+      let changed = false;
 
-    setBreakdownData(newData);
-  }, [products, distributors, territories, beats, config.enabled_parameters, config.target_start_month, config.target_end_month, activeMetrics]);
+      if (config.enabled_parameters.product && products && !newData.product) {
+        newData.product = products.map(p => {
+          const cat = p.product_categories as any;
+          return { id: p.id, name: p.name, metrics: { ...emptyMetrics }, categoryId: cat?.id, categoryName: cat?.name ?? 'Uncategorized' };
+        });
+        changed = true;
+      }
+      if (config.enabled_parameters.distributor && distributors && !newData.distributor) {
+        newData.distributor = distributors.map(d => ({ id: d.id, name: d.name, metrics: { ...emptyMetrics } }));
+        changed = true;
+      }
+      if (config.enabled_parameters.territory && territories && !newData.territory) {
+        newData.territory = territories.map(t => ({ id: t.id, name: t.name, metrics: { ...emptyMetrics } }));
+        changed = true;
+      }
+      if (config.enabled_parameters.beat && beats && !newData.beat) {
+        newData.beat = beats.map(b => ({ id: b.id, name: b.name, metrics: { ...emptyMetrics } }));
+        changed = true;
+      }
+
+      /**
+       * The Monthly parameter is the Target Duration, listed out.
+       *
+       * It is rebuilt whenever the duration moves rather than being built once
+       * and left behind, so shortening or extending the window adds and drops
+       * months here in step. A month that survives the change keeps whatever
+       * was typed against it; only months that leave the window lose their
+       * figures, and they lose them because they are no longer being targeted.
+       */
+      if (config.enabled_parameters.monthly) {
+        const months = buildMonthlyRows(
+          newData.monthly,
+          config.target_start_month,
+          config.target_end_month,
+          planFYYear,
+          emptyMetrics,
+        );
+        if (!monthlyRowsMatch(newData.monthly, months)) {
+          newData.monthly = months;
+          changed = true;
+        }
+      }
+
+      if (config.enabled_parameters.retailer && !newData.retailer) {
+        newData.retailer = [];
+        changed = true;
+      }
+
+      return changed ? newData : prev;
+    });
+  }, [products, distributors, territories, beats, config.enabled_parameters, config.target_start_month, config.target_end_month, planFYYear, activeMetrics, setBreakdownData]);
 
   const handleItemChange = (paramKey: string, itemId: string, metricId: string, value: number) => {
     setBreakdownData(prev => ({
@@ -1433,7 +1485,9 @@ function ParameterBreakdownSection({
                   {/* Equal divide toggle */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {items.length} {info.label.toLowerCase()} found
+                      {paramKey === 'monthly'
+                        ? `${items.length} ${items.length === 1 ? 'month' : 'months'} · ${formatFYMonthRange(config.target_start_month, config.target_end_month, planFYYear)}`
+                        : `${items.length} ${info.label.toLowerCase()} found`}
                     </span>
                     <Button
                       variant="outline"
