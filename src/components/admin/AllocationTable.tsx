@@ -764,17 +764,25 @@ export function AllocationTable({
    * keeps a branch's contribution to the annual target truthful without ever
    * treating an excluded person as though they had a target.
    *
-   * Roll Down and Independent are left exactly as entered. A Roll Down
-   * manager's figure is the source their team is split from, not a mirror of it
-   * — if a hand-edit below leaves the two disagreeing, that is reported as a
-   * mismatch instead of being papered over by moving the manager to match.
+   * An Independent manager's *team* figure follows the team as well. What is
+   * uniquely theirs is their own target, and that is never touched; the team
+   * figure beside it is only what the team collectively carries, so editing
+   * someone in that team moves it. Their total responsibility grows or shrinks
+   * with the edit, and any excess lands where it belongs — against the annual
+   * target — instead of being reported as the manager disagreeing with a team
+   * whose figures they do not own.
+   *
+   * Roll Down alone is left exactly as entered: that manager's figure is the
+   * source their team is split from, not a mirror of it, so a hand-edit below
+   * leaving the two disagreeing is reported as a mismatch rather than papered
+   * over by moving the manager to match.
    */
   const cascadeRollUpToAncestors = useCallback((userId: string, next: Map<string, SubordinateAllocation>) => {
     let currentParent = hierarchyRelations.parentByChild.get(userId);
 
     while (currentParent) {
       const strategy = next.get(currentParent)?.targetStrategy;
-      if (strategy === 'roll_up' || strategy === 'no_target') {
+      if (strategy === 'roll_up' || strategy === 'no_target' || strategy === 'independent') {
         recomputeRollUpManager(currentParent, next);
       }
       currentParent = hierarchyRelations.parentByChild.get(currentParent);
