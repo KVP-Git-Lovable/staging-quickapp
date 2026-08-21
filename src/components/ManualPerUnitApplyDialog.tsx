@@ -58,6 +58,12 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
   // this dialog is the only place that needs to know a GST-inclusive number was typed.
   const [discountMode, setDiscountMode] = useState<'without_gst' | 'with_gst'>('without_gst');
   const showGstToggle = valueType === 'amount';
+  // Lets a rep type the desired final line total instead of a per-unit discount,
+  // and back-solves the discount needed to reach it. Scoped to amount-type
+  // schemes only — reverse-solving a percentage from a target total is a
+  // different (untested) calculation and isn't needed by the current use case.
+  const [entryMode, setEntryMode] = useState<'discount' | 'target_total'>('discount');
+  const showTargetTotalToggle = valueType === 'amount';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,7 +84,10 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
       else if (legacy) seed[id] = legacy;
     });
     setPerItemValues(seed);
-    setDiscountMode('without_gst');
+    // Scheme's saved preference (set in Scheme Master) pre-selects the toggle —
+    // reps can still switch it per order, this is just the starting point.
+    setDiscountMode(scheme?.discount_gst_mode === 'with_gst' ? 'with_gst' : 'without_gst');
+    setEntryMode('discount');
   }, [isOpen, scheme?.id]);
 
   const toggleLine = (id: string) => {
@@ -86,9 +95,10 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
   };
 
   // The cap is a tax-exclusive business limit. In "with GST" mode the raw typed
-  // number is larger than the effective ex-GST discount by (1 + gst%), so the raw
-  // input is allowed to go proportionally higher — it still nets out to at most `cap`
-  // once normalized.
+  // discount number is larger than the effective ex-GST discount by (1 + gst%), so
+  // the raw input is allowed to go proportionally higher — it still nets out to at
+  // most `cap` once normalized. Not meaningful in target-total mode (raw there is a
+  // total, not a discount), so callers only use this in 'discount' entry mode.
   const rawCapFor = (line: CartLine | undefined) => {
     const gstPct = line?.gstPercent || 0;
     if (showGstToggle && discountMode === 'with_gst' && gstPct > 0) {
@@ -122,6 +132,35 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
     return rawEntered;
   };
 
+  // Target-total mode: raw is the desired NET value for this line (interpreted per
+  // the current GST-mode toggle — ex-GST if "Without GST", final incl-GST price if
+  // "With GST"). Solves for the ex-GST ₹/unit discount needed to land there,
+  // clamped to the scheme's cap — so this is simultaneously the "amount for
+  // preview" and "value to store" figure, since amount-type discounts don't have
+  // the percentage/₹ split storedValueFor exists for.
+  const targetTotalPerUnitDiscount = (rawTarget: number, line: CartLine) => {
+    const gross = line.rate * line.quantity;
+    const gstPct = line.gstPercent || 0;
+    const targetNetExGst = (showGstToggle && discountMode === 'with_gst' && gstPct > 0)
+      ? rawTarget / (1 + gstPct / 100)
+      : rawTarget;
+    const neededTotalDiscount = Math.max(0, gross - targetNetExGst);
+    const perUnit = line.quantity > 0 ? neededTotalDiscount / line.quantity : 0;
+    return Math.max(0, Math.min(cap, perUnit));
+  };
+  // True when the typed target total is below what the cap allows reaching —
+  // i.e. even the maximum permitted discount can't get there.
+  const targetUnreachable = (rawTarget: number, line: CartLine) => {
+    if (rawTarget <= 0) return false;
+    const gross = line.rate * line.quantity;
+    const gstPct = line.gstPercent || 0;
+    const bestNetExGst = Math.max(0, gross - cap * line.quantity);
+    const bestNet = (showGstToggle && discountMode === 'with_gst' && gstPct > 0)
+      ? bestNetExGst * (1 + gstPct / 100)
+      : bestNetExGst;
+    return rawTarget < bestNet - 0.005;
+  };
+
   const setLineValue = (id: string, raw: string) => {
     if (raw === '') {
       setPerItemValues(prev => ({ ...prev, [id]: '' }));
@@ -129,6 +168,12 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
     }
     const n = Number(raw);
     if (Number.isNaN(n)) return;
+    if (entryMode === 'target_total') {
+      // Raw here is a total, not a discount — no cap clamp on the input itself;
+      // the cap is enforced downstream on the discount it implies.
+      setPerItemValues(prev => ({ ...prev, [id]: String(Math.max(0, n)) }));
+      return;
+    }
     const line = eligibleLines.find(l => l.id === id);
     setPerItemValues(prev => ({ ...prev, [id]: String(Math.max(0, Math.min(rawCapFor(line), n))) }));
   };
@@ -137,9 +182,13 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
   // Tax-exclusive discount amount for a line — the figure used everywhere the app
   // already speaks in ex-GST terms (row label, downstream onConfirm payload).
   const lineDiscountFor = (line: CartLine) => {
-    const raw = Math.max(0, Math.min(rawCapFor(line), Number(perItemValues[line.id]) || 0));
+    const raw = Number(perItemValues[line.id]) || 0;
     if (raw <= 0) return 0;
-    return perUnitAmountFor(raw, line) * line.quantity;
+    if (entryMode === 'target_total') {
+      return targetTotalPerUnitDiscount(raw, line) * line.quantity;
+    }
+    const capped = Math.max(0, Math.min(rawCapFor(line), raw));
+    return perUnitAmountFor(capped, line) * line.quantity;
   };
   const previewDiscount = selectedLines.reduce((sum, l) => sum + lineDiscountFor(l), 0);
 
@@ -168,8 +217,10 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
     let firstVal = 0;
     ids.forEach((id, i) => {
       const line = eligibleLines.find(l => l.id === id)!;
-      const raw = Math.max(0, Math.min(rawCapFor(line), Number(perItemValues[id]) || 0));
-      const v = Math.min(cap, storedValueFor(raw, line));
+      const raw = Number(perItemValues[id]) || 0;
+      const v = entryMode === 'target_total'
+        ? targetTotalPerUnitDiscount(raw, line)
+        : Math.min(cap, storedValueFor(Math.max(0, Math.min(rawCapFor(line), raw)), line));
       perItemDiscounts[id] = v;
       if (i === 0) firstVal = v;
     });
@@ -235,6 +286,41 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
             </div>
           )}
 
+          {showTargetTotalToggle && (
+            <div>
+              <Label className="text-xs font-medium">Enter</Label>
+              <div className="flex gap-1.5 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEntryMode('discount')}
+                  className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
+                    entryMode === 'discount'
+                      ? 'border-primary bg-primary/10 font-medium text-primary'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  Discount per {unit}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEntryMode('target_total')}
+                  className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
+                    entryMode === 'target_total'
+                      ? 'border-primary bg-primary/10 font-medium text-primary'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  Target total (this line)
+                </button>
+              </div>
+              {entryMode === 'target_total' && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Type the total you want this line to come to — the discount needed to get there is worked out automatically, up to the ₹{cap} cap.
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <Label className="text-xs font-medium">Pick products from your cart</Label>
             {eligibleLines.length === 0 ? (
@@ -266,6 +352,8 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
                     const checked = selectedItemIds.includes(line.id);
                     const lineVal = perItemValues[line.id] ?? '';
                     const lineDiscount = checked ? lineDiscountFor(line) : 0;
+                    const rawVal = Number(perItemValues[line.id]) || 0;
+                    const unreachable = entryMode === 'target_total' && checked && targetUnreachable(rawVal, line);
                     return (
                       <div
                         key={line.id}
@@ -286,6 +374,11 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
                               {disabled ? ` · need ≥${minQty}` : ''}
                               {checked && lineDiscount > 0 ? ` · −₹${lineDiscount.toFixed(2)}` : ''}
                             </div>
+                            {unreachable && (
+                              <div className="text-[10px] text-amber-600">
+                                Cap only allows −₹{lineDiscount.toFixed(2)} — target isn't fully reachable
+                              </div>
+                            )}
                           </div>
                         </label>
                         <div className="relative shrink-0 w-[88px]">
@@ -293,12 +386,12 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
                             type="number"
                             inputMode="decimal"
                             min={0}
-                            max={rawCapFor(line)}
+                            max={entryMode === 'target_total' ? undefined : rawCapFor(line)}
                             step="0.01"
                             disabled={disabled || !checked}
                             value={lineVal}
                             onChange={(e) => setLineValue(line.id, e.target.value)}
-                            placeholder={`0–${rawCapFor(line).toFixed(2)}`}
+                            placeholder={entryMode === 'target_total' ? 'e.g. 1000' : `0–${rawCapFor(line).toFixed(2)}`}
                             className="pr-6 h-7 text-xs"
                           />
                           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{symbol}</span>
@@ -312,7 +405,9 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Enter a per-{unit} discount on each row · max {capLabel}
+            {entryMode === 'target_total'
+              ? `Enter the target total for each row · discount capped at max ${capLabel} / ${unit}`
+              : `Enter a per-${unit} discount on each row · max ${capLabel}`}
           </p>
 
           {linesWithValue.length > 0 && (
