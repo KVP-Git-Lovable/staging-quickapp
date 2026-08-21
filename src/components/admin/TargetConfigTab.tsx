@@ -27,6 +27,7 @@ import { CreateParameterDialog } from './CreateParameterDialog';
 import { fyMonthOptions, fyMonthsInRange, formatFYMonthRange } from '@/lib/fyMonths';
 import { buildMonthlyRows, monthlyRowsMatch } from './target-config/monthlyParameterRows';
 import { cn } from '@/lib/utils';
+import { NumericTargetInput } from './NumericTargetInput';
 
 // Icon map for dynamic rendering
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -72,47 +73,6 @@ interface BreakdownItem {
  * tells a rounding artefact from a figure that genuinely does not add up.
  */
 const AMOUNT_EPSILON = 0.005;
-
-/**
- * A breakdown figure that can be typed as a decimal.
- *
- * The committed value is a number, but reformatting it on every keystroke
- * swallows a half-written decimal: "13." parses to 13 and renders straight back
- * as "13", so the point can never be typed at all. The raw text is held here
- * while the field is being edited and released on blur, at which point the
- * formatted number takes over again.
- */
-function MetricAmountInput({
-  value,
-  onCommit,
-  formatNumber,
-  parseNumber,
-  ariaLabel,
-}: {
-  value: number;
-  onCommit: (value: number) => void;
-  formatNumber: (n: number) => string;
-  parseNumber: (v: string) => number;
-  ariaLabel: string;
-}) {
-  const [typing, setTyping] = useState<string | null>(null);
-
-  return (
-    <Input
-      type="text"
-      inputMode="decimal"
-      className="h-8 text-sm"
-      aria-label={ariaLabel}
-      placeholder="0"
-      value={typing ?? (value > 0 ? formatNumber(value) : '')}
-      onChange={(e) => {
-        setTyping(e.target.value);
-        onCommit(parseNumber(e.target.value));
-      }}
-      onBlur={() => setTyping(null)}
-    />
-  );
-}
 
 const PARAM_TAB_MAP: Record<string, { key: string; label: string; icon: string }> = {
   product: { key: 'product', label: 'Products', icon: '📦' },
@@ -1023,10 +983,13 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                       <Label className={`text-sm font-medium ${colors.text} ${colors.darkText} whitespace-nowrap`}>
                         {metric.name}{displayUnit ? ` (${displayUnit})` : ''}
                       </Label>
-                      <Input
-                        type="text"
-                        value={(metricTargets[metric.id] ?? 0) > 0 ? formatNumber(metricTargets[metric.id] ?? 0) : ''}
-                        onChange={(e) => handleMetricTargetChange(metric.id, Math.round(parseNumber(e.target.value)))}
+                      <NumericTargetInput
+                        value={metricTargets[metric.id] ?? 0}
+                        onValueChange={(v) => handleMetricTargetChange(metric.id, v)}
+                        format={formatNumber}
+                        parse={parseNumber}
+                        transform={Math.round}
+                        aria-label={`${metric.name} annual target`}
                         placeholder="0"
                         className="w-32 text-right font-semibold bg-background"
                       />
@@ -1266,13 +1229,14 @@ function ProductCategoryGroups({
                   >
                     <span className="text-sm text-foreground truncate">{item.name}</span>
                     {activeMetrics.map(metric => (
-                      <MetricAmountInput
+                      <NumericTargetInput
                         key={metric.id}
                         value={item.metrics[metric.id] ?? 0}
-                        onCommit={(value) => handleItemChange('product', item.id, metric.id, value)}
-                        formatNumber={formatNumber}
-                        parseNumber={parseNumber}
-                        ariaLabel={`${metric.name} for ${item.name}`}
+                        onValueChange={(value) => handleItemChange('product', item.id, metric.id, value)}
+                        format={formatNumber}
+                        parse={parseNumber}
+                        aria-label={`${metric.name} for ${item.name}`}
+                        className="h-8 text-sm"
                       />
                     ))}
                   </div>
@@ -1594,13 +1558,14 @@ function ParameterBreakdownSection({
                         >
                           <span className="text-sm font-medium text-foreground truncate">{item.name}</span>
                           {activeMetrics.map(metric => (
-                            <MetricAmountInput
+                            <NumericTargetInput
                               key={metric.id}
                               value={item.metrics[metric.id] ?? 0}
-                              onCommit={(value) => handleItemChange(paramKey, item.id, metric.id, value)}
-                              formatNumber={formatNumber}
-                              parseNumber={parseNumber}
-                              ariaLabel={`${metric.name} for ${item.name}`}
+                              onValueChange={(value) => handleItemChange(paramKey, item.id, metric.id, value)}
+                              format={formatNumber}
+                              parse={parseNumber}
+                              aria-label={`${metric.name} for ${item.name}`}
+                              className="h-8 text-sm"
                             />
                           ))}
                         </div>

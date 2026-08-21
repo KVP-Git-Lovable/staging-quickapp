@@ -1,10 +1,10 @@
 import React from 'react';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { Users, ChevronRight, Scale, Maximize2, Minimize2, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NumericTargetInput } from '../NumericTargetInput';
 import { InlineStrategySelector } from '../TargetStrategySelector';
 import type { TargetStrategy } from '../TargetStrategySelector';
 
@@ -176,11 +176,12 @@ function TargetInput({ id, label, value, suffix, compact, width, onChange }: Tar
           'transition-colors focus-within:border-amber-500 focus-within:ring-[3px] focus-within:ring-amber-500/15',
         )}
       >
-        <Input
+        <NumericTargetInput
           id={id}
-          type="text"
-          value={value > 0 ? formatNumber(value) : ''}
-          onChange={(e) => onChange(parseNumber(e.target.value))}
+          value={value}
+          onValueChange={onChange}
+          format={formatNumber}
+          parse={parseNumber}
           placeholder="0"
           className={cn(
             'rounded-none border-0 bg-transparent text-right font-bold tabular-nums shadow-none',
