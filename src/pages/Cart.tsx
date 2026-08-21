@@ -1806,6 +1806,7 @@ export const Cart = () => {
                 await calculateLocalVanStockUpdate(
                   orderItems.map(item => ({
                     product_id: item.product_id,
+                    variant_id: item.variant_id,
                     quantity: item.quantity,
                     unit: item.unit
                   })),
@@ -1819,6 +1820,7 @@ export const Cart = () => {
                 await calculateLocalVanStockUpdate(
                   orderItems.map(item => ({
                     product_id: item.product_id,
+                    variant_id: item.variant_id,
                     quantity: item.quantity,
                     unit: item.unit
                   })),

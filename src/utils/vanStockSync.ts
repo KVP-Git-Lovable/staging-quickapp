@@ -1,41 +1,10 @@
 import { supabase } from '@/integrations/supabase/client';
 
-/**
- * Extract the actual product ID that matches van_stock_items.product_id
- * Order items can be in these formats:
- * 1. Simple product: "productId" -> use as-is
- * 2. Variant format: "baseProductId_variant_variantId" -> use variantId (the part AFTER _variant_)
- * 
- * Van stock items store:
- * - For base products: the product ID
- * - For variants: the variant ID directly
- */
-function extractMatchingProductId(productId: string): string {
-  if (!productId) return productId;
-  
-  // Check if it's a variant product ID format
-  if (productId.includes('_variant_')) {
-    // Return the VARIANT ID (after _variant_), not the base product ID
-    return productId.split('_variant_')[1];
-  }
-  
-  return productId;
-}
-
-/**
- * Extract both base and variant IDs from a product ID
- * Returns { baseId, variantId } - variantId is null if not a variant
- */
-function extractProductIds(productId: string): { baseId: string; variantId: string | null } {
-  if (!productId) return { baseId: productId, variantId: null };
-  
-  if (productId.includes('_variant_')) {
-    const parts = productId.split('_variant_');
-    return { baseId: parts[0], variantId: parts[1] };
-  }
-  
-  return { baseId: productId, variantId: null };
-}
+// Van stock items store, for a variant line, the variant's own id in
+// product_id — never a composite string. order_items keeps product_id
+// (the base product FK) and variant_id as separate columns, so the id
+// that matches a variant's van_stock_items row is order_items.variant_id,
+// falling back to product_id for a simple (non-variant) line.
 
 /**
  * Convert quantity from one unit to a target unit
@@ -175,7 +144,7 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
     if (orderIds.length > 0) {
       const { data: orderItems, error: itemsError } = await supabase
         .from('order_items')
-        .select('product_id, quantity, unit')
+        .select('product_id, variant_id, quantity, unit')
         .in('order_id', orderIds);
 
       if (itemsError) {
@@ -186,10 +155,8 @@ export async function syncOrdersToVanStock(stockDate: string, userId?: string): 
       // Sum quantities by the matching product ID (variant ID if variant, else product ID)
       // Van stock items store variant IDs directly, so we need to match on variant ID
       orderItems?.forEach(item => {
-        // Extract the ID that will match van_stock_items.product_id
-        // For variants like "baseId_variant_variantId", use variantId
-        // For simple products, use the product_id as-is
-        const matchingProductId = extractMatchingProductId(item.product_id);
+        // Van stock items track variants under the variant's own id.
+        const matchingProductId = item.variant_id || item.product_id;
         const orderUnit = item.unit || 'piece';
         
         // Convert to grams as intermediate unit for consistency
