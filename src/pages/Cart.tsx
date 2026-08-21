@@ -890,6 +890,10 @@ export const Cart = () => {
       cartItemsCount: cartItems.length
     });
     if (isSubmitting) return;
+    // Set synchronously, before any async validation work below, so a rapid
+    // second tap can't slip past this guard (or the button's disabled state,
+    // which reads the same flag) while the first tap is still validating.
+    setIsSubmitting(true);
 
     if (isBackdated && backdateCtx?.requireReason && !backdateReason.trim()) {
       toast({
@@ -897,6 +901,7 @@ export const Cart = () => {
         description: 'Please enter a reason for this backdated order.',
         variant: 'destructive',
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -906,16 +911,18 @@ export const Cart = () => {
         description: 'Please enter a reason for editing this order.',
         variant: 'destructive',
       });
+      setIsSubmitting(false);
       return;
     }
 
-    
+
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
         description: "Please add items to cart before submitting",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -926,6 +933,7 @@ export const Cart = () => {
         description: "Please select Full Payment, Partial Payment, or Full Credit",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if ((paymentType === "full" || paymentType === "partial") && !paymentMethod) {
@@ -934,6 +942,7 @@ export const Cart = () => {
         description: "Please select a payment method",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if (paymentType === "partial" && (!partialAmount || parseFloat(partialAmount) <= 0)) {
@@ -942,6 +951,7 @@ export const Cart = () => {
         description: "Please enter a valid partial payment amount",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     // Check payment proof ONLY when clearly online - SKIP entirely when offline
@@ -968,6 +978,7 @@ export const Cart = () => {
           description: "Please capture cheque photo",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       if (paymentMethod === "upi" && !upiPhotoUrl) {
@@ -977,6 +988,7 @@ export const Cart = () => {
           description: "Please capture payment confirmation photo",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       if (paymentMethod === "neft" && !neftPhotoUrl) {
@@ -986,6 +998,7 @@ export const Cart = () => {
           description: "Please capture NEFT confirmation photo",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       console.log('✅ [Cart] Payment proof validation passed');
@@ -1000,9 +1013,9 @@ export const Cart = () => {
         description: `This order will be submitted on ${new Date(visitDate!).toLocaleDateString()}. Items will remain in your cart until then.`,
         variant: "default"
       });
+      setIsSubmitting(false);
       return; // This prevents any further execution
     }
-    setIsSubmitting(true);
 
     try {
       // Get current user - use getSession() for offline support (reads from localStorage cache)
@@ -1307,9 +1320,53 @@ export const Cart = () => {
       // Combine regular items with free items
       const allOrderItems = [...orderItems, ...freeOrderItems];
 
+      // DUPLICATE GUARD (live path): if this visit already has a non-cancelled
+      // order with the exact same items+quantities, ask before adding another
+      // rather than silently creating or silently blocking it. Only runs when
+      // definitely online — if we can't reach the server to check, there's
+      // nothing to ask about; the server-side guard in sync_order_with_items_v2
+      // covers that case safely (it defaults to not creating a silent duplicate).
+      let confirmedDuplicate = false;
+      if (actualVisitId && connectivityStatus === 'online' && navigator.onLine) {
+        try {
+          const incomingSignature = allOrderItems
+            .map(it => `${it.product_id || ''}:${it.variant_id || ''}:${it.quantity}`)
+            .sort()
+            .join(',');
+
+          const { data: recentOrders } = await supabase
+            .from('orders')
+            .select('id, order_items(product_id, variant_id, quantity)')
+            .eq('visit_id', actualVisitId)
+            .neq('status', 'cancelled');
+
+          const matchingOrder = (recentOrders || []).find((o: any) => {
+            const existingSignature = (o.order_items || [])
+              .map((it: any) => `${it.product_id || ''}:${it.variant_id || ''}:${it.quantity}`)
+              .sort()
+              .join(',');
+            return existingSignature.length > 0 && existingSignature === incomingSignature;
+          });
+
+          if (matchingOrder) {
+            const proceed = window.confirm(
+              'You already added the exact same items to this visit a moment ago. Add it again as a separate order?'
+            );
+            if (!proceed) {
+              setIsSubmitting(false);
+              return;
+            }
+            confirmedDuplicate = true;
+          }
+        } catch (dupCheckError) {
+          // Non-fatal — if the check itself fails, don't block a real submission on it.
+          console.warn('[Cart] Duplicate pre-check failed (non-fatal):', dupCheckError);
+        }
+      }
+
       // Submit order using offline-capable utility with improved feedback
       let orderSubmissionFailed = false;
-      const result = await submitOrderWithOfflineSupport(orderData, allOrderItems, {
+      const result = await submitOrderWithOfflineSupport({ ...orderData, confirmed_duplicate: confirmedDuplicate }, allOrderItems, {
         connectivityStatus,
         onOffline: () => {
           toast({
