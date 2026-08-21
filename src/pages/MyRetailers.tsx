@@ -38,7 +38,9 @@ import { useTodaysBeatIds } from "@/hooks/useTodaysBeatIds";
 import { useMyTerritoryIds } from "@/hooks/useMyTerritoryIds";
 import { setOutOfBeatContext, clearOutOfBeatContext } from "@/lib/outOfBeatContext";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, MapPin } from "lucide-react";
+import { AlertTriangle, MapPin, TrendingDown } from "lucide-react";
+import { ChurnRiskCard } from "@/components/ChurnRiskCard";
+import { useChurnRisk } from "@/hooks/useChurnRisk";
 
 
 
@@ -124,6 +126,43 @@ export const MyRetailers = () => {
   const isSelfView = !!user && selectedUserIds.length === 1 && selectedUserIds[0] === user.id;
   const { data: todaysBeatIds } = useTodaysBeatIds();
   const { data: myTerritoryIds } = useMyTerritoryIds();
+
+  // Row-level churn markers from the same stored Churn Detector run the
+  // Churn Risk card reads (display only). The worst decliner — the store the
+  // card's "stands out" sentence names — gets a red icon; every other
+  // flagged retailer gets the cream-yellow one.
+  const { result: churnResult } = useChurnRisk();
+  const churnLevelByRetailer = useMemo(() => {
+    const map = new Map<string, "worst" | "flagged">();
+    (churnResult?.rows ?? []).forEach((row, i) => {
+      if (row.retailerId) map.set(String(row.retailerId), i === 0 ? "worst" : "flagged");
+    });
+    return map;
+  }, [churnResult]);
+  const churnRowIcon = (retailerId: string) => {
+    const level = churnLevelByRetailer.get(String(retailerId));
+    if (!level) return null;
+    const row = (churnResult?.rows ?? []).find((x) => String(x.retailerId) === String(retailerId));
+    return (
+      <span
+        className={`inline-flex shrink-0 items-center justify-center rounded-sm border-2 border-red-500 p-0.5 ${
+          level === "worst"
+            ? "bg-red-100 dark:bg-red-950/50"
+            : "bg-amber-50 dark:bg-amber-950/50"
+        }`}
+        title={
+          row
+            ? `Churn risk: orders down ${row.dropPct}% vs the previous 30 days`
+            : "Churn risk"
+        }
+      >
+        <TrendingDown
+          size={15}
+          className={level === "worst" ? "text-red-600 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}
+        />
+      </span>
+    );
+  };
 
   // OOB place-order dialog state
   const [oobDialogOpen, setOobDialogOpen] = useState(false);
@@ -988,6 +1027,9 @@ export const MyRetailers = () => {
           </CardHeader>
         </Card>
 
+        {/* Churn Risk nudges — consumer of the frozen churn_detector agent */}
+        <ChurnRiskCard />
+
         {/* Stats Dashboard — includes retailers without a beat */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
           <Card
@@ -1193,6 +1235,7 @@ export const MyRetailers = () => {
                             onClick={() => openRetailerDetail(r)}
                           >
                             {r.name}
+                            {churnRowIcon(r.id)}
                             {r.verified && (
                               <CheckCircle2 className="h-4 w-4 text-blue-600" />
                             )}
@@ -1362,6 +1405,7 @@ export const MyRetailers = () => {
                         >
                           <div className="flex items-center gap-2">
                             {r.name}
+                            {churnRowIcon(r.id)}
                             {r.verified && (
                               <CheckCircle2 className="h-4 w-4 text-blue-600" />
                             )}

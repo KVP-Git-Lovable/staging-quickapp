@@ -47,7 +47,7 @@ export const BLOCK_CATALOG: Array<{
     label: "Declining retailers",
     description: "Retailers whose order value dropped vs the preceding window.",
     params: [
-      { key: "windowDays", label: "Window (days)", min: 30, max: 180, default: 90 },
+      { key: "windowDays", label: "Window (days)", min: 7, max: 180, default: 30 },
       { key: "topN", label: "Show top", min: 3, max: 15, default: 10 },
     ],
   },
@@ -56,7 +56,7 @@ export const BLOCK_CATALOG: Array<{
     label: "Top retailers",
     description: "Highest confirmed order value in the window.",
     params: [
-      { key: "windowDays", label: "Window (days)", min: 30, max: 180, default: 90 },
+      { key: "windowDays", label: "Window (days)", min: 7, max: 180, default: 30 },
       { key: "topN", label: "Show top", min: 3, max: 15, default: 10 },
     ],
   },
@@ -83,7 +83,7 @@ export const BLOCK_CATALOG: Array<{
     label: "Product mix",
     description: "Top products by sales value across confirmed orders.",
     params: [
-      { key: "windowDays", label: "Window (days)", min: 30, max: 180, default: 90 },
+      { key: "windowDays", label: "Window (days)", min: 7, max: 180, default: 30 },
       { key: "topN", label: "Show top", min: 3, max: 10, default: 5 },
     ],
   },

@@ -30,6 +30,7 @@ export interface ProductScheme {
   max_discount_per_unit?: number | null;
   discount_unit?: string | null;
   discount_value_type?: string | null;
+  discount_gst_mode?: 'without_gst' | 'with_gst' | null;
   // Multi-product targeting
   target_product_ids?: string[] | null;
 }

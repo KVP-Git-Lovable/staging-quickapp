@@ -663,6 +663,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
           quantity: r.quantity,
           rate: r.variant?.price ?? r.product!.rate,
           unit: r.product!.unit,
+          gstPercent: Number((r.variant as any)?.gst_percentage ?? (r.product as any)?.gst_percentage) || 0,
         }))}
       initialSelection={pickerScheme ? manualSelections[pickerScheme.id] : undefined}
       onConfirm={(selection) => {

@@ -13,6 +13,7 @@ import {
 } from "../hooks/useAiWorkflows";
 import { useCustomWorkflows, useIsWorkflowAdmin, type AiWorkflowRow } from "../hooks/useCustomWorkflows";
 import { AgentDetailSheet } from "../components/AgentDetailSheet";
+import { CreateAgentDialog } from "../components/CreateAgentDialog";
 import { CreateWorkflowDialog } from "../components/CreateWorkflowDialog";
 import { WorkflowDetailSheet } from "../components/WorkflowDetailSheet";
 
@@ -86,6 +87,8 @@ export default function AiWorkflowsPage() {
   const { workflows, refresh: refreshWorkflows } = useCustomWorkflows();
   const isAdmin = useIsWorkflowAdmin();
   const [createOpen, setCreateOpen] = useState(false);
+  // "Create AI Agent" builder (scaffold stage — drafts only, no server writes).
+  const [createAgentOpen, setCreateAgentOpen] = useState(false);
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const selectedWorkflow: AiWorkflowRow | null =
     workflows.find((w) => w.id === selectedWorkflowId) ?? null;
@@ -153,7 +156,13 @@ export default function AiWorkflowsPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">AI Agents</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">AI Agents</CardTitle>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCreateAgentOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />
+                Create AI Agent
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map((a) => {
@@ -281,6 +290,12 @@ export default function AiWorkflowsPage() {
       <CreateWorkflowDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        onCreated={refreshWorkflows}
+      />
+
+      <CreateAgentDialog
+        open={createAgentOpen}
+        onOpenChange={setCreateAgentOpen}
         onCreated={refreshWorkflows}
       />
 

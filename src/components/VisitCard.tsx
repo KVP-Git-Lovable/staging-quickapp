@@ -1,4 +1,4 @@
-import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe, Pencil } from "lucide-react";
+import { MapPin, Phone, Store, ShoppingCart, XCircle, BarChart3, Check, Users, MessageSquare, Paintbrush, Camera, LogIn, LogOut, Package, FileText, IndianRupee, Sparkles, Truck, UserCheck, Target, Gift, Ban, Globe, Pencil, TrendingDown, Navigation } from "lucide-react";
 import { compressImageFile } from "@/utils/imageCompression";
 import { getResilientLocation } from "@/utils/gpsRouteOptimizer";
 import { Badge } from "@/components/ui/badge";
@@ -97,7 +97,47 @@ interface Visit {
   coveredForUserId?: string;
   coveredForUserName?: string;
   pendingSync?: boolean;
+  /** One AI insight line for this retailer, from the stored agent runs. */
+  aiInsight?: VisitAiInsight;
 }
+
+/** Display-only AI nudge attached to a visit retailer card. `kind` picks the
+ * styling: new retailer (Visit Optimiser), churn (Churn Detector), route
+ * (today's Visit Optimiser stop), coach (Sales Coach product mix). */
+export interface VisitAiInsight {
+  kind: "new" | "churn" | "route" | "coach";
+  line: string;
+}
+
+const AI_INSIGHT_STYLE: Record<
+  VisitAiInsight["kind"],
+  { wrap: string; icon: string; text: string; title: string }
+> = {
+  new: {
+    wrap: "border-emerald-200/70 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-100 dark:border-emerald-900/40 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-sky-950/30",
+    icon: "text-emerald-700 dark:text-emerald-400",
+    text: "text-emerald-950 dark:text-emerald-100",
+    title: "From AI Visit Optimiser — newly added retailer",
+  },
+  churn: {
+    wrap: "border-amber-200/70 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-100 dark:border-amber-900/40 dark:from-amber-950/40 dark:via-yellow-950/30 dark:to-orange-950/30",
+    icon: "text-amber-700 dark:text-amber-400",
+    text: "text-amber-950 dark:text-amber-100",
+    title: "From AI Churn Risk — computed from your order history",
+  },
+  route: {
+    wrap: "border-violet-200/70 bg-gradient-to-r from-violet-50 via-purple-50 to-fuchsia-100 dark:border-violet-900/40 dark:from-violet-950/40 dark:via-purple-950/30 dark:to-fuchsia-950/30",
+    icon: "text-violet-700 dark:text-violet-400",
+    text: "text-violet-950 dark:text-violet-100",
+    title: "From AI Visit Optimiser — today's scored stop order",
+  },
+  coach: {
+    wrap: "border-sky-200/70 bg-gradient-to-r from-sky-50 via-cyan-50 to-blue-100 dark:border-sky-900/40 dark:from-sky-950/40 dark:via-cyan-950/30 dark:to-blue-950/30",
+    icon: "text-sky-700 dark:text-sky-400",
+    text: "text-sky-950 dark:text-sky-100",
+    title: "From AI Sales Coach — your 30-day product mix here",
+  },
+};
 interface VisitCardProps {
   visit: Visit;
   onViewDetails: (visitId: string) => void;
@@ -3040,6 +3080,27 @@ export const VisitCard = ({
               </div>
             </div>}
         </div>
+
+        {/* AI insight nudge — one line per card, from the stored agent runs (display only) */}
+        {visit.aiInsight && (() => {
+          const style = AI_INSIGHT_STYLE[visit.aiInsight.kind] ?? AI_INSIGHT_STYLE.coach;
+          const Icon =
+            visit.aiInsight.kind === 'new' ? Sparkles
+            : visit.aiInsight.kind === 'churn' ? TrendingDown
+            : visit.aiInsight.kind === 'route' ? Navigation
+            : Target;
+          return (
+            <div
+              className={`mb-3 flex items-start gap-2 rounded-md border px-2.5 py-2 ${style.wrap}`}
+              title={style.title}
+            >
+              <Icon size={13} className={`mt-0.5 shrink-0 ${style.icon}`} />
+              <span className={`text-[12px] leading-snug ${style.text}`}>
+                {visit.aiInsight.line}
+              </span>
+            </div>
+          );
+        })()}
 
         <div className="space-y-2">
           {/* First row - Check In, Order, Feedback, AI */}

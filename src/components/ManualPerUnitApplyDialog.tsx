@@ -14,8 +14,9 @@ interface CartLine {
   variantId?: string;
   name: string;
   quantity: number;
-  rate: number;
+  rate: number;          // tax-exclusive rate — the app's convention everywhere else
   unit: string;
+  gstPercent?: number;
 }
 
 interface Props {
@@ -49,6 +50,20 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
 
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [perItemValues, setPerItemValues] = useState<Record<string, string>>({});
+  // Whether the ₹ value typed per line already includes GST. Only meaningful for
+  // amount-type discounts — a percentage-of-rate discount is scale-invariant, so
+  // the toggle is hidden for those. Whatever mode is active, the value actually
+  // stored via onConfirm is always normalized back to tax-exclusive, since that's
+  // the convention schemeEngine.ts and every other discount in the app expects —
+  // this dialog is the only place that needs to know a GST-inclusive number was typed.
+  const [discountMode, setDiscountMode] = useState<'without_gst' | 'with_gst'>('without_gst');
+  const showGstToggle = valueType === 'amount';
+  // Lets a rep type the desired final line total instead of a per-unit discount,
+  // and back-solves the discount needed to reach it. Scoped to amount-type
+  // schemes only — reverse-solving a percentage from a target total is a
+  // different (untested) calculation and isn't needed by the current use case.
+  const [entryMode, setEntryMode] = useState<'discount' | 'target_total'>('discount');
+  const showTargetTotalToggle = valueType === 'amount';
 
   useEffect(() => {
     if (!isOpen) return;
@@ -60,6 +75,7 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
     const valid = prior.filter(id => eligibleIds.includes(id));
     setSelectedItemIds(valid.length > 0 ? valid : eligibleIds);
     // Seed per-line values from prior selection if present, else from legacy single value.
+    // Stored values are always tax-exclusive, so the seeded fields start in that mode too.
     const seed: Record<string, string> = {};
     const legacy = initialSelection?.perUnitDiscount ? String(initialSelection.perUnitDiscount) : '';
     const priorPerItem = initialSelection?.perItemDiscounts || {};
@@ -68,10 +84,81 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
       else if (legacy) seed[id] = legacy;
     });
     setPerItemValues(seed);
+    // Scheme's saved preference (set in Scheme Master) pre-selects the toggle —
+    // reps can still switch it per order, this is just the starting point.
+    setDiscountMode(scheme?.discount_gst_mode === 'with_gst' ? 'with_gst' : 'without_gst');
+    setEntryMode('discount');
   }, [isOpen, scheme?.id]);
 
   const toggleLine = (id: string) => {
     setSelectedItemIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  // The cap is a tax-exclusive business limit. In "with GST" mode the raw typed
+  // discount number is larger than the effective ex-GST discount by (1 + gst%), so
+  // the raw input is allowed to go proportionally higher — it still nets out to at
+  // most `cap` once normalized. Not meaningful in target-total mode (raw there is a
+  // total, not a discount), so callers only use this in 'discount' entry mode.
+  const rawCapFor = (line: CartLine | undefined) => {
+    const gstPct = line?.gstPercent || 0;
+    if (showGstToggle && discountMode === 'with_gst' && gstPct > 0) {
+      return cap * (1 + gstPct / 100);
+    }
+    return cap;
+  };
+
+  // The tax-exclusive ₹/unit discount implied by whatever was typed — used to
+  // compute preview amounts. For 'percentage' type this is rate × pct/100, scaled
+  // down further if the raw number was GST-inclusive.
+  const perUnitAmountFor = (rawEntered: number, line: CartLine) => {
+    const gstPct = line.gstPercent || 0;
+    const perUnitRaw = valueType === 'percentage' ? line.rate * (rawEntered / 100) : rawEntered;
+    if (showGstToggle && discountMode === 'with_gst' && gstPct > 0) {
+      return perUnitRaw / (1 + gstPct / 100);
+    }
+    return perUnitRaw;
+  };
+
+  // The value to actually persist via onConfirm, in the shape schemeEngine.ts
+  // expects: for 'percentage' type, the raw percentage unchanged (GST mode doesn't
+  // apply — engine re-derives the amount from rate itself); for 'amount' type, a
+  // tax-exclusive ₹/unit figure, converting out of GST-inclusive if that was typed.
+  const storedValueFor = (rawEntered: number, line: CartLine) => {
+    if (valueType === 'percentage') return rawEntered;
+    const gstPct = line.gstPercent || 0;
+    if (showGstToggle && discountMode === 'with_gst' && gstPct > 0) {
+      return rawEntered / (1 + gstPct / 100);
+    }
+    return rawEntered;
+  };
+
+  // Target-total mode: raw is the desired NET value for this line (interpreted per
+  // the current GST-mode toggle — ex-GST if "Without GST", final incl-GST price if
+  // "With GST"). Solves for the ex-GST ₹/unit discount needed to land there,
+  // clamped to the scheme's cap — so this is simultaneously the "amount for
+  // preview" and "value to store" figure, since amount-type discounts don't have
+  // the percentage/₹ split storedValueFor exists for.
+  const targetTotalPerUnitDiscount = (rawTarget: number, line: CartLine) => {
+    const gross = line.rate * line.quantity;
+    const gstPct = line.gstPercent || 0;
+    const targetNetExGst = (showGstToggle && discountMode === 'with_gst' && gstPct > 0)
+      ? rawTarget / (1 + gstPct / 100)
+      : rawTarget;
+    const neededTotalDiscount = Math.max(0, gross - targetNetExGst);
+    const perUnit = line.quantity > 0 ? neededTotalDiscount / line.quantity : 0;
+    return Math.max(0, Math.min(cap, perUnit));
+  };
+  // True when the typed target total is below what the cap allows reaching —
+  // i.e. even the maximum permitted discount can't get there.
+  const targetUnreachable = (rawTarget: number, line: CartLine) => {
+    if (rawTarget <= 0) return false;
+    const gross = line.rate * line.quantity;
+    const gstPct = line.gstPercent || 0;
+    const bestNetExGst = Math.max(0, gross - cap * line.quantity);
+    const bestNet = (showGstToggle && discountMode === 'with_gst' && gstPct > 0)
+      ? bestNetExGst * (1 + gstPct / 100)
+      : bestNetExGst;
+    return rawTarget < bestNet - 0.005;
   };
 
   const setLineValue = (id: string, raw: string) => {
@@ -81,17 +168,41 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
     }
     const n = Number(raw);
     if (Number.isNaN(n)) return;
-    setPerItemValues(prev => ({ ...prev, [id]: String(Math.max(0, Math.min(cap, n))) }));
+    if (entryMode === 'target_total') {
+      // Raw here is a total, not a discount — no cap clamp on the input itself;
+      // the cap is enforced downstream on the discount it implies.
+      setPerItemValues(prev => ({ ...prev, [id]: String(Math.max(0, n)) }));
+      return;
+    }
+    const line = eligibleLines.find(l => l.id === id);
+    setPerItemValues(prev => ({ ...prev, [id]: String(Math.max(0, Math.min(rawCapFor(line), n))) }));
   };
 
   const selectedLines = eligibleLines.filter(l => selectedItemIds.includes(l.id));
+  // Tax-exclusive discount amount for a line — the figure used everywhere the app
+  // already speaks in ex-GST terms (row label, downstream onConfirm payload).
   const lineDiscountFor = (line: CartLine) => {
-    const v = Math.max(0, Math.min(cap, Number(perItemValues[line.id]) || 0));
-    if (v <= 0) return 0;
-    const perUnitAmt = valueType === 'percentage' ? line.rate * (v / 100) : v;
-    return perUnitAmt * line.quantity;
+    const raw = Number(perItemValues[line.id]) || 0;
+    if (raw <= 0) return 0;
+    if (entryMode === 'target_total') {
+      return targetTotalPerUnitDiscount(raw, line) * line.quantity;
+    }
+    const capped = Math.max(0, Math.min(rawCapFor(line), raw));
+    return perUnitAmountFor(capped, line) * line.quantity;
   };
   const previewDiscount = selectedLines.reduce((sum, l) => sum + lineDiscountFor(l), 0);
+
+  // Post-discount line/order totals, shown both ways so it's unambiguous which
+  // figure a retailer is actually being charged.
+  const lineTotalsFor = (line: CartLine) => {
+    const grossExGst = line.rate * line.quantity;
+    const netExGst = Math.max(0, grossExGst - lineDiscountFor(line));
+    const gstPct = line.gstPercent || 0;
+    const netInclGst = netExGst * (1 + gstPct / 100);
+    return { netExGst, netInclGst };
+  };
+  const totalExGst = selectedLines.reduce((sum, l) => sum + lineTotalsFor(l).netExGst, 0);
+  const totalInclGst = selectedLines.reduce((sum, l) => sum + lineTotalsFor(l).netInclGst, 0);
   const linesWithValue = selectedLines.filter(l => (Number(perItemValues[l.id]) || 0) > 0);
 
   const symbol = valueType === 'percentage' ? '%' : '₹';
@@ -105,7 +216,11 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
     const perItemDiscounts: Record<string, number> = {};
     let firstVal = 0;
     ids.forEach((id, i) => {
-      const v = Math.max(0, Math.min(cap, Number(perItemValues[id]) || 0));
+      const line = eligibleLines.find(l => l.id === id)!;
+      const raw = Number(perItemValues[id]) || 0;
+      const v = entryMode === 'target_total'
+        ? targetTotalPerUnitDiscount(raw, line)
+        : Math.min(cap, storedValueFor(Math.max(0, Math.min(rawCapFor(line), raw)), line));
       perItemDiscounts[id] = v;
       if (i === 0) firstVal = v;
     });
@@ -136,6 +251,76 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
         </DialogHeader>
 
         <div className="space-y-3">
+          {showGstToggle && (
+            <div>
+              <Label className="text-xs font-medium">The ₹ value you type below is</Label>
+              <div className="flex gap-1.5 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDiscountMode('without_gst')}
+                  className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
+                    discountMode === 'without_gst'
+                      ? 'border-primary bg-primary/10 font-medium text-primary'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  Without GST
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDiscountMode('with_gst')}
+                  className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
+                    discountMode === 'with_gst'
+                      ? 'border-primary bg-primary/10 font-medium text-primary'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  With GST
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {discountMode === 'without_gst'
+                  ? 'Reduces the taxable rate — GST is then added on the discounted amount. This matches the app’s catalog prices.'
+                  : 'The final, tax-included price drops by exactly this much — GST is backed out automatically.'}
+              </p>
+            </div>
+          )}
+
+          {showTargetTotalToggle && (
+            <div>
+              <Label className="text-xs font-medium">Enter</Label>
+              <div className="flex gap-1.5 mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setEntryMode('discount')}
+                  className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
+                    entryMode === 'discount'
+                      ? 'border-primary bg-primary/10 font-medium text-primary'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  Discount per {unit}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEntryMode('target_total')}
+                  className={`flex-1 text-[11px] py-1.5 rounded border transition-colors ${
+                    entryMode === 'target_total'
+                      ? 'border-primary bg-primary/10 font-medium text-primary'
+                      : 'border-border text-muted-foreground'
+                  }`}
+                >
+                  Target total (this line)
+                </button>
+              </div>
+              {entryMode === 'target_total' && (
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Type the total you want this line to come to — the discount needed to get there is worked out automatically, up to the ₹{cap} cap.
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <Label className="text-xs font-medium">Pick products from your cart</Label>
             {eligibleLines.length === 0 ? (
@@ -167,6 +352,8 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
                     const checked = selectedItemIds.includes(line.id);
                     const lineVal = perItemValues[line.id] ?? '';
                     const lineDiscount = checked ? lineDiscountFor(line) : 0;
+                    const rawVal = Number(perItemValues[line.id]) || 0;
+                    const unreachable = entryMode === 'target_total' && checked && targetUnreachable(rawVal, line);
                     return (
                       <div
                         key={line.id}
@@ -187,6 +374,11 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
                               {disabled ? ` · need ≥${minQty}` : ''}
                               {checked && lineDiscount > 0 ? ` · −₹${lineDiscount.toFixed(2)}` : ''}
                             </div>
+                            {unreachable && (
+                              <div className="text-[10px] text-amber-600">
+                                Cap only allows −₹{lineDiscount.toFixed(2)} — target isn't fully reachable
+                              </div>
+                            )}
                           </div>
                         </label>
                         <div className="relative shrink-0 w-[88px]">
@@ -194,12 +386,12 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
                             type="number"
                             inputMode="decimal"
                             min={0}
-                            max={cap}
+                            max={entryMode === 'target_total' ? undefined : rawCapFor(line)}
                             step="0.01"
                             disabled={disabled || !checked}
                             value={lineVal}
                             onChange={(e) => setLineValue(line.id, e.target.value)}
-                            placeholder={`0–${cap}`}
+                            placeholder={entryMode === 'target_total' ? 'e.g. 1000' : `0–${rawCapFor(line).toFixed(2)}`}
                             className="pr-6 h-7 text-xs"
                           />
                           <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">{symbol}</span>
@@ -213,16 +405,27 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Enter a per-{unit} discount on each row · max {capLabel}
+            {entryMode === 'target_total'
+              ? `Enter the target total for each row · discount capped at max ${capLabel} / ${unit}`
+              : `Enter a per-${unit} discount on each row · max ${capLabel}`}
           </p>
 
           {linesWithValue.length > 0 && (
-            <div className="bg-muted/50 rounded p-2 text-xs space-y-0.5">
+            <div className="bg-muted/50 rounded p-2 text-xs space-y-1">
               <div className="font-medium">Preview</div>
               <div className="text-muted-foreground">
                 {linesWithValue.length} product{linesWithValue.length > 1 ? 's' : ''}
                 {' · total '}
                 <span className="font-semibold text-foreground">₹{previewDiscount.toFixed(2)}</span> off
+                {showGstToggle && ' (tax-exclusive)'}
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                <span className="text-muted-foreground">Value without GST</span>
+                <span className="font-semibold text-foreground">₹{totalExGst.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Value with GST</span>
+                <span className="font-semibold text-foreground">₹{totalInclGst.toFixed(2)}</span>
               </div>
             </div>
           )}

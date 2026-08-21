@@ -30,20 +30,22 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
       "Today's planned visits",
       "Days since each retailer was last visited",
       "Pending payment / outstanding dues",
-      "Visit productivity — orders won per visit (90 days)",
-      "Confirmed order value in the last 90 days",
+      "Visit productivity — orders won per visit (30 days)",
+      "Confirmed order value in the last 30 days",
       "Retailer priority class (A / B / C)",
       "GPS distance between stops (nearest-neighbour routing)",
       "Estimated total travel distance",
+      "Typical time of day each retailer places orders (last 30 days) — early orderers come first on the route",
+      "Retailers newly added to a beat (last 14 days) — flagged as fresh pitching opportunities with an AI reminder line each",
     ],
-    note: "Each stop gets a deterministic score from recency, dues, productivity, order value and priority, then stops are ordered geographically to cut travel. AI only explains the computed route — no plans or visits are modified.",
+    note: "Each stop gets a deterministic score from recency, dues, productivity, order value and priority, then stops are ordered geographically to cut travel. AI only explains the computed route and writes the newcomer pitch reminders — no plans or visits are modified.",
   },
   churn_detector: {
     signals: [
-      "Order value per retailer in the last 90 days",
-      "Order value in the 90 days before that",
+      "Order value per retailer in the last 30 days",
+      "Order value in the 30 days before that",
       "Percentage drop between the two periods",
-      "Full 180-day order history (cancelled orders excluded)",
+      "Full 60-day order history (cancelled orders excluded)",
       "Ranking by steepest decline, then by lost value",
       "Top 10 at-risk retailers",
     ],
@@ -55,15 +57,16 @@ const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: strin
       "Beat coverage — share of retailers visited in the last 30 days",
       "Average days since last visit per beat",
       "Pending dues totalled per beat",
-      "Confirmed order value per beat (90 days)",
+      "Confirmed order value per beat (30 days)",
       "Field capacity of ~25 stops per visit day",
       "Suggested visit days per beat for next month",
+      "Retailers newly added to each beat (last 14 days) — called out as fresh pitching opportunities",
     ],
     note: "Beats are ranked lowest-coverage-first and visit days are allocated from retailer counts and capacity. AI only turns the ranking into a recommendation — no beats, plans or visits are modified.",
   },
   sales_coach: {
     signals: [
-      "Confirmed orders in the last 90 days",
+      "Confirmed orders in the last 30 days",
       "Line-item value per product across all your orders",
       "Your top 5 products by sales value",
       "Order value and distinct products bought per retailer",
@@ -189,7 +192,7 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     ₹{Math.round(r.priorValue).toLocaleString("en-IN")} → ₹
-                    {Math.round(r.recentValue).toLocaleString("en-IN")} (90 days)
+                    {Math.round(r.recentValue).toLocaleString("en-IN")} (30 days)
                   </p>
                 </div>
               ))}
@@ -221,6 +224,19 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                   </p>
                 </div>
               ))}
+              {Array.isArray(result.newRetailers) && result.newRetailers.length > 0 && (
+                <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 p-2.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                  <p className="text-xs font-medium">
+                    Newly added retailers ({result.newRetailers.length})
+                  </p>
+                  {result.newRetailers.map((n: any) => (
+                    <p key={n.retailerId} className="mt-1 text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">{n.name}</span>
+                      {n.beat ? ` (${n.beat})` : ""} · added {n.daysOld}d ago — {n.line}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -241,6 +257,7 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                     {[
                       `${b.retailers} retailers`,
                       `${b.visited30d} visited in 30d`,
+                      b.newRetailers ? `${b.newRetailers} newly added` : null,
                       b.pending ? `₹${Math.round(b.pending).toLocaleString("en-IN")} pending` : null,
                       `${b.suggestedDays} visit day${b.suggestedDays !== 1 ? "s" : ""} suggested`,
                     ]
@@ -267,7 +284,7 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {[
-                      `₹${Math.round(r.orderValue).toLocaleString("en-IN")} in 90d`,
+                      `₹${Math.round(r.orderValue).toLocaleString("en-IN")} in 30d`,
                       r.topProduct ? `top: ${r.topProduct}` : null,
                       r.gapProducts?.length ? `pitch: ${r.gapProducts.join(", ")}` : null,
                     ]

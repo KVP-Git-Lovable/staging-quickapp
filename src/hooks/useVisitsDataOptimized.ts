@@ -407,7 +407,14 @@ const moduleCache = new Map<string, {
   timestamp: number;
 }>();
 
-const getModuleCacheKey = (userId: string, date: string) => `${userId}:${date}`;
+// Bump when the retailer/beat-plan computation or clearing logic changes, so
+// this in-memory cache — read with zero staleness check on the very first
+// render, before any fetch or date-change handling runs — can't keep
+// replaying a wrong result computed under old logic for a date already
+// visited earlier in the tab's lifetime. An old-format key simply never
+// matches, so the seed is empty and a fresh, correctly-computed load runs.
+const MODULE_CACHE_VERSION = 'v2';
+const getModuleCacheKey = (userId: string, date: string) => `${MODULE_CACHE_VERSION}:${userId}:${date}`;
 
 export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: UseVisitsDataOptimizedProps) => {
   // The effective user ID to fetch data for:
@@ -786,6 +793,22 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
         return;
       }
 
+      // A failed query (network blip, RLS denial, abort) surfaces as `.data: null`,
+      // indistinguishable from a real "nothing here" result once masked by `|| []`
+      // below. The empty-replacement guards further down used to infer "this might
+      // be a failed fetch" from a beat-plan heuristic that only covered one specific
+      // transition — any other legitimate reason for visits/orders/retailers to
+      // empty out (e.g. the visit/order that was the only thing pulling a retailer
+      // into view got removed) was wrongly treated as transient and the stale list
+      // stuck around forever. Checking the real error here lets every empty result
+      // below be trusted once we know the fetch actually succeeded.
+      const fetchError = bpRes.error || vRes.error || oRes.error;
+      if (fetchError) {
+        console.warn('[SmartSync] Fetch error, skipping this sync cycle (keeping cached data):', fetchError);
+        smartSyncLockRef.current = false;
+        return;
+      }
+
       const newBeatPlans = bpRes.data || [];
       let newVisits: any[] = vRes.data || [];
       let newOrders: any[] = oRes.data || [];
@@ -935,26 +958,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       const visitCountDifferent = currentCache.visits?.length !== newVisits.length;
       
       if (visitsChanged || visitCountDifferent) {
-        // SAFETY: Never replace visits with an empty list if we had visits before,
-        // unless the beat plans also cleared. Prevents transient empty fetches from
-        // wiping the UI (fetch was partial / timeout / aborted).
-        const hadVisits = (currentCache.visits || []).length > 0;
-        const newVisitsEmpty = newVisits.length === 0;
-        const beatsGenuinelyCleared = newBeatIdsFromNetwork === '' && oldBeatIdsFromCache !== '';
-        if (newVisitsEmpty && hadVisits && !beatsGenuinelyCleared) {
-          console.log(`[SmartSync] Skipping empty visits replacement (transient) old=${currentCache.visits?.length}`);
+        // The fetch error check above already rules out transient/failed fetches,
+        // so an empty result here is a real "no visits for this date" — trust it.
+        const oldJson = JSON.stringify(currentCache.visits || []);
+        const newJson = JSON.stringify(newVisits);
+        if (oldJson !== newJson) {
+          setVisits(newVisits);
+          currentCache.visits = newVisits;
+          uiUpdated = true;
+          console.log(`[SmartSync] Visits REPLACED: ${currentCache.visits?.length || 0} → ${newVisits.length}`);
         } else {
-          // FIX: Deep compare to avoid no-op replacements that cause re-renders
-          const oldJson = JSON.stringify(currentCache.visits || []);
-          const newJson = JSON.stringify(newVisits);
-          if (oldJson !== newJson) {
-            setVisits(newVisits);
-            currentCache.visits = newVisits;
-            uiUpdated = true;
-            console.log(`[SmartSync] Visits REPLACED: ${currentCache.visits?.length || 0} → ${newVisits.length}`);
-          } else {
-            console.log('[SmartSync] Visits identical, skipping state update');
-          }
+          console.log('[SmartSync] Visits identical, skipping state update');
         }
       }
 
@@ -994,17 +1008,10 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
 
       const oChanges = getChangedItems(currentCache.orders, _deduped);
       if (oChanges.changed.length > 0 || oChanges.added.length > 0 || oChanges.removed.length > 0) {
-        // SAFETY: Never replace orders with an empty list if we had orders before,
-        // unless the beat plans also cleared. Prevents Total Order Value flashing ₹0.
-        const hadOrders = (currentCache.orders || []).length > 0;
-        const newOrdersEmpty = _deduped.length === 0;
-        const beatsGenuinelyCleared = newBeatIdsFromNetwork === '' && oldBeatIdsFromCache !== '';
-        if (newOrdersEmpty && hadOrders && !beatsGenuinelyCleared) {
-          console.log(`[SmartSync] Skipping empty orders replacement (transient) old=${currentCache.orders?.length}`);
-        } else {
-          uiUpdated = applyGranularUpdate(setOrders, oChanges) || uiUpdated;
-          currentCache.orders = _deduped;
-        }
+        // The fetch error check above already rules out transient/failed fetches,
+        // so an empty result here is a real "no orders for this date" — trust it.
+        uiUpdated = applyGranularUpdate(setOrders, oChanges) || uiUpdated;
+        currentCache.orders = _deduped;
       }
 
       // FIX #2: ALWAYS fetch ALL retailers by beat_id (not just from visits/orders)
@@ -1098,24 +1105,17 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       
       if (retailersActuallyChanged || beatsChanged) {
         if (beatsChanged) {
-          // SAFETY: Never replace retailers with an empty array if we had retailers before.
-          // This prevents a race condition where a momentary empty beat_plans fetch
-          // (e.g. network delay, timezone boundary) wipes all retailers from the UI.
-          // Only do a full replacement if the new list is non-empty OR we have genuinely
-          // cleared all beats (newBeatIds is also empty meaning user removed all plans).
-          const hadRetailers = (currentCache.retailers || []).length > 0;
-          const newListEmpty = allRetailers.length === 0;
-          const beatsGenuinelyCleared = newBeatIds === '' && oldBeatIds !== '';
-          
-          if (newListEmpty && hadRetailers && !beatsGenuinelyCleared) {
-            // Likely a race/transient empty fetch — skip to avoid flickering to 0
-            console.log(`[SmartSync] Skipping empty retailer replacement (transient) old=${currentCache.retailers?.length}`);
-          } else {
-            console.log(`[SmartSync] Beats changed: "${oldBeatIds}" -> "${newBeatIds}", REPLACING retailers (${allRetailers.length})`);
-            setRetailers(allRetailers);
-            currentCache.retailers = allRetailers;
-            uiUpdated = true;
-          }
+          // The fetch error check above already rules out transient/failed
+          // fetches, so an empty result here is real — trust it. This used to
+          // guard on a beat-plan-cleared heuristic that missed the case where
+          // retailers came from visits/orders rather than a beat plan: once
+          // those visits/orders were gone, the list should legitimately empty
+          // out too, but the old check kept the stale list forever because it
+          // only recognized "beat plan went from populated to empty" as valid.
+          console.log(`[SmartSync] Beats changed: "${oldBeatIds}" -> "${newBeatIds}", REPLACING retailers (${allRetailers.length})`);
+          setRetailers(allRetailers);
+          currentCache.retailers = allRetailers;
+          uiUpdated = true;
         } else {
           applyGranularUpdate(setRetailers, rChanges);
           currentCache.retailers = allRetailers;
@@ -1193,6 +1193,14 @@ export const useVisitsDataOptimized = ({ userId, selectedDate, viewUserId }: Use
       // Filter existing state to only keep items matching new date
       setVisits(prev => prev.filter(v => v.planned_date === selectedDate));
       setOrders(prev => prev.filter(o => o.order_date === selectedDate));
+      // Retailers and beat plans carry no per-item date field to filter by — they
+      // were left untouched here, so switching from a date with a beat planned to
+      // one without kept showing the previous date's retailers (and its "planned"
+      // status) until the new date's fetch happened to complete. Clear both so a
+      // stale cross-date list is never what's on screen, even momentarily; the
+      // cache/fetch below repopulates them correctly for the new date right after.
+      setRetailers([]);
+      setBeatPlans([]);
     }
     
     isFetchingRef.current = true;

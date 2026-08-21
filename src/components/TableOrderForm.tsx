@@ -433,7 +433,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             const emptyRowIndex = updatedRows.findIndex(row => !row.product && row.quantity === 0);
             
             const newRow: OrderRow = {
-              id: emptyRowIndex >= 0 ? updatedRows[emptyRowIndex].id : Date.now().toString(),
+              // Unique per row: Date.now() alone collides when several rows
+              // are auto-filled in the same millisecond (Take Action / voice
+              // multi-fill), and updateRow matches by id — duplicate ids made
+              // one row's quantity edit propagate to all auto-filled rows.
+              id: emptyRowIndex >= 0
+                ? updatedRows[emptyRowIndex].id
+                : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
               productCode: variant?.sku || product.sku,
               product: product,
               variant: variant,

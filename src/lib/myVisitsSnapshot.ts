@@ -24,7 +24,13 @@ interface SnapshotData {
   pointsByRetailer?: Array<[string, { name: string; points: number; visitId: string | null }]>; // Points by retailer
 }
 
-const SNAPSHOT_KEY_PREFIX = 'myvisits_snapshot_';
+// Bump the version segment whenever the retailer/beat-plan computation logic
+// changes. This snapshot persists via Capacitor Preferences — across page
+// reloads and app restarts — with no staleness check on load beyond a user-id
+// match, so a snapshot saved under old (buggy) logic for a date already
+// visited would otherwise keep being trusted indefinitely. An old-format key
+// never matches, so it's treated as absent and a fresh save runs instead.
+const SNAPSHOT_KEY_PREFIX = 'myvisits_snapshot_v2_';
 
 // Get snapshot key for user+date
 const getSnapshotKey = (userId: string, date: string): string => {
