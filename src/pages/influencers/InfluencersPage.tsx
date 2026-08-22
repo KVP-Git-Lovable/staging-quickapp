@@ -37,9 +37,25 @@ export default function InfluencersPage() {
 
   async function load() {
     setLoading(true);
-    const { data, error } = await (supabase as any)
-      .from('influencers').select('*').order('created_at', { ascending: false }).limit(500);
-    if (error) toast.error(error.message); else setRows(data || []);
+    const [inf, refs] = await Promise.all([
+      (supabase as any).from('influencers').select('*').order('created_at', { ascending: false }).limit(500),
+      (supabase as any).from('influencer_referrals').select('influencer_id, interested_products').limit(2000),
+    ]);
+    if (inf.error) { toast.error(inf.error.message); setLoading(false); return; }
+
+    // Portal referrals that carry products count as influenced demand too
+    const portalCounts = new Map<string, number>();
+    (refs.data || []).forEach((r: any) => {
+      if (Array.isArray(r.interested_products) && r.interested_products.length > 0) {
+        portalCounts.set(r.influencer_id, (portalCounts.get(r.influencer_id) || 0) + 1);
+      }
+    });
+
+    setRows((inf.data || []).map((r: any) => ({
+      ...r,
+      __portal_referral_count: portalCounts.get(r.id) || 0,
+      __influenced_total: (r.influenced_orders_count || 0) + (portalCounts.get(r.id) || 0),
+    })));
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
