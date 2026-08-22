@@ -164,7 +164,7 @@ export default function InfluencerDetailPage() {
 
       <Tabs defaultValue="orders">
         <TabsList>
-          <TabsTrigger value="orders">Influenced Orders ({orders.length})</TabsTrigger>
+          <TabsTrigger value="orders">Influenced Orders ({influencedCount})</TabsTrigger>
           <TabsTrigger value="mapped">Mapped Retailers ({mappings.length})</TabsTrigger>
           <TabsTrigger value="referrals">Referrals ({referrals.length})</TabsTrigger>
           <TabsTrigger value="tickets">Support Tickets ({tickets.length})</TabsTrigger>
@@ -172,23 +172,48 @@ export default function InfluencerDetailPage() {
 
         <TabsContent value="orders">
           <Card><CardContent className="pt-4">
-            {orders.length === 0 ? <div className="text-muted-foreground text-sm text-center py-8">No orders attributed yet</div> :
+            {influencedRows.length === 0 ? <div className="text-muted-foreground text-sm text-center py-8">No orders attributed yet</div> :
             <Table><TableHeader><TableRow>
-              <TableHead>Order #</TableHead><TableHead>Retailer</TableHead><TableHead>Status</TableHead>
+              <TableHead>Order # / Reference</TableHead><TableHead>Source</TableHead><TableHead>Retailer</TableHead>
+              <TableHead>Products</TableHead><TableHead>Status</TableHead>
               <TableHead className="text-right">Amount</TableHead><TableHead>Date</TableHead>
             </TableRow></TableHeader><TableBody>
-              {orders.map(o => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs">{o.order_number || o.id.slice(0, 8)}</TableCell>
-                  <TableCell>{retailerName(o.retailer_id)}</TableCell>
-                  <TableCell><Badge variant="outline">{o.status}</Badge></TableCell>
-                  <TableCell className="text-right">₹ {Number(o.total_amount || 0).toLocaleString('en-IN')}</TableCell>
-                  <TableCell>{new Date(o.created_at).toLocaleDateString()}</TableCell>
+              {influencedRows.map(row => (
+                <TableRow key={row.key}>
+                  <TableCell className="font-mono text-xs">{row.label}</TableCell>
+                  <TableCell>
+                    <Badge variant={row.source === 'order' ? 'default' : 'secondary'}>
+                      {row.source === 'order' ? 'Billed order' : 'Portal'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{row.retailer}</TableCell>
+                  <TableCell className="max-w-[220px]">
+                    {row.products?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {row.products.slice(0, 3).map((p: any, i: number) => (
+                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted">
+                            {p.qty ? `${p.qty}${p.unit ? ' ' + p.unit : ''} ` : ''}{p.name}
+                          </span>
+                        ))}
+                        {row.products.length > 3 && (
+                          <span className="text-[10px] text-muted-foreground">+{row.products.length - 3}</span>
+                        )}
+                      </div>
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
+                  </TableCell>
+                  <TableCell><Badge variant="outline">{row.status}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    {row.source === 'order'
+                      ? `₹ ${row.amount.toLocaleString('en-IN')}`
+                      : <span className="text-muted-foreground text-xs">Not billed</span>}
+                  </TableCell>
+                  <TableCell>{new Date(row.date).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody></Table>}
           </CardContent></Card>
         </TabsContent>
+
 
         <TabsContent value="mapped">
           <Card><CardContent className="pt-4 space-y-3">
