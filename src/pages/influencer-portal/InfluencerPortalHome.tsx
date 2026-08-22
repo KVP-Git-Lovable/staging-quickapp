@@ -683,7 +683,7 @@ function RetailerSearchSheet({ open, onClose, influencerId, onPick }: {
         <div className="p-3 border-b">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input autoFocus placeholder="Search all retailers by name…" value={q} onChange={e => setQ(e.target.value)} className="pl-9 h-11" />
+            <Input autoFocus placeholder="Search all retailers by name, phone or area…" value={q} onChange={e => setQ(e.target.value)} className="pl-9 h-11" />
           </div>
         </div>
 
