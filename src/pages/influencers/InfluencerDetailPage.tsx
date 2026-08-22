@@ -57,6 +57,35 @@ export default function InfluencerDetailPage() {
 
   const retailerName = (rid: string) => retailers.find(r => r.id === rid)?.name || rid?.slice(0, 8);
 
+  // Portal referrals that carry products count as influenced demand too
+  const productReferrals = referrals.filter(
+    (r: any) => Array.isArray(r.interested_products) && r.interested_products.length > 0
+  );
+  const influencedRows = [
+    ...orders.map((o: any) => ({
+      key: o.id,
+      source: 'order' as const,
+      label: o.order_number || o.id.slice(0, 8),
+      retailer: o.retailer_id ? retailerName(o.retailer_id) : '—',
+      status: o.status,
+      amount: Number(o.total_amount || 0),
+      products: null as any[] | null,
+      date: o.created_at,
+    })),
+    ...productReferrals.map((r: any) => ({
+      key: `ref-${r.id}`,
+      source: 'referral' as const,
+      label: r.consumer_name || r.retailer_name || 'Portal referral',
+      retailer: r.tagged_retailer_id ? retailerName(r.tagged_retailer_id) : (r.retailer_name || '—'),
+      status: r.status,
+      amount: 0,
+      products: r.interested_products as any[],
+      date: r.created_at,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const influencedCount = orders.length + productReferrals.length;
+
   async function addMapping() {
     if (!mapRetailer.trim()) return;
     const { error } = await (supabase as any).from('influencer_retailer_map').insert({
