@@ -122,8 +122,13 @@ export default function InfluencerDetailPage() {
             </div>
             <div className="text-right">
               <div className="text-xs text-muted-foreground">Influenced Orders</div>
-              <div className="text-2xl font-semibold">{inf.influenced_orders_count}</div>
+              <div className="text-2xl font-semibold">{influencedCount}</div>
               <div className="text-sm">₹ {Number(inf.influenced_orders_value || 0).toLocaleString('en-IN')}</div>
+              {productReferrals.length > 0 && (
+                <div className="text-[11px] text-muted-foreground">
+                  {orders.length} billed · {productReferrals.length} from portal
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
