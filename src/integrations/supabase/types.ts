@@ -16702,6 +16702,7 @@ export type Database = {
           current_usage_count: number | null
           description: string | null
           discount_amount: number | null
+          discount_gst_mode: string | null
           discount_percentage: number | null
           discount_tax_treatment: string
           discount_unit: string | null
@@ -16748,6 +16749,7 @@ export type Database = {
           current_usage_count?: number | null
           description?: string | null
           discount_amount?: number | null
+          discount_gst_mode?: string | null
           discount_percentage?: number | null
           discount_tax_treatment?: string
           discount_unit?: string | null
@@ -16794,6 +16796,7 @@ export type Database = {
           current_usage_count?: number | null
           description?: string | null
           discount_amount?: number | null
+          discount_gst_mode?: string | null
           discount_percentage?: number | null
           discount_tax_treatment?: string
           discount_unit?: string | null
