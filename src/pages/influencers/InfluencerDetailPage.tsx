@@ -46,7 +46,11 @@ export default function InfluencerDetailPage() {
     setInf(i.data); setOrders(o.data || []); setMappings(m.data || []); setReferrals(r.data || []); setTickets(t.data || []);
 
     // enrich retailer names
-    const retailerIds = Array.from(new Set([...(o.data||[]).map((x:any)=>x.retailer_id), ...(m.data||[]).map((x:any)=>x.retailer_id)].filter(Boolean)));
+    const retailerIds = Array.from(new Set([
+      ...(o.data||[]).map((x:any)=>x.retailer_id),
+      ...(m.data||[]).map((x:any)=>x.retailer_id),
+      ...(r.data||[]).map((x:any)=>x.tagged_retailer_id),
+    ].filter(Boolean)));
     if (retailerIds.length) {
       const { data: rs } = await (supabase as any).from('retailers').select('id, name').in('id', retailerIds);
       setRetailers(rs || []);
