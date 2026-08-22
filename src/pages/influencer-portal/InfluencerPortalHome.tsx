@@ -688,20 +688,20 @@ function RetailerSearchSheet({ open, onClose, influencerId, onPick }: {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* Favourites — always visible when not searching */}
-          {!searching && favourites.length > 0 && (
-            <Section title="Your regular retailers" icon={<Star className="h-4 w-4 text-amber-500" />}>
-              {favourites.map(r => <RetailerRow key={`fav-${r.id}`} r={r} onPick={onPick} />)}
-            </Section>
-          )}
-
-          {/* Nearby */}
+          {/* Nearby — GPS first */}
           {!searching && (
-            <Section title="Near you" icon={<MapPin className="h-4 w-4 text-primary" />}>
+            <Section title="Retailers near you" icon={<MapPin className="h-4 w-4 text-primary" />}>
               {geoDenied && <div className="text-xs text-muted-foreground px-1">Enable location to see retailers around you.</div>}
               {!geoDenied && !coords && <div className="text-xs text-muted-foreground px-1">Getting your location…</div>}
               {coords && nearby.length === 0 && <div className="text-xs text-muted-foreground px-1">No mapped retailers nearby.</div>}
               {nearby.map(r => <RetailerRow key={`near-${r.id}`} r={r} onPick={onPick} />)}
+            </Section>
+          )}
+
+          {/* Retailers this influencer has ordered for before — always shown */}
+          {!searching && favourites.length > 0 && (
+            <Section title="Retailers you ordered for earlier" icon={<Star className="h-4 w-4 text-amber-500" />}>
+              {favourites.map(r => <RetailerRow key={`fav-${r.id}`} r={r} onPick={onPick} />)}
             </Section>
           )}
 
