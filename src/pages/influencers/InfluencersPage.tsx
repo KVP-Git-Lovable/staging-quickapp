@@ -151,7 +151,14 @@ export default function InfluencersPage() {
                     <TableCell><Badge variant="secondary">{ROLE_LABEL[r.role] || r.role}</Badge></TableCell>
                     <TableCell>{r.phone}</TableCell>
                     <TableCell>{r.region || '—'}</TableCell>
-                    <TableCell className="text-right">{r.influenced_orders_count}</TableCell>
+                    <TableCell className="text-right">
+                      {r.__influenced_total}
+                      {r.__portal_referral_count > 0 && (
+                        <div className="text-[10px] text-muted-foreground">
+                          incl. {r.__portal_referral_count} portal
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">₹ {Number(r.influenced_orders_value || 0).toLocaleString('en-IN')}</TableCell>
                     <TableCell><Switch checked={r.portal_enabled} onCheckedChange={v => togglePortal(r.id, v)} /></TableCell>
                     <TableCell><Button size="sm" variant="ghost" onClick={() => navigate(`/influencers/${r.id}`)}><ExternalLink className="h-4 w-4" /></Button></TableCell>
