@@ -545,6 +545,8 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   const handleSave = async () => {
     await saveMutation.mutateAsync(config);
     toast.success('Configuration saved');
+    // Land the admin where they'd go next — assigning the targets they just saved.
+    onLockedAndAssign?.();
   };
 
   const handleStatusChange = async (newStatus: PlanStatus) => {
@@ -1054,7 +1056,13 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
             )}
           </div>
 
-          <Button variant="outline" onClick={handleSave} disabled={saveMutation.isPending}>
+          {/* Explicit black, not `variant="default"` — `--primary` swaps to gold in
+              dark mode, which would silently undo the requested colour. */}
+          <Button
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            className="bg-black text-white hover:bg-neutral-800 disabled:hover:bg-black"
+          >
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             {config.plan_status === 'draft' ? 'Save Draft' : 'Save Changes'}
           </Button>
