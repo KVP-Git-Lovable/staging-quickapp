@@ -83,22 +83,58 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
     enabled: !!user,
   });
 
-  // Auto-select current user as root
+  /**
+   * Land on the top of the organisation, not on the logged-in admin's own
+   * branch.
+   *
+   * An admin setting up targets is very often not themselves the org's root —
+   * they might be a regional or branch head — so defaulting to their own id
+   * opened this tab on a narrow slice of the company: their own subtree, not
+   * the manager structure the plan was just built for. The employee (or
+   * employees) nobody reports to is the actual top; picking one of those as
+   * the default root is what makes arriving here — straight from Save, or by
+   * clicking the tab directly — show the whole hierarchy the plan applies to.
+   *
+   * get_org_root_managers is SECURITY DEFINER, the same pattern
+   * get_all_subordinates already uses to answer "who is below this person" —
+   * this is that question turned upside down: RLS on `employees` only lets a
+   * caller read their own row or their own subordinates, so a plain client
+   * query for "whoever has no manager" would come back empty for anyone who
+   * is not themselves a system admin.
+   *
+   * Falls back to the logged-in user on any empty result or error, which is
+   * exactly today's behaviour and is always a safe answer — everyone is
+   * eligible to view their own subtree at minimum.
+   */
   useEffect(() => {
-    if (user?.id && !selectedNode) {
-      supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          setSelectedNode({
-            userId: user.id,
-            fullName: data?.full_name || 'You',
-            level: 0,
+    if (!user?.id || selectedNode) return;
+
+    let cancelled = false;
+
+    supabase
+      .rpc('get_org_root_managers')
+      .then(({ data, error }: { data: { user_id: string; full_name: string }[] | null; error: unknown }) => {
+        if (cancelled) return;
+
+        const root = !error && data && data.length > 0 ? data[0] : null;
+        if (root?.user_id && root.full_name) {
+          setSelectedNode({ userId: root.user_id, fullName: root.full_name, level: 0 });
+          return;
+        }
+
+        // No org root this caller can see — fall back to their own view.
+        supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single()
+          .then(({ data: profile }) => {
+            if (cancelled) return;
+            setSelectedNode({ userId: user.id, fullName: profile?.full_name || 'You', level: 0 });
           });
-        });
-    }
+      });
+
+    return () => { cancelled = true; };
   }, [user?.id, selectedNode]);
 
   if (isLoading) {

@@ -480,6 +480,26 @@ export function AllocationTable({
   const [allocations, setAllocations] = useState<Map<string, SubordinateAllocation>>(new Map());
   const [currentStep, setCurrentStep] = useState(1);
 
+  /**
+   * Whole-page switch for managers who would rather type every figure
+   * themselves than use Split Equally, Split by Team Size, or a strategy's own
+   * cascade.
+   *
+   * While it is on, a typed figure is taken exactly as entered and nothing else
+   * — no push down onto a team, no read-back up to a Roll Up or Independent
+   * ancestor, no re-split when someone crosses into or out of No Target. Each
+   * target strategy (Roll Down, Roll Up, Independent, No Target) still tags
+   * every person exactly as before and is fully intact the moment this is
+   * switched off — Manual Allocation only suspends the automatic recompute a
+   * strategy would otherwise trigger, it does not touch what the strategies
+   * mean or how they behave once this is off again.
+   *
+   * The distributed total shown above and the balance check before Save both
+   * read straight from `allocations`, so they already follow whatever is typed
+   * without any extra wiring — this flag only needs to gate the cascade calls.
+   */
+  const [manualAllocationMode, setManualAllocationMode] = useState(false);
+
   // Split dialog state
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [splitDialogManagerId, setSplitDialogManagerId] = useState<string | null>(null);
@@ -798,6 +818,12 @@ export function AllocationTable({
    * relationships follow — a Roll Down manager's team is re-split from their new
    * total, and a Roll Up manager above is re-read from their team. Anything left
    * out of balance is reported, not corrected.
+   *
+   * Manual Allocation suspends both of those relationships. The edited row is
+   * still set exactly as typed — that part never changes — but nothing beyond
+   * it moves: no push down onto a team, no read-back up to an ancestor. Every
+   * row's total to distribute follows automatically regardless, since it is
+   * derived fresh from `allocations` on every render.
    */
   const handleTargetChange = useCallback((userId: string, field: string, value: number) => {
     setAllocations(prev => {
@@ -806,6 +832,8 @@ export function AllocationTable({
       if (!current) return next;
 
       next.set(userId, { ...current, [field]: value });
+
+      if (manualAllocationMode) return next;
 
       // An Independent manager's own target sits beside their team's, so
       // changing it leaves the team untouched. A Roll Up manager reads their
@@ -820,7 +848,7 @@ export function AllocationTable({
       cascadeRollUpToAncestors(userId, next);
       return next;
     });
-  }, [cascadeRollUpToAncestors, nodeById, enabledMetrics]);
+  }, [cascadeRollUpToAncestors, nodeById, enabledMetrics, manualAllocationMode]);
 
   const handleStrategyChange = useCallback((userId: string, strategy: TargetStrategy) => {
     setAllocations(prev => {
@@ -861,25 +889,31 @@ export function AllocationTable({
         // Only crossing into or out of No Target changes who shares the
         // manager's total. Switching between Roll Down, Roll Up and
         // Independent leaves the same people active, so nothing is re-split.
-        if (wasExcluded !== isExcluded) {
-          redistributeAmongSiblings(userId, next);
-        }
+        //
+        // Manual Allocation suspends all three re-splits below — the strategy
+        // tag itself still changes on this row (it always has, above), but
+        // nothing beyond this one row recomputes while manual mode is on.
+        if (!manualAllocationMode) {
+          if (wasExcluded !== isExcluded) {
+            redistributeAmongSiblings(userId, next);
+          }
 
-        // The branch is worth what it was worth before; only the rule for
-        // dividing it has changed. Re-run that division so the new type takes
-        // effect — an Independent manager carves out their own share, a Roll Up
-        // manager reads their figure back from the team, and an excluded
-        // manager passes the whole thing through.
-        if (node) {
-          autoDistributeTargets([node], next, enabledMetrics);
-        }
+          // The branch is worth what it was worth before; only the rule for
+          // dividing it has changed. Re-run that division so the new type takes
+          // effect — an Independent manager carves out their own share, a Roll Up
+          // manager reads their figure back from the team, and an excluded
+          // manager passes the whole thing through.
+          if (node) {
+            autoDistributeTargets([node], next, enabledMetrics);
+          }
 
-        cascadeRollUpToAncestors(userId, next);
+          cascadeRollUpToAncestors(userId, next);
+        }
       }
 
       return next;
     });
-  }, [cascadeRollUpToAncestors, redistributeAmongSiblings, nodeById, enabledMetrics]);
+  }, [cascadeRollUpToAncestors, redistributeAmongSiblings, nodeById, enabledMetrics, manualAllocationMode]);
 
   /**
    * Hand the annual target out across the top level, then all the way down.
@@ -1047,8 +1081,11 @@ export function AllocationTable({
 
   // Navigation
   const goToStep = (step: number) => {
-    if (step === 2) {
-      // Auto-calculate when entering preview
+    // Auto-calculate when entering preview — skipped in Manual Allocation,
+    // since re-running every strategy's cascade across the whole tree here is
+    // exactly the automatic recompute manual mode exists to avoid. What was
+    // typed on Step 1 carries into Preview completely unchanged.
+    if (step === 2 && !manualAllocationMode) {
       handleAutoCalculate();
     }
     setCurrentStep(step);
@@ -1188,18 +1225,29 @@ export function AllocationTable({
             onStrategyChange={handleStrategyChange}
             onSplitEqually={handleSplitEqually}
             onEqualSplit={handleEqualSplit}
+            manualAllocationMode={manualAllocationMode}
+            onToggleManualAllocation={() => setManualAllocationMode((v) => !v)}
           />
         )}
 
         {/* Step 2: Auto-Calculate & Preview */}
         {currentStep === 2 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
-              <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                Targets have been auto-distributed based on each manager's strategy. Review the full hierarchy below.
-              </p>
-            </div>
+            {manualAllocationMode ? (
+              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Manual Allocation is on — these are exactly the figures typed on Step 1, nothing was auto-distributed.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                  Targets have been auto-distributed based on each manager's strategy. Review the full hierarchy below.
+                </p>
+              </div>
+            )}
             <StepPreview
               roots={directReports}
               quantityUnit={quantityUnit}
@@ -1225,6 +1273,7 @@ export function AllocationTable({
             fyYear={fyYear}
             targetStartMonth={targetStartMonth}
             targetEndMonth={targetEndMonth}
+            manualAllocationMode={manualAllocationMode}
           />
         )}
 

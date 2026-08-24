@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Users, ChevronRight, Scale, Maximize2, Minimize2, Ban } from 'lucide-react';
+import { Users, ChevronRight, Scale, Maximize2, Minimize2, Ban, PencilLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NumericTargetInput } from '../NumericTargetInput';
 import { InlineStrategySelector } from '../TargetStrategySelector';
@@ -61,6 +61,10 @@ interface StepAssignManagersProps {
   onSplitEqually: () => void;
   /** Slices weighted by head count, so every individual ends up equal. */
   onEqualSplit: () => void;
+  /** On: every field below is typed by hand and stands exactly as entered — no
+   *  auto-split, no cascade in either direction. Off: today's behaviour. */
+  manualAllocationMode: boolean;
+  onToggleManualAllocation: () => void;
 }
 
 /** The metric field keys written by this step. */
@@ -422,6 +426,8 @@ export function StepAssignManagers({
   onStrategyChange,
   onSplitEqually,
   onEqualSplit,
+  manualAllocationMode,
+  onToggleManualAllocation,
 }: StepAssignManagersProps) {
   // Collapsed rather than expanded, so every team is open by default however
   // long the hierarchy takes to arrive.
@@ -560,6 +566,16 @@ export function StepAssignManagers({
           in the navy plan header above — same figures, one place. Its "nothing
           distributed yet" guidance is covered by that header's own caption. */}
 
+      {manualAllocationMode && (
+        <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5">
+          <PencilLine className="h-4 w-4 shrink-0 text-primary" />
+          <p className="text-xs font-medium text-foreground">
+            Manual Allocation is on — type each person's target directly below. Nothing splits or recalculates
+            automatically; the figures entered here are the final allocation.
+          </p>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3.5 py-2.5 shadow-sm">
         <span className="font-heading text-sm font-semibold">Reporting hierarchy</span>
@@ -568,11 +584,35 @@ export function StepAssignManagers({
         <span className="flex-1" />
 
         <Button
+          variant={manualAllocationMode ? 'default' : 'outline'}
+          size="sm"
+          onClick={onToggleManualAllocation}
+          aria-pressed={manualAllocationMode}
+          title={
+            manualAllocationMode
+              ? 'Turn off to return to automatic splitting'
+              : 'Type every target yourself — turns off automatic splitting for this hierarchy'
+          }
+          className={cn(
+            'h-8 gap-1.5 text-xs font-bold',
+            !manualAllocationMode && 'border-primary/40 text-primary hover:bg-primary/5 hover:text-primary',
+          )}
+        >
+          <PencilLine className="h-3.5 w-3.5" />
+          Manual Allocation{manualAllocationMode ? ': On' : ''}
+        </Button>
+
+        <Button
           variant="outline"
           size="sm"
           onClick={onSplitEqually}
-          title="Every team gets the same amount, whatever size it is"
-          className="h-8 gap-1.5 border-amber-300/70 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70"
+          disabled={manualAllocationMode}
+          title={
+            manualAllocationMode
+              ? 'Not available while Manual Allocation is on'
+              : 'Every team gets the same amount, whatever size it is'
+          }
+          className="h-8 gap-1.5 border-amber-300/70 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70 disabled:opacity-40 disabled:hover:bg-amber-50 dark:disabled:hover:bg-amber-950/40"
         >
           <Scale className="h-3.5 w-3.5" /> Split Equally
         </Button>
@@ -580,8 +620,13 @@ export function StepAssignManagers({
           variant="outline"
           size="sm"
           onClick={onEqualSplit}
-          title="Bigger teams get more, so every person ends up with the same"
-          className="h-8 gap-1.5 border-amber-300/70 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70"
+          disabled={manualAllocationMode}
+          title={
+            manualAllocationMode
+              ? 'Not available while Manual Allocation is on'
+              : 'Bigger teams get more, so every person ends up with the same'
+          }
+          className="h-8 gap-1.5 border-amber-300/70 bg-amber-50 text-xs font-bold text-amber-800 hover:bg-amber-100 hover:text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70 disabled:opacity-40 disabled:hover:bg-amber-50 dark:disabled:hover:bg-amber-950/40"
         >
           <Users className="h-3.5 w-3.5" /> Split by Team Size
         </Button>
