@@ -7,6 +7,7 @@ import { Loader2, FileText, AlertTriangle } from 'lucide-react';
 import { DistributionSummaryHeader } from './DistributionSummaryHeader';
 import { AllocationTable } from './AllocationTable';
 import { type PlanStatus } from '@/hooks/useFYTargetPlans';
+import { readHierarchyAssignmentNote } from '@/lib/hierarchyAssignmentNote';
 
 interface EnabledParameters {
   product: boolean;
@@ -57,30 +58,6 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
   // shows them, so they are reported up rather than recalculated here.
   const [progress, setProgress] = useState<AllocationProgress | null>(null);
 
-  // What's actually been assigned across the whole org for this FY, regardless
-  // of which subtree is currently open — this is what a "derived" or "not set
-  // yet" annual figure follows, so it can't depend on which root is selected.
-  const { data: assignedSummary } = useQuery({
-    queryKey: ['fy-assigned-summary', fyYear],
-    queryFn: async () => {
-      const [plansRes, employeesRes] = await Promise.all([
-        supabase.from('user_business_plans').select('quantity_target, revenue_target, visits_target').eq('year', fyYear),
-        supabase.from('employees').select('user_id', { count: 'exact', head: true }),
-      ]);
-      if (plansRes.error) throw plansRes.error;
-      if (employeesRes.error) throw employeesRes.error;
-      const rows = plansRes.data || [];
-      return {
-        totalPeople: employeesRes.count || 0,
-        assignedPeople: rows.length,
-        quantity: rows.reduce((sum, r) => sum + (Number(r.quantity_target) || 0), 0),
-        revenue: rows.reduce((sum, r) => sum + (Number(r.revenue_target) || 0), 0),
-        visits: rows.reduce((sum, r) => sum + (Number(r.visits_target) || 0), 0),
-      };
-    },
-    enabled: !!user,
-  });
-
   // Fetch config for the FY
   const { data: config, isLoading } = useQuery({
     queryKey: ['fy-target-config', fyYear, selectedPlanId],
@@ -105,6 +82,30 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
       return data;
     },
     enabled: !!user,
+  });
+
+  // Org headcount, for the "of N people" denominator only — this has nothing
+  // to do with any plan's own assignment progress.
+  const { data: orgHeadcount } = useQuery({
+    queryKey: ['org-headcount'],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('employees').select('user_id', { count: 'exact', head: true });
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
+  // What a "derived" or "not set yet" annual figure follows: this browser's
+  // own note of what a Hierarchy Save last wrote for *this* plan — never
+  // user_business_plans, which has no link back to a specific plan and would
+  // pull in whatever else has ever been saved for the year. AllocationTable
+  // invalidates this same query key the moment its own Save succeeds, so this
+  // header updates immediately, without navigating away and back.
+  const { data: hierarchyNote } = useQuery({
+    queryKey: ['hierarchy-assignment-note', config?.id],
+    queryFn: () => readHierarchyAssignmentNote(config?.id),
+    enabled: !!config?.id,
   });
 
   /**
@@ -231,9 +232,9 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
   const effectiveTotal = (basis: 'direct' | 'derived' | 'unset', direct: number | null, derived: number | undefined) =>
     basis === 'direct' ? direct : (derived ?? null);
 
-  const effectiveQuantity = effectiveTotal(quantityBasis, config.total_quantity_target, assignedSummary?.quantity);
-  const effectiveRevenue = effectiveTotal(revenueBasis, config.total_revenue_target, assignedSummary?.revenue);
-  const effectiveVisits = effectiveTotal(visitsBasis, config.total_visits_target, assignedSummary?.visits);
+  const effectiveQuantity = effectiveTotal(quantityBasis, config.total_quantity_target, hierarchyNote?.quantity);
+  const effectiveRevenue = effectiveTotal(revenueBasis, config.total_revenue_target, hierarchyNote?.revenue);
+  const effectiveVisits = effectiveTotal(visitsBasis, config.total_visits_target, hierarchyNote?.visits);
 
   return (
     <div className="space-y-4">
@@ -254,7 +255,7 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
         quantityBasis={quantityBasis}
         revenueBasis={revenueBasis}
         visitsBasis={visitsBasis}
-        assignedCoverage={assignedSummary ? { count: assignedSummary.assignedPeople, total: assignedSummary.totalPeople } : undefined}
+        assignedCoverage={hierarchyNote ? { count: hierarchyNote.assignedCount, total: orgHeadcount ?? 0 } : undefined}
         allocatedQuantity={progress?.distributed.quantity ?? 0}
         allocatedRevenue={progress?.distributed.revenue ?? 0}
         allocatedVisits={progress?.distributed.visits ?? 0}
