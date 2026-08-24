@@ -1097,6 +1097,9 @@ export function AllocationTable({
           visits: distributed.visits,
           assignedCount,
         });
+        // The header above reads this same note — invalidate so it reflects
+        // this save immediately, without navigating away and back.
+        queryClient.invalidateQueries({ queryKey: ['hierarchy-assignment-note', planId] });
       }
 
       toast.success('All allocations saved successfully!');
