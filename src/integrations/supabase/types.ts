@@ -16719,6 +16719,7 @@ export type Database = {
           end_date: string | null
           exclusion_group: string | null
           free_product_id: string | null
+          free_product_source: string
           free_quantity: number | null
           free_quantity_unit: string | null
           id: string
@@ -16728,6 +16729,7 @@ export type Database = {
           max_usage_count: number | null
           min_order_value: number | null
           name: string
+          other_free_product_id: string | null
           per_product_discounts: Json | null
           priority: number | null
           product_id: string | null
@@ -16766,6 +16768,7 @@ export type Database = {
           end_date?: string | null
           exclusion_group?: string | null
           free_product_id?: string | null
+          free_product_source?: string
           free_quantity?: number | null
           free_quantity_unit?: string | null
           id?: string
@@ -16775,6 +16778,7 @@ export type Database = {
           max_usage_count?: number | null
           min_order_value?: number | null
           name: string
+          other_free_product_id?: string | null
           per_product_discounts?: Json | null
           priority?: number | null
           product_id?: string | null
@@ -16813,6 +16817,7 @@ export type Database = {
           end_date?: string | null
           exclusion_group?: string | null
           free_product_id?: string | null
+          free_product_source?: string
           free_quantity?: number | null
           free_quantity_unit?: string | null
           id?: string
@@ -16822,6 +16827,7 @@ export type Database = {
           max_usage_count?: number | null
           min_order_value?: number | null
           name?: string
+          other_free_product_id?: string | null
           per_product_discounts?: Json | null
           priority?: number | null
           product_id?: string | null
@@ -16864,6 +16870,13 @@ export type Database = {
             columns: ["free_product_id"]
             isOneToOne: false
             referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_schemes_other_free_product_id_fkey"
+            columns: ["other_free_product_id"]
+            isOneToOne: false
+            referencedRelation: "scheme_free_products"
             referencedColumns: ["id"]
           },
           {
@@ -24461,6 +24474,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      scheme_free_products: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          hsn_code: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          unit: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          hsn_code?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          unit?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          hsn_code?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          unit?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       scheme_policy_config: {
         Row: {
