@@ -8858,7 +8858,9 @@ export type Database = {
           id: string
           is_locked: boolean | null
           plan_status: string
+          quantity_basis: string
           quantity_unit: string | null
+          revenue_basis: string
           setup_completed: boolean | null
           target_end_month: number
           target_period_type: string | null
@@ -8869,6 +8871,7 @@ export type Database = {
           total_revenue_target: number | null
           total_visits_target: number | null
           updated_at: string | null
+          visits_basis: string
         }
         Insert: {
           created_at?: string | null
@@ -8882,7 +8885,9 @@ export type Database = {
           id?: string
           is_locked?: boolean | null
           plan_status?: string
+          quantity_basis?: string
           quantity_unit?: string | null
+          revenue_basis?: string
           setup_completed?: boolean | null
           target_end_month?: number
           target_period_type?: string | null
@@ -8893,6 +8898,7 @@ export type Database = {
           total_revenue_target?: number | null
           total_visits_target?: number | null
           updated_at?: string | null
+          visits_basis?: string
         }
         Update: {
           created_at?: string | null
@@ -8906,7 +8912,9 @@ export type Database = {
           id?: string
           is_locked?: boolean | null
           plan_status?: string
+          quantity_basis?: string
           quantity_unit?: string | null
+          revenue_basis?: string
           setup_completed?: boolean | null
           target_end_month?: number
           target_period_type?: string | null
@@ -8917,6 +8925,7 @@ export type Database = {
           total_revenue_target?: number | null
           total_visits_target?: number | null
           updated_at?: string | null
+          visits_basis?: string
         }
         Relationships: []
       }
