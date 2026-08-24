@@ -57,6 +57,30 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
   // shows them, so they are reported up rather than recalculated here.
   const [progress, setProgress] = useState<AllocationProgress | null>(null);
 
+  // What's actually been assigned across the whole org for this FY, regardless
+  // of which subtree is currently open — this is what a "derived" or "not set
+  // yet" annual figure follows, so it can't depend on which root is selected.
+  const { data: assignedSummary } = useQuery({
+    queryKey: ['fy-assigned-summary', fyYear],
+    queryFn: async () => {
+      const [plansRes, employeesRes] = await Promise.all([
+        supabase.from('user_business_plans').select('quantity_target, revenue_target, visits_target').eq('year', fyYear),
+        supabase.from('employees').select('user_id', { count: 'exact', head: true }),
+      ]);
+      if (plansRes.error) throw plansRes.error;
+      if (employeesRes.error) throw employeesRes.error;
+      const rows = plansRes.data || [];
+      return {
+        totalPeople: employeesRes.count || 0,
+        assignedPeople: rows.length,
+        quantity: rows.reduce((sum, r) => sum + (Number(r.quantity_target) || 0), 0),
+        revenue: rows.reduce((sum, r) => sum + (Number(r.revenue_target) || 0), 0),
+        visits: rows.reduce((sum, r) => sum + (Number(r.visits_target) || 0), 0),
+      };
+    },
+    enabled: !!user,
+  });
+
   // Fetch config for the FY
   const { data: config, isLoading } = useQuery({
     queryKey: ['fy-target-config', fyYear, selectedPlanId],
@@ -196,6 +220,21 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
         monthly: false,
       };
 
+  // A 'direct' metric shows exactly what was typed on the Targets tab, same as
+  // always. 'derived' and 'unset' both follow whatever's actually been
+  // assigned across the org so far — null (rendered as "Not set yet") until
+  // that figure has loaded or anyone has anything assigned.
+  const quantityBasis = ((config.quantity_basis as string | null) || 'direct') as 'direct' | 'derived' | 'unset';
+  const revenueBasis = ((config.revenue_basis as string | null) || 'direct') as 'direct' | 'derived' | 'unset';
+  const visitsBasis = ((config.visits_basis as string | null) || 'direct') as 'direct' | 'derived' | 'unset';
+
+  const effectiveTotal = (basis: 'direct' | 'derived' | 'unset', direct: number | null, derived: number | undefined) =>
+    basis === 'direct' ? direct : (derived ?? null);
+
+  const effectiveQuantity = effectiveTotal(quantityBasis, config.total_quantity_target, assignedSummary?.quantity);
+  const effectiveRevenue = effectiveTotal(revenueBasis, config.total_revenue_target, assignedSummary?.revenue);
+  const effectiveVisits = effectiveTotal(visitsBasis, config.total_visits_target, assignedSummary?.visits);
+
   return (
     <div className="space-y-4">
       {/* Distribution Summary Header */}
@@ -209,9 +248,13 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
           visits: config.enable_visits,
         }}
         quantityUnit={config.quantity_unit}
-        totalQuantity={config.total_quantity_target}
-        totalRevenue={config.total_revenue_target}
-        totalVisits={config.total_visits_target}
+        totalQuantity={effectiveQuantity}
+        totalRevenue={effectiveRevenue}
+        totalVisits={effectiveVisits}
+        quantityBasis={quantityBasis}
+        revenueBasis={revenueBasis}
+        visitsBasis={visitsBasis}
+        assignedCoverage={assignedSummary ? { count: assignedSummary.assignedPeople, total: assignedSummary.totalPeople } : undefined}
         allocatedQuantity={progress?.distributed.quantity ?? 0}
         allocatedRevenue={progress?.distributed.revenue ?? 0}
         allocatedVisits={progress?.distributed.visits ?? 0}
@@ -225,9 +268,9 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
       {selectedNode && (
         <AllocationTable
           parentUserId={selectedNode.userId}
-          totalQuantity={config.total_quantity_target}
-          totalRevenue={config.total_revenue_target}
-          totalVisits={config.total_visits_target}
+          totalQuantity={effectiveQuantity ?? 0}
+          totalRevenue={effectiveRevenue ?? 0}
+          totalVisits={effectiveVisits ?? 0}
           quantityUnit={config.quantity_unit}
           enabledMetrics={{
             quantity: config.enable_quantity,

@@ -4,6 +4,12 @@ import { Package, IndianRupee, Users, CheckCircle2, FileText, Archive, Check } f
 import { cn } from '@/lib/utils';
 import { type PlanStatus } from '@/hooks/useFYTargetPlans';
 
+/** A metric's annual figure is either typed at plan level, following whatever
+ *  is assigned to people so far, or nothing has been chosen yet — the last two
+ *  render identically (there's no fixed number to show either way) until
+ *  something is actually assigned. */
+type TargetBasis = 'direct' | 'derived' | 'unset';
+
 interface DistributionSummaryHeaderProps {
   targetPlanName: string;
   fyYear: number;
@@ -15,9 +21,17 @@ interface DistributionSummaryHeaderProps {
     visits: boolean;
   };
   quantityUnit: string;
-  totalQuantity: number;
-  totalRevenue: number;
-  totalVisits: number;
+  /** null = no annual figure exists for this metric yet. */
+  totalQuantity: number | null;
+  totalRevenue: number | null;
+  totalVisits: number | null;
+  quantityBasis?: TargetBasis;
+  revenueBasis?: TargetBasis;
+  visitsBasis?: TargetBasis;
+  /** How many people already have something assigned, out of the org's whole
+   *  headcount — shown while the annual figure is still following them rather
+   *  than fixed. */
+  assignedCoverage?: { count: number; total: number };
   allocatedQuantity: number;
   allocatedRevenue: number;
   allocatedVisits: number;
@@ -76,6 +90,10 @@ export function DistributionSummaryHeader({
   totalQuantity,
   totalRevenue,
   totalVisits,
+  quantityBasis = 'direct',
+  revenueBasis = 'direct',
+  visitsBasis = 'direct',
+  assignedCoverage,
   allocatedQuantity,
   allocatedRevenue,
   allocatedVisits,
@@ -90,6 +108,7 @@ export function DistributionSummaryHeader({
       label: 'Quantity',
       icon: Package,
       total: totalQuantity,
+      basis: quantityBasis,
       allocated: allocatedQuantity,
       unit: quantityUnit,
       format: formatNumber,
@@ -99,6 +118,7 @@ export function DistributionSummaryHeader({
       label: 'Revenue',
       icon: IndianRupee,
       total: totalRevenue,
+      basis: revenueBasis,
       allocated: allocatedRevenue,
       unit: '',
       format: formatCurrency,
@@ -108,6 +128,7 @@ export function DistributionSummaryHeader({
       label: 'Visits',
       icon: Users,
       total: totalVisits,
+      basis: visitsBasis,
       allocated: allocatedVisits,
       unit: 'visits',
       format: formatNumber,
@@ -117,25 +138,33 @@ export function DistributionSummaryHeader({
   // The headline follows the first enabled metric; the strip below carries the
   // rest when more than one is in play.
   const lead = metrics[0];
-  const distributionPercent = lead && lead.total > 0
+  const notSet = !!lead && lead.total === null;
+  const distributionPercent = lead && lead.total !== null && lead.total > 0
     ? Math.min(100, Math.round((lead.allocated / lead.total) * 100))
     : 0;
 
   const untouched = metrics.every(m => m.allocated === 0);
-  const complete = metrics.every(m => m.allocated === m.total) && !untouched && isBalanced;
-  const over = metrics.some(m => m.allocated > m.total);
+  const complete = metrics.every(m => m.total !== null && m.allocated === m.total) && !untouched && isBalanced;
+  const over = metrics.some(m => m.total !== null && m.allocated > m.total);
 
-  const tone = untouched
-    ? { fig: 'text-slate-100', bar: 'bg-[hsl(35_65%_55%)]', cap: 'text-slate-400' }
-    : complete
-      ? { fig: 'text-emerald-300', bar: 'bg-emerald-400', cap: 'text-emerald-300' }
-      : { fig: 'text-rose-300', bar: 'bg-rose-400', cap: 'text-rose-300' };
+  const tone = notSet
+    ? { fig: 'text-slate-400', bar: 'bg-white/10', cap: 'text-slate-400' }
+    : untouched
+      ? { fig: 'text-slate-100', bar: 'bg-[hsl(35_65%_55%)]', cap: 'text-slate-400' }
+      : complete
+        ? { fig: 'text-emerald-300', bar: 'bg-emerald-400', cap: 'text-emerald-300' }
+        : { fig: 'text-rose-300', bar: 'bg-rose-400', cap: 'text-rose-300' };
 
   const caption = (() => {
+    if (notSet) {
+      return assignedCoverage && assignedCoverage.count > 0
+        ? `Following ${assignedCoverage.count} of ${assignedCoverage.total} people assigned so far`
+        : 'Not set yet — start assigning below, nothing here blocks you';
+    }
     if (untouched) return 'Nothing distributed yet';
     if (complete) return '100% allocated · every level reconciled';
-    if (over && lead) return `Over the annual target by ${lead.format(lead.allocated - lead.total)}`;
-    if (lead && lead.allocated < lead.total) return `${lead.format(lead.total - lead.allocated)} still to allocate`;
+    if (over && lead && lead.total !== null) return `Over the annual target by ${lead.format(lead.allocated - lead.total)}`;
+    if (lead && lead.total !== null && lead.allocated < lead.total) return `${lead.format(lead.total - lead.allocated)} still to allocate`;
     return 'Totals match, but a manager and their team disagree below';
   })();
 
@@ -188,11 +217,22 @@ export function DistributionSummaryHeader({
             {/* The one place this figure is shown — StepAssignManagers used to
                 carry its own "Total target to distribute" summary alongside this. */}
             <div className="flex flex-col gap-0.5">
-              <span className={MICRO}>Total target to distribute</span>
-              <span className="text-[23px] font-extrabold leading-tight tracking-tight tabular-nums text-slate-50">
-                {lead.format(lead.total)}
-                {lead.unit && <span className="ml-1 text-[12.5px] font-bold text-slate-400">{lead.unit}</span>}
+              <span className={MICRO}>
+                Total target to distribute
+                {!notSet && lead.basis === 'derived' && (
+                  <span className="ml-1.5 inline-flex items-center rounded-full border border-[hsl(35_65%_55%)]/30 bg-[hsl(35_65%_55%)]/10 px-1.5 py-0 text-[9px] font-bold normal-case tracking-normal text-[hsl(35_65%_65%)]">
+                    derived
+                  </span>
+                )}
               </span>
+              {notSet ? (
+                <span className="text-[17px] font-bold italic leading-tight text-slate-400">Not set yet</span>
+              ) : (
+                <span className="text-[23px] font-extrabold leading-tight tracking-tight tabular-nums text-slate-50">
+                  {lead.format(lead.total as number)}
+                  {lead.unit && <span className="ml-1 text-[12.5px] font-bold text-slate-400">{lead.unit}</span>}
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col gap-0.5">
@@ -229,34 +269,43 @@ export function DistributionSummaryHeader({
         >
           {metrics.map(metric => {
             const MetricIcon = metric.icon;
-            const remaining = metric.total - metric.allocated;
-            const isOver = remaining < 0;
-            const pct = metric.total > 0 ? Math.round((metric.allocated / metric.total) * 100) : 0;
+            const metricNotSet = metric.total === null;
+            const remaining = metricNotSet ? 0 : (metric.total as number) - metric.allocated;
+            const isOver = !metricNotSet && remaining < 0;
+            const pct = !metricNotSet && (metric.total as number) > 0
+              ? Math.round((metric.allocated / (metric.total as number)) * 100)
+              : 0;
 
             return (
               <div key={metric.label} className={cn('px-5 py-3', NAVY)}>
                 <div className="flex items-center gap-2">
                   <MetricIcon className="h-3.5 w-3.5 text-slate-400" />
                   <span className={MICRO}>{metric.label}</span>
-                  <span className="ml-auto text-[11px] font-bold tabular-nums text-slate-400">{pct}%</span>
+                  <span className="ml-auto text-[11px] font-bold tabular-nums text-slate-400">
+                    {metricNotSet ? '—' : `${pct}%`}
+                  </span>
                 </div>
                 <p className="mt-1 text-[15px] font-extrabold tabular-nums text-slate-100">
                   {metric.format(metric.allocated)}
                   <span className="ml-1 text-[11.5px] font-semibold text-slate-500">
-                    of {metric.format(metric.total)}
+                    {metricNotSet ? 'assigned so far' : `of ${metric.format(metric.total as number)}`}
                   </span>
                 </p>
                 <p
                   className={cn(
                     'mt-0.5 text-[11px] font-bold',
-                    isOver ? 'text-rose-300' : remaining === 0 ? 'text-emerald-300' : 'text-slate-400',
+                    metricNotSet
+                      ? 'text-slate-500'
+                      : isOver ? 'text-rose-300' : remaining === 0 ? 'text-emerald-300' : 'text-slate-400',
                   )}
                 >
-                  {isOver
-                    ? `Over by ${metric.format(Math.abs(remaining))}`
-                    : remaining === 0
-                      ? 'Fully allocated'
-                      : `${metric.format(remaining)} left`}
+                  {metricNotSet
+                    ? (metric.basis === 'derived' ? 'Derived — following what\'s assigned' : 'Target not set')
+                    : isOver
+                      ? `Over by ${metric.format(Math.abs(remaining))}`
+                      : remaining === 0
+                        ? 'Fully allocated'
+                        : `${metric.format(remaining)} left`}
                 </p>
               </div>
             );

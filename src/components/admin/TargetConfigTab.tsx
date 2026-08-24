@@ -151,6 +151,19 @@ const DEFAULT_CONFIG: Omit<TargetConfig, 'fy_year'> = {
 
 const EMPTY_PLAN_METRICS: import('@/hooks/useTargetMetrics').PlanEnabledMetric[] = [];
 
+/** The three metrics Hierarchy allocation actually knows how to divide across
+ *  people, mapped to the plan-level column each one's annual figure lives in.
+ *  Only these can be set to "Decide later" — a custom metric has no bottom-up
+ *  path (nobody's monthly/annual plan carries it) for an annual figure to
+ *  follow, so it keeps the plain required input it has always had. */
+const LEGACY_METRIC_KEY: Record<string, 'quantity' | 'revenue' | 'visits'> = {
+  'Quantity': 'quantity',
+  'Revenue': 'revenue',
+  'Productive Visits': 'visits',
+};
+
+type MetricBasisMode = 'direct' | 'later';
+
 const STATUS_CONFIG: Record<PlanStatus, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
   draft: { label: 'Draft', icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
   active: { label: 'Active', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30' },
@@ -171,6 +184,11 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   // Dynamic metrics state
   const [enabledMetricIds, setEnabledMetricIds] = useState<Set<string>>(new Set());
   const [metricTargets, setMetricTargets] = useState<Record<string, number>>({});
+  // How each of Quantity/Revenue/Visits gets its annual figure — typed here now,
+  // or left to follow whatever people are assigned as it happens. Keyed by
+  // metric id, same as metricTargets; only ever set for the three legacy
+  // metrics (see LEGACY_METRIC_KEY).
+  const [metricBasis, setMetricBasis] = useState<Record<string, MetricBasisMode>>({});
   const [showCreateMetricDialog, setShowCreateMetricDialog] = useState(false);
 
   // Breakdown state
@@ -261,6 +279,50 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
     }
   }, [existingConfig, fyYear]);
 
+  // Carry the saved "decide later" choice over to the right metric id. Needs
+  // metricDefinitions loaded to translate a column (quantity_basis, ...) into
+  // the metric id metricTargets/metricBasis are keyed by, so this runs
+  // whenever either one changes rather than folding into the effect above.
+  useEffect(() => {
+    if (!existingConfig || metricDefinitions.length === 0) return;
+    const configRow = existingConfig as unknown as Record<string, unknown>;
+    const columnFor: Record<'quantity' | 'revenue' | 'visits', string> = {
+      quantity: (configRow.quantity_basis as string) ?? 'direct',
+      revenue: (configRow.revenue_basis as string) ?? 'direct',
+      visits: (configRow.visits_basis as string) ?? 'direct',
+    };
+    const next: Record<string, MetricBasisMode> = {};
+    metricDefinitions.forEach(m => {
+      const key = LEGACY_METRIC_KEY[m.name];
+      if (!key) return;
+      next[m.id] = columnFor[key] === 'direct' ? 'direct' : 'later';
+    });
+    setMetricBasis(next);
+  }, [existingConfig, metricDefinitions]);
+
+  // What's already been assigned across the whole org for this FY — the figure
+  // a metric left on "Decide later" follows instead of a typed annual number.
+  const { data: assignedSummary } = useQuery({
+    queryKey: ['fy-assigned-summary', fyYear],
+    queryFn: async () => {
+      const [plansRes, employeesRes] = await Promise.all([
+        supabase.from('user_business_plans').select('quantity_target, revenue_target, visits_target').eq('year', fyYear),
+        supabase.from('employees').select('user_id', { count: 'exact', head: true }),
+      ]);
+      if (plansRes.error) throw plansRes.error;
+      if (employeesRes.error) throw employeesRes.error;
+      const rows = plansRes.data || [];
+      return {
+        totalPeople: employeesRes.count || 0,
+        assignedPeople: rows.length,
+        quantity: rows.reduce((sum, r) => sum + (Number(r.quantity_target) || 0), 0),
+        revenue: rows.reduce((sum, r) => sum + (Number(r.revenue_target) || 0), 0),
+        visits: rows.reduce((sum, r) => sum + (Number(r.visits_target) || 0), 0),
+      };
+    },
+    enabled: !!user,
+  });
+
   // Sync plan-enabled metrics to local state
   useEffect(() => {
     if (planEnabledMetrics.length > 0) {
@@ -326,6 +388,21 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
       // Sync legacy fields from dynamic metrics, falling back to config values if no metrics enabled
       const legacyFields = syncLegacyFromMetrics(metricDefinitions, enabledMetricIds, metricTargets, configData);
 
+      // "Decide later" for a metric: store its basis as derived, and clear the
+      // typed figure rather than leaving a stale or 0 number sitting behind a
+      // hidden field — Hierarchy follows what's assigned instead once this is
+      // set, not whatever happens to be in this column.
+      const basisFor = (name: string): MetricBasisMode => {
+        const def = metricDefinitions.find(m => m.name === name);
+        return def ? (metricBasis[def.id] ?? 'direct') : 'direct';
+      };
+      const quantity_basis = basisFor('Quantity') === 'later' ? 'derived' : 'direct';
+      const revenue_basis = basisFor('Revenue') === 'later' ? 'derived' : 'direct';
+      const visits_basis = basisFor('Productive Visits') === 'later' ? 'derived' : 'direct';
+      const total_quantity_target = quantity_basis === 'derived' ? null : legacyFields.total_quantity_target;
+      const total_revenue_target = revenue_basis === 'derived' ? null : legacyFields.total_revenue_target;
+      const total_visits_target = visits_basis === 'derived' ? null : legacyFields.total_visits_target;
+
       if (configData.id) {
         const { error } = await supabase
           .from('fy_target_config')
@@ -337,10 +414,13 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
             enable_retailer_activation: legacyFields.enable_retailer_activation,
             quantity_unit: configData.quantity_unit,
             enabled_parameters: configData.enabled_parameters,
-            total_quantity_target: legacyFields.total_quantity_target,
-            total_revenue_target: legacyFields.total_revenue_target,
-            total_visits_target: legacyFields.total_visits_target,
+            total_quantity_target: total_quantity_target,
+            total_revenue_target: total_revenue_target,
+            total_visits_target: total_visits_target,
             total_retailer_activation_target: legacyFields.total_retailer_activation_target,
+            quantity_basis: quantity_basis,
+            revenue_basis: revenue_basis,
+            visits_basis: visits_basis,
             is_locked: isLocked,
             setup_completed: configData.setup_completed,
             target_period_type: configData.target_period_type,
@@ -380,10 +460,13 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
             enable_retailer_activation: legacyFields.enable_retailer_activation,
             quantity_unit: configData.quantity_unit,
             enabled_parameters: configData.enabled_parameters,
-            total_quantity_target: legacyFields.total_quantity_target,
-            total_revenue_target: legacyFields.total_revenue_target,
-            total_visits_target: legacyFields.total_visits_target,
+            total_quantity_target: total_quantity_target,
+            total_revenue_target: total_revenue_target,
+            total_visits_target: total_visits_target,
             total_retailer_activation_target: legacyFields.total_retailer_activation_target,
+            quantity_basis: quantity_basis,
+            revenue_basis: revenue_basis,
+            visits_basis: visits_basis,
             is_locked: isLocked,
             setup_completed: configData.setup_completed,
             target_period_type: configData.target_period_type,
@@ -573,11 +656,17 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
     // Reset dynamic metrics for new plan
     setEnabledMetricIds(new Set());
     setMetricTargets({});
+    setMetricBasis({});
   };
 
   const hasAtLeastOneBasis = enabledMetricIds.size > 0;
   const hasAtLeastOneParameter = Object.values(config.enabled_parameters).some(v => v);
-  const hasValidTargets = Array.from(enabledMetricIds).every(id => (metricTargets[id] ?? 0) > 0);
+  // A metric left on "Decide later" has nothing to require here — that's the
+  // point of choosing it. Everything else still needs a real typed figure.
+  const hasValidTargets = Array.from(enabledMetricIds).every(id => {
+    if ((metricBasis[id] ?? 'direct') === 'later') return true;
+    return (metricTargets[id] ?? 0) > 0;
+  });
   const canActivate = hasAtLeastOneBasis && hasAtLeastOneParameter && hasValidTargets;
   const isReadOnly = config.plan_status === 'closed';
 
@@ -980,21 +1069,73 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                 {activeMetrics.map(metric => {
                   const colors = COLOR_MAP[metric.color] || COLOR_MAP.blue;
                   const displayUnit = metric.name === 'Quantity' ? config.quantity_unit : metric.unit;
+                  const legacyKey = LEGACY_METRIC_KEY[metric.name];
+                  const basis = legacyKey ? (metricBasis[metric.id] ?? 'direct') : 'direct';
+                  const assignedValue = legacyKey && assignedSummary ? assignedSummary[legacyKey] : 0;
+                  const assignedCount = assignedSummary?.assignedPeople ?? 0;
+                  const totalPeople = assignedSummary?.totalPeople ?? 0;
+
                   return (
-                    <div key={metric.id} className={`rounded-xl border ${colors.border} ${colors.bg} ${colors.darkBg} ${colors.darkBorder} p-4 flex items-center justify-between gap-4`}>
-                      <Label className={`text-sm font-medium ${colors.text} ${colors.darkText} whitespace-nowrap`}>
-                        {metric.name}{displayUnit ? ` (${displayUnit})` : ''}
-                      </Label>
-                      <NumericTargetInput
-                        value={metricTargets[metric.id] ?? 0}
-                        onValueChange={(v) => handleMetricTargetChange(metric.id, v)}
-                        format={formatNumber}
-                        parse={parseNumber}
-                        transform={Math.round}
-                        aria-label={`${metric.name} annual target`}
-                        placeholder="0"
-                        className="w-32 text-right font-semibold bg-background"
-                      />
+                    <div key={metric.id} className={`rounded-xl border ${colors.border} ${colors.bg} ${colors.darkBg} ${colors.darkBorder} p-4 flex flex-col gap-3`}>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <Label className={`text-sm font-medium ${colors.text} ${colors.darkText} whitespace-nowrap`}>
+                          {metric.name}{displayUnit ? ` (${displayUnit})` : ''}
+                        </Label>
+                        {/* Only Quantity, Revenue, and Visits have a bottom-up
+                            figure to follow — a custom metric keeps its plain
+                            required field, unchanged. */}
+                        {legacyKey && (
+                          <div className="inline-flex rounded-full border bg-background p-0.5 gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setMetricBasis(prev => ({ ...prev, [metric.id]: 'direct' }))}
+                              className={cn(
+                                'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors',
+                                basis === 'direct' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Set annual now
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMetricBasis(prev => ({ ...prev, [metric.id]: 'later' }))}
+                              className={cn(
+                                'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors',
+                                basis === 'later' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Decide later
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {basis === 'later' ? (
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <Badge variant="outline" className="text-[10px] font-semibold border-emerald-300 text-emerald-700 dark:text-emerald-400 dark:border-emerald-800">
+                            derived
+                          </Badge>
+                          <div className="flex flex-col">
+                            <span className="text-lg font-bold text-foreground tabular-nums">
+                              {metric.unit === '₹' ? '₹' : ''}{formatNumber(assignedValue)}{metric.unit && metric.unit !== '₹' ? ` ${metric.unit}` : ''}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              Currently assigned across {assignedCount} of {totalPeople} people — will keep following as more are added
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <NumericTargetInput
+                          value={metricTargets[metric.id] ?? 0}
+                          onValueChange={(v) => handleMetricTargetChange(metric.id, v)}
+                          format={formatNumber}
+                          parse={parseNumber}
+                          transform={Math.round}
+                          aria-label={`${metric.name} annual target`}
+                          placeholder="0"
+                          className="w-32 text-right font-semibold bg-background"
+                        />
+                      )}
                     </div>
                   );
                 })}
