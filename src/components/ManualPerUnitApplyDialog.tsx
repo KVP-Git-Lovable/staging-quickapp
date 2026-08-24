@@ -65,16 +65,17 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
   const showGstToggle = valueType === 'amount';
 
   /**
-   * The figure being typed into one of the two editable totals.
+   * The figure being typed into the taxable total.
    *
-   * Both totals are normally derived from the per-line discounts, but either can
-   * be typed into to work the discount backwards. While one is being edited it
-   * shows exactly what was typed rather than the recomputed figure, so the number
-   * is not rewritten under the cursor mid-keystroke; the other total keeps
-   * updating live. On blur both go back to showing what was actually achieved,
-   * which is how a cap or a rounded paisa becomes visible.
+   * "Value without GST" is the one total that can be typed into; "Value with
+   * GST" is always derived from it and the discount, never entered. While the
+   * field is being edited it shows exactly what was typed rather than the
+   * recomputed figure, so the number is not rewritten under the cursor
+   * mid-keystroke, while the GST-inclusive figure below keeps updating live. On
+   * blur it goes back to showing what was actually reached, which is how a cap
+   * or a rounded paisa becomes visible.
    */
-  const [totalDraft, setTotalDraft] = useState<{ field: 'ex' | 'incl'; text: string } | null>(null);
+  const [totalDraft, setTotalDraft] = useState<string | null>(null);
   // Set when the last typed total could not be reached because the scheme cap ran out.
   const [totalCapped, setTotalCapped] = useState(false);
 
@@ -210,25 +211,23 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
   };
 
   /**
-   * The per-line discounts that bring the selected lines to a given total.
+   * The per-line discounts that bring the selected lines to a given taxable total.
    *
    * The reduction needed is shared out in proportion to what each line is worth,
    * so a bigger line absorbs a bigger share. A line that hits the scheme cap stops
    * taking more and hands the rest back to the lines that still have room, which
    * is repeated until either the target is met or every line is capped.
    *
-   * `basis` says which of the two totals was typed. Working in that basis directly
-   * is what lets lines at different GST rates be solved together: a rupee off the
-   * GST-inclusive total is worth less than a rupee of taxable discount, and by a
-   * different amount on each line.
+   * Only the taxable total is solved for. The GST-inclusive figure is derived
+   * from the result, never entered, so GST rates differing between lines never
+   * have to be reconciled against a single typed number.
    */
-  const solveForTotal = (target: number, basis: 'ex' | 'incl') => {
+  const solveForTotal = (target: number) => {
     const lines = selectedLines.filter(l => l.quantity > 0 && l.rate > 0);
     if (lines.length === 0) return null;
 
-    const factor = (l: CartLine) => (basis === 'incl' ? 1 + (l.gstPercent || 0) / 100 : 1);
-    const grossOf = (l: CartLine) => l.rate * l.quantity * factor(l);
-    const maxCutOf = (l: CartLine) => maxPerUnitExGst(l) * l.quantity * factor(l);
+    const grossOf = (l: CartLine) => l.rate * l.quantity;
+    const maxCutOf = (l: CartLine) => maxPerUnitExGst(l) * l.quantity;
 
     const gross = lines.reduce((s, l) => s + grossOf(l), 0);
     const ceiling = lines.reduce((s, l) => s + maxCutOf(l), 0);
@@ -259,34 +258,31 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
 
     /*
      * The per-row figures are rounded to paise, because that is what a rep can
-     * read and retype. One paisa of per-unit discount is worth quantity × (1 +
-     * gst%) on the total, so where the selected rows carry different GST rates
-     * the typed total can be a few paise out of reach — 1,800.00 across a 5%
-     * and a 12% row settles at 1,800.03, and no pair of two-decimal discounts
-     * gets closer. Both totals go back to showing the figure actually reached
-     * once the field is left, so what is displayed is always what will be
-     * applied. A single row, or rows sharing one GST rate, lands exactly.
+     * read and retype. A rounded per-unit discount is worth quantity × that
+     * rounding on the line, so a target that does not divide cleanly by the
+     * quantity can end a paisa or two away — the field shows the figure actually
+     * reached once it is left, so what is displayed is always what gets applied.
      */
     const values: Record<string, string> = {};
     lines.forEach(l => {
-      const perUnitExGst = (cut.get(l.id) || 0) / factor(l) / l.quantity;
+      const perUnitExGst = (cut.get(l.id) || 0) / l.quantity;
       values[l.id] = String(round2(Math.max(0, rawFromPerUnitExGst(perUnitExGst, l))));
     });
     return { values, capped: wanted - required > MONEY_EPSILON };
   };
 
-  /** The lowest total the cap allows, in whichever basis is being typed. */
-  const floorForBasis = (basis: 'ex' | 'incl') =>
-    selectedLines.reduce((sum, l) => {
-      const factor = basis === 'incl' ? 1 + (l.gstPercent || 0) / 100 : 1;
-      return sum + Math.max(0, l.rate * l.quantity - maxPerUnitExGst(l) * l.quantity) * factor;
-    }, 0);
+  /** The lowest taxable total the scheme cap allows the selection to reach. */
+  const capFloor = () =>
+    selectedLines.reduce(
+      (sum, l) => sum + Math.max(0, l.rate * l.quantity - maxPerUnitExGst(l) * l.quantity),
+      0,
+    );
 
-  const onTotalTyped = (field: 'ex' | 'incl', text: string) => {
-    setTotalDraft({ field, text });
+  const onTotalTyped = (text: string) => {
+    setTotalDraft(text);
     const n = Number(text.replace(/,/g, ''));
     if (text.trim() === '' || Number.isNaN(n)) return;
-    const solved = solveForTotal(n, field);
+    const solved = solveForTotal(n);
     if (!solved) return;
     setPerItemValues(prev => ({ ...prev, ...solved.values }));
     setTotalCapped(solved.capped);
@@ -318,10 +314,7 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
 
   if (!scheme) return null;
 
-  const totalFieldValue = (field: 'ex' | 'incl') =>
-    totalDraft?.field === field
-      ? totalDraft.text
-      : (field === 'ex' ? totalExGst : totalInclGst).toFixed(2);
+  const totalFieldValue = totalDraft ?? totalExGst.toFixed(2);
 
   return (
     <Dialog open={isOpen} onOpenChange={(v) => !v && onClose()}>
@@ -462,16 +455,16 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
                 {showGstToggle && ' (tax-exclusive)'}
               </div>
 
-              {/* Either total can be typed into. Doing so works the per-row
-                  discounts backwards; editing a row works these forwards. */}
+              {/* The taxable total can be typed into, which works the per-row
+                  discounts backwards; editing a row works it forwards. */}
               <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60">
                 <span className="text-muted-foreground">Value without GST</span>
                 <div className="relative w-[104px] shrink-0">
                   <Input
                     type="text"
                     inputMode="decimal"
-                    value={totalFieldValue('ex')}
-                    onChange={(e) => onTotalTyped('ex', e.target.value)}
+                    value={totalFieldValue}
+                    onChange={(e) => onTotalTyped(e.target.value)}
                     onBlur={() => setTotalDraft(null)}
                     aria-label="Value without GST"
                     className="h-7 pl-5 text-xs text-right font-semibold"
@@ -480,29 +473,21 @@ export const ManualPerUnitApplyDialog: React.FC<Props> = ({
                 </div>
               </div>
 
+              {/* Derived, never entered — GST added on whatever the taxable
+                  total currently is, so it follows the discount automatically. */}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-muted-foreground">Value with GST</span>
-                <div className="relative w-[104px] shrink-0">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={totalFieldValue('incl')}
-                    onChange={(e) => onTotalTyped('incl', e.target.value)}
-                    onBlur={() => setTotalDraft(null)}
-                    aria-label="Value with GST"
-                    className="h-7 pl-5 text-xs text-right font-semibold"
-                  />
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">₹</span>
-                </div>
+                <span className="font-semibold text-foreground pr-2">₹{totalInclGst.toFixed(2)}</span>
               </div>
 
               <p className="text-[10px] text-muted-foreground">
-                Type either figure to set the discount from the total instead — it is shared
-                across the selected rows, up to the {capLabel} / {unit} cap.
+                Type the value without GST to set the discount from the total instead — it is
+                shared across the selected rows, up to the {capLabel} / {unit} cap. The value
+                with GST follows on its own.
               </p>
               {totalCapped && (
                 <p className="text-[10px] text-amber-600">
-                  The {capLabel} cap stops this going below ₹{floorForBasis(totalDraft?.field ?? 'ex').toFixed(2)}.
+                  The {capLabel} cap stops this going below ₹{capFloor().toFixed(2)}.
                 </p>
               )}
             </div>
