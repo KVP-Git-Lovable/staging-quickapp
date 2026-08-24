@@ -587,49 +587,90 @@ function RetailerSearchSheet({ open, onClose, influencerId, onPick }: {
     );
   }, [open, coords, geoDenied]);
 
-  // Load favourites (retailers this influencer has previously tagged in a referral)
+  // Load "my retailers": retailers this influencer previously ordered for
+  // (orders attributed to them), mapped to them, or tagged in a past referral.
   useEffect(() => {
     if (!open) return;
     (async () => {
-      const { data: refs } = await (supabase as any)
-        .from('influencer_referrals')
-        .select('tagged_retailer_id')
-        .eq('influencer_id', influencerId)
-        .not('tagged_retailer_id', 'is', null)
-        .limit(200);
-      const ids = Array.from(new Set((refs || []).map((r: any) => r.tagged_retailer_id).filter(Boolean)));
+      const [refs, ords, maps] = await Promise.all([
+        (supabase as any)
+          .from('influencer_referrals')
+          .select('tagged_retailer_id')
+          .eq('influencer_id', influencerId)
+          .not('tagged_retailer_id', 'is', null)
+          .limit(200),
+        (supabase as any)
+          .from('orders')
+          .select('retailer_id, created_at')
+          .eq('influencer_id', influencerId)
+          .not('retailer_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(200),
+        (supabase as any)
+          .from('influencer_retailer_map')
+          .select('retailer_id')
+          .eq('influencer_id', influencerId)
+          .eq('active', true)
+          .limit(200),
+      ]);
+      const orderedIds = (ords.data || []).map((o: any) => o.retailer_id).filter(Boolean);
+      const ids = Array.from(new Set([
+        ...orderedIds,
+        ...(maps.data || []).map((m: any) => m.retailer_id).filter(Boolean),
+        ...(refs.data || []).map((r: any) => r.tagged_retailer_id).filter(Boolean),
+      ]));
       if (!ids.length) { setFavourites([]); return; }
       const { data: rets } = await (supabase as any)
         .from('retailers')
         .select('id, name, phone, address, pincode, latitude, longitude')
-        .in('id', ids as any).limit(50);
-      setFavourites((rets || []).map((r: any) => ({ ...r, __favourite: true })));
+        .in('id', ids as any).limit(100);
+      // Preserve priority: most recently ordered first, then the rest
+      const order = new Map<string, number>();
+      ids.forEach((rid: any, i: number) => order.set(String(rid), i));
+      const list = (rets || [])
+        .map((r: any) => ({ ...r, __favourite: true }))
+        .sort((a: any, b: any) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999));
+      setFavourites(list);
     })();
   }, [open, influencerId]);
 
-  // Load a batch of retailers for search / nearby calc
+  // Load retailers for search results
   useEffect(() => {
     if (!open) return;
+    const term = q.trim();
+    if (!term) { setAll([]); setLoading(false); return; }
     (async () => {
       setLoading(true);
-      let qb: any = (supabase as any).from('retailers').select('id, name, phone, address, pincode, latitude, longitude');
-      if (q.trim()) qb = qb.ilike('name', `%${q.trim()}%`).limit(50);
-      else qb = qb.limit(200);
-      const { data } = await qb;
+      const { data } = await (supabase as any)
+        .from('retailers')
+        .select('id, name, phone, address, pincode, latitude, longitude')
+        .or(`name.ilike.%${term}%,phone.ilike.%${term}%,address.ilike.%${term}%`)
+        .limit(50);
       setAll(data || []); setLoading(false);
     })();
   }, [q, open]);
 
-  // Compute nearby from `all` + coords
+  // Load geo-mapped retailers and compute nearby once coords are known
   useEffect(() => {
-    if (!coords || !all.length) { setNearby([]); return; }
-    const withDist = all
-      .filter(r => r.latitude != null && r.longitude != null)
-      .map(r => ({ ...r, __distanceKm: distanceKm(coords.lat, coords.lon, Number(r.latitude), Number(r.longitude)) }))
-      .sort((a, b) => (a.__distanceKm! - b.__distanceKm!))
-      .slice(0, 15);
-    setNearby(withDist);
-  }, [coords, all]);
+    if (!open || !coords) { return; }
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('retailers')
+        .select('id, name, phone, address, pincode, latitude, longitude')
+        .not('latitude', 'is', null)
+        .not('longitude', 'is', null)
+        .limit(1000);
+      const withDist = (data || [])
+        .map((r: any) => ({
+          ...r,
+          __distanceKm: distanceKm(coords.lat, coords.lon, Number(r.latitude), Number(r.longitude)),
+        }))
+        .filter((r: any) => Number.isFinite(r.__distanceKm))
+        .sort((a: any, b: any) => a.__distanceKm - b.__distanceKm)
+        .slice(0, 15);
+      setNearby(withDist);
+    })();
+  }, [coords, open]);
 
   const searching = q.trim().length > 0;
 
@@ -642,25 +683,25 @@ function RetailerSearchSheet({ open, onClose, influencerId, onPick }: {
         <div className="p-3 border-b">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input autoFocus placeholder="Search all retailers by name…" value={q} onChange={e => setQ(e.target.value)} className="pl-9 h-11" />
+            <Input autoFocus placeholder="Search all retailers by name, phone or area…" value={q} onChange={e => setQ(e.target.value)} className="pl-9 h-11" />
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* Favourites — always visible when not searching */}
-          {!searching && favourites.length > 0 && (
-            <Section title="Your regular retailers" icon={<Star className="h-4 w-4 text-amber-500" />}>
-              {favourites.map(r => <RetailerRow key={`fav-${r.id}`} r={r} onPick={onPick} />)}
-            </Section>
-          )}
-
-          {/* Nearby */}
+          {/* Nearby — GPS first */}
           {!searching && (
-            <Section title="Near you" icon={<MapPin className="h-4 w-4 text-primary" />}>
+            <Section title="Retailers near you" icon={<MapPin className="h-4 w-4 text-primary" />}>
               {geoDenied && <div className="text-xs text-muted-foreground px-1">Enable location to see retailers around you.</div>}
               {!geoDenied && !coords && <div className="text-xs text-muted-foreground px-1">Getting your location…</div>}
               {coords && nearby.length === 0 && <div className="text-xs text-muted-foreground px-1">No mapped retailers nearby.</div>}
               {nearby.map(r => <RetailerRow key={`near-${r.id}`} r={r} onPick={onPick} />)}
+            </Section>
+          )}
+
+          {/* Retailers this influencer has ordered for before — always shown */}
+          {!searching && favourites.length > 0 && (
+            <Section title="Retailers you ordered for earlier" icon={<Star className="h-4 w-4 text-amber-500" />}>
+              {favourites.map(r => <RetailerRow key={`fav-${r.id}`} r={r} onPick={onPick} />)}
             </Section>
           )}
 
