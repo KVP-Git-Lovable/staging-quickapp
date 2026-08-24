@@ -1182,9 +1182,6 @@ export function AllocationTable({
         {currentStep === 1 && (
           <StepAssignManagers
             managers={managerRows}
-            totalQuantity={totalQuantity}
-            totalRevenue={totalRevenue}
-            totalVisits={totalVisits}
             quantityUnit={quantityUnit}
             enabledMetrics={enabledMetrics}
             onTargetChange={handleTargetChange}

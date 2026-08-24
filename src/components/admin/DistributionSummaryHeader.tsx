@@ -49,6 +49,23 @@ const NAVY = 'bg-[hsl(220_39%_11%)] dark:bg-[hsl(220_33%_13%)]';
 const CHIP = 'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold';
 const MICRO = 'text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400';
 
+/**
+ * Grid-column count for the per-metric strip, keyed by how many metrics are
+ * actually enabled.
+ *
+ * Tailwind classes have to exist as literal strings for the build to keep
+ * them, so the column count can't be interpolated (`sm:grid-cols-${n}`) —
+ * this lookup is the dynamic equivalent. A grid fixed at 3 columns while only
+ * 2 metrics are enabled left a blank third cell's worth of space in the row;
+ * matching the column count to what is actually enabled is what removes it.
+ */
+const METRIC_GRID_COLS: Record<number, string> = {
+  1: 'sm:grid-cols-1',
+  2: 'sm:grid-cols-2',
+  3: 'sm:grid-cols-3',
+  4: 'sm:grid-cols-4',
+};
+
 export function DistributionSummaryHeader({
   targetPlanName,
   fyYear,
@@ -168,8 +185,10 @@ export function DistributionSummaryHeader({
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4 px-5 pb-4">
         {lead && (
           <>
+            {/* The one place this figure is shown — StepAssignManagers used to
+                carry its own "Total target to distribute" summary alongside this. */}
             <div className="flex flex-col gap-0.5">
-              <span className={MICRO}>Annual target</span>
+              <span className={MICRO}>Total target to distribute</span>
               <span className="text-[23px] font-extrabold leading-tight tracking-tight tabular-nums text-slate-50">
                 {lead.format(lead.total)}
                 {lead.unit && <span className="ml-1 text-[12.5px] font-bold text-slate-400">{lead.unit}</span>}
@@ -197,9 +216,17 @@ export function DistributionSummaryHeader({
         </div>
       </div>
 
-      {/* Per-metric breakdown, when more than one metric is in play */}
+      {/* Per-metric breakdown, when more than one metric is in play. The column
+          count tracks exactly how many metrics are enabled, so a 2-metric plan
+          gets a 2-column row rather than 2 cards in a 3-column grid with a
+          blank third cell. */}
       {metrics.length > 1 && (
-        <div className="grid grid-cols-1 gap-px border-t border-white/10 bg-white/10 sm:grid-cols-3">
+        <div
+          className={cn(
+            'grid grid-cols-1 gap-px border-t border-white/10 bg-white/10',
+            METRIC_GRID_COLS[metrics.length] ?? METRIC_GRID_COLS[3],
+          )}
+        >
           {metrics.map(metric => {
             const MetricIcon = metric.icon;
             const remaining = metric.total - metric.allocated;

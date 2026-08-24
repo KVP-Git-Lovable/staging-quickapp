@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Progress } from '@/components/ui/progress';
 import { Users, ChevronRight, Scale, Maximize2, Minimize2, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NumericTargetInput } from '../NumericTargetInput';
@@ -54,9 +53,6 @@ interface ManagerRow {
 
 interface StepAssignManagersProps {
   managers: ManagerRow[];
-  totalQuantity: number;
-  totalRevenue: number;
-  totalVisits: number;
   quantityUnit: string;
   enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean };
   onTargetChange: (userId: string, field: string, value: number) => void;
@@ -94,45 +90,6 @@ interface MetricValues {
   revenue: number;
   visits: number;
 }
-
-/**
- * What a whole branch is responsible for — the same rule the allocation uses.
- *
- * An Independent manager's own target sits beside their team's, so the branch
- * is worth both added together. An excluded individual is worth nothing, while
- * an excluded manager is worth what their team carries, since their share
- * passes straight through to them.
- */
-const branchValues = (row: {
-  targetStrategy?: TargetStrategy;
-  quantityTarget?: number;
-  revenueTarget?: number;
-  visitsTarget?: number;
-  personalQuantityTarget?: number;
-  personalRevenueTarget?: number;
-  personalVisitsTarget?: number;
-  children?: TeamNode[];
-  subordinateCount?: number;
-}): MetricValues => {
-  const hasTeam = (row.children?.length ?? row.subordinateCount ?? 0) > 0;
-  const team = {
-    quantity: row.quantityTarget || 0,
-    revenue: row.revenueTarget || 0,
-    visits: row.visitsTarget || 0,
-  };
-
-  if (row.targetStrategy === 'no_target') {
-    return hasTeam ? team : { quantity: 0, revenue: 0, visits: 0 };
-  }
-  if (holdsPersonalTarget(row.targetStrategy, hasTeam)) {
-    return {
-      quantity: team.quantity + (row.personalQuantityTarget || 0),
-      revenue: team.revenue + (row.personalRevenueTarget || 0),
-      visits: team.visits + (row.personalVisitsTarget || 0),
-    };
-  }
-  return team;
-};
 
 /**
  * The rail down the left edge of a manager's card, coloured by target type, so
@@ -457,76 +414,8 @@ function PersonIdentity({
   );
 }
 
-/**
- * One metric row of the allocation summary.
- *
- * Until anything has been given out, this leads with the annual target itself
- * and says plainly that nothing has been distributed, rather than presenting a
- * zero against the total as though a distribution had been attempted.
- */
-function AllocationMetric({
-  name,
-  allocated,
-  total,
-  format,
-}: {
-  name: string;
-  allocated: number;
-  total: number;
-  format: (n: number) => string;
-}) {
-  const pct = total > 0 ? Math.min(100, (allocated / total) * 100) : 0;
-  const over = allocated > total;
-  const complete = allocated === total;
-  const untouched = allocated === 0;
-
-  return (
-    <div>
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
-        <span className={MICRO}>{name}</span>
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {untouched ? (
-            <span className="text-[15px] font-extrabold tracking-tight text-foreground">{format(total)}</span>
-          ) : (
-            <>
-              <span className="text-[15px] font-extrabold tracking-tight text-foreground">{format(allocated)}</span>
-              {' '}of {format(total)}
-            </>
-          )}
-        </span>
-      </div>
-
-      <Progress value={untouched ? 0 : pct} className="h-1.5" />
-
-      <div className="mt-1.5 flex justify-end">
-        <span
-          className={cn(
-            'text-xs font-bold tabular-nums',
-            over
-              ? 'text-destructive'
-              : complete
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-muted-foreground',
-          )}
-        >
-          {untouched
-            ? 'Not yet distributed'
-            : over
-              ? `Over by ${format(allocated - total)}`
-              : complete
-                ? '✓ Fully allocated'
-                : `${format(total - allocated)} remaining`}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 export function StepAssignManagers({
   managers,
-  totalQuantity,
-  totalRevenue,
-  totalVisits,
   quantityUnit,
   enabledMetrics,
   onTargetChange,
@@ -537,28 +426,6 @@ export function StepAssignManagers({
   // Collapsed rather than expanded, so every team is open by default however
   // long the hierarchy takes to arrive.
   const [collapsedManagers, setCollapsedManagers] = React.useState<Set<string>>(new Set());
-
-  // Each manager counts for their whole branch, not just the figure on their
-  // own row — otherwise an Independent manager's own target, and the share
-  // passing through an excluded one, would both go missing from the total.
-  const allocated = managers.reduce(
-    (sum, manager) => {
-      const branch = branchValues(manager);
-      return {
-        quantity: sum.quantity + branch.quantity,
-        revenue: sum.revenue + branch.revenue,
-        visits: sum.visits + branch.visits,
-      };
-    },
-    { quantity: 0, revenue: 0, visits: 0 },
-  );
-  const { quantity: allocatedQty, revenue: allocatedRev, visits: allocatedVis } = allocated;
-
-  // Nothing has been given out yet for any enabled metric.
-  const nothingDistributed =
-    (!enabledMetrics.quantity || allocatedQty === 0) &&
-    (!enabledMetrics.revenue || allocatedRev === 0) &&
-    (!enabledMetrics.visits || allocatedVis === 0);
 
   const memberCount = React.useMemo(() => {
     const countNodes = (nodes: TeamNode[]): number =>
@@ -689,32 +556,9 @@ export function StepAssignManagers({
 
   return (
     <div className="space-y-3">
-      {/* Allocation summary */}
-      <div className="space-y-4 rounded-xl border bg-muted/30 p-4">
-        <div>
-          <span className="font-heading text-sm font-semibold">Total target to distribute</span>
-          {nothingDistributed && (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Enter a target for each manager, or split the total automatically.
-            </p>
-          )}
-        </div>
-
-        {enabledMetrics.quantity && (
-          <AllocationMetric
-            name={`Quantity (${quantityUnit})`}
-            allocated={allocatedQty}
-            total={totalQuantity}
-            format={formatNumber}
-          />
-        )}
-        {enabledMetrics.revenue && (
-          <AllocationMetric name="Revenue" allocated={allocatedRev} total={totalRevenue} format={formatCurrency} />
-        )}
-        {enabledMetrics.visits && (
-          <AllocationMetric name="Visits" allocated={allocatedVis} total={totalVisits} format={formatNumber} />
-        )}
-      </div>
+      {/* The total-to-distribute summary that used to live here now shows only
+          in the navy plan header above — same figures, one place. Its "nothing
+          distributed yet" guidance is covered by that header's own caption. */}
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card px-3.5 py-2.5 shadow-sm">
