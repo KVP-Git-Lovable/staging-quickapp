@@ -281,6 +281,7 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
           fyYear={fyYear}
           targetStartMonth={config.target_start_month || 1}
           targetEndMonth={config.target_end_month || 12}
+          planId={config.id}
           onProgressChange={setProgress}
         />
       )}
