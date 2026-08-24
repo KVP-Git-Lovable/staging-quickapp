@@ -29997,6 +29997,13 @@ export type Database = {
           username: string
         }[]
       }
+      get_org_root_managers: {
+        Args: never
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
+      }
       get_password_reset_stats: {
         Args: never
         Returns: {
