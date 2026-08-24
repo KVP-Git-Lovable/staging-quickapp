@@ -13,6 +13,7 @@ import { StrategyExplanationPanel } from './allocation/StrategyExplanationPanel'
 import { StepAssignManagers } from './allocation/StepAssignManagers';
 import { StepPreview } from './allocation/StepPreview';
 import { StepReviewSave } from './allocation/StepReviewSave';
+import { writeHierarchyAssignmentNote } from '@/lib/hierarchyAssignmentNote';
 
 interface EnabledParameters {
   product: boolean;
@@ -70,6 +71,11 @@ interface AllocationTableProps {
   };
   enabledParameters: EnabledParameters;
   fyYear: number;
+  /** The plan this allocation belongs to — stamped onto the browser-local
+   *  note a successful Save leaves behind, so the Targets tab's "Decide
+   *  later" readout can find it. Undefined is a no-op, not an error: nothing
+   *  to tag the note with, so nothing is written. */
+  planId?: string;
   targetStartMonth?: number;
   targetEndMonth?: number;
   /**
@@ -474,6 +480,7 @@ export function AllocationTable({
   fyYear,
   targetStartMonth = 1,
   targetEndMonth = 12,
+  planId,
   onProgressChange,
 }: AllocationTableProps) {
   const queryClient = useQueryClient();
@@ -1072,6 +1079,26 @@ export function AllocationTable({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hierarchy-allocations', parentUserId] });
       queryClient.invalidateQueries({ queryKey: ['parent-business-plan', parentUserId, fyYear] });
+
+      // Leave a browser-local note of what this save actually assigned, so
+      // the Targets tab's "Decide later" readout can show this plan's own
+      // progress instead of querying user_business_plans — that table has no
+      // link back to a specific plan, so a query by year alone would pull in
+      // whatever else has ever been saved for it.
+      if (planId) {
+        let assignedCount = 0;
+        allocations.forEach((alloc) => {
+          const hasTarget = getEffectiveQuantity(alloc) > 0 || getEffectiveRevenue(alloc) > 0 || getEffectiveVisits(alloc) > 0;
+          if (hasTarget) assignedCount += 1;
+        });
+        writeHierarchyAssignmentNote(planId, {
+          quantity: distributed.quantity,
+          revenue: distributed.revenue,
+          visits: distributed.visits,
+          assignedCount,
+        });
+      }
+
       toast.success('All allocations saved successfully!');
     },
     onError: (error: Error) => {

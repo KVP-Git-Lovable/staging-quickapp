@@ -28,6 +28,7 @@ import { fyMonthOptions, fyMonthsInRange, formatFYMonthRange } from '@/lib/fyMon
 import { buildMonthlyRows, monthlyRowsMatch } from './target-config/monthlyParameterRows';
 import { cn } from '@/lib/utils';
 import { NumericTargetInput } from './NumericTargetInput';
+import { readHierarchyAssignmentNote } from '@/lib/hierarchyAssignmentNote';
 
 // Icon map for dynamic rendering
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -300,27 +301,30 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
     setMetricBasis(next);
   }, [existingConfig, metricDefinitions]);
 
-  // What's already been assigned across the whole org for this FY — the figure
-  // a metric left on "Decide later" follows instead of a typed annual number.
-  const { data: assignedSummary } = useQuery({
-    queryKey: ['fy-assigned-summary', fyYear],
+  // Org headcount, for the "of N people" denominator only — this is the one
+  // piece still worth a live read, since it has nothing to do with any
+  // plan's own assignment progress.
+  const { data: orgHeadcount } = useQuery({
+    queryKey: ['org-headcount'],
     queryFn: async () => {
-      const [plansRes, employeesRes] = await Promise.all([
-        supabase.from('user_business_plans').select('quantity_target, revenue_target, visits_target').eq('year', fyYear),
-        supabase.from('employees').select('user_id', { count: 'exact', head: true }),
-      ]);
-      if (plansRes.error) throw plansRes.error;
-      if (employeesRes.error) throw employeesRes.error;
-      const rows = plansRes.data || [];
-      return {
-        totalPeople: employeesRes.count || 0,
-        assignedPeople: rows.length,
-        quantity: rows.reduce((sum, r) => sum + (Number(r.quantity_target) || 0), 0),
-        revenue: rows.reduce((sum, r) => sum + (Number(r.revenue_target) || 0), 0),
-        visits: rows.reduce((sum, r) => sum + (Number(r.visits_target) || 0), 0),
-      };
+      const { count, error } = await supabase.from('employees').select('user_id', { count: 'exact', head: true });
+      if (error) throw error;
+      return count || 0;
     },
     enabled: !!user,
+  });
+
+  // What a metric left on "Decide later" follows: not a database query at
+  // all, but this browser's own note of what Hierarchy's Save last wrote for
+  // *this* plan specifically. Deliberately never reads user_business_plans —
+  // that table has no link back to a specific plan, so a query scoped only by
+  // year would show whatever else has ever been saved for it, not this plan's
+  // own progress. Re-read on every mount, which is what switching back to
+  // this tab from Hierarchy actually does (TabsContent unmounts on switch).
+  const { data: hierarchyNote } = useQuery({
+    queryKey: ['hierarchy-assignment-note', config.id],
+    queryFn: () => readHierarchyAssignmentNote(config.id),
+    enabled: !!config.id,
   });
 
   // Sync plan-enabled metrics to local state
@@ -1071,9 +1075,9 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                   const displayUnit = metric.name === 'Quantity' ? config.quantity_unit : metric.unit;
                   const legacyKey = LEGACY_METRIC_KEY[metric.name];
                   const basis = legacyKey ? (metricBasis[metric.id] ?? 'direct') : 'direct';
-                  const assignedValue = legacyKey && assignedSummary ? assignedSummary[legacyKey] : 0;
-                  const assignedCount = assignedSummary?.assignedPeople ?? 0;
-                  const totalPeople = assignedSummary?.totalPeople ?? 0;
+                  const assignedValue = legacyKey && hierarchyNote ? hierarchyNote[legacyKey] : 0;
+                  const assignedCount = hierarchyNote?.assignedCount ?? 0;
+                  const totalPeople = orgHeadcount ?? 0;
 
                   return (
                     <div key={metric.id} className={`rounded-xl border ${colors.border} ${colors.bg} ${colors.darkBg} ${colors.darkBorder} p-4 flex flex-col gap-3`}>
@@ -1111,19 +1115,28 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                       </div>
 
                       {basis === 'later' ? (
-                        <div className="flex items-center gap-2.5 flex-wrap">
-                          <Badge variant="outline" className="text-[10px] font-semibold border-emerald-300 text-emerald-700 dark:text-emerald-400 dark:border-emerald-800">
-                            derived
-                          </Badge>
-                          <div className="flex flex-col">
-                            <span className="text-lg font-bold text-foreground tabular-nums">
-                              {metric.unit === '₹' ? '₹' : ''}{formatNumber(assignedValue)}{metric.unit && metric.unit !== '₹' ? ` ${metric.unit}` : ''}
-                            </span>
+                        hierarchyNote ? (
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] font-semibold border-emerald-300 text-emerald-700 dark:text-emerald-400 dark:border-emerald-800">
+                              derived
+                            </Badge>
+                            <div className="flex flex-col">
+                              <span className="text-lg font-bold text-foreground tabular-nums">
+                                {metric.unit === '₹' ? '₹' : ''}{formatNumber(assignedValue)}{metric.unit && metric.unit !== '₹' ? ` ${metric.unit}` : ''}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground">
+                                {assignedCount} of {totalPeople} people, entered in Hierarchy Target Distribution — will keep following as more are saved
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2.5 rounded-lg border border-dashed p-2.5 bg-background/40">
+                            <span className="text-lg font-bold text-muted-foreground">—</span>
                             <span className="text-[11px] text-muted-foreground">
-                              Currently assigned across {assignedCount} of {totalPeople} people — will keep following as more are added
+                              Not entered yet — open Hierarchy Target Distribution to start assigning
                             </span>
                           </div>
-                        </div>
+                        )
                       ) : (
                         <NumericTargetInput
                           value={metricTargets[metric.id] ?? 0}
