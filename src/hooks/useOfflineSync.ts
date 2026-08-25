@@ -719,6 +719,7 @@ export function useOfflineSync() {
           ...it,
           product_id: isUUID(it.product_id) ? it.product_id : null,
           variant_id: isUUID(it.variant_id) ? it.variant_id : null,
+          other_free_product_id: isUUID(it.other_free_product_id) ? it.other_free_product_id : null,
         }));
 
         // 🩹 Recover missing retailer_id from retailer_name (unique match, scoped to user)

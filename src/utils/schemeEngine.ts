@@ -19,10 +19,11 @@ export interface AppliedScheme {
   discount_amount: number;
   discount_percentage?: number;
   product_id?: string | null;
-  free_items?: { 
-    product_name: string; 
+  free_items?: {
+    product_name: string;
     quantity: number;
     product_id?: string;
+    other_free_product_id?: string;
     original_rate?: number;
     unit?: string;
   }[];
@@ -281,13 +282,13 @@ function calculateSchemeDiscount(
   discount: number; 
   itemDiscounts: Record<string, number>; 
   itemSchemeDetails: Record<string, ItemSchemeDetail[]>;
-  freeItems?: { product_name: string; quantity: number; product_id?: string; original_rate?: number; unit?: string; triggering_item_id?: string }[];
+  freeItems?: { product_name: string; quantity: number; product_id?: string; other_free_product_id?: string; original_rate?: number; unit?: string; triggering_item_id?: string }[];
   manualMeta?: { perUnitDiscount: number; unit: string; itemId: string; productName: string; valueType: 'amount' | 'percentage' };
 } {
   let discount = 0;
   const itemDiscounts: Record<string, number> = {};
   const itemSchemeDetails: Record<string, ItemSchemeDetail[]> = {};
-  let freeItems: { product_name: string; quantity: number; product_id?: string; original_rate?: number; unit?: string; triggering_item_id?: string }[] | undefined;
+  let freeItems: { product_name: string; quantity: number; product_id?: string; other_free_product_id?: string; original_rate?: number; unit?: string; triggering_item_id?: string }[] | undefined;
   let manualMeta: { perUnitDiscount: number; unit: string; itemId: string; productName: string; valueType: 'amount' | 'percentage' } | undefined;
 
   // Get applicable items
@@ -478,6 +479,7 @@ function calculateSchemeDiscount(
           const isOtherFreeProduct = scheme.free_product_source === 'other';
           const freeProductName = (isOtherFreeProduct ? scheme.other_free_product_name : scheme.free_product_name) || 'Free Item';
           const freeProductId = isOtherFreeProduct ? undefined : (scheme.free_product_id || undefined);
+          const otherFreeProductId = isOtherFreeProduct ? (scheme.other_free_product_id || undefined) : undefined;
           
           // Track scheme details per item
           if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
@@ -496,6 +498,7 @@ function calculateSchemeDiscount(
             product_name: freeProductName,
             quantity: freeItemsCount,
             product_id: freeProductId,
+            other_free_product_id: otherFreeProductId,
             original_rate: 0,
             unit: freeUnit,
             triggering_item_id: item.id

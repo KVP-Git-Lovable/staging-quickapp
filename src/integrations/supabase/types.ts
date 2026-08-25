@@ -12904,6 +12904,7 @@ export type Database = {
           is_price_edited: boolean
           order_id: string
           original_rate: number | null
+          other_free_product_id: string | null
           product_id: string | null
           product_name: string
           quantity: number
@@ -12938,6 +12939,7 @@ export type Database = {
           is_price_edited?: boolean
           order_id: string
           original_rate?: number | null
+          other_free_product_id?: string | null
           product_id?: string | null
           product_name: string
           quantity: number
@@ -12972,6 +12974,7 @@ export type Database = {
           is_price_edited?: boolean
           order_id?: string
           original_rate?: number | null
+          other_free_product_id?: string | null
           product_id?: string | null
           product_name?: string
           quantity?: number
@@ -12992,6 +12995,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_other_free_product_id_fkey"
+            columns: ["other_free_product_id"]
+            isOneToOne: false
+            referencedRelation: "scheme_free_products"
             referencedColumns: ["id"]
           },
           {
@@ -24475,6 +24485,53 @@ export type Database = {
           },
         ]
       }
+      scheme_free_product_stock_movements: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          movement_type: string
+          notes: string | null
+          order_id: string | null
+          order_item_id: string | null
+          quantity: number
+          running_balance: number
+          scheme_free_product_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type: string
+          notes?: string | null
+          order_id?: string | null
+          order_item_id?: string | null
+          quantity: number
+          running_balance: number
+          scheme_free_product_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement_type?: string
+          notes?: string | null
+          order_id?: string | null
+          order_item_id?: string | null
+          quantity?: number
+          running_balance?: number
+          scheme_free_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheme_free_product_stock_movements_scheme_free_product_id_fkey"
+            columns: ["scheme_free_product_id"]
+            isOneToOne: false
+            referencedRelation: "scheme_free_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheme_free_products: {
         Row: {
           created_at: string
@@ -24484,7 +24541,9 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          low_stock_threshold: number | null
           name: string
+          stock_quantity: number
           unit: string
           updated_at: string
           updated_by: string | null
@@ -24497,7 +24556,9 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          low_stock_threshold?: number | null
           name: string
+          stock_quantity?: number
           unit?: string
           updated_at?: string
           updated_by?: string | null
@@ -24510,7 +24571,9 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          low_stock_threshold?: number | null
           name?: string
+          stock_quantity?: number
           unit?: string
           updated_at?: string
           updated_by?: string | null
@@ -29241,6 +29304,10 @@ export type Database = {
       add_carry_forward_to_plan: {
         Args: { p_date: string; p_retailer_ids?: string[]; p_user: string }
         Returns: number
+      }
+      adjust_scheme_free_product_stock: {
+        Args: { p_id: string; p_notes?: string; p_quantity: number }
+        Returns: Json
       }
       admin_deactivate_all_products: { Args: never; Returns: Json }
       allocate_inventory_batches: {

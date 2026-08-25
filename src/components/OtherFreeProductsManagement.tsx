@@ -22,7 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Plus, Gift, Edit2, Trash2 } from "lucide-react";
+import { Plus, Gift, Edit2, Trash2, PackagePlus, History, AlertTriangle } from "lucide-react";
 
 const UNIT_OPTIONS = [
   { value: 'kg', label: 'KG' },
@@ -41,13 +41,33 @@ interface SchemeFreeProduct {
   hsn_code: string | null;
   image_url: string | null;
   is_active: boolean;
+  stock_quantity: number;
+  low_stock_threshold: number | null;
 }
+
+interface StockMovement {
+  id: string;
+  movement_type: 'stock_in' | 'order_consumption' | 'reversal' | 'adjustment';
+  quantity: number;
+  running_balance: number;
+  notes: string | null;
+  created_at: string;
+}
+
+const MOVEMENT_LABELS: Record<StockMovement['movement_type'], string> = {
+  stock_in: 'Stock in',
+  order_consumption: 'Order (free item given)',
+  reversal: 'Order cancelled (reversed)',
+  adjustment: 'Manual adjustment',
+};
 
 export function OtherFreeProductsManagement() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<SchemeFreeProduct | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [stockProduct, setStockProduct] = useState<SchemeFreeProduct | null>(null);
+  const [historyProduct, setHistoryProduct] = useState<SchemeFreeProduct | null>(null);
   const queryClient = useQueryClient();
 
   const { data: otherFreeProducts, isLoading } = useQuery({
@@ -115,15 +135,49 @@ export function OtherFreeProductsManagement() {
     },
   });
 
+  const stockInMutation = useMutation({
+    mutationFn: async ({ id, quantity, notes }: { id: string; quantity: number; notes: string | null }) => {
+      const { error } = await supabase.rpc("adjust_scheme_free_product_stock", {
+        p_id: id,
+        p_quantity: quantity,
+        p_notes: notes,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Stock added");
+      setStockProduct(null);
+    },
+    onError: (error: Error) => toast.error(error?.message || "Failed to add stock"),
+  });
+
+  const { data: stockMovements, isLoading: isMovementsLoading } = useQuery({
+    queryKey: ["scheme-free-product-stock-movements", historyProduct?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scheme_free_product_stock_movements")
+        .select("id, movement_type, quantity, running_balance, notes, created_at")
+        .eq("scheme_free_product_id", historyProduct!.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data as StockMovement[];
+    },
+    enabled: !!historyProduct,
+  });
+
   const handleCreateSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const lowStockRaw = formData.get("low_stock_threshold") as string;
     createMutation.mutate({
       name: formData.get("name") as string,
       description: (formData.get("description") as string) || null,
       unit: (formData.get("unit") as string) || "kg",
       hsn_code: (formData.get("hsn_code") as string) || null,
       image_url: (formData.get("image_url") as string) || null,
+      low_stock_threshold: lowStockRaw ? Number(lowStockRaw) : null,
       is_active: true,
     });
   };
@@ -132,6 +186,7 @@ export function OtherFreeProductsManagement() {
     e.preventDefault();
     if (!editingProduct) return;
     const formData = new FormData(e.currentTarget);
+    const lowStockRaw = formData.get("low_stock_threshold") as string;
     updateMutation.mutate({
       id: editingProduct.id,
       updates: {
@@ -140,6 +195,7 @@ export function OtherFreeProductsManagement() {
         unit: (formData.get("unit") as string) || "kg",
         hsn_code: (formData.get("hsn_code") as string) || null,
         image_url: (formData.get("image_url") as string) || null,
+        low_stock_threshold: lowStockRaw ? Number(lowStockRaw) : null,
       },
     });
   };
@@ -176,6 +232,18 @@ export function OtherFreeProductsManagement() {
       <div>
         <Label htmlFor="image_url">Image URL (optional)</Label>
         <Input id="image_url" name="image_url" placeholder="https://..." defaultValue={defaults?.image_url || ""} />
+      </div>
+      <div>
+        <Label htmlFor="low_stock_threshold">Low stock alert threshold (optional)</Label>
+        <Input
+          id="low_stock_threshold"
+          name="low_stock_threshold"
+          type="number"
+          step="any"
+          placeholder="e.g., 10"
+          defaultValue={defaults?.low_stock_threshold ?? ""}
+        />
+        <p className="text-xs text-muted-foreground mt-1">Shows a Low Stock badge once stock falls to or below this number.</p>
       </div>
     </>
   );
@@ -230,6 +298,7 @@ export function OtherFreeProductsManagement() {
                   <TableHead>Name</TableHead>
                   <TableHead>Unit</TableHead>
                   <TableHead>HSN Code</TableHead>
+                  <TableHead>Stock</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -248,6 +317,17 @@ export function OtherFreeProductsManagement() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{product.hsn_code || "-"}</TableCell>
                     <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{product.stock_quantity}</span>
+                        {product.low_stock_threshold != null && product.stock_quantity <= product.low_stock_threshold && (
+                          <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-300">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Low stock
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <Switch
                         checked={product.is_active}
                         onCheckedChange={(checked) => toggleMutation.mutate({ id: product.id, is_active: checked })}
@@ -255,6 +335,12 @@ export function OtherFreeProductsManagement() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setStockProduct(product)} title="Stock in">
+                          <PackagePlus className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => setHistoryProduct(product)} title="Stock history">
+                          <History className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -313,6 +399,87 @@ export function OtherFreeProductsManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!stockProduct} onOpenChange={(open) => !open && setStockProduct(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Stock in — {stockProduct?.name}</DialogTitle>
+          </DialogHeader>
+          {stockProduct && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const quantity = Number(formData.get("quantity"));
+                if (!quantity || quantity <= 0) {
+                  toast.error("Enter a quantity greater than 0");
+                  return;
+                }
+                stockInMutation.mutate({
+                  id: stockProduct.id,
+                  quantity,
+                  notes: (formData.get("notes") as string) || null,
+                });
+              }}
+              className="space-y-4"
+            >
+              <p className="text-sm text-muted-foreground">
+                Current stock: <span className="font-medium text-foreground">{stockProduct.stock_quantity} {stockProduct.unit}</span>
+              </p>
+              <div>
+                <Label htmlFor="quantity">Quantity to add</Label>
+                <Input id="quantity" name="quantity" type="number" step="any" min="0" placeholder="e.g., 50" required />
+              </div>
+              <div>
+                <Label htmlFor="notes">Notes (optional)</Label>
+                <Textarea id="notes" name="notes" placeholder="e.g., Purchased from supplier X" />
+              </div>
+              <Button type="submit" className="w-full" disabled={stockInMutation.isPending}>
+                {stockInMutation.isPending ? "Adding..." : "Add Stock"}
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyProduct} onOpenChange={(open) => !open && setHistoryProduct(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Stock history — {historyProduct?.name}</DialogTitle>
+          </DialogHeader>
+          {isMovementsLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading...</div>
+          ) : !stockMovements || stockMovements.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No stock movements yet.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Change</TableHead>
+                  <TableHead className="text-right">Balance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stockMovements.map((m) => (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString()}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">{MOVEMENT_LABELS[m.movement_type]}</div>
+                      {m.notes && <div className="text-xs text-muted-foreground line-clamp-1">{m.notes}</div>}
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${m.quantity >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {m.quantity >= 0 ? `+${m.quantity}` : m.quantity}
+                    </TableCell>
+                    <TableCell className="text-right">{m.running_balance}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
