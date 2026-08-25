@@ -16,7 +16,8 @@ export interface AiAgentRow {
 
 export interface WorkflowExecution {
   id: string;
-  agent_id: string;
+  agent_id: string | null;
+  workflow_id: string | null;
   stage: string;
   status: "running" | "success" | "failed";
   started_at: string;
@@ -26,7 +27,7 @@ export interface WorkflowExecution {
   result: any | null;
 }
 
-export const RUNNABLE_AGENTS = new Set(["visit_optimiser", "churn_detector"]);
+export const RUNNABLE_AGENTS = new Set(["visit_optimiser", "churn_detector", "beat_planner", "sales_coach"]);
 
 export const STATUS_LABEL: Record<AgentStatus, string> = {
   prototype: "Prototype",
@@ -62,7 +63,7 @@ export function useWorkflowExecutions() {
   const refresh = useCallback(async () => {
     const { data, error } = await supabase
       .from("workflow_executions")
-      .select("id, agent_id, stage, status, started_at, completed_at, duration_ms, error_message, result")
+      .select("id, agent_id, workflow_id, stage, status, started_at, completed_at, duration_ms, error_message, result")
       .order("started_at", { ascending: false })
       .limit(500);
     if (error) console.error("[ai-workflows] executions", error);

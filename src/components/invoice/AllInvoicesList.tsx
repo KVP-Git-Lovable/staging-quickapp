@@ -34,34 +34,29 @@ export default function AllInvoicesList() {
   const fetchInvoices = async () => {
     setLoading(true);
     try {
-      // Fetch all orders from all users
+      // Retailer name comes from the same query via the FK embed, instead of
+      // a second .in(retailerIds) lookup. At production scale that list can
+      // run into the hundreds of distinct retailers — the resulting GET URL
+      // got long enough to fail outright, and because that second call's
+      // error was never checked, every row silently fell back to "Unknown
+      // Retailer" instead of surfacing anything.
+      // Capped to the most recent 500 — this table has no pagination, and an
+      // ever-growing unbounded select is its own slow-render risk.
       const { data, error } = await supabase
         .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select("*, retailers(name)")
+        .order("created_at", { ascending: false })
+        .limit(500);
 
       if (error) throw error;
 
-      // Fetch retailer names for each order
       const orders: any[] = data || [];
-      if (orders && orders.length > 0) {
-        const retailerIds = [...new Set(orders.map((o: any) => o.retailer_id).filter(Boolean))];
-        const { data: retailers } = await supabase
-          .from("retailers")
-          .select("id, name")
-          .in("id", retailerIds);
+      const invoicesWithRetailers = orders.map((order: any) => ({
+        ...order,
+        retailer_name: order.retailers?.name || "Unknown Retailer",
+      })) as Invoice[];
 
-        const retailerMap = new Map((retailers as any[])?.map((r: any) => [r.id, r.name]) || []);
-
-        const invoicesWithRetailers = orders.map((order: any) => ({
-          ...order,
-          retailer_name: retailerMap.get(order.retailer_id) || "Unknown Retailer",
-        })) as Invoice[];
-
-        setInvoices(invoicesWithRetailers);
-      } else {
-        setInvoices([]);
-      }
+      setInvoices(invoicesWithRetailers);
     } catch (error: any) {
       console.error("Error fetching invoices:", error);
       toast.error("Failed to load invoices");

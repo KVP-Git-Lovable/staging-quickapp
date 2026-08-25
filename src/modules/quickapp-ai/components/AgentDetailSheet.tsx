@@ -27,32 +27,54 @@ function fmtTime(iso?: string | null) {
 const SIMULATION_CONSIDERATIONS: Record<string, { signals: string[]; note: string }> = {
   visit_optimiser: {
     signals: [
-      "Days since last retailer visit",
+      "Today's planned visits",
+      "Days since each retailer was last visited",
       "Pending payment / outstanding dues",
-      "Recent retailer productivity",
-      "Historical order value",
-      "Visit frequency",
-      "Retailer priority score",
-      "Beat sequencing",
-      "Geographic proximity",
-      "Route efficiency",
-      "Existing visit plan for today",
+      "Visit productivity — orders won per visit (30 days)",
+      "Confirmed order value in the last 30 days",
+      "Retailer priority class (A / B / C)",
+      "GPS distance between stops (nearest-neighbour routing)",
+      "Estimated total travel distance",
+      "Typical time of day each retailer places orders (last 30 days) — early orderers come first on the route",
+      "Retailers newly added to a beat (last 14 days) — flagged as fresh pitching opportunities with an AI reminder line each",
     ],
-    note: "These factors are analysed using deterministic business rules before AI generates a human-readable recommendation. No business data is modified during Simulation.",
+    note: "Each stop gets a deterministic score from recency, dues, productivity, order value and priority, then stops are ordered geographically to cut travel. AI only explains the computed route and writes the newcomer pitch reminders — no plans or visits are modified.",
   },
   churn_detector: {
     signals: [
-      "Recent order values",
-      "Previous sales period comparison",
-      "90-day sales trend",
-      "Retailer ordering frequency",
-      "Declining purchase patterns",
-      "Confirmed order history",
-      "Historical productivity",
-      "Visit history",
-      "Existing retailer performance indicators",
+      "Order value per retailer in the last 30 days",
+      "Order value in the 30 days before that",
+      "Percentage drop between the two periods",
+      "Full 60-day order history (cancelled orders excluded)",
+      "Ranking by steepest decline, then by lost value",
+      "Top 10 at-risk retailers",
     ],
-    note: "Simulation analyses historical business data using deterministic calculations only. AI summarises the findings after the analysis completes.",
+    note: "Churn risk is a pure period-over-period comparison of real order values — no visit or activity data is involved. AI only summarises the retailers the calculation flags — nothing is modified.",
+  },
+  beat_planner: {
+    signals: [
+      "Retailer count in each beat (plus an Unassigned bucket)",
+      "Beat coverage — share of retailers visited in the last 30 days",
+      "Average days since last visit per beat",
+      "Pending dues totalled per beat",
+      "Confirmed order value per beat (30 days)",
+      "Field capacity of ~25 stops per visit day",
+      "Suggested visit days per beat for next month",
+      "Retailers newly added to each beat (last 14 days) — called out as fresh pitching opportunities",
+    ],
+    note: "Beats are ranked lowest-coverage-first and visit days are allocated from retailer counts and capacity. AI only turns the ranking into a recommendation — no beats, plans or visits are modified.",
+  },
+  sales_coach: {
+    signals: [
+      "Confirmed orders in the last 30 days",
+      "Line-item value per product across all your orders",
+      "Your top 5 products by sales value",
+      "Order value and distinct products bought per retailer",
+      "Each retailer's most-bought product",
+      "Gap products — your top sellers a retailer is not yet buying",
+      "Top 10 retailers by order value",
+    ],
+    note: "Product-mix gaps are computed by matching each retailer's purchases against your best sellers. AI only phrases the pitch suggestions — no orders or retailer data are modified.",
   },
 };
 
@@ -170,7 +192,7 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     ₹{Math.round(r.priorValue).toLocaleString("en-IN")} → ₹
-                    {Math.round(r.recentValue).toLocaleString("en-IN")} (90 days)
+                    {Math.round(r.recentValue).toLocaleString("en-IN")} (30 days)
                   </p>
                 </div>
               ))}
@@ -196,6 +218,75 @@ export function AgentDetailSheet({ agent, executions, onOpenChange, onExecuted }
                       s.daysSinceLastVisit != null ? `${s.daysSinceLastVisit}d since visit` : null,
                       s.pending ? `₹${Math.round(s.pending).toLocaleString("en-IN")} pending` : null,
                       `${s.productivityPct}% productive`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              ))}
+              {Array.isArray(result.newRetailers) && result.newRetailers.length > 0 && (
+                <div className="rounded-lg border border-emerald-200/70 bg-emerald-50/50 p-2.5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                  <p className="text-xs font-medium">
+                    Newly added retailers ({result.newRetailers.length})
+                  </p>
+                  {result.newRetailers.map((n: any) => (
+                    <p key={n.retailerId} className="mt-1 text-[11px] text-muted-foreground">
+                      <span className="font-medium text-foreground">{n.name}</span>
+                      {n.beat ? ` (${n.beat})` : ""} · added {n.daysOld}d ago — {n.line}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {result?.kind === "beat_plan" && Array.isArray(result.rows) && (
+            <div className="space-y-1.5">
+              {result.rows.length === 0 && (
+                <p className="text-xs text-muted-foreground">No retailers found to plan beats for.</p>
+              )}
+              {result.rows.map((b: any) => (
+                <div key={b.beat} className="rounded-lg border border-border p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-medium">{b.beat}</span>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      {b.coveragePct}% covered
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {[
+                      `${b.retailers} retailers`,
+                      `${b.visited30d} visited in 30d`,
+                      b.newRetailers ? `${b.newRetailers} newly added` : null,
+                      b.pending ? `₹${Math.round(b.pending).toLocaleString("en-IN")} pending` : null,
+                      `${b.suggestedDays} visit day${b.suggestedDays !== 1 ? "s" : ""} suggested`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {result?.kind === "coach" && Array.isArray(result.rows) && (
+            <div className="space-y-1.5">
+              {result.rows.length === 0 && (
+                <p className="text-xs text-muted-foreground">No recent confirmed orders to coach on.</p>
+              )}
+              {result.rows.map((r: any) => (
+                <div key={r.retailerId} className="rounded-lg border border-border p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs font-medium">{r.name}</span>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      {r.distinctProducts} product{r.distinctProducts !== 1 ? "s" : ""}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {[
+                      `₹${Math.round(r.orderValue).toLocaleString("en-IN")} in 30d`,
+                      r.topProduct ? `top: ${r.topProduct}` : null,
+                      r.gapProducts?.length ? `pitch: ${r.gapProducts.join(", ")}` : null,
                     ]
                       .filter(Boolean)
                       .join(" · ")}

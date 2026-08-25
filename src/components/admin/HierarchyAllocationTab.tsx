@@ -7,6 +7,7 @@ import { Loader2, FileText, AlertTriangle } from 'lucide-react';
 import { DistributionSummaryHeader } from './DistributionSummaryHeader';
 import { AllocationTable } from './AllocationTable';
 import { type PlanStatus } from '@/hooks/useFYTargetPlans';
+import { readHierarchyAssignmentNote } from '@/lib/hierarchyAssignmentNote';
 
 interface EnabledParameters {
   product: boolean;
@@ -37,6 +38,14 @@ interface HierarchyAllocationTabProps {
   selectedPlanId?: string;
 }
 
+/** What the allocation below reports up for the header to display. */
+interface AllocationProgress {
+  distributed: { quantity: number; revenue: number; visits: number };
+  currentStep: number;
+  steps: { id: number; title: string }[];
+  isBalanced: boolean;
+}
+
 export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllocationTabProps) {
   const { user } = useAuth();
   const [selectedNode, setSelectedNode] = useState<{
@@ -44,6 +53,10 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
     fullName: string;
     level: number;
   } | null>(null);
+
+  // The allocation totals live inside the table that computes them; the header
+  // shows them, so they are reported up rather than recalculated here.
+  const [progress, setProgress] = useState<AllocationProgress | null>(null);
 
   // Fetch config for the FY
   const { data: config, isLoading } = useQuery({
@@ -71,22 +84,82 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
     enabled: !!user,
   });
 
-  // Auto-select current user as root
+  // Org headcount, for the "of N people" denominator only — this has nothing
+  // to do with any plan's own assignment progress.
+  const { data: orgHeadcount } = useQuery({
+    queryKey: ['org-headcount'],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('employees').select('user_id', { count: 'exact', head: true });
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
+  // What a "derived" or "not set yet" annual figure follows: this browser's
+  // own note of what a Hierarchy Save last wrote for *this* plan — never
+  // user_business_plans, which has no link back to a specific plan and would
+  // pull in whatever else has ever been saved for the year. AllocationTable
+  // invalidates this same query key the moment its own Save succeeds, so this
+  // header updates immediately, without navigating away and back.
+  const { data: hierarchyNote } = useQuery({
+    queryKey: ['hierarchy-assignment-note', config?.id],
+    queryFn: () => readHierarchyAssignmentNote(config?.id),
+    enabled: !!config?.id,
+  });
+
+  /**
+   * Land on the top of the organisation, not on the logged-in admin's own
+   * branch.
+   *
+   * An admin setting up targets is very often not themselves the org's root —
+   * they might be a regional or branch head — so defaulting to their own id
+   * opened this tab on a narrow slice of the company: their own subtree, not
+   * the manager structure the plan was just built for. The employee (or
+   * employees) nobody reports to is the actual top; picking one of those as
+   * the default root is what makes arriving here — straight from Save, or by
+   * clicking the tab directly — show the whole hierarchy the plan applies to.
+   *
+   * get_org_root_managers is SECURITY DEFINER, the same pattern
+   * get_all_subordinates already uses to answer "who is below this person" —
+   * this is that question turned upside down: RLS on `employees` only lets a
+   * caller read their own row or their own subordinates, so a plain client
+   * query for "whoever has no manager" would come back empty for anyone who
+   * is not themselves a system admin.
+   *
+   * Falls back to the logged-in user on any empty result or error, which is
+   * exactly today's behaviour and is always a safe answer — everyone is
+   * eligible to view their own subtree at minimum.
+   */
   useEffect(() => {
-    if (user?.id && !selectedNode) {
-      supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', user.id)
-        .single()
-        .then(({ data }) => {
-          setSelectedNode({
-            userId: user.id,
-            fullName: data?.full_name || 'You',
-            level: 0,
+    if (!user?.id || selectedNode) return;
+
+    let cancelled = false;
+
+    supabase
+      .rpc('get_org_root_managers')
+      .then(({ data, error }: { data: { user_id: string; full_name: string }[] | null; error: unknown }) => {
+        if (cancelled) return;
+
+        const root = !error && data && data.length > 0 ? data[0] : null;
+        if (root?.user_id && root.full_name) {
+          setSelectedNode({ userId: root.user_id, fullName: root.full_name, level: 0 });
+          return;
+        }
+
+        // No org root this caller can see — fall back to their own view.
+        supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single()
+          .then(({ data: profile }) => {
+            if (cancelled) return;
+            setSelectedNode({ userId: user.id, fullName: profile?.full_name || 'You', level: 0 });
           });
-        });
-    }
+      });
+
+    return () => { cancelled = true; };
   }, [user?.id, selectedNode]);
 
   if (isLoading) {
@@ -148,6 +221,21 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
         monthly: false,
       };
 
+  // A 'direct' metric shows exactly what was typed on the Targets tab, same as
+  // always. 'derived' and 'unset' both follow whatever's actually been
+  // assigned across the org so far — null (rendered as "Not set yet") until
+  // that figure has loaded or anyone has anything assigned.
+  const quantityBasis = ((config.quantity_basis as string | null) || 'direct') as 'direct' | 'derived' | 'unset';
+  const revenueBasis = ((config.revenue_basis as string | null) || 'direct') as 'direct' | 'derived' | 'unset';
+  const visitsBasis = ((config.visits_basis as string | null) || 'direct') as 'direct' | 'derived' | 'unset';
+
+  const effectiveTotal = (basis: 'direct' | 'derived' | 'unset', direct: number | null, derived: number | undefined) =>
+    basis === 'direct' ? direct : (derived ?? null);
+
+  const effectiveQuantity = effectiveTotal(quantityBasis, config.total_quantity_target, hierarchyNote?.quantity);
+  const effectiveRevenue = effectiveTotal(revenueBasis, config.total_revenue_target, hierarchyNote?.revenue);
+  const effectiveVisits = effectiveTotal(visitsBasis, config.total_visits_target, hierarchyNote?.visits);
+
   return (
     <div className="space-y-4">
       {/* Distribution Summary Header */}
@@ -161,22 +249,29 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
           visits: config.enable_visits,
         }}
         quantityUnit={config.quantity_unit}
-        totalQuantity={config.total_quantity_target}
-        totalRevenue={config.total_revenue_target}
-        totalVisits={config.total_visits_target}
-        allocatedQuantity={0}
-        allocatedRevenue={0}
-        allocatedVisits={0}
+        totalQuantity={effectiveQuantity}
+        totalRevenue={effectiveRevenue}
+        totalVisits={effectiveVisits}
+        quantityBasis={quantityBasis}
+        revenueBasis={revenueBasis}
+        visitsBasis={visitsBasis}
+        assignedCoverage={hierarchyNote ? { count: hierarchyNote.assignedCount, total: orgHeadcount ?? 0 } : undefined}
+        allocatedQuantity={progress?.distributed.quantity ?? 0}
+        allocatedRevenue={progress?.distributed.revenue ?? 0}
+        allocatedVisits={progress?.distributed.visits ?? 0}
         selectedUserName={selectedNode?.fullName}
+        currentStep={progress?.currentStep}
+        steps={progress?.steps}
+        isBalanced={progress?.isBalanced ?? true}
       />
 
       {/* Allocation Table */}
       {selectedNode && (
         <AllocationTable
           parentUserId={selectedNode.userId}
-          totalQuantity={config.total_quantity_target}
-          totalRevenue={config.total_revenue_target}
-          totalVisits={config.total_visits_target}
+          totalQuantity={effectiveQuantity ?? 0}
+          totalRevenue={effectiveRevenue ?? 0}
+          totalVisits={effectiveVisits ?? 0}
           quantityUnit={config.quantity_unit}
           enabledMetrics={{
             quantity: config.enable_quantity,
@@ -187,6 +282,8 @@ export function HierarchyAllocationTab({ fyYear, selectedPlanId }: HierarchyAllo
           fyYear={fyYear}
           targetStartMonth={config.target_start_month || 1}
           targetEndMonth={config.target_end_month || 12}
+          planId={config.id}
+          onProgressChange={setProgress}
         />
       )}
     </div>

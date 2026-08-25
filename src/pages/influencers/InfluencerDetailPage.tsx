@@ -46,7 +46,11 @@ export default function InfluencerDetailPage() {
     setInf(i.data); setOrders(o.data || []); setMappings(m.data || []); setReferrals(r.data || []); setTickets(t.data || []);
 
     // enrich retailer names
-    const retailerIds = Array.from(new Set([...(o.data||[]).map((x:any)=>x.retailer_id), ...(m.data||[]).map((x:any)=>x.retailer_id)].filter(Boolean)));
+    const retailerIds = Array.from(new Set([
+      ...(o.data||[]).map((x:any)=>x.retailer_id),
+      ...(m.data||[]).map((x:any)=>x.retailer_id),
+      ...(r.data||[]).map((x:any)=>x.tagged_retailer_id),
+    ].filter(Boolean)));
     if (retailerIds.length) {
       const { data: rs } = await (supabase as any).from('retailers').select('id, name').in('id', retailerIds);
       setRetailers(rs || []);
@@ -56,6 +60,35 @@ export default function InfluencerDetailPage() {
   useEffect(() => { load(); }, [id]);
 
   const retailerName = (rid: string) => retailers.find(r => r.id === rid)?.name || rid?.slice(0, 8);
+
+  // Portal referrals that carry products count as influenced demand too
+  const productReferrals = referrals.filter(
+    (r: any) => Array.isArray(r.interested_products) && r.interested_products.length > 0
+  );
+  const influencedRows = [
+    ...orders.map((o: any) => ({
+      key: o.id,
+      source: 'order' as const,
+      label: o.order_number || o.id.slice(0, 8),
+      retailer: o.retailer_id ? retailerName(o.retailer_id) : '—',
+      status: o.status,
+      amount: Number(o.total_amount || 0),
+      products: null as any[] | null,
+      date: o.created_at,
+    })),
+    ...productReferrals.map((r: any) => ({
+      key: `ref-${r.id}`,
+      source: 'referral' as const,
+      label: r.consumer_name || r.retailer_name || 'Portal referral',
+      retailer: r.tagged_retailer_id ? retailerName(r.tagged_retailer_id) : (r.retailer_name || '—'),
+      status: r.status,
+      amount: 0,
+      products: r.interested_products as any[],
+      date: r.created_at,
+    })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const influencedCount = orders.length + productReferrals.length;
 
   async function addMapping() {
     if (!mapRetailer.trim()) return;
@@ -89,8 +122,13 @@ export default function InfluencerDetailPage() {
             </div>
             <div className="text-right">
               <div className="text-xs text-muted-foreground">Influenced Orders</div>
-              <div className="text-2xl font-semibold">{inf.influenced_orders_count}</div>
+              <div className="text-2xl font-semibold">{influencedCount}</div>
               <div className="text-sm">₹ {Number(inf.influenced_orders_value || 0).toLocaleString('en-IN')}</div>
+              {productReferrals.length > 0 && (
+                <div className="text-[11px] text-muted-foreground">
+                  {orders.length} billed · {productReferrals.length} from portal
+                </div>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -126,7 +164,7 @@ export default function InfluencerDetailPage() {
 
       <Tabs defaultValue="orders">
         <TabsList>
-          <TabsTrigger value="orders">Influenced Orders ({orders.length})</TabsTrigger>
+          <TabsTrigger value="orders">Influenced Orders ({influencedCount})</TabsTrigger>
           <TabsTrigger value="mapped">Mapped Retailers ({mappings.length})</TabsTrigger>
           <TabsTrigger value="referrals">Referrals ({referrals.length})</TabsTrigger>
           <TabsTrigger value="tickets">Support Tickets ({tickets.length})</TabsTrigger>
@@ -134,23 +172,48 @@ export default function InfluencerDetailPage() {
 
         <TabsContent value="orders">
           <Card><CardContent className="pt-4">
-            {orders.length === 0 ? <div className="text-muted-foreground text-sm text-center py-8">No orders attributed yet</div> :
+            {influencedRows.length === 0 ? <div className="text-muted-foreground text-sm text-center py-8">No orders attributed yet</div> :
             <Table><TableHeader><TableRow>
-              <TableHead>Order #</TableHead><TableHead>Retailer</TableHead><TableHead>Status</TableHead>
+              <TableHead>Order # / Reference</TableHead><TableHead>Source</TableHead><TableHead>Retailer</TableHead>
+              <TableHead>Products</TableHead><TableHead>Status</TableHead>
               <TableHead className="text-right">Amount</TableHead><TableHead>Date</TableHead>
             </TableRow></TableHeader><TableBody>
-              {orders.map(o => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs">{o.order_number || o.id.slice(0, 8)}</TableCell>
-                  <TableCell>{retailerName(o.retailer_id)}</TableCell>
-                  <TableCell><Badge variant="outline">{o.status}</Badge></TableCell>
-                  <TableCell className="text-right">₹ {Number(o.total_amount || 0).toLocaleString('en-IN')}</TableCell>
-                  <TableCell>{new Date(o.created_at).toLocaleDateString()}</TableCell>
+              {influencedRows.map(row => (
+                <TableRow key={row.key}>
+                  <TableCell className="font-mono text-xs">{row.label}</TableCell>
+                  <TableCell>
+                    <Badge variant={row.source === 'order' ? 'default' : 'secondary'}>
+                      {row.source === 'order' ? 'Billed order' : 'Portal'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{row.retailer}</TableCell>
+                  <TableCell className="max-w-[220px]">
+                    {row.products?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {row.products.slice(0, 3).map((p: any, i: number) => (
+                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted">
+                            {p.qty ? `${p.qty}${p.unit ? ' ' + p.unit : ''} ` : ''}{p.name}
+                          </span>
+                        ))}
+                        {row.products.length > 3 && (
+                          <span className="text-[10px] text-muted-foreground">+{row.products.length - 3}</span>
+                        )}
+                      </div>
+                    ) : <span className="text-muted-foreground text-xs">—</span>}
+                  </TableCell>
+                  <TableCell><Badge variant="outline">{row.status}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    {row.source === 'order'
+                      ? `₹ ${row.amount.toLocaleString('en-IN')}`
+                      : <span className="text-muted-foreground text-xs">Not billed</span>}
+                  </TableCell>
+                  <TableCell>{new Date(row.date).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody></Table>}
           </CardContent></Card>
         </TabsContent>
+
 
         <TabsContent value="mapped">
           <Card><CardContent className="pt-4 space-y-3">

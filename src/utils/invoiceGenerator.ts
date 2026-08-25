@@ -450,9 +450,21 @@ async function generateTemplate4InvoiceLegacy(data: InvoiceData): Promise<Blob> 
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
   doc.text("INVOICE #:", pageWidth - 60, invoiceY);
+  const invLabelWidth = doc.getTextWidth("INVOICE #:");
   doc.setFont("helvetica", "normal");
+  // Same 45mm column as ROUTE/SALESMAN below. A wrapped invoice number would
+  // look broken across two lines, so shrink to fit on one instead — this was
+  // fine at the old 3-digit sequence width but silently overlapped the label
+  // once the sequence passed 4 digits (visually reading as a cut-off number).
+  const invAvailWidth = 45 - invLabelWidth - 2;
+  let invFontSize = 9;
+  while (invFontSize > 6 && doc.getTextWidth(invoiceNum) > invAvailWidth) {
+    invFontSize -= 0.5;
+    doc.setFontSize(invFontSize);
+  }
   doc.text(invoiceNum, pageWidth - 15, invoiceY, { align: "right" });
-  
+  doc.setFontSize(9);
+
   invoiceY += 6;
   doc.setFont("helvetica", "bold");
   doc.text("DATE:", pageWidth - 60, invoiceY);
@@ -1038,7 +1050,7 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
     // Fetch retailer details and order info from the original order
     const { data: order } = await supabase
       .from("orders")
-      .select("retailer_id, user_id, created_at")
+      .select("retailer_id, retailer_name, user_id, created_at")
       .eq("id", orderId)
       .single();
 
@@ -1064,7 +1076,11 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
     }
 
     if (!retailer) {
-      retailer = { name: "Customer", address: "", phone: "", gst_number: "", state: "" };
+      // A counter/event sale has no retailer row — retailer_id is null by
+      // design. The order still carries the walk-in's actual name in
+      // retailer_name; falling back to a bare "Customer" printed the same
+      // word on every stall invoice regardless of who bought.
+      retailer = { name: order?.retailer_name || "Customer", address: "", phone: "", gst_number: "", state: "" };
     }
 
     // Fetch salesman name
@@ -1226,7 +1242,9 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   }
 
   if (!retailer) {
-    retailer = { name: "Customer", address: "", phone: "", gst_number: "", state: "" };
+    // Same reasoning as the edited-invoice branch above: order.retailer_name
+    // is the walk-in's real name for a counter/event sale.
+    retailer = { name: order.retailer_name || "Customer", address: "", phone: "", gst_number: "", state: "" };
   }
 
   // Fetch beat name - try retailer.beat_name first, then lookup from beats table
@@ -1353,8 +1371,22 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
   );
 
   const displayInvoiceNumber = (order as any).invoice_number || `INV-${order.id.substring(0, 8).toUpperCase()}`;
-  const displayInvoiceDate = order.created_at ? new Date(order.created_at).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
-  const displayInvoiceTime = order.created_at ? new Date(order.created_at).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
+  // The invoice shows the order's business date (order_date): for a
+  // backdated order that is the day the sale happened, not the day it was
+  // keyed in. The time line is only meaningful when the two fall on the same
+  // day; a backdated invoice shows "—" instead of a misleading entry time.
+  const createdAt = order.created_at ? new Date(order.created_at) : new Date();
+  const orderDateStr: string | null =
+    typeof (order as any).order_date === 'string' && (order as any).order_date
+      ? String((order as any).order_date).slice(0, 10)
+      : null;
+  const localCreatedDate = `${createdAt.getFullYear()}-${String(createdAt.getMonth() + 1).padStart(2, '0')}-${String(createdAt.getDate()).padStart(2, '0')}`;
+  const displayInvoiceDate = orderDateStr
+    ? new Date(orderDateStr + 'T00:00:00').toLocaleDateString("en-GB")
+    : createdAt.toLocaleDateString("en-GB");
+  const displayInvoiceTime = (!orderDateStr || orderDateStr === localCreatedDate)
+    ? createdAt.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' })
+    : "—";
   const invoiceNumber = displayInvoiceNumber;
   
   // Get the selected template from company settings (default to template4)

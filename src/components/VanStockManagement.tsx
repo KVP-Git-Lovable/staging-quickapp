@@ -1186,19 +1186,19 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     let sgst = 0;
     const itemsData = savedItems.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
-      const priceWithGST = product?.rate || 0;
+      // products.rate is already tax-exclusive — no division needed here.
+      const priceWithoutGST = product?.rate || 0;
       const gstPct = Number(product?.gst_percentage) || 0;
-      const priceWithoutGST = gstPct > 0 ? priceWithGST / (1 + gstPct / 100) : priceWithGST;
       const unit = (item.unit || '').toLowerCase();
       const qty = item.start_qty || 0;
-      
+
       let qtyInKG = qty;
       let qtyDisplay = qty.toString();
       if (unit === 'grams' || unit === 'gram' || unit === 'g') {
         qtyInKG = qty / 1000;
         qtyDisplay = `${qty} (${qtyInKG.toFixed(3)} KG)`;
       }
-      
+
       const totalValue = priceWithoutGST * qtyInKG;
       const lt = computeLineTax({ taxableAmount: totalValue, gstPercentage: gstPct });
       totalTaxable += lt.taxableAmount;
@@ -1396,9 +1396,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       let sgst = 0;
       const tableData = savedItems.map((item: any) => {
         const product = products.find(p => p.id === item.product_id);
-        const priceWithGST = product?.rate || 0;
+        // products.rate is already tax-exclusive — no division needed here.
+        const priceWithoutGST = product?.rate || 0;
         const gstPct = Number(product?.gst_percentage) || 0;
-        const priceWithoutGST = gstPct > 0 ? priceWithGST / (1 + gstPct / 100) : priceWithGST;
         const qty = item.start_qty || 0;
         const unit = (item.unit || '').toLowerCase();
         
@@ -1586,7 +1586,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     let totalKGs = 0;
     const totalValue = savedItems.reduce((sum: number, item: any) => {
       const product = products.find(p => p.id === item.product_id);
-      const priceWithoutGST = (product?.rate || 0) / 1.05; // Price per KG
+      const priceWithoutGST = product?.rate || 0; // products.rate is already tax-exclusive, per KG
       const unit = (item.unit || '').toLowerCase();
       const qty = item.start_qty || 0;
       
@@ -1610,8 +1610,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
     const tableData = savedItems.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
-      const priceWithGST = product?.rate || 0;
-      const priceWithoutGST = priceWithGST / 1.05;
+      // products.rate is already tax-exclusive — no division needed here.
+      const priceWithoutGST = product?.rate || 0;
       const qty = item.start_qty || 0;
       const unit = (item.unit || '').toLowerCase();
       
@@ -2183,8 +2183,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               
               return displayItems.map((item: any, index: number) => {
                 const product = products.find(p => p.id === item.product_id);
-                const priceWithGST = product?.rate || 0;
-                const priceWithoutGST = priceWithGST / 1.05;
+                // products.rate is already tax-exclusive — no division needed here.
+                const priceWithoutGST = product?.rate || 0;
                 
                 return (
                   <Card key={index} className={cn("p-3 hover:bg-accent transition-colors", !item.isSaved && "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20")}>

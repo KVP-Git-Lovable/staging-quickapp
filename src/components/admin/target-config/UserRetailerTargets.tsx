@@ -97,7 +97,8 @@ export function UserRetailerTargets({
       const { data, error } = await supabase
         .from('user_business_plan_retailers')
         .select('*')
-        .eq('business_plan_id', businessPlan.id);
+        .eq('business_plan_id', businessPlan.id)
+        .eq('is_active', true);
 
       if (error) throw error;
       return data || [];
@@ -169,11 +170,13 @@ export function UserRetailerTargets({
         throw new Error('No business plan found for this user and FY');
       }
 
-      // Delete existing and insert new
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_retailers')
-        .delete()
-        .eq('business_plan_id', businessPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', businessPlan.id)
+        .eq('is_active', true);
 
       const upsertData = retailerTargets.map((rt) => ({
         business_plan_id: businessPlan.id,

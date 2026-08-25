@@ -402,6 +402,12 @@ export const useActivityEvents = () => {
       end_longitude?: number;
       start_time?: string;
       end_time?: string;
+      // Actual arrival/departure. start_time and end_time are the PLANNED
+      // schedule the event was created with — writing the real times there
+      // destroys the plan the card displays.
+      check_in_time?: string;
+      check_in_latitude?: number;
+      check_in_longitude?: number;
     }
   ): Promise<boolean> => {
     const { error } = await supabase

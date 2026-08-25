@@ -49,6 +49,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { fetchAllPaginated } from "@/utils/fetchAllPaginated";
 import { useAuth } from "@/hooks/useAuth";
+import { invalidateUserTargetProgressCache } from "@/hooks/useUserTargetProgress";
 import { useHierarchyTargetAllocation } from "@/hooks/useHierarchyTargetAllocation";
 
 const QUANTITY_UNITS = ['Units', 'Kg', 'Liters', 'Pcs', 'Boxes', 'Cartons', 'Tonnes', 'Quintals'];
@@ -351,7 +352,14 @@ export function UserFYPlanTarget({
     if (selectedPlan) {
       loadExistingTargets();
     }
-  }, [selectedPlan]);
+    // Deliberately keyed on the plan's identity, not the whole selectedPlan
+    // object. Editing Qty/Revenue Target (top card or per-month) replaces
+    // selectedPlan with a new object on every keystroke via setSelectedPlan —
+    // depending on the object itself re-ran this DB reload on every edit,
+    // overwriting in-progress unsaved changes with what's still in the
+    // database and flipping "Equally divide" back on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPlan?.id]);
 
   const loadPlans = async () => {
     if (!effectiveUserId) return;
@@ -491,25 +499,29 @@ export function UserFYPlanTarget({
     const { data: productData } = await supabase
       .from('user_business_plan_products')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Load retailer targets
     const { data: retailerData } = await supabase
       .from('user_business_plan_retailers')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Load monthly targets
     const { data: monthData } = await supabase
       .from('user_business_plan_months')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Load monthly product targets
     const { data: monthProductData } = await supabase
       .from('user_business_plan_month_products')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Check if we have existing product data
     const hasExistingProductData = productData && productData.length > 0;
@@ -669,14 +681,34 @@ export function UserFYPlanTarget({
     }
 
     // Initialize monthly targets with product breakdown
-    const hasExistingMonthData = monthData && monthData.length > 0;
     const hasExistingMonthProductData = monthProductData && monthProductData.length > 0;
-    
+
+    // Carry forward each month's SHARE of the total, not its raw saved
+    // quantity/revenue. A saved month row reflects whatever the annual
+    // target was the last time it was saved — using it verbatim meant every
+    // month kept showing that stale absolute number forever, even after the
+    // Qty/Revenue Target fields above were changed and saved. Deriving a
+    // percentage from what was saved, then applying it to the CURRENT
+    // selectedPlan totals, keeps the breakdown reconciled with the top
+    // card while still preserving an intentionally uneven split.
+    const savedMonthlyQtyTotal = (monthData || []).reduce((s, md) => s + (md.quantity_target || 0), 0);
+    const savedMonthlyRevTotal = (monthData || []).reduce((s, md) => s + (md.revenue_target || 0), 0);
+
     const newMonthTargets: MonthTarget[] = FY_MONTHS.map(m => {
       const existing = monthData?.find(md => md.month_number === m.number);
-      const monthQty = existing?.quantity_target || (hasExistingMonthData ? 0 : (selectedPlan.quantity_target || 0) / 12);
-      const monthRev = existing?.revenue_target || (hasExistingMonthData ? 0 : (selectedPlan.revenue_target || 0) / 12);
-      
+
+      let monthPct = 100 / 12;
+      if (existing) {
+        if (savedMonthlyRevTotal > 0) {
+          monthPct = ((existing.revenue_target || 0) / savedMonthlyRevTotal) * 100;
+        } else if (savedMonthlyQtyTotal > 0) {
+          monthPct = ((existing.quantity_target || 0) / savedMonthlyQtyTotal) * 100;
+        }
+      }
+
+      const monthQty = (monthPct / 100) * (selectedPlan.quantity_target || 0);
+      const monthRev = (monthPct / 100) * (selectedPlan.revenue_target || 0);
+
       // Get month-specific product targets or use global percentages
       const monthProducts: MonthProductTarget[] = allProducts.map(p => {
         const existingMonthProduct = monthProductData?.find(
@@ -715,7 +747,7 @@ export function UserFYPlanTarget({
       return {
         monthNumber: m.number,
         monthName: m.name,
-        percentage: 100 / 12,
+        percentage: monthPct,
         quantityTarget: monthQty,
         revenueTarget: monthRev,
         useProductPercentages: !hasExistingMonthProductData,
@@ -726,15 +758,14 @@ export function UserFYPlanTarget({
 
     const totalMonthlyQty = newMonthTargets.reduce((sum, m) => sum + m.quantityTarget, 0);
     const totalMonthlyRev = newMonthTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
-    
-    if (totalMonthlyRev > 0 && hasExistingMonthData) {
-      newMonthTargets.forEach(m => {
-        m.percentage = (m.revenueTarget / totalMonthlyRev) * 100;
-      });
-      setMonthEqualDivide(false);
-    } else {
-      setMonthEqualDivide(true);
-    }
+
+    // Equal-divide is the actual state, not an assumption: true whenever every
+    // month's derived share is (within rounding) an even 1/12, regardless of
+    // whether that's because nothing was saved yet or because a prior equal
+    // split was saved. A real custom split — e.g. more in Q4 — correctly
+    // leaves this false so the per-month percentage inputs stay visible.
+    const isEqualSplit = newMonthTargets.every(m => Math.abs(m.percentage - 100 / 12) < 0.05);
+    setMonthEqualDivide(isEqualSplit);
     setMonthTotalQuantity(totalMonthlyQty);
     setMonthTotalRevenue(totalMonthlyRev);
     setMonthTargets(newMonthTargets);
@@ -743,7 +774,8 @@ export function UserFYPlanTarget({
     const { data: distributorData } = await supabase
       .from('user_business_plan_distributors')
       .select('*')
-      .eq('business_plan_id', selectedPlan.id);
+      .eq('business_plan_id', selectedPlan.id)
+      .eq('is_active', true);
 
     // Initialize distributor targets
     const hasExistingDistributorData = distributorData && distributorData.length > 0;
@@ -795,7 +827,11 @@ export function UserFYPlanTarget({
     if (productCategories.length > 0 && selectedPlan) {
       loadExistingTargets();
     }
-  }, [productCategories, retailerCategories, distributors, selectedPlan]);
+    // Same reasoning as the other loadExistingTargets effect above: key off
+    // the plan's identity, not the object reference, so editing Qty/Revenue
+    // Target doesn't itself trigger a reload that overwrites the edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productCategories, retailerCategories, distributors, selectedPlan?.id]);
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -816,6 +852,7 @@ export function UserFYPlanTarget({
         .single();
 
       if (error) throw error;
+      invalidateUserTargetProgressCache(effectiveUserId);
       toast.success("FY Plan created");
       setDialogOpen(false);
       setPlanForm({
@@ -855,6 +892,7 @@ export function UserFYPlanTarget({
         .eq('id', selectedPlan.id);
 
       if (error) throw error;
+      invalidateUserTargetProgressCache(effectiveUserId);
       toast.success("FY Plan updated");
       setEditDialogOpen(false);
       loadPlans();
@@ -878,6 +916,7 @@ export function UserFYPlanTarget({
         .eq('id', selectedPlan.id);
 
       if (error) throw error;
+      invalidateUserTargetProgressCache(effectiveUserId);
       toast.success("FY Plan deleted");
       setDeleteDialogOpen(false);
       setSelectedPlan(null);
@@ -1286,11 +1325,13 @@ export function UserFYPlanTarget({
     if (!selectedPlan) return;
     
     try {
-      // Delete existing
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_distributors')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
       // Insert new
       const distributorsToInsert = distributorTargets.filter(d => d.quantityTarget > 0 || d.revenueTarget > 0).map(d => ({
@@ -1308,6 +1349,7 @@ export function UserFYPlanTarget({
         if (error) throw error;
       }
 
+      invalidateUserTargetProgressCache(effectiveUserId);
       toast.success("Distributor targets saved");
     } catch (error: any) {
       toast.error("Failed to save: " + error.message);
@@ -1318,14 +1360,16 @@ export function UserFYPlanTarget({
     if (!selectedPlan) return;
     
     try {
-      // Delete existing
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_products')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
       // Insert new
-      const productsToInsert = categoryTargets.flatMap(cat => 
+      const productsToInsert = categoryTargets.flatMap(cat =>
         cat.products.filter(p => p.quantityTarget > 0 || p.revenueTarget > 0).map(p => ({
           business_plan_id: selectedPlan.id,
           product_id: p.productId,
@@ -1342,6 +1386,7 @@ export function UserFYPlanTarget({
         if (error) throw error;
       }
 
+      invalidateUserTargetProgressCache(effectiveUserId);
       toast.success("Product targets saved");
     } catch (error: any) {
       toast.error("Failed to save: " + error.message);
@@ -1352,14 +1397,16 @@ export function UserFYPlanTarget({
     if (!selectedPlan) return;
     
     try {
-      // Delete existing
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_retailers')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
       // Insert new
-      const retailersToInsert = retailerCategoryTargets.flatMap(cat => 
+      const retailersToInsert = retailerCategoryTargets.flatMap(cat =>
         cat.retailers.filter(r => r.quantityTarget > 0 || r.revenueTarget > 0).map(r => ({
           business_plan_id: selectedPlan.id,
           retailer_id: r.retailerId,
@@ -1378,6 +1425,7 @@ export function UserFYPlanTarget({
         if (error) throw error;
       }
 
+      invalidateUserTargetProgressCache(effectiveUserId);
       toast.success("Retailer targets saved");
     } catch (error: any) {
       toast.error("Failed to save: " + error.message);
@@ -1483,6 +1531,10 @@ export function UserFYPlanTarget({
       const newTotalRev = newTargets.reduce((sum, m) => sum + m.revenueTarget, 0);
       setMonthTotalQuantity(newTotalQty);
       setMonthTotalRevenue(newTotalRev);
+      // Editing a month directly is how the user builds up the annual number
+      // from the ground up — the FY Overview card above should show that sum
+      // live, not the last value typed into it (or saved) independently.
+      setSelectedPlan(prevPlan => prevPlan ? { ...prevPlan, quantity_target: newTotalQty, revenue_target: newTotalRev } : prevPlan);
       return newTargets.map(m => ({
         ...m,
         percentage: newTotalRev > 0 ? (m.revenueTarget / newTotalRev) * 100 : 100 / 12
@@ -1552,17 +1604,19 @@ export function UserFYPlanTarget({
     if (!selectedPlan) return;
     
     try {
-      // Delete existing month targets
+      // Deactivate the current set rather than deleting it, so past targets
+      // stay queryable as history instead of being silently overwritten.
       await supabase
         .from('user_business_plan_months')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
-      // Delete existing month product targets
       await supabase
         .from('user_business_plan_month_products')
-        .delete()
-        .eq('business_plan_id', selectedPlan.id);
+        .update({ is_active: false, deactivated_at: new Date().toISOString() })
+        .eq('business_plan_id', selectedPlan.id)
+        .eq('is_active', true);
 
       // Insert month targets
       const monthsToInsert = monthTargets.filter(m => m.quantityTarget > 0 || m.revenueTarget > 0).map(m => ({
@@ -1602,6 +1656,7 @@ export function UserFYPlanTarget({
         if (error) throw error;
       }
 
+      invalidateUserTargetProgressCache(effectiveUserId);
       toast.success("Monthly targets saved");
     } catch (error: any) {
       toast.error("Failed to save: " + error.message);
@@ -1938,6 +1993,7 @@ export function UserFYPlanTarget({
                           await saveMonthTargets();
                           await saveDistributorTargets();
 
+                          invalidateUserTargetProgressCache(effectiveUserId);
                           toast.success("All targets saved successfully");
                           loadPlans();
                         } catch (error: any) {

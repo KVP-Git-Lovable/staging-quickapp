@@ -38,7 +38,9 @@ import { useTodaysBeatIds } from "@/hooks/useTodaysBeatIds";
 import { useMyTerritoryIds } from "@/hooks/useMyTerritoryIds";
 import { setOutOfBeatContext, clearOutOfBeatContext } from "@/lib/outOfBeatContext";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertTriangle, MapPin } from "lucide-react";
+import { AlertTriangle, MapPin, TrendingDown } from "lucide-react";
+import { ChurnRiskCard } from "@/components/ChurnRiskCard";
+import { useChurnRisk } from "@/hooks/useChurnRisk";
 
 
 
@@ -124,6 +126,43 @@ export const MyRetailers = () => {
   const isSelfView = !!user && selectedUserIds.length === 1 && selectedUserIds[0] === user.id;
   const { data: todaysBeatIds } = useTodaysBeatIds();
   const { data: myTerritoryIds } = useMyTerritoryIds();
+
+  // Row-level churn markers from the same stored Churn Detector run the
+  // Churn Risk card reads (display only). The worst decliner — the store the
+  // card's "stands out" sentence names — gets a red icon; every other
+  // flagged retailer gets the cream-yellow one.
+  const { result: churnResult } = useChurnRisk();
+  const churnLevelByRetailer = useMemo(() => {
+    const map = new Map<string, "worst" | "flagged">();
+    (churnResult?.rows ?? []).forEach((row, i) => {
+      if (row.retailerId) map.set(String(row.retailerId), i === 0 ? "worst" : "flagged");
+    });
+    return map;
+  }, [churnResult]);
+  const churnRowIcon = (retailerId: string) => {
+    const level = churnLevelByRetailer.get(String(retailerId));
+    if (!level) return null;
+    const row = (churnResult?.rows ?? []).find((x) => String(x.retailerId) === String(retailerId));
+    return (
+      <span
+        className={`inline-flex shrink-0 items-center justify-center rounded-sm border-2 border-red-500 p-0.5 ${
+          level === "worst"
+            ? "bg-red-100 dark:bg-red-950/50"
+            : "bg-amber-50 dark:bg-amber-950/50"
+        }`}
+        title={
+          row
+            ? `Churn risk: orders down ${row.dropPct}% vs the previous 30 days`
+            : "Churn risk"
+        }
+      >
+        <TrendingDown
+          size={15}
+          className={level === "worst" ? "text-red-600 dark:text-red-400" : "text-amber-500 dark:text-amber-400"}
+        />
+      </span>
+    );
+  };
 
   // OOB place-order dialog state
   const [oobDialogOpen, setOobDialogOpen] = useState(false);
@@ -268,113 +307,137 @@ export const MyRetailers = () => {
       if (navigator.onLine) {
         try {
           console.log('🔄 Fetching retailers from database for users:', userIds.length);
-          
-          // Part 1: Fetch owned retailers (paginated)
-          let allRetailers: any[] = [];
-          let page = 0;
-          let hasMore = true;
-          
-          while (hasMore) {
-            const from = page * PAGE_SIZE;
-            const to = from + PAGE_SIZE - 1;
-            
-            setLoadingProgress(`Loading retailers ${from + 1}+...`);
-            
-            const { data, error } = await supabase
+          setLoadingProgress('Loading retailers...');
+
+          // The whole online attempt races a timeout: navigator.onLine only
+          // detects a hard disconnect, not a slow connection, so without this
+          // a bad connection used to run the full sequence of round trips
+          // below to completion before ever falling back to cache — slower
+          // than being fully offline, which skips straight to the cache read.
+          const fetchAllRetailers = async () => {
+            // Part 1: owned retailers, paginated. Get the count first (one
+            // cheap request) so every page can be requested in parallel
+            // instead of one at a time — on a slow link each sequential page
+            // used to pay its own full round trip.
+            const { count, error: countError } = await supabase
               .from("retailers")
-              .select(RETAILER_LIST_COLUMNS)
-              .in("user_id", userIds)
-              .order("name")
-              .range(from, to);
-              
-            if (error) throw error;
-            
-            if (data && data.length > 0) {
-              allRetailers = [...allRetailers, ...data];
-              hasMore = data.length === PAGE_SIZE;
-              page++;
-            } else {
-              hasMore = false;
-            }
-          }
+              .select('id', { count: 'exact', head: true })
+              .in("user_id", userIds);
+            if (countError) throw countError;
 
-          // Part 2: Fetch retailers from beats shared with the current user
-          try {
-            const nowIso = new Date().toISOString();
-            const { data: sharedAccess } = await supabase
-              .from('beat_user_access')
-              .select('beat_id')
-              .eq('user_id', user.id)
-              .eq('is_active', true)
-              .or(`effective_to.is.null,effective_to.gt.${nowIso}`);
+            const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 0;
+            const pagePromises = Array.from({ length: totalPages }, (_, page) => {
+              const from = page * PAGE_SIZE;
+              const to = from + PAGE_SIZE - 1;
+              return supabase
+                .from("retailers")
+                .select(RETAILER_LIST_COLUMNS)
+                .in("user_id", userIds)
+                .order("name")
+                .range(from, to);
+            });
 
-            if (sharedAccess && sharedAccess.length > 0) {
-              const sharedBeatIds = Array.from(new Set(sharedAccess.map((a: any) => a.beat_id).filter(Boolean)));
-              if (sharedBeatIds.length > 0) {
-                const { data: beatRetailers } = await supabase
+            // Part 2 & 3 are independent of Part 1 and of each other — run
+            // all three concurrently instead of chaining them.
+            const sharedBeatPromise = (async () => {
+              try {
+                const nowIso = new Date().toISOString();
+                const { data: sharedAccess } = await supabase
+                  .from('beat_user_access')
+                  .select('beat_id')
+                  .eq('user_id', user.id)
+                  .eq('is_active', true)
+                  .or(`effective_to.is.null,effective_to.gt.${nowIso}`);
+                const sharedBeatIds = Array.from(
+                  new Set((sharedAccess || []).map((a: any) => a.beat_id).filter(Boolean))
+                );
+                if (sharedBeatIds.length === 0) return [];
+                const { data } = await supabase
                   .from('retailers')
                   .select(RETAILER_LIST_COLUMNS)
                   .in('beat_id', sharedBeatIds)
                   .order('name')
                   .limit(SHARED_BEAT_RETAILER_CAP);
-                if (beatRetailers && beatRetailers.length > 0) {
-                  const map = new Map<string, any>();
-                  [...allRetailers, ...beatRetailers].forEach(r => map.set(r.id, r));
-                  allRetailers = Array.from(map.values());
-                }
+                return data || [];
+              } catch (sharedErr) {
+                console.warn('Shared beat retailers fetch failed (non-fatal):', sharedErr);
+                return [];
               }
-            }
-          } catch (sharedErr) {
-            console.warn('Shared beat retailers fetch failed (non-fatal):', sharedErr);
-          }
+            })();
 
-          // Part 3: OOB widening — only when self-view + oob_enabled + permission
-          // 'territory' → include retailers in user's territories
-          // 'all' → search-driven; see search effect below
-          try {
-            if (oobEnabled && isSelfView && (oobVisibility === 'territory' || oobVisibility === 'all')) {
-              const terrIds = myTerritoryIds || [];
-              if (terrIds.length > 0) {
-                const { data: territoryRetailers } = await supabase
+            // 'territory' → include retailers in user's territories
+            // 'all' → search-driven; see search effect below
+            const oobTerritoryPromise = (async () => {
+              try {
+                if (!(oobEnabled && isSelfView && (oobVisibility === 'territory' || oobVisibility === 'all'))) {
+                  return [];
+                }
+                const terrIds = myTerritoryIds || [];
+                if (terrIds.length === 0) return [];
+                const { data } = await supabase
                   .from('retailers')
                   .select(RETAILER_LIST_COLUMNS)
                   .in('territory_id', terrIds as any)
                   .order('name')
                   .limit(2000);
-                if (territoryRetailers && territoryRetailers.length > 0) {
-                  const map = new Map<string, any>();
-                  [...allRetailers, ...territoryRetailers].forEach(r => map.set(r.id, r));
-                  allRetailers = Array.from(map.values());
-                }
+                return data || [];
+              } catch (oobErr) {
+                console.warn('OOB territory fetch failed (non-fatal):', oobErr);
+                return [];
               }
+            })();
+
+            const [pageResults, sharedBeatRetailers, territoryRetailers] = await Promise.all([
+              Promise.all(pagePromises),
+              sharedBeatPromise,
+              oobTerritoryPromise,
+            ]);
+
+            let allRetailers: any[] = [];
+            for (const { data, error } of pageResults) {
+              if (error) throw error;
+              if (data) allRetailers.push(...data);
             }
-          } catch (oobErr) {
-            console.warn('OOB territory fetch failed (non-fatal):', oobErr);
-          }
+
+            if (sharedBeatRetailers.length > 0 || territoryRetailers.length > 0) {
+              const map = new Map<string, any>();
+              [...allRetailers, ...sharedBeatRetailers, ...territoryRetailers].forEach(r => map.set(r.id, r));
+              allRetailers = Array.from(map.values());
+            }
+
+            return allRetailers;
+          };
+
+          const NETWORK_TIMEOUT_MS = 8000;
+          const allRetailers = await Promise.race([
+            fetchAllRetailers(),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error('Retailer fetch timed out — connection too slow')), NETWORK_TIMEOUT_MS)
+            ),
+          ]);
 
           console.log('✅ Fetched total retailers:', allRetailers.length);
-          
-          
+
           // Process and set all data at once (prevents flickering)
           setLoadingProgress('Processing...');
           await new Promise(resolve => setTimeout(resolve, 0));
-          
+
           const withOwners = allRetailers.map(r => ({
             ...r,
             owner_name: userNameMap[r.user_id] || 'Unknown'
           }));
-          
+
           const sorted = [...withOwners].sort((a, b) => a.name.localeCompare(b.name));
-          
+
           // Set data in one atomic update
           setRetailers(sorted);
-          
+
           // Build index after data is set
           buildRetailerIndex(sorted);
-          
+
           // Update cache in background (don't await)
           offlineStorage.mergeData(STORES.RETAILERS, allRetailers as any).catch(console.error);
-          
+
           setLoadingProgress('');
           setLoading(false);
           setIsUserChanging(false);
@@ -964,6 +1027,9 @@ export const MyRetailers = () => {
           </CardHeader>
         </Card>
 
+        {/* Churn Risk nudges — consumer of the frozen churn_detector agent */}
+        <ChurnRiskCard />
+
         {/* Stats Dashboard — includes retailers without a beat */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
           <Card
@@ -1169,6 +1235,7 @@ export const MyRetailers = () => {
                             onClick={() => openRetailerDetail(r)}
                           >
                             {r.name}
+                            {churnRowIcon(r.id)}
                             {r.verified && (
                               <CheckCircle2 className="h-4 w-4 text-blue-600" />
                             )}
@@ -1338,6 +1405,7 @@ export const MyRetailers = () => {
                         >
                           <div className="flex items-center gap-2">
                             {r.name}
+                            {churnRowIcon(r.id)}
                             {r.verified && (
                               <CheckCircle2 className="h-4 w-4 text-blue-600" />
                             )}

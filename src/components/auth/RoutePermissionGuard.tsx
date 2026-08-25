@@ -1,7 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useProfilePermissions } from '@/hooks/useProfilePermissions';
-import { useAuth } from '@/hooks/useAuth';
 import { PermissionRedirect } from '@/components/security/PermissionRedirect';
 
 interface RoutePermissionGuardProps {
@@ -22,7 +21,6 @@ interface RoutePermissionGuardProps {
  */
 export const RoutePermissionGuard = ({ children, permissionPrefix, moduleName }: RoutePermissionGuardProps) => {
   const { permissions, isLoading, isFetching, isPlaceholderData, hasModuleAccess } = useProfilePermissions();
-  const { securityProfileName, loading: authLoading } = useAuth();
 
   const granted = hasModuleAccess(permissionPrefix);
   // Never deny on a cached/in-flight snapshot — a freshly granted module would
@@ -30,7 +28,7 @@ export const RoutePermissionGuard = ({ children, permissionPrefix, moduleName }:
   const usingStaleSnapshot = !granted && (isPlaceholderData || isFetching);
 
   // Still loading permissions
-  if (isLoading || authLoading || usingStaleSnapshot) {
+  if (isLoading || usingStaleSnapshot) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -38,16 +36,15 @@ export const RoutePermissionGuard = ({ children, permissionPrefix, moduleName }:
     );
   }
 
-  // No security profile assigned → deny by default (DB-driven only)
-  if (!securityProfileName) return <PermissionRedirect moduleName={moduleName} />;
-
-  // Profile assigned but zero permissions → deny all
-  if (permissions.length === 0) return <PermissionRedirect moduleName={moduleName} />;
-
-  // Check if user has can_read on any object matching the prefix
+  // The loaded permission row is authoritative. Do not also depend on the
+  // separately-fetched profile name: token refreshes can briefly clear that
+  // display value even though the user's DB permission remains valid.
   if (granted) {
     return <>{children}</>;
   }
+
+  // Profile missing/empty permissions, or no matching readable permission.
+  if (permissions.length === 0) return <PermissionRedirect moduleName={moduleName} />;
 
   // No access → redirect with warning toast
   return <PermissionRedirect moduleName={moduleName} />;

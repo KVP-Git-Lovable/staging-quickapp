@@ -46,6 +46,16 @@ const numberToWords = (num: number): string => {
   return words.trim();
 };
 
+// `orderId` doubles as "real invoice number" (e.g. INV2026-24478) when one
+// exists, or a raw order UUID as a fallback display id when it doesn't —
+// callers pass displayInvoiceNumber || orderId into the same prop. Only the
+// UUID case should ever be shortened; slicing every value to 8 chars cut
+// every real invoice number off right after "INV2026-", regardless of its
+// length (this was never digit-count-dependent — it did this to the old
+// 3-digit numbers too, just silently, since nobody had looked closely).
+const isRawUuid = (v: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
 interface InvoicePreviewProps {
   company: any;
   retailer: any;
@@ -250,7 +260,7 @@ export default function InvoicePreview({
           {isEnabled('details_invoice_number') && (
             <div className="mb-2">
               <span className="font-bold text-xs">INVOICE #:</span>{" "}
-              <span className="text-xs">{orderId.slice(0, 8).toUpperCase()}</span>
+              <span className="text-xs">{isRawUuid(orderId) ? orderId.slice(0, 8).toUpperCase() : orderId}</span>
             </div>
           )}
           {isEnabled('details_invoice_date') && (

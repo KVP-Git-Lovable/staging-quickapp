@@ -42,25 +42,12 @@ function convertQuantity(quantity: number, fromUnit: string, toUnit: string): nu
 }
 
 /**
- * Extract the actual product ID that matches van_stock_items.product_id
- */
-function extractMatchingProductId(productId: string): string {
-  if (!productId) return productId;
-  
-  if (productId.includes('_variant_')) {
-    return productId.split('_variant_')[1];
-  }
-  
-  return productId;
-}
-
-/**
  * Local van stock calculation for offline orders
  * Uses cached van stock data from localStorage to calculate updates
  * Queues the actual sync for when the device comes back online
  */
 export async function calculateLocalVanStockUpdate(
-  orderItems: Array<{ product_id: string; quantity: number; unit?: string }>,
+  orderItems: Array<{ product_id: string; variant_id?: string | null; quantity: number; unit?: string }>,
   userId: string,
   stockDate?: string
 ): Promise<void> {
@@ -92,7 +79,8 @@ export async function calculateLocalVanStockUpdate(
     const orderQuantitiesInGrams: { [productId: string]: number } = {};
     
     orderItems.forEach(item => {
-      const matchingProductId = extractMatchingProductId(item.product_id);
+      // Van stock items track variants under the variant's own id.
+      const matchingProductId = item.variant_id || item.product_id;
       const orderUnit = item.unit || 'piece';
       const qtyInGrams = convertQuantity(item.quantity, orderUnit, 'g');
       orderQuantitiesInGrams[matchingProductId] = (orderQuantitiesInGrams[matchingProductId] || 0) + qtyInGrams;

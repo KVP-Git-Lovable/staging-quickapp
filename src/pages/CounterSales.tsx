@@ -48,6 +48,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOfflineOrderEntry } from "@/hooks/useOfflineOrderEntry";
 import { submitOrderWithOfflineSupport } from "@/utils/offlineOrderUtils";
 import { getLocalTodayDate } from "@/utils/dateUtils";
+import { OrderInvoiceButton } from "@/components/invoice/OrderInvoiceButton";
+import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -214,6 +216,7 @@ function MobileCustomerCard({
                             original_rate: Number(p.rate) || 0,
                             conversion_to_base: null,
                             price_basis_conversion: null,
+                            quantity: item.quantity || 1,
                           })
                         }
                       />
@@ -434,7 +437,16 @@ function CounterCustomerCard({
     (s, i) => s + (i.product_id ? itemDiscount(i) : 0),
     0
   );
-  const taxTotal = row.items.reduce((s, i) => s + (i.product_id ? itemTax(i) : 0), 0);
+  // Same helper the Cart and invoices use, so an event order is taxed by the
+  // same rules as every other order rather than by a constant.
+  const taxBreakdown = sumLineTaxes(
+    row.items
+      .filter((i) => i.product_id)
+      .map((i) =>
+        computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate }),
+      ),
+  );
+  const taxTotal = taxBreakdown.totalTax;
   const total = subtotal - discountTotal + taxTotal;
 
   const isWalkIn = row.customerType === "walkin";
@@ -461,6 +473,7 @@ function CounterCustomerCard({
 
   const paymentMode = row.paymentMode || "";
   const paymentMethod = row.paymentMethod || "";
+  const paymentBlocked = !!eventMode && !paymentMethod;
   const paymentLabel: Record<string, { label: string; cls: string }> = {
     full: { label: "Full Payment", cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" },
     partial: { label: "Partial Payment", cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
@@ -642,7 +655,7 @@ function CounterCustomerCard({
             </div>
 
             {/* column headers */}
-            <div className="grid grid-cols-[minmax(0,1fr)_60px_44px_72px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1.5 sm:gap-3 px-1 pb-1.5 text-[9px] sm:text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
+            <div className="grid grid-cols-[minmax(0,1fr)_52px_40px_60px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1 sm:gap-3 px-1 pb-1.5 text-[9px] sm:text-[10px] uppercase tracking-wide text-muted-foreground font-medium">
               <div>Product</div>
               <div>Unit</div>
               <div>Qty</div>
@@ -651,12 +664,14 @@ function CounterCustomerCard({
 
             <div className="space-y-3">
               {row.items.map((item, idx) => {
-                const lineTotal = item.product_id ? itemAmount(item) : 0;
                 const product = products.find((p) => p.id === item.product_id);
                 const mrp = product?.mrp || product?.MRP;
+                const edited =
+                  Number(item.original_rate ?? 0) > 0 &&
+                  Number(item.rate) !== Number(item.original_rate);
                 return (
                   <div key={item.uid} className="space-y-1">
-                    <div className="grid grid-cols-[minmax(0,1fr)_60px_44px_72px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1.5 sm:gap-3 items-center">
+                    <div className="grid grid-cols-[minmax(0,1fr)_52px_40px_60px] sm:grid-cols-[minmax(0,1.6fr)_90px_70px_120px] gap-1 sm:gap-3 items-center">
                       <div className="min-w-0">
                         <InlineProductSelect
                           value={item}
@@ -664,15 +679,24 @@ function CounterCustomerCard({
                           disabled={locked}
                           onPick={(p) =>
                             onUpdateItem(item.uid, {
-                              product_id: p.id,
+                              // p.id is a synthetic key when p is a variant row
+                              // (base-id::variant-id) — the real product_id
+                              // always comes from p.product_id.
+                              product_id: p.product_id,
+                              variant_id: p.variant_id ?? null,
                               product_name: p.name,
                               category: p.category?.name || null,
                               sku: p.sku || null,
                               unit: p.unit || "Unit",
                               rate: Number(p.rate) || 0,
                               original_rate: Number(p.rate) || 0,
+                              // Same source the Cart and invoices use. A
+                              // variant with its own gst_percentage overrides
+                              // the base product's.
+                              tax_rate: Number(p.gst_percentage) || 0,
                               conversion_to_base: null,
                               price_basis_conversion: null,
+                              quantity: item.quantity || 1,
                             })
                           }
                           onEnter={() => {
@@ -686,8 +710,9 @@ function CounterCustomerCard({
                           value={item.unit}
                           context="sales"
                           hideWhenSingle={false}
+                          hideHelperLine={eventMode}
                           disabled={locked}
-                          className="h-9 rounded-lg text-xs sm:text-sm px-2 w-full"
+                          className="h-9 rounded-lg text-[11px] sm:text-sm px-1.5 sm:px-2 w-full"
                           onChange={(sel) => {
                             const patch = uomSelectionPatch(
                               item,
@@ -714,7 +739,10 @@ function CounterCustomerCard({
                         value={item.quantity}
                         disabled={locked}
                         onChange={(e) => onUpdateItem(item.uid, { quantity: Number(e.target.value) || 0 })}
-                        className="h-9 rounded-lg text-xs sm:text-sm px-1.5 sm:px-2"
+                        className={cn(
+                          "h-9 rounded-lg text-xs sm:text-sm px-1.5 sm:px-2 text-center tabular-nums",
+                          NO_SPINNER,
+                        )}
                       />
                       <div className="relative">
                         <Input
@@ -725,56 +753,53 @@ function CounterCustomerCard({
                           value={item.rate}
                           disabled={locked}
                           onChange={(e) => onUpdateItem(item.uid, { rate: Number(e.target.value) || 0 })}
-                          className="h-9 rounded-lg text-xs sm:text-sm px-1.5 sm:px-2"
+                          className={cn(
+                            "h-9 rounded-lg text-xs sm:text-sm px-1.5 sm:px-2 tabular-nums",
+                            NO_SPINNER,
+                          )}
                         />
                       </div>
                     </div>
 
-                    {/* SKU/MRP/Total meta line */}
-                    <div className="flex items-center justify-between flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground px-1">
-                      <div className="flex items-center gap-2">
-                        {item.sku && (
-                          <span>
-                            SKU: <span className="font-medium text-foreground/80">{item.sku}</span>
-                          </span>
-                        )}
+                    {/* Under the product: what it actually costs. The SKU code
+                        was here, but a rep pricing an order needs the catalogue
+                        price to compare against, not an internal code — and the
+                        price is editable, so the original has to stay visible.
+                        Line total is gone: the only total that matters is the
+                        one at the bottom, and showing it twice invites doubt
+                        about which is real. */}
+                    <div className="flex items-center justify-between gap-2 px-1 text-[11px] text-muted-foreground">
+                      <div className="flex min-w-0 items-center gap-2">
                         {item.product_id && (
                           <>
-                            {item.sku && <span className="opacity-40">|</span>}
-                            <span>
+                            <span className="truncate">
                               Price:{" "}
-                              <span className="font-medium text-foreground/80">
+                              <span className="font-medium text-foreground/80 tabular-nums">
                                 {format(Number(item.original_rate ?? item.rate) || 0)}
                               </span>
                             </span>
-                          </>
-                        )}
-                        {mrp && (
-                          <>
-                            <span className="opacity-40">|</span>
-                            <span>
-                              MRP: <span className="font-medium text-foreground/80">{format(Number(mrp))}</span>
-                            </span>
+                            {edited && (
+                              <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 font-medium text-amber-700 dark:text-amber-400">
+                                edited
+                              </span>
+                            )}
+                            {mrp && (
+                              <span className="shrink-0 truncate opacity-80">
+                                MRP {format(Number(mrp))}
+                              </span>
+                            )}
                           </>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span>
-                          Total:{" "}
-                          <span className="font-semibold text-foreground">
-                            {format(lineTotal)}
-                          </span>
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 text-destructive hover:text-destructive"
-                          disabled={locked || row.items.length === 1}
-                          onClick={() => onRemoveItem(item.uid)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0 text-destructive hover:text-destructive"
+                        disabled={locked || row.items.length === 1}
+                        onClick={() => onRemoveItem(item.uid)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -793,6 +818,44 @@ function CounterCustomerCard({
 
           {/* PAYMENT MODE */}
           <div className="px-4 pt-4">
+            {eventMode ? (
+              /* At an event stall the customer pays on the spot and walks away
+                 with the goods — there is no credit relationship with a walk-in.
+                 So Full/Partial/Credit is a decision that never has a second
+                 answer here; the only real question is cash or UPI. Choosing a
+                 method IS the payment mode, recorded as a full payment. */
+              <>
+                <div className="text-[10px] uppercase tracking-[0.08em] font-semibold text-muted-foreground mb-2">
+                  Payment
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["cash", "upi"] as const).map((method) => {
+                    const active = paymentMethod === method;
+                    return (
+                      <button
+                        key={method}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          onPaymentMethodChange(method);
+                          onPaymentModeChange("full");
+                          onPatchRow({ partialAmount: "" });
+                        }}
+                        className={cn(
+                          "h-11 rounded-xl border text-sm font-medium transition-colors",
+                          active
+                            ? "bg-blue-50 border-blue-300 text-blue-700 dark:bg-blue-500/15 dark:border-blue-500/40 dark:text-blue-300"
+                            : "bg-background border-border text-foreground/80 hover:bg-muted/40"
+                        )}
+                      >
+                        {method === "cash" ? "Cash" : "UPI"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+            <>
             <div className="text-[10px] uppercase tracking-[0.08em] font-semibold text-muted-foreground mb-2">
               Payment Mode
             </div>
@@ -855,7 +918,7 @@ function CounterCustomerCard({
             )}
 
             {/* PAYMENT METHOD — only when full or partial selected */}
-            {(paymentMode === "full" || paymentMode === "partial") && (
+            {!eventMode && (paymentMode === "full" || paymentMode === "partial") && (
               <div className="mt-3 space-y-2 p-2.5 border rounded-xl bg-muted/40">
                 <div className="text-[10px] uppercase tracking-[0.08em] font-semibold text-muted-foreground">
                   Payment Method
@@ -977,34 +1040,70 @@ function CounterCustomerCard({
                 )}
               </div>
             )}
+            </>
+            )}
           </div>
 
-          {/* TOTALS */}
+          {/* TOTALS — a statement, not a four-across grid. On a phone the grid
+              gave each figure a quarter of the width and equal weight, so the
+              amount the customer actually pays looked like the other three.
+              This reads top to bottom and ends on the total. */}
           <div className="px-4 pt-4 pb-3">
             <div className="rounded-xl bg-background border px-3 py-3">
-              <div className="grid grid-cols-4 gap-3 text-center">
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Subtotal</div>
-                  <div className="text-sm font-semibold">{format(subtotal)}</div>
+              <dl className="space-y-1 text-xs">
+                <div className="flex items-baseline justify-between">
+                  <dt className="text-muted-foreground">Subtotal</dt>
+                  <dd className="tabular-nums">{format(subtotal)}</dd>
                 </div>
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Discount</div>
-                  <div className="text-sm font-semibold text-destructive">- {format(discountTotal)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-muted-foreground">GST</div>
-                  <div className="text-sm font-semibold">{format(taxTotal)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] text-muted-foreground">Total</div>
-                  <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                    {format(total)}
+                {discountTotal > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">Discount</dt>
+                    <dd className="tabular-nums text-destructive">- {format(discountTotal)}</dd>
                   </div>
+                )}
+                {/* Split the way an invoice does, from the product's own rate. */}
+                {taxBreakdown.cgst > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">CGST</dt>
+                    <dd className="tabular-nums">{format(taxBreakdown.cgst)}</dd>
+                  </div>
+                )}
+                {taxBreakdown.sgst > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">SGST</dt>
+                    <dd className="tabular-nums">{format(taxBreakdown.sgst)}</dd>
+                  </div>
+                )}
+                {taxBreakdown.igst > 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">IGST</dt>
+                    <dd className="tabular-nums">{format(taxBreakdown.igst)}</dd>
+                  </div>
+                )}
+                {taxTotal === 0 && (
+                  <div className="flex items-baseline justify-between">
+                    <dt className="text-muted-foreground">Tax</dt>
+                    <dd className="tabular-nums text-muted-foreground">
+                      {format(0)}
+                      <span className="ml-1 text-[10px]">no tax master</span>
+                    </dd>
+                  </div>
+                )}
+                <div className="mt-1 flex items-baseline justify-between border-t pt-2">
+                  <dt className="text-sm font-semibold">Total</dt>
+                  <dd className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {format(total)}
+                  </dd>
                 </div>
-              </div>
+              </dl>
 
               {/* Action buttons */}
               <div className="flex items-center justify-end gap-2 mt-3 pt-3 border-t">
+                {/* At an event the only payment decision is Cash or UPI, so an
+                    unanswered one blocks submission. Disabled rather than
+                    tap-then-toast — the button should look unavailable before
+                    it is pressed. validateRow still enforces it; this is the
+                    visible half of the same rule. */}
                 {row.status === "submitted" ? (
                   <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15 h-9 px-4 rounded-xl">
                     Submitted
@@ -1014,7 +1113,12 @@ function CounterCustomerCard({
                     <Button variant="outline" onClick={onEdit} className="rounded-xl h-9">
                       <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
                     </Button>
-                    <Button onClick={onSubmit} disabled={submitting} className="rounded-xl h-9 bg-primary text-primary-foreground hover:bg-primary/90 px-5">
+                    <Button
+                      onClick={onSubmit}
+                      disabled={submitting || paymentBlocked}
+                      title={paymentBlocked ? "Select Cash or UPI first" : undefined}
+                      className="rounded-xl h-9 bg-primary text-primary-foreground hover:bg-primary/90 px-5"
+                    >
                       {submitting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
                       Submit
                     </Button>
@@ -1024,7 +1128,12 @@ function CounterCustomerCard({
                     <Button variant="outline" onClick={onSave} className="rounded-xl h-9">
                       <Save className="h-3.5 w-3.5 mr-1" /> Save
                     </Button>
-                    <Button onClick={onSubmit} disabled={submitting} className="rounded-xl h-9 bg-primary text-primary-foreground hover:bg-primary/90 px-5">
+                    <Button
+                      onClick={onSubmit}
+                      disabled={submitting || paymentBlocked}
+                      title={paymentBlocked ? "Select Cash or UPI first" : undefined}
+                      className="rounded-xl h-9 bg-primary text-primary-foreground hover:bg-primary/90 px-5"
+                    >
                       {submitting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : null}
                       Submit
                     </Button>
@@ -1251,6 +1360,7 @@ function CustomerPickerDrawer({
 interface CounterLineItem {
   uid: string; // local row id
   product_id: string;
+  variant_id?: string | null;
   product_name: string;
   category?: string | null;
   sku?: string | null;
@@ -1286,9 +1396,25 @@ interface CounterRow {
   walkInName?: string;
   walkInPhone?: string;
   saveWalkIn?: boolean;
+  // The real orders.id once submitted. Client-generated up front (see
+  // submitOrderWithOfflineSupport) so it's known immediately, before sync
+  // completes — which is what lets the invoice button work right away.
+  orderId?: string;
 }
 
 const DRAFT_KEY = "counter_sales_draft_v1";
+// Per-event, per-user drafts. A "Saved" row never touches the database — it
+// is pure client state (see saveRow) — so the only thing standing between one
+// rep's unsent customer and another rep's screen is this key. Every team
+// member at an event shares the same visitId; keying on that alone meant
+// whoever next opened the event ON THE SAME DEVICE inherited the previous
+// person's draft straight out of localStorage before either of them had
+// submitted anything. Scoping by user closes that — Yash's draft now lives
+// under a key Manish's session never reads.
+const draftKeyFor = (userId?: string, visitId?: string) => {
+  const who = userId || "anon";
+  return visitId ? `counter_sales_draft_event_${visitId}_${who}` : `${DRAFT_KEY}_${who}`;
+};
 const TAX_OPTIONS = [0, 5, 12, 18, 28];
 
 // Price for 1 selected unit = price-basis rate × (selected conversion / price-basis conversion).
@@ -1346,10 +1472,15 @@ const newItem = (): CounterLineItem => ({
   category: null,
   sku: null,
   unit: "Unit",
-  quantity: 1,
+  // 0 until a product is picked (onPick sets it to 1) — a blank row showing
+  // Qty 1 while Price still read 0 was visually inconsistent.
+  quantity: 0,
   rate: 0,
   discount: 0,
-  tax_rate: 5,
+  // 0, not 5. Tax is the product's, read from gst_percentage when one is
+  // picked; an unmapped product is genuinely untaxed here, exactly as it is in
+  // the Cart. A hardcoded 5 quietly taxed 12%, 18% and 28% goods at 5%.
+  tax_rate: 0,
   original_rate: 0,
 });
 
@@ -1378,6 +1509,11 @@ const itemGrossRate = (i: CounterLineItem) => {
   const o = Number(i.original_rate) || 0;
   return o > r ? o : r;
 };
+// The number spinners are ~24px of a 44px column on a phone and nobody taps a
+// 1-step arrow to reach a quantity of 12. Typing is the interaction here.
+const NO_SPINNER =
+  "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0";
+
 const itemSubtotal = (i: CounterLineItem) =>
   (Number(i.quantity) || 0) * itemGrossRate(i);
 const itemDiscount = (i: CounterLineItem) => {
@@ -1517,30 +1653,43 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
   }, [user]);
 
   // ---- restore draft ----
+  //
+  // Event drafts used to be session-only, so a Saved customer vanished on
+  // refresh or on navigating away — only submitted orders came back, because
+  // those are read from the database. A stall runs for hours on a phone that
+  // sleeps and reloads; losing a saved customer that way is losing a sale.
+  const draftKey = draftKeyFor(user?.id, eventContext?.visitId);
+
   useEffect(() => {
-    // Skip restoring counter draft when bound to an event — drafts are session-only.
-    if (eventContext) return;
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
+      const raw = localStorage.getItem(draftKey);
       if (raw) {
         const parsed = JSON.parse(raw) as CounterRow[];
-        if (Array.isArray(parsed) && parsed.length) setRows(parsed);
+        if (Array.isArray(parsed) && parsed.length) {
+          setRows((prev) => {
+            // Submitted rows are restored from the database; never let a stale
+            // draft copy shadow them.
+            const fromDb = prev.filter((r) => r.status === "submitted");
+            const drafts = parsed.filter((r) => r.status !== "submitted");
+            const merged = [...drafts, ...fromDb];
+            return merged.length ? merged : prev;
+          });
+        }
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [draftKey]);
 
   useEffect(() => {
-    if (eventContext) return;
     try {
       const restorableRows = rows.filter((row) => row.status !== "submitted" && hasRestorableContent(row));
       if (restorableRows.length > 0) {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(restorableRows));
+        localStorage.setItem(draftKey, JSON.stringify(restorableRows));
       } else {
-        localStorage.removeItem(DRAFT_KEY);
+        localStorage.removeItem(draftKey);
       }
     } catch {}
-  }, [eventContext, rows]);
+  }, [draftKey, rows]);
 
   // ---- load already-submitted orders so the Summary tab persists across navigation ----
   useEffect(() => {
@@ -1573,7 +1722,9 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         const orderIds = orders.map((o: any) => o.id);
         const { data: itemsData } = await supabase
           .from("order_items")
-          .select("order_id, product_id, product_name, category, rate, unit, quantity, discount_amount, total")
+          .select(
+            "order_id, product_id, product_name, category, rate, unit, quantity, discount_amount, total, sgst_amount, cgst_amount",
+          )
           .in("order_id", orderIds);
         const itemsByOrder = new Map<string, any[]>();
         (itemsData || []).forEach((it: any) => {
@@ -1586,6 +1737,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
           const oItems = itemsByOrder.get(o.id) || [];
           return {
             uid: `db_${o.id}`,
+            orderId: o.id,
             customer: {
               id: o.counter_customer_id || o.id,
               name: o.retailer_name || "Customer",
@@ -1602,7 +1754,20 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                   quantity: Number(it.quantity) || 0,
                   rate: Number(it.rate) || 0,
                   discount: Number(it.discount_amount) || 0,
-                  tax_rate: 0,
+                  // Recover the rate that was actually charged. Hardcoding 0
+                  // here was invisible while order_items.total included tax;
+                  // now that total is the taxable amount and the tax sits in
+                  // sgst/cgst, a restored row rendered its pre-tax figure —
+                  // ₹300 on the Orders tab against ₹315 on Summary.
+                  tax_rate: (() => {
+                    const taxable = Number(it.total) || 0;
+                    const tax =
+                      (Number(it.sgst_amount) || 0) + (Number(it.cgst_amount) || 0);
+                    if (taxable > 0 && tax > 0) return (tax / taxable) * 100;
+                    // Older orders stored no tax; fall back to the product's
+                    // current rate rather than showing it as untaxed.
+                    return Number((products.find((p) => p.id === it.product_id) as any)?.gst_percentage) || 0;
+                  })(),
                 }))
               : [newItem()],
             status: "submitted",
@@ -1675,7 +1840,11 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       rs.map((r) => (r.uid !== rowUid ? r : { ...r, items: [...r.items, newItem()] }))
     );
 
-  const addRow = () => setRows((rs) => [...rs, newRow()]);
+  // New customer goes to the TOP. At a stall you are always working the person
+  // in front of you, and appending buried the fresh card under every customer
+  // already served — more scrolling with every sale. Rows already saved or
+  // submitted still sink below the drafts (see orderedRows).
+  const addRow = () => setRows((rs) => [newRow(), ...rs]);
   const deleteRow = (uid: string) =>
     setRows((rs) => (rs.length === 1 ? [newRow()] : rs.filter((r) => r.uid !== uid)));
 
@@ -1693,7 +1862,13 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     if (filled.length === 0) return "Add at least one product";
     if (filled.some((i) => !i.quantity || i.quantity <= 0)) return "Quantity must be > 0";
     if (requirePayment) {
-      if (!r.paymentMode) return "Please select payment type";
+      // At an event the screen only offers Cash or UPI, so say that rather than
+      // asking for a "payment type" the rep was never shown.
+      if (eventContext) {
+        if (!r.paymentMethod) return "Select Cash or UPI";
+      } else if (!r.paymentMode) {
+        return "Please select payment type";
+      }
       if ((r.paymentMode === "full" || r.paymentMode === "partial") && !r.paymentMethod) {
         return "Please select payment method";
       }
@@ -1701,7 +1876,12 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         const amt = parseFloat(r.partialAmount || "");
         if (!amt || amt <= 0) return "Enter a valid partial payment amount";
       }
-      if (isPaymentProofMandatory && navigator.onLine) {
+      // Not at an event: the screen never offered a way to capture cheque,
+      // UPI or NEFT proof there (event mode is Cash/UPI only, no camera step),
+      // so requiring one made UPI silently unsubmittable — Cash worked only
+      // because it has no proof requirement at all. A retailer order still
+      // needs it exactly as before.
+      if (!eventContext && isPaymentProofMandatory && navigator.onLine) {
         if (r.paymentMethod === "cheque" && !r.chequePhotoUrl) return "Capture cheque photo";
         if (r.paymentMethod === "upi" && !r.upiPhotoUrl) return "Capture payment confirmation";
         if (r.paymentMethod === "neft" && !r.neftPhotoUrl) return "Capture NEFT confirmation";
@@ -1713,7 +1893,10 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
   const saveRow = (uid: string) => {
     const row = rows.find((r) => r.uid === uid);
     if (!row) return;
-    const err = validateRow(row);
+    // Saving collapses the card and it then reads as finished. At an event that
+    // must not be possible with the payment unanswered, or the rep discovers it
+    // only at Submit All, several customers later.
+    const err = validateRow(row, !!eventContext);
     if (err) {
       toast.error(err);
       return;
@@ -1738,8 +1921,18 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     }
     setSubmittingRows((s) => new Set(s).add(uid));
     const filledItems = row.items.filter((i) => i.product_id);
-    const subtotal = filledItems.reduce((s, i) => s + itemAmount(i), 0);
-    const total = Math.round(subtotal);
+    // subtotal is the TAXABLE sum, tax added on top — the convention the rest
+    // of the app writes and sync_order_with_items_v2 enforces:
+    //   total_amount == sum(order_items.total) + sgst + cgst
+    // Using itemAmount here (taxable + tax) double-counted the tax the moment
+    // sgst/cgst stopped being hardcoded 0, and the server rejected every order.
+    const subtotal = filledItems.reduce((s, i) => s + itemTaxable(i), 0);
+    const taxSum = filledItems.reduce(
+      (s, i) =>
+        s + computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate }).totalTax,
+      0,
+    );
+    const total = Math.round(subtotal + taxSum);
     const isWalkIn = (row.customerType || "existing") === "walkin";
     let walkInCustomerId: string | null = null;
     if (isWalkIn && row.saveWalkIn && (row.walkInName || "").trim() && user) {
@@ -1825,6 +2018,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     };
     const items = filledItems.map((i) => ({
       product_id: i.product_id,
+      variant_id: i.variant_id || null,
       product_name: i.product_name,
       category: i.category || null,
       rate: i.rate,
@@ -1832,17 +2026,22 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       discount_amount: Number(i.discount) || 0,
       unit: i.unit,
       quantity: i.quantity,
-      total: itemAmount(i),
-      hsn_code: null,
-      sgst_amount: 0,
-      cgst_amount: 0,
+      // Excludes tax — cgst/sgst are carried separately below.
+      total: itemTaxable(i),
+      hsn_code: (products.find((p) => p.id === i.product_id) as any)?.hsn_code ?? null,
+      // These were hardcoded 0, so the GST shown on screen never reached the
+      // database and the invoice printed no tax at all.
+      ...(() => {
+        const t = computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate });
+        return { sgst_amount: t.sgst, cgst_amount: t.cgst };
+      })(),
     }));
     try {
       const res = await submitOrderWithOfflineSupport(orderData, items, {
         connectivityStatus: navigator.onLine ? "online" : "offline",
       });
       if (res?.success) {
-        updateRow(uid, { status: "submitted", expanded: false });
+        updateRow(uid, { status: "submitted", expanded: false, orderId: res.order?.id });
         toast.success("Order submitted successfully");
         // Auto-update event stock tracker
         if (eventContext?.visitId && navigator.onLine) {
@@ -1881,7 +2080,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
 
   const saveDraft = () => {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(rows));
+      localStorage.setItem(draftKey, JSON.stringify(rows));
       toast.success("Draft saved on this device");
     } catch (e: any) {
       toast.error("Could not save draft");
@@ -1890,7 +2089,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
 
   const clearDraft = () => {
     try {
-      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(draftKey);
     } catch {}
   };
 
@@ -1918,7 +2117,9 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     for (const r of submittableRows) {
       const err = validateRow(r, true);
       if (err) {
-        toast.error(`Customer "${r.customer?.name || "?"}": ${err}`);
+        toast.error(
+          `${(r.walkInName || "").trim() || r.customer?.name || "Customer"}: ${err}`,
+        );
         return;
       }
     }
@@ -1927,8 +2128,14 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     const updated = [...rows];
     for (const r of submittableRows) {
       const filledItems = r.items.filter((i) => i.product_id);
-      const subtotal = filledItems.reduce((s, i) => s + itemAmount(i), 0);
-      const total = Math.round(subtotal);
+      // Taxable sum; tax added on top. See the note in submitRow.
+      const subtotal = filledItems.reduce((s, i) => s + itemTaxable(i), 0);
+      const taxSum = filledItems.reduce(
+        (s, i) =>
+          s + computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate }).totalTax,
+        0,
+      );
+      const total = Math.round(subtotal + taxSum);
       const isWalkIn = (r.customerType || "existing") === "walkin";
       let walkInCustomerId: string | null = null;
       if (isWalkIn && r.saveWalkIn && (r.walkInName || "").trim() && user) {
@@ -2006,6 +2213,7 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       };
       const items = filledItems.map((i) => ({
         product_id: i.product_id,
+        variant_id: i.variant_id || null,
         product_name: i.product_name,
         category: i.category || null,
         rate: i.rate,
@@ -2013,10 +2221,12 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         discount_amount: Number(i.discount) || 0,
         unit: i.unit,
         quantity: i.quantity,
-        total: itemAmount(i),
-        hsn_code: null,
-        sgst_amount: 0,
-        cgst_amount: 0,
+        total: itemTaxable(i),
+        hsn_code: (products.find((p) => p.id === i.product_id) as any)?.hsn_code ?? null,
+        ...(() => {
+          const t = computeLineTax({ taxableAmount: itemTaxable(i), gstPercentage: i.tax_rate });
+          return { sgst_amount: t.sgst, cgst_amount: t.cgst };
+        })(),
       }));
       try {
         const res = await submitOrderWithOfflineSupport(orderData, items, {
@@ -2025,7 +2235,13 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
         if (res?.success) {
           successCount++;
           const idx = updated.findIndex((x) => x.uid === r.uid);
-          if (idx >= 0) updated[idx] = { ...updated[idx], status: "submitted", expanded: false };
+          if (idx >= 0)
+            updated[idx] = {
+              ...updated[idx],
+              status: "submitted",
+              expanded: false,
+              orderId: (res as any).order?.id,
+            };
           if (eventContext?.visitId && navigator.onLine) {
             try {
               await supabase.rpc("apply_event_stock_for_order" as any, {
@@ -2060,6 +2276,21 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
     ).length;
     const items = rows.reduce((s, r) => s + rowItemCount(r), 0);
     const grand = rows.reduce((s, r) => s + rowAmount(r), 0);
+    // Weight sold, where the catalogue actually knows the weight. Falls back to
+    // the item count in the tile rather than showing a confident 0.00 kg.
+    const kg = rows.reduce(
+      (s, r) =>
+        s +
+        r.items.reduce((a, i) => {
+          if (!i.product_id) return a;
+          const qty = Number(i.quantity) || 0;
+          if (/^kgs?$/i.test(i.unit || "")) return a + qty;
+          if (/^g(ram)?s?$/i.test(i.unit || "")) return a + qty / 1000;
+          const g = Number((products.find((p) => p.id === i.product_id) as any)?.net_weight_g) || 0;
+          return g ? a + (qty * g) / 1000 : a;
+        }, 0),
+      0,
+    );
     const subtotal = rows.reduce(
       (s, r) =>
         s +
@@ -2078,14 +2309,16 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
       (s, r) => s + r.items.reduce((a, i) => a + (i.product_id ? itemTax(i) : 0), 0),
       0
     );
-    return { customers, items, grand, subtotal, discount, tax };
-  }, [rows]);
+    return { customers, items, grand, kg, subtotal, discount, tax };
+  }, [rows, products]);
 
   const orderedRows = useMemo(
     () =>
       [...rows]
         .map((row, originalIdx) => ({ row, originalIdx }))
         .sort((a, b) => {
+          // Finished rows sink; among the rest, insertion order — and because
+          // addRow prepends, that puts the newest customer first.
           const aDone = a.row.status === "saved" || a.row.status === "submitted" ? 1 : 0;
           const bDone = b.row.status === "saved" || b.row.status === "submitted" ? 1 : 0;
           if (aDone !== bDone) return aDone - bDone;
@@ -2125,41 +2358,41 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                 </p>
               </div>
             </div>
-            <Button
-              onClick={submitAll}
-              disabled={submitting}
-              className="rounded-xl h-9 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm shrink-0 bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
-            >
-              {submitting ? (
-                <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5 animate-spin" />
-              ) : (
-                <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-              )}
-              Submit All
-            </Button>
+            {/* No Submit All up here. The sticky bar at the bottom already
+                carries it, with the amount attached, and it sits under the
+                thumb rather than at the top of a scrolled page. Two buttons for
+                the same irreversible action, one of them without the total, is
+                how the wrong one gets pressed. */}
           </div>
 
           {/* Orders / Summary tabs */}
           <Tabs value={tab} onValueChange={(v) => setTab(v as "orders" | "summary")} className="mb-3">
             <TabsList className="grid grid-cols-2 w-full rounded-xl h-9">
+              {/* No counts. The Summary badge was especially misleading: it
+                  counted THIS device's rows, while the tab itself shows the
+                  whole team's orders from the database — so it read 0 next to a
+                  tab holding other people's orders. */}
               <TabsTrigger value="orders" className="rounded-lg text-xs sm:text-sm">
                 Orders
-                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">{rows.length}</Badge>
               </TabsTrigger>
               <TabsTrigger value="summary" className="rounded-lg text-xs sm:text-sm">
                 Summary
-                <Badge variant="secondary" className="ml-2 h-5 px-1.5 text-[10px]">
-                  {rows.filter((r) => r.status === "saved" || r.status === "submitted").length}
-                </Badge>
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
           {tab === "summary" ? (
-            <SummaryView
-              rows={rows.filter((r) => r.status === "saved" || r.status === "submitted")}
-              onDelete={(uid) => deleteRow(uid)}
-            />
+            eventContext?.visitId ? (
+              // Events are worked by a team, so Summary reads the event's orders
+              // from the database rather than this device's local rows — the
+              // Orders tab is deliberately only yours, this is everyone's.
+              <EventTeamSummary visitId={eventContext.visitId} />
+            ) : (
+              <SummaryView
+                rows={rows.filter((r) => r.status === "saved" || r.status === "submitted")}
+                onDelete={(uid) => deleteRow(uid)}
+              />
+            )
           ) : (
           <>
           {/* Overview summary card */}
@@ -2180,8 +2413,15 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                     <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">Total Items</div>
-                    <div className="text-sm sm:text-base font-bold leading-tight">{totals.items}</div>
+                    <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
+                      {/* The label has to follow the number. It said "KG sold"
+                          while falling back to the item count, so 3 items read
+                          as 3 kg. */}
+                      {eventContext && totals.kg > 0 ? "KG sold" : "Items"}
+                    </div>
+                    <div className="text-sm sm:text-base font-bold leading-tight">
+                      {eventContext && totals.kg > 0 ? totals.kg.toFixed(2) : totals.items}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2.5 pl-2 sm:pl-3 min-w-0">
@@ -2189,7 +2429,9 @@ export default function CounterSales({ eventContext }: { eventContext?: EventCon
                     <span className="text-amber-600 dark:text-amber-400 text-xs sm:text-sm font-bold">{currencySymbol}</span>
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">Grand Total</div>
+                    <div className="text-[10px] sm:text-[11px] text-muted-foreground leading-tight whitespace-nowrap">
+                      {eventContext ? "Revenue" : "Grand Total"}
+                    </div>
                     <div className="text-sm sm:text-base font-bold leading-tight whitespace-nowrap">{format(totals.grand)}</div>
                   </div>
                 </div>
@@ -2372,9 +2614,18 @@ function OrderRow({
 
         <div className="flex items-center justify-end gap-2">
           {row.status === "submitted" ? (
-            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15">
-              Submitted
-            </Badge>
+            <>
+              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/15">
+                Submitted
+              </Badge>
+              {/* The order id is known the instant submit succeeds — captured
+                  client-side before sync even completes — so the invoice can
+                  be generated right here instead of sending the rep off to a
+                  global list of every order from every user to go find it. */}
+              {row.orderId && (
+                <OrderInvoiceButton orderId={row.orderId} iconOnly icon={<FileText className="h-3.5 w-3.5" />} />
+              )}
+            </>
           ) : row.status === "saved" ? (
             <>
               <Badge variant="secondary">
@@ -2444,6 +2695,7 @@ function OrderRow({
                     original_rate: Number(p.rate) || 0,
                     conversion_to_base: null,
                     price_basis_conversion: null,
+                    quantity: item.quantity || 1,
                   })
                 }
                 onEnter={() => {
@@ -2562,6 +2814,210 @@ function OrderRow({
 // ===================================================================
 // SUMMARY VIEW
 // ===================================================================
+/**
+ * Event Summary — the whole team's orders, read from the database.
+ *
+ * The Orders tab is deliberately only your own entries: it is the tab you keep
+ * adding to, and it must not fill with rows you cannot edit. Summary is the
+ * other half of that decision — it answers "how did the stall do", which is a
+ * question about everyone working it, so every order shows who placed it.
+ *
+ * A list, not a grid of cards: these rows are scanned and compared, and cards
+ * put whitespace between figures that want to line up.
+ */
+function EventTeamSummary({ visitId }: { visitId: string }) {
+  const { format } = useCurrency();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data: ords, error: oErr } = await supabase
+          .from("orders")
+          .select("id, retailer_name, total_amount, created_at, user_id, status")
+          .eq("visit_id", visitId)
+          .neq("status", "cancelled")
+          .order("created_at", { ascending: false });
+        if (oErr) throw oErr;
+        const list = ords || [];
+        if (list.length === 0) {
+          if (!cancelled) setOrders([]);
+          return;
+        }
+
+        const ids = list.map((o: any) => o.id);
+        const [{ data: items }, { data: people }] = await Promise.all([
+          supabase
+            .from("order_items")
+            .select("order_id, product_id, product_name, quantity, unit, total")
+            .in("order_id", ids),
+          supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", Array.from(new Set(list.map((o: any) => o.user_id).filter(Boolean)))),
+        ]);
+
+        // Weight per product, so quantity can be expressed in KG.
+        const productIds = Array.from(
+          new Set((items || []).map((i: any) => i.product_id).filter(Boolean)),
+        );
+        let weights = new Map<string, number>();
+        if (productIds.length) {
+          const { data: prods } = await supabase
+            .from("products")
+            .select("id, net_weight_g")
+            .in("id", productIds);
+          weights = new Map(
+            (prods || [])
+              .filter((p: any) => p.net_weight_g)
+              .map((p: any) => [p.id, Number(p.net_weight_g)]),
+          );
+        }
+
+        const nameById = new Map((people || []).map((p: any) => [p.id, p.full_name]));
+        const itemsByOrder = new Map<string, any[]>();
+        (items || []).forEach((i: any) => {
+          const arr = itemsByOrder.get(i.order_id) || [];
+          arr.push(i);
+          itemsByOrder.set(i.order_id, arr);
+        });
+
+        if (cancelled) return;
+        setOrders(
+          list.map((o: any) => {
+            const its = itemsByOrder.get(o.id) || [];
+            return {
+              ...o,
+              placedBy: nameById.get(o.user_id) || "Unknown",
+              itemCount: its.length,
+              units: its.reduce((t, i) => t + (Number(i.quantity) || 0), 0),
+              kg: its.reduce((t, i) => {
+                const qty = Number(i.quantity) || 0;
+                // Already sold by weight, or convertible via the product's
+                // net weight. Anything else contributes nothing rather than
+                // being guessed at.
+                if (/^kgs?$/i.test(i.unit || "")) return t + qty;
+                if (/^g(ram)?s?$/i.test(i.unit || "")) return t + qty / 1000;
+                const g = weights.get(i.product_id);
+                return g ? t + (qty * g) / 1000 : t;
+              }, 0),
+            };
+          }),
+        );
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message || "Could not load the event's orders");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visitId]);
+
+  const totals = orders.reduce(
+    (t, o) => ({
+      customers: t.customers,
+      kg: t.kg + o.kg,
+      units: t.units + o.units,
+      revenue: t.revenue + (Number(o.total_amount) || 0),
+    }),
+    { customers: 0, kg: 0, units: 0, revenue: 0 },
+  );
+  totals.customers = new Set(
+    orders.map((o) => (o.retailer_name || "").trim().toLowerCase()).filter(Boolean),
+  ).size;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading the event's orders…
+      </div>
+    );
+  }
+  if (error) {
+    return <Card className="rounded-2xl p-6 text-center text-sm text-destructive">{error}</Card>;
+  }
+  if (orders.length === 0) {
+    return (
+      <Card className="rounded-2xl p-10 text-center text-sm text-muted-foreground">
+        No orders yet at this event.
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <Card className="rounded-2xl">
+        <div className="grid grid-cols-3 divide-x px-3 py-3">
+          <Stat label="Customers" value={String(totals.customers)} />
+          <Stat
+            label={totals.kg > 0 ? "KG sold" : "Units"}
+            value={totals.kg > 0 ? totals.kg.toFixed(2) : String(totals.units)}
+            hint={totals.kg > 0 ? undefined : "no weight set"}
+          />
+          <Stat label="Revenue" value={format(totals.revenue)} />
+        </div>
+      </Card>
+
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-semibold">Orders at this event</h3>
+        <Badge variant="secondary">{orders.length}</Badge>
+      </div>
+
+      <Card className="rounded-2xl divide-y overflow-hidden">
+        {orders.map((o) => (
+          <div key={o.id} className="flex items-center gap-3 px-3 py-2.5">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{o.retailer_name || "Walk-in"}</div>
+              <div className="truncate text-[11px] text-muted-foreground">
+                {o.placedBy} ·{" "}
+                {new Date(o.created_at).toLocaleTimeString("en-IN", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}{" "}
+                · {o.itemCount} item{o.itemCount !== 1 ? "s" : ""}
+              </div>
+            </div>
+            <div className="shrink-0 text-right">
+              <div className="text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {format(Number(o.total_amount) || 0)}
+              </div>
+              {o.kg > 0 && (
+                <div className="text-[10px] tabular-nums text-muted-foreground">
+                  {o.kg.toFixed(2)} kg
+                </div>
+              )}
+            </div>
+            <OrderInvoiceButton
+              orderId={o.id}
+              iconOnly
+              icon={<FileText className="h-4 w-4" />}
+              className="h-8 w-8 shrink-0"
+            />
+          </div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="min-w-0 px-2 text-center">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="truncate text-sm font-bold tabular-nums sm:text-base">{value}</div>
+      {hint && <div className="truncate text-[9px] text-muted-foreground">{hint}</div>}
+    </div>
+  );
+}
+
 function SummaryView({
   rows,
   onDelete,
@@ -2618,14 +3074,13 @@ function SummaryView({
                     {format(rowAmount(r))}
                   </div>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-xl"
-                  onClick={() => navigate("/invoices")}
-                >
-                  <FileText className="h-3.5 w-3.5 mr-1" /> Download Invoice
-                </Button>
+                {r.orderId ? (
+                  <OrderInvoiceButton orderId={r.orderId} className="rounded-xl" />
+                ) : (
+                  <Button size="sm" variant="outline" className="rounded-xl" disabled>
+                    <FileText className="h-3.5 w-3.5 mr-1" /> Invoice unavailable
+                  </Button>
+                )}
               </div>
             </Card>
           );
@@ -3030,18 +3485,59 @@ function InlineProductSelect({
     if (!open) setSearch("");
   }, [open]);
 
+  // Flatten each product's variants into their own selectable rows. Without
+  // this, a product with variants was invisible past its base entry — ADUKU
+  // 20G showed, but the 100G/250G/500G variants sitting right under it in the
+  // catalogue never appeared, so a rep at a stall simply could not sell them.
+  // product_id always stays the BASE id (order_items, stock tracking and tax
+  // lookups all key on it); variant_id rides alongside for display, price and
+  // its own GST/HSN when the variant overrides them.
+  const flatOptions = useMemo(() => {
+    const out: any[] = [];
+    for (const p of products) {
+      out.push({
+        id: p.id,
+        product_id: p.id,
+        variant_id: null,
+        name: p.name,
+        sku: p.sku,
+        rate: p.rate,
+        category: p.category,
+        gst_percentage: p.gst_percentage,
+        unit: p.unit,
+        hsn_code: (p as any).hsn_code,
+      });
+      for (const v of p.variants || []) {
+        if (v.is_active === false) continue;
+        out.push({
+          id: `${p.id}::${v.id}`,
+          product_id: p.id,
+          variant_id: v.id,
+          name: v.variant_name,
+          sku: v.sku,
+          rate: v.price,
+          category: p.category,
+          gst_percentage: v.gst_percentage ?? p.gst_percentage,
+          unit: v.base_unit || p.unit,
+          hsn_code: v.hsn_code ?? (p as any).hsn_code,
+        });
+      }
+    }
+    return out;
+  }, [products]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = !q
-      ? products
-      : products.filter(
+      ? flatOptions
+      : flatOptions.filter(
           (p) =>
             p.name?.toLowerCase().includes(q) ||
             p.sku?.toLowerCase().includes(q) ||
             p.category?.name?.toLowerCase().includes(q)
         );
     return list.slice(0, 50);
-  }, [products, search]);
+  }, [flatOptions, search]);
 
   return (
     <Popover open={open} onOpenChange={(v) => !disabled && setOpen(v)}>
@@ -3050,16 +3546,22 @@ function InlineProductSelect({
           type="button"
           disabled={disabled}
           className={cn(
-            "h-9 w-full rounded-md border border-input bg-background px-3 text-left text-sm",
-            "flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-60",
+            "h-9 w-full rounded-md border border-input bg-background px-2.5 text-left text-sm",
+            "flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60",
             !value.product_id && "text-muted-foreground"
           )}
         >
-          <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          {/* The magnifier only earns its ~22px while the field is empty and
+              still reads as a search box. Once a product is chosen the field is
+              a value, and on a phone that icon was truncating the name it was
+              supposed to help find — "A01 Aruna Go…". */}
+          {!value.product_id && (
+            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          )}
           <span className="truncate">
             {value.product_id
               ? value.product_name
-              : "Search product by name, SKU or scan…"}
+              : "Search product or scan…"}
           </span>
         </button>
       </PopoverTrigger>
@@ -3104,8 +3606,11 @@ function InlineProductSelect({
                       {p.sku ? `SKU: ${p.sku}` : p.category?.name || "—"}
                     </div>
                   </div>
-                  <div className="text-sm font-semibold shrink-0">
-                    {format(Number(p.rate || 0))}
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-semibold">{format(Number(p.rate || 0))}</div>
+                    {p.variant_id && (
+                      <div className="text-[9px] uppercase tracking-wide text-muted-foreground">variant</div>
+                    )}
                   </div>
                 </button>
               ))

@@ -30,6 +30,11 @@ interface Visit {
     visitTime?: string;
     ownActivity: boolean;
   };
+  /** One AI insight line for this retailer, from the stored agent runs. */
+  aiInsight?: {
+    kind: "new" | "churn" | "route" | "coach";
+    line: string;
+  };
 }
 
 interface VirtualizedVisitListProps {
@@ -53,6 +58,9 @@ const MemoizedVisitCard = memo(VisitCard, (prevProps, nextProps) => {
     prevProps.skipInitialCheck === nextProps.skipInitialCheck &&
     prevProps.viewingUserId === nextProps.viewingUserId &&
     prevProps.pointsBreakdown === nextProps.pointsBreakdown &&
+    // AI insight lines arrive AFTER first paint (the stored agent run loads
+    // asynchronously) — without this the memo swallows the banner update.
+    prevProps.visit.aiInsight?.line === nextProps.visit.aiInsight?.line &&
     (prevProps.visit as any).teammateActivity?.userId === (nextProps.visit as any).teammateActivity?.userId &&
     (prevProps.visit as any).teammateActivity?.orderValue === (nextProps.visit as any).teammateActivity?.orderValue
   );

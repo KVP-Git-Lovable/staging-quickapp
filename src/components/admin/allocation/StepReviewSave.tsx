@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronDown, ChevronRight, Users, AlertTriangle, Split } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, AlertTriangle, Split, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { NumericTargetInput } from '../NumericTargetInput';
 import { InlineStrategySelector, StrategyBadge } from '../TargetStrategySelector';
 import type { TargetStrategy } from '../TargetStrategySelector';
+import { MonthlyTargetGrid } from './MonthlyTargetGrid';
 
 const formatNumber = (num: number) => new Intl.NumberFormat('en-IN').format(num);
 const formatCurrency = (num: number) => {
@@ -49,6 +50,13 @@ interface StepReviewSaveProps {
   onTargetChange: (userId: string, field: string, value: number) => void;
   onStrategyChange: (userId: string, strategy: TargetStrategy) => void;
   onSplitManager: (userId: string) => void;
+  fyYear: number;
+  targetStartMonth?: number;
+  targetEndMonth?: number;
+  /** The Split dialog is itself an automatic-split tool, so it is hidden while
+   *  Manual Allocation is on rather than left sitting beside a claim that
+   *  nothing here recalculates automatically. */
+  manualAllocationMode?: boolean;
 }
 
 export function StepReviewSave({
@@ -59,7 +67,22 @@ export function StepReviewSave({
   onTargetChange,
   onStrategyChange,
   onSplitManager,
+  fyYear,
+  targetStartMonth = 1,
+  targetEndMonth = 12,
+  manualAllocationMode = false,
 }: StepReviewSaveProps) {
+  // Which employees currently have their month-wise breakdown open.
+  const [monthsOpen, setMonthsOpen] = useState<Set<string>>(new Set());
+
+  const toggleMonths = (id: string) => {
+    setMonthsOpen(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   const [expanded, setExpanded] = useState<Set<string>>(() => {
     const all = new Set<string>();
     const collect = (nodes: ReviewNode[]) => {
@@ -87,6 +110,7 @@ export function StepReviewSave({
     const vis = alloc?.visitsTarget ?? 0;
     const strategy = alloc?.targetStrategy ?? 'roll_down';
     const isNoTarget = strategy === 'no_target';
+    const isMonthsOpen = monthsOpen.has(node.userId);
 
     // Compute child sum for distribution warning (skip no_target children)
     let childSum = 0;
@@ -124,12 +148,11 @@ export function StepReviewSave({
                   <Users className="h-2.5 w-2.5" />{node.subordinateCount}
                 </Badge>
               )}
-              {isManager && (
-                <InlineStrategySelector
-                  value={strategy}
-                  onChange={(s) => onStrategyChange(node.userId, s)}
-                />
-              )}
+              <InlineStrategySelector
+                value={strategy}
+                onChange={(s) => onStrategyChange(node.userId, s)}
+                hasSubordinates={isManager}
+              />
             </div>
 
             {/* Editable target inputs — hidden for no_target */}
@@ -137,18 +160,20 @@ export function StepReviewSave({
               <span className="text-xs text-muted-foreground italic">No target assigned</span>
             ) : (
             <div className="flex items-center gap-2">
-              {isManager && (
+              {isManager && !manualAllocationMode && (
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => onSplitManager(node.userId)}>
                   <Split className="h-3 w-3" /> Split
                 </Button>
               )}
               {enabledMetrics.quantity && (
                 <div className="flex items-center gap-1">
-                  <Input
-                    type="text"
-                    value={qty > 0 ? formatNumber(qty) : ''}
-                    onChange={(e) => onTargetChange(node.userId, 'quantityTarget', parseNum(e.target.value))}
+                  <NumericTargetInput
+                    value={qty}
+                    onValueChange={(v) => onTargetChange(node.userId, 'quantityTarget', v)}
+                    format={formatNumber}
+                    parse={parseNum}
                     placeholder="0"
+                    aria-label={`Quantity target for ${node.fullName}`}
                     className="h-8 w-20 text-right text-sm"
                   />
                   <span className="text-xs text-muted-foreground">{quantityUnit}</span>
@@ -157,27 +182,42 @@ export function StepReviewSave({
               {enabledMetrics.revenue && (
                 <div className="flex items-center gap-1">
                   <span className="text-xs text-muted-foreground">₹</span>
-                  <Input
-                    type="text"
-                    value={rev > 0 ? formatNumber(rev) : ''}
-                    onChange={(e) => onTargetChange(node.userId, 'revenueTarget', parseNum(e.target.value))}
+                  <NumericTargetInput
+                    value={rev}
+                    onValueChange={(v) => onTargetChange(node.userId, 'revenueTarget', v)}
+                    format={formatNumber}
+                    parse={parseNum}
                     placeholder="0"
+                    aria-label={`Revenue target for ${node.fullName}`}
                     className="h-8 w-24 text-right text-sm"
                   />
                 </div>
               )}
               {enabledMetrics.visits && (
                 <div className="flex items-center gap-1">
-                  <Input
-                    type="text"
-                    value={vis > 0 ? formatNumber(vis) : ''}
-                    onChange={(e) => onTargetChange(node.userId, 'visitsTarget', Math.round(parseNum(e.target.value)))}
+                  <NumericTargetInput
+                    value={vis}
+                    onValueChange={(v) => onTargetChange(node.userId, 'visitsTarget', v)}
+                    format={formatNumber}
+                    parse={parseNum}
+                    transform={Math.round}
                     placeholder="0"
+                    aria-label={`Visits target for ${node.fullName}`}
                     className="h-8 w-16 text-right text-sm"
                   />
                   <span className="text-xs text-muted-foreground">vis</span>
                 </div>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs gap-1"
+                onClick={() => toggleMonths(node.userId)}
+                aria-expanded={isMonthsOpen}
+              >
+                <CalendarDays className="h-3 w-3" />
+                {isMonthsOpen ? 'Hide months' : 'Months'}
+              </Button>
             </div>
             )}
           </div>
@@ -193,6 +233,22 @@ export function StepReviewSave({
             </div>
           )}
         </div>
+
+        {/* Month-wise targets, working days and auto-calculated daily average */}
+        {isMonthsOpen && !isNoTarget && (
+          <MonthlyTargetGrid
+            userId={node.userId}
+            userName={node.fullName}
+            fyYear={fyYear}
+            quantityUnit={quantityUnit}
+            enabledMetrics={enabledMetrics}
+            annualQuantity={qty}
+            annualRevenue={rev}
+            annualVisits={vis}
+            targetStartMonth={targetStartMonth}
+            targetEndMonth={targetEndMonth}
+          />
+        )}
 
         {isExp && hasChildren && node.children.map(c => renderNode(c, depth + 1))}
       </div>

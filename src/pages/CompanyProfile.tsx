@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, Palette, FileText, Globe, Loader2, ToggleRight } 
 import CompanySettings from "@/components/invoice/CompanySettings";
 import HeaderBrandingSettings from "@/components/invoice/HeaderBrandingSettings";
 import DocumentSettings from "@/components/invoice/DocumentSettings";
+import InvoiceNumberSettings from "@/components/invoice/InvoiceNumberSettings";
 import RegionalSettings from "@/components/RegionalSettings";
 
 import { CompanyFeaturesTab } from "@/components/features/CompanyFeaturesTab";
@@ -73,7 +74,8 @@ export default function CompanyProfile() {
             <CompanySettings />
           </TabsContent>
 
-          <TabsContent value="documents">
+          <TabsContent value="documents" className="space-y-4">
+            <InvoiceNumberSettings />
             <DocumentSettings />
           </TabsContent>
 

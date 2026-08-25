@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Navbar } from "@/components/Navbar";
 import { ArrowLeft, Plus, Loader2, Trash2, Package, IndianRupee, MapPin, Calendar, Save, Search, ChevronDown, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchEventByRouteId } from "@/lib/eventLookup";
@@ -17,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/LineItemUomSelect";
+import UomLabel from "@/components/uom/UomLabel";
 
 interface EventInfo {
   id: string;
@@ -104,7 +106,7 @@ const newDraft = (): DraftRow => ({
   product_id: null,
   product_name: "",
   product_sku: null,
-  unit: "Unit",
+  unit: "",
   stock_taken: "",
   sold_qty: "",
   price: 0,
@@ -193,7 +195,7 @@ export default function EventStockTracker() {
       product_id: r.product_id,
       product_name: r.products?.name || "Product",
       product_sku: r.products?.sku || null,
-      unit: r.unit || r.products?.base_unit || "Unit",
+      unit: r.unit || "",
       stock_taken: Number(r.stock_taken) || 0,
       sold_qty: Number(r.sold_qty) || 0,
       price: Number(r.price) || 0,
@@ -288,10 +290,24 @@ export default function EventStockTracker() {
   const updateDraft = (key: string, patch: Partial<DraftRow>) => {
     setDrafts((prev) => prev.map((d) => d.key === key ? { ...d, ...patch } : d));
   };
-  const removeDraft = (key: string) => {
-    setDrafts((prev) => prev.length === 1 ? [newDraft()] : prev.filter((d) => d.key !== key));
-  };
   const addDraftRow = () => setDrafts((prev) => [...prev, newDraft()]);
+
+  // UOM conversion factors (code → conversion_to_base) for one product.
+  const fetchConvFactors = async (productId: string, codes: string[]) => {
+    const { data } = await supabase
+      .from("product_uom_mapping")
+      .select("conversion_to_base, uom_master(code)")
+      .eq("product_id", productId)
+      .neq("is_active", false);
+    const map: Record<string, number> = {};
+    (data || []).forEach((r: any) => {
+      const code = (r.uom_master?.code || "").toLowerCase();
+      if (code && codes.some((c) => c.toLowerCase() === code)) {
+        map[code] = Number(r.conversion_to_base) || 0;
+      }
+    });
+    return map;
+  };
 
   const saveDrafts = async () => {
     const valid = drafts.filter((d) => d.product_id && Number(d.stock_taken) > 0);
@@ -299,14 +315,47 @@ export default function EventStockTracker() {
       toast.error("Add at least one product with stock");
       return;
     }
-    const existingIds = new Set(items.map((i) => i.product_id));
-    const dups = valid.filter((d) => existingIds.has(d.product_id!));
-    if (dups.length) {
-      toast.error("Some products already exist for this day");
-      return;
-    }
     for (const d of valid) {
       const taken = Number(d.stock_taken) || 0;
+
+      // Orders may already have auto-created this product's row (sold_qty is
+      // being counted by the order trigger). Merge the entered Stock Taken
+      // onto it instead of rejecting the save — never overwrite sold_qty.
+      const existing = items.find((i) => i.product_id === d.product_id);
+      if (existing) {
+        let sold = existing.sold_qty;
+        let unit = existing.unit || d.unit || "";
+        if (d.unit && existing.unit && d.unit.toLowerCase() !== existing.unit.toLowerCase()) {
+          // Move the row to the unit chosen here, converting the auto-counted
+          // sold quantity so Remaining stays comparable.
+          const factors = await fetchConvFactors(d.product_id!, [existing.unit, d.unit]);
+          const from = factors[existing.unit.toLowerCase()];
+          const to = factors[d.unit.toLowerCase()];
+          if (from && to) {
+            sold = +((sold * from) / to).toFixed(3);
+            unit = d.unit;
+          } else {
+            toast.message(`${d.product_name}: kept unit ${existing.unit} (no conversion found)`);
+          }
+        }
+        const { data, error } = await supabase
+          .from("event_stock_items")
+          .update({
+            stock_taken: taken,
+            sold_qty: sold,
+            unit: unit || null,
+            price: d.price || existing.price,
+          })
+          .eq("id", existing.id)
+          .select("updated_at")
+          .single();
+        if (error) { toast.error(error.message); continue; }
+        setItems((prev) => prev.map((it) => it.id === existing.id
+          ? { ...it, stock_taken: taken, sold_qty: sold, unit, price: d.price || existing.price, updated_at: data?.updated_at || it.updated_at, state: "saved" }
+          : it));
+        continue;
+      }
+
       const sold = Math.min(Number(d.sold_qty) || 0, taken);
       const { data, error } = await supabase
         .from("event_stock_items")
@@ -356,7 +405,9 @@ export default function EventStockTracker() {
   ]);
 
   return (
-    <div className="min-h-screen bg-muted/30 p-3 sm:p-6 space-y-4">
+    <div className="min-h-screen bg-muted/30">
+      <Navbar />
+      <div className="p-3 sm:p-6 space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Button variant="ghost" size="sm" className="p-2" onClick={() => navigate(-1)}>
@@ -420,93 +471,84 @@ export default function EventStockTracker() {
       {/* Inline Entry Section */}
       <Card className="rounded-2xl">
         <CardContent className="p-4 space-y-3">
-          <div className="hidden md:grid grid-cols-[2fr,1fr,1fr,1fr,1fr,1fr,40px] gap-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
+          <div className="hidden md:grid grid-cols-[2fr,1fr,1fr] gap-3 text-[11px] uppercase tracking-wider text-muted-foreground font-medium">
             <div>Product</div>
             <div>Unit</div>
             <div>Stock Taken</div>
-            <div>Sold</div>
-            <div>Remaining</div>
-            <div>Sold Value</div>
-            <div>Actions</div>
           </div>
           {drafts.map((d) => {
-            const taken = Number(d.stock_taken) || 0;
-            const sold = Number(d.sold_qty) || 0;
-            const remaining = taken - sold;
-            const value = sold * d.price;
+            const mobileLabel = "md:hidden text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block";
             return (
-              <div key={d.key} className="grid grid-cols-1 md:grid-cols-[2fr,1fr,1fr,1fr,1fr,1fr,40px] gap-3 items-center">
-                <ProductPicker
-                  products={products}
-                  excludeIds={usedProductIds}
-                  selectedName={d.product_name}
-                  onSelect={(p) => updateDraft(d.key, {
-                    product_id: p.id,
-                    product_name: p.name,
-                    product_sku: p.sku,
-                    unit: p.base_unit || "Unit",
-                    price: Number(p.rate) || 0,
-                    conversion_to_base: null,
-                    price_basis_conversion: null,
-                  })}
-                />
-                {d.product_id ? (
-                  <LineItemUomSelect
-                    productId={d.product_id}
-                    value={d.unit}
-                    context="sales"
-                    hideWhenSingle={false}
-                    className="h-10 w-full"
-                    onChange={(sel) => {
-                      if (
-                        d.unit === sel.uomCode &&
-                        (d.conversion_to_base ?? null) === (sel.conversionToBase ?? null) &&
-                        (d.price_basis_conversion ?? null) === (sel.priceBasisConversionToBase ?? null)
-                      ) {
-                        return;
-                      }
-                      const prod = products.find((p) => p.id === d.product_id);
-                      const patch: Partial<DraftRow> = {
-                        unit: sel.uomCode,
-                        conversion_to_base: sel.conversionToBase ?? null,
-                        price_basis_conversion: sel.priceBasisConversionToBase ?? null,
-                      };
-                      if (prod) patch.price = uomUnitPrice(Number(prod.rate) || 0, sel);
-                      // Convert already-entered quantities between mapped units (12 PIECE → BOX).
-                      if (d.conversion_to_base && sel.conversionToBase && d.unit !== sel.uomCode) {
-                        const conv = (v: string) => {
-                          const n = Number(v);
-                          if (!n || n <= 0) return v;
-                          return String(+((n * d.conversion_to_base!) / sel.conversionToBase).toFixed(3));
-                        };
-                        patch.stock_taken = conv(d.stock_taken);
-                        patch.sold_qty = conv(d.sold_qty);
-                      }
-                      updateDraft(d.key, patch);
-                    }}
+              <div
+                key={d.key}
+                className="rounded-xl border border-border p-3 space-y-2.5 md:rounded-none md:border-0 md:p-0 md:space-y-0 md:grid md:grid-cols-[2fr,1fr,1fr] md:gap-3 md:items-center"
+              >
+                <div>
+                  <span className={mobileLabel}>Product</span>
+                  <ProductPicker
+                    products={products}
+                    excludeIds={usedProductIds}
+                    selectedName={d.product_name}
+                    onSelect={(p) => updateDraft(d.key, {
+                      product_id: p.id,
+                      product_name: p.name,
+                      product_sku: p.sku,
+                      // Unit comes from the UOM master via LineItemUomSelect — never
+                      // from the legacy products.base_unit text column.
+                      unit: "",
+                      price: Number(p.rate) || 0,
+                      conversion_to_base: null,
+                      price_basis_conversion: null,
+                    })}
                   />
-                ) : (
-                  <Select value={d.unit} disabled>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={d.unit}>{d.unit}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-                <Input type="number" min={0} placeholder="Enter qty"
-                  value={d.stock_taken}
-                  onChange={(e) => updateDraft(d.key, { stock_taken: e.target.value })}
-                  className="h-10" />
-                <Input type="number" min={0} max={taken} placeholder="Enter sold qty"
-                  value={d.sold_qty}
-                  onChange={(e) => updateDraft(d.key, { sold_qty: e.target.value })}
-                  className="h-10" />
-                <Input value={remaining || 0} disabled className="h-10 bg-muted/50" />
-                <Input value={inr(value)} disabled className="h-10 bg-muted/50" />
-                <Button variant="ghost" size="sm" className="p-2 text-rose-500 hover:text-rose-600 hover:bg-rose-50"
-                  onClick={() => removeDraft(d.key)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                </div>
+                <div>
+                  <span className={mobileLabel}>Unit</span>
+                  {d.product_id ? (
+                    <LineItemUomSelect
+                      productId={d.product_id}
+                      value={d.unit || undefined}
+                      context="sales"
+                      hideWhenSingle={false}
+                      className="h-10 w-full"
+                      onChange={(sel) => {
+                        if (
+                          d.unit === sel.uomCode &&
+                          (d.conversion_to_base ?? null) === (sel.conversionToBase ?? null) &&
+                          (d.price_basis_conversion ?? null) === (sel.priceBasisConversionToBase ?? null)
+                        ) {
+                          return;
+                        }
+                        const prod = products.find((p) => p.id === d.product_id);
+                        const patch: Partial<DraftRow> = {
+                          unit: sel.uomCode,
+                          conversion_to_base: sel.conversionToBase ?? null,
+                          price_basis_conversion: sel.priceBasisConversionToBase ?? null,
+                        };
+                        if (prod) patch.price = uomUnitPrice(Number(prod.rate) || 0, sel);
+                        // Convert already-entered quantities between mapped units (12 PIECE → BOX).
+                        if (d.conversion_to_base && sel.conversionToBase && d.unit && d.unit !== sel.uomCode) {
+                          const conv = (v: string) => {
+                            const n = Number(v);
+                            if (!n || n <= 0) return v;
+                            return String(+((n * d.conversion_to_base!) / sel.conversionToBase).toFixed(3));
+                          };
+                          patch.stock_taken = conv(d.stock_taken);
+                        }
+                        updateDraft(d.key, patch);
+                      }}
+                    />
+                  ) : (
+                    <div className="h-10 flex items-center text-xs text-muted-foreground">—</div>
+                  )}
+                </div>
+                <div>
+                  <span className={mobileLabel}>Stock Taken</span>
+                  <Input type="number" min={0} placeholder="Enter qty"
+                    value={d.stock_taken}
+                    onChange={(e) => updateDraft(d.key, { stock_taken: e.target.value })}
+                    className="h-10" />
+                </div>
               </div>
             );
           })}
@@ -520,8 +562,86 @@ export default function EventStockTracker() {
         </CardContent>
       </Card>
 
-      {/* Saved Items Table */}
-      <Card className="rounded-2xl overflow-hidden">
+      {/* Saved Items — cards on mobile */}
+      <Card className="rounded-2xl overflow-hidden md:hidden">
+        {items.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            No saved entries yet. Add rows above and tap "Save Stock".
+          </div>
+        ) : (
+          <div className="divide-y">
+            {items.map((it, idx) => {
+              const remaining = it.stock_taken - it.sold_qty;
+              const value = it.sold_qty * it.price;
+              return (
+                <div
+                  key={it.id}
+                  className={cn(
+                    "p-3 space-y-2.5 transition-colors",
+                    it.state === "saving" && "bg-amber-50/40",
+                    it.state === "saved" && "bg-emerald-50/40"
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium leading-snug">
+                        <span className="text-muted-foreground mr-1.5">{idx + 1}.</span>
+                        {it.product_name}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                        {it.product_sku && <span>SKU: {it.product_sku}</span>}
+                        <UomLabel productId={it.product_id} snapshotCode={it.unit || null} />
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="sm" className="p-2 -mr-1 text-rose-500 hover:text-rose-600 hover:bg-rose-50 shrink-0"
+                      onClick={() => removeItem(it.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Stock Taken</span>
+                      <Input type="number" min={0} value={it.stock_taken}
+                        onChange={(e) => updateField(it.id, "stock_taken", e.target.value)}
+                        className="h-10" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 block">Sold</span>
+                      <Input type="number" min={0} max={it.stock_taken} value={it.sold_qty}
+                        onChange={(e) => updateField(it.id, "sold_qty", e.target.value)}
+                        className={cn("h-10", it.error && "border-rose-400 focus-visible:ring-rose-300")} />
+                    </div>
+                  </div>
+                  {it.error && (
+                    <div className="text-[11px] text-rose-600 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" /> {it.error}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-sm">
+                    <span>
+                      Remaining: <span className="font-semibold text-emerald-700">{remaining}</span>
+                    </span>
+                    <span className="font-semibold">{inr(value)}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                    {it.state === "saving" && (<><Loader2 className="h-3 w-3 animate-spin" /> Updating…</>)}
+                    {it.state === "saved" && (<><CheckCircle2 className="h-3 w-3 text-emerald-600" /> Saved</>)}
+                    {it.state === "error" && (<><AlertCircle className="h-3 w-3 text-rose-600" /> Error</>)}
+                    {it.state === "idle" && <>Updated {fmtTime(it.updated_at)}</>}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="p-3 flex items-center justify-between bg-muted/40 text-sm font-semibold">
+              <span>Total · {kpis.taken} taken · {kpis.sold} sold</span>
+              <span className="text-emerald-700">{kpis.remaining} left · {inr(kpis.value)}</span>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Saved Items Table — desktop */}
+      <Card className="rounded-2xl overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
@@ -554,7 +674,9 @@ export default function EventStockTracker() {
                       <div className="font-medium">{it.product_name}</div>
                       {it.product_sku && <div className="text-xs text-muted-foreground">SKU: {it.product_sku}</div>}
                     </td>
-                    <td className="px-3 py-3 text-muted-foreground">{it.unit}</td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      <UomLabel productId={it.product_id} snapshotCode={it.unit || null} />
+                    </td>
                     <td className="px-3 py-3">
                       <Input type="number" min={0} value={it.stock_taken}
                         onChange={(e) => updateField(it.id, "stock_taken", e.target.value)}
@@ -609,12 +731,13 @@ export default function EventStockTracker() {
 
       <div className="text-xs text-muted-foreground flex items-center gap-2">
         <AlertCircle className="h-3.5 w-3.5" />
-        You can update the "Sold" quantity at any time throughout the day. Remaining and Sold Value are calculated automatically.
+        "Sold" updates automatically as event orders are submitted; you can still adjust it manually. Remaining and Sold Value are calculated automatically.
       </div>
 
       <AllDaysSummaryDialog open={summaryOpen} onOpenChange={setSummaryOpen} eventId={event.id} days={days} />
     </div>
-  );
+  </div>
+);
 }
 
 function KpiCard({ label, value, suffix, iconBg, icon, valueClass }: {

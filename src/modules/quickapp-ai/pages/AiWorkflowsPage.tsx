@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
 import {
   Play, Users, BarChart3, Lightbulb, CheckCircle2, Rocket, ChevronRight,
   GraduationCap, Route, AlertTriangle, Wallet, Boxes, MapPinned, Plus, Activity,
+  Workflow as WorkflowIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,11 @@ import {
   RUNNABLE_AGENTS, STATUS_LABEL, useAiAgents, useWorkflowExecutions, useWorkflowMetrics,
   type AiAgentRow,
 } from "../hooks/useAiWorkflows";
+import { useCustomWorkflows, useIsWorkflowAdmin, type AiWorkflowRow } from "../hooks/useCustomWorkflows";
 import { AgentDetailSheet } from "../components/AgentDetailSheet";
+import { CreateAgentDialog } from "../components/CreateAgentDialog";
+import { CreateWorkflowDialog } from "../components/CreateWorkflowDialog";
+import { WorkflowDetailSheet } from "../components/WorkflowDetailSheet";
 
 const builderSteps = [
   { label: "Start", icon: Play },
@@ -77,6 +81,22 @@ export default function AiWorkflowsPage() {
   const { executions, refresh } = useWorkflowExecutions();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Custom workflows ("Create Workflow"). Kept separate from the seed-agent
+  // system: agent metrics/pipeline below are scoped to agent executions only,
+  // so custom runs never change what the existing tiles mean.
+  const { workflows, refresh: refreshWorkflows } = useCustomWorkflows();
+  const isAdmin = useIsWorkflowAdmin();
+  const [createOpen, setCreateOpen] = useState(false);
+  // "Create AI Agent" builder (scaffold stage — drafts only, no server writes).
+  const [createAgentOpen, setCreateAgentOpen] = useState(false);
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
+  const selectedWorkflow: AiWorkflowRow | null =
+    workflows.find((w) => w.id === selectedWorkflowId) ?? null;
+  const agentExecutions = useMemo(
+    () => executions.filter((e) => e.agent_id != null),
+    [executions],
+  );
+
   const cards = useMemo(() => {
     if (!dbAgents?.length) {
       return agents.map((a) => ({
@@ -101,10 +121,10 @@ export default function AiWorkflowsPage() {
   const selectedAgent: AiAgentRow | null =
     dbAgents?.find((a) => a.id === selectedId) ?? null;
 
-  const metrics = useWorkflowMetrics(executions, selectedId);
+  const metrics = useWorkflowMetrics(agentExecutions, selectedId);
   const latestForSelection = selectedId
-    ? executions.find((e) => e.agent_id === selectedId)
-    : executions[0];
+    ? agentExecutions.find((e) => e.agent_id === selectedId)
+    : agentExecutions[0];
   const activeStageIndex = latestForSelection
     ? pipeline.findIndex((p) => p.toLowerCase() === latestForSelection.stage)
     : -1;
@@ -136,17 +156,34 @@ export default function AiWorkflowsPage() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">AI Agents</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">AI Agents</CardTitle>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setCreateAgentOpen(true)}>
+                <Plus className="h-3.5 w-3.5" />
+                Create AI Agent
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {cards.map((a) => {
               const runnable = RUNNABLE_AGENTS.has(a.key) && !!a.id;
+              const isPrototype = a.status === "Prototype";
               return (
                 <div
                   key={a.name}
                   onClick={runnable ? () => setSelectedId(a.id) : undefined}
-                  className={`rounded-lg border border-border p-3 ${
-                    runnable ? "cursor-pointer transition-colors hover:bg-muted/50" : ""
+                  className={`rounded-lg border p-3 ${
+                    isPrototype
+                      ? "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/30"
+                      : "border-border"
+                  } ${
+                    runnable
+                      ? `cursor-pointer transition-colors ${
+                          isPrototype
+                            ? "hover:bg-emerald-100/70 dark:hover:bg-emerald-950/50"
+                            : "hover:bg-muted/50"
+                        }`
+                      : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -162,6 +199,50 @@ export default function AiWorkflowsPage() {
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <WorkflowIcon className="h-4 w-4 text-primary" />
+              Custom Workflows
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {workflows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No custom workflows yet.
+                {isAdmin === true
+                  ? " Use Create Workflow below to compose one from analysis blocks."
+                  : " An administrator can create one with the Create Workflow button."}
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {workflows.map((w) => (
+                  <div
+                    key={w.id}
+                    onClick={() => setSelectedWorkflowId(w.id)}
+                    className="cursor-pointer rounded-lg border border-border p-3 transition-colors hover:bg-muted/50"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                          <WorkflowIcon className="h-4 w-4 text-primary" />
+                        </span>
+                        <span className="text-sm font-medium">{w.name}</span>
+                      </div>
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        {w.config?.blocks?.length ?? 0} block{(w.config?.blocks?.length ?? 0) === 1 ? "" : "s"}
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {w.description || "Custom analysis workflow."}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -189,12 +270,14 @@ export default function AiWorkflowsPage() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-center pb-2">
-          <Button size="lg" className="gap-2" onClick={() => toast.info("Workflow Builder coming soon.")}>
-            <Plus className="h-4 w-4" />
-            Create Workflow
-          </Button>
-        </div>
+        {isAdmin === true && (
+          <div className="flex justify-center pb-2">
+            <Button size="lg" className="gap-2" onClick={() => setCreateOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Create Workflow
+            </Button>
+          </div>
+        )}
       </div>
 
       <AgentDetailSheet
@@ -202,6 +285,27 @@ export default function AiWorkflowsPage() {
         executions={executions}
         onOpenChange={(open) => !open && setSelectedId(null)}
         onExecuted={refresh}
+      />
+
+      <CreateWorkflowDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={refreshWorkflows}
+      />
+
+      <CreateAgentDialog
+        open={createAgentOpen}
+        onOpenChange={setCreateAgentOpen}
+        onCreated={refreshWorkflows}
+      />
+
+      <WorkflowDetailSheet
+        workflow={selectedWorkflow}
+        executions={executions}
+        isAdmin={isAdmin === true}
+        onOpenChange={(open) => !open && setSelectedWorkflowId(null)}
+        onExecuted={refresh}
+        onDeactivated={refreshWorkflows}
       />
     </div>
   );

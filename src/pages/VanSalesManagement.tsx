@@ -360,8 +360,8 @@ export default function VanSalesManagement() {
           const variantPriceByName = variantPriceMapByName[(item.product_name || '').toUpperCase().trim()] || 0;
           const productPriceById = productPriceMapById[item.product_id] || 0;
           const productPriceByName = productPriceMapByName[(item.product_name || '').toUpperCase().trim()] || 0;
-          const priceWithGST = variantPriceById || variantPriceByName || productPriceById || productPriceByName;
-          const priceWithoutGST = priceWithGST / 1.05; // Remove 5% GST
+          // These catalog prices are already tax-exclusive — no division needed.
+          const priceWithoutGST = variantPriceById || variantPriceByName || productPriceById || productPriceByName;
           return {
             id: item.id,
             product_id: item.product_id,

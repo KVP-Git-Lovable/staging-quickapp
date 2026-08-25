@@ -104,8 +104,6 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
     }
     try {
       const data = await fetchActivitiesForDate(userId, selectedDate);
-      setActivities(data);
-      onActivitiesLoadedRef.current?.(data.length);
 
       // Fetch visit statuses.
       //
@@ -117,6 +115,10 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
       // owner's progress. Status is keyed on the viewer's own row.
       const visitIds = data.map(a => a.visit_id).filter(Boolean);
       const eventIds = data.map(a => a.id).filter(Boolean);
+      const visitMap: Record<string, VisitStatus> = {};
+      const mineMap: Record<string, string> = {};
+      const totalsMap: Record<string, { revenue: number; orders: number }> = {};
+
       if (visitIds.length > 0) {
         const { data: visits } = await supabase
           .from('visits')
@@ -130,24 +132,20 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
           .eq('user_id', userId);
 
         if (visits) {
-          const map: Record<string, VisitStatus> = {};
-          const mine: Record<string, string> = {};
           visits.forEach(v => {
             const st = {
               check_in_time: v.check_in_time,
               check_out_time: v.check_out_time,
               status: v.status,
             };
-            map[v.id] = st;
+            visitMap[v.id] = st;
             // Also file it under the event, so a participant whose own visit id
             // differs from the event's still finds their own status.
             if ((v as any).activity_event_id) {
-              map[(v as any).activity_event_id] = st;
-              mine[(v as any).activity_event_id] = v.id;
+              visitMap[(v as any).activity_event_id] = st;
+              mineMap[(v as any).activity_event_id] = v.id;
             }
           });
-          setVisitStatuses(map);
-          setMyVisitIds(mine);
         }
 
         // Totals for the whole event, every team member's orders included —
@@ -158,17 +156,25 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
           .select('visit_id, total_amount, status')
           .in('visit_id', visitIds);
 
-        const totals: Record<string, { revenue: number; orders: number }> = {};
         (orderRows || []).forEach((o: any) => {
           if (!o.visit_id) return;
           if (o.status === 'cancelled') return;
-          const t = totals[o.visit_id] || { revenue: 0, orders: 0 };
+          const t = totalsMap[o.visit_id] || { revenue: 0, orders: 0 };
           t.revenue += Number(o.total_amount) || 0;
           t.orders += 1;
-          totals[o.visit_id] = t;
+          totalsMap[o.visit_id] = t;
         });
-        setEventTotals(totals);
       }
+
+      // Commit activities together with the visit status/totals derived from
+      // them. Setting activities first (as a separate render) let the Start/
+      // Edit buttons flash based on stale or empty visit status for a beat
+      // before the real status landed a render later.
+      setActivities(data);
+      setVisitStatuses(visitMap);
+      setMyVisitIds(mineMap);
+      setEventTotals(totalsMap);
+      onActivitiesLoadedRef.current?.(data.length);
     } catch (err) {
       console.error('[ActivityEventsTable] Failed to load activities:', err);
     } finally {
@@ -216,6 +222,9 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
   const myVisitFor = (activity: ActivityEvent): string | null =>
     myVisitIds[activity.id] ?? activity.visit_id ?? null;
 
+  const isOwnerOf = (activity: ActivityEvent): boolean =>
+    !activity.user_id || activity.user_id === userId;
+
   const handleStartActivity = async (activity: ActivityEvent) => {
     const myVisitId = myVisitFor(activity);
     if (!myVisitId) return;
@@ -224,24 +233,39 @@ export const ActivityEventsTable = ({ userId, selectedDate, onActivitiesLoaded, 
       const now = new Date().toISOString();
       const gps = await captureGPS();
 
-      // Update visit to in-progress with check_in_time
-      const { error: visitError } = await supabase
+      // Where you started goes on YOUR visit row, so three reps working one
+      // stall each record their own arrival rather than overwriting each other.
+      const { data: startedRows, error: visitError } = await supabase
         .from('visits')
-        .update({ 
-          check_in_time: now, 
+        .update({
+          check_in_time: now,
           status: 'in-progress',
+          ...(gps ? { check_in_location: { lat: gps.lat, lng: gps.lng, at: now } } : {}),
         } as any)
-        .eq('id', myVisitId);
+        .eq('id', myVisitId)
+        .select('id');
 
       if (visitError) throw visitError;
+      // RLS filters a rejected row instead of raising, so an update can report
+      // success having changed nothing.
+      if (!startedRows || startedRows.length === 0) {
+        throw new Error('You do not have permission to start this activity');
+      }
 
-      // Update activity_events with start location and time
-      await updateActivityLocation(activity.id, {
-        start_time: now,
-        ...(gps ? { start_latitude: gps.lat, start_longitude: gps.lng } : {}),
-      });
+      // The event row records the ACTUAL start in check_in_*, never in
+      // start_time — start_time holds the planned schedule the event was
+      // created with and is what the card shows. Owner only: the event has one
+      // official start, and RLS would refuse a participant here anyway.
+      if (isOwnerOf(activity)) {
+        await updateActivityLocation(activity.id, {
+          check_in_time: now,
+          ...(gps ? { check_in_latitude: gps.lat, check_in_longitude: gps.lng } : {}),
+        });
+      }
 
-      toast.success('Activity started — tracking in progress');
+      toast.success(
+        gps ? 'Started — time and location recorded' : 'Started — location unavailable, time recorded'
+      );
       window.dispatchEvent(new CustomEvent('visitDataChanged'));
       onActivityChanged?.();
       await loadActivities();

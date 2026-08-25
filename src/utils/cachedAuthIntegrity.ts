@@ -84,6 +84,7 @@ export const clearCachedAuth = (): void => {
   localStorage.removeItem('cached_user_id');
   localStorage.removeItem('cached_role');
   localStorage.removeItem('cached_profile');
+  localStorage.removeItem('cached_security_profile');
   localStorage.removeItem(CACHE_SIGNATURE_KEY);
   
   // Clear any permissions_ prefixed keys

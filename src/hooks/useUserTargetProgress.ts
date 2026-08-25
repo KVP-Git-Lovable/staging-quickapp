@@ -60,6 +60,21 @@ const getFYMonthNumber = (calendarMonth: number): number => {
 const planCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 60000; // 1 minute cache
 
+// Call after any write to user_business_plans / user_business_plan_months
+// so the home-page target progress doesn't keep showing the pre-save value
+// for up to CACHE_TTL. Pass a userId to drop just that user's entries
+// (every FY year for them, since the key is `${userId}_${fyYear}`), or
+// omit it to clear everything.
+export function invalidateUserTargetProgressCache(userId?: string) {
+  if (!userId) {
+    planCache.clear();
+    return;
+  }
+  for (const key of planCache.keys()) {
+    if (key.startsWith(`${userId}_`)) planCache.delete(key);
+  }
+}
+
 export function useUserTargetProgress(
   userId: string | undefined,
   period: TargetPeriod,
@@ -176,6 +191,7 @@ export function useUserTargetProgress(
               .from('user_business_plan_months')
               .select('month_number, quantity_target, revenue_target, business_plan_id')
               .eq('business_plan_id', planData.id)
+              .eq('is_active', true)
               .order('month_number');
             monthData = monthResult.data || [];
           } else {

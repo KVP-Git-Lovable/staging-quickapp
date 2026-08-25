@@ -16,6 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { TableOrderForm, TableOrderFormHandle } from "@/components/TableOrderForm";
+import { PitchSuggestionsCard } from "@/components/PitchSuggestionsCard";
 import { OrderSummaryModal } from "@/components/OrderSummaryModal";
 import { SchemeDetailsModal } from "@/components/SchemeDetailsModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -2314,8 +2315,96 @@ export const OrderEntry = () => {
           </CardContent>
         </Card>
 
+        {/* AI Pitch Suggestions — deterministic signals narrated by Together.ai
+            (ai-pitch-suggestions edge function); Take Action auto-fills the
+            suggested lines via the same path Voice/Smart Basket use. */}
+        {validRetailerId && (orderMode === "grid" || orderMode === "table") && (
+          <PitchSuggestionsCard
+            retailerId={validRetailerId}
+            onAutoFill={(results) => {
+              // Resolve each suggestion against the SAME product list the
+              // table form uses. Suggestions built from order history can
+              // reference a variant id or an id missing from the
+              // availability-filtered master cache, and applyVoiceAutoFill
+              // silently drops anything it can't find by id — so resolve by
+              // id, then variant id, then exact name, then variant name,
+              // and report only what was actually filled.
+              const norm = (s: string) => String(s || '').trim().toLowerCase();
+              const list = availableCachedProducts as any[];
+              const resolved: typeof results = [];
+              const skipped: string[] = [];
+
+              results.forEach(result => {
+                let match = list.find(p => p.id === result.productId);
+                let variantId: string | undefined;
+                let variantName: string | undefined;
+
+                if (!match) {
+                  match = list.find(p => (p.variants || []).some((v: any) => v.id === result.productId));
+                  if (match) {
+                    const v = (match.variants || []).find((v: any) => v.id === result.productId);
+                    variantId = v?.id;
+                    variantName = v?.variant_name;
+                  }
+                }
+                if (!match) {
+                  match = list.find(p => norm(p.name) === norm(result.productName));
+                }
+                if (!match) {
+                  for (const p of list) {
+                    const v = (p.variants || []).find((v: any) => norm(v.variant_name) === norm(result.productName));
+                    if (v) {
+                      match = p;
+                      variantId = v.id;
+                      variantName = v.variant_name;
+                      break;
+                    }
+                  }
+                }
+
+                if (match) {
+                  resolved.push({ ...result, productId: match.id, variantId, variantName });
+                } else {
+                  skipped.push(result.productName);
+                }
+              });
+
+              if (resolved.length > 0) {
+                if (orderMode === "table" && tableFormRef.current) {
+                  tableFormRef.current.applyVoiceAutoFill(resolved);
+                } else {
+                  resolved.forEach(result => {
+                    handleQuantityChange(result.productId, result.quantity);
+                    if (result.unit) {
+                      setSelectedUnits(prev => ({
+                        ...prev,
+                        [result.productId]: result.unit
+                      }));
+                    }
+                  });
+                }
+              }
+
+              if (resolved.length > 0) {
+                toast({
+                  title: `✓ ${resolved.length} suggested product${resolved.length > 1 ? 's' : ''} filled in`,
+                  description:
+                    resolved.map(r => `${r.productName}: ${r.quantity}${r.unit ? ` ${r.unit}` : ''}`).join(', ') +
+                    (skipped.length ? ` — skipped (not in product list): ${skipped.join(', ')}` : ''),
+                });
+              } else {
+                toast({
+                  title: "Couldn't fill suggestions",
+                  description: `Not found in the current product list: ${skipped.join(', ')}`,
+                  variant: "destructive"
+                });
+              }
+            }}
+          />
+        )}
+
         {/* Search Bar - Compact */}
-        
+
 
         {orderMode === "return-stock" ? <>
             {/* Return Stock Section */}

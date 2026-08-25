@@ -16,6 +16,7 @@ import {
 import { useBeatMetrics } from '@/hooks/useBeatMetrics';
 import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
+import type { BeatPlanRow } from '@/hooks/useBeatPlannerInsights';
 
 export type BeatAccessType = 'OWNED' | 'CO_OWNER' | 'OPERATIONAL' | 'VIEW_ONLY' | 'COVERAGE';
 
@@ -50,6 +51,47 @@ interface BeatCardProps {
   onHistory?: () => void;
   /** When true bottom button is permanent Delete; when false it is Deactivate */
   isHardDeletable?: boolean;
+  /** This beat's row from the AI Beat Planner analysis (display only). */
+  planInsight?: BeatPlanRow | null;
+}
+
+/** Natural-language nudge built from the Beat Planner numbers, e.g.
+ * "Only 3 of this beat's 7 shops were visited in the last month; they owe
+ * ₹389 in total; on average you haven't been there in over 2 months — give
+ * this beat 1 day in the next plan." */
+function beatPlanSentence(p: BeatPlanRow): string {
+  const shops = p.retailers === 1 ? 'shop' : 'shops';
+  const coverage =
+    p.visited30d <= 0
+      ? `None of this beat's ${p.retailers} ${shops} were visited in the last month`
+      : p.visited30d >= p.retailers
+        ? `All ${p.retailers} ${shops} in this beat were visited in the last month`
+        : `${p.coveragePct < 60 ? 'Only ' : ''}${p.visited30d} of this beat's ${p.retailers} ${shops} were visited in the last month`;
+
+  const clauses = [coverage];
+  if (p.pending > 0) {
+    clauses.push(`they owe ₹${Number(p.pending).toLocaleString('en-IN', { maximumFractionDigits: 0 })} in total`);
+  }
+  const d = p.avgDaysSinceVisit;
+  if (d != null && d > 0) {
+    clauses.push(
+      d >= 60
+        ? `on average you haven't been there in over ${Math.floor(d / 30)} months`
+        : d >= 30
+          ? `on average you haven't been there in over a month`
+          : `your last visits average just ${d} day${d === 1 ? '' : 's'} ago`,
+    );
+  }
+  const n = p.newRetailers ?? 0;
+  if (n > 0) {
+    clauses.push(
+      n === 1
+        ? `1 new shop just joined this beat — a fresh chance to introduce your range`
+        : `${n} new shops just joined this beat — fresh chances to introduce your range`,
+    );
+  }
+  const days = p.suggestedDays === 1 ? '1 day' : `${p.suggestedDays} days`;
+  return `${clauses.join('; ')} — give this beat ${days} in the next plan.`;
 }
 
 function accessBadge(at: BeatAccessType, coverageEndDate?: string | null, coverageStartDate?: string | null) {
@@ -99,6 +141,7 @@ export function BeatCard({
   onClone,
   onHistory,
   isHardDeletable,
+  planInsight,
 }: BeatCardProps) {
   const { metrics, loading } = useBeatMetrics(beat.id, userId);
   const navigate = useNavigate();
@@ -238,6 +281,23 @@ export function BeatCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* AI Beat Planner nudge (from the shared beat_planner analysis) */}
+        {planInsight && (
+          <div
+            className={`flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-[11px] leading-snug ${
+              planInsight.coveragePct < 30
+                ? 'border-rose-200 bg-rose-50/80 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200'
+                : planInsight.coveragePct < 60
+                  ? 'border-amber-200 bg-amber-50/80 text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200'
+                  : 'border-emerald-200 bg-emerald-50/80 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200'
+            }`}
+            title="From AI Beat Planner — computed from your visits and orders"
+          >
+            <Sparkles size={12} className="mt-0.5 shrink-0" />
+            <span>{beatPlanSentence(planInsight)}</span>
+          </div>
+        )}
+
         {/* Beat Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="text-center p-2 bg-muted/30 rounded-lg">

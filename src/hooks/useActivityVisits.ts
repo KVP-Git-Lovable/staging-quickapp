@@ -30,50 +30,55 @@ export function useActivityVisits(userId: string | undefined, date: string | und
     }
     setLoading(true);
     try {
-      const { data: visits, error } = await supabase
-        .from('visits')
-        .select('id, planned_date, check_in_time, check_out_time, status, visit_type, activity_event_id')
-        .eq('user_id', userId)
-        .eq('planned_date', date)
-        .eq('visit_type', 'activity')
-        .order('created_at', { ascending: true })
-        .limit(200);
+      // Start from the EVENTS covering this date, not from visits dated today.
+      //
+      // These two used to ask different questions and so disagreed. The card
+      // list matches an event by its span, so a 12-13 Aug event shows on both
+      // days; this hook matched visits.planned_date, and a participant's visit
+      // sits only on the start date. Result: three cards, two planned visits.
+      // Same predicate as fetchActivitiesForDate, deliberately.
+      const { data: events, error: evErr } = await supabase
+        .from('activity_events')
+        .select('*')
+        .or(`user_id.eq.${userId},sales_reps.cs.{${userId}}`)
+        .or(`activity_date.eq.${date},and(from_date.lte.${date},to_date.gte.${date})`)
+        .limit(500);
 
-      if (error || !visits || visits.length === 0) {
+      if (evErr || !events || events.length === 0) {
         setItems([]);
         return;
       }
 
-      // Two ways a visit reaches its event. The owner's visit is named by
-      // activity_events.visit_id; an assigned rep has their own visit row that
-      // points at the event instead. Both must resolve, or the event simply
-      // never appears for the rep.
-      const visitIds = visits.map(v => v.id);
-      const eventIds = Array.from(
-        new Set(visits.map((v: any) => v.activity_event_id).filter(Boolean))
-      );
-      const { data: events } = await supabase
-        .from('activity_events')
-        .select('*')
+      // This user's own visit row for each — their check-in, not the owner's.
+      // Matched by the event link, or by visit id for events predating it.
+      const eventIds = events.map(e => e.id).filter(Boolean);
+      const ownerVisitIds = events.map((e: any) => e.visit_id).filter(Boolean);
+      const { data: visits } = await supabase
+        .from('visits')
+        .select('id, planned_date, check_in_time, check_out_time, status, visit_type, activity_event_id')
+        .eq('user_id', userId)
+        .eq('visit_type', 'activity')
         .or(
           [
-            `visit_id.in.(${visitIds.join(',')})`,
-            ...(eventIds.length ? [`id.in.(${eventIds.join(',')})`] : []),
+            ...(eventIds.length ? [`activity_event_id.in.(${eventIds.join(',')})`] : []),
+            ...(ownerVisitIds.length ? [`id.in.(${ownerVisitIds.join(',')})`] : []),
           ].join(',')
         )
         .limit(500);
 
-      const byVisit = new Map<string, any>();
-      const byEventId = new Map<string, any>();
-      (events || []).forEach(e => {
-        if (e.visit_id) byVisit.set(e.visit_id, e);
-        if (e.id) byEventId.set(e.id, e);
+      const byEvent = new Map<string, any>();
+      (visits || []).forEach((v: any) => {
+        if (v.activity_event_id) byEvent.set(v.activity_event_id, v);
       });
+      const byVisitId = new Map<string, any>();
+      (visits || []).forEach((v: any) => byVisitId.set(v.id, v));
 
-      const rows: ActivityVisitCardModel[] = visits
-        .map(v => {
-          const ev = byVisit.get(v.id) ?? byEventId.get((v as any).activity_event_id);
-          if (!ev) return null;
+      const rows: ActivityVisitCardModel[] = events
+        .map((ev: any) => {
+          const v = byEvent.get(ev.id) ?? (ev.visit_id ? byVisitId.get(ev.visit_id) : undefined);
+          // No visit row means this user cannot check in to it, so it is not
+          // one of their planned visits and must not be counted as one.
+          if (!v) return null;
           return {
             visitId: v.id,
             activityEventId: ev.id,

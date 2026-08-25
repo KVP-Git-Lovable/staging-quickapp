@@ -133,11 +133,12 @@ export const useTeamTargetProgress = ({ userIds, periodType, date, basis, enable
 
       // Fetch monthly targets for all users
       const planIds = plans?.map(p => p.id) || [];
-      const { data: monthlyTargets } = planIds.length > 0 
+      const { data: monthlyTargets } = planIds.length > 0
         ? await supabase
             .from('user_business_plan_months')
             .select('*')
             .in('business_plan_id', planIds)
+            .eq('is_active', true)
         : { data: [] };
 
       // Fetch product-month targets if both product and monthly parameters are enabled
@@ -146,7 +147,8 @@ export const useTeamTargetProgress = ({ userIds, periodType, date, basis, enable
         const { data: pmt } = await supabase
           .from('user_business_plan_month_products')
           .select('*')
-          .in('business_plan_id', planIds);
+          .in('business_plan_id', planIds)
+          .eq('is_active', true);
         productMonthTargets = pmt || [];
       }
 

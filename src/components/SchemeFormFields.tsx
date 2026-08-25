@@ -710,6 +710,32 @@ export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categori
                 </Select>
               </div>
             </div>
+            {schemeForm.discount_value_type !== 'percentage' && (
+              <div>
+                <Label>Default GST Mode</Label>
+                <RadioGroup
+                  value={schemeForm.discount_gst_mode || 'unset'}
+                  onValueChange={(value) => setSchemeForm({ ...schemeForm, discount_gst_mode: value === 'unset' ? null : value })}
+                  className="flex flex-col gap-2 mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="unset" id="gst-unset" />
+                    <Label htmlFor="gst-unset" className="font-normal cursor-pointer">Rep chooses each time (no default)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="without_gst" id="gst-without" />
+                    <Label htmlFor="gst-without" className="font-normal cursor-pointer">Without GST — reduces the taxable rate, GST added after</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="with_gst" id="gst-with" />
+                    <Label htmlFor="gst-with" className="font-normal cursor-pointer">With GST — final tax-included price drops by this much</Label>
+                  </div>
+                </RadioGroup>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pre-selects the toggle in Order Entry — reps can still switch it per order if needed.
+                </p>
+              </div>
+            )}
             <div>
               <Label htmlFor="conditionQty">Min Quantity (optional)</Label>
               <Input

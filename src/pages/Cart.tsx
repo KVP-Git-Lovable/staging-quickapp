@@ -27,7 +27,7 @@ import { visitStatusCache } from "@/lib/visitStatusCache";
 import { addOrderToSnapshot } from "@/lib/myVisitsSnapshot";
 import { syncOrdersToVanStock, getTodayDateString } from "@/utils/vanStockSync";
 import { calculateLocalVanStockUpdate } from "@/utils/localVanStockSync";
-import { getLocalTodayDate } from "@/utils/dateUtils";
+import { getLocalTodayDate, toLocalISODate } from "@/utils/dateUtils";
 import { getOnBehalfContext, clearOnBehalfContext } from "@/lib/onBehalfContext";
 import { getOutOfBeatContext, clearOutOfBeatContext } from "@/lib/outOfBeatContext";
 import { useTodaysBeatIds } from "@/hooks/useTodaysBeatIds";
@@ -41,7 +41,7 @@ import { useOrderBasedDelivery } from "@/hooks/useOrderBasedDelivery";
 import { useVanSales } from "@/hooks/useVanSales";
 import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { shouldGenerateInvoiceAtCart, getOrderConfirmationMessage } from "@/utils/invoiceGenerationUtils";
-import { computeLineTax, sumLineTaxes } from "@/utils/taxCalc";
+import { computeLineTax, sumLineTaxes, roundHalfUp } from "@/utils/taxCalc";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { useOrderCurrency } from "@/hooks/useOrderCurrency";
 
@@ -256,6 +256,18 @@ export const Cart = () => {
   const [userId, setUserId] = React.useState<string | null>(null);
   const [loggedInUserName, setLoggedInUserName] = React.useState<string>("User");
   const [visitDate, setVisitDate] = React.useState<string | null>(null);
+
+  // Second guard using the visit's real planned_date (fetched async for UUID
+  // visit ids the offline-id regex above can't decode): a backdate context
+  // left over from working a past day must never stamp an order taken on a
+  // visit that belongs to a different day.
+  React.useEffect(() => {
+    if (!visitDate || !backdateCtx) return;
+    if (backdateCtx.date !== visitDate) {
+      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      setBackdateCtx(null);
+    }
+  }, [visitDate, backdateCtx]);
   const [selectedItem, setSelectedItem] = React.useState<CartItem | null>(null);
   const [showItemDetail, setShowItemDetail] = React.useState(false);
   const [pendingAmountFromPrevious, setPendingAmountFromPrevious] = React.useState<number>(0);
@@ -519,7 +531,17 @@ export const Cart = () => {
       if (!item) return 0;
       const subtotal = computeItemSubtotal(item);
       const discount = computeItemDiscount(item);
-      return Math.max(0, subtotal - discount);
+      // Rounded to the paise here, once, because this is the number every
+      // downstream consumer (order_items.total in storage, the tax basis,
+      // the order subtotal) is built from. Without this, quantity × rate
+      // stays a raw float (e.g. 0.2 × 342.86 = 68.572000000000003) that the
+      // DB's numeric(_,2) column quietly rounds to 68.57 on its own when the
+      // LINE is stored — but the order-level total was being summed from the
+      // unrounded 68.572, so it drifted a few paise from what the line items
+      // themselves actually add up to. A ₹404.50 order landed on 404.4988…
+      // and rounded DOWN to ₹404 instead of the correct ₹405 — right answer
+      // to the wrong number.
+      return roundHalfUp(Math.max(0, subtotal - discount));
     } catch (error) {
       console.error('Error computing total:', error);
       return 0;
@@ -704,9 +726,14 @@ export const Cart = () => {
   };
   const getAmountAfterDiscount = () => {
     try {
-      const subtotal = getSubtotal();
-      const discount = getDiscount();
-      return Math.max(0, subtotal - discount);
+      // Built from the SAME rounded per-line numbers lineTaxes (the tax
+      // basis) uses — not a separate subtotal-minus-discount computed from
+      // raw, unrounded getSubtotal()/getDiscount(). Two independently-drifting
+      // aggregates were the actual bug: this and the tax total could each be
+      // off by a paise or two in different directions, and by the time they
+      // were added and rounded to the final whole-rupee total, that was
+      // enough to tip a genuine ₹404.50 down to ₹404 instead of up to ₹405.
+      return cartItems.reduce((sum, item) => sum + computeItemTotal(item), 0);
     } catch (error) {
       console.error('Error computing amount after discount:', error);
       return 0;
@@ -768,17 +795,20 @@ export const Cart = () => {
   };
 
 
-  // Check if the visit date allows order submission
+  // Check if the visit date allows order submission. A past-date visit is
+  // submittable when it matches the validated backdate context (repeat orders
+  // on a backdated day reuse the visit created by the first order).
   const canSubmitOrder = () => {
     if (!visitDate) return true; // Allow if no visit date (backwards compatibility)
     const today = getLocalTodayDate(); // Get today's date in YYYY-MM-DD format (local timezone)
+    if (backdateCtx?.date === visitDate) return true;
     console.log('Visit date:', visitDate, 'Today:', today, 'Can submit:', visitDate === today);
     return visitDate === today;
   };
   const getSubmitButtonText = () => {
     if (!visitDate) return "Submit Order";
     const today = getLocalTodayDate();
-    if (visitDate === today) return "Submit Order";
+    if (visitDate === today || backdateCtx?.date === visitDate) return "Submit Order";
     return `Order will be placed on ${new Date(visitDate).toLocaleDateString()}`;
   };
   const handleCameraCapture = async (blob: Blob) => {
@@ -860,6 +890,10 @@ export const Cart = () => {
       cartItemsCount: cartItems.length
     });
     if (isSubmitting) return;
+    // Set synchronously, before any async validation work below, so a rapid
+    // second tap can't slip past this guard (or the button's disabled state,
+    // which reads the same flag) while the first tap is still validating.
+    setIsSubmitting(true);
 
     if (isBackdated && backdateCtx?.requireReason && !backdateReason.trim()) {
       toast({
@@ -867,6 +901,7 @@ export const Cart = () => {
         description: 'Please enter a reason for this backdated order.',
         variant: 'destructive',
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -876,16 +911,18 @@ export const Cart = () => {
         description: 'Please enter a reason for editing this order.',
         variant: 'destructive',
       });
+      setIsSubmitting(false);
       return;
     }
 
-    
+
     if (cartItems.length === 0) {
       toast({
         title: "Empty Cart",
         description: "Please add items to cart before submitting",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
 
@@ -896,6 +933,7 @@ export const Cart = () => {
         description: "Please select Full Payment, Partial Payment, or Full Credit",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if ((paymentType === "full" || paymentType === "partial") && !paymentMethod) {
@@ -904,6 +942,7 @@ export const Cart = () => {
         description: "Please select a payment method",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     if (paymentType === "partial" && (!partialAmount || parseFloat(partialAmount) <= 0)) {
@@ -912,6 +951,7 @@ export const Cart = () => {
         description: "Please enter a valid partial payment amount",
         variant: "destructive"
       });
+      setIsSubmitting(false);
       return;
     }
     // Check payment proof ONLY when clearly online - SKIP entirely when offline
@@ -938,6 +978,7 @@ export const Cart = () => {
           description: "Please capture cheque photo",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       if (paymentMethod === "upi" && !upiPhotoUrl) {
@@ -947,6 +988,7 @@ export const Cart = () => {
           description: "Please capture payment confirmation photo",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       if (paymentMethod === "neft" && !neftPhotoUrl) {
@@ -956,6 +998,7 @@ export const Cart = () => {
           description: "Please capture NEFT confirmation photo",
           variant: "destructive"
         });
+        setIsSubmitting(false);
         return;
       }
       console.log('✅ [Cart] Payment proof validation passed');
@@ -970,9 +1013,9 @@ export const Cart = () => {
         description: `This order will be submitted on ${new Date(visitDate!).toLocaleDateString()}. Items will remain in your cart until then.`,
         variant: "default"
       });
+      setIsSubmitting(false);
       return; // This prevents any further execution
     }
-    setIsSubmitting(true);
 
     try {
       // Get current user - use getSession() for offline support (reads from localStorage cache)
@@ -1277,9 +1320,53 @@ export const Cart = () => {
       // Combine regular items with free items
       const allOrderItems = [...orderItems, ...freeOrderItems];
 
+      // DUPLICATE GUARD (live path): if this visit already has a non-cancelled
+      // order with the exact same items+quantities, ask before adding another
+      // rather than silently creating or silently blocking it. Only runs when
+      // definitely online — if we can't reach the server to check, there's
+      // nothing to ask about; the server-side guard in sync_order_with_items_v2
+      // covers that case safely (it defaults to not creating a silent duplicate).
+      let confirmedDuplicate = false;
+      if (actualVisitId && connectivityStatus === 'online' && navigator.onLine) {
+        try {
+          const incomingSignature = allOrderItems
+            .map(it => `${it.product_id || ''}:${it.variant_id || ''}:${it.quantity}`)
+            .sort()
+            .join(',');
+
+          const { data: recentOrders } = await supabase
+            .from('orders')
+            .select('id, order_items(product_id, variant_id, quantity)')
+            .eq('visit_id', actualVisitId)
+            .neq('status', 'cancelled');
+
+          const matchingOrder = (recentOrders || []).find((o: any) => {
+            const existingSignature = (o.order_items || [])
+              .map((it: any) => `${it.product_id || ''}:${it.variant_id || ''}:${it.quantity}`)
+              .sort()
+              .join(',');
+            return existingSignature.length > 0 && existingSignature === incomingSignature;
+          });
+
+          if (matchingOrder) {
+            const proceed = window.confirm(
+              'You already added the exact same items to this visit a moment ago. Add it again as a separate order?'
+            );
+            if (!proceed) {
+              setIsSubmitting(false);
+              return;
+            }
+            confirmedDuplicate = true;
+          }
+        } catch (dupCheckError) {
+          // Non-fatal — if the check itself fails, don't block a real submission on it.
+          console.warn('[Cart] Duplicate pre-check failed (non-fatal):', dupCheckError);
+        }
+      }
+
       // Submit order using offline-capable utility with improved feedback
       let orderSubmissionFailed = false;
-      const result = await submitOrderWithOfflineSupport(orderData, allOrderItems, {
+      const result = await submitOrderWithOfflineSupport({ ...orderData, confirmed_duplicate: confirmedDuplicate }, allOrderItems, {
         connectivityStatus,
         onOffline: () => {
           toast({
@@ -1687,10 +1774,17 @@ export const Cart = () => {
 
       // Navigate to My Visits page - snapshot is already updated
       console.log('✅ Navigating to My Visits');
-      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      // Keep the backdate context while the user is still working that past
+      // date — the next retailer's order must land on the same day and ask
+      // for a reason again. My Visits clears/replaces the context whenever a
+      // different date is selected. Returning with ?date= keeps the calendar
+      // on the day being worked instead of snapping back to today.
+      if (!isBackdated) {
+        try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      }
       clearOnBehalfContext();
       clearOutOfBeatContext();
-      navigate(isAdminEdit ? '/operations/edited-orders' : '/visits/retailers');
+      navigate(isAdminEdit ? '/operations/edited-orders' : `/visits/retailers?date=${getEffectiveOrderDate()}`);
 
       // BACKGROUND WORK - Don't block user navigation for non-critical tasks
       // Gamification, retailer sequences, and invoice DB records run in background
@@ -1712,6 +1806,7 @@ export const Cart = () => {
                 await calculateLocalVanStockUpdate(
                   orderItems.map(item => ({
                     product_id: item.product_id,
+                    variant_id: item.variant_id,
                     quantity: item.quantity,
                     unit: item.unit
                   })),
@@ -1725,6 +1820,7 @@ export const Cart = () => {
                 await calculateLocalVanStockUpdate(
                   orderItems.map(item => ({
                     product_id: item.product_id,
+                    variant_id: item.variant_id,
                     quantity: item.quantity,
                     unit: item.unit
                   })),
@@ -1790,9 +1886,14 @@ export const Cart = () => {
             const orderDate = new Date().toISOString().split('T')[0];
             await awardPointsForTotalVisits(currentUserId, orderDate);
 
-            // Create invoice record (for future editing/management)
-            const invoiceDate = new Date().toISOString().split('T')[0];
-            const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            // Create invoice record (for future editing/management). The
+            // invoice carries the order's business date — for a backdated
+            // order the day the sale happened, not the day it was keyed in —
+            // and the due date counts from that same day.
+            const invoiceDate = getEffectiveOrderDate();
+            const dueDateObj = new Date(invoiceDate + 'T00:00:00');
+            dueDateObj.setDate(dueDateObj.getDate() + 30);
+            const dueDate = toLocalISODate(dueDateObj);
 
             const { data: companyData } = await supabase
               .from('companies')
@@ -2459,11 +2560,14 @@ export const Cart = () => {
         markVisitDataChanged(orderDate);
       }
 
-      // Navigate back to My Visits
-      try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      // Navigate back to My Visits (same backdate-context handling as the
+      // regular submit path above).
+      if (!isBackdated) {
+        try { sessionStorage.removeItem('backdated_order_context'); } catch {}
+      }
       clearOnBehalfContext();
       clearOutOfBeatContext();
-      navigate(isEditMode && isAdminEdit ? '/operations/edited-orders' : '/visits/retailers');
+      navigate(isEditMode && isAdminEdit ? '/operations/edited-orders' : `/visits/retailers?date=${getEffectiveOrderDate()}`);
 
     } catch (error: any) {
       console.error('Error submitting D-1 order:', error);

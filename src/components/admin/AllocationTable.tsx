@@ -9,11 +9,11 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { TargetStrategy, SplitMethod } from './TargetStrategySelector';
 import { TargetSplitDialog } from './TargetSplitDialog';
-import { WizardProgress } from './target-config/WizardProgress';
 import { StrategyExplanationPanel } from './allocation/StrategyExplanationPanel';
 import { StepAssignManagers } from './allocation/StepAssignManagers';
 import { StepPreview } from './allocation/StepPreview';
 import { StepReviewSave } from './allocation/StepReviewSave';
+import { writeHierarchyAssignmentNote } from '@/lib/hierarchyAssignmentNote';
 
 interface EnabledParameters {
   product: boolean;
@@ -46,6 +46,7 @@ interface SubordinateAllocation {
 interface TeamHierarchyNode {
   userId: string;
   fullName: string;
+  designation?: string;
   subordinateCount: number;
   children: TeamHierarchyNode[];
   quantityTarget?: number;
@@ -70,8 +71,23 @@ interface AllocationTableProps {
   };
   enabledParameters: EnabledParameters;
   fyYear: number;
+  /** The plan this allocation belongs to — stamped onto the browser-local
+   *  note a successful Save leaves behind, so the Targets tab's "Decide
+   *  later" readout can find it. Undefined is a no-op, not an error: nothing
+   *  to tag the note with, so nothing is written. */
+  planId?: string;
   targetStartMonth?: number;
   targetEndMonth?: number;
+  /**
+   * Report what has actually been handed out, and where the wizard is, so the
+   * page header above can show the live figures rather than a placeholder.
+   */
+  onProgressChange?: (progress: {
+    distributed: { quantity: number; revenue: number; visits: number };
+    currentStep: number;
+    steps: { id: number; title: string }[];
+    isBalanced: boolean;
+  }) => void;
 }
 
 const formatNumber = (num: number) => new Intl.NumberFormat('en-IN').format(num);
@@ -122,10 +138,16 @@ const splitByWeights = (
 };
 
 /**
- * Count effective contributors in a branch:
- * - Individual contributor (no children): 1
- * - Pure manager: sum(children)
- * - Player-manager (independent): 1 + sum(children)
+ * Count the people in a branch who can actually carry a target:
+ * - Individual contributor: 1
+ * - Pure manager (Roll Down / Roll Up): sum(children)
+ * - Player-manager (Independent): 1 + sum(children)
+ * - Excluded individual: 0 — they drop out of the allocation entirely
+ * - Excluded manager: sum(children) — the manager holds nothing themselves,
+ *   but their share passes straight through to the people under them
+ *
+ * A branch counting 0 has nobody left to take a share, so it is left out of
+ * every split rather than being forced to a minimum of one.
  */
 const getContributorCountForNode = (
   node: SubordinateAllocation,
@@ -136,16 +158,12 @@ const getContributorCountForNode = (
   if (cached !== undefined) return cached;
 
   const currentAlloc = allocations.get(node.userId) || node;
-  
-  // No target users contribute 0
-  if (currentAlloc.targetStrategy === 'no_target') {
-    cache.set(node.userId, 0);
-    return 0;
-  }
+  const excluded = currentAlloc.targetStrategy === 'no_target';
 
   if (node.children.length === 0) {
-    cache.set(node.userId, 1);
-    return 1;
+    const own = excluded ? 0 : 1;
+    cache.set(node.userId, own);
+    return own;
   }
 
   const childContributors = node.children.reduce(
@@ -153,134 +171,303 @@ const getContributorCountForNode = (
     0,
   );
 
-  const includeSelf = currentAlloc.targetStrategy === 'independent';
-  const total = Math.max(1, childContributors + (includeSelf ? 1 : 0));
+  const includeSelf = !excluded && currentAlloc.targetStrategy === 'independent';
+  const total = childContributors + (includeSelf ? 1 : 0);
   cache.set(node.userId, total);
   return total;
 };
 
+/**
+ * What a whole branch is responsible for, as seen from one level up.
+ *
+ * The team figure is what the branch below carries; an Independent manager
+ * holds a target of their own *beside* it, so their branch is worth both added
+ * together — personal 30,000 with a team on 100,000 is a branch of 130,000.
+ * An excluded individual is worth nothing; an excluded manager is worth what
+ * their team carries, since their share passes through untouched.
+ */
+const branchValue = (
+  alloc: SubordinateAllocation,
+  teamKey: 'quantityTarget' | 'revenueTarget' | 'visitsTarget',
+  personalKey: 'personalQuantityTarget' | 'personalRevenueTarget' | 'personalVisitsTarget',
+): number => {
+  const team = alloc[teamKey] || 0;
+  const hasTeam = alloc.children.length > 0;
+
+  if (alloc.targetStrategy === 'no_target') return hasTeam ? team : 0;
+  if (alloc.targetStrategy === 'independent' && hasTeam) return team + (alloc[personalKey] || 0);
+  return team;
+};
+
 const getEffectiveQuantity = (alloc: SubordinateAllocation) =>
-  alloc.quantityTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalQuantityTarget : 0);
+  branchValue(alloc, 'quantityTarget', 'personalQuantityTarget');
 
 const getEffectiveRevenue = (alloc: SubordinateAllocation) =>
-  alloc.revenueTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalRevenueTarget : 0);
+  branchValue(alloc, 'revenueTarget', 'personalRevenueTarget');
 
 const getEffectiveVisits = (alloc: SubordinateAllocation) =>
-  alloc.visitsTarget + (alloc.targetStrategy === 'independent' && alloc.children.length > 0 ? alloc.personalVisitsTarget : 0);
+  branchValue(alloc, 'visitsTarget', 'personalVisitsTarget');
+
+/** How a total is shared out among the branches below it. */
+type SplitMode =
+  /** One equal share per direct report, whatever size their branch is. */
+  | 'equal'
+  /** Shares proportional to head count, so every individual ends up equal. */
+  | 'byTeamSize';
 
 /**
- * Recursively auto-distribute targets based on per-user strategies and contributor count.
+ * The branches eligible for a share, and how much weight each carries.
+ *
+ * A branch with nobody left to carry a target is left out rather than given a
+ * forced minimum share, which would strand part of the total on a row that
+ * cannot pass it anywhere.
+ */
+const splitEntriesFor = (
+  children: SubordinateAllocation[],
+  allocations: Map<string, SubordinateAllocation>,
+  mode: SplitMode,
+  cache: Map<string, number> = new Map(),
+): Array<{ userId: string; weight: number }> =>
+  children
+    .map((child) => ({ child, count: getContributorCountForNode(child, allocations, cache) }))
+    .filter(({ count }) => count > 0)
+    .map(({ child, count }) => ({
+      userId: child.userId,
+      weight: mode === 'equal' ? 1 : count,
+    }));
+
+/**
+ * Hand a manager's total down to their team, all the way to the bottom.
+ *
+ * A manager who has been given a share of the annual target has to see that
+ * share reach the people under them, or the two disagree — and a Roll Up
+ * manager, whose figure is read back from the team, would then be overwritten
+ * with an unrelated number and the distributed total would drift away from the
+ * annual target.
+ *
+ * Independent managers hand down only the team's portion; the slice they hold
+ * themselves stays on their own row. An excluded manager hands down the whole
+ * figure — they keep none of it, so it passes through to their team intact.
+ */
+const pushTargetsDown = (
+  userId: string,
+  next: Map<string, SubordinateAllocation>,
+  nodeById: Map<string, SubordinateAllocation>,
+  enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean },
+  mode: SplitMode = 'equal',
+): void => {
+  const alloc = next.get(userId);
+  const node = nodeById.get(userId);
+  if (!alloc || !node || node.children.length === 0) return;
+
+  const entries = splitEntriesFor(node.children, next, mode);
+  if (!entries.length) return;
+  const receiving = new Set(entries.map((entry) => entry.userId));
+
+  const quantitySplit = enabledMetrics.quantity ? splitByWeights(alloc.quantityTarget, entries) : new Map<string, number>();
+  const revenueSplit = enabledMetrics.revenue ? splitByWeights(alloc.revenueTarget, entries) : new Map<string, number>();
+  const visitsSplit = enabledMetrics.visits ? splitByWeights(alloc.visitsTarget, entries) : new Map<string, number>();
+
+  node.children.forEach((child) => {
+    const currentChild = next.get(child.userId);
+    if (!currentChild || !receiving.has(child.userId)) return;
+    next.set(child.userId, {
+      ...currentChild,
+      quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(child.userId) || 0) : currentChild.quantityTarget,
+      revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(child.userId) || 0) : currentChild.revenueTarget,
+      visitsTarget: enabledMetrics.visits ? (visitsSplit.get(child.userId) || 0) : currentChild.visitsTarget,
+    });
+    pushTargetsDown(child.userId, next, nodeById, enabledMetrics, mode);
+  });
+};
+
+const CLEARED_TARGETS = {
+  quantityTarget: 0,
+  revenueTarget: 0,
+  visitsTarget: 0,
+  personalQuantityTarget: 0,
+  personalRevenueTarget: 0,
+  personalVisitsTarget: 0,
+} as const;
+
+/**
+ * Hand each branch's amount down through the whole tree.
+ *
+ * Every node arrives holding what its *branch* is responsible for. Splitting
+ * that among the branches below is the same operation at every level, and the
+ * target type only decides two things: whether the manager keeps a share for
+ * themselves, and whether their own figure is read back from the team.
+ *
+ * - Independent joins their own team's split as one more contributor, so their
+ *   personal target comes out of the branch alongside the team's — 30,000 of
+ *   their own plus a team on 100,000 is a branch of 130,000.
+ * - Roll Up reads the manager's figure back once the team is settled. The share
+ *   is handed down first, so reading it back returns the same number instead of
+ *   losing it.
+ * - No Target keeps nothing: the branch's amount passes straight through to the
+ *   people below.
+ * - A branch with nobody left to carry a target is cleared and skipped.
  */
 function autoDistributeTargets(
   nodes: SubordinateAllocation[],
-  _parentTarget: { quantity: number; revenue: number; visits: number },
   allocations: Map<string, SubordinateAllocation>,
   enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean },
+  mode: SplitMode = 'equal',
 ): Map<string, SubordinateAllocation> {
   const contributorCache = new Map<string, number>();
-  const getContributors = (node: SubordinateAllocation) => getContributorCountForNode(node, allocations, contributorCache);
 
   const distributeNode = (node: SubordinateAllocation) => {
-    const managerAlloc = allocations.get(node.userId);
-    if (!managerAlloc || node.children.length === 0 || managerAlloc.targetStrategy === 'no_target') return;
+    const alloc = allocations.get(node.userId);
+    if (!alloc || node.children.length === 0) return;
 
-    const strategy = managerAlloc.targetStrategy || 'roll_down';
-    const children = node.children
-      .map((child) => ({ childNode: child, childAlloc: allocations.get(child.userId) }))
-      .filter((entry): entry is { childNode: SubordinateAllocation; childAlloc: SubordinateAllocation } => Boolean(entry.childAlloc));
+    const childEntries = splitEntriesFor(node.children, allocations, mode, contributorCache);
+    const receiving = new Set(childEntries.map((entry) => entry.userId));
 
-    if (!children.length) return;
+    node.children.forEach((child) => {
+      if (receiving.has(child.userId)) return;
+      const childAlloc = allocations.get(child.userId);
+      if (childAlloc) allocations.set(child.userId, { ...childAlloc, ...CLEARED_TARGETS });
+    });
 
-    if (strategy === 'roll_up') {
-      children.forEach(({ childNode }) => distributeNode(childNode));
+    if (!childEntries.length) return;
 
-      let sumQ = 0;
-      let sumR = 0;
-      let sumV = 0;
-      children.forEach(({ childAlloc }) => {
-        const latest = allocations.get(childAlloc.userId);
+    const holdsOwnShare = alloc.targetStrategy === 'independent';
+    const entries = holdsOwnShare
+      ? [{ userId: node.userId, weight: 1 }, ...childEntries]
+      : childEntries;
+
+    const branch = {
+      quantity: getEffectiveQuantity(alloc),
+      revenue: getEffectiveRevenue(alloc),
+      visits: getEffectiveVisits(alloc),
+    };
+
+    const quantitySplit = enabledMetrics.quantity ? splitByWeights(branch.quantity, entries) : new Map<string, number>();
+    const revenueSplit = enabledMetrics.revenue ? splitByWeights(branch.revenue, entries) : new Map<string, number>();
+    const visitsSplit = enabledMetrics.visits ? splitByWeights(branch.visits, entries) : new Map<string, number>();
+
+    const ownQuantity = holdsOwnShare ? (quantitySplit.get(node.userId) || 0) : 0;
+    const ownRevenue = holdsOwnShare ? (revenueSplit.get(node.userId) || 0) : 0;
+    const ownVisits = holdsOwnShare ? (visitsSplit.get(node.userId) || 0) : 0;
+
+    allocations.set(node.userId, {
+      ...alloc,
+      quantityTarget: enabledMetrics.quantity ? branch.quantity - ownQuantity : alloc.quantityTarget,
+      revenueTarget: enabledMetrics.revenue ? branch.revenue - ownRevenue : alloc.revenueTarget,
+      visitsTarget: enabledMetrics.visits ? branch.visits - ownVisits : alloc.visitsTarget,
+      personalQuantityTarget: enabledMetrics.quantity ? ownQuantity : alloc.personalQuantityTarget,
+      personalRevenueTarget: enabledMetrics.revenue ? ownRevenue : alloc.personalRevenueTarget,
+      personalVisitsTarget: enabledMetrics.visits ? ownVisits : alloc.personalVisitsTarget,
+    });
+
+    node.children.forEach((child) => {
+      const childAlloc = allocations.get(child.userId);
+      if (!childAlloc || !receiving.has(child.userId)) return;
+
+      // The child receives what their whole branch is worth. Their own slice of
+      // it, if they take one, is carved out when the recursion reaches them —
+      // so any earlier slice is cleared first rather than counted twice.
+      allocations.set(child.userId, {
+        ...childAlloc,
+        quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(child.userId) || 0) : childAlloc.quantityTarget,
+        revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(child.userId) || 0) : childAlloc.revenueTarget,
+        visitsTarget: enabledMetrics.visits ? (visitsSplit.get(child.userId) || 0) : childAlloc.visitsTarget,
+        personalQuantityTarget: enabledMetrics.quantity ? 0 : childAlloc.personalQuantityTarget,
+        personalRevenueTarget: enabledMetrics.revenue ? 0 : childAlloc.personalRevenueTarget,
+        personalVisitsTarget: enabledMetrics.visits ? 0 : childAlloc.personalVisitsTarget,
+      });
+
+      distributeNode(child);
+    });
+
+    if (alloc.targetStrategy === 'roll_up') {
+      const settled = allocations.get(node.userId);
+      if (!settled) return;
+
+      let sumQuantity = 0;
+      let sumRevenue = 0;
+      let sumVisits = 0;
+      node.children.forEach((child) => {
+        const latest = allocations.get(child.userId);
         if (!latest) return;
-        sumQ += getEffectiveQuantity(latest);
-        sumR += getEffectiveRevenue(latest);
-        sumV += getEffectiveVisits(latest);
+        sumQuantity += getEffectiveQuantity(latest);
+        sumRevenue += getEffectiveRevenue(latest);
+        sumVisits += getEffectiveVisits(latest);
       });
 
       allocations.set(node.userId, {
-        ...managerAlloc,
-        quantityTarget: enabledMetrics.quantity ? sumQ : managerAlloc.quantityTarget,
-        revenueTarget: enabledMetrics.revenue ? sumR : managerAlloc.revenueTarget,
-        visitsTarget: enabledMetrics.visits ? sumV : managerAlloc.visitsTarget,
+        ...settled,
+        quantityTarget: enabledMetrics.quantity ? sumQuantity : settled.quantityTarget,
+        revenueTarget: enabledMetrics.revenue ? sumRevenue : settled.revenueTarget,
+        visitsTarget: enabledMetrics.visits ? sumVisits : settled.visitsTarget,
       });
-      return;
     }
-
-    const weightedEntries = children
-      .filter(({ childAlloc }) => childAlloc.targetStrategy !== 'no_target')
-      .map(({ childNode, childAlloc }) => ({
-        userId: childAlloc.userId,
-        weight: Math.max(1, getContributors(childNode)),
-      }));
-
-    // Zero out no_target children
-    children.forEach(({ childNode, childAlloc }) => {
-      if (childAlloc.targetStrategy === 'no_target') {
-        allocations.set(childNode.userId, {
-          ...childAlloc,
-          quantityTarget: 0,
-          revenueTarget: 0,
-          visitsTarget: 0,
-          personalQuantityTarget: 0,
-          personalRevenueTarget: 0,
-          personalVisitsTarget: 0,
-        });
-      }
-    });
-
-    const quantitySplit = enabledMetrics.quantity ? splitByWeights(managerAlloc.quantityTarget, weightedEntries) : new Map<string, number>();
-    const revenueSplit = enabledMetrics.revenue ? splitByWeights(managerAlloc.revenueTarget, weightedEntries) : new Map<string, number>();
-    const visitsSplit = enabledMetrics.visits ? splitByWeights(managerAlloc.visitsTarget, weightedEntries) : new Map<string, number>();
-
-    children.forEach(({ childNode, childAlloc }) => {
-      const assignedQty = enabledMetrics.quantity ? (quantitySplit.get(childNode.userId) || 0) : childAlloc.quantityTarget;
-      const assignedRev = enabledMetrics.revenue ? (revenueSplit.get(childNode.userId) || 0) : childAlloc.revenueTarget;
-      const assignedVis = enabledMetrics.visits ? (visitsSplit.get(childNode.userId) || 0) : childAlloc.visitsTarget;
-
-      const isPlayerManager = childNode.children.length > 0 && childAlloc.targetStrategy === 'independent';
-
-      if (isPlayerManager) {
-        const contributorCount = Math.max(getContributors(childNode), 1);
-        const personalQty = enabledMetrics.quantity ? Math.round(assignedQty / contributorCount) : childAlloc.personalQuantityTarget;
-        const personalRev = enabledMetrics.revenue ? Math.round(assignedRev / contributorCount) : childAlloc.personalRevenueTarget;
-        const personalVis = enabledMetrics.visits ? Math.round(assignedVis / contributorCount) : childAlloc.personalVisitsTarget;
-
-        allocations.set(childNode.userId, {
-          ...childAlloc,
-          quantityTarget: enabledMetrics.quantity ? Math.max(assignedQty - personalQty, 0) : childAlloc.quantityTarget,
-          revenueTarget: enabledMetrics.revenue ? Math.max(assignedRev - personalRev, 0) : childAlloc.revenueTarget,
-          visitsTarget: enabledMetrics.visits ? Math.max(assignedVis - personalVis, 0) : childAlloc.visitsTarget,
-          personalQuantityTarget: enabledMetrics.quantity ? personalQty : childAlloc.personalQuantityTarget,
-          personalRevenueTarget: enabledMetrics.revenue ? personalRev : childAlloc.personalRevenueTarget,
-          personalVisitsTarget: enabledMetrics.visits ? personalVis : childAlloc.personalVisitsTarget,
-        });
-      } else {
-        allocations.set(childNode.userId, {
-          ...childAlloc,
-          quantityTarget: enabledMetrics.quantity ? assignedQty : childAlloc.quantityTarget,
-          revenueTarget: enabledMetrics.revenue ? assignedRev : childAlloc.revenueTarget,
-          visitsTarget: enabledMetrics.visits ? assignedVis : childAlloc.visitsTarget,
-          personalQuantityTarget: enabledMetrics.quantity ? 0 : childAlloc.personalQuantityTarget,
-          personalRevenueTarget: enabledMetrics.revenue ? 0 : childAlloc.personalRevenueTarget,
-          personalVisitsTarget: enabledMetrics.visits ? 0 : childAlloc.personalVisitsTarget,
-        });
-      }
-
-      distributeNode(childNode);
-    });
   };
 
   nodes.forEach(distributeNode);
   return allocations;
 }
+
+/**
+ * Managers whose stated figure no longer matches what their team adds up to.
+ *
+ * Typed figures are left exactly as entered, so the two can disagree — this is
+ * what says where, rather than quietly moving numbers to cover it up. A manager
+ * whose team is still empty-handed is not a mismatch: nothing has been given
+ * out there yet.
+ */
+interface ReconciliationIssue {
+  userId: string;
+  fullName: string;
+  stated: number;
+  team: number;
+}
+
+const findReconciliationIssues = (
+  nodes: SubordinateAllocation[],
+  allocations: Map<string, SubordinateAllocation>,
+  enabledMetrics: { quantity: boolean; revenue: boolean; visits: boolean },
+): ReconciliationIssue[] => {
+  const issues: ReconciliationIssue[] = [];
+
+  const visit = (node: SubordinateAllocation) => {
+    const alloc = allocations.get(node.userId);
+    if (!alloc) return;
+
+    // Someone excluded takes no part in any of this. They carry no target of
+    // their own, so there is nothing of theirs to hold their team against —
+    // whatever figure passes through them belongs to the team, not to them.
+    // Their team is still checked, one level down, on its own rows.
+    const excluded = alloc.targetStrategy === 'no_target';
+
+    if (!excluded && node.children.length > 0) {
+      const stated =
+        (enabledMetrics.quantity ? alloc.quantityTarget : 0) +
+        (enabledMetrics.revenue ? alloc.revenueTarget : 0) +
+        (enabledMetrics.visits ? alloc.visitsTarget : 0);
+
+      const team = node.children.reduce((sum, child) => {
+        const childAlloc = allocations.get(child.userId);
+        if (!childAlloc) return sum;
+        return (
+          sum +
+          (enabledMetrics.quantity ? getEffectiveQuantity(childAlloc) : 0) +
+          (enabledMetrics.revenue ? getEffectiveRevenue(childAlloc) : 0) +
+          (enabledMetrics.visits ? getEffectiveVisits(childAlloc) : 0)
+        );
+      }, 0);
+
+      if (stated > 0 && team > 0 && stated !== team) {
+        issues.push({ userId: node.userId, fullName: node.fullName, stated, team });
+      }
+    }
+
+    node.children.forEach(visit);
+  };
+
+  nodes.forEach(visit);
+  return issues;
+};
 
 export function AllocationTable({
   parentUserId,
@@ -293,10 +480,32 @@ export function AllocationTable({
   fyYear,
   targetStartMonth = 1,
   targetEndMonth = 12,
+  planId,
+  onProgressChange,
 }: AllocationTableProps) {
   const queryClient = useQueryClient();
   const [allocations, setAllocations] = useState<Map<string, SubordinateAllocation>>(new Map());
   const [currentStep, setCurrentStep] = useState(1);
+
+  /**
+   * Whole-page switch for managers who would rather type every figure
+   * themselves than use Split Equally, Split by Team Size, or a strategy's own
+   * cascade.
+   *
+   * While it is on, a typed figure is taken exactly as entered and nothing else
+   * — no push down onto a team, no read-back up to a Roll Up or Independent
+   * ancestor, no re-split when someone crosses into or out of No Target. Each
+   * target strategy (Roll Down, Roll Up, Independent, No Target) still tags
+   * every person exactly as before and is fully intact the moment this is
+   * switched off — Manual Allocation only suspends the automatic recompute a
+   * strategy would otherwise trigger, it does not touch what the strategies
+   * mean or how they behave once this is off again.
+   *
+   * The distributed total shown above and the balance check before Save both
+   * read straight from `allocations`, so they already follow whatever is typed
+   * without any extra wiring — this flag only needs to gate the cascade calls.
+   */
+  const [manualAllocationMode, setManualAllocationMode] = useState(false);
 
   // Split dialog state
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
@@ -343,19 +552,32 @@ export function AllocationTable({
       subordinatesOnly.forEach((sub: { subordinate_user_id: string; level: number }) => {
         const profile = profileMap.get(sub.subordinate_user_id);
         const existingPlan = planMap.get(sub.subordinate_user_id);
-        const savedStrategy = (existingPlan?.target_strategy as TargetStrategy) || 'roll_down';
+        const rawStrategy = (existingPlan?.target_strategy as TargetStrategy) || 'roll_down';
+        const subCount = subordinateCounts.get(sub.subordinate_user_id) || 0;
+        // Roll Down and Roll Up describe how a target moves between a manager and
+        // their team, so neither means anything for someone with no subordinates.
+        // Such an employee simply carries their own target — Independent — unless
+        // they have been explicitly excluded.
+        const savedStrategy: TargetStrategy =
+          subCount === 0 && rawStrategy !== 'no_target' ? 'independent' : rawStrategy;
 
         nodeMap.set(sub.subordinate_user_id, {
           userId: sub.subordinate_user_id,
           fullName: profile?.full_name || 'Unknown',
           profilePictureUrl: profile?.profile_picture_url || null,
           designation: profile?.designation || undefined,
-          quantityTarget: existingPlan?.quantity_target || 0,
-          revenueTarget: existingPlan?.revenue_target || 0,
+          // Amounts are not carried over from a previously saved plan. The
+          // annual target on the current plan is the only source for what gets
+          // handed out, so a figure saved against an older, larger annual
+          // target cannot reappear here and read as over-allocated.
+          // The saved target type is kept, since that is a per-person setting
+          // rather than an amount.
+          quantityTarget: 0,
+          revenueTarget: 0,
           visitsTarget: 0,
-          personalQuantityTarget: (existingPlan as any)?.personal_quantity_target || 0,
-          personalRevenueTarget: (existingPlan as any)?.personal_revenue_target || 0,
-          personalVisitsTarget: (existingPlan as any)?.personal_visits_target || 0,
+          personalQuantityTarget: 0,
+          personalRevenueTarget: 0,
+          personalVisitsTarget: 0,
           percentage: 0,
           existingPlanId: existingPlan?.id,
           level: sub.level,
@@ -408,6 +630,19 @@ export function AllocationTable({
 
   const directReports = useMemo(() => hierarchyData?.roots || [], [hierarchyData]);
 
+  /** Every person in the tree by id, for weight lookups. */
+  const nodeById = useMemo(() => {
+    const map = new Map<string, SubordinateAllocation>();
+    const collect = (nodes: SubordinateAllocation[]) => {
+      nodes.forEach((node) => {
+        map.set(node.userId, node);
+        if (node.children.length) collect(node.children);
+      });
+    };
+    collect(directReports);
+    return map;
+  }, [directReports]);
+
   const hierarchyRelations = useMemo(() => {
     const parentByChild = new Map<string, string>();
     const childrenByParent = new Map<string, string[]>();
@@ -457,12 +692,124 @@ export function AllocationTable({
     });
   }, [hierarchyRelations.childrenByParent, enabledMetrics]);
 
+  /**
+   * Re-share a fixed manager total across whoever is still active.
+   *
+   * Called when someone crosses into or out of No Target. The manager's total
+   * is unchanged — an excluded person drops out of the allocation and their
+   * share goes to the remaining active people; bringing someone back re-splits
+   * the same total to include them again.
+   *
+   * Only someone with nobody under them actually leaves. An excluded *manager*
+   * still holds a place in the split, because the people below them keep their
+   * targets and the branch's share passes through untouched.
+   */
+  const redistributeAmongSiblings = useCallback((userId: string, next: Map<string, SubordinateAllocation>) => {
+    const parentId = hierarchyRelations.parentByChild.get(userId);
+
+    // Which people share the pot, and how big is it.
+    const siblingIds = parentId
+      ? hierarchyRelations.childrenByParent.get(parentId) || []
+      : directReports.map((dr) => dr.userId);
+    if (siblingIds.length === 0) return;
+
+    const parentAlloc = parentId ? next.get(parentId) : undefined;
+
+    const pot = parentAlloc
+      ? {
+          quantity: parentAlloc.quantityTarget,
+          revenue: parentAlloc.revenueTarget,
+          visits: parentAlloc.visitsTarget,
+        }
+      : { quantity: totalQuantity, revenue: totalRevenue, visits: totalVisits };
+
+    // Nothing has been handed out at this level yet — leave it undistributed
+    // rather than filling targets in off the back of a dropdown change.
+    const alreadyAllocated = siblingIds.reduce((sum, id) => {
+      const alloc = next.get(id);
+      if (!alloc) return sum;
+      return sum + alloc.quantityTarget + alloc.revenueTarget + alloc.visitsTarget;
+    }, 0);
+    if (alreadyAllocated === 0) return;
+
+    const siblingNodes = siblingIds
+      .map((id) => nodeById.get(id))
+      .filter((node): node is SubordinateAllocation => Boolean(node));
+
+    const weightedEntries = splitEntriesFor(siblingNodes, next, 'equal');
+
+    // Everyone in this group is excluded — nothing left to share the pot.
+    if (!weightedEntries.length) return;
+    const receiving = new Set(weightedEntries.map((entry) => entry.userId));
+
+    const quantitySplit = enabledMetrics.quantity ? splitByWeights(pot.quantity, weightedEntries) : new Map<string, number>();
+    const revenueSplit = enabledMetrics.revenue ? splitByWeights(pot.revenue, weightedEntries) : new Map<string, number>();
+    const visitsSplit = enabledMetrics.visits ? splitByWeights(pot.visits, weightedEntries) : new Map<string, number>();
+
+    siblingIds.forEach((id) => {
+      const current = next.get(id);
+      if (!current) return;
+
+      if (!receiving.has(id)) {
+        next.set(id, { ...current, ...CLEARED_TARGETS });
+        return;
+      }
+
+      next.set(id, {
+        ...current,
+        quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(id) || 0) : current.quantityTarget,
+        revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(id) || 0) : current.revenueTarget,
+        visitsTarget: enabledMetrics.visits ? (visitsSplit.get(id) || 0) : current.visitsTarget,
+        personalQuantityTarget: enabledMetrics.quantity ? 0 : current.personalQuantityTarget,
+        personalRevenueTarget: enabledMetrics.revenue ? 0 : current.personalRevenueTarget,
+        personalVisitsTarget: enabledMetrics.visits ? 0 : current.personalVisitsTarget,
+      });
+
+      const node = nodeById.get(id);
+      if (node) autoDistributeTargets([node], next, enabledMetrics);
+    });
+  }, [
+    hierarchyRelations.parentByChild,
+    hierarchyRelations.childrenByParent,
+    directReports,
+    nodeById,
+    totalQuantity,
+    totalRevenue,
+    totalVisits,
+    enabledMetrics,
+  ]);
+
+  /**
+   * Keep every derived figure above a change in step with the team below it.
+   *
+   * Roll Up derives the manager's figure from the team by definition, so it is
+   * recomputed rather than typed.
+   *
+   * An excluded manager is recomputed too. The figure on their row is not a
+   * target of theirs — they hold nothing — it is only what passes through them
+   * to their team, so it follows the team rather than standing against it. That
+   * keeps a branch's contribution to the annual target truthful without ever
+   * treating an excluded person as though they had a target.
+   *
+   * An Independent manager's *team* figure follows the team as well. What is
+   * uniquely theirs is their own target, and that is never touched; the team
+   * figure beside it is only what the team collectively carries, so editing
+   * someone in that team moves it. Their total responsibility grows or shrinks
+   * with the edit, and any excess lands where it belongs — against the annual
+   * target — instead of being reported as the manager disagreeing with a team
+   * whose figures they do not own.
+   *
+   * Roll Down alone is left exactly as entered: that manager's figure is the
+   * source their team is split from, not a mirror of it, so a hand-edit below
+   * leaving the two disagreeing is reported as a mismatch rather than papered
+   * over by moving the manager to match.
+   */
   const cascadeRollUpToAncestors = useCallback((userId: string, next: Map<string, SubordinateAllocation>) => {
     let currentParent = hierarchyRelations.parentByChild.get(userId);
 
     while (currentParent) {
-      const parentAlloc = next.get(currentParent);
-      if (parentAlloc?.targetStrategy === 'roll_up') {
+      const strategy = next.get(currentParent)?.targetStrategy;
+      if (strategy === 'roll_up' || strategy === 'no_target' || strategy === 'independent') {
         recomputeRollUpManager(currentParent, next);
       }
       currentParent = hierarchyRelations.parentByChild.get(currentParent);
@@ -470,17 +817,45 @@ export function AllocationTable({
   }, [hierarchyRelations.parentByChild, recomputeRollUpManager]);
 
   // Handlers
+  /**
+   * Take a hand-typed figure exactly as entered.
+   *
+   * Nothing beside the edited row is adjusted to make the totals come out: a
+   * number the user typed is never quietly replaced. Only the two derived
+   * relationships follow — a Roll Down manager's team is re-split from their new
+   * total, and a Roll Up manager above is re-read from their team. Anything left
+   * out of balance is reported, not corrected.
+   *
+   * Manual Allocation suspends both of those relationships. The edited row is
+   * still set exactly as typed — that part never changes — but nothing beyond
+   * it moves: no push down onto a team, no read-back up to an ancestor. Every
+   * row's total to distribute follows automatically regardless, since it is
+   * derived fresh from `allocations` on every render.
+   */
   const handleTargetChange = useCallback((userId: string, field: string, value: number) => {
     setAllocations(prev => {
       const next = new Map(prev);
       const current = next.get(userId);
-      if (current) {
-        next.set(userId, { ...current, [field]: value });
-        cascadeRollUpToAncestors(userId, next);
+      if (!current) return next;
+
+      next.set(userId, { ...current, [field]: value });
+
+      if (manualAllocationMode) return next;
+
+      // An Independent manager's own target sits beside their team's, so
+      // changing it leaves the team untouched. A Roll Up manager reads their
+      // figure back from the team, so nothing is handed down from there either.
+      const editedTeamFigure = field !== 'personalQuantityTarget'
+        && field !== 'personalRevenueTarget'
+        && field !== 'personalVisitsTarget';
+      if (editedTeamFigure && current.targetStrategy !== 'roll_up') {
+        pushTargetsDown(userId, next, nodeById, enabledMetrics);
       }
+
+      cascadeRollUpToAncestors(userId, next);
       return next;
     });
-  }, [cascadeRollUpToAncestors]);
+  }, [cascadeRollUpToAncestors, nodeById, enabledMetrics, manualAllocationMode]);
 
   const handleStrategyChange = useCallback((userId: string, strategy: TargetStrategy) => {
     setAllocations(prev => {
@@ -488,14 +863,28 @@ export function AllocationTable({
       const current = next.get(userId);
 
       if (current) {
-        // When switching to no_target, zero out all targets
-        if (strategy === 'no_target') {
+        const wasExcluded = current.targetStrategy === 'no_target';
+        const isExcluded = strategy === 'no_target';
+
+        // Someone excluded carries nothing of their own. A manager keeps the
+        // branch figure, though — they hold none of it themselves, but it is
+        // still what their team is being handed, so it passes through rather
+        // than taking their team's targets down with it.
+        const node = nodeById.get(userId);
+        const hasTeam = (node?.children.length ?? 0) > 0;
+
+        if (isExcluded && !hasTeam) {
+          next.set(userId, { ...current, targetStrategy: strategy, ...CLEARED_TARGETS });
+        } else if (isExcluded) {
+          // The slice this manager was holding for themselves goes back into
+          // the branch, so the branch is worth the same as a moment ago and
+          // all of it now reaches the team.
           next.set(userId, {
             ...current,
             targetStrategy: strategy,
-            quantityTarget: 0,
-            revenueTarget: 0,
-            visitsTarget: 0,
+            quantityTarget: getEffectiveQuantity(current),
+            revenueTarget: getEffectiveRevenue(current),
+            visitsTarget: getEffectiveVisits(current),
             personalQuantityTarget: 0,
             personalRevenueTarget: 0,
             personalVisitsTarget: 0,
@@ -504,89 +893,104 @@ export function AllocationTable({
           next.set(userId, { ...current, targetStrategy: strategy });
         }
 
-        if (strategy === 'roll_up') {
-          recomputeRollUpManager(userId, next);
-        }
+        // Only crossing into or out of No Target changes who shares the
+        // manager's total. Switching between Roll Down, Roll Up and
+        // Independent leaves the same people active, so nothing is re-split.
+        //
+        // Manual Allocation suspends all three re-splits below — the strategy
+        // tag itself still changes on this row (it always has, above), but
+        // nothing beyond this one row recomputes while manual mode is on.
+        if (!manualAllocationMode) {
+          if (wasExcluded !== isExcluded) {
+            redistributeAmongSiblings(userId, next);
+          }
 
-        cascadeRollUpToAncestors(userId, next);
+          // The branch is worth what it was worth before; only the rule for
+          // dividing it has changed. Re-run that division so the new type takes
+          // effect — an Independent manager carves out their own share, a Roll Up
+          // manager reads their figure back from the team, and an excluded
+          // manager passes the whole thing through.
+          if (node) {
+            autoDistributeTargets([node], next, enabledMetrics);
+          }
+
+          cascadeRollUpToAncestors(userId, next);
+        }
       }
 
       return next;
     });
-  }, [recomputeRollUpManager, cascadeRollUpToAncestors]);
+  }, [cascadeRollUpToAncestors, redistributeAmongSiblings, nodeById, enabledMetrics, manualAllocationMode]);
 
-  const handleEqualSplit = useCallback(() => {
+  /**
+   * Hand the annual target out across the top level, then all the way down.
+   *
+   * `equal` gives every direct report's branch the same slice, whatever size it
+   * is; `byTeamSize` weights the slices by head count, so it is the individuals
+   * at the bottom who come out equal rather than the branches. Either way the
+   * same rule is then applied at every level below.
+   */
+  const distributeFromAnnualTarget = useCallback((mode: SplitMode) => {
     if (!directReports.length) return;
-
-    const contributorCache = new Map<string, number>();
-    const weightedEntries = directReports
-      .filter(dr => (allocations.get(dr.userId)?.targetStrategy || 'roll_down') !== 'no_target')
-      .map((dr) => ({
-        userId: dr.userId,
-        weight: Math.max(getContributorCountForNode(dr, allocations, contributorCache), 1),
-      }));
-
-    const quantitySplit = enabledMetrics.quantity ? splitByWeights(totalQuantity, weightedEntries) : new Map<string, number>();
-    const revenueSplit = enabledMetrics.revenue ? splitByWeights(totalRevenue, weightedEntries) : new Map<string, number>();
-    const visitsSplit = enabledMetrics.visits ? splitByWeights(totalVisits, weightedEntries) : new Map<string, number>();
 
     setAllocations((prev) => {
       const next = new Map(prev);
-      const branchCache = new Map<string, number>();
+      const entries = splitEntriesFor(directReports, next, mode);
+      const receiving = new Set(entries.map((entry) => entry.userId));
+
+      const quantitySplit = enabledMetrics.quantity ? splitByWeights(totalQuantity, entries) : new Map<string, number>();
+      const revenueSplit = enabledMetrics.revenue ? splitByWeights(totalRevenue, entries) : new Map<string, number>();
+      const visitsSplit = enabledMetrics.visits ? splitByWeights(totalVisits, entries) : new Map<string, number>();
 
       directReports.forEach((dr) => {
         const current = next.get(dr.userId);
         if (!current) return;
 
-        const assignedQty = enabledMetrics.quantity ? (quantitySplit.get(dr.userId) || 0) : current.quantityTarget;
-        const assignedRev = enabledMetrics.revenue ? (revenueSplit.get(dr.userId) || 0) : current.revenueTarget;
-        const assignedVis = enabledMetrics.visits ? (visitsSplit.get(dr.userId) || 0) : current.visitsTarget;
+        if (!receiving.has(dr.userId)) {
+          next.set(dr.userId, { ...current, ...CLEARED_TARGETS });
+          return;
+        }
 
-        const isPlayerManager = current.targetStrategy === 'independent' && dr.children.length > 0;
-        const contributors = isPlayerManager ? Math.max(getContributorCountForNode(dr, next, branchCache), 1) : 1;
-
-        const personalQty = enabledMetrics.quantity && isPlayerManager ? Math.round(assignedQty / contributors) : 0;
-        const personalRev = enabledMetrics.revenue && isPlayerManager ? Math.round(assignedRev / contributors) : 0;
-        const personalVis = enabledMetrics.visits && isPlayerManager ? Math.round(assignedVis / contributors) : 0;
-
+        // Each branch receives what it is worth in total. Whatever the manager
+        // keeps for themselves is carved out of it on the way down.
         next.set(dr.userId, {
           ...current,
-          quantityTarget: enabledMetrics.quantity ? (isPlayerManager ? Math.max(assignedQty - personalQty, 0) : assignedQty) : current.quantityTarget,
-          revenueTarget: enabledMetrics.revenue ? (isPlayerManager ? Math.max(assignedRev - personalRev, 0) : assignedRev) : current.revenueTarget,
-          visitsTarget: enabledMetrics.visits ? (isPlayerManager ? Math.max(assignedVis - personalVis, 0) : assignedVis) : current.visitsTarget,
-          personalQuantityTarget: enabledMetrics.quantity ? (isPlayerManager ? personalQty : 0) : current.personalQuantityTarget,
-          personalRevenueTarget: enabledMetrics.revenue ? (isPlayerManager ? personalRev : 0) : current.personalRevenueTarget,
-          personalVisitsTarget: enabledMetrics.visits ? (isPlayerManager ? personalVis : 0) : current.personalVisitsTarget,
+          quantityTarget: enabledMetrics.quantity ? (quantitySplit.get(dr.userId) || 0) : current.quantityTarget,
+          revenueTarget: enabledMetrics.revenue ? (revenueSplit.get(dr.userId) || 0) : current.revenueTarget,
+          visitsTarget: enabledMetrics.visits ? (visitsSplit.get(dr.userId) || 0) : current.visitsTarget,
+          personalQuantityTarget: enabledMetrics.quantity ? 0 : current.personalQuantityTarget,
+          personalRevenueTarget: enabledMetrics.revenue ? 0 : current.personalRevenueTarget,
+          personalVisitsTarget: enabledMetrics.visits ? 0 : current.personalVisitsTarget,
         });
       });
 
-      // Now recursively distribute down the entire tree (L2, L3, etc.)
-      autoDistributeTargets(
-        directReports,
-        { quantity: totalQuantity, revenue: totalRevenue, visits: totalVisits },
-        next,
-        enabledMetrics,
-      );
-
+      autoDistributeTargets(directReports, next, enabledMetrics, mode);
       return next;
     });
+  }, [directReports, totalQuantity, totalRevenue, totalVisits, enabledMetrics]);
 
-    toast.success('Targets distributed by contributor count');
-  }, [directReports, allocations, totalQuantity, totalRevenue, totalVisits, enabledMetrics]);
+  const handleSplitEqually = useCallback(() => {
+    distributeFromAnnualTarget('equal');
+    toast.success('Annual target split equally across teams');
+  }, [distributeFromAnnualTarget]);
 
-  // Auto-calculate when entering Step 2
+  const handleEqualSplit = useCallback(() => {
+    distributeFromAnnualTarget('byTeamSize');
+    toast.success('Annual target split by team size — every person gets the same');
+  }, [distributeFromAnnualTarget]);
+
+  // Re-apply each person's target type down the tree when entering Step 2.
+  // Figures already entered are the starting point, so this settles the
+  // hierarchy rather than handing the annual target out again.
   const handleAutoCalculate = useCallback(() => {
     if (!directReports.length) return;
-    const newAllocations = new Map(allocations);
-    autoDistributeTargets(
-      directReports,
-      { quantity: totalQuantity, revenue: totalRevenue, visits: totalVisits },
-      newAllocations,
-      enabledMetrics,
-    );
-    setAllocations(newAllocations);
+    setAllocations((prev) => {
+      const next = new Map(prev);
+      autoDistributeTargets(directReports, next, enabledMetrics);
+      return next;
+    });
     toast.success('Targets auto-calculated! Review the distribution below.');
-  }, [directReports, allocations, totalQuantity, totalRevenue, totalVisits, enabledMetrics]);
+  }, [directReports, enabledMetrics]);
 
   // Split dialog
   const openSplitDialog = useCallback((userId: string) => {
@@ -641,8 +1045,11 @@ export function AllocationTable({
         fiscal_year: `${fyYear}-${fyYear + 1}`,
         year_start: fyYear,
         year_end: fyYear + 1,
-        quantity_target: alloc.quantityTarget,
-        revenue_target: alloc.revenueTarget,
+        // An excluded manager may still be holding the figure their team is
+        // being handed, but none of it is theirs — they are saved carrying
+        // nothing, and their team's own rows carry the targets.
+        quantity_target: alloc.targetStrategy === 'no_target' ? 0 : alloc.quantityTarget,
+        revenue_target: alloc.targetStrategy === 'no_target' ? 0 : alloc.revenueTarget,
         quantity_unit: quantityUnit,
         target_strategy: alloc.targetStrategy || 'roll_down',
         personal_quantity_target: alloc.personalQuantityTarget || 0,
@@ -672,6 +1079,29 @@ export function AllocationTable({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hierarchy-allocations', parentUserId] });
       queryClient.invalidateQueries({ queryKey: ['parent-business-plan', parentUserId, fyYear] });
+
+      // Leave a browser-local note of what this save actually assigned, so
+      // the Targets tab's "Decide later" readout can show this plan's own
+      // progress instead of querying user_business_plans — that table has no
+      // link back to a specific plan, so a query by year alone would pull in
+      // whatever else has ever been saved for it.
+      if (planId) {
+        let assignedCount = 0;
+        allocations.forEach((alloc) => {
+          const hasTarget = getEffectiveQuantity(alloc) > 0 || getEffectiveRevenue(alloc) > 0 || getEffectiveVisits(alloc) > 0;
+          if (hasTarget) assignedCount += 1;
+        });
+        writeHierarchyAssignmentNote(planId, {
+          quantity: distributed.quantity,
+          revenue: distributed.revenue,
+          visits: distributed.visits,
+          assignedCount,
+        });
+        // The header above reads this same note — invalidate so it reflects
+        // this save immediately, without navigating away and back.
+        queryClient.invalidateQueries({ queryKey: ['hierarchy-assignment-note', planId] });
+      }
+
       toast.success('All allocations saved successfully!');
     },
     onError: (error: Error) => {
@@ -681,18 +1111,65 @@ export function AllocationTable({
 
   // Navigation
   const goToStep = (step: number) => {
-    if (step === 2) {
-      // Auto-calculate when entering preview
+    // Auto-calculate when entering preview — skipped in Manual Allocation,
+    // since re-running every strategy's cascade across the whole tree here is
+    // exactly the automatic recompute manual mode exists to avoid. What was
+    // typed on Step 1 carries into Preview completely unchanged.
+    if (step === 2 && !manualAllocationMode) {
       handleAutoCalculate();
     }
     setCurrentStep(step);
   };
 
-  // Computed values
-  const allocatedQuantity = directReports.reduce((sum, u) => sum + (allocations.get(u.userId)?.quantityTarget || 0), 0);
-  const allocatedRevenue = directReports.reduce((sum, u) => sum + (allocations.get(u.userId)?.revenueTarget || 0), 0);
-  const remainingQuantity = totalQuantity - allocatedQuantity;
-  const remainingRevenue = totalRevenue - allocatedRevenue;
+  /**
+   * What the top level actually accounts for.
+   *
+   * Each direct report is counted for their whole branch, not just the figure
+   * on their own row — an Independent manager's own target and their team's
+   * both come out of the annual target, and an excluded manager's branch still
+   * carries the share passing through them.
+   */
+  const distributed = useMemo(() => {
+    const sum = { quantity: 0, revenue: 0, visits: 0 };
+    directReports.forEach((dr) => {
+      const alloc = allocations.get(dr.userId);
+      if (!alloc) return;
+      sum.quantity += getEffectiveQuantity(alloc);
+      sum.revenue += getEffectiveRevenue(alloc);
+      sum.visits += getEffectiveVisits(alloc);
+    });
+    return sum;
+  }, [directReports, allocations]);
+
+  /** Levels below the top where a manager and their team no longer agree. */
+  const reconciliationIssues = useMemo(
+    () => findReconciliationIssues(directReports, allocations, enabledMetrics),
+    [directReports, allocations, enabledMetrics],
+  );
+
+  /** Metrics whose top-level total misses the annual target. */
+  const annualMismatches = useMemo(() => {
+    const checks: Array<{ label: string; distributed: number; total: number }> = [];
+    if (enabledMetrics.quantity) checks.push({ label: `Quantity (${quantityUnit})`, distributed: distributed.quantity, total: totalQuantity });
+    if (enabledMetrics.revenue) checks.push({ label: 'Revenue', distributed: distributed.revenue, total: totalRevenue });
+    if (enabledMetrics.visits) checks.push({ label: 'Visits', distributed: distributed.visits, total: totalVisits });
+    // A metric nobody has touched yet is not a mismatch — it is simply not
+    // distributed, and the step reports it that way.
+    return checks.filter((check) => check.distributed > 0 && check.distributed !== check.total);
+  }, [enabledMetrics, quantityUnit, distributed, totalQuantity, totalRevenue, totalVisits]);
+
+  const isBalanced = annualMismatches.length === 0 && reconciliationIssues.length === 0;
+
+  const nothingDistributed =
+    (!enabledMetrics.quantity || distributed.quantity === 0) &&
+    (!enabledMetrics.revenue || distributed.revenue === 0) &&
+    (!enabledMetrics.visits || distributed.visits === 0);
+
+  // Hand the live figures to the page header, which owns the summary but has
+  // no way of its own to know what the hierarchy below adds up to.
+  useEffect(() => {
+    onProgressChange?.({ distributed, currentStep, steps: WIZARD_STEPS, isBalanced });
+  }, [onProgressChange, distributed, currentStep, isBalanced]);
 
   // Prepare manager rows for Step 1
   const managerRows = useMemo(() => {
@@ -701,6 +1178,7 @@ export function AllocationTable({
       return {
         userId: node.userId,
         fullName: node.fullName,
+        designation: node.designation,
         subordinateCount: node.subordinateCount,
         children: node.children.map(toTeamNode),
         quantityTarget: childAlloc?.quantityTarget ?? 0,
@@ -724,6 +1202,9 @@ export function AllocationTable({
         quantityTarget: alloc?.quantityTarget ?? 0,
         revenueTarget: alloc?.revenueTarget ?? 0,
         visitsTarget: alloc?.visitsTarget ?? 0,
+        personalQuantityTarget: alloc?.personalQuantityTarget ?? 0,
+        personalRevenueTarget: alloc?.personalRevenueTarget ?? 0,
+        personalVisitsTarget: alloc?.personalVisitsTarget ?? 0,
         targetStrategy: (alloc?.targetStrategy ?? 'roll_down') as TargetStrategy,
         children: dr.children.map(toTeamNode),
       };
@@ -761,29 +1242,6 @@ export function AllocationTable({
 
         {/* Strategy Explanation */}
         <StrategyExplanationPanel />
-
-        {/* Wizard Progress */}
-        <WizardProgress currentStep={currentStep} steps={WIZARD_STEPS} />
-
-        {/* Total target summary */}
-        <div className="flex flex-wrap items-center gap-3 p-3 bg-muted/30 rounded-lg border mt-2">
-          <span className="text-sm font-medium text-muted-foreground">Annual Target:</span>
-          {enabledMetrics.quantity && (
-            <Badge variant="outline" className="font-mono text-sm">
-              {formatNumber(totalQuantity)} {quantityUnit}
-            </Badge>
-          )}
-          {enabledMetrics.revenue && (
-            <Badge variant="outline" className="font-mono text-sm">
-              {formatCurrency(totalRevenue)}
-            </Badge>
-          )}
-          {enabledMetrics.visits && (
-            <Badge variant="outline" className="font-mono text-sm">
-              {formatNumber(totalVisits)} visits
-            </Badge>
-          )}
-        </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -791,32 +1249,43 @@ export function AllocationTable({
         {currentStep === 1 && (
           <StepAssignManagers
             managers={managerRows}
-            totalQuantity={totalQuantity}
-            totalRevenue={totalRevenue}
-            totalVisits={totalVisits}
             quantityUnit={quantityUnit}
             enabledMetrics={enabledMetrics}
             onTargetChange={handleTargetChange}
             onStrategyChange={handleStrategyChange}
+            onSplitEqually={handleSplitEqually}
             onEqualSplit={handleEqualSplit}
+            manualAllocationMode={manualAllocationMode}
+            onToggleManualAllocation={() => setManualAllocationMode((v) => !v)}
           />
         )}
 
         {/* Step 2: Auto-Calculate & Preview */}
         {currentStep === 2 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
-              <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-              <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                Targets have been auto-distributed based on each manager's strategy. Review the full hierarchy below.
-              </p>
-            </div>
+            {manualAllocationMode ? (
+              <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Manual Allocation is on — these are exactly the figures typed on Step 1, nothing was auto-distributed.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                <Zap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                  Targets have been auto-distributed based on each manager's strategy. Review the full hierarchy below.
+                </p>
+              </div>
+            )}
             <StepPreview
               roots={directReports}
               quantityUnit={quantityUnit}
               enabledMetrics={enabledMetrics}
               allocations={allocations as any}
-              onTargetChange={handleTargetChange}
+              fyYear={fyYear}
+              targetStartMonth={targetStartMonth}
+              targetEndMonth={targetEndMonth}
             />
           </div>
         )}
@@ -831,14 +1300,48 @@ export function AllocationTable({
             onTargetChange={handleTargetChange}
             onStrategyChange={handleStrategyChange}
             onSplitManager={openSplitDialog}
+            fyYear={fyYear}
+            targetStartMonth={targetStartMonth}
+            targetEndMonth={targetEndMonth}
+            manualAllocationMode={manualAllocationMode}
           />
         )}
 
-        {/* Over-allocation warning */}
-        {currentStep === 3 && (enabledMetrics.quantity && remainingQuantity < 0 || enabledMetrics.revenue && remainingRevenue < 0) && (
-          <div className="flex items-center gap-2 text-destructive bg-destructive/10 p-3 rounded-lg">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span className="text-sm">Total L1 allocations exceed the target. Please adjust.</span>
+        {/* What does not add up yet. Figures are taken exactly as typed, so
+            this is where a disagreement is reported instead of corrected. */}
+        {!nothingDistributed && !isBalanced && (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 space-y-2">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span className="text-sm font-semibold">
+                Targets don't add up yet — adjust before continuing
+              </span>
+            </div>
+
+            <ul className="space-y-1 pl-6 text-sm text-destructive/90">
+              {annualMismatches.map((mismatch) => (
+                <li key={mismatch.label}>
+                  <span className="font-medium">{mismatch.label}:</span>{' '}
+                  {formatNumber(mismatch.distributed)} distributed against an annual target of{' '}
+                  {formatNumber(mismatch.total)}
+                  {' — '}
+                  {mismatch.distributed > mismatch.total
+                    ? `over by ${formatNumber(mismatch.distributed - mismatch.total)}`
+                    : `${formatNumber(mismatch.total - mismatch.distributed)} short`}
+                </li>
+              ))}
+
+              {reconciliationIssues.map((issue) => (
+                <li key={issue.userId}>
+                  <span className="font-medium">{issue.fullName}</span> is set to{' '}
+                  {formatNumber(issue.stated)} but their team adds up to {formatNumber(issue.team)}
+                  {' — '}
+                  {issue.team > issue.stated
+                    ? `over by ${formatNumber(issue.team - issue.stated)}`
+                    : `${formatNumber(issue.stated - issue.team)} short`}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -857,6 +1360,8 @@ export function AllocationTable({
             {currentStep < 3 && (
               <Button
                 onClick={() => goToStep(currentStep + 1)}
+                disabled={!isBalanced}
+                title={isBalanced ? undefined : 'Targets must add up to the annual target first'}
                 className="gap-2"
               >
                 {currentStep === 1 ? 'Auto-Calculate & Preview' : 'Fine-tune & Save'}
@@ -868,7 +1373,8 @@ export function AllocationTable({
               <Button
                 size="lg"
                 onClick={() => saveMutation.mutate()}
-                disabled={saveMutation.isPending}
+                disabled={saveMutation.isPending || !isBalanced}
+                title={isBalanced ? undefined : 'Targets must add up to the annual target first'}
                 className="min-w-[200px] gap-2"
               >
                 {saveMutation.isPending ? (

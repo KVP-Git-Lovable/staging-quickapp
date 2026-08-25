@@ -24,6 +24,11 @@ import { useTargetPeriods } from '@/hooks/useTargetPeriods';
 import { generateInitialMonthlyTargets } from './target-config/AnnualMonthlyBreakdown';
 import { useParameterDefinitions, useDeleteParameterDefinition } from '@/hooks/useTargetParameters';
 import { CreateParameterDialog } from './CreateParameterDialog';
+import { fyMonthOptions, fyMonthsInRange, formatFYMonthRange } from '@/lib/fyMonths';
+import { buildMonthlyRows, monthlyRowsMatch } from './target-config/monthlyParameterRows';
+import { cn } from '@/lib/utils';
+import { NumericTargetInput } from './NumericTargetInput';
+import { readHierarchyAssignmentNote } from '@/lib/hierarchyAssignmentNote';
 
 // Icon map for dynamic rendering
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -60,10 +65,15 @@ interface BreakdownItem {
   categoryName?: string;
 }
 
-const FY_MONTHS = [
-  'April', 'May', 'June', 'July', 'August', 'September',
-  'October', 'November', 'December', 'January', 'February', 'March',
-];
+/**
+ * Comparisons on money and quantity, below anything the breakdown displays.
+ *
+ * An even share is rarely a whole number, so shares are kept as they fall and
+ * never rounded. Adding a dozen of them back up leaves the last few binary
+ * digits astray, which is not a real shortfall — this is the threshold that
+ * tells a rounding artefact from a figure that genuinely does not add up.
+ */
+const AMOUNT_EPSILON = 0.005;
 
 const PARAM_TAB_MAP: Record<string, { key: string; label: string; icon: string }> = {
   product: { key: 'product', label: 'Products', icon: '📦' },
@@ -102,8 +112,6 @@ interface TargetConfig {
   target_end_month: number;
   plan_status: PlanStatus;
 }
-
-const FY_MONTH_OPTIONS = FY_MONTHS.map((name, i) => ({ value: i + 1, label: name }));
 
 interface TargetConfigTabProps {
   fyYear: number;
@@ -144,6 +152,19 @@ const DEFAULT_CONFIG: Omit<TargetConfig, 'fy_year'> = {
 
 const EMPTY_PLAN_METRICS: import('@/hooks/useTargetMetrics').PlanEnabledMetric[] = [];
 
+/** The three metrics Hierarchy allocation actually knows how to divide across
+ *  people, mapped to the plan-level column each one's annual figure lives in.
+ *  Only these can be set to "Decide later" — a custom metric has no bottom-up
+ *  path (nobody's monthly/annual plan carries it) for an annual figure to
+ *  follow, so it keeps the plain required input it has always had. */
+const LEGACY_METRIC_KEY: Record<string, 'quantity' | 'revenue' | 'visits'> = {
+  'Quantity': 'quantity',
+  'Revenue': 'revenue',
+  'Productive Visits': 'visits',
+};
+
+type MetricBasisMode = 'direct' | 'later';
+
 const STATUS_CONFIG: Record<PlanStatus, { label: string; icon: React.ElementType; color: string; bgColor: string }> = {
   draft: { label: 'Draft', icon: FileText, color: 'text-muted-foreground', bgColor: 'bg-muted' },
   active: { label: 'Active', icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-100 dark:bg-emerald-900/30' },
@@ -164,6 +185,11 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   // Dynamic metrics state
   const [enabledMetricIds, setEnabledMetricIds] = useState<Set<string>>(new Set());
   const [metricTargets, setMetricTargets] = useState<Record<string, number>>({});
+  // How each of Quantity/Revenue/Visits gets its annual figure — typed here now,
+  // or left to follow whatever people are assigned as it happens. Keyed by
+  // metric id, same as metricTargets; only ever set for the three legacy
+  // metrics (see LEGACY_METRIC_KEY).
+  const [metricBasis, setMetricBasis] = useState<Record<string, MetricBasisMode>>({});
   const [showCreateMetricDialog, setShowCreateMetricDialog] = useState(false);
 
   // Breakdown state
@@ -254,6 +280,53 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
     }
   }, [existingConfig, fyYear]);
 
+  // Carry the saved "decide later" choice over to the right metric id. Needs
+  // metricDefinitions loaded to translate a column (quantity_basis, ...) into
+  // the metric id metricTargets/metricBasis are keyed by, so this runs
+  // whenever either one changes rather than folding into the effect above.
+  useEffect(() => {
+    if (!existingConfig || metricDefinitions.length === 0) return;
+    const configRow = existingConfig as unknown as Record<string, unknown>;
+    const columnFor: Record<'quantity' | 'revenue' | 'visits', string> = {
+      quantity: (configRow.quantity_basis as string) ?? 'direct',
+      revenue: (configRow.revenue_basis as string) ?? 'direct',
+      visits: (configRow.visits_basis as string) ?? 'direct',
+    };
+    const next: Record<string, MetricBasisMode> = {};
+    metricDefinitions.forEach(m => {
+      const key = LEGACY_METRIC_KEY[m.name];
+      if (!key) return;
+      next[m.id] = columnFor[key] === 'direct' ? 'direct' : 'later';
+    });
+    setMetricBasis(next);
+  }, [existingConfig, metricDefinitions]);
+
+  // Org headcount, for the "of N people" denominator only — this is the one
+  // piece still worth a live read, since it has nothing to do with any
+  // plan's own assignment progress.
+  const { data: orgHeadcount } = useQuery({
+    queryKey: ['org-headcount'],
+    queryFn: async () => {
+      const { count, error } = await supabase.from('employees').select('user_id', { count: 'exact', head: true });
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
+  // What a metric left on "Decide later" follows: not a database query at
+  // all, but this browser's own note of what Hierarchy's Save last wrote for
+  // *this* plan specifically. Deliberately never reads user_business_plans —
+  // that table has no link back to a specific plan, so a query scoped only by
+  // year would show whatever else has ever been saved for it, not this plan's
+  // own progress. Re-read on every mount, which is what switching back to
+  // this tab from Hierarchy actually does (TabsContent unmounts on switch).
+  const { data: hierarchyNote } = useQuery({
+    queryKey: ['hierarchy-assignment-note', config.id],
+    queryFn: () => readHierarchyAssignmentNote(config.id),
+    enabled: !!config.id,
+  });
+
   // Sync plan-enabled metrics to local state
   useEffect(() => {
     if (planEnabledMetrics.length > 0) {
@@ -294,6 +367,23 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
     [metricDefinitions, enabledMetricIds]
   );
 
+  /**
+   * The financial year the months belong to.
+   *
+   * A saved plan carries its own `fy_year`; a plan being created has only the
+   * year the tab is showing. Both name the year the FY ends in, so April is
+   * labelled with the year before it.
+   */
+  const planFYYear = config.fy_year || fyYear;
+
+  // Month pickers name the year as well, so 'January 27' cannot be mistaken for
+  // the January that came ten months before the window opened.
+  const monthOptions = useMemo(() => fyMonthOptions(planFYYear), [planFYYear]);
+  const durationMonths = useMemo(
+    () => fyMonthsInRange(config.target_start_month, config.target_end_month),
+    [config.target_start_month, config.target_end_month],
+  );
+
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async (configData: TargetConfig) => {
@@ -301,6 +391,21 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
       
       // Sync legacy fields from dynamic metrics, falling back to config values if no metrics enabled
       const legacyFields = syncLegacyFromMetrics(metricDefinitions, enabledMetricIds, metricTargets, configData);
+
+      // "Decide later" for a metric: store its basis as derived, and clear the
+      // typed figure rather than leaving a stale or 0 number sitting behind a
+      // hidden field — Hierarchy follows what's assigned instead once this is
+      // set, not whatever happens to be in this column.
+      const basisFor = (name: string): MetricBasisMode => {
+        const def = metricDefinitions.find(m => m.name === name);
+        return def ? (metricBasis[def.id] ?? 'direct') : 'direct';
+      };
+      const quantity_basis = basisFor('Quantity') === 'later' ? 'derived' : 'direct';
+      const revenue_basis = basisFor('Revenue') === 'later' ? 'derived' : 'direct';
+      const visits_basis = basisFor('Productive Visits') === 'later' ? 'derived' : 'direct';
+      const total_quantity_target = quantity_basis === 'derived' ? null : legacyFields.total_quantity_target;
+      const total_revenue_target = revenue_basis === 'derived' ? null : legacyFields.total_revenue_target;
+      const total_visits_target = visits_basis === 'derived' ? null : legacyFields.total_visits_target;
 
       if (configData.id) {
         const { error } = await supabase
@@ -313,10 +418,13 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
             enable_retailer_activation: legacyFields.enable_retailer_activation,
             quantity_unit: configData.quantity_unit,
             enabled_parameters: configData.enabled_parameters,
-            total_quantity_target: legacyFields.total_quantity_target,
-            total_revenue_target: legacyFields.total_revenue_target,
-            total_visits_target: legacyFields.total_visits_target,
+            total_quantity_target: total_quantity_target,
+            total_revenue_target: total_revenue_target,
+            total_visits_target: total_visits_target,
             total_retailer_activation_target: legacyFields.total_retailer_activation_target,
+            quantity_basis: quantity_basis,
+            revenue_basis: revenue_basis,
+            visits_basis: visits_basis,
             is_locked: isLocked,
             setup_completed: configData.setup_completed,
             target_period_type: configData.target_period_type,
@@ -356,10 +464,13 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
             enable_retailer_activation: legacyFields.enable_retailer_activation,
             quantity_unit: configData.quantity_unit,
             enabled_parameters: configData.enabled_parameters,
-            total_quantity_target: legacyFields.total_quantity_target,
-            total_revenue_target: legacyFields.total_revenue_target,
-            total_visits_target: legacyFields.total_visits_target,
+            total_quantity_target: total_quantity_target,
+            total_revenue_target: total_revenue_target,
+            total_visits_target: total_visits_target,
             total_retailer_activation_target: legacyFields.total_retailer_activation_target,
+            quantity_basis: quantity_basis,
+            revenue_basis: revenue_basis,
+            visits_basis: visits_basis,
             is_locked: isLocked,
             setup_completed: configData.setup_completed,
             target_period_type: configData.target_period_type,
@@ -521,6 +632,8 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
   const handleSave = async () => {
     await saveMutation.mutateAsync(config);
     toast.success('Configuration saved');
+    // Land the admin where they'd go next — assigning the targets they just saved.
+    onLockedAndAssign?.();
   };
 
   const handleStatusChange = async (newStatus: PlanStatus) => {
@@ -547,11 +660,17 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
     // Reset dynamic metrics for new plan
     setEnabledMetricIds(new Set());
     setMetricTargets({});
+    setMetricBasis({});
   };
 
   const hasAtLeastOneBasis = enabledMetricIds.size > 0;
   const hasAtLeastOneParameter = Object.values(config.enabled_parameters).some(v => v);
-  const hasValidTargets = Array.from(enabledMetricIds).every(id => (metricTargets[id] ?? 0) > 0);
+  // A metric left on "Decide later" has nothing to require here — that's the
+  // point of choosing it. Everything else still needs a real typed figure.
+  const hasValidTargets = Array.from(enabledMetricIds).every(id => {
+    if ((metricBasis[id] ?? 'direct') === 'later') return true;
+    return (metricTargets[id] ?? 0) > 0;
+  });
   const canActivate = hasAtLeastOneBasis && hasAtLeastOneParameter && hasValidTargets;
   const isReadOnly = config.plan_status === 'closed';
 
@@ -889,7 +1008,7 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
               <p className="text-xs text-muted-foreground mt-0.5">Select the months for which targets apply</p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Start Month</Label>
               <Select
@@ -907,7 +1026,7 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FY_MONTH_OPTIONS.map((m) => (
+                  {monthOptions.map((m) => (
                     <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -923,12 +1042,21 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FY_MONTH_OPTIONS.filter(m => m.value >= config.target_start_month).map((m) => (
+                  {monthOptions.filter(m => m.value >= config.target_start_month).map((m) => (
                     <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            {/* The window every downstream month list is built from, spelled out
+                so the duration and the Monthly parameter can be read together. */}
+            <Badge variant="secondary" className="h-9 gap-1.5 px-3 text-xs font-medium">
+              <Calendar className="h-3.5 w-3.5" />
+              {formatFYMonthRange(config.target_start_month, config.target_end_month, planFYYear)}
+              <span className="text-muted-foreground">
+                · {durationMonths.length} {durationMonths.length === 1 ? 'month' : 'months'}
+              </span>
+            </Badge>
           </div>
         </div>
 
@@ -945,18 +1073,82 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
                 {activeMetrics.map(metric => {
                   const colors = COLOR_MAP[metric.color] || COLOR_MAP.blue;
                   const displayUnit = metric.name === 'Quantity' ? config.quantity_unit : metric.unit;
+                  const legacyKey = LEGACY_METRIC_KEY[metric.name];
+                  const basis = legacyKey ? (metricBasis[metric.id] ?? 'direct') : 'direct';
+                  const assignedValue = legacyKey && hierarchyNote ? hierarchyNote[legacyKey] : 0;
+                  const assignedCount = hierarchyNote?.assignedCount ?? 0;
+                  const totalPeople = orgHeadcount ?? 0;
+
                   return (
-                    <div key={metric.id} className={`rounded-xl border ${colors.border} ${colors.bg} ${colors.darkBg} ${colors.darkBorder} p-4 flex items-center justify-between gap-4`}>
-                      <Label className={`text-sm font-medium ${colors.text} ${colors.darkText} whitespace-nowrap`}>
-                        {metric.name}{displayUnit ? ` (${displayUnit})` : ''}
-                      </Label>
-                      <Input
-                        type="text"
-                        value={(metricTargets[metric.id] ?? 0) > 0 ? formatNumber(metricTargets[metric.id] ?? 0) : ''}
-                        onChange={(e) => handleMetricTargetChange(metric.id, Math.round(parseNumber(e.target.value)))}
-                        placeholder="0"
-                        className="w-32 text-right font-semibold bg-background"
-                      />
+                    <div key={metric.id} className={`rounded-xl border ${colors.border} ${colors.bg} ${colors.darkBg} ${colors.darkBorder} p-4 flex flex-col gap-3`}>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <Label className={`text-sm font-medium ${colors.text} ${colors.darkText} whitespace-nowrap`}>
+                          {metric.name}{displayUnit ? ` (${displayUnit})` : ''}
+                        </Label>
+                        {/* Only Quantity, Revenue, and Visits have a bottom-up
+                            figure to follow — a custom metric keeps its plain
+                            required field, unchanged. */}
+                        {legacyKey && (
+                          <div className="inline-flex rounded-full border bg-background p-0.5 gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => setMetricBasis(prev => ({ ...prev, [metric.id]: 'direct' }))}
+                              className={cn(
+                                'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors',
+                                basis === 'direct' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Set annual now
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMetricBasis(prev => ({ ...prev, [metric.id]: 'later' }))}
+                              className={cn(
+                                'px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors',
+                                basis === 'later' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              Decide later
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {basis === 'later' ? (
+                        hierarchyNote ? (
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <Badge variant="outline" className="text-[10px] font-semibold border-emerald-300 text-emerald-700 dark:text-emerald-400 dark:border-emerald-800">
+                              derived
+                            </Badge>
+                            <div className="flex flex-col">
+                              <span className="text-lg font-bold text-foreground tabular-nums">
+                                {metric.unit === '₹' ? '₹' : ''}{formatNumber(assignedValue)}{metric.unit && metric.unit !== '₹' ? ` ${metric.unit}` : ''}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground">
+                                {assignedCount} of {totalPeople} people, entered in Hierarchy Target Distribution — will keep following as more are saved
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2.5 rounded-lg border border-dashed p-2.5 bg-background/40">
+                            <span className="text-lg font-bold text-muted-foreground">—</span>
+                            <span className="text-[11px] text-muted-foreground">
+                              Not entered yet — open Hierarchy Target Distribution to start assigning
+                            </span>
+                          </div>
+                        )
+                      ) : (
+                        <NumericTargetInput
+                          value={metricTargets[metric.id] ?? 0}
+                          onValueChange={(v) => handleMetricTargetChange(metric.id, v)}
+                          format={formatNumber}
+                          parse={parseNumber}
+                          transform={Math.round}
+                          aria-label={`${metric.name} annual target`}
+                          placeholder="0"
+                          className="w-32 text-right font-semibold bg-background"
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -988,17 +1180,12 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
 
         <Separator />
 
-        {/* Action Buttons */}
+        {/* Action Buttons — plan lifecycle on the left, Save on the right. */}
         <div className="flex items-center justify-between pt-2">
-          <Button variant="outline" onClick={handleSave} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {config.plan_status === 'draft' ? 'Save Draft' : 'Save Changes'}
-          </Button>
-          
           <div className="flex items-center gap-2">
             {config.plan_status === 'draft' && (
-              <Button 
-                onClick={() => handleStatusChange('active')} 
+              <Button
+                onClick={() => handleStatusChange('active')}
                 disabled={!canActivate || saveMutation.isPending}
                 className="gap-2"
               >
@@ -1022,6 +1209,17 @@ export function TargetConfigTab({ fyYear, onLockedAndAssign, selectedPlanId, onP
               </>
             )}
           </div>
+
+          {/* Explicit black, not `variant="default"` — `--primary` swaps to gold in
+              dark mode, which would silently undo the requested colour. */}
+          <Button
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            className="bg-black text-white hover:bg-neutral-800 disabled:hover:bg-black"
+          >
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+            {config.plan_status === 'draft' ? 'Save Draft' : 'Save Changes'}
+          </Button>
         </div>
       </CardContent>
 
@@ -1193,13 +1391,14 @@ function ProductCategoryGroups({
                   >
                     <span className="text-sm text-foreground truncate">{item.name}</span>
                     {activeMetrics.map(metric => (
-                      <Input
+                      <NumericTargetInput
                         key={metric.id}
-                        type="text"
+                        value={item.metrics[metric.id] ?? 0}
+                        onValueChange={(value) => handleItemChange('product', item.id, metric.id, value)}
+                        format={formatNumber}
+                        parse={parseNumber}
+                        aria-label={`${metric.name} for ${item.name}`}
                         className="h-8 text-sm"
-                        value={(item.metrics[metric.id] ?? 0) > 0 ? formatNumber(item.metrics[metric.id] ?? 0) : ''}
-                        onChange={(e) => handleItemChange('product', item.id, metric.id, parseNumber(e.target.value))}
-                        placeholder="0"
                       />
                     ))}
                   </div>
@@ -1243,12 +1442,16 @@ function ParameterBreakdownSection({
   parseNumber,
   quantityUnit,
 }: ParameterBreakdownProps) {
-  const enabledParams = useMemo(() => 
+  const enabledParams = useMemo(() =>
     Object.entries(config.enabled_parameters)
       .filter(([, v]) => v)
       .map(([k]) => k),
     [config.enabled_parameters]
   );
+
+  // The plan's own financial year, so a month row is labelled with the year it
+  // actually falls in.
+  const planFYYear = config.fy_year;
 
   useEffect(() => {
     if (enabledParams.length > 0 && (!activeParamTab || !enabledParams.includes(activeParamTab))) {
@@ -1311,37 +1514,64 @@ function ParameterBreakdownSection({
 
   // Initialize breakdown data when source data loads
   useEffect(() => {
-    const newData: Record<string, BreakdownItem[]> = { ...breakdownData };
     const emptyMetrics: Record<string, number> = {};
     activeMetrics.forEach(m => { emptyMetrics[m.id] = 0; });
 
-    if (config.enabled_parameters.product && products && !newData.product) {
-      newData.product = products.map(p => {
-        const cat = p.product_categories as any;
-        return { id: p.id, name: p.name, metrics: { ...emptyMetrics }, categoryId: cat?.id, categoryName: cat?.name ?? 'Uncategorized' };
-      });
-    }
-    if (config.enabled_parameters.distributor && distributors && !newData.distributor) {
-      newData.distributor = distributors.map(d => ({ id: d.id, name: d.name, metrics: { ...emptyMetrics } }));
-    }
-    if (config.enabled_parameters.territory && territories && !newData.territory) {
-      newData.territory = territories.map(t => ({ id: t.id, name: t.name, metrics: { ...emptyMetrics } }));
-    }
-    if (config.enabled_parameters.beat && beats && !newData.beat) {
-      newData.beat = beats.map(b => ({ id: b.id, name: b.name, metrics: { ...emptyMetrics } }));
-    }
-    if (config.enabled_parameters.monthly && !newData.monthly) {
-      const activeMonths = FY_MONTHS
-        .map((m, i) => ({ name: m, index: i }))
-        .filter((_, i) => (i + 1) >= config.target_start_month && (i + 1) <= config.target_end_month);
-      newData.monthly = activeMonths.map(m => ({ id: `month-${m.index}`, name: m.name, metrics: { ...emptyMetrics } }));
-    }
-    if (config.enabled_parameters.retailer && !newData.retailer) {
-      newData.retailer = [];
-    }
+    setBreakdownData(prev => {
+      const newData: Record<string, BreakdownItem[]> = { ...prev };
+      let changed = false;
 
-    setBreakdownData(newData);
-  }, [products, distributors, territories, beats, config.enabled_parameters, config.target_start_month, config.target_end_month, activeMetrics]);
+      if (config.enabled_parameters.product && products && !newData.product) {
+        newData.product = products.map(p => {
+          const cat = p.product_categories as any;
+          return { id: p.id, name: p.name, metrics: { ...emptyMetrics }, categoryId: cat?.id, categoryName: cat?.name ?? 'Uncategorized' };
+        });
+        changed = true;
+      }
+      if (config.enabled_parameters.distributor && distributors && !newData.distributor) {
+        newData.distributor = distributors.map(d => ({ id: d.id, name: d.name, metrics: { ...emptyMetrics } }));
+        changed = true;
+      }
+      if (config.enabled_parameters.territory && territories && !newData.territory) {
+        newData.territory = territories.map(t => ({ id: t.id, name: t.name, metrics: { ...emptyMetrics } }));
+        changed = true;
+      }
+      if (config.enabled_parameters.beat && beats && !newData.beat) {
+        newData.beat = beats.map(b => ({ id: b.id, name: b.name, metrics: { ...emptyMetrics } }));
+        changed = true;
+      }
+
+      /**
+       * The Monthly parameter is the Target Duration, listed out.
+       *
+       * It is rebuilt whenever the duration moves rather than being built once
+       * and left behind, so shortening or extending the window adds and drops
+       * months here in step. A month that survives the change keeps whatever
+       * was typed against it; only months that leave the window lose their
+       * figures, and they lose them because they are no longer being targeted.
+       */
+      if (config.enabled_parameters.monthly) {
+        const months = buildMonthlyRows(
+          newData.monthly,
+          config.target_start_month,
+          config.target_end_month,
+          planFYYear,
+          emptyMetrics,
+        );
+        if (!monthlyRowsMatch(newData.monthly, months)) {
+          newData.monthly = months;
+          changed = true;
+        }
+      }
+
+      if (config.enabled_parameters.retailer && !newData.retailer) {
+        newData.retailer = [];
+        changed = true;
+      }
+
+      return changed ? newData : prev;
+    });
+  }, [products, distributors, territories, beats, config.enabled_parameters, config.target_start_month, config.target_end_month, planFYYear, activeMetrics, setBreakdownData]);
 
   const handleItemChange = (paramKey: string, itemId: string, metricId: string, value: number) => {
     setBreakdownData(prev => ({
@@ -1352,6 +1582,15 @@ function ParameterBreakdownSection({
     }));
   };
 
+  /**
+   * Split each metric's annual target evenly across the parameter's items.
+   *
+   * The share is taken exactly as it falls, decimals and all. Rounding each
+   * share to a whole number left the parts adding up to something other than
+   * the target they came from — 67 Kg over five months paid 13 a month and
+   * totalled 65, quietly losing 2 Kg. An exact share always sums back to the
+   * target, which is the only thing that makes the Total row trustworthy.
+   */
   const handleEqualDivide = (paramKey: string) => {
     const items = breakdownData[paramKey];
     if (!items || items.length === 0) return;
@@ -1360,14 +1599,14 @@ function ParameterBreakdownSection({
     const newItems = items.map(item => {
       const newMetrics = { ...item.metrics };
       activeMetrics.forEach(m => {
-        newMetrics[m.id] = Math.round((metricTargets[m.id] ?? 0) / count);
+        newMetrics[m.id] = (metricTargets[m.id] ?? 0) / count;
       });
       return { ...item, metrics: newMetrics };
     });
 
     setBreakdownData(prev => ({ ...prev, [paramKey]: newItems }));
     setEqualDivide(prev => ({ ...prev, [paramKey]: true }));
-    toast.success('Targets divided equally');
+    toast.success(`Divided equally across ${count} ${count === 1 ? 'item' : 'items'}`);
   };
 
   const getTotal = (paramKey: string, metricId: string) => {
@@ -1433,7 +1672,9 @@ function ParameterBreakdownSection({
                   {/* Equal divide toggle */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {items.length} {info.label.toLowerCase()} found
+                      {paramKey === 'monthly'
+                        ? `${items.length} ${items.length === 1 ? 'month' : 'months'} · ${formatFYMonthRange(config.target_start_month, config.target_end_month, planFYYear)}`
+                        : `${items.length} ${info.label.toLowerCase()} found`}
                     </span>
                     <Button
                       variant="outline"
@@ -1479,13 +1720,14 @@ function ParameterBreakdownSection({
                         >
                           <span className="text-sm font-medium text-foreground truncate">{item.name}</span>
                           {activeMetrics.map(metric => (
-                            <Input
+                            <NumericTargetInput
                               key={metric.id}
-                              type="text"
+                              value={item.metrics[metric.id] ?? 0}
+                              onValueChange={(value) => handleItemChange(paramKey, item.id, metric.id, value)}
+                              format={formatNumber}
+                              parse={parseNumber}
+                              aria-label={`${metric.name} for ${item.name}`}
                               className="h-8 text-sm"
-                              value={(item.metrics[metric.id] ?? 0) > 0 ? formatNumber(item.metrics[metric.id] ?? 0) : ''}
-                              onChange={(e) => handleItemChange(paramKey, item.id, metric.id, parseNumber(e.target.value))}
-                              placeholder="0"
                             />
                           ))}
                         </div>
@@ -1499,11 +1741,33 @@ function ParameterBreakdownSection({
                     style={{ gridTemplateColumns: gridCols }}
                   >
                     <span className="text-sm text-foreground">Total</span>
-                    {activeMetrics.map(metric => (
-                      <span key={metric.id} className="text-sm text-foreground">
-                        {metric.unit === '₹' ? '₹' : ''}{formatNumber(getTotal(paramKey, metric.id))}
-                      </span>
-                    ))}
+                    {/* The sum against the target it is meant to add up to, so a
+                        hand-edited figure that breaks the total is visible here
+                        rather than only on save. */}
+                    {activeMetrics.map(metric => {
+                      const total = getTotal(paramKey, metric.id);
+                      const target = metricTargets[metric.id] ?? 0;
+                      const difference = total - target;
+                      const drifted = Math.abs(difference) > AMOUNT_EPSILON;
+                      const prefix = metric.unit === '₹' ? '₹' : '';
+                      return (
+                        <span key={metric.id} className="text-sm text-foreground">
+                          {prefix}{formatNumber(total)}
+                          {drifted && (
+                            <span
+                              className={cn(
+                                'ml-1.5 text-[11px] font-normal',
+                                difference > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-destructive',
+                              )}
+                            >
+                              {difference > 0
+                                ? `over by ${prefix}${formatNumber(difference)}`
+                                : `${prefix}${formatNumber(-difference)} short`}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                 </>
               )}
