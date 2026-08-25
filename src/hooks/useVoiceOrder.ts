@@ -321,16 +321,20 @@ export const useVoiceOrder = (products: VoiceProduct[]): UseVoiceOrderResult => 
           const displayName = variant ? variant.variant_name : product.name;
           console.log(`✅ Matched "${searchTerm}" → "${displayName}" (confidence: ${confidence})`);
           
-          // Normalize the unit from voice input
-          const voiceUnit = normalizeUnit(order.unit || 'kg');
-          
+          // Normalize the unit from voice input. An unclear unit is left AS UNCLEAR
+          // (empty string) rather than guessed as 'kg' — a wrong kg guess on a
+          // gram-scale product inflates the order 1000x. TableOrderForm's
+          // getDefaultOrderUnit() resolves an empty unit against the product's
+          // own catalog unit, which is a far safer default than assuming kg here.
+          const voiceUnit = order.unit ? normalizeUnit(order.unit) : '';
+
           results.push({
             productId: product.id,
             productName: product.name,
             variantId: variant?.id,
             variantName: variant?.variant_name,
             quantity: order.quantity || 1,
-            unit: voiceUnit === 'g' ? 'Grams' : 'KG', // Normalize to table-supported units
+            unit: voiceUnit === 'g' ? 'Grams' : (voiceUnit === 'kg' ? 'KG' : ''),
             confidence,
             searchTerm
           });

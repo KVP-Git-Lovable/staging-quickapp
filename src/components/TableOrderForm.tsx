@@ -397,13 +397,42 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   useImperativeHandle(ref, () => ({
     applyVoiceAutoFill: (results: VoiceAutoFillResult[]) => {
       if (results.length === 0) return;
-      
+
       console.log('[TableOrderForm] applyVoiceAutoFill called with:', results);
-      
+
+      // Voice/AI parsing is inherently fuzzy — a misheard number or a defaulted
+      // unit can turn a normal order into one that's 100x-1000x too large, and
+      // applyVoiceAutoFill used to add whatever it got straight to the cart with
+      // no review step. Anything implausible for a single order line now needs
+      // an explicit confirmation instead of being silently applied.
+      const VOICE_CONFIRM_KG_THRESHOLD = 50; // no genuine single-line KG order seen in practice exceeds ~30kg
+      const VOICE_CONFIRM_VALUE_THRESHOLD = 20000; // ₹ — well above a normal line, well below the phantom orders this is guarding against
+
+      const confirmedResults = results.filter(result => {
+        const product = products.find(p => p.id === result.productId);
+        if (!product) return true; // caught and skipped below as "not found"
+        const variant = result.variantId && product.variants
+          ? product.variants.find(v => v.id === result.variantId)
+          : undefined;
+        const unit = getDefaultOrderUnit(product, result.unit);
+        const rate = getPricePerUnit(product, variant, unit);
+        const lineTotal = rate * result.quantity;
+        const implausible =
+          (unit.toLowerCase().startsWith('kg') && result.quantity > VOICE_CONFIRM_KG_THRESHOLD) ||
+          lineTotal > VOICE_CONFIRM_VALUE_THRESHOLD;
+        if (!implausible) return true;
+        const label = variant?.variant_name || product.name;
+        return window.confirm(
+          `Voice heard "${result.quantity} ${unit}" for ${label} — that's ₹${lineTotal.toFixed(2)}, unusually large for one line. Add it anyway?`
+        );
+      });
+
+      if (confirmedResults.length === 0) return;
+
       setOrderRows(prev => {
         let updatedRows = [...prev];
-        
-        for (const result of results) {
+
+        for (const result of confirmedResults) {
           // Find the product in our products list
           const product = products.find(p => p.id === result.productId);
           if (!product) {
@@ -482,9 +511,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       });
       
       // Show success toast
-      const displayNames = results.map(r => r.variantName || r.productName);
+      const displayNames = confirmedResults.map(r => r.variantName || r.productName);
       toast({
-        title: `✓ Added ${results.length} item${results.length > 1 ? 's' : ''} via voice`,
+        title: `✓ Added ${confirmedResults.length} item${confirmedResults.length > 1 ? 's' : ''} via voice`,
         description: displayNames.join(', '),
       });
     }

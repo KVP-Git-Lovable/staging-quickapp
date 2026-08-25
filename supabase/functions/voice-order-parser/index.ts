@@ -44,6 +44,7 @@ EXAMPLES:
 - "vayu 50 gram 3 pieces" → productSearch: "vayu 50 gram", quantity: 3, unit: "pieces"
 - "haldi powder 2 kg" → productSearch: "haldi powder", quantity: 2, unit: "kg"
 - "mirch 100g 10 packets" → productSearch: "mirch 100g", quantity: 10, unit: "packets"
+- "adarak 20g 5" (no unit spoken) → productSearch: "adarak 20g", quantity: 5, unit: ""
 
 RULES:
 1. The product name/search term includes variant info (like "20 gram", "50g", "100ml")
@@ -51,7 +52,7 @@ RULES:
 3. The unit is the measurement AFTER the quantity (kg, pieces, packets, etc.)
 4. Handle Hindi/English mixed inputs (adrak, haldi, mirch, vayu, etc.)
 5. If quantity is unclear, default to 1
-6. If unit is unclear, default to "kg"
+6. If unit is unclear or not clearly spoken, return unit as an empty string "" — do NOT guess "kg". A wrong "kg" guess on a product actually sold by the gram multiplies the order size 1000x, so an uncertain unit must be left blank for the app to resolve from the product's own catalog unit, not guessed here.
 
 AVAILABLE PRODUCTS (match product names to these):
 ${productNames?.slice(0, 100).join(', ') || 'No product list provided'}
