@@ -63,6 +63,9 @@ interface ProductScheme {
   free_product_id?: string;
   other_free_product_id?: string;
   free_product_source?: 'catalogue' | 'other';
+  free_product_selection_mode?: 'fixed' | 'user_choice';
+  free_target_product_ids?: string[];
+  free_target_other_product_ids?: string[];
   bundle_product_ids: string[];
   bundle_discount_amount: number;
   bundle_discount_percentage: number;
@@ -99,6 +102,9 @@ const initialSchemeForm = {
   free_product_id: '',
   other_free_product_id: '',
   free_product_source: 'catalogue' as 'catalogue' | 'other',
+  free_product_selection_mode: 'fixed' as 'fixed' | 'user_choice',
+  free_target_product_ids: [] as string[],
+  free_target_other_product_ids: [] as string[],
   bundle_product_ids: [] as string[],
   bundle_discount_amount: 0,
   bundle_discount_percentage: 0,
@@ -313,9 +319,9 @@ export const SchemeMaster = () => {
         const missing: string[] = [];
         if (!schemeForm.buy_quantity || schemeForm.buy_quantity <= 0) missing.push('Buy quantity');
         if (!schemeForm.free_quantity || schemeForm.free_quantity <= 0) missing.push('Free quantity');
-        const freeProductSet = schemeForm.free_product_source === 'other'
-          ? !!schemeForm.other_free_product_id
-          : !!schemeForm.free_product_id;
+        const freeProductSet = schemeForm.free_product_selection_mode === 'user_choice'
+          ? (schemeForm.free_target_product_ids?.length > 0 || schemeForm.free_target_other_product_ids?.length > 0)
+          : (schemeForm.free_product_source === 'other' ? !!schemeForm.other_free_product_id : !!schemeForm.free_product_id);
         if (!freeProductSet) missing.push('Free product');
         if (missing.length) {
           toast.error('Scheme incomplete', {
@@ -355,9 +361,12 @@ export const SchemeMaster = () => {
             free_quantity_unit: schemeForm.free_quantity_unit || 'kg',
             buy_quantity: schemeForm.buy_quantity,
             buy_quantity_unit: schemeForm.buy_quantity_unit || 'kg',
-            free_product_id: schemeForm.free_product_source === 'other' ? null : (schemeForm.free_product_id || null),
-            other_free_product_id: schemeForm.free_product_source === 'other' ? (schemeForm.other_free_product_id || null) : null,
+            free_product_id: (schemeForm.free_product_selection_mode !== 'user_choice' && schemeForm.free_product_source !== 'other') ? (schemeForm.free_product_id || null) : null,
+            other_free_product_id: (schemeForm.free_product_selection_mode !== 'user_choice' && schemeForm.free_product_source === 'other') ? (schemeForm.other_free_product_id || null) : null,
             free_product_source: schemeForm.free_product_source || 'catalogue',
+            free_product_selection_mode: schemeForm.free_product_selection_mode || 'fixed',
+            free_target_product_ids: schemeForm.free_product_selection_mode === 'user_choice' ? (schemeForm.free_target_product_ids || []) : null,
+            free_target_other_product_ids: schemeForm.free_product_selection_mode === 'user_choice' ? (schemeForm.free_target_other_product_ids || []) : null,
             bundle_product_ids: schemeForm.bundle_product_ids,
             bundle_discount_amount: schemeForm.bundle_discount_amount,
             bundle_discount_percentage: schemeForm.bundle_discount_percentage,
@@ -408,9 +417,12 @@ export const SchemeMaster = () => {
             free_quantity_unit: schemeForm.free_quantity_unit || 'kg',
             buy_quantity: schemeForm.buy_quantity,
             buy_quantity_unit: schemeForm.buy_quantity_unit || 'kg',
-            free_product_id: schemeForm.free_product_source === 'other' ? null : (schemeForm.free_product_id || null),
-            other_free_product_id: schemeForm.free_product_source === 'other' ? (schemeForm.other_free_product_id || null) : null,
+            free_product_id: (schemeForm.free_product_selection_mode !== 'user_choice' && schemeForm.free_product_source !== 'other') ? (schemeForm.free_product_id || null) : null,
+            other_free_product_id: (schemeForm.free_product_selection_mode !== 'user_choice' && schemeForm.free_product_source === 'other') ? (schemeForm.other_free_product_id || null) : null,
             free_product_source: schemeForm.free_product_source || 'catalogue',
+            free_product_selection_mode: schemeForm.free_product_selection_mode || 'fixed',
+            free_target_product_ids: schemeForm.free_product_selection_mode === 'user_choice' ? (schemeForm.free_target_product_ids || []) : null,
+            free_target_other_product_ids: schemeForm.free_product_selection_mode === 'user_choice' ? (schemeForm.free_target_other_product_ids || []) : null,
             bundle_product_ids: schemeForm.bundle_product_ids,
             bundle_discount_amount: schemeForm.bundle_discount_amount,
             bundle_discount_percentage: schemeForm.bundle_discount_percentage,
@@ -577,6 +589,9 @@ export const SchemeMaster = () => {
       free_product_id: scheme.free_product_id || '',
       other_free_product_id: schemeAny.other_free_product_id || '',
       free_product_source: (schemeAny.free_product_source as 'catalogue' | 'other') || 'catalogue',
+      free_product_selection_mode: (schemeAny.free_product_selection_mode as 'fixed' | 'user_choice') || 'fixed',
+      free_target_product_ids: schemeAny.free_target_product_ids || [],
+      free_target_other_product_ids: schemeAny.free_target_other_product_ids || [],
       bundle_product_ids: scheme.bundle_product_ids || [],
       bundle_discount_amount: scheme.bundle_discount_amount || 0,
       bundle_discount_percentage: scheme.bundle_discount_percentage || 0,

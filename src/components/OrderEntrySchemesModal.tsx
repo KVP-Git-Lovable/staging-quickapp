@@ -38,6 +38,7 @@ import { isSchemeConditionMet, schemeHasConditions, SchemeItem, calculateSchemeD
 import { SchemePolicies } from "@/hooks/useSchemePolicies";
 import type { ManualSchemeSelection } from "@/utils/schemeEngine";
 import { ManualPerUnitApplyDialog } from "@/components/ManualPerUnitApplyDialog";
+import { FreeProductChoiceDialog } from "@/components/FreeProductChoiceDialog";
 
 interface Product {
   id: string;
@@ -62,6 +63,7 @@ interface OrderEntrySchemesModalProps {
   isOnline: boolean;
   orderRows: OrderRow[];
   products: Product[];
+  otherFreeProducts?: { id: string; name: string }[];
   appliedSchemeIds: string[];
   schemePolicies?: SchemePolicies;
   onApplyScheme: (scheme: ProductScheme, product?: Product, quantity?: number) => void;
@@ -155,6 +157,10 @@ const getBenefitText = (scheme: ProductScheme) => {
   }
   if (scheme.free_quantity) {
     const freeUnit = formatUnit(scheme.free_quantity_unit);
+    if (scheme.free_product_selection_mode === 'user_choice') {
+      const poolSize = (scheme.free_target_product_ids?.length || 0) + (scheme.free_target_other_product_ids?.length || 0);
+      return `Get ${scheme.free_quantity}${freeUnit ? ` ${freeUnit}` : ''} free — choose 1 of ${poolSize}`;
+    }
     const freeProductName = (scheme.free_product_source === 'other' ? scheme.other_free_product_name : scheme.free_product_name) || 'item(s)';
     return `Get ${scheme.free_quantity}${freeUnit ? ` ${freeUnit}` : ''} ${freeProductName} free`;
   }
@@ -185,6 +191,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
   isOnline,
   orderRows,
   products,
+  otherFreeProducts = [],
   appliedSchemeIds,
   schemePolicies,
   onApplyScheme,
@@ -194,6 +201,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [pickerScheme, setPickerScheme] = useState<ProductScheme | null>(null);
+  const [freeProductPickerScheme, setFreeProductPickerScheme] = useState<ProductScheme | null>(null);
 
   // Check if more schemes can be applied based on policies
   const canApplyMore = useMemo(() => {
@@ -299,6 +307,12 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
       return;
     }
 
+    // Many-to-many buy X get Y: the buyer must pick their free item before it applies
+    if (scheme.scheme_type === 'buy_x_get_y_free' && scheme.free_product_selection_mode === 'user_choice') {
+      setFreeProductPickerScheme(scheme);
+      return;
+    }
+
     // Find the product for this scheme
     let targetProduct: Product | undefined;
     let minQuantity = 1;
@@ -346,6 +360,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
     const conditionMet = schemeItems.length > 0 && isSchemeConditionMet(scheme, schemeItems, subtotal);
     const isPurePercentage = scheme.scheme_type === 'percentage_discount' && !hasConditions;
     const isManualPerUnit = scheme.scheme_type === 'manual_per_unit_discount';
+    const isFreeProductChoicePool = scheme.scheme_type === 'buy_x_get_y_free' && scheme.free_product_selection_mode === 'user_choice';
     const manualSel = manualSelections[scheme.id];
     const manualValueType: 'amount' | 'percentage' =
       (scheme.discount_value_type as 'amount' | 'percentage') === 'percentage' ? 'percentage' : 'amount';
@@ -422,7 +437,11 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Free Product:</span>
-                              <span className="font-medium">{(scheme.free_product_source === 'other' ? scheme.other_free_product_name : scheme.free_product_name) || 'Same product'}</span>
+                              <span className="font-medium">
+                                {scheme.free_product_selection_mode === 'user_choice'
+                                  ? (manualSel?.chosenFreeProductName || `Choose 1 of ${(scheme.free_target_product_ids?.length || 0) + (scheme.free_target_other_product_ids?.length || 0)}`)
+                                  : ((scheme.free_product_source === 'other' ? scheme.other_free_product_name : scheme.free_product_name) || 'Same product')}
+                              </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Free Quantity:</span>
@@ -505,6 +524,16 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                     onClick={() => setPickerScheme(scheme)}
                   >
                     Edit
+                  </Button>
+                )}
+                {isFreeProductChoicePool && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[10px] px-2"
+                    onClick={() => setFreeProductPickerScheme(scheme)}
+                  >
+                    Change
                   </Button>
                 )}
                 <Button
@@ -675,6 +704,26 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
         toast({
           title: 'Offer Applied',
           description: `${pickerScheme.name} applied to ${selection.itemIds?.length || 1} product${(selection.itemIds?.length || 1) > 1 ? 's' : ''}`,
+        });
+      }}
+    />
+
+    <FreeProductChoiceDialog
+      isOpen={!!freeProductPickerScheme}
+      onClose={() => setFreeProductPickerScheme(null)}
+      scheme={freeProductPickerScheme}
+      products={products}
+      otherFreeProducts={otherFreeProducts}
+      initialSelection={freeProductPickerScheme ? manualSelections[freeProductPickerScheme.id] : undefined}
+      onConfirm={(selection) => {
+        if (!freeProductPickerScheme) return;
+        onSetManualSelection?.(freeProductPickerScheme.id, selection);
+        if (!appliedSchemeIds.includes(freeProductPickerScheme.id)) {
+          onApplyScheme(freeProductPickerScheme);
+        }
+        toast({
+          title: 'Offer Applied',
+          description: `${freeProductPickerScheme.name}: ${selection.chosenFreeProductName} added free`,
         });
       }}
     />

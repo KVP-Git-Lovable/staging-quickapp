@@ -220,7 +220,24 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   
   // Load schemes with offline support
   const { schemes, loading: schemesLoading, isOnline } = useOfflineSchemes();
-  
+
+  // Other Free Products list, needed to resolve names when a buy_x_get_y_free
+  // scheme's free_target_other_product_ids pool is offered to the buyer to choose from.
+  const [otherFreeProducts, setOtherFreeProducts] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('scheme_free_products')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        setOtherFreeProducts(data || []);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   // Load scheme policies for enforcement
   const { policies: schemePolicies, loading: policiesLoading } = useSchemePolicies();
   
@@ -1856,6 +1873,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         isOnline={isOnline}
         orderRows={orderRows}
         products={products}
+        otherFreeProducts={otherFreeProducts}
         appliedSchemeIds={appliedSchemeIds}
         schemePolicies={schemePolicies}
         onApplyScheme={handleApplyScheme}

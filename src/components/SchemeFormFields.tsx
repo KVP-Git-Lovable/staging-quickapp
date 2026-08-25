@@ -33,6 +33,82 @@ const UNIT_OPTIONS = [
   { value: 'units', label: 'Units' },
 ];
 
+interface PoolItem {
+  id: string;
+  name: string;
+  sku?: string;
+  rate?: number;
+}
+
+/** Searchable multi-select checkbox list, reused for the Buy X pool and both Free
+ * Product (Y) pools — same pattern as the existing target_product_ids picker below,
+ * generalized so it isn't tripled inline. */
+const MultiSelectProductPicker = ({
+  items,
+  selectedIds,
+  onToggle,
+  label,
+  emptyText = 'No products found',
+}: {
+  items: PoolItem[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+  label: string;
+  emptyText?: string;
+}) => {
+  const { format: fmtMoney } = useCurrency();
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.toLowerCase();
+    return items.filter((item) =>
+      item.name.toLowerCase().includes(q) || (item.sku || '').toLowerCase().includes(q)
+    );
+  }, [items, search]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <Label>{label}</Label>
+        <p className="text-xs text-muted-foreground">Selected: {selectedIds.length} of {items.length}</p>
+      </div>
+      <div className="relative mb-2">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-8"
+        />
+      </div>
+      <div className="h-40 border rounded-md p-2 overflow-y-auto">
+        <div className="space-y-1">
+          {filtered.map((item) => (
+            <div key={item.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded">
+              <Checkbox
+                id={`pool-${item.id}`}
+                checked={selectedIds.includes(item.id)}
+                onCheckedChange={() => onToggle(item.id)}
+              />
+              <label htmlFor={`pool-${item.id}`} className="text-sm cursor-pointer flex-1">
+                {item.name}
+                {item.sku && <span className="text-muted-foreground"> ({item.sku})</span>}
+              </label>
+              {item.rate != null && (
+                <Badge variant="outline" className="text-xs">{fmtMoney(item.rate)}</Badge>
+              )}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">{emptyText}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categories, otherFreeProducts }: SchemeFormFieldsProps) => {
   const { format: fmtMoney } = useCurrency();
   // Search states
@@ -346,70 +422,143 @@ export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categori
               </div>
             </div>
             <div>
-              <Label>Free Product Source</Label>
+              <Label>Free Product Selection</Label>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 <Button
                   type="button"
-                  variant={(schemeForm.free_product_source || 'catalogue') === 'catalogue' ? 'default' : 'outline'}
-                  onClick={() => setSchemeForm({ ...schemeForm, free_product_source: 'catalogue', other_free_product_id: '' })}
+                  variant={(schemeForm.free_product_selection_mode || 'fixed') === 'fixed' ? 'default' : 'outline'}
+                  onClick={() => setSchemeForm({
+                    ...schemeForm,
+                    free_product_selection_mode: 'fixed',
+                    free_target_product_ids: [],
+                    free_target_other_product_ids: [],
+                  })}
                   className="justify-center"
                 >
-                  <Package className="h-4 w-4 mr-2" />
-                  Product Catalogue
+                  Fixed by Admin
                 </Button>
                 <Button
                   type="button"
-                  variant={schemeForm.free_product_source === 'other' ? 'default' : 'outline'}
-                  onClick={() => setSchemeForm({ ...schemeForm, free_product_source: 'other', free_product_id: '' })}
+                  variant={schemeForm.free_product_selection_mode === 'user_choice' ? 'default' : 'outline'}
+                  onClick={() => setSchemeForm({
+                    ...schemeForm,
+                    free_product_selection_mode: 'user_choice',
+                    free_product_id: '',
+                    other_free_product_id: '',
+                  })}
                   className="justify-center"
                 >
-                  <Gift className="h-4 w-4 mr-2" />
-                  Other Free Product
+                  <Users className="h-4 w-4 mr-2" />
+                  Let Buyer Choose
                 </Button>
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {schemeForm.free_product_selection_mode === 'user_choice'
+                  ? 'The buyer picks one item from the pools below at order entry.'
+                  : 'You pick exactly which product is free.'}
+              </p>
             </div>
-            {schemeForm.free_product_source === 'other' ? (
-              <div>
-                <Label htmlFor="otherFreeProduct">Free Product (Y)</Label>
-                <Select
-                  value={schemeForm.other_free_product_id}
-                  onValueChange={(value) => setSchemeForm({ ...schemeForm, other_free_product_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select other free product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {otherFreeProducts.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Not part of the sellable catalogue — maintained on the Other Free Products tab.
-                </p>
+            {schemeForm.free_product_selection_mode === 'user_choice' ? (
+              <div className="space-y-4">
+                <MultiSelectProductPicker
+                  label="Free Product Pool — Product Catalogue"
+                  items={products.map((p) => ({ id: p.id, name: p.name, sku: p.sku, rate: p.rate }))}
+                  selectedIds={schemeForm.free_target_product_ids || []}
+                  onToggle={(id) => {
+                    const current: string[] = schemeForm.free_target_product_ids || [];
+                    setSchemeForm({
+                      ...schemeForm,
+                      free_target_product_ids: current.includes(id)
+                        ? current.filter((x) => x !== id)
+                        : [...current, id],
+                    });
+                  }}
+                />
+                <MultiSelectProductPicker
+                  label="Free Product Pool — Other Free Products"
+                  items={otherFreeProducts.map((p) => ({ id: p.id, name: p.name }))}
+                  selectedIds={schemeForm.free_target_other_product_ids || []}
+                  onToggle={(id) => {
+                    const current: string[] = schemeForm.free_target_other_product_ids || [];
+                    setSchemeForm({
+                      ...schemeForm,
+                      free_target_other_product_ids: current.includes(id)
+                        ? current.filter((x) => x !== id)
+                        : [...current, id],
+                    });
+                  }}
+                  emptyText="No other free products yet — add some on the Other Free Products tab."
+                />
               </div>
             ) : (
-              <div>
-                <Label htmlFor="freeProduct">Free Product (Y)</Label>
-                <Select
-                  value={schemeForm.free_product_id}
-                  onValueChange={(value) => setSchemeForm({ ...schemeForm, free_product_id: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select free product" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="same">Same Product (Free)</SelectItem>
-                    {products.map((product) => (
-                      <SelectItem key={product.id} value={product.id}>
-                        {product.name} - {fmtMoney(product.rate)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <>
+                <div>
+                  <Label>Free Product Source</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    <Button
+                      type="button"
+                      variant={(schemeForm.free_product_source || 'catalogue') === 'catalogue' ? 'default' : 'outline'}
+                      onClick={() => setSchemeForm({ ...schemeForm, free_product_source: 'catalogue', other_free_product_id: '' })}
+                      className="justify-center"
+                    >
+                      <Package className="h-4 w-4 mr-2" />
+                      Product Catalogue
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={schemeForm.free_product_source === 'other' ? 'default' : 'outline'}
+                      onClick={() => setSchemeForm({ ...schemeForm, free_product_source: 'other', free_product_id: '' })}
+                      className="justify-center"
+                    >
+                      <Gift className="h-4 w-4 mr-2" />
+                      Other Free Product
+                    </Button>
+                  </div>
+                </div>
+                {schemeForm.free_product_source === 'other' ? (
+                  <div>
+                    <Label htmlFor="otherFreeProduct">Free Product (Y)</Label>
+                    <Select
+                      value={schemeForm.other_free_product_id}
+                      onValueChange={(value) => setSchemeForm({ ...schemeForm, other_free_product_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select other free product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {otherFreeProducts.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Not part of the sellable catalogue — maintained on the Other Free Products tab.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <Label htmlFor="freeProduct">Free Product (Y)</Label>
+                    <Select
+                      value={schemeForm.free_product_id}
+                      onValueChange={(value) => setSchemeForm({ ...schemeForm, free_product_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select free product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="same">Same Product (Free)</SelectItem>
+                        {products.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name} - {fmtMoney(product.rate)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
             )}
             <div>
               <Label htmlFor="freeQuantity">Free Quantity</Label>
@@ -1027,8 +1176,10 @@ export const SchemeFormFields = ({ schemeForm, setSchemeForm, products, categori
                 </div>
               </div>
 
-              {/* Discount Mode Selection - Only show when multiple products selected */}
-              {(schemeForm.target_product_ids || []).length > 1 && (
+              {/* Discount Mode Selection - Only show when multiple products selected.
+                  Not applicable to buy_x_get_y_free: target_product_ids there is the
+                  X pool, and there's no per-product "discount value" to enter. */}
+              {schemeForm.scheme_type !== 'buy_x_get_y_free' && (schemeForm.target_product_ids || []).length > 1 && (
                 <div className="space-y-3 p-3 bg-muted/30 rounded-lg border">
                   <Label>Discount Application</Label>
                   <RadioGroup 

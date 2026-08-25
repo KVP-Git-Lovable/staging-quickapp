@@ -18,6 +18,9 @@ export interface ProductScheme {
   free_product_id: string | null;
   other_free_product_id?: string | null;
   free_product_source?: 'catalogue' | 'other' | null;
+  free_product_selection_mode?: 'fixed' | 'user_choice' | null;
+  free_target_product_ids?: string[] | null;
+  free_target_other_product_ids?: string[] | null;
   condition_quantity: number | null;
   condition_unit?: string | null;
   quantity_condition_type: string | null;

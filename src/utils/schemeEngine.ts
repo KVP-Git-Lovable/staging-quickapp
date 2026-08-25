@@ -77,6 +77,11 @@ export interface ProductScheme {
   other_free_product_id?: string | null;
   free_product_source?: 'catalogue' | 'other' | null;
   other_free_product_name?: string;
+  // Many-to-many buy X get Y: 'fixed' (default) uses free_product_id/other_free_product_id
+  // above; 'user_choice' lets the order-entry user pick one item from the pools below.
+  free_product_selection_mode?: 'fixed' | 'user_choice' | null;
+  free_target_product_ids?: string[] | null;
+  free_target_other_product_ids?: string[] | null;
   condition_quantity?: number | null;
   quantity_condition_type?: string | null;
   min_order_value?: number | null;
@@ -101,8 +106,9 @@ export interface ProductScheme {
  * Keyed by scheme id.
  */
 export interface ManualSchemeSelection {
-  itemId: string;          // cart line id (matches SchemeItem.id)
-  perUnitDiscount: number; // amount entered, ≤ scheme.max_discount_per_unit
+  // Required for manual_per_unit_discount; unused for a pure free-product-pool choice.
+  itemId?: string;          // cart line id (matches SchemeItem.id)
+  perUnitDiscount?: number; // amount entered, ≤ scheme.max_discount_per_unit
   // Optional: when 'percentage', perUnitDiscount represents a % off the line rate
   valueType?: 'amount' | 'percentage';
   // Optional: multi-line selection. When present, the discount is applied to every
@@ -111,6 +117,11 @@ export interface ManualSchemeSelection {
   // Optional: per-line discount values. Keyed by cart line id. When present, each
   // selected line uses its own value (clamped to cap); falls back to perUnitDiscount.
   perItemDiscounts?: Record<string, number>;
+  // Order-entry choice for a buy_x_get_y_free scheme with free_product_selection_mode
+  // === 'user_choice' — which Y from the pool the buyer picked as their free item.
+  chosenFreeProductId?: string;
+  chosenFreeProductSource?: 'catalogue' | 'other';
+  chosenFreeProductName?: string;
 }
 
 /**
@@ -464,23 +475,39 @@ function calculateSchemeDiscount(
       const freeUnit = scheme.free_quantity_unit || 'kg';
       
       if (buyQty <= 0 || freeQty <= 0) break;
-      
+
+      const isUserChoice = scheme.free_product_selection_mode === 'user_choice';
+
       // Check if ANY applicable item meets the buy quantity threshold
       let thresholdMet = false;
       for (const item of applicableItems) {
         if (item.quantity >= buyQty) {
           thresholdMet = true;
-          
+
           // THRESHOLD-BASED: Get free quantity ONCE when threshold is met (not per set)
           const freeItemsCount = freeQty;
-          
-          // Use scheme's FREE product details — either a catalogue product or an
-          // "other" free product maintained specifically for schemes (no products row)
-          const isOtherFreeProduct = scheme.free_product_source === 'other';
-          const freeProductName = (isOtherFreeProduct ? scheme.other_free_product_name : scheme.free_product_name) || 'Free Item';
-          const freeProductId = isOtherFreeProduct ? undefined : (scheme.free_product_id || undefined);
-          const otherFreeProductId = isOtherFreeProduct ? (scheme.other_free_product_id || undefined) : undefined;
-          
+
+          let freeProductName: string;
+          let freeProductId: string | undefined;
+          let otherFreeProductId: string | undefined;
+
+          if (isUserChoice) {
+            // Many-to-many pool: FreeProductChoiceDialog records the order-entry
+            // user's pick before this scheme ever reaches appliedSchemeIds. If no
+            // choice is recorded yet, don't guess — grant nothing.
+            if (!manualSelection?.chosenFreeProductId) break;
+            freeProductName = manualSelection.chosenFreeProductName || 'Free Item';
+            freeProductId = manualSelection.chosenFreeProductSource === 'catalogue' ? manualSelection.chosenFreeProductId : undefined;
+            otherFreeProductId = manualSelection.chosenFreeProductSource === 'other' ? manualSelection.chosenFreeProductId : undefined;
+          } else {
+            // Use scheme's FREE product details — either a catalogue product or an
+            // "other" free product maintained specifically for schemes (no products row)
+            const isOtherFreeProduct = scheme.free_product_source === 'other';
+            freeProductName = (isOtherFreeProduct ? scheme.other_free_product_name : scheme.free_product_name) || 'Free Item';
+            freeProductId = isOtherFreeProduct ? undefined : (scheme.free_product_id || undefined);
+            otherFreeProductId = isOtherFreeProduct ? (scheme.other_free_product_id || undefined) : undefined;
+          }
+
           // Track scheme details per item
           if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
           itemSchemeDetails[item.id].push({

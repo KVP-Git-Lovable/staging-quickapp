@@ -100,12 +100,17 @@ export const SchemeDetailsDisplay = ({ scheme }: SchemeDetailsDisplayProps) => {
       case 'flat_discount':
         return `₹${scheme.discount_amount} off`;
       
-      case 'buy_x_get_y_free':
+      case 'buy_x_get_y_free': {
         const freeUnit = formatUnit(scheme.free_quantity_unit);
+        if (scheme.free_product_selection_mode === 'user_choice') {
+          const poolSize = (scheme.free_target_product_ids?.length || 0) + (scheme.free_target_other_product_ids?.length || 0);
+          return `Get ${scheme.free_quantity}${freeUnit ? ` ${freeUnit}` : ''} free — buyer chooses 1 of ${poolSize} option${poolSize === 1 ? '' : 's'}`;
+        }
         const freeProductName = scheme.free_product_source === 'other'
           ? (scheme.other_free_product?.name || 'item(s)')
           : (scheme.free_product?.name || scheme.free_product_name || 'item(s)');
         return `Get ${scheme.free_quantity}${freeUnit ? ` ${freeUnit}` : ''} ${freeProductName} free`;
+      }
       
       case 'bundle_combo':
         if (scheme.bundle_discount_percentage > 0) {

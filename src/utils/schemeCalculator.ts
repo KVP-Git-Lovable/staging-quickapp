@@ -168,7 +168,12 @@ const applyBuyXGetYFree = (scheme: any, items: OrderItem[], baseTotal: number): 
     totalFreeQty += freeQty;
     
     if (freeQty > 0) {
-      if (scheme.free_product_source === 'other') {
+      if (scheme.free_product_selection_mode === 'user_choice') {
+        // Many-to-many pool schemes need the order-entry user's choice, which this
+        // legacy calculator has no plumbing for (see schemeEngine.ts, the calculator
+        // actually used by Cart.tsx/TableOrderForm.tsx). Grant nothing rather than
+        // guessing a product from the pool.
+      } else if (scheme.free_product_source === 'other') {
         freeItems.push({
           productId: undefined,
           productName: scheme.other_free_product_name || 'Free Product',
