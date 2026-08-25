@@ -797,6 +797,39 @@ export type Database = {
           },
         ]
       }
+      ai_workflows: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       analytics_likes: {
         Row: {
           created_at: string
@@ -7889,6 +7922,7 @@ export type Database = {
           product_id: string
           source: string
           user_id: string
+          variant_id: string | null
           visit_id: string | null
         }
         Insert: {
@@ -7906,6 +7940,7 @@ export type Database = {
           product_id: string
           source?: string
           user_id: string
+          variant_id?: string | null
           visit_id?: string | null
         }
         Update: {
@@ -7923,6 +7958,7 @@ export type Database = {
           product_id?: string
           source?: string
           user_id?: string
+          variant_id?: string | null
           visit_id?: string | null
         }
         Relationships: [
@@ -7984,6 +8020,7 @@ export type Database = {
           stock_taken: number
           unit: string | null
           updated_at: string
+          variant_id: string | null
         }
         Insert: {
           created_at?: string
@@ -7995,6 +8032,7 @@ export type Database = {
           stock_taken?: number
           unit?: string | null
           updated_at?: string
+          variant_id?: string | null
         }
         Update: {
           created_at?: string
@@ -8006,6 +8044,7 @@ export type Database = {
           stock_taken?: number
           unit?: string | null
           updated_at?: string
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -8027,6 +8066,13 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_stock_items_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]
@@ -8812,7 +8858,9 @@ export type Database = {
           id: string
           is_locked: boolean | null
           plan_status: string
+          quantity_basis: string
           quantity_unit: string | null
+          revenue_basis: string
           setup_completed: boolean | null
           target_end_month: number
           target_period_type: string | null
@@ -8823,6 +8871,7 @@ export type Database = {
           total_revenue_target: number | null
           total_visits_target: number | null
           updated_at: string | null
+          visits_basis: string
         }
         Insert: {
           created_at?: string | null
@@ -8836,7 +8885,9 @@ export type Database = {
           id?: string
           is_locked?: boolean | null
           plan_status?: string
+          quantity_basis?: string
           quantity_unit?: string | null
+          revenue_basis?: string
           setup_completed?: boolean | null
           target_end_month?: number
           target_period_type?: string | null
@@ -8847,6 +8898,7 @@ export type Database = {
           total_revenue_target?: number | null
           total_visits_target?: number | null
           updated_at?: string | null
+          visits_basis?: string
         }
         Update: {
           created_at?: string | null
@@ -8860,7 +8912,9 @@ export type Database = {
           id?: string
           is_locked?: boolean | null
           plan_status?: string
+          quantity_basis?: string
           quantity_unit?: string | null
+          revenue_basis?: string
           setup_completed?: boolean | null
           target_end_month?: number
           target_period_type?: string | null
@@ -8871,6 +8925,7 @@ export type Database = {
           total_revenue_target?: number | null
           total_visits_target?: number | null
           updated_at?: string | null
+          visits_basis?: string
         }
         Relationships: []
       }
@@ -16656,6 +16711,7 @@ export type Database = {
           current_usage_count: number | null
           description: string | null
           discount_amount: number | null
+          discount_gst_mode: string | null
           discount_percentage: number | null
           discount_tax_treatment: string
           discount_unit: string | null
@@ -16663,6 +16719,7 @@ export type Database = {
           end_date: string | null
           exclusion_group: string | null
           free_product_id: string | null
+          free_product_source: string
           free_quantity: number | null
           free_quantity_unit: string | null
           id: string
@@ -16672,6 +16729,7 @@ export type Database = {
           max_usage_count: number | null
           min_order_value: number | null
           name: string
+          other_free_product_id: string | null
           per_product_discounts: Json | null
           priority: number | null
           product_id: string | null
@@ -16702,6 +16760,7 @@ export type Database = {
           current_usage_count?: number | null
           description?: string | null
           discount_amount?: number | null
+          discount_gst_mode?: string | null
           discount_percentage?: number | null
           discount_tax_treatment?: string
           discount_unit?: string | null
@@ -16709,6 +16768,7 @@ export type Database = {
           end_date?: string | null
           exclusion_group?: string | null
           free_product_id?: string | null
+          free_product_source?: string
           free_quantity?: number | null
           free_quantity_unit?: string | null
           id?: string
@@ -16718,6 +16778,7 @@ export type Database = {
           max_usage_count?: number | null
           min_order_value?: number | null
           name: string
+          other_free_product_id?: string | null
           per_product_discounts?: Json | null
           priority?: number | null
           product_id?: string | null
@@ -16748,6 +16809,7 @@ export type Database = {
           current_usage_count?: number | null
           description?: string | null
           discount_amount?: number | null
+          discount_gst_mode?: string | null
           discount_percentage?: number | null
           discount_tax_treatment?: string
           discount_unit?: string | null
@@ -16755,6 +16817,7 @@ export type Database = {
           end_date?: string | null
           exclusion_group?: string | null
           free_product_id?: string | null
+          free_product_source?: string
           free_quantity?: number | null
           free_quantity_unit?: string | null
           id?: string
@@ -16764,6 +16827,7 @@ export type Database = {
           max_usage_count?: number | null
           min_order_value?: number | null
           name?: string
+          other_free_product_id?: string | null
           per_product_discounts?: Json | null
           priority?: number | null
           product_id?: string | null
@@ -16806,6 +16870,13 @@ export type Database = {
             columns: ["free_product_id"]
             isOneToOne: false
             referencedRelation: "zoho_item_sync_readiness"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_schemes_other_free_product_id_fkey"
+            columns: ["other_free_product_id"]
+            isOneToOne: false
+            referencedRelation: "scheme_free_products"
             referencedColumns: ["id"]
           },
           {
@@ -24404,6 +24475,48 @@ export type Database = {
           },
         ]
       }
+      scheme_free_products: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          hsn_code: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          unit: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          hsn_code?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          unit?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          hsn_code?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          unit?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       scheme_policy_config: {
         Row: {
           description: string | null
@@ -26079,27 +26192,33 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           distributor_id: string
           distributor_name: string
           id: string
+          is_active: boolean
           quantity_target: number | null
           revenue_target: number | null
         }
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           distributor_id: string
           distributor_name: string
           id?: string
+          is_active?: boolean
           quantity_target?: number | null
           revenue_target?: number | null
         }
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           distributor_id?: string
           distributor_name?: string
           id?: string
+          is_active?: boolean
           quantity_target?: number | null
           revenue_target?: number | null
         }
@@ -26124,7 +26243,9 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           id: string
+          is_active: boolean
           month_name: string
           month_number: number
           percentage: number | null
@@ -26137,7 +26258,9 @@ export type Database = {
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           month_name: string
           month_number: number
           percentage?: number | null
@@ -26150,7 +26273,9 @@ export type Database = {
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           month_name?: string
           month_number?: number
           percentage?: number | null
@@ -26188,34 +26313,43 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           id: string
+          is_active: boolean
           month_name: string
           month_number: number
           quantity_target: number | null
           revenue_target: number | null
           updated_at: string
+          visits_target: number
           working_days: number | null
         }
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           month_name: string
           month_number: number
           quantity_target?: number | null
           revenue_target?: number | null
           updated_at?: string
+          visits_target?: number
           working_days?: number | null
         }
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           month_name?: string
           month_number?: number
           quantity_target?: number | null
           revenue_target?: number | null
           updated_at?: string
+          visits_target?: number
           working_days?: number | null
         }
         Relationships: [
@@ -26232,7 +26366,9 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           id: string
+          is_active: boolean
           product_id: string
           product_name: string
           quantity_target: number | null
@@ -26241,7 +26377,9 @@ export type Database = {
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           product_id: string
           product_name: string
           quantity_target?: number | null
@@ -26250,7 +26388,9 @@ export type Database = {
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           id?: string
+          is_active?: boolean
           product_id?: string
           product_name?: string
           quantity_target?: number | null
@@ -26284,8 +26424,10 @@ export type Database = {
         Row: {
           business_plan_id: string
           created_at: string
+          deactivated_at: string | null
           growth_percent: number | null
           id: string
+          is_active: boolean
           last_year_revenue: number | null
           quantity_target: number | null
           retailer_id: string
@@ -26295,8 +26437,10 @@ export type Database = {
         Insert: {
           business_plan_id: string
           created_at?: string
+          deactivated_at?: string | null
           growth_percent?: number | null
           id?: string
+          is_active?: boolean
           last_year_revenue?: number | null
           quantity_target?: number | null
           retailer_id: string
@@ -26306,8 +26450,10 @@ export type Database = {
         Update: {
           business_plan_id?: string
           created_at?: string
+          deactivated_at?: string | null
           growth_percent?: number | null
           id?: string
+          is_active?: boolean
           last_year_revenue?: number | null
           quantity_target?: number | null
           retailer_id?: string
@@ -26456,6 +26602,7 @@ export type Database = {
           target_strategy: string
           updated_at: string
           user_id: string
+          visits_target: number
           year: number
         }
         Insert: {
@@ -26476,6 +26623,7 @@ export type Database = {
           target_strategy?: string
           updated_at?: string
           user_id: string
+          visits_target?: number
           year: number
         }
         Update: {
@@ -26496,6 +26644,7 @@ export type Database = {
           target_strategy?: string
           updated_at?: string
           user_id?: string
+          visits_target?: number
           year?: number
         }
         Relationships: [
@@ -28296,6 +28445,7 @@ export type Database = {
       }
       visits: {
         Row: {
+          activity_event_id: string | null
           cancel_source: string | null
           carried_from_date: string | null
           check_in_address: string | null
@@ -28327,6 +28477,7 @@ export type Database = {
           visit_type: string | null
         }
         Insert: {
+          activity_event_id?: string | null
           cancel_source?: string | null
           carried_from_date?: string | null
           check_in_address?: string | null
@@ -28358,6 +28509,7 @@ export type Database = {
           visit_type?: string | null
         }
         Update: {
+          activity_event_id?: string | null
           cancel_source?: string | null
           carried_from_date?: string | null
           check_in_address?: string | null
@@ -28388,7 +28540,15 @@ export type Database = {
           user_id?: string
           visit_type?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "visits_activity_event_id_fkey"
+            columns: ["activity_event_id"]
+            isOneToOne: false
+            referencedRelation: "activity_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       warehouses: {
         Row: {
@@ -28643,7 +28803,7 @@ export type Database = {
       }
       workflow_executions: {
         Row: {
-          agent_id: string
+          agent_id: string | null
           completed_at: string | null
           created_at: string
           duration_ms: number | null
@@ -28654,9 +28814,10 @@ export type Database = {
           started_at: string
           status: Database["public"]["Enums"]["workflow_exec_status"]
           triggered_by: string | null
+          workflow_id: string | null
         }
         Insert: {
-          agent_id: string
+          agent_id?: string | null
           completed_at?: string | null
           created_at?: string
           duration_ms?: number | null
@@ -28667,9 +28828,10 @@ export type Database = {
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_exec_status"]
           triggered_by?: string | null
+          workflow_id?: string | null
         }
         Update: {
-          agent_id?: string
+          agent_id?: string | null
           completed_at?: string | null
           created_at?: string
           duration_ms?: number | null
@@ -28680,6 +28842,7 @@ export type Database = {
           started_at?: string
           status?: Database["public"]["Enums"]["workflow_exec_status"]
           triggered_by?: string | null
+          workflow_id?: string | null
         }
         Relationships: [
           {
@@ -28687,6 +28850,13 @@ export type Database = {
             columns: ["agent_id"]
             isOneToOne: false
             referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflow_executions_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "ai_workflows"
             referencedColumns: ["id"]
           },
         ]
@@ -29402,6 +29572,7 @@ export type Database = {
         Returns: undefined
       }
       eod_cancel_pending_visits: { Args: never; Returns: number }
+      event_sync_participants: { Args: { p_event_id: string }; Returns: Json }
       execute_stock_action: {
         Args: {
           p_action: string
@@ -29808,6 +29979,7 @@ export type Database = {
         }
         Returns: Json[]
       }
+      get_invoice_seq_preview: { Args: never; Returns: number }
       get_leave_date_constraints: {
         Args: { p_leave_type_id: string; p_user_id: string }
         Returns: Json
@@ -29887,6 +30059,13 @@ export type Database = {
           full_name: string
           user_id: string
           username: string
+        }[]
+      }
+      get_org_root_managers: {
+        Args: never
+        Returns: {
+          full_name: string
+          user_id: string
         }[]
       }
       get_password_reset_stats: {
@@ -29970,6 +30149,14 @@ export type Database = {
           region_pincodes: string[]
           skills: string[]
           state: string
+        }[]
+      }
+      get_report_scope_users: {
+        Args: never
+        Returns: {
+          full_name: string
+          level: number
+          user_id: string
         }[]
       }
       get_reporting_chain: {
@@ -30310,6 +30497,14 @@ export type Database = {
       is_coordinator: { Args: { p_uid: string }; Returns: boolean }
       is_distributor_owner_of: {
         Args: { _distributor_id: string }
+        Returns: boolean
+      }
+      is_event_team_member: {
+        Args: { p_event_id: string; p_uid: string }
+        Returns: boolean
+      }
+      is_event_team_member_by_visit: {
+        Args: { p_uid: string; p_visit_id: string }
         Returns: boolean
       }
       is_manager: { Args: { user_id_param: string }; Returns: boolean }

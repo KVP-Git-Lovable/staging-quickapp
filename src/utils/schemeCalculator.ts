@@ -2,7 +2,7 @@ interface SchemeCalculationResult {
   discountAmount: number;
   finalPrice: number;
   freeItems: Array<{
-    productId: string;
+    productId?: string;
     productName: string;
     quantity: number;
   }>;
@@ -28,7 +28,7 @@ export const calculateSchemeDiscount = (
 ): SchemeCalculationResult => {
   let totalDiscountAmount = 0;
   let finalPrice = 0;
-  const freeItems: Array<{ productId: string; productName: string; quantity: number }> = [];
+  const freeItems: Array<{ productId?: string; productName: string; quantity: number }> = [];
   let appliedScheme: any = null;
 
   // Calculate base total
@@ -168,11 +168,19 @@ const applyBuyXGetYFree = (scheme: any, items: OrderItem[], baseTotal: number): 
     totalFreeQty += freeQty;
     
     if (freeQty > 0) {
-      freeItems.push({
-        productId: scheme.free_product_id === 'same' ? item.productId : scheme.free_product_id,
-        productName: `Free ${scheme.free_product_id === 'same' ? 'Same Product' : 'Product'}`,
-        quantity: freeQty
-      });
+      if (scheme.free_product_source === 'other') {
+        freeItems.push({
+          productId: undefined,
+          productName: scheme.other_free_product_name || 'Free Product',
+          quantity: freeQty
+        });
+      } else {
+        freeItems.push({
+          productId: scheme.free_product_id === 'same' ? item.productId : scheme.free_product_id,
+          productName: `Free ${scheme.free_product_id === 'same' ? 'Same Product' : 'Product'}`,
+          quantity: freeQty
+        });
+      }
     }
   }
 

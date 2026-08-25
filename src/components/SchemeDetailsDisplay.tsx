@@ -102,7 +102,9 @@ export const SchemeDetailsDisplay = ({ scheme }: SchemeDetailsDisplayProps) => {
       
       case 'buy_x_get_y_free':
         const freeUnit = formatUnit(scheme.free_quantity_unit);
-        const freeProductName = scheme.free_product?.name || scheme.free_product_name || 'item(s)';
+        const freeProductName = scheme.free_product_source === 'other'
+          ? (scheme.other_free_product?.name || 'item(s)')
+          : (scheme.free_product?.name || scheme.free_product_name || 'item(s)');
         return `Get ${scheme.free_quantity}${freeUnit ? ` ${freeUnit}` : ''} ${freeProductName} free`;
       
       case 'bundle_combo':

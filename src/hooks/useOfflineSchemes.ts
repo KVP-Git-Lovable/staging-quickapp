@@ -16,6 +16,8 @@ export interface ProductScheme {
   free_quantity: number | null;
   free_quantity_unit?: string | null;
   free_product_id: string | null;
+  other_free_product_id?: string | null;
+  free_product_source?: 'catalogue' | 'other' | null;
   condition_quantity: number | null;
   condition_unit?: string | null;
   quantity_condition_type: string | null;
@@ -26,6 +28,7 @@ export interface ProductScheme {
   is_first_order_only: boolean | null;
   product_name?: string;
   free_product_name?: string;
+  other_free_product_name?: string;
   // Manual per-unit discount support
   max_discount_per_unit?: number | null;
   discount_unit?: string | null;
@@ -90,18 +93,38 @@ export const useOfflineSchemes = () => {
           .from('products')
           .select('id, name')
           .in('id', allProductIds);
-        
+
         productsMap = (productsData || []).reduce((acc, p) => {
           acc[p.id] = p.name;
           return acc;
         }, {} as Record<string, string>);
       }
 
+      // "Other" free products aren't in the products table - resolve their names separately.
+      const otherFreeProductIds = [...new Set(schemesData
+        .filter((s: any) => s.free_product_source === 'other')
+        .map((s: any) => s.other_free_product_id)
+        .filter(Boolean))] as string[];
+
+      let otherFreeProductsMap: Record<string, string> = {};
+      if (otherFreeProductIds.length > 0) {
+        const { data: otherFreeProductsData } = await supabase
+          .from('scheme_free_products')
+          .select('id, name')
+          .in('id', otherFreeProductIds);
+
+        otherFreeProductsMap = (otherFreeProductsData || []).reduce((acc, p) => {
+          acc[p.id] = p.name;
+          return acc;
+        }, {} as Record<string, string>);
+      }
+
       // Format schemes with product names - use "Unknown Product" fallback for better offline clarity
-      const formattedSchemes: ProductScheme[] = schemesData.map(scheme => ({
+      const formattedSchemes: ProductScheme[] = schemesData.map((scheme: any) => ({
         ...scheme,
         product_name: scheme.product_id ? productsMap[scheme.product_id] || 'Unknown Product' : 'All Products',
         free_product_name: scheme.free_product_id ? productsMap[scheme.free_product_id] || 'Unknown Product' : null,
+        other_free_product_name: scheme.other_free_product_id ? otherFreeProductsMap[scheme.other_free_product_id] || 'Unknown Product' : null,
       }));
       
       console.log('[useOfflineSchemes] Formatted schemes with product names:', formattedSchemes.length);

@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
 import { Plus, Edit2, Trash2, Gift, Search, Loader2, AlertTriangle, TrendingUp, Calendar, Globe, MapPin, Settings, Bot, Sparkles, RefreshCw } from 'lucide-react';
 import { SchemeFormFields } from './SchemeFormFields';
+import { OtherFreeProductsManagement } from './OtherFreeProductsManagement';
 import { SchemeDetailsDisplay } from './SchemeDetailsDisplay';
 import { SchemeApplicabilitySelector, ApplicabilityRule } from './SchemeApplicabilitySelector';
 import { SchemePolicyConfig } from './SchemePolicyConfig';
@@ -60,6 +61,8 @@ interface ProductScheme {
   free_quantity: number;
   buy_quantity: number;
   free_product_id?: string;
+  other_free_product_id?: string;
+  free_product_source?: 'catalogue' | 'other';
   bundle_product_ids: string[];
   bundle_discount_amount: number;
   bundle_discount_percentage: number;
@@ -94,6 +97,8 @@ const initialSchemeForm = {
   buy_quantity: 0,
   buy_quantity_unit: 'kg',
   free_product_id: '',
+  other_free_product_id: '',
+  free_product_source: 'catalogue' as 'catalogue' | 'other',
   bundle_product_ids: [] as string[],
   bundle_discount_amount: 0,
   bundle_discount_percentage: 0,
@@ -124,6 +129,7 @@ export const SchemeMaster = () => {
   const [schemes, setSchemes] = useState<ProductScheme[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [otherFreeProducts, setOtherFreeProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Dialog states
@@ -175,7 +181,7 @@ export const SchemeMaster = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchSchemes(), fetchProducts(), fetchCategories()]);
+      await Promise.all([fetchSchemes(), fetchProducts(), fetchCategories(), fetchOtherFreeProducts()]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch data');
@@ -191,12 +197,27 @@ export const SchemeMaster = () => {
         *,
         product:products!product_schemes_product_id_fkey(*),
         category:product_categories(*),
-        free_product:products!product_schemes_free_product_id_fkey(*)
+        free_product:products!product_schemes_free_product_id_fkey(*),
+        other_free_product:scheme_free_products(*)
       `)
       .order('name');
-    
+
     if (error) throw error;
     setSchemes((data as any) || []);
+  };
+
+  const fetchOtherFreeProducts = async () => {
+    const { data, error } = await supabase
+      .from('scheme_free_products')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      console.error('[SchemeMaster] fetchOtherFreeProducts error:', error);
+      return;
+    }
+    setOtherFreeProducts(data || []);
   };
 
   const fetchProducts = async () => {
@@ -291,7 +312,10 @@ export const SchemeMaster = () => {
         const missing: string[] = [];
         if (!schemeForm.buy_quantity || schemeForm.buy_quantity <= 0) missing.push('Buy quantity');
         if (!schemeForm.free_quantity || schemeForm.free_quantity <= 0) missing.push('Free quantity');
-        if (!schemeForm.free_product_id) missing.push('Free product');
+        const freeProductSet = schemeForm.free_product_source === 'other'
+          ? !!schemeForm.other_free_product_id
+          : !!schemeForm.free_product_id;
+        if (!freeProductSet) missing.push('Free product');
         if (missing.length) {
           toast.error('Scheme incomplete', {
             description: `Please set: ${missing.join(', ')}. Without these the offer will not apply at checkout.`,
@@ -330,7 +354,9 @@ export const SchemeMaster = () => {
             free_quantity_unit: schemeForm.free_quantity_unit || 'kg',
             buy_quantity: schemeForm.buy_quantity,
             buy_quantity_unit: schemeForm.buy_quantity_unit || 'kg',
-            free_product_id: schemeForm.free_product_id || null,
+            free_product_id: schemeForm.free_product_source === 'other' ? null : (schemeForm.free_product_id || null),
+            other_free_product_id: schemeForm.free_product_source === 'other' ? (schemeForm.other_free_product_id || null) : null,
+            free_product_source: schemeForm.free_product_source || 'catalogue',
             bundle_product_ids: schemeForm.bundle_product_ids,
             bundle_discount_amount: schemeForm.bundle_discount_amount,
             bundle_discount_percentage: schemeForm.bundle_discount_percentage,
@@ -378,7 +404,9 @@ export const SchemeMaster = () => {
             free_quantity_unit: schemeForm.free_quantity_unit || 'kg',
             buy_quantity: schemeForm.buy_quantity,
             buy_quantity_unit: schemeForm.buy_quantity_unit || 'kg',
-            free_product_id: schemeForm.free_product_id || null,
+            free_product_id: schemeForm.free_product_source === 'other' ? null : (schemeForm.free_product_id || null),
+            other_free_product_id: schemeForm.free_product_source === 'other' ? (schemeForm.other_free_product_id || null) : null,
+            free_product_source: schemeForm.free_product_source || 'catalogue',
             bundle_product_ids: schemeForm.bundle_product_ids,
             bundle_discount_amount: schemeForm.bundle_discount_amount,
             bundle_discount_percentage: schemeForm.bundle_discount_percentage,
@@ -540,6 +568,8 @@ export const SchemeMaster = () => {
       buy_quantity: scheme.buy_quantity || 0,
       buy_quantity_unit: schemeAny.buy_quantity_unit || 'kg',
       free_product_id: scheme.free_product_id || '',
+      other_free_product_id: schemeAny.other_free_product_id || '',
+      free_product_source: (schemeAny.free_product_source as 'catalogue' | 'other') || 'catalogue',
       bundle_product_ids: scheme.bundle_product_ids || [],
       bundle_discount_amount: scheme.bundle_discount_amount || 0,
       bundle_discount_percentage: scheme.bundle_discount_percentage || 0,
@@ -569,6 +599,9 @@ export const SchemeMaster = () => {
     // Ensure products list is populated for the edit dialog (multi-product selector)
     if (products.length === 0) {
       fetchProducts();
+    }
+    if (otherFreeProducts.length === 0) {
+      fetchOtherFreeProducts();
     }
     setIsSchemeDialogOpen(true);
 
@@ -728,7 +761,7 @@ export const SchemeMaster = () => {
 
       {/* Main Tabs */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-xl">
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl">
           <TabsTrigger value="manual" className="flex items-center gap-2">
             <Gift className="h-4 w-4" />
             Manual Schemes
@@ -745,6 +778,10 @@ export const SchemeMaster = () => {
           <TabsTrigger value="policy" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             Policy Settings
+          </TabsTrigger>
+          <TabsTrigger value="otherFreeProducts" className="flex items-center gap-2">
+            <Gift className="h-4 w-4" />
+            Other Free Products
           </TabsTrigger>
         </TabsList>
 
@@ -796,11 +833,12 @@ export const SchemeMaster = () => {
                     </TabsList>
                     <TabsContent value="details">
                       <ScrollArea className="h-[55vh] pr-4">
-                        <SchemeFormFields 
-                          schemeForm={schemeForm} 
+                        <SchemeFormFields
+                          schemeForm={schemeForm}
                           setSchemeForm={setSchemeForm}
                           products={products}
                           categories={categories}
+                          otherFreeProducts={otherFreeProducts}
                         />
                       </ScrollArea>
                     </TabsContent>
@@ -1160,6 +1198,11 @@ export const SchemeMaster = () => {
           </Card>
 
           <OrderEditPolicyConfig />
+        </TabsContent>
+
+        {/* Other Free Products Tab */}
+        <TabsContent value="otherFreeProducts" className="mt-4">
+          <OtherFreeProductsManagement />
         </TabsContent>
       </Tabs>
 

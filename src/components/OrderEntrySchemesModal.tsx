@@ -155,7 +155,7 @@ const getBenefitText = (scheme: ProductScheme) => {
   }
   if (scheme.free_quantity) {
     const freeUnit = formatUnit(scheme.free_quantity_unit);
-    const freeProductName = scheme.free_product_name || 'item(s)';
+    const freeProductName = (scheme.free_product_source === 'other' ? scheme.other_free_product_name : scheme.free_product_name) || 'item(s)';
     return `Get ${scheme.free_quantity}${freeUnit ? ` ${freeUnit}` : ''} ${freeProductName} free`;
   }
   return 'Special offer';
@@ -422,7 +422,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Free Product:</span>
-                              <span className="font-medium">{scheme.free_product_name || 'Same product'}</span>
+                              <span className="font-medium">{(scheme.free_product_source === 'other' ? scheme.other_free_product_name : scheme.free_product_name) || 'Same product'}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Free Quantity:</span>

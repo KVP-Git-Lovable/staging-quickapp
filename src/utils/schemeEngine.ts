@@ -73,6 +73,9 @@ export interface ProductScheme {
   free_quantity?: number | null;
   free_quantity_unit?: string | null;
   free_product_id?: string | null;
+  other_free_product_id?: string | null;
+  free_product_source?: 'catalogue' | 'other' | null;
+  other_free_product_name?: string;
   condition_quantity?: number | null;
   quantity_condition_type?: string | null;
   min_order_value?: number | null;
@@ -470,9 +473,11 @@ function calculateSchemeDiscount(
           // THRESHOLD-BASED: Get free quantity ONCE when threshold is met (not per set)
           const freeItemsCount = freeQty;
           
-          // Use scheme's FREE product details
-          const freeProductName = scheme.free_product_name || 'Free Item';
-          const freeProductId = scheme.free_product_id || undefined;
+          // Use scheme's FREE product details — either a catalogue product or an
+          // "other" free product maintained specifically for schemes (no products row)
+          const isOtherFreeProduct = scheme.free_product_source === 'other';
+          const freeProductName = (isOtherFreeProduct ? scheme.other_free_product_name : scheme.free_product_name) || 'Free Item';
+          const freeProductId = isOtherFreeProduct ? undefined : (scheme.free_product_id || undefined);
           
           // Track scheme details per item
           if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
