@@ -23,6 +23,7 @@ import LineItemUomSelect, { type LineItemUomSelection } from "@/components/uom/L
 import { resolveProduct, type ResolvedProduct } from "@/utils/resolveProduct";
 import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { useOrderCurrency } from "@/hooks/useOrderCurrency";
+import { computeLineTax } from "@/utils/taxCalc";
 import { usePriceBookPrices } from "@/hooks/usePriceBookPrices";
 interface Product {
   id: string;
@@ -148,6 +149,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   // that would change the per-unit rate (product, variant, UOM) — only qty is editable.
   // Admin edit context always bypasses the price lock (admin is the override authority).
   const priceLocked = isEditMode && editPolicy.edit_lock_price && !isAdminEdit;
+  // Admins can always edit price. A rep can too, but only while editing an
+  // existing order (not on first entry) and only when the admin hasn't locked
+  // pricing for this company via Operations Config (edit_lock_price).
+  const canEditPrice = isAdminEdit || (isEditMode && !priceLocked);
   // Phase 3: price-book pricing (feature-flagged, offline-safe, DB-resolved).
   const { resolveLinePrice } = usePriceBookPrices(retailerId);
   // Order amounts are always shown in the retailer's TRANSACTION currency (never converted).
@@ -1175,7 +1180,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
    * Passing an empty/invalid value clears the override so the catalog price returns.
    */
   const applyAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
-    if (!isAdminEdit) return;
+    if (!canEditPrice) return;
     setOrderRows(prev => {
       const updated = prev.map(row => {
         if (row.id !== rowId || !row.product) return row;
@@ -1228,7 +1233,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
    * empty/invalid input. Clearing happens on blur only (see onBlurAdminPrice).
    */
   const onChangeAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
-    if (!isAdminEdit) return;
+    if (!canEditPrice) return;
     // Keep only the field being typed in state; the other should recompute.
     setPriceEditText(prev => ({ ...prev, [rowId]: { [mode]: rawValue } }));
     const parsed = Number(rawValue);
@@ -1254,7 +1259,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
   /** On blur: if the field was left empty, clear the override back to catalog. Always drop the raw text buffer. */
   const onBlurAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
-    if (!isAdminEdit) return;
+    if (!canEditPrice) return;
     if (rawValue.trim() === '') {
       applyAdminPrice(rowId, mode, '');
     }
@@ -1351,6 +1356,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   };
 
   const getGstAmount = () => {
+    // Tax is computed and rounded per line via computeLineTax — the same
+    // function Cart.tsx uses when an order is actually saved (CGST and SGST
+    // each rounded to the nearest paisa, then summed). Rounding the combined
+    // tax once at the end instead would make this live preview a paisa or two
+    // higher than what actually gets persisted/invoiced, per line.
     const taxable = orderRows.filter(r => r.product && r.quantity > 0);
     const subtotal = taxable.reduce((s, r) => {
       const catalog = getPricePerUnit(r.product!, r.variant, r.uomCode || r.unit, r.conversionToBase, r.priceBasisConversionToBase, r.quantity);
@@ -1364,7 +1374,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const eff = (r.editedRate != null && Number.isFinite(r.editedRate)) ? Number(r.editedRate) : catalog;
       const lineTaxable = eff * r.quantity * discountFactor;
       const gstPct = Number((r.product as any)?.gst_percentage) || 0;
-      return tax + lineTaxable * gstPct / 100;
+      return tax + computeLineTax({ taxableAmount: lineTaxable, gstPercentage: gstPct }).totalTax;
     }, 0);
   };
 
@@ -1612,7 +1622,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                                   {pbRow.price_book_name}
                                 </Badge>
                               )}
-                              {isAdminEdit ? (() => {
+                              {canEditPrice ? (() => {
                                 const buf = priceEditText[row.id] || {};
                                 const qtyNum = Number(row.quantity) || 0;
                                 const rateDisplay = buf.rate !== undefined
@@ -1832,10 +1842,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           
           <div className="flex justify-end items-center gap-2 pt-1 border-t border-border">
             <p className="text-sm font-semibold">Total:</p>
-            <p className="text-lg font-bold">{fmtMoney(getFinalTotal())}</p>
+            <p className="text-lg font-bold">{fmtMoney(getFinalTotal() + getGstAmount())}</p>
           </div>
           <p className="text-xs text-muted-foreground">
-            (incl. GST: {fmtMoney(getFinalTotal() + getGstAmount())})
+            (excl. GST: {fmtMoney(getFinalTotal())})
           </p>
         </div>
       </div>
