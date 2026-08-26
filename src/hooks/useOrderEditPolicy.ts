@@ -5,6 +5,7 @@ export interface OrderEditPolicy {
   edit_enabled: boolean;
   edit_lock_price: boolean;
   edit_require_reason: boolean;
+  entry_price_edit_enabled: boolean;
   loaded: boolean;
 }
 
@@ -12,6 +13,7 @@ const DEFAULT: OrderEditPolicy = {
   edit_enabled: false,
   edit_lock_price: false,
   edit_require_reason: false,
+  entry_price_edit_enabled: false,
   loaded: false,
 };
 
@@ -29,7 +31,7 @@ export function useOrderEditPolicy(): OrderEditPolicy {
       try {
         const { data } = await (supabase as any)
           .from('operations_config')
-          .select('edit_enabled, edit_lock_price, edit_require_reason')
+          .select('edit_enabled, edit_lock_price, edit_require_reason, entry_price_edit_enabled')
           .eq('id', 1)
           .maybeSingle();
         if (cancelled) return;
@@ -37,6 +39,7 @@ export function useOrderEditPolicy(): OrderEditPolicy {
           edit_enabled: !!data?.edit_enabled,
           edit_lock_price: !!data?.edit_lock_price,
           edit_require_reason: !!data?.edit_require_reason,
+          entry_price_edit_enabled: !!data?.entry_price_edit_enabled,
           loaded: true,
         });
       } catch {

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag, RefreshCw } from "lucide-react";
+import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag, RefreshCw, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -154,6 +154,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   // existing order (not on first entry) and only when the admin hasn't locked
   // pricing for this company via Operations Config (edit_lock_price).
   const canEditPrice = isAdminEdit || (isEditMode && !priceLocked);
+  // Separate opt-in: lets a rep edit a line's price (incl. GST) on a fresh,
+  // not-yet-submitted order — gated by its own Operations Config toggle since
+  // this is a distinct decision from editing an already-placed order above.
+  const canEditEntryPrice = !isEditMode && editPolicy.entry_price_edit_enabled;
+  const canEditAnyPrice = canEditPrice || canEditEntryPrice;
   // Phase 3: price-book pricing (feature-flagged, offline-safe, DB-resolved).
   const { resolveLinePrice } = usePriceBookPrices(retailerId);
   // Order amounts are always shown in the retailer's TRANSACTION currency (never converted).
@@ -222,8 +227,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   // Per-row raw text for admin price inputs so partial values ("", "18.", "0.") are allowed.
   // Key = row.id, value = { rate?: rawUnitPriceText, total?: rawLineTotalText }.
   // Only the field currently being typed holds its own text; the other stays derived.
-  const [priceEditText, setPriceEditText] = useState<Record<string, { rate?: string; total?: string }>>({});
-  
+  const [priceEditText, setPriceEditText] = useState<Record<string, { rate?: string; total?: string; rate_incl_gst?: string }>>({});
+  // Which rows currently have the Stock input revealed (hidden behind a "+" by default —
+  // Stock is only needed occasionally, so the Stock/Price column shows Price (incl. GST) instead).
+  const [stockRevealedRows, setStockRevealedRows] = useState<Set<string>>(new Set());
+
   // Load schemes with offline support
   const { schemes, loading: schemesLoading, isOnline } = useOfflineSchemes();
 
@@ -1262,12 +1270,15 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   };
 
   /**
-   * Admin-only: set an overridden per-unit price on a row. Pass mode='rate' with the new
-   * unit price, or mode='total' with the new line total (rate is back-computed from quantity).
-   * Passing an empty/invalid value clears the override so the catalog price returns.
+   * Set an overridden per-unit price on a row. Pass mode='rate' with the new ex-GST unit
+   * price, mode='total' with the new line total (rate is back-computed from quantity), or
+   * mode='rate_incl_gst' with a GST-inclusive unit price (rate is back-computed via the
+   * row's GST%). Passing an empty/invalid value clears the override so the catalog price
+   * returns. Reused by both the edit-mode admin price fields (canEditPrice) and the
+   * fresh-entry price field (canEditEntryPrice) — see canEditAnyPrice.
    */
-  const applyAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
-    if (!canEditPrice) return;
+  const applyAdminPrice = (rowId: string, mode: 'rate' | 'total' | 'rate_incl_gst', rawValue: string) => {
+    if (!canEditAnyPrice) return;
     setOrderRows(prev => {
       const updated = prev.map(row => {
         if (row.id !== rowId || !row.product) return row;
@@ -1281,6 +1292,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           row.priceBasisConversionToBase,
           qty,
         );
+        const gstPct = Number((row.product as any)?.gst_percentage) || 0;
 
         // Empty input clears the override.
         const parsed = Number(rawValue);
@@ -1292,6 +1304,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         let nextRate: number;
         if (mode === 'rate') {
           nextRate = +parsed.toFixed(2);
+        } else if (mode === 'rate_incl_gst') {
+          nextRate = +(parsed / (1 + gstPct / 100)).toFixed(2);
         } else {
           // total mode: rate = total / qty. Guard qty=0.
           if (qty <= 0) return row;
@@ -1314,13 +1328,13 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
 
   /**
-   * Live typing handler for admin price fields. Updates the raw text buffer so
+   * Live typing handler for price fields. Updates the raw text buffer so
    * empty / partial values ("", "18.", "0.") are preserved in the input, and
    * pushes a parseable number into editedRate WITHOUT clearing the override on
    * empty/invalid input. Clearing happens on blur only (see onBlurAdminPrice).
    */
-  const onChangeAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
-    if (!canEditPrice) return;
+  const onChangeAdminPrice = (rowId: string, mode: 'rate' | 'total' | 'rate_incl_gst', rawValue: string) => {
+    if (!canEditAnyPrice) return;
     // Keep only the field being typed in state; the other should recompute.
     setPriceEditText(prev => ({ ...prev, [rowId]: { [mode]: rawValue } }));
     const parsed = Number(rawValue);
@@ -1329,9 +1343,12 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       const updated = prev.map(row => {
         if (row.id !== rowId || !row.product) return row;
         const qty = Number(row.quantity) || 0;
+        const gstPct = Number((row.product as any)?.gst_percentage) || 0;
         let nextRate: number;
         if (mode === 'rate') {
           nextRate = +parsed.toFixed(2);
+        } else if (mode === 'rate_incl_gst') {
+          nextRate = +(parsed / (1 + gstPct / 100)).toFixed(2);
         } else {
           if (qty <= 0) return row;
           nextRate = +(parsed / qty).toFixed(2);
@@ -1345,8 +1362,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   };
 
   /** On blur: if the field was left empty, clear the override back to catalog. Always drop the raw text buffer. */
-  const onBlurAdminPrice = (rowId: string, mode: 'rate' | 'total', rawValue: string) => {
-    if (!canEditPrice) return;
+  const onBlurAdminPrice = (rowId: string, mode: 'rate' | 'total' | 'rate_incl_gst', rawValue: string) => {
+    if (!canEditAnyPrice) return;
     if (rawValue.trim() === '') {
       applyAdminPrice(rowId, mode, '');
     }
@@ -1556,7 +1573,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               <div className="font-semibold text-xs md:text-sm">Product</div>
               <div className="font-semibold text-xs md:text-sm">Unit</div>
               <div className="font-semibold text-xs md:text-sm text-center">Qty</div>
-              <div className="font-semibold text-xs md:text-sm text-center">Stock</div>
+              <div className="font-semibold text-xs md:text-sm text-center">Price (incl. GST)</div>
               <div className="w-8"></div>
             </div>
               
@@ -1830,24 +1847,81 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                       )}
                     </div>
                     
-                    {/* Stock Column */}
+                    {/* Stock / Price (incl. GST) Column — Stock is occasional, so it stays
+                        behind a "+" and this column shows Price (incl. GST) by default. */}
                     <div>
-                      <Input
-                        type="number"
-                        placeholder="0"
-                        value={row.closingStock === 0 ? "" : row.closingStock}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
-                        }}
-                        className={cn(
-                          "h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1",
-                          row.closingStock === 0 && "text-muted-foreground"
-                        )}
-                        disabled={!row.product}
-                      />
+                      {stockRevealedRows.has(row.id) || row.closingStock > 0 ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            value={row.closingStock === 0 ? "" : row.closingStock}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
+                            }}
+                            className={cn(
+                              "h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1",
+                              row.closingStock === 0 && "text-muted-foreground"
+                            )}
+                            disabled={!row.product}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0 text-muted-foreground"
+                            title="Hide stock"
+                            onClick={() => setStockRevealedRows(prev => {
+                              const next = new Set(prev);
+                              next.delete(row.id);
+                              return next;
+                            })}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : row.product ? (() => {
+                        const displayUnit = row.uomCode || row.unit;
+                        const catalogRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase, row.quantity);
+                        const hasEdited = row.editedRate != null && Number.isFinite(row.editedRate);
+                        const shownRate = hasEdited ? Number(row.editedRate) : catalogRate;
+                        const gstPct = Number((row.product as any)?.gst_percentage) || 0;
+                        const inclGstRate = shownRate * (1 + gstPct / 100);
+                        const buf = priceEditText[row.id]?.rate_incl_gst;
+                        return (
+                          <div className="flex items-center gap-1">
+                            {canEditEntryPrice ? (
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={buf !== undefined ? buf : inclGstRate.toFixed(2)}
+                                onChange={(e) => onChangeAdminPrice(row.id, 'rate_incl_gst', e.target.value)}
+                                onBlur={(e) => onBlurAdminPrice(row.id, 'rate_incl_gst', e.target.value)}
+                                className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1"
+                              />
+                            ) : (
+                              <div className="h-9 md:h-11 flex items-center justify-center flex-1 text-xs md:text-sm">
+                                {fmtMoney(inclGstRate)}
+                              </div>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0 text-muted-foreground"
+                              title="Add stock"
+                              onClick={() => setStockRevealedRows(prev => new Set(prev).add(row.id))}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        );
+                      })() : (
+                        <div className="h-9 md:h-11 flex items-center justify-center text-xs text-muted-foreground">—</div>
+                      )}
                     </div>
-                    
+
                     {/* Delete Button */}
                     <div className="flex justify-center">
                       <Button

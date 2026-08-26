@@ -37,6 +37,7 @@ type OpsConfig = {
   edit_approval_threshold: number;
   edit_lock_price: boolean;
   edit_max_edits: number;
+  entry_price_edit_enabled: boolean;
   auto_cancel_enabled: boolean;
   eod_cutoff_time: string;
   carry_forward_enabled: boolean;
@@ -390,6 +391,14 @@ const OperationsConfig: React.FC = () => {
             <div className="flex items-center justify-between">
               <Label>Lock price changes</Label>
               <Switch checked={c.edit_lock_price} onCheckedChange={(v) => save('edit_lock_price', v)} />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Allow price edit in Order Entry</Label>
+                <p className="text-xs text-muted-foreground">Lets reps edit a line's price (incl. GST) while placing a NEW order, before it's submitted — separate from editing an already-placed order above.</p>
+              </div>
+              <Switch checked={c.entry_price_edit_enabled} onCheckedChange={(v) => save('entry_price_edit_enabled', v)} />
             </div>
 
             <div className="space-y-2">
