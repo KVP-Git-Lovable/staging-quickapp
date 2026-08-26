@@ -94,4 +94,7 @@ verify_jwt = false
 [functions.ai-agent-builder]
 verify_jwt = true
 
+[functions.send-order-confirmation-whatsapp]
+verify_jwt = false
+
 
