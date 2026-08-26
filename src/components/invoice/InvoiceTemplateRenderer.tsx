@@ -9,12 +9,14 @@ interface InvoiceTemplateRendererProps {
   orderId: string;
   retailerId: string;
   cartItems: any[];
+  schemeDetails?: string;
 }
 
 export default function InvoiceTemplateRenderer({
   orderId,
   retailerId,
   cartItems,
+  schemeDetails = "",
 }: InvoiceTemplateRendererProps) {
   const [company, setCompany] = useState<any>(null);
   const [retailer, setRetailer] = useState<any>(null);
@@ -146,7 +148,7 @@ export default function InvoiceTemplateRenderer({
           beatName={beatName}
           salesmanName={salesmanName}
           invoiceTime={invoiceTime}
-          schemeDetails=""
+          schemeDetails={schemeDetails}
           displaySettings={displaySettings}
         />
       ) : (

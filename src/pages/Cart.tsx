@@ -749,6 +749,38 @@ export const Cart = () => {
   }, [cartItems, orderCalculation.itemDiscounts]);
   const taxTotals = React.useMemo(() => sumLineTaxes(lineTaxes), [lineTaxes]);
 
+  // Read-only enrichment for the pre-submit Invoice Preview dialog. Built entirely
+  // from the same Cart-level numbers already computed above (orderCalculation,
+  // lineTaxes, computeItemTotal/computeItemDiscount) — the invoice preview should
+  // only ever display these, never derive its own rate/discount/tax math.
+  const previewInvoiceItems = React.useMemo(() => {
+    return cartItems.map((item, idx) => {
+      const { qty: displayQuantity, unit: displayUnit } = getDisplayQuantityAndUnit(item);
+      const catalogRate = getDisplayRate(item);
+      const itemDiscount = computeItemDiscount(item);
+      const itemTotal = computeItemTotal(item);
+      const lt = lineTaxes[idx];
+      const discountPerUnit = displayQuantity > 0 ? itemDiscount / displayQuantity : 0;
+      return {
+        ...item,
+        display_quantity: displayQuantity,
+        display_unit: displayUnit,
+        rate: catalogRate - discountPerUnit,
+        original_rate: catalogRate,
+        discount_amount: itemDiscount,
+        total: itemTotal,
+        taxable_amount: itemTotal,
+        tax_rate_snapshot: lt?.taxRate ?? 0,
+        cgst_rate: (lt?.taxRate ?? 0) / 2,
+        sgst_rate: (lt?.taxRate ?? 0) / 2,
+        cgst_amount: lt?.cgst ?? 0,
+        sgst_amount: lt?.sgst ?? 0,
+        igst_amount: lt?.igst ?? 0,
+        cess_amount: lt?.cess ?? 0,
+      };
+    });
+  }, [cartItems, lineTaxes, orderCalculation.itemDiscounts]);
+
   const getCGST = () => taxTotals.cgst;
   const getSGST = () => taxTotals.sgst;
   const getFinalTotal = () => {
@@ -3342,7 +3374,8 @@ export const Cart = () => {
               <InvoiceTemplateRenderer
                 orderId={validVisitId || "DRAFT"}
                 retailerId={validRetailerId}
-                cartItems={cartItems}
+                cartItems={previewInvoiceItems}
+                schemeDetails={formatSchemeDetailsForInvoice(orderCalculation.appliedSchemes)}
               />
             )}
           </DialogContent>

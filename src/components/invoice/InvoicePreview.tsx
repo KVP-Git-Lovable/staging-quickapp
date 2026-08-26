@@ -302,6 +302,11 @@ export default function InvoicePreview({
       </div>
 
       {/* Items Table */}
+      {(() => {
+        // Only show a separate MRP/Offer split when at least one line actually
+        // has a discount — reads the stored discount_amount, never derives one.
+        const hasAnyItemDiscount = cartItems.some(item => (Number(item.discount_amount) || 0) > 0);
+        return (
       <div className="mb-6">
         <table className="w-full border-collapse">
           <thead>
@@ -315,7 +320,14 @@ export default function InvoicePreview({
                 <th className="border border-gray-300 p-2 text-center text-xs">UNIT</th>
               )}
               <th className="border border-gray-300 p-2 text-center text-xs">QTY</th>
-              <th className="border border-gray-300 p-2 text-right text-xs">PRICE</th>
+              {hasAnyItemDiscount ? (
+                <>
+                  <th className="border border-gray-300 p-2 text-right text-xs">MRP</th>
+                  <th className="border border-gray-300 p-2 text-right text-xs">OFFER PRICE</th>
+                </>
+              ) : (
+                <th className="border border-gray-300 p-2 text-right text-xs">PRICE</th>
+              )}
               <th className="border border-gray-300 p-2 text-center text-xs">CGST%</th>
               <th className="border border-gray-300 p-2 text-center text-xs">SGST%</th>
               <th className="border border-gray-300 p-2 text-right text-xs">TOTAL</th>
@@ -340,6 +352,8 @@ export default function InvoicePreview({
               }
               
               const itemTotal = getLineTotal(item, qty, rate);
+              const itemDiscount = Number(item.discount_amount) || 0;
+              const originalRate = Number(item.original_rate) || rate;
               const fallbackRate = Number(
                 (item as any).tax_rate_snapshot ??
                 (item as any).gst_percentage ??
@@ -359,9 +373,20 @@ export default function InvoicePreview({
                     <td className="border border-gray-300 p-2 text-center text-xs">{unit}</td>
                   )}
                   <td className="border border-gray-300 p-2 text-center text-xs">{qty}</td>
-                  <td className="border border-gray-300 p-2 text-right text-xs">
-                    ₹{rate.toFixed(2)}
-                  </td>
+                  {hasAnyItemDiscount ? (
+                    <>
+                      <td className="border border-gray-300 p-2 text-right text-xs">
+                        ₹{originalRate.toFixed(2)}
+                      </td>
+                      <td className="border border-gray-300 p-2 text-right text-xs">
+                        {itemDiscount > 0 ? `₹${rate.toFixed(2)}` : "-"}
+                      </td>
+                    </>
+                  ) : (
+                    <td className="border border-gray-300 p-2 text-right text-xs">
+                      ₹{rate.toFixed(2)}
+                    </td>
+                  )}
                   <td className="border border-gray-300 p-2 text-center text-xs">
                     {igstRate > 0 ? `IGST ${igstRate}%` : (cgstRate > 0 ? `${cgstRate}%` : '-')}
                   </td>
@@ -377,6 +402,8 @@ export default function InvoicePreview({
           </tbody>
         </table>
       </div>
+        );
+      })()}
 
       {/* Rate-wise GST summary (GST compliant) */}
       {(() => {
@@ -436,12 +463,25 @@ export default function InvoicePreview({
       )}
 
       {/* Totals Section */}
+      {(() => {
+        // Read the stored per-line discount, never derive it — SUB-TOTAL shows
+        // list price so SUB-TOTAL - DISCOUNT lines up with the taxable net below,
+        // matching the same convention the actual invoice PDF uses.
+        const totalDiscount = cartItems.reduce((s: number, i: any) => s + (Number(i.discount_amount) || 0), 0);
+        const subtotalGross = subtotal + totalDiscount;
+        return (
       <div className="flex justify-end mb-4">
         <div className="w-64">
           {isEnabled('totals_subtotal') && (
             <div className="flex justify-between mb-2">
               <span className="font-bold text-xs">SUB-TOTAL</span>
-              <span className="text-xs">₹{subtotal.toFixed(2)}</span>
+              <span className="text-xs">₹{subtotalGross.toFixed(2)}</span>
+            </div>
+          )}
+          {totalDiscount > 0 && (
+            <div className="flex justify-between mb-2 text-green-700">
+              <span className="font-bold text-xs">DISCOUNT</span>
+              <span className="text-xs">-₹{totalDiscount.toFixed(2)}</span>
             </div>
           )}
           {isEnabled('totals_tax_breakdown') && (
@@ -474,6 +514,8 @@ export default function InvoicePreview({
 
         </div>
       </div>
+        );
+      })()}
 
       {/* Amount in Words */}
       {isEnabled('totals_amount_in_words') && (
