@@ -82,7 +82,28 @@ export function OtherFreeProductsManagement() {
     },
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["scheme-free-products"] });
+  // Net quantity given away per product (order_consumption movements minus any
+  // reversals from cancelled orders), keyed by scheme_free_product_id.
+  const { data: soldQuantities } = useQuery({
+    queryKey: ["scheme-free-products-sold"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scheme_free_product_stock_movements")
+        .select("scheme_free_product_id, quantity")
+        .in("movement_type", ["order_consumption", "reversal"]);
+      if (error) throw error;
+      const totals: Record<string, number> = {};
+      for (const row of data || []) {
+        totals[row.scheme_free_product_id] = (totals[row.scheme_free_product_id] || 0) - row.quantity;
+      }
+      return totals;
+    },
+  });
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["scheme-free-products"] });
+    queryClient.invalidateQueries({ queryKey: ["scheme-free-products-sold"] });
+  };
 
   const createMutation = useMutation({
     mutationFn: async (product: Partial<SchemeFreeProduct>) => {
@@ -299,6 +320,7 @@ export function OtherFreeProductsManagement() {
                   <TableHead>Unit</TableHead>
                   <TableHead>HSN Code</TableHead>
                   <TableHead>Stock</TableHead>
+                  <TableHead>Sold</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -326,6 +348,9 @@ export function OtherFreeProductsManagement() {
                           </Badge>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {soldQuantities?.[product.id] || 0}
                     </TableCell>
                     <TableCell>
                       <Switch
