@@ -3103,8 +3103,8 @@ export const VisitCard = ({
         })()}
 
         <div className="space-y-2">
-          {/* First row - Check In, Order, Feedback, AI */}
-          <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isCheckInEnabled && canCheckIn ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          {/* First row - Check In, Order, No Order, Feedback, AI */}
+          <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isCheckInEnabled && canCheckIn ? 'grid-cols-5' : 'grid-cols-4'}`}>
             {!locationFeatureLoading && isCheckInEnabled && canCheckIn && (
               <Button
                 size="sm"
@@ -3229,8 +3229,29 @@ export const VisitCard = ({
               <span className="text-xs">Order</span>
             </Button>
 
-            <Button 
-              variant={(hasRetailerFeedback || hasCompetitionData) ? "default" : "outline"} 
+            <Button
+              variant={isNoOrderMarked ? "default" : "outline"}
+              size="sm"
+              className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
+                isNoOrderMarked ? "bg-destructive/10 text-destructive border-destructive/30" : ""
+              } ${
+                (isCheckInMandatory && !isCheckedIn && !proceedWithoutCheckIn && isCheckInEnabled) || !isTodaysVisit
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+              onClick={handleNoOrderClick}
+              title={
+                isNoOrderMarked
+                  ? `No Order (${noOrderReason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')})`
+                  : "No Order - Mark this visit as unproductive"
+              }
+            >
+              <Ban size={12} className="sm:size-3.5" />
+              <span className="text-xs">No Order</span>
+            </Button>
+
+            <Button
+              variant={(hasRetailerFeedback || hasCompetitionData) ? "default" : "outline"}
               size="sm" 
               className={`p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 ${
                 (hasRetailerFeedback || hasCompetitionData) ? "bg-success text-success-foreground" : ""
