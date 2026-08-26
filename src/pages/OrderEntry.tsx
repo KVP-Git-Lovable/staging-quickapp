@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, XCircle, UserX, DoorClosed, Camera, RotateCcw, Star, Sparkles, Target, MessageSquare, Mic, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { ShoppingCart, Package, Gift, ArrowLeft, Plus, Check, Grid3X3, Table, Minus, ChevronDown, ChevronRight, Search, X, Camera, RotateCcw, Star, Sparkles, Target, MessageSquare, Mic, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { hasAttendanceTodayOfflineSupport } from "@/utils/attendanceUtils";
 import { offlineStorage, STORES } from "@/lib/offlineStorage";
 import { VoiceOrderAssistant } from "@/components/VoiceOrderAssistant";
@@ -255,11 +255,8 @@ export const OrderEntry = () => {
   const [selectedUnits, setSelectedUnits] = useState<{
     [key: string]: string;
   }>({});
-  const [orderMode, setOrderMode] = useState<"grid" | "table" | "no-order" | "return-stock" | "competition">("table");
+  const [orderMode, setOrderMode] = useState<"grid" | "table" | "return-stock" | "competition">("table");
   const [searchTerm, setSearchTerm] = useState("");
-  const [noOrderReason, setNoOrderReason] = useState<string>("");
-  const [customNoOrderReason, setCustomNoOrderReason] = useState<string>("");
-  const [noOrderSubmitting, setNoOrderSubmitting] = useState(false);
   const [showOverstockPrompt, setShowOverstockPrompt] = useState(false);
   const [hasCompetitionData, setHasCompetitionData] = useState(false);
   const [categories, setCategories] = useState<string[]>(["All"]);
@@ -2284,21 +2281,8 @@ export const OrderEntry = () => {
                   <RotateCcw size={12} className="mr-0.5" />
                   Returns
                 </Button>
-                <Button 
-                  variant={orderMode === "no-order" ? "default" : "outline"} 
-                  onClick={() => {
-                    setOrderMode("no-order");
-                    // Record action for time tracking - first call = check-in, subsequent = check-out update
-                    recordAction('order').catch(() => {});
-                  }}
-                  className="flex-1 h-7 text-xs" 
-                  size="sm"
-                >
-                  <XCircle size={12} className="mr-0.5" />
-                  No Order
-                </Button>
-                <Button 
-                  variant={orderMode === "competition" ? "default" : "outline"} 
+                <Button
+                  variant={orderMode === "competition" ? "default" : "outline"}
                   onClick={() => {
                     setOrderMode("competition");
                     // Record action for time tracking - first call = check-in, subsequent = check-out update
@@ -2415,208 +2399,6 @@ export const OrderEntry = () => {
           });
           setOrderMode("grid");
         }} />
-          </> : orderMode === "no-order" ? <>
-            {/* No Order Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Select No Order Reason</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[{
-              value: "over-stocked",
-              label: "Over Stocked",
-              description: "Retailer has sufficient inventory",
-              icon: Package,
-              color: "text-warning"
-            }, {
-              value: "owner-not-available",
-              label: "Owner Not Available",
-              description: "Decision maker is not present",
-              icon: UserX,
-              color: "text-muted-foreground"
-            }, {
-              value: "store-closed",
-              label: "Store Closed",
-              description: "Store is temporarily closed",
-              icon: DoorClosed,
-              color: "text-destructive"
-            }, {
-              value: "permanently-closed",
-              label: "Permanently Closed",
-              description: "Store has shut down permanently",
-              icon: XCircle,
-              color: "text-destructive"
-            }, {
-              value: "other",
-              label: "Other",
-              description: "Specify a custom reason",
-              icon: MessageSquare,
-              color: "text-primary"
-            }].map(reason => {
-              const IconComponent = reason.icon;
-              return <Card 
-                key={reason.value} 
-                className={`cursor-pointer transition-all duration-200 hover:shadow-md ${noOrderReason === reason.value ? 'ring-2 ring-primary bg-primary/5' : 'hover:border-primary/50'}`} 
-                onClick={(e) => {
-                  e.preventDefault();
-                  console.log('No order reason clicked:', reason.value);
-                  
-                  // Mark as selected
-                  setNoOrderReason(reason.value);
-                  
-                  if (reason.value === "over-stocked") {
-                    setShowOverstockPrompt(true);
-                  }
-                  
-                  // Reset custom reason if switching away from "other"
-                  if (reason.value !== "other") {
-                    setCustomNoOrderReason("");
-                  }
-                }}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                          <IconComponent className={`size-5 ${reason.color}`} />
-                          <div className="flex-1">
-                            <h4 className="font-medium text-card-foreground">{reason.label}</h4>
-                            <p className="text-sm text-muted-foreground">{reason.description}</p>
-                          </div>
-                          {noOrderReason === reason.value && (
-                            <Check className="size-5 text-primary" />
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>;
-            })}
-            
-            {/* Show input field when "Other" is selected */}
-            {noOrderReason === "other" && (
-              <div className="space-y-2 mt-4">
-                <label className="text-sm font-medium text-foreground">Enter Reason</label>
-                <Input
-                  placeholder="Type your reason here..."
-                  value={customNoOrderReason}
-                  onChange={(e) => setCustomNoOrderReason(e.target.value)}
-                  className="w-full"
-                  autoFocus
-                />
-              </div>
-            )}
-            
-            {/* Show submit button when any reason is selected */}
-            {noOrderReason && (
-              <Button 
-                onClick={async (e) => {
-                  e.preventDefault();
-                  
-                  // Prevent double-click
-                  if (noOrderSubmitting) return;
-                  setNoOrderSubmitting(true);
-                  
-                  console.log('🔴 NO ORDER: Submit clicked (LOCAL-FIRST)', { 
-                    noOrderReason, 
-                    customNoOrderReason,
-                    visitId,
-                    retailerId
-                  });
-                  
-                  const finalReason = noOrderReason === "other" ? customNoOrderReason.trim() : noOrderReason;
-                  
-                  if (!finalReason) {
-                    toast({
-                      title: "Error",
-                      description: "Please enter a reason",
-                      variant: "destructive"
-                    });
-                    setNoOrderSubmitting(false);
-                    return;
-                  }
-                  
-                  if (!retailerId) {
-                    toast({
-                      title: "Error",
-                      description: "Retailer ID is missing",
-                      variant: "destructive"
-                    });
-                    setNoOrderSubmitting(false);
-                    return;
-                  }
-                  
-                  if (!userId) {
-                    toast({
-                      title: "Error",
-                      description: "User not authenticated. Please log in again.",
-                      variant: "destructive"
-                    });
-                    setNoOrderSubmitting(false);
-                    return;
-                  }
-                  
-                  try {
-                    // Use LOCAL-FIRST pattern for instant response
-                    const { submitNoOrderLocalFirst } = await import('@/utils/noOrderUtils');
-                    
-                    const today = getLocalDateString();
-                    
-                    await submitNoOrderLocalFirst({
-                      visitId,
-                      retailerId,
-                      userId,
-                      reason: finalReason,
-                      today
-                    });
-                    
-                    // Clear cart storage
-                    try {
-                      const storageKey = validVisitId && validRetailerId 
-                        ? `order_cart:${validVisitId}:${validRetailerId}` 
-                        : validRetailerId 
-                          ? `order_cart:temp:${validRetailerId}` 
-                          : 'order_cart:fallback';
-                      localStorage.removeItem(storageKey);
-                    } catch (storageError) {
-                      console.log('⚠️ Cart clear skipped:', storageError);
-                    }
-                    
-                    // Show success immediately
-                    toast({
-                      title: "✅ Visit Marked as Unproductive",
-                      description: `Reason: ${finalReason.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}`,
-                      duration: 3000
-                    });
-                    
-                    setNoOrderSubmitting(false);
-                    
-                    // Navigate immediately - no waiting for network
-                    setTimeout(() => {
-                      navigate("/visits/retailers");
-                    }, 100);
-                    
-                  } catch (error: any) {
-                    console.error('🔴 NO ORDER: Error:', error);
-                    toast({
-                      title: "Failed to Save",
-                      description: error?.message || "Please try again",
-                      variant: "destructive"
-                    });
-                    setNoOrderSubmitting(false);
-                  }
-                }}
-                className="w-full mt-4"
-                size="lg"
-                disabled={noOrderSubmitting}
-              >
-                {noOrderSubmitting ? (
-                  <>
-                    <span className="animate-spin mr-2">⏳</span>
-                    Saving...
-                  </>
-                ) : (
-                  "Submit No Order Reason"
-                )}
-              </Button>
-            )}
-              </CardContent>
-            </Card>
           </> : orderMode === "competition" ? <>
             {/* Competition Section */}
             <CompetitionDataForm 
