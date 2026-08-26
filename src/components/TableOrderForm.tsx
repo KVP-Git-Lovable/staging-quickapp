@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { isFocusedProductActive } from "@/utils/focusedProductChecker";
 import { ApplyOfferSection } from "@/components/ApplyOfferSection";
 import { OrderEntrySchemesModal } from "@/components/OrderEntrySchemesModal";
+import { SchemeConflictChoiceDialog } from "@/components/SchemeConflictChoiceDialog";
 import { useOfflineSchemes, ProductScheme } from "@/hooks/useOfflineSchemes";
 import { useAppliedSchemes } from "@/hooks/useAppliedSchemes";
 import { useSchemePolicies } from "@/hooks/useSchemePolicies";
@@ -248,6 +249,67 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const autoAppliedSchemesRef = useRef<Set<string>>(new Set());
   // Track schemes the user explicitly removed so they don't instantly auto-apply again
   const suppressedSchemesRef = useRef<Set<string>>(new Set());
+
+  // Current retailer's scope, needed to rank scheme specificity for the
+  // "Most Specific First" conflict-resolution policy.
+  const [retailerScope, setRetailerScope] = useState<{ beat_id: string | null; territory_id: string | null; distributor_id: string | null } | null>(null);
+  useEffect(() => {
+    if (!validRetailerId) { setRetailerScope(null); return; }
+    let cancelled = false;
+    supabase
+      .from('retailers')
+      .select('beat_id, territory_id, distributor_id')
+      .eq('id', validRetailerId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        setRetailerScope(data || null);
+      });
+    return () => { cancelled = true; };
+  }, [validRetailerId]);
+
+  // scheme_applicability rows for every non-global scheme, needed for the same policy.
+  const [schemeApplicabilityRows, setSchemeApplicabilityRows] = useState<{ scheme_id: string; applicability_level: string; entity_id: string | null }[]>([]);
+  useEffect(() => {
+    const nonGlobalSchemeIds = schemes.filter(s => s.applicability_type && s.applicability_type !== 'global').map(s => s.id);
+    if (nonGlobalSchemeIds.length === 0) { setSchemeApplicabilityRows([]); return; }
+    let cancelled = false;
+    supabase
+      .from('scheme_applicability')
+      .select('scheme_id, applicability_level, entity_id')
+      .in('scheme_id', nonGlobalSchemeIds)
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        setSchemeApplicabilityRows(data || []);
+      });
+    return () => { cancelled = true; };
+  }, [schemes]);
+
+  // Highest specificity level of a scheme's applicability rules that actually match the
+  // current retailer (retailer > beat > territory > salesperson/distributor), else 0 (global).
+  const specificityRank = useMemo(() => {
+    const RANK: Record<string, number> = { retailer: 4, beat: 3, territory: 2, salesperson: 1, distributor: 1 };
+    return (scheme: ProductScheme): number => {
+      if (!scheme.applicability_type || scheme.applicability_type === 'global') return 0;
+      const rows = schemeApplicabilityRows.filter(r => r.scheme_id === scheme.id);
+      let best = 0;
+      for (const row of rows) {
+        const matches =
+          (row.applicability_level === 'retailer' && row.entity_id === validRetailerId) ||
+          (row.applicability_level === 'beat' && row.entity_id === retailerScope?.beat_id) ||
+          (row.applicability_level === 'territory' && row.entity_id === retailerScope?.territory_id) ||
+          (row.applicability_level === 'distributor' && row.entity_id === retailerScope?.distributor_id) ||
+          (row.applicability_level === 'salesperson');
+        if (matches) best = Math.max(best, RANK[row.applicability_level] || 0);
+      }
+      return best;
+    };
+  }, [schemeApplicabilityRows, validRetailerId, retailerScope]);
+
+  // Which conflicting scheme set the "User's Choice" dialog last prompted for, so
+  // unrelated cart edits don't keep re-opening it.
+  const lastConflictPromptRef = useRef<string>('');
+  const [schemeConflict, setSchemeConflict] = useState<{ schemes: ProductScheme[] } | null>(null);
 
   const removeAppliedSchemeById = (schemeId: string) => {
     // Suppress to keep user intent (don’t instantly auto-reapply while conditions remain met)
@@ -788,14 +850,28 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       if (schemePolicies.priorityResolution === 'highest_discount') {
         bestScheme = qualifyingSchemes.sort((a, b) => b.discount - a.discount)[0];
       } else if (schemePolicies.priorityResolution === 'priority') {
-        // Use created_at or name as fallback since priority field may not exist
-        bestScheme = qualifyingSchemes.sort((a, b) => 
-          ((a.scheme as any).priority || 999) - ((b.scheme as any).priority || 999)
+        bestScheme = qualifyingSchemes.sort((a, b) =>
+          (a.scheme.priority ?? 999) - (b.scheme.priority ?? 999)
         )[0];
+      } else if (schemePolicies.priorityResolution === 'most_specific') {
+        bestScheme = qualifyingSchemes.sort((a, b) => specificityRank(b.scheme) - specificityRank(a.scheme))[0];
+      } else if (schemePolicies.priorityResolution === 'first_applied') {
+        // User's Choice: let the order-entry user pick when more than one scheme
+        // genuinely conflicts, instead of silently guessing. Only prompt once per
+        // distinct conflicting set so unrelated cart edits don't keep re-opening it.
+        if (qualifyingSchemes.length > 1) {
+          const conflictKey = qualifyingSchemes.map(q => q.scheme.id).sort().join(',');
+          if (lastConflictPromptRef.current !== conflictKey && !qualifyingSchemes.some(q => appliedSchemeIds.includes(q.scheme.id))) {
+            lastConflictPromptRef.current = conflictKey;
+            setSchemeConflict({ schemes: qualifyingSchemes.map(q => q.scheme) });
+          }
+          return;
+        }
+        bestScheme = qualifyingSchemes[0];
       } else {
         bestScheme = qualifyingSchemes[0];
       }
-      
+
       const bestSchemeId = bestScheme.scheme.id;
       const currentAutoApplied = Array.from(autoAppliedSchemesRef.current);
       
@@ -828,20 +904,31 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
       if (!isApplied && appliedSchemeIds.length < schemePolicies.maxSchemesPerOrder) {
         // Check same-type stacking rule
         if (!schemePolicies.sameTypeStacking) {
-          const appliedTypes = appliedSchemeIds.map(id => 
+          const appliedTypes = appliedSchemeIds.map(id =>
             schemes.find(s => s.id === id)?.scheme_type
           ).filter(Boolean);
-          
+
           if (appliedTypes.includes(scheme.scheme_type)) {
             return; // Skip - same type already applied
           }
         }
-        
+
+        // Mutually exclusive schemes: two schemes sharing a non-empty exclusion_group
+        // can't both be applied at once.
+        if (scheme.exclusion_group) {
+          const appliedGroups = appliedSchemeIds
+            .map(id => schemes.find(s => s.id === id)?.exclusion_group)
+            .filter(Boolean);
+          if (appliedGroups.includes(scheme.exclusion_group)) {
+            return; // Skip - conflicts with an already-applied scheme's exclusion group
+          }
+        }
+
         autoAppliedSchemesRef.current.add(scheme.id);
         applyScheme(scheme.id, scheme, schemePolicies, schemes);
       }
     });
-  }, [orderRows, schemes, hasInitialized, appliedSchemeIds, schemePolicies, policiesLoading, applyScheme, removeScheme, setOnlyScheme]);
+  }, [orderRows, schemes, hasInitialized, appliedSchemeIds, schemePolicies, policiesLoading, applyScheme, removeScheme, setOnlyScheme, specificityRank]);
 
   const findProductByCode = (code: string): { product: Product; variant?: any } | undefined => {
     // First check base products
@@ -1911,6 +1998,16 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         }}
         manualSelections={manualSelections}
         onSetManualSelection={setManualSelection}
+      />
+
+      <SchemeConflictChoiceDialog
+        isOpen={!!schemeConflict}
+        onClose={() => setSchemeConflict(null)}
+        schemes={schemeConflict?.schemes || []}
+        onConfirm={(schemeId) => {
+          autoAppliedSchemesRef.current.add(schemeId);
+          setOnlyScheme(schemeId);
+        }}
       />
     </div>
   );

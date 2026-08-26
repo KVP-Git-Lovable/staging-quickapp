@@ -39,6 +39,10 @@ export interface ProductScheme {
   discount_gst_mode?: 'without_gst' | 'with_gst' | null;
   // Multi-product targeting
   target_product_ids?: string[] | null;
+  // Conflict-resolution support (Scheme Management > Policy Settings)
+  priority?: number | null;
+  exclusion_group?: string | null;
+  applicability_type?: 'global' | 'targeted' | 'hybrid' | null;
 }
 
 export const useOfflineSchemes = () => {

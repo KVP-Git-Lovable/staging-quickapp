@@ -234,7 +234,18 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
         return false;
       }
     }
-    
+
+    // Mutually exclusive schemes: can't apply one that shares a non-empty
+    // exclusion_group with a scheme already applied.
+    if (scheme.exclusion_group) {
+      const appliedGroups = appliedSchemeIds
+        .map(id => schemes.find(s => s.id === id)?.exclusion_group)
+        .filter(Boolean);
+      if (appliedGroups.includes(scheme.exclusion_group)) {
+        return false;
+      }
+    }
+
     return true;
   };
 

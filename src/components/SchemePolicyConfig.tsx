@@ -17,7 +17,6 @@ interface PolicyConfig {
   max_schemes_per_order: { value: number };
   allow_scheme_stacking: { value: boolean; same_type_stacking: boolean };
   priority_resolution: { method: 'highest_discount' | 'most_specific' | 'priority' | 'first_applied' };
-  mutual_exclusion_groups: { groups: Array<{ name: string; scheme_ids: string[] }> };
   auto_apply_best_scheme: { value: boolean };
 }
 
@@ -34,7 +33,6 @@ export const SchemePolicyConfig = ({ trigger, inline = false }: SchemePolicyConf
     max_schemes_per_order: { value: 5 },
     allow_scheme_stacking: { value: true, same_type_stacking: false },
     priority_resolution: { method: 'highest_discount' },
-    mutual_exclusion_groups: { groups: [] },
     auto_apply_best_scheme: { value: true }
   });
 
@@ -49,14 +47,14 @@ export const SchemePolicyConfig = ({ trigger, inline = false }: SchemePolicyConf
       setLoading(true);
       const { data, error } = await supabase
         .from('scheme_policy_config')
-        .select('policy_key, policy_value')
+        .select('policy_name, policy_value')
         .eq('is_active', true);
 
       if (error) throw error;
 
       if (data) {
         const policyMap = data.reduce((acc, policy) => {
-          acc[policy.policy_key] = policy.policy_value;
+          acc[policy.policy_name] = policy.policy_value;
           return acc;
         }, {} as Record<string, any>);
 
@@ -64,7 +62,6 @@ export const SchemePolicyConfig = ({ trigger, inline = false }: SchemePolicyConf
           max_schemes_per_order: policyMap.max_schemes_per_order || { value: 5 },
           allow_scheme_stacking: policyMap.allow_scheme_stacking || { value: true, same_type_stacking: false },
           priority_resolution: policyMap.priority_resolution || { method: 'highest_discount' },
-          mutual_exclusion_groups: policyMap.mutual_exclusion_groups || { groups: [] },
           auto_apply_best_scheme: policyMap.auto_apply_best_scheme || { value: true }
         });
       }
@@ -85,7 +82,7 @@ export const SchemePolicyConfig = ({ trigger, inline = false }: SchemePolicyConf
         supabase
           .from('scheme_policy_config')
           .update({ policy_value: value, updated_at: new Date().toISOString() })
-          .eq('policy_key', name)
+          .eq('policy_name', name)
       );
 
       const results = await Promise.all(updates);
