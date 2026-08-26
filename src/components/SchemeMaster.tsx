@@ -82,6 +82,23 @@ interface ProductScheme {
   end_date: string;
 }
 
+// A scheme's is_active flag alone doesn't reflect whether its date window has
+// lapsed — Order Entry already excludes expired schemes, so Scheme Master's
+// counts/badges must agree or admins see "Active" schemes reps can't actually use.
+const isCurrentlyActive = (scheme: Pick<ProductScheme, 'is_active' | 'start_date' | 'end_date'>) => {
+  if (!scheme.is_active) return false;
+  const now = new Date();
+  const startDate = scheme.start_date ? new Date(scheme.start_date) : null;
+  let endDate: Date | null = null;
+  if (scheme.end_date) {
+    endDate = new Date(scheme.end_date);
+    endDate.setHours(23, 59, 59, 999);
+  }
+  if (startDate && now < startDate) return false;
+  if (endDate && now > endDate) return false;
+  return true;
+};
+
 const initialSchemeForm = {
   id: '',
   product_id: '',
@@ -668,10 +685,10 @@ export const SchemeMaster = () => {
       
       const matchesType = typeFilter === 'all' || scheme.scheme_type === typeFilter;
       
-      const matchesStatus = 
+      const matchesStatus =
         statusFilter === 'all' ||
-        (statusFilter === 'active' && scheme.is_active) ||
-        (statusFilter === 'inactive' && !scheme.is_active);
+        (statusFilter === 'active' && isCurrentlyActive(scheme)) ||
+        (statusFilter === 'inactive' && !isCurrentlyActive(scheme));
 
       const schemeSource = (scheme as any).source || 'manual';
       const matchesSource = 
@@ -691,8 +708,8 @@ export const SchemeMaster = () => {
     
     return {
       total: schemes.length,
-      active: schemes.filter(s => s.is_active).length,
-      inactive: schemes.filter(s => !s.is_active).length,
+      active: schemes.filter(s => isCurrentlyActive(s)).length,
+      inactive: schemes.filter(s => !isCurrentlyActive(s)).length,
       expiringSoon: schemes.filter(s => {
         if (!s.end_date || !s.is_active) return false;
         const endDate = new Date(s.end_date);
@@ -1087,8 +1104,8 @@ export const SchemeMaster = () => {
                         <SchemeDetailsDisplay scheme={scheme} />
                       </TableCell>
                       <TableCell>
-                        <Badge variant={scheme.is_active ? 'default' : 'secondary'}>
-                          {scheme.is_active ? 'Active' : 'Inactive'}
+                        <Badge variant={isCurrentlyActive(scheme) ? 'default' : 'secondary'}>
+                          {isCurrentlyActive(scheme) ? 'Active' : scheme.is_active ? 'Expired' : 'Inactive'}
                         </Badge>
                       </TableCell>
                       <TableCell>
