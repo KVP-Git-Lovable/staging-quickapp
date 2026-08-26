@@ -467,13 +467,18 @@ export const SchemeMaster = () => {
         // Insert new rules
         const rulesToInsert = applicabilityRules.map(rule => ({
           scheme_id: schemeId,
-          applicability_type: rule.level,
+          applicability_level: rule.level,
           entity_id: rule.entityId || null,
           entity_name: rule.entityName,
           include_children: rule.includeChildren
         }));
-        
-        await supabase.from('scheme_applicability').insert(rulesToInsert);
+
+        const { error: applicabilityError } = await supabase.from('scheme_applicability').insert(rulesToInsert);
+        if (applicabilityError) {
+          toast.error('Scheme saved, but targeting rules failed to save', {
+            description: applicabilityError.message,
+          });
+        }
       } else if (schemeId && schemeForm.applicability_type === 'global') {
         // Clear rules if global
         await supabase.from('scheme_applicability').delete().eq('scheme_id', schemeId);
@@ -639,7 +644,7 @@ export const SchemeMaster = () => {
       
       if (data) {
         setApplicabilityRules(data.map(r => ({
-          level: r.applicability_type as ApplicabilityRule['level'],
+          level: r.applicability_level as ApplicabilityRule['level'],
           entityId: r.entity_id || '',
           entityName: r.entity_name || '',
           includeChildren: r.include_children ?? true

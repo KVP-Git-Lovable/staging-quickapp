@@ -99,6 +99,10 @@ export interface ProductScheme {
   discount_unit?: string | null;
   // 'amount' (₹/unit) or 'percentage' (% off rate per unit). Defaults to 'amount'.
   discount_value_type?: string | null;
+  // Conflict-resolution support (Scheme Management > Policy Settings)
+  priority?: number | null;
+  exclusion_group?: string | null;
+  applicability_type?: 'global' | 'targeted' | 'hybrid' | null;
 }
 
 /**

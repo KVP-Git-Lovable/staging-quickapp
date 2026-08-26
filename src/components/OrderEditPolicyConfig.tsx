@@ -95,9 +95,15 @@ export const OrderEditPolicyConfig = ({ inline = false }: { inline?: boolean }) 
               className="pt-2"
             >
               <div className="flex items-center space-x-2">
+                <RadioGroupItem value="dispatched" id="edit-until-dispatched" />
+                <Label htmlFor="edit-until-dispatched" className="font-normal">
+                  Until dispatched <span className="text-muted-foreground">(default)</span>
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
                 <RadioGroupItem value="invoice_generated" id="edit-until-invoice" />
                 <Label htmlFor="edit-until-invoice" className="font-normal">
-                  Before invoice is generated <span className="text-muted-foreground">(default)</span>
+                  Before invoice is generated
                 </Label>
               </div>
               {/* Future-ready: more options can be added without schema changes */}
