@@ -101,6 +101,17 @@ export default function InvoicePreview({
     return baseRate;
   };
 
+  // Line total: read the stored, already-finalized value directly — never
+  // recompute qty × rate when a stored total exists (that's a live
+  // recalculation, and the invoice should show exactly what was persisted
+  // at order time). Only falls back to qty × rate for legacy rows that
+  // genuinely have no stored total/taxable_amount.
+  const getLineTotal = (item: any, qty: number, rate: number) => {
+    const stored = item.total ?? item.taxable_amount;
+    if (stored != null && Number.isFinite(Number(stored))) return Number(stored);
+    return qty * rate;
+  };
+
   // Get display name - show only variant name if it's a variant, or base product name
   const getDisplayName = (item: any) => {
     const fullName = item.product_name || item.name || "";
@@ -136,8 +147,8 @@ export default function InvoicePreview({
     } else {
       rate = getDisplayRate(item);
     }
-    
-    return sum + qty * rate;
+
+    return sum + getLineTotal(item, qty, rate);
   }, 0);
   // Phase 4: read per-line stored tax from order_items; fall back to helper for legacy lines.
   const lineTaxes = cartItems.map((it: any) => resolveLineTax(it));
@@ -328,7 +339,7 @@ export default function InvoicePreview({
                 rate = getDisplayRate(item);
               }
               
-              const itemTotal = qty * rate;
+              const itemTotal = getLineTotal(item, qty, rate);
               const fallbackRate = Number(
                 (item as any).tax_rate_snapshot ??
                 (item as any).gst_percentage ??
