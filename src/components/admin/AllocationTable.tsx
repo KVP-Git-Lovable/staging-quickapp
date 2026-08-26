@@ -816,6 +816,60 @@ export function AllocationTable({
     }
   }, [hierarchyRelations.parentByChild, recomputeRollUpManager]);
 
+  /**
+   * Reconcile the whole tree to what its strategies actually mean, regardless
+   * of how it got here — used the moment Manual Allocation is switched off,
+   * so nothing typed while it was on is left disagreeing with the strategy
+   * tags sitting right next to it.
+   *
+   * Bottom-up first: every Roll Up, Independent, and No Target manager is
+   * recomputed straight from their current children — never by pushing a
+   * parent's possibly-stale figure down through them first, which is the
+   * mistake a single top-down pass over the whole tree would make (a Roll Up
+   * manager's own stored figure is not a source of truth to hand out, it is
+   * whatever their team currently adds up to). Top-down second: every Roll
+   * Down manager's own figure — settled by the first pass if it is itself
+   * fed by one, unchanged otherwise — is pushed onto their team, exactly as
+   * a hand-edit to that manager already does today.
+   */
+  const settleTree = useCallback((next: Map<string, SubordinateAllocation>) => {
+    const settleUp = (node: SubordinateAllocation) => {
+      node.children.forEach(settleUp);
+      if (node.children.length === 0) return;
+      const alloc = next.get(node.userId);
+      if (!alloc) return;
+      if (alloc.targetStrategy === 'roll_up' || alloc.targetStrategy === 'no_target' || alloc.targetStrategy === 'independent') {
+        recomputeRollUpManager(node.userId, next);
+      }
+    };
+    directReports.forEach(settleUp);
+
+    const settleDown = (node: SubordinateAllocation) => {
+      const alloc = next.get(node.userId);
+      if (alloc && node.children.length > 0 && alloc.targetStrategy === 'roll_down') {
+        pushTargetsDown(node.userId, next, nodeById, enabledMetrics);
+      }
+      node.children.forEach(settleDown);
+    };
+    directReports.forEach(settleDown);
+  }, [directReports, recomputeRollUpManager, nodeById, enabledMetrics]);
+
+  /** Turning Manual Allocation off settles the tree once, immediately —
+   *  otherwise whatever was typed while it was on would just sit there,
+   *  disagreeing with Roll Up/Roll Down/Independent until the next edit
+   *  happened to touch it. Turning it on changes nothing by itself; it only
+   *  starts suspending the cascades below. */
+  const handleToggleManualAllocation = useCallback(() => {
+    if (manualAllocationMode) {
+      setAllocations((prev) => {
+        const next = new Map(prev);
+        settleTree(next);
+        return next;
+      });
+    }
+    setManualAllocationMode((v) => !v);
+  }, [manualAllocationMode, settleTree]);
+
   // Handlers
   /**
    * Take a hand-typed figure exactly as entered.
@@ -873,9 +927,16 @@ export function AllocationTable({
         const node = nodeById.get(userId);
         const hasTeam = (node?.children.length ?? 0) > 0;
 
+        // Independent is the only strategy with a personal slice sitting
+        // beside the team figure. The moment it stops being Independent —
+        // whichever strategy it becomes — that slice has nowhere left to be
+        // shown, so it has to be folded into the branch right here or it is
+        // simply lost, not carried anywhere.
+        const leavingIndependent = current.targetStrategy === 'independent' && strategy !== 'independent';
+
         if (isExcluded && !hasTeam) {
           next.set(userId, { ...current, targetStrategy: strategy, ...CLEARED_TARGETS });
-        } else if (isExcluded) {
+        } else if (isExcluded || leavingIndependent) {
           // The slice this manager was holding for themselves goes back into
           // the branch, so the branch is worth the same as a moment ago and
           // all of it now reaches the team.
@@ -1256,7 +1317,7 @@ export function AllocationTable({
             onSplitEqually={handleSplitEqually}
             onEqualSplit={handleEqualSplit}
             manualAllocationMode={manualAllocationMode}
-            onToggleManualAllocation={() => setManualAllocationMode((v) => !v)}
+            onToggleManualAllocation={handleToggleManualAllocation}
           />
         )}
 
