@@ -2003,9 +2003,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         appliedSchemeIds={appliedSchemeIds}
         schemePolicies={schemePolicies}
         onApplyScheme={handleApplyScheme}
-        onRemoveScheme={(schemeId) => {
-          removeScheme(schemeId);
-        }}
+        onRemoveScheme={removeAppliedSchemeById}
         manualSelections={manualSelections}
         onSetManualSelection={setManualSelection}
       />
