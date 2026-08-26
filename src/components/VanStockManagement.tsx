@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown, History, RefreshCw, ClipboardCheck } from 'lucide-react';
+import { Truck, Package, ShoppingCart, TrendingDown, Plus, Eye, Trash2, Check, ChevronsUpDown, Download, Edit, FileText, FileSpreadsheet, Printer, ChevronDown, History, RefreshCw, ClipboardCheck, ArrowUpDown } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
@@ -181,6 +181,19 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
   const [startKm, setStartKm] = useState(0);
   const [endKm, setEndKm] = useState(0);
   const [showLoadPreviousConfirm, setShowLoadPreviousConfirm] = useState(false);
+
+  // Tracks whether the Morning GRN entry form (products / Start-End KM) has
+  // unsaved user edits, so a background reload never silently overwrites them.
+  // Mirrored into a ref because loadTodayStock/subscription closures can be
+  // captured before a later dirty flag change, which would otherwise be stale.
+  const [isEntryDirty, setIsEntryDirtyState] = useState(false);
+  const isEntryDirtyRef = useRef(false);
+  const setIsEntryDirty = (value: boolean) => {
+    isEntryDirtyRef.current = value;
+    setIsEntryDirtyState(value);
+  };
+  const [kmTouched, setKmTouched] = useState<{ start: boolean; end: boolean }>({ start: false, end: false });
+  const [sortMode, setSortMode] = useState<'entry' | 'name_asc' | 'name_desc'>('entry');
   
   // Track original loaded values from previous stock to detect edits
   // edit_source: 'load_previous' = from Load Previous Van Stock, 'manual_edit' = from Edit button
@@ -475,18 +488,27 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     } else {
       // Always set todayStock with database data - this is used by modals
       setTodayStock(data);
-      
-      // Set KM values from database
-      setStartKm(data?.start_km || 0);
-      setEndKm(data?.end_km || 0);
-      
-      // Only clear entry form items if requested (after save)
-      if (clearEntryForm) {
-        setStockItems([]);
-      } else if (!data?.van_stock_items || data.van_stock_items.length === 0) {
-        setStockItems([]);
+
+      // Set KM values from database - but never clobber KM the user has typed
+      // and not saved yet (clearEntryForm=true after a successful save is the
+      // one case where the DB value should always win).
+      if (clearEntryForm || !isEntryDirtyRef.current) {
+        setStartKm(data?.start_km || 0);
+        setEndKm(data?.end_km || 0);
       }
-      // If not clearEntryForm and there are saved items, don't touch stockItems (keeps entry form as-is)
+
+      if (clearEntryForm) {
+        // Post-save reset: entry form items are now reflected in the saved
+        // summary cards, so the entry list and dirty/validation state clear -
+        // leaving one fresh empty row ready for the next entry.
+        setStockItems([blankStockItem()]);
+        setIsEntryDirty(false);
+        setKmTouched({ start: false, end: false });
+      } else if (!isEntryDirtyRef.current && (!data?.van_stock_items || data.van_stock_items.length === 0)) {
+        setStockItems([blankStockItem()]);
+      }
+      // If the entry form has unsaved edits, or there are saved items, leave
+      // stockItems untouched (keeps the entry form exactly as the user left it).
       
       // CRITICAL: Cache van stock data for offline use
       // This ensures offline orders can calculate local van stock updates
@@ -606,7 +628,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
             console.log('✅ Loaded from van_stock_items:', newStockItems.length, 'items from:', stock.stock_date);
             setStockItems(newStockItems);
-            
+            setIsEntryDirty(true);
+
             // Store original loaded values to track edits later (source: load_previous)
             const originalValues = newStockItems.map(item => ({
               product_id: item.product_id,
@@ -682,7 +705,8 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         if (newStockItems.length > 0) {
           console.log('✅ Loaded from live inventory:', newStockItems.length, 'items from:', mostRecentDate);
           setStockItems(newStockItems);
-          
+          setIsEntryDirty(true);
+
           // Store original loaded values to track edits later (source: load_previous)
           const originalValues = newStockItems.map(item => ({
             product_id: item.product_id,
@@ -716,20 +740,34 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     setShowLoadPreviousConfirm(true);
   };
 
-  const handleAddProduct = () => {
-    setStockItems([...stockItems, {
-      product_id: '',
-      product_name: '',
-      unit: 'kg', // Default to KG
-      start_qty: 0,
-      ordered_qty: 0,
-      returned_qty: 0,
-      left_qty: 0,
-    }]);
+  const blankStockItem = (): StockItem => ({
+    product_id: '',
+    product_name: '',
+    unit: 'kg', // Default to KG
+    start_qty: 0,
+    ordered_qty: 0,
+    returned_qty: 0,
+    left_qty: 0,
+  });
+
+  // Inserts a new blank row directly after the given row, so each row's own
+  // "+" grows the list from underneath itself rather than always at the end.
+  const handleInsertProductAfter = (index: number) => {
+    setStockItems(prev => {
+      const next = [...prev];
+      next.splice(index + 1, 0, blankStockItem());
+      return next;
+    });
+    setIsEntryDirty(true);
   };
 
   const handleRemoveProduct = (index: number) => {
-    setStockItems(stockItems.filter((_, i) => i !== index));
+    setStockItems(prev => {
+      const next = prev.filter((_, i) => i !== index);
+      // Keep one entry row visible by default - never leave the list empty.
+      return next.length === 0 ? [blankStockItem()] : next;
+    });
+    setIsEntryDirty(true);
   };
 
   // Helper to convert quantity between units
@@ -792,8 +830,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     if (field === 'start_qty' || field === 'returned_qty' || field === 'unit') {
       updated[index].left_qty = updated[index].start_qty - updated[index].ordered_qty + updated[index].returned_qty;
     }
-    
+
     setStockItems(updated);
+    setIsEntryDirty(true);
   };
 
   const handleSaveStock = async () => {
@@ -803,7 +842,14 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     }
 
     if (!startKm || startKm === 0) {
+      setKmTouched(prev => ({ ...prev, start: true }));
       toast.error('Please enter the Start KM.');
+      return;
+    }
+
+    if (!endKm || endKm === 0) {
+      setKmTouched(prev => ({ ...prev, end: true }));
+      toast.error('Please enter the End KM.');
       return;
     }
 
@@ -1827,26 +1873,44 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 <Card className="p-2.5 bg-blue-50 dark:bg-blue-950">
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <Label className="text-[10px] font-semibold">Start KM</Label>
+                      <Label className="text-[10px] font-semibold">
+                        Start KM <span className="text-destructive">*</span>
+                      </Label>
                       <Input
                         type="number"
                         value={startKm || ''}
-                        onChange={(e) => setStartKm(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => { setStartKm(parseFloat(e.target.value) || 0); setIsEntryDirty(true); }}
                         onFocus={(e) => e.target.select()}
+                        onBlur={() => setKmTouched(prev => ({ ...prev, start: true }))}
                         placeholder="Start"
-                        className="mt-0.5 h-8 text-xs"
+                        className={cn(
+                          "mt-0.5 h-8 text-xs",
+                          kmTouched.start && !startKm && "border-destructive focus-visible:ring-destructive"
+                        )}
                       />
+                      {kmTouched.start && !startKm && (
+                        <p className="text-[9px] text-destructive mt-0.5">Required</p>
+                      )}
                     </div>
                     <div>
-                      <Label className="text-[10px] font-semibold">End KM</Label>
+                      <Label className="text-[10px] font-semibold">
+                        End KM <span className="text-destructive">*</span>
+                      </Label>
                       <Input
                         type="number"
                         value={endKm || ''}
-                        onChange={(e) => setEndKm(parseFloat(e.target.value) || 0)}
+                        onChange={(e) => { setEndKm(parseFloat(e.target.value) || 0); setIsEntryDirty(true); }}
                         onFocus={(e) => e.target.select()}
+                        onBlur={() => setKmTouched(prev => ({ ...prev, end: true }))}
                         placeholder="End"
-                        className="mt-0.5 h-8 text-xs"
+                        className={cn(
+                          "mt-0.5 h-8 text-xs",
+                          kmTouched.end && !endKm && "border-destructive focus-visible:ring-destructive"
+                        )}
                       />
+                      {kmTouched.end && !endKm && (
+                        <p className="text-[9px] text-destructive mt-0.5">Required</p>
+                      )}
                     </div>
                     <div>
                       <Label className="text-[10px] font-semibold">Total KM</Label>
@@ -1862,24 +1926,61 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                 {/* Stock Items Management */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <Label className="text-sm sm:text-lg font-semibold">Add Stock Items</Label>
-                    <Button size="sm" onClick={handleAddProduct} className="h-8 text-xs">
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add Product
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm sm:text-lg font-semibold">Add Stock Items</Label>
+                      {isEntryDirty && (
+                        <Badge variant="outline" className="text-[9px] h-5 gap-1 border-destructive/40 text-destructive bg-destructive/5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block" />
+                          Unsaved changes
+                        </Badge>
+                      )}
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
+                          <ArrowUpDown className="h-3 w-3" /> Sort
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="z-[100]">
+                        <DropdownMenuItem
+                          onClick={() => setSortMode('entry')}
+                          className={cn(sortMode === 'entry' && 'font-semibold text-primary')}
+                        >
+                          Entry order
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setSortMode('name_asc')}
+                          className={cn(sortMode === 'name_asc' && 'font-semibold text-primary')}
+                        >
+                          Name A &rarr; Z
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setSortMode('name_desc')}
+                          className={cn(sortMode === 'name_desc' && 'font-semibold text-primary')}
+                        >
+                          Name Z &rarr; A
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
 
                   {stockItems.length > 0 && (
                     <div className="space-y-1.5">
-                      {/* Sort stock items alphabetically by product name for display */}
-                      {[...stockItems]
+                      {/* Sort is opt-in - "entry" (default) keeps insertion order untouched */}
+                      {stockItems
                         .map((item, originalIndex) => ({ item, originalIndex }))
-                        .sort((a, b) => (a.item.product_name || '').localeCompare(b.item.product_name || ''))
+                        .sort((a, b) => {
+                          if (sortMode === 'name_asc') return (a.item.product_name || '').localeCompare(b.item.product_name || '');
+                          if (sortMode === 'name_desc') return (b.item.product_name || '').localeCompare(a.item.product_name || '');
+                          return 0;
+                        })
                         .map(({ item, originalIndex: index }) => {
                         const selectedProduct = products.find(p => p.id === item.product_id);
                         const pricePerUnit = selectedProduct?.rate || 0;
                         
                         return (
-                          <Card key={index} className="p-1.5">
+                          <div key={index}>
+                          <Card className="p-1.5">
                             <div className="flex items-start gap-1">
                               <div className="flex-1 min-w-0">
                                 <Label className="text-[9px] text-muted-foreground mb-0.5 block">Product</Label>
@@ -1980,9 +2081,9 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               </div>
                               
                               <div className="shrink-0 pt-4">
-                                <Button 
-                                  size="sm" 
-                                  variant="ghost" 
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
                                   onClick={() => handleRemoveProduct(index)}
                                   className="h-8 w-8 p-0"
                                   title="Remove product"
@@ -1992,6 +2093,19 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               </div>
                             </div>
                           </Card>
+                          <div className="flex justify-end pr-1 pt-1">
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              onClick={() => handleInsertProductAfter(index)}
+                              className="h-5 w-5 rounded-md border-dashed border-primary/50 text-primary hover:bg-primary/5"
+                              title="Add another product below"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          </div>
                         );
                       })}
                     </div>
