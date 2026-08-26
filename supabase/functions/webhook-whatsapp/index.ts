@@ -831,6 +831,84 @@ async function handleProductCountQuery(
   return `📦 We currently have *${count ?? 0}* active products in our catalog.`;
 }
 
+// ── Schemes / Discounts Query ───────────────────────────────────────
+async function handleSchemesQuery(
+  supabase: any,
+  message: string
+): Promise<string | null> {
+  const lower = message.toLowerCase();
+
+  // Order/delivery questions belong to the existing handlers and AI path.
+  if (lower.includes('order') || lower.includes('deliver')) return null;
+
+  if (!/\b(schemes?|offers?|discounts?)\b/.test(lower)) return null;
+
+  const { data: schemes, error } = await supabase
+    .from('product_schemes')
+    .select('name, scheme_type, discount_percentage, discount_amount, buy_quantity, free_quantity, condition_quantity, min_order_value, buy_quantity_unit, product_id, category_id')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Schemes query error:', error.message);
+    return null; // fall through to the normal AI path
+  }
+
+  if (!schemes || schemes.length === 0) {
+    return 'There are no active schemes or offers right now.';
+  }
+
+  // Resolve target product/category names in one batched lookup each.
+  const productIds = [...new Set(schemes.map((s: any) => s.product_id).filter(Boolean))];
+  const categoryIds = [...new Set(schemes.map((s: any) => s.category_id).filter(Boolean))];
+  const productNames = new Map<string, string>();
+  const categoryNames = new Map<string, string>();
+  if (productIds.length > 0) {
+    const { data } = await supabase.from('products').select('id, name').in('id', productIds);
+    for (const p of data || []) productNames.set(p.id, p.name);
+  }
+  if (categoryIds.length > 0) {
+    const { data } = await supabase.from('product_categories').select('id, name').in('id', categoryIds);
+    for (const c of data || []) categoryNames.set(c.id, c.name);
+  }
+
+  // Benefit wording is field-driven, not scheme_type-driven, because live
+  // type strings vary (buy_x_get_y_free, manual_per_unit_discount, …).
+  const describe = (s: any): string => {
+    let benefit = '';
+    if (Number(s.buy_quantity) > 0 && Number(s.free_quantity) > 0) {
+      const unit = s.buy_quantity_unit ? ` ${s.buy_quantity_unit}` : '';
+      benefit = `Buy ${s.buy_quantity}${unit} Get ${s.free_quantity} Free`;
+    } else if (Number(s.discount_percentage) > 0) {
+      benefit = `${Number(s.discount_percentage)}% Off`;
+    } else if (Number(s.discount_amount) > 0) {
+      benefit = `₹${Number(s.discount_amount)} Off`;
+    }
+    const target = s.product_id
+      ? (productNames.get(s.product_id) || null)
+      : s.category_id
+        ? (categoryNames.get(s.category_id) ? `${categoryNames.get(s.category_id)} category` : null)
+        : 'All products';
+    const parts: string[] = [];
+    if (benefit) parts.push(benefit);
+    if (target) parts.push(`on ${target}`);
+    if (Number(s.condition_quantity) > 0 && !(Number(s.buy_quantity) > 0 && Number(s.free_quantity) > 0)) {
+      parts.push(`(min qty ${Number(s.condition_quantity)})`);
+    }
+    if (Number(s.min_order_value) > 0) parts.push(`(min order ₹${Number(s.min_order_value)})`);
+    return parts.length > 0 ? `*${s.name}* — ${parts.join(' ')}` : `*${s.name}*`;
+  };
+
+  const MAX_LISTED = 8;
+  const lines = schemes.slice(0, MAX_LISTED).map((s: any, i: number) => `${i + 1}. ${describe(s)}`);
+  if (schemes.length > MAX_LISTED) {
+    lines.push(`…and ${schemes.length - MAX_LISTED} more offers.`);
+  }
+
+  console.log(`🎁 Schemes intent matched — ${schemes.length} active schemes`);
+  return `🎁 *Available Schemes & Offers (${schemes.length})*\n\n${lines.join('\n')}`;
+}
+
 // ── System Prompt Builder ───────────────────────────────────────────
 function buildSystemPrompt(today: string, session: Session): string {
   let prompt = `You are a field sales assistant for a distribution/sales app. Today's date is ${today}.
@@ -1079,6 +1157,19 @@ async function processMessageAsync(phone: string, message: string): Promise<void
         );
         await saveSession(supabase, session);
         await sendTwilioFreeForm(phone, deliveryReply); return;
+      }
+
+      // ── Handle Schemes / Discounts Query ──
+      // Runs before Follow-Up so Hinglish phrasings like "schemes batao"
+      // aren't swallowed by the generic follow-up patterns.
+      const schemesReply = await handleSchemesQuery(supabase, message);
+      if (schemesReply) {
+        session.conversation_history.push(
+          { role: 'user', parts: [{ text: message }] },
+          { role: 'model', parts: [{ text: schemesReply }] }
+        );
+        await saveSession(supabase, session);
+        await sendTwilioFreeForm(phone, schemesReply); return;
       }
 
       // ── Handle Follow-Up Query ──
