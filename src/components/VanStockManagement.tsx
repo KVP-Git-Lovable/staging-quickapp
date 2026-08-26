@@ -2093,18 +2093,20 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                               </div>
                             </div>
                           </Card>
-                          <div className="flex justify-end pr-1 pt-1">
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="outline"
-                              onClick={() => handleInsertProductAfter(index)}
-                              className="h-5 w-5 rounded-md border-dashed border-primary/50 text-primary hover:bg-primary/5"
-                              title="Add another product below"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
+                          {index === stockItems.length - 1 && (
+                            <div className="flex justify-end pr-1 pt-1">
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="outline"
+                                onClick={() => handleInsertProductAfter(index)}
+                                className="h-5 w-5 rounded-md border-dashed border-primary/50 text-primary hover:bg-primary/5"
+                                title="Add another product below"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
                           </div>
                         );
                       })}
