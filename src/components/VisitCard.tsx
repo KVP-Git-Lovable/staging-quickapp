@@ -2948,6 +2948,44 @@ export const VisitCard = ({
                 >
                   <Phone size={16} />
                 </a>
+                <button
+                  type="button"
+                  className="text-primary hover:text-primary/80 cursor-pointer p-1 rounded-full hover:bg-primary/10 transition-colors"
+                  onClick={async e => {
+                    e.stopPropagation();
+                    try {
+                      const {
+                        data: { user }
+                      } = await supabase.auth.getUser();
+                      if (!user) {
+                        toast({
+                          title: 'Login required',
+                          description: 'Please sign in first.',
+                          variant: 'destructive'
+                        });
+                        return;
+                      }
+                      const today = getLocalTodayDate();
+                      const retailerId = (visit.retailerId || visit.id) as string;
+                      const visitId = await ensureVisit(user.id, retailerId, today);
+                      setCurrentVisitId(visitId);
+
+                      // Record action for time tracking (offline-first, device time)
+                      await recordAction('ai');
+                      setShowAIInsights(true);
+                    } catch (err: any) {
+                      console.error('Open AI insights error', err);
+                      toast({
+                        title: 'Unable to open',
+                        description: err.message || 'Try again.',
+                        variant: 'destructive'
+                      });
+                    }
+                  }}
+                  title="AI Insights - Get personalized visit recommendations"
+                >
+                  <Sparkles size={16} />
+                </button>
               </div>
             </div>
             
@@ -3103,8 +3141,8 @@ export const VisitCard = ({
         })()}
 
         <div className="space-y-2">
-          {/* First row - Check In, Order, No Order, Feedback, AI */}
-          <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isCheckInEnabled && canCheckIn ? 'grid-cols-5' : 'grid-cols-4'}`}>
+          {/* First row - Check In, Order, No Order, Feedback (AI moved up next to location/phone) */}
+          <div className={`grid gap-1.5 sm:gap-2 ${!locationFeatureLoading && isCheckInEnabled && canCheckIn ? 'grid-cols-4' : 'grid-cols-3'}`}>
             {!locationFeatureLoading && isCheckInEnabled && canCheckIn && (
               <Button
                 size="sm"
@@ -3266,42 +3304,6 @@ export const VisitCard = ({
             >
               <MessageSquare size={12} className="sm:size-3.5" />
               <span className="text-xs">Feedback</span>
-            </Button>
-
-            <Button variant="outline" size="sm" className="p-1.5 sm:p-2 h-8 sm:h-10 text-xs sm:text-sm flex flex-col items-center gap-0.5 border-primary/50 hover:bg-primary/10" onClick={async () => {
-            try {
-              const {
-                data: {
-                  user
-                }
-              } = await supabase.auth.getUser();
-              if (!user) {
-                toast({
-                  title: 'Login required',
-                  description: 'Please sign in first.',
-                  variant: 'destructive'
-                });
-                return;
-              }
-              const today = getLocalTodayDate();
-              const retailerId = (visit.retailerId || visit.id) as string;
-              const visitId = await ensureVisit(user.id, retailerId, today);
-              setCurrentVisitId(visitId);
-
-              // Record action for time tracking (offline-first, device time)
-              await recordAction('ai');
-              setShowAIInsights(true);
-            } catch (err: any) {
-              console.error('Open AI insights error', err);
-              toast({
-                title: 'Unable to open',
-                description: err.message || 'Try again.',
-                variant: 'destructive'
-              });
-            }
-          }} title="AI Insights - Get personalized visit recommendations">
-              <Sparkles size={12} className="sm:size-3.5 text-primary" />
-              <span className="text-xs">AI</span>
             </Button>
           </div>
 
