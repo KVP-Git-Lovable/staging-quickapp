@@ -97,4 +97,7 @@ verify_jwt = true
 [functions.send-order-confirmation-whatsapp]
 verify_jwt = false
 
+[functions.webhook-whatsapp]
+verify_jwt = false
+
 
