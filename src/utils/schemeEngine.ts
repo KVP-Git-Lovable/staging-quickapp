@@ -69,6 +69,10 @@ export interface ProductScheme {
   variant_id?: string | null;
   discount_percentage?: number | null;
   discount_amount?: number | null;
+  // Bundle/combo support — a fixed set of products priced/discounted together
+  bundle_product_ids?: string[] | null;
+  bundle_discount_percentage?: number | null;
+  bundle_discount_amount?: number | null;
   buy_quantity?: number | null;
   buy_quantity_unit?: string | null;
   free_quantity?: number | null;
@@ -542,29 +546,41 @@ function calculateSchemeDiscount(
     }
     
     case 'bundle_discount':
-    case 'bundle': {
-      // Bundle discount applies when all specified conditions are met
-      const totalQty = applicableItems.reduce((sum, item) => sum + item.quantity, 0);
-      if (isQuantityConditionMet(scheme, totalQty)) {
-        const discountPct = scheme.discount_percentage || 0;
-        const bundleTotal = applicableItems.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
-        discount = bundleTotal * (discountPct / 100);
-        
+    case 'bundle':
+    case 'bundle_combo': {
+      // Bundle discount applies to the specific products in bundle_product_ids
+      // (a true product-set combo) when set; falls back to the generic
+      // product/category-matched items otherwise.
+      const bundleIds = scheme.bundle_product_ids;
+      const bundleItems = (bundleIds && bundleIds.length > 0)
+        ? items.filter(item => bundleIds.includes(item.product_id || item.id))
+        : applicableItems;
+      const totalQty = bundleItems.reduce((sum, item) => sum + item.quantity, 0);
+      if (totalQty > 0 && isQuantityConditionMet(scheme, totalQty)) {
+        const bundleTotal = bundleItems.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+        // Bundle-specific fields take priority; fall back to the generic
+        // discount fields for schemes saved before those existed.
+        const discountPct = scheme.bundle_discount_percentage || scheme.discount_percentage || 0;
+        const flatAmount = scheme.bundle_discount_amount || scheme.discount_amount || 0;
+        discount = discountPct > 0
+          ? bundleTotal * (discountPct / 100)
+          : Math.min(flatAmount, bundleTotal);
+
         // Distribute discount proportionally for tracking
-        if (bundleTotal > 0) {
-          for (const item of applicableItems) {
+        if (bundleTotal > 0 && discount > 0) {
+          for (const item of bundleItems) {
             const itemTotal = item.rate * item.quantity;
             const itemProportion = itemTotal / bundleTotal;
             const itemDiscount = discount * itemProportion;
             itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
-            
+
             if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
             itemSchemeDetails[item.id].push({
               schemeId: scheme.id,
               schemeName: scheme.name,
               schemeType: scheme.scheme_type,
               discountAmount: itemDiscount,
-              discountPercentage: discountPct
+              discountPercentage: discountPct > 0 ? discountPct : undefined
             });
           }
         }

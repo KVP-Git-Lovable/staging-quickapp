@@ -1570,8 +1570,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               className="h-9 md:h-10 text-xs md:text-sm ml-auto"
               onClick={() => setStockModeEnabled(v => !v)}
             >
-              <Package className="h-3.5 w-3.5 mr-1.5" />
-              {stockModeEnabled ? 'Done Adding Stock' : 'Add Stock'}
+              <Package className="h-3.5 w-3.5 md:mr-1.5" />
+              <span className="hidden md:inline">{stockModeEnabled ? 'Done Adding Stock' : 'Add Stock'}</span>
+              <span className="md:hidden ml-1.5">{stockModeEnabled ? 'Done' : 'Stock'}</span>
             </Button>
           </div>
 
@@ -1582,7 +1583,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               <div className="font-semibold text-xs md:text-sm">Product</div>
               <div className="font-semibold text-xs md:text-sm">Unit</div>
               <div className="font-semibold text-xs md:text-sm text-center">Qty</div>
-              <div className="font-semibold text-xs md:text-sm text-center">Price (incl. GST)</div>
+              <div className="font-semibold text-xs md:text-sm text-center">
+                <span className="md:hidden">Price</span>
+                <span className="hidden md:inline">Price (incl. GST)</span>
+              </div>
               <div className="w-8"></div>
             </div>
               
