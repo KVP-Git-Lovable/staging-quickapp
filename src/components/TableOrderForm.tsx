@@ -1584,8 +1584,12 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               <div className="font-semibold text-xs md:text-sm">Unit</div>
               <div className="font-semibold text-xs md:text-sm text-center">Qty</div>
               <div className="font-semibold text-xs md:text-sm text-center">
-                <span className="md:hidden">Price</span>
-                <span className="hidden md:inline">Price (incl. GST)</span>
+                {stockModeEnabled ? 'Stock' : (
+                  <>
+                    <span className="md:hidden">Price</span>
+                    <span className="hidden md:inline">Price (incl. GST)</span>
+                  </>
+                )}
               </div>
               <div className="w-8"></div>
             </div>
