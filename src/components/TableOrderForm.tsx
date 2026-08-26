@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag, RefreshCw, X } from "lucide-react";
+import { Trash2, Plus, Gift, Package, Search, Check, ChevronsUpDown, Star, Sparkles, Tag, RefreshCw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -228,9 +228,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   // Key = row.id, value = { rate?: rawUnitPriceText, total?: rawLineTotalText }.
   // Only the field currently being typed holds its own text; the other stays derived.
   const [priceEditText, setPriceEditText] = useState<Record<string, { rate?: string; total?: string; rate_incl_gst?: string }>>({});
-  // Which rows currently have the Stock input revealed (hidden behind a "+" by default —
-  // Stock is only needed occasionally, so the Stock/Price column shows Price (incl. GST) instead).
-  const [stockRevealedRows, setStockRevealedRows] = useState<Set<string>>(new Set());
+  // Stock entry is occasional, so the column shows Price (incl. GST) by default and
+  // switches every row to the Stock input together via this top-level "Add Stock" toggle.
+  const [stockModeEnabled, setStockModeEnabled] = useState(false);
 
   // Load schemes with offline support
   const { schemes, loading: schemesLoading, isOnline } = useOfflineSchemes();
@@ -1542,9 +1542,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
             {onReloadProducts && (
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
-                className="h-9 md:h-10 text-xs md:text-sm ml-auto"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 md:h-10 md:w-10 shrink-0"
                 disabled={refreshingProducts}
                 onClick={async () => {
                   try {
@@ -1560,10 +1560,19 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                 }}
                 title="Reload products from server"
               >
-                <RefreshCw className={cn('h-3.5 w-3.5 mr-1.5', refreshingProducts && 'animate-spin')} />
-                {refreshingProducts ? 'Refreshing…' : 'Refresh products'}
+                <RefreshCw className={cn('h-3.5 w-3.5', refreshingProducts && 'animate-spin')} />
               </Button>
             )}
+            <Button
+              type="button"
+              variant={stockModeEnabled ? "default" : "outline"}
+              size="sm"
+              className="h-9 md:h-10 text-xs md:text-sm ml-auto"
+              onClick={() => setStockModeEnabled(v => !v)}
+            >
+              <Package className="h-3.5 w-3.5 mr-1.5" />
+              {stockModeEnabled ? 'Done Adding Stock' : 'Add Stock'}
+            </Button>
           </div>
 
           
@@ -1848,39 +1857,24 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                     </div>
                     
                     {/* Stock / Price (incl. GST) Column — Stock is occasional, so it stays
-                        behind a "+" and this column shows Price (incl. GST) by default. */}
+                        behind the top "Add Stock" toggle and this column shows
+                        Price (incl. GST) by default. */}
                     <div>
-                      {stockRevealedRows.has(row.id) || row.closingStock > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            value={row.closingStock === 0 ? "" : row.closingStock}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
-                            }}
-                            className={cn(
-                              "h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1",
-                              row.closingStock === 0 && "text-muted-foreground"
-                            )}
-                            disabled={!row.product}
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0 text-muted-foreground"
-                            title="Hide stock"
-                            onClick={() => setStockRevealedRows(prev => {
-                              const next = new Set(prev);
-                              next.delete(row.id);
-                              return next;
-                            })}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
+                      {stockModeEnabled ? (
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={row.closingStock === 0 ? "" : row.closingStock}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            updateRow(row.id, "closingStock", value === "" ? 0 : parseInt(value) || 0);
+                          }}
+                          className={cn(
+                            "h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1",
+                            row.closingStock === 0 && "text-muted-foreground"
+                          )}
+                          disabled={!row.product}
+                        />
                       ) : row.product ? (() => {
                         const displayUnit = row.uomCode || row.unit;
                         const catalogRate = getPricePerUnit(row.product, row.variant, displayUnit, row.conversionToBase, row.priceBasisConversionToBase, row.quantity);
@@ -1889,32 +1883,18 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
                         const gstPct = Number((row.product as any)?.gst_percentage) || 0;
                         const inclGstRate = shownRate * (1 + gstPct / 100);
                         const buf = priceEditText[row.id]?.rate_incl_gst;
-                        return (
-                          <div className="flex items-center gap-1">
-                            {canEditEntryPrice ? (
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                value={buf !== undefined ? buf : inclGstRate.toFixed(2)}
-                                onChange={(e) => onChangeAdminPrice(row.id, 'rate_incl_gst', e.target.value)}
-                                onBlur={(e) => onBlurAdminPrice(row.id, 'rate_incl_gst', e.target.value)}
-                                className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1"
-                              />
-                            ) : (
-                              <div className="h-9 md:h-11 flex items-center justify-center flex-1 text-xs md:text-sm">
-                                {fmtMoney(inclGstRate)}
-                              </div>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 shrink-0 text-muted-foreground"
-                              title="Add stock"
-                              onClick={() => setStockRevealedRows(prev => new Set(prev).add(row.id))}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
+                        return canEditEntryPrice ? (
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={buf !== undefined ? buf : inclGstRate.toFixed(2)}
+                            onChange={(e) => onChangeAdminPrice(row.id, 'rate_incl_gst', e.target.value)}
+                            onBlur={(e) => onBlurAdminPrice(row.id, 'rate_incl_gst', e.target.value)}
+                            className="h-9 md:h-11 text-xs md:text-sm text-center bg-background px-1"
+                          />
+                        ) : (
+                          <div className="h-9 md:h-11 flex items-center justify-center text-xs md:text-sm">
+                            {fmtMoney(inclGstRate)}
                           </div>
                         );
                       })() : (
