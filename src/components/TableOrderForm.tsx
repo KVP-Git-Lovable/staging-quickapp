@@ -1306,6 +1306,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           nextRate = +parsed.toFixed(2);
         } else if (mode === 'rate_incl_gst') {
           nextRate = +(parsed / (1 + gstPct / 100)).toFixed(2);
+          // Entry-price editing can be restricted to "raise only" via Operations Config.
+          if (canEditEntryPrice && editPolicy.entry_price_edit_direction === 'higher_only' && nextRate < catalogRate) {
+            nextRate = catalogRate;
+          }
         } else {
           // total mode: rate = total / qty. Guard qty=0.
           if (qty <= 0) return row;
@@ -1349,6 +1353,11 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           nextRate = +parsed.toFixed(2);
         } else if (mode === 'rate_incl_gst') {
           nextRate = +(parsed / (1 + gstPct / 100)).toFixed(2);
+          if (canEditEntryPrice && editPolicy.entry_price_edit_direction === 'higher_only') {
+            const selectedUnit = row.uomCode || row.unit || row.product.unit || 'PC';
+            const catalogRate = getPricePerUnit(row.product, row.variant, selectedUnit, row.conversionToBase, row.priceBasisConversionToBase, qty);
+            if (nextRate < catalogRate) nextRate = catalogRate;
+          }
         } else {
           if (qty <= 0) return row;
           nextRate = +(parsed / qty).toFixed(2);
@@ -1364,6 +1373,23 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   /** On blur: if the field was left empty, clear the override back to catalog. Always drop the raw text buffer. */
   const onBlurAdminPrice = (rowId: string, mode: 'rate' | 'total' | 'rate_incl_gst', rawValue: string) => {
     if (!canEditAnyPrice) return;
+    if (mode === 'rate_incl_gst' && canEditEntryPrice && editPolicy.entry_price_edit_direction === 'higher_only' && rawValue.trim() !== '') {
+      const parsed = Number(rawValue);
+      const row = orderRows.find(r => r.id === rowId);
+      if (row?.product && Number.isFinite(parsed)) {
+        const qty = Number(row.quantity) || 0;
+        const gstPct = Number((row.product as any)?.gst_percentage) || 0;
+        const selectedUnit = row.uomCode || row.unit || row.product.unit || 'PC';
+        const catalogRate = getPricePerUnit(row.product, row.variant, selectedUnit, row.conversionToBase, row.priceBasisConversionToBase, qty);
+        const catalogInclGst = catalogRate * (1 + gstPct / 100);
+        if (parsed < catalogInclGst - 0.005) {
+          toast({
+            title: 'Price can only be raised',
+            description: `This policy only allows increasing the price — it's been kept at the catalog price of ${fmtMoney(catalogInclGst)}.`,
+          });
+        }
+      }
+    }
     if (rawValue.trim() === '') {
       applyAdminPrice(rowId, mode, '');
     }

@@ -38,6 +38,7 @@ type OpsConfig = {
   edit_lock_price: boolean;
   edit_max_edits: number;
   entry_price_edit_enabled: boolean;
+  entry_price_edit_direction: 'higher_only' | 'both';
   auto_cancel_enabled: boolean;
   eod_cutoff_time: string;
   carry_forward_enabled: boolean;
@@ -400,6 +401,30 @@ const OperationsConfig: React.FC = () => {
               </div>
               <Switch checked={c.entry_price_edit_enabled} onCheckedChange={(v) => save('entry_price_edit_enabled', v)} />
             </div>
+
+            {c.entry_price_edit_enabled && (
+              <div className="space-y-2 pl-3 border-l-2 border-border">
+                <Label>Direction</Label>
+                <RadioGroup
+                  value={c.entry_price_edit_direction}
+                  onValueChange={(v) => save('entry_price_edit_direction', v as any)}
+                  className="space-y-2"
+                >
+                  <div className="flex items-start space-x-2">
+                    <RadioGroupItem id="entry-price-higher" value="higher_only" className="mt-1" />
+                    <Label htmlFor="entry-price-higher" className="font-normal cursor-pointer">
+                      Higher only — reps can raise the price above catalog, not lower it
+                    </Label>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <RadioGroupItem id="entry-price-both" value="both" className="mt-1" />
+                    <Label htmlFor="entry-price-both" className="font-normal cursor-pointer">
+                      Both — reps can raise or lower the price
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Max edits per order</Label>
