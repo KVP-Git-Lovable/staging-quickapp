@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { fetchAllPaginated } from '@/utils/fetchAllPaginated';
+import { getSchemeProductLabel } from '@/utils/schemeProductLabel';
 import { Plus, Edit2, Trash2, Gift, Search, Loader2, AlertTriangle, TrendingUp, Calendar, Globe, MapPin, Settings, Bot, Sparkles, RefreshCw } from 'lucide-react';
 import { SchemeFormFields } from './SchemeFormFields';
 import { OtherFreeProductsManagement } from './OtherFreeProductsManagement';
@@ -69,6 +70,7 @@ interface ProductScheme {
   bundle_product_ids: string[];
   bundle_discount_amount: number;
   bundle_discount_percentage: number;
+  target_product_ids?: string[];
   tier_data: Array<{
     min_qty: number;
     max_qty: number;
@@ -1077,7 +1079,7 @@ export const SchemeMaster = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        {scheme.product?.name || scheme.category?.name || 'All Products'}
+                        {getSchemeProductLabel(scheme, products)}
                       </TableCell>
                       <TableCell>
                         <Badge 
