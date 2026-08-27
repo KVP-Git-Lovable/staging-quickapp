@@ -85,6 +85,12 @@ export interface ProductScheme {
   // Multi-product support
   target_product_ids?: string[] | null;
   per_product_discounts?: Record<string, { discount_percentage: number }> | null;
+  // Bundle / Combo Discount support — every listed product must be present
+  // in the order for the scheme to be eligible; the discount then applies
+  // once across the bundle, not per matching product.
+  bundle_product_ids?: string[] | null;
+  bundle_discount_amount?: number | null;
+  bundle_discount_percentage?: number | null;
   // Manual per-unit discount support
   max_discount_per_unit?: number | null;
   discount_unit?: string | null;
@@ -145,9 +151,10 @@ export function getActiveSchemes(schemes: ProductScheme[]): ProductScheme[] {
  */
 export function schemeHasConditions(scheme: ProductScheme): boolean {
   return !!(
-    scheme.condition_quantity || 
-    scheme.buy_quantity || 
-    scheme.min_order_value
+    scheme.condition_quantity ||
+    scheme.buy_quantity ||
+    scheme.min_order_value ||
+    (scheme.scheme_type === 'bundle_combo' && scheme.bundle_product_ids && scheme.bundle_product_ids.length > 0)
   );
 }
 
@@ -163,9 +170,20 @@ export function isSchemeConditionMet(
   if (scheme.min_order_value && subtotal < scheme.min_order_value) {
     return false;
   }
-  
+
+  // Bundle / Combo Discount — every listed product must be in the order,
+  // not just one of them. Checked before the generic product_id/multi-product
+  // branches below, since a bundle scheme sets neither of those fields and
+  // would otherwise fall through to "order-wide, always eligible."
+  if (scheme.scheme_type === 'bundle_combo') {
+    const bundleProductIds = scheme.bundle_product_ids || [];
+    if (bundleProductIds.length === 0) return false;
+    const itemProductIds = new Set(items.map(item => item.product_id || item.id));
+    return bundleProductIds.every(id => itemProductIds.has(id));
+  }
+
   const hasMultiProduct = scheme.target_product_ids && scheme.target_product_ids.length > 0;
-  
+
   // For product-specific schemes, check product and quantity conditions
   if (scheme.product_id) {
     const matchingItem = items.find(item => 
@@ -212,11 +230,17 @@ export function isSchemeConditionMet(
  * Check if a scheme applies to a specific item
  */
 function schemeAppliesToItem(scheme: ProductScheme, item: SchemeItem): boolean {
+  // Bundle / Combo Discount only ever applies to its own listed products —
+  // never order-wide, even though it has no product_id of its own.
+  if (scheme.scheme_type === 'bundle_combo') {
+    return (scheme.bundle_product_ids || []).includes(item.product_id || item.id);
+  }
+
   // Check multi-product array first
   if (scheme.target_product_ids && scheme.target_product_ids.length > 0) {
     return scheme.target_product_ids.includes(item.product_id || item.id);
   }
-  
+
   // Order-wide scheme (no product_id) applies to all items
   if (!scheme.product_id) return true;
   
@@ -533,6 +557,54 @@ function calculateSchemeDiscount(
       break;
     }
     
+    case 'bundle_combo': {
+      // Re-check every bundle product is present, the same way flat_discount
+      // above re-checks min_order_value rather than only trusting the
+      // caller's isSchemeConditionMet gate. calculateOrderWithSchemes applies
+      // whatever is in appliedSchemeIds directly, without re-verifying
+      // eligibility itself — so a scheme applied while eligible must still
+      // stop discounting the moment a required product is removed from the
+      // cart, on every recompute, not just at the moment Apply was clicked.
+      const bundleProductIds = scheme.bundle_product_ids || [];
+      const itemProductIds = new Set(items.map(i => i.product_id || i.id));
+      const hasAllBundleProducts = bundleProductIds.length > 0 && bundleProductIds.every(id => itemProductIds.has(id));
+      if (!hasAllBundleProducts) break;
+
+      // applicableItems is already scoped to just the bundle's own products
+      // by schemeAppliesToItem, so the discount is computed once across the
+      // bundle, not per product.
+      const bundleTotal = applicableItems.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+      const discountPct = scheme.bundle_discount_percentage || 0;
+      const discountAmt = scheme.bundle_discount_amount || 0;
+
+      if (discountPct > 0) {
+        discount = bundleTotal * (discountPct / 100);
+      } else if (discountAmt > 0) {
+        discount = Math.min(discountAmt, bundleTotal);
+      }
+
+      // Distribute the discount proportionally across the bundle's items for
+      // per-line tracking, same convention as flat/bundle_discount above.
+      if (discount > 0 && bundleTotal > 0) {
+        for (const item of applicableItems) {
+          const itemTotal = item.rate * item.quantity;
+          const itemProportion = itemTotal / bundleTotal;
+          const itemDiscount = discount * itemProportion;
+          itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
+
+          if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
+          itemSchemeDetails[item.id].push({
+            schemeId: scheme.id,
+            schemeName: scheme.name,
+            schemeType: scheme.scheme_type,
+            discountAmount: itemDiscount,
+            discountPercentage: discountPct > 0 ? discountPct : undefined,
+          });
+        }
+      }
+      break;
+    }
+
     case 'tiered_discount':
     case 'tiered': {
       // Tiered discount based on quantity thresholds
