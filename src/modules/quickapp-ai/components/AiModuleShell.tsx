@@ -68,23 +68,26 @@ export function AiModuleShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile secondary nav */}
-        <div className="md:hidden flex items-center gap-1 overflow-x-auto border-b border-border bg-card/40 px-2 py-2">
+        {/* Mobile secondary nav — a constant top bar (no horizontal
+            scrolling): section items are icon-only so everything fits on
+            screen, and only Exit keeps its label so it stays obvious. */}
+        <div className="md:hidden flex items-center gap-1 border-b border-border bg-card/40 px-2 py-2">
           {visibleSections.map((s) => (
             <NavLink
               key={s.to}
               to={s.to}
+              aria-label={s.label}
+              title={s.label}
               className={({ isActive }) =>
                 cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition-colors",
+                  "flex shrink-0 items-center justify-center rounded-full p-2 transition-colors",
                   isActive
-                    ? "bg-primary/10 text-primary font-medium"
+                    ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted",
                 )
               }
             >
-              <s.icon className="h-3.5 w-3.5" />
-              {s.label}
+              <s.icon className="h-4 w-4" />
             </NavLink>
           ))}
           <button
