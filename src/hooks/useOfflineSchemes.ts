@@ -9,6 +9,9 @@ export interface ProductScheme {
   scheme_type: string;
   product_id: string | null;
   variant_id: string | null;
+  // category_wide_discount — restricts the scheme to items in this category.
+  category_id?: string | null;
+  category_name?: string;
   discount_percentage: number | null;
   discount_amount: number | null;
   buy_quantity: number | null;
@@ -113,6 +116,24 @@ export const useOfflineSchemes = () => {
         }, {} as Record<string, string>);
       }
 
+      // Category-wide discount schemes reference product_categories, not products.
+      const categoryIds = [...new Set(schemesData
+        .map((s: any) => s.category_id)
+        .filter(Boolean))] as string[];
+
+      let categoriesMap: Record<string, string> = {};
+      if (categoryIds.length > 0) {
+        const { data: categoriesData } = await supabase
+          .from('product_categories')
+          .select('id, name')
+          .in('id', categoryIds);
+
+        categoriesMap = (categoriesData || []).reduce((acc, c) => {
+          acc[c.id] = c.name;
+          return acc;
+        }, {} as Record<string, string>);
+      }
+
       // "Other" free products aren't in the products table - resolve their names separately.
       const otherFreeProductIds = [...new Set(schemesData
         .filter((s: any) => s.free_product_source === 'other')
@@ -135,7 +156,10 @@ export const useOfflineSchemes = () => {
       // Format schemes with product names - use "Unknown Product" fallback for better offline clarity
       const formattedSchemes: ProductScheme[] = schemesData.map((scheme: any) => ({
         ...scheme,
-        product_name: scheme.product_id ? productsMap[scheme.product_id] || 'Unknown Product' : 'All Products',
+        product_name: scheme.product_id
+          ? productsMap[scheme.product_id] || 'Unknown Product'
+          : (scheme.category_id ? undefined : 'All Products'),
+        category_name: scheme.category_id ? categoriesMap[scheme.category_id] || 'Unknown Category' : undefined,
         free_product_name: scheme.free_product_id ? productsMap[scheme.free_product_id] || 'Unknown Product' : null,
         other_free_product_name: scheme.other_free_product_id ? otherFreeProductsMap[scheme.other_free_product_id] || 'Unknown Product' : null,
       }));

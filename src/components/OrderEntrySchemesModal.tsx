@@ -30,7 +30,8 @@ import {
   X,
   Target,
   Globe,
-  Info
+  Info,
+  Tag
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ProductScheme } from "@/hooks/useOfflineSchemes";
@@ -46,6 +47,7 @@ interface Product {
   sku: string;
   rate: number;
   unit: string;
+  category_id?: string | null;
 }
 
 interface OrderRow {
@@ -252,19 +254,23 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
   const activeSchemes = useMemo(() => 
     schemes.filter(s => isSchemeActive(s)), [schemes]);
 
-  // Check if a scheme is product-specific or order-wide
+  // Check if a scheme is product-specific or order-wide (category-scoped
+  // schemes are neither — they're product_id-less but still restricted).
   const isOrderWideScheme = (scheme: ProductScheme) => {
-    return !scheme.product_id || scheme.product_name === 'All Products';
+    return !scheme.product_id && !scheme.category_id;
   };
 
   // Check if product for a scheme is in cart
   const isProductInCart = (scheme: ProductScheme) => {
     if (isOrderWideScheme(scheme)) return true;
-    
-    const orderProductIds = orderRows
-      .filter(row => row.product)
-      .map(row => row.product!.id);
-    
+
+    const orderRowsWithProduct = orderRows.filter(row => row.product);
+
+    if (scheme.category_id) {
+      return orderRowsWithProduct.some(row => row.product!.category_id === scheme.category_id);
+    }
+
+    const orderProductIds = orderRowsWithProduct.map(row => row.product!.id);
     return scheme.product_id && orderProductIds.includes(scheme.product_id);
   };
 
@@ -278,7 +284,8 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
         variant_id: row.variant?.id,
         quantity: row.quantity,
         rate: row.variant?.price ?? row.product!.rate,
-        name: row.variant?.variant_name || row.product!.name
+        name: row.variant?.variant_name || row.product!.name,
+        category_id: row.product!.category_id ?? null
       }));
   }, [orderRows]);
 
@@ -391,14 +398,22 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
               <h3 className="font-semibold text-sm truncate">{scheme.name}</h3>
               {/* Product-specific label */}
               <div className="flex items-center gap-1 mt-1">
-                {isOrderWide ? (
+                {scheme.category_id ? (
+                  <Badge
+                    variant={productInCart ? "default" : "outline"}
+                    className={`text-[9px] px-1.5 py-0 flex items-center gap-0.5 ${!productInCart ? 'text-muted-foreground' : ''}`}
+                  >
+                    <Tag className="w-2.5 h-2.5" />
+                    {scheme.category_name || 'Category'}
+                  </Badge>
+                ) : isOrderWide ? (
                   <Badge variant="secondary" className="text-[9px] px-1.5 py-0 flex items-center gap-0.5">
                     <Globe className="w-2.5 h-2.5" />
                     All Products
                   </Badge>
                 ) : (
-                  <Badge 
-                    variant={productInCart ? "default" : "outline"} 
+                  <Badge
+                    variant={productInCart ? "default" : "outline"}
                     className={`text-[9px] px-1.5 py-0 flex items-center gap-0.5 ${!productInCart ? 'text-muted-foreground' : ''}`}
                   >
                     <Target className="w-2.5 h-2.5" />
@@ -435,8 +450,8 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                       )}
                       <div className="space-y-2 text-xs">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Target Product:</span>
-                          <span className="font-medium">{scheme.product_name || 'All Products'}</span>
+                          <span className="text-muted-foreground">{scheme.category_id ? 'Category:' : 'Target Product:'}</span>
+                          <span className="font-medium">{scheme.category_id ? (scheme.category_name || 'Category') : (scheme.product_name || 'All Products')}</span>
                         </div>
                         {scheme.scheme_type === 'buy_x_get_y_free' && (
                           <>
