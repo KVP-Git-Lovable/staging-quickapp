@@ -439,15 +439,16 @@ export const MyVisits = () => {
   // Visit Optimiser (today's scored stops + newcomer pitch lines) and Sales
   // Coach (per-retailer 30d product mix), consumed from their stored runs
   // (display only — the hooks own any run policy, this page never triggers).
-  // When viewing self on today, the day's visit retailer ids are passed so
-  // the optimiser refreshes as soon as a retailer/beat is added to or
-  // removed from today's visits, instead of keeping a stale route.
+  // When viewing self on today, the FULL displayed retailer set is passed
+  // (all retailers of the day's planned beats, not just those with visit
+  // rows) so the optimiser routes everything the list shows and refreshes
+  // as soon as a retailer/beat is added to or removed from the day's plan.
   const expectedRouteRetailerIds = useMemo(() => {
     if (!isViewingSelf || selectedDate !== getLocalTodayDate()) return null;
-    return optimizedVisits
-      .filter((v) => v.planned_date === selectedDate && v.retailer_id)
-      .map((v) => String(v.retailer_id));
-  }, [isViewingSelf, selectedDate, optimizedVisits]);
+    // The COMPLETE displayed set, uncapped — the optimizer's candidate-set
+    // invariant is that it routes every retailer on this list.
+    return [...new Set(optimizedRetailers.map((r: any) => String(r.id)).filter(Boolean))].sort();
+  }, [isViewingSelf, selectedDate, optimizedRetailers]);
   const {
     newRetailers: newcomerRows,
     stops: routeStops,
