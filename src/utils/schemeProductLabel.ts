@@ -6,8 +6,13 @@
 
 export interface SchemeProductLabelInput {
   scheme_type: string;
+  // Callers with a joined product/category row (e.g. Scheme Management) use these.
   product?: { name?: string | null } | null;
   category?: { name?: string | null } | null;
+  // Callers with a flat, pre-resolved name (e.g. the offline scheme cache used
+  // in Order Entry) use these instead — no joined row is available there.
+  product_name?: string | null;
+  category_name?: string | null;
   bundle_product_ids?: string[] | null;
   target_product_ids?: string[] | null;
 }
@@ -41,5 +46,11 @@ export function getSchemeProductLabel(
   const targetLabel = formatNameList(namesForIds(scheme.target_product_ids, products));
   if (targetLabel) return targetLabel;
 
-  return scheme.product?.name || scheme.category?.name || 'All Products';
+  return (
+    scheme.product?.name ||
+    scheme.category?.name ||
+    scheme.product_name ||
+    scheme.category_name ||
+    'All Products'
+  );
 }
