@@ -428,8 +428,7 @@ async function runVisitOptimiser(supabase: any, userId: string) {
     .select("id, retailer_id, status")
     .eq("user_id", userId)
     .eq("planned_date", today)
-    .order("created_at", { ascending: true })
-    .limit(200);
+    .order("created_at", { ascending: true });
   if (error) throw error;
 
   // Newly added retailers get a friendly AI pitch reminder regardless of
@@ -450,9 +449,58 @@ async function runVisitOptimiser(supabase: any, userId: string) {
       ]
     : [];
 
-  const retailerIds = [
-    ...new Set((todayVisits ?? []).map((v: any) => v.retailer_id).filter(Boolean).map(String)),
+  // The day's route covers ALL retailers on the user's visit list — the same
+  // set the My Visits page displays: retailers of the day's planned beats
+  // (beat_plans + coordinator-assigned daily_beat_plans), explicit
+  // beat_data.retailer_ids, and any retailer with an actual visit row today —
+  // irrespective of visit status. Mirrors useVisitsDataOptimized.
+  const { data: beatPlans } = await supabase
+    .from("beat_plans")
+    .select("beat_id, beat_data")
+    .eq("user_id", userId)
+    .eq("plan_date", today);
+
+  const { data: dailyPlans } = await supabase
+    .from("daily_beat_plans")
+    .select("beat_id")
+    .eq("assigned_user_id", userId)
+    .eq("plan_date", today);
+
+  const beatIds = [
+    ...new Set(
+      [...(beatPlans ?? []), ...(dailyPlans ?? [])]
+        .map((b: any) => b.beat_id)
+        .filter(Boolean)
+        .map(String),
+    ),
   ];
+
+  let beatRetailerIds: string[] = [];
+  if (beatIds.length) {
+    const { data: beatRetailers } = await supabase
+      .from("retailers")
+      .select("id")
+      .in("beat_id", beatIds);
+    beatRetailerIds = (beatRetailers ?? []).map((r: any) => String(r.id));
+  }
+
+  const explicitIds = (beatPlans ?? []).flatMap((bp: any) =>
+    Array.isArray(bp?.beat_data?.retailer_ids) ? bp.beat_data.retailer_ids.map(String) : [],
+  );
+
+  // INVARIANT: the candidate set is the COMPLETE deduplicated union of the
+  // day's-list sources — no cap or limit may truncate it. Status, history,
+  // and dues may influence the score/order below, never membership. Sorted
+  // only for determinism (the client freshness check compares exact sets).
+  // The AI ordering helper stays limited to 2-20 stops; above that the
+  // deterministic route is the final ordering.
+  const retailerIds = [
+    ...new Set([
+      ...(todayVisits ?? []).map((v: any) => v.retailer_id).filter(Boolean).map(String),
+      ...beatRetailerIds,
+      ...explicitIds,
+    ]),
+  ].sort();
 
   if (!retailerIds.length) {
     return {
