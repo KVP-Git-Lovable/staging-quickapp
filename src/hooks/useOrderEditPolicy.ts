@@ -7,6 +7,10 @@ export interface OrderEditPolicy {
   edit_require_reason: boolean;
   entry_price_edit_enabled: boolean;
   entry_price_edit_direction: 'higher_only' | 'both';
+  // Sub-toggle under edit_enabled: hides/shows the "Edit Order" entry point
+  // specifically in the Visit Card, without affecting other edit surfaces
+  // (e.g. the admin Operations table's own edit button).
+  edit_visible_in_visit_card: boolean;
   loaded: boolean;
 }
 
@@ -16,6 +20,7 @@ const DEFAULT: OrderEditPolicy = {
   edit_require_reason: false,
   entry_price_edit_enabled: false,
   entry_price_edit_direction: 'both',
+  edit_visible_in_visit_card: true,
   loaded: false,
 };
 
@@ -33,7 +38,7 @@ export function useOrderEditPolicy(): OrderEditPolicy {
       try {
         const { data } = await (supabase as any)
           .from('operations_config')
-          .select('edit_enabled, edit_lock_price, edit_require_reason, entry_price_edit_enabled, entry_price_edit_direction')
+          .select('edit_enabled, edit_lock_price, edit_require_reason, entry_price_edit_enabled, entry_price_edit_direction, edit_visible_in_visit_card')
           .eq('id', 1)
           .maybeSingle();
         if (cancelled) return;
@@ -43,6 +48,7 @@ export function useOrderEditPolicy(): OrderEditPolicy {
           edit_require_reason: !!data?.edit_require_reason,
           entry_price_edit_enabled: !!data?.entry_price_edit_enabled,
           entry_price_edit_direction: data?.entry_price_edit_direction === 'higher_only' ? 'higher_only' : 'both',
+          edit_visible_in_visit_card: data?.edit_visible_in_visit_card !== false,
           loaded: true,
         });
       } catch {

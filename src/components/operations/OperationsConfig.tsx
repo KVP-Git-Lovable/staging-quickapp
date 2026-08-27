@@ -37,6 +37,7 @@ type OpsConfig = {
   edit_approval_threshold: number;
   edit_lock_price: boolean;
   edit_max_edits: number;
+  edit_visible_in_visit_card: boolean;
   entry_price_edit_enabled: boolean;
   entry_price_edit_direction: 'higher_only' | 'both';
   auto_cancel_enabled: boolean;
@@ -329,6 +330,13 @@ const OperationsConfig: React.FC = () => {
         </CardHeader>
         {c.edit_enabled && (
           <CardContent className="space-y-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Show in Visit Card</Label>
+                <p className="text-xs text-muted-foreground">Show the "Edit Order" button on My Visit's visit cards. Turning this off only hides that one entry point — editing stays available wherever else it's exposed (e.g. the admin Operations table).</p>
+              </div>
+              <Switch checked={c.edit_visible_in_visit_card} onCheckedChange={(v) => save('edit_visible_in_visit_card', v)} />
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Lock point</Label>

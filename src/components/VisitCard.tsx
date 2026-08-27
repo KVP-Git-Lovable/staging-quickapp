@@ -349,7 +349,7 @@ export const VisitCard = ({
   // (edit_who / lock point / max edits). Only runs when the policy is on and
   // the user has the permission, so the picker/button reflect true state.
   useEffect(() => {
-    if (!editPolicy.edit_enabled || !canEditPerm) {
+    if (!editPolicy.edit_enabled || !editPolicy.edit_visible_in_visit_card || !canEditPerm) {
       setEditableOrderIds(new Set());
       return;
     }
@@ -381,7 +381,7 @@ export const VisitCard = ({
     return () => {
       cancelled = true;
     };
-  }, [editPolicy.edit_enabled, canEditPerm, ordersTodayList]);
+  }, [editPolicy.edit_enabled, editPolicy.edit_visible_in_visit_card, canEditPerm, ordersTodayList]);
 
 
   const canCheckIn = can('action_attendance_check_in', 'read');
@@ -3532,7 +3532,7 @@ export const VisitCard = ({
                       </Button>
 
                       {/* Edit Order Button (Phase 2b-3b) — gated by operations_config + can_edit_order RPC */}
-                      {editPolicy.edit_enabled && canEditPerm && (() => {
+                      {editPolicy.edit_enabled && editPolicy.edit_visible_in_visit_card && canEditPerm && (() => {
                         const editable = ordersTodayList.filter(
                           (o: any) => editableOrderIds.has(o.id),
                         );
