@@ -53,10 +53,6 @@ interface StepReviewSaveProps {
   fyYear: number;
   targetStartMonth?: number;
   targetEndMonth?: number;
-  /** The Split dialog is itself an automatic-split tool, so it is hidden while
-   *  Manual Allocation is on rather than left sitting beside a claim that
-   *  nothing here recalculates automatically. */
-  manualAllocationMode?: boolean;
 }
 
 export function StepReviewSave({
@@ -70,7 +66,6 @@ export function StepReviewSave({
   fyYear,
   targetStartMonth = 1,
   targetEndMonth = 12,
-  manualAllocationMode = false,
 }: StepReviewSaveProps) {
   // Which employees currently have their month-wise breakdown open.
   const [monthsOpen, setMonthsOpen] = useState<Set<string>>(new Set());
@@ -160,7 +155,7 @@ export function StepReviewSave({
               <span className="text-xs text-muted-foreground italic">No target assigned</span>
             ) : (
             <div className="flex items-center gap-2">
-              {isManager && !manualAllocationMode && (
+              {isManager && (
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => onSplitManager(node.userId)}>
                   <Split className="h-3 w-3" /> Split
                 </Button>
