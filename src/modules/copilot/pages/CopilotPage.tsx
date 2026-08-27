@@ -15,9 +15,13 @@ interface CopilotPageProps {
   /** When mounted inside another module shell, drop the outer viewport height
    *  and the "Dashboard" back button (the shell owns that chrome). */
   embedded?: boolean;
+  /** Show the right-hand utility panel (orders chart, ticket assistant,
+   *  today's visit retailers). The QuickApp AI module embeds the chat
+   *  without it. */
+  utilityPanel?: boolean;
 }
 
-export default function CopilotPage({ basePath = "/copilot", embedded = false }: CopilotPageProps = {}) {
+export default function CopilotPage({ basePath = "/copilot", embedded = false, utilityPanel = true }: CopilotPageProps = {}) {
   const { threadId } = useParams<{ threadId?: string }>();
   const navigate = useNavigate();
   const { items, loading, create, remove, refresh } = useConversations();
@@ -130,7 +134,7 @@ export default function CopilotPage({ basePath = "/copilot", embedded = false }:
         </div>
       </main>
 
-      <CopilotUtilityPanel />
+      {utilityPanel && <CopilotUtilityPanel />}
     </div>
   );
 }
