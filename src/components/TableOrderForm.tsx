@@ -30,6 +30,7 @@ interface Product {
   id: string;
   sku: string;
   name: string;
+  category_id?: string | null;
   category: { name: string } | null;
   rate: number;
   unit: string;
@@ -803,7 +804,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           variant_id: row.variant?.id,
           quantity: row.quantity,
           rate: eff,
-          name: row.variant?.variant_name || row.product!.name
+          name: row.variant?.variant_name || row.product!.name,
+          category_id: row.product!.category_id ?? null
         };
       });
     
@@ -1466,7 +1468,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           variant_id: row.variant?.id,
           quantity: row.quantity,
           rate: eff,
-          name: row.variant?.variant_name || row.product!.name
+          name: row.variant?.variant_name || row.product!.name,
+          category_id: row.product!.category_id ?? null
         };
       });
     

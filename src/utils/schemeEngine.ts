@@ -10,6 +10,7 @@ export interface SchemeItem {
   quantity: number;
   rate: number;
   name?: string;
+  category_id?: string | null;
 }
 
 export interface AppliedScheme {
@@ -67,6 +68,8 @@ export interface ProductScheme {
   scheme_type: string;
   product_id?: string | null;
   variant_id?: string | null;
+  // category_wide_discount — restricts the scheme to items in this category.
+  category_id?: string | null;
   discount_percentage?: number | null;
   discount_amount?: number | null;
   // Bundle/combo support — a fixed set of products priced/discounted together
@@ -219,6 +222,19 @@ export function isSchemeConditionMet(
         return false;
       }
     }
+  } else if (scheme.category_id) {
+    // Category-wide scheme — only "met" if the cart actually has an item in
+    // that category, otherwise it would show as applicable with nothing to discount.
+    const matchingItems = items.filter(item => item.category_id === scheme.category_id);
+    if (matchingItems.length === 0) return false;
+
+    const requiredQty = scheme.condition_quantity || scheme.buy_quantity;
+    if (requiredQty) {
+      const totalMatchingQty = matchingItems.reduce((sum, item) => sum + item.quantity, 0);
+      if (totalMatchingQty < requiredQty) {
+        return false;
+      }
+    }
   } else {
     // Order-wide scheme (no product_id and no target_product_ids)
     const totalQty = items.reduce((sum, item) => sum + item.quantity, 0);
@@ -239,7 +255,14 @@ function schemeAppliesToItem(scheme: ProductScheme, item: SchemeItem): boolean {
   if (scheme.target_product_ids && scheme.target_product_ids.length > 0) {
     return scheme.target_product_ids.includes(item.product_id || item.id);
   }
-  
+
+  // Category-scoped scheme (e.g. category_wide_discount) — matches only items
+  // in that category. Must be checked before the order-wide fallback below,
+  // otherwise a category scheme with no product_id would match every item.
+  if (scheme.category_id) {
+    return item.category_id === scheme.category_id;
+  }
+
   // Order-wide scheme (no product_id) applies to all items
   if (!scheme.product_id) return true;
   
@@ -588,6 +611,43 @@ function calculateSchemeDiscount(
       break;
     }
     
+    case 'category_wide_discount': {
+      // Discount applies only to items in scheme.category_id — applicableItems
+      // is already filtered to that category by schemeAppliesToItem above.
+      // min_order_value is checked against the full order subtotal (it's an
+      // order-level condition, matching how it's presented in the admin UI),
+      // but the discount itself is computed only on the matching category's total.
+      if (scheme.min_order_value && subtotal < scheme.min_order_value) {
+        break;
+      }
+      const categoryTotal = applicableItems.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
+      if (categoryTotal > 0) {
+        const discountPct = scheme.discount_percentage || 0;
+        discount = scheme.discount_amount
+          ? Math.min(scheme.discount_amount, categoryTotal)
+          : categoryTotal * (discountPct / 100);
+
+        if (discount > 0) {
+          for (const item of applicableItems) {
+            const itemTotal = item.rate * item.quantity;
+            const itemProportion = itemTotal / categoryTotal;
+            const itemDiscount = discount * itemProportion;
+            itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
+
+            if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
+            itemSchemeDetails[item.id].push({
+              schemeId: scheme.id,
+              schemeName: scheme.name,
+              schemeType: scheme.scheme_type,
+              discountAmount: itemDiscount,
+              discountPercentage: discountPct > 0 ? discountPct : undefined
+            });
+          }
+        }
+      }
+      break;
+    }
+
     case 'tiered_discount':
     case 'tiered': {
       // Tiered discount based on quantity thresholds
