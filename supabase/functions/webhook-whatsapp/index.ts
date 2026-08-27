@@ -909,6 +909,179 @@ async function handleSchemesQuery(
   return `🎁 *Available Schemes & Offers (${schemes.length})*\n\n${lines.join('\n')}`;
 }
 
+// ── Outstanding Dues Query ──────────────────────────────────────────
+async function handleDuesQuery(
+  supabase: any,
+  phone: string,
+  message: string
+): Promise<string | null> {
+  const lower = message.toLowerCase();
+
+  // Order/delivery questions belong to the existing handlers and AI path;
+  // "points balance" belongs to the loyalty handler.
+  if (lower.includes('order') || lower.includes('deliver')) return null;
+  if (/\bpoints?\b/.test(lower)) return null;
+
+  const isDuesQuery =
+    /\b(dues?|outstanding|bakaya|baki)\b/.test(lower) ||
+    /how\s*much\s*(do\s*)?i\s*owe/.test(lower) ||
+    /\bpending\s*(amount|payment|balance)\b/.test(lower) ||
+    /\bmy\s*(pending|balance)\b/.test(lower);
+
+  if (!isDuesQuery) return null;
+
+  const retailer = await findRetailerByPhone(supabase, phone);
+  if (!retailer) {
+    return "I couldn't find an account linked to this number. Please contact your sales representative.";
+  }
+
+  const { data } = await supabase
+    .from('retailers')
+    .select('pending_amount')
+    .eq('id', retailer.id)
+    .maybeSingle();
+  const pending = Number(data?.pending_amount ?? 0) || 0;
+
+  console.log(`💰 Dues intent matched — ₹${pending}`);
+  return pending > 0
+    ? `💰 *Outstanding Balance*\n\nHi *${retailer.name}*, your current outstanding balance is *₹${pending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}*.\n\nPlease coordinate with your sales representative for payment.`
+    : `✅ Great news, *${retailer.name}* — you have no outstanding balance right now!`;
+}
+
+// ── Loyalty Points Query ────────────────────────────────────────────
+async function handleLoyaltyQuery(
+  supabase: any,
+  phone: string,
+  message: string
+): Promise<string | null> {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('order') || lower.includes('deliver')) return null;
+
+  const isLoyaltyQuery =
+    /\b(loyalty|rewards?)\b/.test(lower) ||
+    (/\bpoints?\b/.test(lower) && /\b(my|balance|how\s*many|total|kitne)\b/.test(lower));
+
+  if (!isLoyaltyQuery) return null;
+
+  const retailer = await findRetailerByPhone(supabase, phone);
+  if (!retailer) {
+    return "I couldn't find an account linked to this number. Please contact your sales representative.";
+  }
+
+  const [{ data: earnedRows }, { data: redemptionRows }] = await Promise.all([
+    supabase.from('retailer_loyalty_points').select('points').eq('retailer_id', retailer.id),
+    supabase
+      .from('retailer_loyalty_redemptions')
+      .select('points_redeemed, status')
+      .eq('retailer_id', retailer.id),
+  ]);
+
+  const earned = (earnedRows ?? []).reduce((s: number, r: any) => s + (Number(r.points) || 0), 0);
+  const redeemed = (redemptionRows ?? [])
+    .filter((r: any) => !['rejected', 'cancelled'].includes(String(r.status ?? '').toLowerCase()))
+    .reduce((s: number, r: any) => s + (Number(r.points_redeemed) || 0), 0);
+  const balance = Math.max(0, earned - redeemed);
+
+  console.log(`🌟 Loyalty intent matched — earned ${earned}, redeemed ${redeemed}`);
+  return `🌟 *Loyalty Points — ${retailer.name}*\n\nEarned: ${earned}\nRedeemed: ${redeemed}\nAvailable balance: *${balance}*`;
+}
+
+// ── Next Visit Query ────────────────────────────────────────────────
+async function handleNextVisitQuery(
+  supabase: any,
+  phone: string,
+  message: string
+): Promise<string | null> {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('order') || lower.includes('deliver')) return null;
+
+  const isNextVisitQuery =
+    /\bnext\s*visit\b/.test(lower) ||
+    (/\bwhen\b/.test(lower) && /\b(visit|come|coming)\b/.test(lower) &&
+      /\b(salesman|sales\s*rep|representative|you|team)\b/.test(lower)) ||
+    /\b(salesman|sales\s*rep|representative)\b.*\b(kab|aayega|aa\s*raha)\b/.test(lower);
+
+  if (!isNextVisitQuery) return null;
+
+  const retailer = await findRetailerByPhone(supabase, phone);
+  if (!retailer) {
+    return "I couldn't find an account linked to this number. Please contact your sales representative.";
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const { data: visit } = await supabase
+    .from('visits')
+    .select('planned_date, status')
+    .eq('retailer_id', retailer.id)
+    .gte('planned_date', today)
+    .neq('status', 'cancelled')
+    .order('planned_date', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  console.log(`📅 Next-visit intent matched — ${visit?.planned_date ?? 'none scheduled'}`);
+  if (!visit) {
+    return `📅 No upcoming visit is scheduled for your store yet. Your sales representative will plan one soon.`;
+  }
+  if (visit.planned_date === today) {
+    return `📅 *Next Visit*\n\nGood news — your store is on *today's* visit plan!`;
+  }
+  const d = new Date(`${visit.planned_date}T00:00:00`);
+  const label = Number.isNaN(d.getTime())
+    ? visit.planned_date
+    : d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' });
+  return `📅 *Next Visit*\n\nYour store is scheduled for a visit on *${label}*.`;
+}
+
+// ── Product Price Query ───────────────────────────────────────────
+async function handlePriceQuery(
+  supabase: any,
+  message: string
+): Promise<string | null> {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('order') || lower.includes('deliver')) return null;
+  if (!/\b(price|rate|cost|mrp)\b/.test(lower)) return null;
+
+  // Extract the product term: "price of X" / "X ka price" / "X price".
+  let term = '';
+  const m1 = lower.match(/\b(?:price|rate|cost|mrp)\s+(?:of|for)\s+(.+?)[?.!\s]*$/);
+  const m2 = lower.match(/^(.+?)\s+(?:ka\s+|ki\s+)?(?:price|rate|cost|mrp)\b/);
+  if (m1) term = m1[1];
+  else if (m2) term = m2[1];
+  term = term
+    .replace(/\b(the|a|an|what|whats|what's|is|are|tell|me|please|much|how)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // Too vague to search deterministically — let the AI path handle it.
+  if (!term || term.length < 2) return null;
+
+  const { data: products } = await supabase
+    .from('products')
+    .select('name, rate, unit')
+    .eq('is_active', true)
+    .ilike('name', `%${term}%`)
+    .order('name')
+    .limit(5);
+
+  if (!products || products.length === 0) {
+    console.log(`🏷️ Price intent matched — no product for "${term}"`);
+    return `I couldn't find a product matching "${term}" in our catalog.`;
+  }
+
+  console.log(`🏷️ Price intent matched — "${term}" → ${products.length} match(es)`);
+  if (products.length === 1) {
+    const p = products[0];
+    return `🏷️ *${p.name}* — ₹${Number(p.rate).toFixed(2)}/${p.unit || 'unit'}`;
+  }
+  return (
+    `🏷️ *Prices — matches for "${term}"*\n\n` +
+    products.map((p: any) => `• ${p.name} — ₹${Number(p.rate).toFixed(2)}/${p.unit || 'unit'}`).join('\n')
+  );
+}
+
 // ── System Prompt Builder ───────────────────────────────────────────
 function buildSystemPrompt(today: string, session: Session): string {
   let prompt = `You are a field sales assistant for a distribution/sales app. Today's date is ${today}.
@@ -1137,6 +1310,20 @@ async function processMessageAsync(phone: string, message: string): Promise<void
         await sendTwilioFreeForm(phone, statusReply); return;
       }
 
+      // ── Handle Next Visit Query ──
+      // Runs before Retailer Info so "when is the next visit to my store?"
+      // gets the visit date instead of the generic store-details card
+      // ("my store" alone, without visit wording, still goes to store info).
+      const nextVisitReply = await handleNextVisitQuery(supabase, phone, message);
+      if (nextVisitReply) {
+        session.conversation_history.push(
+          { role: 'user', parts: [{ text: message }] },
+          { role: 'model', parts: [{ text: nextVisitReply }] }
+        );
+        await saveSession(supabase, session);
+        await sendTwilioFreeForm(phone, nextVisitReply); return;
+      }
+
       // ── Handle Retailer Info Query ──
       const retailerInfoReply = await handleRetailerInfoQuery(supabase, phone, message);
       if (retailerInfoReply) {
@@ -1192,6 +1379,39 @@ async function processMessageAsync(phone: string, message: string): Promise<void
         );
         await saveSession(supabase, session);
         await sendTwilioFreeForm(phone, productCountReply); return;
+      }
+
+      // ── Handle Loyalty Points Query ──
+      const loyaltyReply = await handleLoyaltyQuery(supabase, phone, message);
+      if (loyaltyReply) {
+        session.conversation_history.push(
+          { role: 'user', parts: [{ text: message }] },
+          { role: 'model', parts: [{ text: loyaltyReply }] }
+        );
+        await saveSession(supabase, session);
+        await sendTwilioFreeForm(phone, loyaltyReply); return;
+      }
+
+      // ── Handle Outstanding Dues Query ──
+      const duesReply = await handleDuesQuery(supabase, phone, message);
+      if (duesReply) {
+        session.conversation_history.push(
+          { role: 'user', parts: [{ text: message }] },
+          { role: 'model', parts: [{ text: duesReply }] }
+        );
+        await saveSession(supabase, session);
+        await sendTwilioFreeForm(phone, duesReply); return;
+      }
+
+      // ── Handle Product Price Query ──
+      const priceReply = await handlePriceQuery(supabase, message);
+      if (priceReply) {
+        session.conversation_history.push(
+          { role: 'user', parts: [{ text: message }] },
+          { role: 'model', parts: [{ text: priceReply }] }
+        );
+        await saveSession(supabase, session);
+        await sendTwilioFreeForm(phone, priceReply); return;
       }
 
       // ── Handle "Place Order" intent — works from ANY state ──
