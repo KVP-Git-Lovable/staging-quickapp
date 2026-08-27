@@ -280,6 +280,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       orderId: data.displayInvoiceNumber || data.orderId,
       beatName: data.beatName,
       salesmanName: data.salesmanName,
+      invoiceDate: data.displayInvoiceDate,
       invoiceTime: data.displayInvoiceTime,
       schemeDetails: data.schemeDetails,
       displaySettings,

@@ -66,11 +66,19 @@ export const OrderInvoicePDFGenerator = ({
         base_unit: it.base_unit || it.unit || "Piece",
       }));
 
+      // Invoice date must reflect the order's business date (order_date), not
+      // "today" — critical for backdated orders.
+      const orderDateStr = typeof order.order_date === 'string' && order.order_date ? order.order_date.slice(0, 10) : null;
+      const displayInvoiceDate = orderDateStr
+        ? new Date(`${orderDateStr}T00:00:00`).toLocaleDateString("en-GB")
+        : new Date(order.created_at).toLocaleDateString("en-GB");
+
       const rawBlob = await generateTemplate4Invoice({
         orderId: invoiceNumber,
         company: company || {},
         retailer,
         cartItems,
+        displayInvoiceDate,
       });
       const blob = await applyInvoiceWatermark(rawBlob, { invoiceNumber });
 

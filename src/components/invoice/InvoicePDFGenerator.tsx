@@ -72,12 +72,19 @@ export const InvoicePDFGenerator = ({
       // Prepare company data
       const company = invoice.companies || {};
 
+      // Invoice date must reflect the order's business date (invoices.invoice_date
+      // mirrors orders.order_date), not "today" — critical for backdated orders.
+      const displayInvoiceDate = invoice.invoice_date
+        ? new Date(`${String(invoice.invoice_date).slice(0, 10)}T00:00:00`).toLocaleDateString("en-GB")
+        : undefined;
+
       // Use unified Template 4 generator
       const rawBlob = await generateTemplate4Invoice({
         orderId: invoice.invoice_number || invoice.id,
         company,
         retailer,
         cartItems,
+        displayInvoiceDate,
       });
       const blob = await applyInvoiceWatermark(rawBlob, {
         invoiceId: invoice.id,

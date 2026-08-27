@@ -14,6 +14,10 @@ interface InvoiceTemplateRendererProps {
   amountPaid?: number;
   balanceDue?: number;
   orderTotal?: number;
+  // The order's actual business date ("YYYY-MM-DD") — pass the cart's
+  // effective (possibly backdated) order date so this pre-submit preview
+  // matches what the real invoice will show. Defaults to today.
+  orderDate?: string;
 }
 
 export default function InvoiceTemplateRenderer({
@@ -25,6 +29,7 @@ export default function InvoiceTemplateRenderer({
   balanceDue,
   orderTotal,
   schemeDetails = "",
+  orderDate,
 }: InvoiceTemplateRendererProps) {
   const [company, setCompany] = useState<any>(null);
   const [retailer, setRetailer] = useState<any>(null);
@@ -155,6 +160,7 @@ export default function InvoiceTemplateRenderer({
           templateStyle={getTemplateStyle()}
           beatName={beatName}
           salesmanName={salesmanName}
+          invoiceDate={orderDate ? new Date(`${orderDate}T00:00:00`).toLocaleDateString("en-GB") : undefined}
           invoiceTime={invoiceTime}
           schemeDetails={schemeDetails}
           displaySettings={displaySettings}

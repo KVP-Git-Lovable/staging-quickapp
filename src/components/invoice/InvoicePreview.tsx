@@ -64,6 +64,10 @@ interface InvoicePreviewProps {
   templateStyle: "template1" | "template2" | "template3" | "template4";
   beatName?: string;
   salesmanName?: string;
+  // Pre-formatted (e.g. "24/08/2026") display date — the order's actual
+  // business date, which for a backdated order differs from "today". Falls
+  // back to today's date only when a caller doesn't supply one.
+  invoiceDate?: string;
   invoiceTime?: string;
   schemeDetails?: string;
   displaySettings?: DisplaySettingsMap;
@@ -96,6 +100,7 @@ export default function InvoicePreview({
   templateStyle,
   beatName = "",
   salesmanName = "",
+  invoiceDate = "",
   invoiceTime = "",
   schemeDetails = "",
   displaySettings = {},
@@ -304,7 +309,7 @@ export default function InvoicePreview({
           {isEnabled('details_invoice_date') && (
             <div className="mb-2">
               <span className="font-bold text-xs">DATE:</span>{" "}
-              <span className="text-xs">{new Date().toLocaleDateString("en-GB")}</span>
+              <span className="text-xs">{invoiceDate || new Date().toLocaleDateString("en-GB")}</span>
             </div>
           )}
           {isEnabled('details_invoice_time') && invoiceTime && (

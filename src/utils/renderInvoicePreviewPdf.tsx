@@ -20,6 +20,7 @@ export interface InvoicePreviewPdfInput {
   orderId?: string;
   beatName?: string;
   salesmanName?: string;
+  invoiceDate?: string;
   invoiceTime?: string;
   schemeDetails?: string;
   displaySettings?: DisplaySettingsMap;
@@ -94,6 +95,7 @@ export async function renderInvoicePreviewToPdfBlob(
             templateStyle="template4"
             beatName={input.beatName || ""}
             salesmanName={input.salesmanName || ""}
+            invoiceDate={input.invoiceDate || ""}
             invoiceTime={input.invoiceTime || ""}
             schemeDetails={input.schemeDetails || ""}
             displaySettings={input.displaySettings || {}}

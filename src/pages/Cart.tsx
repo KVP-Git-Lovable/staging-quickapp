@@ -3410,6 +3410,7 @@ export const Cart = () => {
                 schemeDetails={formatSchemeDetailsForInvoice(orderCalculation.appliedSchemes)}
                 paymentMode={paymentMethod || undefined}
                 orderTotal={Math.round(Math.max(0, getFinalTotal()))}
+                orderDate={getEffectiveOrderDate()}
               />
             )}
           </DialogContent>
