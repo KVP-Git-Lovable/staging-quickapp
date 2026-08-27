@@ -281,6 +281,9 @@ export const Cart = () => {
     visit_id?: string | null;
     retailer_id?: string | null;
     total_amount?: number | null;
+    order_date?: string | null;
+    is_backdated?: boolean | null;
+    backdate_reason?: string | null;
   } | null>(null);
   const [editInvoiceNumber, setEditInvoiceNumber] = React.useState<string | null>(null);
 
@@ -307,7 +310,7 @@ export const Cart = () => {
         // Fetch original order
         const { data: order, error: orderErr } = await supabase
           .from('orders')
-          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, credit_pending_amount, invoice_number')
+          .select('id, status, invoice_generated_at, dispatched_at, user_id, visit_id, retailer_id, total_amount, credit_pending_amount, invoice_number, order_date, is_backdated, backdate_reason')
           .eq('id', editOrderId)
           .maybeSingle();
         if (orderErr || !order) {
@@ -353,6 +356,15 @@ export const Cart = () => {
         if (cancelled) return;
         setEditOriginalOrder(order as any);
         setEditInvoiceNumber((order as any)?.invoice_number || null);
+
+        // Carry the original order's backdated date forward into the edit session —
+        // otherwise getEffectiveOrderDate() falls back to today and the replacement
+        // order silently loses the backdated order_date.
+        const origOrderDate = (order as any)?.order_date as string | null;
+        if ((order as any)?.is_backdated && origOrderDate && origOrderDate < getLocalTodayDate()) {
+          setBackdateCtx({ date: origOrderDate, requireReason: false });
+          setBackdateReason((order as any)?.backdate_reason || '');
+        }
 
         // Seed cart from order_items (only if edit cart not yet seeded)
         const editKey = `order_cart:edit:${editOrderId}`;
