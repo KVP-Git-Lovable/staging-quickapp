@@ -286,6 +286,7 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       paymentMode: data.paymentMode,
       amountPaid: data.amountPaid,
       balanceDue: data.balanceDue,
+      orderTotal: data.orderTotal,
     });
   } catch (err) {
     console.error('Preview-based invoice render failed, falling back to legacy layout', err);

@@ -72,6 +72,11 @@ interface InvoicePreviewProps {
   paymentMode?: string;
   amountPaid?: number;
   balanceDue?: number;
+  // The real, final charged amount — Cart's own Math.round(getFinalTotal())
+  // pre-submit, or orders.total_amount post-submit. When given, this (not a
+  // fresh Math.round of the line items) is the Total shown here, so the
+  // invoice is never the one deciding what the rounded total is.
+  orderTotal?: number;
 }
 
 const PAYMENT_MODE_LABELS: Record<string, string> = {
@@ -96,7 +101,8 @@ export default function InvoicePreview({
   displaySettings = {},
   paymentMode,
   amountPaid,
-  balanceDue
+  balanceDue,
+  orderTotal
 }: InvoicePreviewProps) {
   // Unit conversion helper
   const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
@@ -174,10 +180,14 @@ export default function InvoicePreview({
   const igst = lineTaxes.reduce((s, l) => s + l.igst, 0);
   const cess = lineTaxes.reduce((s, l) => s + l.cess, 0);
   const total = subtotal + cgst + sgst + igst + cess;
+  // The real, final charged amount — Cart's own rounded total pre-submit, or
+  // orders.total_amount post-submit. Falls back to rounding the line-item sum
+  // only when the caller genuinely has no authoritative total to hand over.
+  const displayTotal = orderTotal != null ? orderTotal : Math.round(total);
 
-  
+
   // Amount in words
-  const totalInWords = numberToWords(Math.round(total)) + ' Rupees Only';
+  const totalInWords = numberToWords(displayTotal) + ' Rupees Only';
 
   const getStyleClasses = () => {
     switch (templateStyle) {
@@ -526,10 +536,11 @@ export default function InvoicePreview({
             </>
           )}
           {(() => {
-            // Total amount below is shown as a whole rupee while every line
-            // above is exact-to-the-paisa — show that gap explicitly so the
-            // preview always foots exactly, same as the actual invoice PDF.
-            const roundOffAmount = Math.round(total) - total;
+            // displayTotal is the real final amount handed in by the caller
+            // (Cart or the order); every line above is exact-to-the-paisa —
+            // show that gap explicitly instead of letting the two silently
+            // disagree.
+            const roundOffAmount = displayTotal - total;
             if (Math.abs(roundOffAmount) < 0.005) return null;
             const sign = roundOffAmount >= 0 ? '+' : '-';
             return (
@@ -540,7 +551,7 @@ export default function InvoicePreview({
             );
           })()}
           <div className={`${styles.totalBox} p-2 rounded flex justify-center items-center`}>
-            <span className="font-bold text-sm">Total amount: ₹{Math.round(total)}</span>
+            <span className="font-bold text-sm">Total amount: ₹{displayTotal}</span>
           </div>
 
           {/* Payment status — read straight from the order, never derived here */}

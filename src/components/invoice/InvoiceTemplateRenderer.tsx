@@ -13,6 +13,7 @@ interface InvoiceTemplateRendererProps {
   paymentMode?: string;
   amountPaid?: number;
   balanceDue?: number;
+  orderTotal?: number;
 }
 
 export default function InvoiceTemplateRenderer({
@@ -22,6 +23,7 @@ export default function InvoiceTemplateRenderer({
   paymentMode,
   amountPaid,
   balanceDue,
+  orderTotal,
   schemeDetails = "",
 }: InvoiceTemplateRendererProps) {
   const [company, setCompany] = useState<any>(null);
@@ -159,6 +161,7 @@ export default function InvoiceTemplateRenderer({
           paymentMode={paymentMode}
           amountPaid={amountPaid}
           balanceDue={balanceDue}
+          orderTotal={orderTotal}
         />
       ) : (
         <div className="border rounded-lg overflow-hidden">

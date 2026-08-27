@@ -2987,10 +2987,30 @@ export const Cart = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-between text-base font-bold border-t pt-2">
-                  <span>Total:</span>
-                  <span>{fmtMoney(getFinalTotal())}</span>
-                </div>
+                {(() => {
+                  // The rounded whole-rupee figure below is exactly what gets
+                  // submitted as orders.total_amount and what the invoice
+                  // shows — surfaced here too instead of only appearing once
+                  // the invoice is generated.
+                  const exactTotal = getFinalTotal();
+                  const roundedTotal = Math.round(Math.max(0, exactTotal));
+                  const roundOff = roundedTotal - exactTotal;
+                  const hasRoundOff = Math.abs(roundOff) >= 0.005;
+                  return (
+                    <>
+                      {hasRoundOff && (
+                        <div className="flex justify-between text-xs text-muted-foreground border-t pt-1">
+                          <span>Round Off:</span>
+                          <span>{roundOff >= 0 ? '+' : '-'}{fmtMoney(Math.abs(roundOff))}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-base font-bold border-t pt-2">
+                        <span>Total:</span>
+                        <span>{fmtMoney(roundedTotal)}</span>
+                      </div>
+                    </>
+                  );
+                })()}
                 <div className="flex justify-between text-[11px] text-muted-foreground -mt-1">
                   <span>(excl. GST)</span>
                   <span>{fmtMoney(getAmountAfterDiscount())}</span>
@@ -3377,6 +3397,7 @@ export const Cart = () => {
                 cartItems={previewInvoiceItems}
                 schemeDetails={formatSchemeDetailsForInvoice(orderCalculation.appliedSchemes)}
                 paymentMode={paymentMethod || undefined}
+                orderTotal={Math.round(Math.max(0, getFinalTotal()))}
               />
             )}
           </DialogContent>

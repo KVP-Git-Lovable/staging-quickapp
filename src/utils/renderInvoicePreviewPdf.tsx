@@ -26,6 +26,7 @@ export interface InvoicePreviewPdfInput {
   paymentMode?: string;
   amountPaid?: number;
   balanceDue?: number;
+  orderTotal?: number;
 }
 
 /** A4 portrait at ~96dpi */
@@ -99,6 +100,7 @@ export async function renderInvoicePreviewToPdfBlob(
             paymentMode={input.paymentMode}
             amountPaid={input.amountPaid}
             balanceDue={input.balanceDue}
+            orderTotal={input.orderTotal}
           />
         </div>
       );
