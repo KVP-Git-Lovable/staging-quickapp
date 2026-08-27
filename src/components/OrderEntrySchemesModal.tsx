@@ -35,6 +35,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { ProductScheme } from "@/hooks/useOfflineSchemes";
 import { isSchemeConditionMet, schemeHasConditions, SchemeItem, calculateSchemeDiscountForComparison } from "@/utils/schemeEngine";
+import { getSchemeProductLabel } from "@/utils/schemeProductLabel";
 import { SchemePolicies } from "@/hooks/useSchemePolicies";
 import type { ManualSchemeSelection } from "@/utils/schemeEngine";
 import { ManualPerUnitApplyDialog } from "@/components/ManualPerUnitApplyDialog";
@@ -132,6 +133,10 @@ const formatUnit = (unit: string | undefined) => {
 };
 
 const getConditionText = (scheme: ProductScheme) => {
+  if (scheme.scheme_type === 'bundle_combo') {
+    const bundleCount = scheme.bundle_product_ids?.length || 0;
+    return `Bundle of ${bundleCount} products`;
+  }
   if (scheme.condition_quantity && scheme.quantity_condition_type) {
     const unit = formatUnit(scheme.condition_unit);
     return `Buy ${scheme.quantity_condition_type === 'more_than' ? '>' : '≥'} ${scheme.condition_quantity}${unit ? ` ${unit}` : ''}`;
@@ -147,6 +152,15 @@ const getConditionText = (scheme: ProductScheme) => {
 };
 
 const getBenefitText = (scheme: ProductScheme) => {
+  if (scheme.scheme_type === 'bundle_combo') {
+    if (scheme.bundle_discount_percentage) {
+      return `${scheme.bundle_discount_percentage}% off bundle`;
+    }
+    if (scheme.bundle_discount_amount) {
+      return `₹${scheme.bundle_discount_amount} off bundle`;
+    }
+    return 'Bundle discount';
+  }
   if (scheme.discount_percentage) {
     return `${scheme.discount_percentage}% off`;
   }
@@ -235,18 +249,26 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
 
   // Check if a scheme is product-specific or order-wide
   const isOrderWideScheme = (scheme: ProductScheme) => {
-    return !scheme.product_id || scheme.product_name === 'All Products';
+    return getSchemeProductLabel(scheme, products) === 'All Products';
   };
 
-  // Check if product for a scheme is in cart
+  // Check if the product(s) a scheme targets are in cart
   const isProductInCart = (scheme: ProductScheme) => {
-    if (isOrderWideScheme(scheme)) return true;
-    
     const orderProductIds = orderRows
       .filter(row => row.product)
       .map(row => row.product!.id);
-    
-    return scheme.product_id && orderProductIds.includes(scheme.product_id);
+
+    if (scheme.scheme_type === 'bundle_combo' && scheme.bundle_product_ids && scheme.bundle_product_ids.length > 0) {
+      return scheme.bundle_product_ids.every(id => orderProductIds.includes(id));
+    }
+
+    if (scheme.target_product_ids && scheme.target_product_ids.length > 0) {
+      return scheme.target_product_ids.some(id => orderProductIds.includes(id));
+    }
+
+    if (isOrderWideScheme(scheme)) return true;
+
+    return !!scheme.product_id && orderProductIds.includes(scheme.product_id);
   };
 
   // Build items for scheme calculation
@@ -340,7 +362,8 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
 
   const SchemeCard = ({ scheme, showInAllTab = false }: { scheme: ProductScheme; showInAllTab?: boolean }) => {
     const isApplied = appliedSchemeIds.includes(scheme.id);
-    const isOrderWide = isOrderWideScheme(scheme);
+    const productLabel = getSchemeProductLabel(scheme, products);
+    const isOrderWide = productLabel === 'All Products';
     const productInCart = isProductInCart(scheme);
     const hasConditions = schemeHasConditions(scheme);
     const conditionMet = schemeItems.length > 0 && isSchemeConditionMet(scheme, schemeItems, subtotal);
@@ -376,7 +399,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                     className={`text-[9px] px-1.5 py-0 flex items-center gap-0.5 ${!productInCart ? 'text-muted-foreground' : ''}`}
                   >
                     <Target className="w-2.5 h-2.5" />
-                    {scheme.product_name}
+                    {productLabel}
                   </Badge>
                 )}
               </div>
@@ -410,7 +433,7 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                       <div className="space-y-2 text-xs">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Target Product:</span>
-                          <span className="font-medium">{scheme.product_name || 'All Products'}</span>
+                          <span className="font-medium">{productLabel}</span>
                         </div>
                         {scheme.scheme_type === 'buy_x_get_y_free' && (
                           <>
