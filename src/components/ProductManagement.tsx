@@ -651,6 +651,80 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   // Legacy CSV export/import removed. Use ProductExportDialog +
   // ProductBulkImportDialog for the validated XLSX round-trip flow.
 
+  // Shared by the instant (possibly-stale, from the in-memory `products`
+  // list) open and the fresh-row correction below — keeps the two in sync
+  // instead of two field lists silently drifting apart over time.
+  const mapProductToForm = (product: any) => ({
+    ...emptyProductForm(),
+    id: product.id,
+    sku: product.sku,
+    product_number: product.product_number || '',
+    name: product.name,
+    description: product.description || '',
+    category_id: product.category_id || '',
+    is_focused_product: product.is_focused_product || false,
+    focused_type: product.focused_type || undefined,
+    focused_due_date: product.focused_due_date || '',
+    focused_target_quantity: product.focused_target_quantity || 0,
+    focused_territories: product.focused_territories || [],
+    focused_recurring_config: product.focused_recurring_config || undefined,
+    rate: product.rate,
+    unit: product.unit,
+    base_unit: product.base_unit || 'kg',
+    conversion_factor: product.conversion_factor || 1,
+    closing_stock: product.closing_stock,
+    is_active: product.is_active,
+    sku_image_url: product.sku_image_url || '',
+    barcode: product.barcode || '',
+    barcode_image_url: product.barcode_image_url || '',
+    qr_code: product.qr_code || '',
+    hsn_code: product.hsn_code || '',
+    tax_master_id: product.tax_master_id ?? null,
+    gst_percentage: product.gst_percentage ?? null,
+    product_type: product.product_type || 'Finished Good',
+    gross_weight_g: product.gross_weight_g ?? null,
+    packaging_weight_g: product.packaging_weight_g ?? null,
+    standard_cost: product.standard_cost ?? null,
+    cost_currency: product.cost_currency || 'INR',
+    reorder_quantity: product.reorder_quantity ?? null,
+    last_cost_update: product.last_cost_update ?? null,
+    primary_supplier_id: product.primary_supplier_id ?? null,
+    manufacturer: product.manufacturer || '',
+    country_of_origin: product.country_of_origin || '',
+    is_discontinued: product.is_discontinued || false,
+    discontinued_date: product.discontinued_date ?? null,
+    discontinuation_reason: product.discontinuation_reason || '',
+    created_by: product.created_by ?? null,
+    updated_by: product.updated_by ?? null,
+  });
+
+  // Opens the edit dialog instantly from the (possibly stale — the product
+  // list is only refetched after this session's own writes) in-memory row,
+  // then silently swaps in a freshly-fetched copy once it lands. Without
+  // this, saving any unrelated field (closing stock, active flag, HSN...)
+  // resubmits the whole form including a `rate` that could be hours or
+  // days out of date, quietly reverting a price someone else changed since.
+  const openEditProductDialog = (product: any) => {
+    setProductForm(mapProductToForm(product));
+    setUnitsValue(emptyProductUnitsEditorValue());
+    setIsProductDialogOpen(true);
+    hydrateUnitsEditorFromProduct(product.id)
+      .then((v) => { if (v) setUnitsValue(v); })
+      .catch((e) => console.error('Hydrate UoM editor failed:', e));
+
+    supabase
+      .from('products')
+      .select('*')
+      .eq('id', product.id)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) return;
+        // Guard against a race: only apply if the dialog is still open for
+        // this same product (user didn't close it / switch to another row
+        // before the fetch resolved).
+        setProductForm(prev => (prev.id === product.id ? mapProductToForm(data) : prev));
+      });
+  };
 
   const handleProductSubmit = async () => {
     setSavingProduct(true);
@@ -1277,56 +1351,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                setProductForm({
-                                  ...emptyProductForm(),
-                                  id: product.id,
-                                  sku: product.sku,
-                                  product_number: product.product_number || '',
-                                  name: product.name,
-                                  description: product.description || '',
-                                  category_id: product.category_id || '',
-                                  is_focused_product: product.is_focused_product || false,
-                                  focused_type: (product as any).focused_type || undefined,
-                                  focused_due_date: product.focused_due_date || '',
-                                  focused_target_quantity: product.focused_target_quantity || 0,
-                                  focused_territories: product.focused_territories || [],
-                                  focused_recurring_config: (product as any).focused_recurring_config || undefined,
-                                  rate: product.rate,
-                                  unit: product.unit,
-                                  base_unit: (product as any).base_unit || 'kg',
-                                  conversion_factor: (product as any).conversion_factor || 1,
-                                  closing_stock: product.closing_stock,
-                                  is_active: product.is_active,
-                                  sku_image_url: (product as any).sku_image_url || '',
-                                  barcode: (product as any).barcode || '',
-                                  barcode_image_url: (product as any).barcode_image_url || '',
-                                  qr_code: (product as any).qr_code || '',
-                                  hsn_code: (product as any).hsn_code || '',
-                                  tax_master_id: (product as any).tax_master_id ?? null,
-                                  gst_percentage: (product as any).gst_percentage ?? null,
-                                  product_type: (product as any).product_type || 'Finished Good',
-                                  gross_weight_g: (product as any).gross_weight_g ?? null,
-                                  packaging_weight_g: (product as any).packaging_weight_g ?? null,
-                                  standard_cost: (product as any).standard_cost ?? null,
-                                  cost_currency: (product as any).cost_currency || 'INR',
-                                  reorder_quantity: (product as any).reorder_quantity ?? null,
-                                  last_cost_update: (product as any).last_cost_update ?? null,
-                                  primary_supplier_id: (product as any).primary_supplier_id ?? null,
-                                  manufacturer: (product as any).manufacturer || '',
-                                  country_of_origin: (product as any).country_of_origin || '',
-                                  is_discontinued: (product as any).is_discontinued || false,
-                                  discontinued_date: (product as any).discontinued_date ?? null,
-                                  discontinuation_reason: (product as any).discontinuation_reason || '',
-                                  created_by: (product as any).created_by ?? null,
-                                  updated_by: (product as any).updated_by ?? null,
-                                });
-                                setUnitsValue(emptyProductUnitsEditorValue());
-                                setIsProductDialogOpen(true);
-                                hydrateUnitsEditorFromProduct(product.id)
-                                  .then((v) => { if (v) setUnitsValue(v); })
-                                  .catch((e) => console.error('Hydrate UoM editor failed:', e));
-                              }}
+                              onClick={() => openEditProductDialog(product)}
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
