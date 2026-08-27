@@ -23,6 +23,9 @@ export interface InvoicePreviewPdfInput {
   invoiceTime?: string;
   schemeDetails?: string;
   displaySettings?: DisplaySettingsMap;
+  paymentMode?: string;
+  amountPaid?: number;
+  balanceDue?: number;
 }
 
 /** A4 portrait at ~96dpi */
@@ -93,6 +96,9 @@ export async function renderInvoicePreviewToPdfBlob(
             invoiceTime={input.invoiceTime || ""}
             schemeDetails={input.schemeDetails || ""}
             displaySettings={input.displaySettings || {}}
+            paymentMode={input.paymentMode}
+            amountPaid={input.amountPaid}
+            balanceDue={input.balanceDue}
           />
         </div>
       );

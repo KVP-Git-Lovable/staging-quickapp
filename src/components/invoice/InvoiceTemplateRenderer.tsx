@@ -10,12 +10,18 @@ interface InvoiceTemplateRendererProps {
   retailerId: string;
   cartItems: any[];
   schemeDetails?: string;
+  paymentMode?: string;
+  amountPaid?: number;
+  balanceDue?: number;
 }
 
 export default function InvoiceTemplateRenderer({
   orderId,
   retailerId,
   cartItems,
+  paymentMode,
+  amountPaid,
+  balanceDue,
   schemeDetails = "",
 }: InvoiceTemplateRendererProps) {
   const [company, setCompany] = useState<any>(null);
@@ -150,6 +156,9 @@ export default function InvoiceTemplateRenderer({
           invoiceTime={invoiceTime}
           schemeDetails={schemeDetails}
           displaySettings={displaySettings}
+          paymentMode={paymentMode}
+          amountPaid={amountPaid}
+          balanceDue={balanceDue}
         />
       ) : (
         <div className="border rounded-lg overflow-hidden">

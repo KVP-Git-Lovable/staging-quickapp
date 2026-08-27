@@ -111,6 +111,9 @@ interface InvoiceData {
   orderDiscount?: number; // Order-level discount from orders.discount_amount
   orderTotal?: number; // Final total from orders.total_amount (includes GST, discounts)
   displaySettings?: DisplaySettingsMap; // Display settings from Invoice Management
+  paymentMode?: string; // orders.payment_method — read straight through, never derived
+  amountPaid?: number;
+  balanceDue?: number;
 }
 
 // Helper function to format amount with 2 decimal places (exact)
@@ -280,6 +283,9 @@ export async function generateTemplate4Invoice(data: InvoiceData): Promise<Blob>
       invoiceTime: data.displayInvoiceTime,
       schemeDetails: data.schemeDetails,
       displaySettings,
+      paymentMode: data.paymentMode,
+      amountPaid: data.amountPaid,
+      balanceDue: data.balanceDue,
     });
   } catch (err) {
     console.error('Preview-based invoice render failed, falling back to legacy layout', err);
@@ -1432,7 +1438,13 @@ export async function fetchAndGenerateInvoice(orderId: string): Promise<{ blob: 
         schemeDetails,
         // CRITICAL: Pass order-level discount and total for accurate invoice
         orderDiscount: Number(order.discount_amount) || 0,
-        orderTotal: Number(order.total_amount) || undefined
+        orderTotal: Number(order.total_amount) || undefined,
+        // Payment status is read straight off the order — never derived here.
+        paymentMode: order.payment_method || undefined,
+        amountPaid: order.is_credit_order
+          ? Number(order.credit_paid_amount) || 0
+          : Number(order.total_amount) || 0,
+        balanceDue: order.is_credit_order ? Number(order.credit_pending_amount) || 0 : 0,
       });
       break;
   }

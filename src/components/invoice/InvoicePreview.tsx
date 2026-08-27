@@ -67,7 +67,21 @@ interface InvoicePreviewProps {
   invoiceTime?: string;
   schemeDetails?: string;
   displaySettings?: DisplaySettingsMap;
+  // Payment status — read straight from the order (or the rep's current
+  // in-progress selection on a not-yet-submitted cart); never derived here.
+  paymentMode?: string;
+  amountPaid?: number;
+  balanceDue?: number;
 }
+
+const PAYMENT_MODE_LABELS: Record<string, string> = {
+  cash: "Cash",
+  cheque: "Cheque",
+  upi: "UPI",
+  neft: "NEFT",
+  credit: "Credit",
+  collect_on_delivery: "Collect on Delivery",
+};
 
 export default function InvoicePreview({
   company,
@@ -79,7 +93,10 @@ export default function InvoicePreview({
   salesmanName = "",
   invoiceTime = "",
   schemeDetails = "",
-  displaySettings = {}
+  displaySettings = {},
+  paymentMode,
+  amountPaid,
+  balanceDue
 }: InvoicePreviewProps) {
   // Unit conversion helper
   const normalizeUnit = (u?: string) => (u || "").toLowerCase().replace(/\./g, "").trim();
@@ -526,6 +543,22 @@ export default function InvoicePreview({
             <span className="font-bold text-sm">Total amount: ₹{Math.round(total)}</span>
           </div>
 
+          {/* Payment status — read straight from the order, never derived here */}
+          <div className="mt-2 pt-2 border-t border-gray-300">
+            <div className="flex justify-between mb-1">
+              <span className="text-xs text-gray-600">Balance</span>
+              <span className="text-xs font-semibold">
+                {balanceDue != null ? `₹${balanceDue.toFixed(2)}` : `₹0.00`}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-xs text-gray-600">Payment mode</span>
+              <span className="text-xs font-semibold">
+                {paymentMode ? (PAYMENT_MODE_LABELS[paymentMode] || paymentMode) : "Not yet selected"}
+              </span>
+            </div>
+          </div>
+
         </div>
       </div>
         );
@@ -539,6 +572,12 @@ export default function InvoicePreview({
           </p>
         </div>
       )}
+
+      {/* CGST Rule 46(o): every tax invoice must state whether tax is payable
+          on reverse charge. Always "No" for a normal forward-charge retail sale. */}
+      <p className="text-[11px] text-gray-500 mb-4">
+        Tax is payable on reverse charge: No
+      </p>
 
       {/* Bank Details and QR Code */}
       {(isEnabled('payment_bank_details') || isEnabled('payment_qr_code')) && (

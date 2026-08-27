@@ -3376,6 +3376,7 @@ export const Cart = () => {
                 retailerId={validRetailerId}
                 cartItems={previewInvoiceItems}
                 schemeDetails={formatSchemeDetailsForInvoice(orderCalculation.appliedSchemes)}
+                paymentMode={paymentMethod || undefined}
               />
             )}
           </DialogContent>
