@@ -1,4 +1,5 @@
-import { ArrowUpRight } from "lucide-react";
+import { useState } from "react";
+import { ArrowUpRight, ChevronDown, ChevronUp } from "lucide-react";
 import { PROMPT_CARDS } from "../../prompts/promptCards";
 
 interface Props {
@@ -8,20 +9,56 @@ interface Props {
 }
 
 export function PromptCardGrid({ onSelect, disabled, variant = "grid" }: Props) {
+  // Mobile-only disclosure for the chips row in the chat window: the full
+  // set of suggestion pills crowds a small screen, so it collapses into a
+  // single "View suggestions" pill until tapped. Desktop is unchanged.
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+
   if (variant === "chips") {
+    const chips = PROMPT_CARDS.map((card) => (
+      <button
+        key={card.id}
+        type="button"
+        disabled={disabled}
+        onClick={() => onSelect(card.prompt)}
+        className="copilot-action rounded-full border border-primary-foreground/15 px-3 py-1.5 text-xs text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
+      >
+        {card.title}
+      </button>
+    ));
+
     return (
-      <div className="flex flex-wrap gap-2 w-full max-w-3xl mx-auto">
-        {PROMPT_CARDS.map((card) => (
-          <button
-            key={card.id}
-            type="button"
-            disabled={disabled}
-            onClick={() => onSelect(card.prompt)}
-            className="copilot-action rounded-full border border-primary-foreground/15 px-3 py-1.5 text-xs text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
-          >
-            {card.title}
-          </button>
-        ))}
+      <div className="w-full max-w-3xl mx-auto">
+        {/* Desktop / tablet: the original full chips row. */}
+        <div className="hidden sm:flex flex-wrap gap-2">{chips}</div>
+
+        {/* Mobile: collapsed into one small pill; tap to expand. */}
+        <div className="sm:hidden">
+          {mobileExpanded ? (
+            <div className="flex flex-wrap gap-2">
+              {chips}
+              <button
+                type="button"
+                aria-expanded={true}
+                onClick={() => setMobileExpanded(false)}
+                className="copilot-action flex items-center gap-1 rounded-full border border-primary-foreground/15 px-3 py-1.5 text-xs text-primary-foreground/80 transition-opacity hover:opacity-90"
+              >
+                <ChevronUp className="h-3.5 w-3.5" />
+                Hide suggestions
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              aria-expanded={false}
+              onClick={() => setMobileExpanded(true)}
+              className="copilot-action flex items-center gap-1 rounded-full border border-primary-foreground/15 px-3 py-1.5 text-xs text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+              View suggestions
+            </button>
+          )}
+        </div>
       </div>
     );
   }
