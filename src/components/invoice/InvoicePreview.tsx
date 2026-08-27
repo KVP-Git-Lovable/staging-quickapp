@@ -432,55 +432,6 @@ export default function InvoicePreview({
         );
       })()}
 
-      {/* Rate-wise GST summary (GST compliant) */}
-      {(() => {
-        const groups = new Map<number, { taxable: number; cgst: number; sgst: number; igst: number; cess: number }>();
-        cartItems.forEach((it: any, i: number) => {
-          const lt = lineTaxes[i];
-          if (!lt || lt.taxRate <= 0) return;
-          const key = Number(lt.taxRate) || 0;
-          const g = groups.get(key) || { taxable: 0, cgst: 0, sgst: 0, igst: 0, cess: 0 };
-          g.taxable += Number((lt as any).taxableAmount ?? 0) || 0;
-          g.cgst += lt.cgst; g.sgst += lt.sgst; g.igst += lt.igst; g.cess += lt.cess;
-          groups.set(key, g);
-        });
-        if (groups.size === 0) return null;
-        const rows = Array.from(groups.entries()).sort((a, b) => a[0] - b[0]);
-        return (
-          <div className="mb-4">
-            <h3 className="font-bold text-xs mb-2">GST RATE-WISE SUMMARY</h3>
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr className={styles.tableHeader}>
-                  <th className="border border-gray-300 p-1 text-center">RATE</th>
-                  <th className="border border-gray-300 p-1 text-right">TAXABLE</th>
-                  <th className="border border-gray-300 p-1 text-right">CGST</th>
-                  <th className="border border-gray-300 p-1 text-right">SGST</th>
-                  {rows.some(([, v]) => v.igst > 0) && (
-                    <th className="border border-gray-300 p-1 text-right">IGST</th>
-                  )}
-                  <th className="border border-gray-300 p-1 text-right">TOTAL TAX</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(([rate, v]) => (
-                  <tr key={rate}>
-                    <td className="border border-gray-300 p-1 text-center">{rate}%</td>
-                    <td className="border border-gray-300 p-1 text-right">₹{v.taxable.toFixed(2)}</td>
-                    <td className="border border-gray-300 p-1 text-right">₹{v.cgst.toFixed(2)}</td>
-                    <td className="border border-gray-300 p-1 text-right">₹{v.sgst.toFixed(2)}</td>
-                    {rows.some(([, vv]) => vv.igst > 0) && (
-                      <td className="border border-gray-300 p-1 text-right">₹{v.igst.toFixed(2)}</td>
-                    )}
-                    <td className="border border-gray-300 p-1 text-right">₹{(v.cgst + v.sgst + v.igst + v.cess).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      })()}
-
       {/* Scheme Details */}
       {schemeDetails && schemeDetails.trim() && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
@@ -511,16 +462,30 @@ export default function InvoicePreview({
               <span className="text-xs">-₹{totalDiscount.toFixed(2)}</span>
             </div>
           )}
-          {isEnabled('totals_tax_breakdown') && (
+          {isEnabled('totals_tax_breakdown') && (() => {
+            // Same rate-suffix convention as Cart's own summary: show the
+            // % only when every line shares one rate, so it's never a
+            // misleading label on a mixed-rate order.
+            const rates = Array.from(new Set(
+              lineTaxes.filter((l: any) => l && l.taxRate > 0).map((l: any) => l.taxRate)
+            ));
+            const uniformRate = rates.length === 1 ? rates[0] : null;
+            const half = uniformRate != null ? +(uniformRate / 2).toFixed(2) : null;
+            return (
             <>
               <div className="flex justify-between mb-2">
-                <span className="font-bold text-xs">SGST</span>
+                <span className="font-bold text-xs">SGST{half != null ? ` @ ${half}%` : ''}</span>
                 <span className="text-xs">₹{sgst.toFixed(2)}</span>
               </div>
               <div className="flex justify-between mb-2">
-                <span className="font-bold text-xs">CGST</span>
+                <span className="font-bold text-xs">CGST{half != null ? ` @ ${half}%` : ''}</span>
                 <span className="text-xs">₹{cgst.toFixed(2)}</span>
               </div>
+              {rates.length > 1 && (
+                <div className="text-[10px] text-gray-500 italic mb-2">
+                  Mixed GST rates: {rates.sort((a: number, b: number) => a - b).map((r: number) => `${r}%`).join(', ')}
+                </div>
+              )}
               {igst > 0 && (
                 <div className="flex justify-between mb-2">
                   <span className="font-bold text-xs">IGST</span>
@@ -534,7 +499,8 @@ export default function InvoicePreview({
                 </div>
               )}
             </>
-          )}
+            );
+          })()}
           {(() => {
             // displayTotal is the real final amount handed in by the caller
             // (Cart or the order); every line above is exact-to-the-paisa —
