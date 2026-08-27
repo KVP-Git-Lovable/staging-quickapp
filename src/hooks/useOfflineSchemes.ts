@@ -43,6 +43,11 @@ export interface ProductScheme {
   priority?: number | null;
   exclusion_group?: string | null;
   applicability_type?: 'global' | 'targeted' | 'hybrid' | null;
+  // Bundle / Combo Discount — every listed product must be present in the
+  // order for the scheme to be eligible.
+  bundle_product_ids?: string[] | null;
+  bundle_discount_amount?: number | null;
+  bundle_discount_percentage?: number | null;
 }
 
 export const useOfflineSchemes = () => {
