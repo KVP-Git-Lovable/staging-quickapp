@@ -508,6 +508,20 @@ export default function InvoicePreview({
               )}
             </>
           )}
+          {(() => {
+            // Total amount below is shown as a whole rupee while every line
+            // above is exact-to-the-paisa — show that gap explicitly so the
+            // preview always foots exactly, same as the actual invoice PDF.
+            const roundOffAmount = Math.round(total) - total;
+            if (Math.abs(roundOffAmount) < 0.005) return null;
+            const sign = roundOffAmount >= 0 ? '+' : '-';
+            return (
+              <div className="flex justify-between mb-2">
+                <span className="font-bold text-xs">ROUND OFF</span>
+                <span className="text-xs">{sign}₹{Math.abs(roundOffAmount).toFixed(2)}</span>
+              </div>
+            );
+          })()}
           <div className={`${styles.totalBox} p-2 rounded flex justify-center items-center`}>
             <span className="font-bold text-sm">Total amount: ₹{Math.round(total)}</span>
           </div>

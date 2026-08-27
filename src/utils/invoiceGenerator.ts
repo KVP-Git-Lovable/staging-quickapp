@@ -803,8 +803,13 @@ async function generateTemplate4InvoiceLegacy(data: InvoiceData): Promise<Blob> 
   const totalRowHeight = 7;
   const showIgst = igst > 0;
   const showCess = cess > 0;
-  // Rows: SUB-TOTAL, (DISCOUNT if any), SGST, CGST, (IGST?), (CESS?), then TOTAL bar
-  const numRows = 3 + (hasOrderLevelDiscount ? 1 : 0) + (showIgst ? 1 : 0) + (showCess ? 1 : 0);
+  // The Total bar below shows a whole-rupee amount (formatRounded) while every
+  // line above it is exact-to-the-paisa — that gap must be shown as its own
+  // line, never silently absorbed, so the invoice always foots exactly.
+  const roundOffAmount = Math.round(total) - total;
+  const hasRoundOff = Math.abs(roundOffAmount) >= 0.005;
+  // Rows: SUB-TOTAL, (DISCOUNT if any), SGST, CGST, (IGST?), (CESS?), (ROUND OFF?), then TOTAL bar
+  const numRows = 3 + (hasOrderLevelDiscount ? 1 : 0) + (showIgst ? 1 : 0) + (showCess ? 1 : 0) + (hasRoundOff ? 1 : 0);
   const totalsBoxHeight = (numRows * rowHeight) + totalRowHeight + 4;
   
   // Draw border box
@@ -850,6 +855,13 @@ async function generateTemplate4InvoiceLegacy(data: InvoiceData): Promise<Blob> 
     innerY += rowHeight;
     doc.text("CESS", totalsBoxX + labelOffset, innerY);
     doc.text(`Rs.${formatExact(cess)}`, totalsBoxX + valueOffset, innerY, { align: "right" });
+  }
+
+  if (hasRoundOff) {
+    innerY += rowHeight;
+    const sign = roundOffAmount >= 0 ? "+" : "-";
+    doc.text("ROUND OFF", totalsBoxX + labelOffset, innerY);
+    doc.text(`${sign}Rs.${formatExact(Math.abs(roundOffAmount))}`, totalsBoxX + valueOffset, innerY, { align: "right" });
   }
 
 
