@@ -243,7 +243,7 @@ export default function InvoicePreview({
         <InvoiceStatusBadge invoiceNumber={orderId} variant="banner" />
       </div>
       {/* Header */}
-      <div className={`${styles.header} p-4 rounded-t-lg flex justify-between items-center mb-6`}>
+      <div className={`${styles.header} p-4 rounded-t-lg flex justify-between items-center mb-4`}>
         <div className="flex items-center gap-4">
           {isEnabled('header_company_logo') && company.logo_url && (
             <img src={company.logo_url} alt="Company Logo" className="w-28 h-28 object-contain" />
@@ -275,7 +275,7 @@ export default function InvoicePreview({
       </div>
 
       {/* Bill To & Invoice Details */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-2 gap-6 mb-4">
         <div>
           <h3 className="font-bold text-xs mb-2">BILL TO</h3>
           {isEnabled('billto_retailer_name') && (
@@ -343,20 +343,19 @@ export default function InvoicePreview({
               {isEnabled('table_hsn_code') && (
                 <th className="border border-gray-300 p-2 text-center text-xs">HSN/SAC</th>
               )}
+              <th className="border border-gray-300 p-2 text-center text-xs">QTY</th>
               {isEnabled('table_unit_column') && (
                 <th className="border border-gray-300 p-2 text-center text-xs">UNIT</th>
               )}
-              <th className="border border-gray-300 p-2 text-center text-xs">QTY</th>
               {hasAnyItemDiscount ? (
                 <>
                   <th className="border border-gray-300 p-2 text-right text-xs">MRP</th>
                   <th className="border border-gray-300 p-2 text-right text-xs">OFFER PRICE</th>
                 </>
               ) : (
-                <th className="border border-gray-300 p-2 text-right text-xs">PRICE</th>
+                <th className="border border-gray-300 p-2 text-right text-xs">PRICE/UNIT</th>
               )}
-              <th className="border border-gray-300 p-2 text-center text-xs">CGST%</th>
-              <th className="border border-gray-300 p-2 text-center text-xs">SGST%</th>
+              <th className="border border-gray-300 p-2 text-center text-xs">GST</th>
               <th className="border border-gray-300 p-2 text-right text-xs">TOTAL</th>
             </tr>
           </thead>
@@ -386,8 +385,6 @@ export default function InvoicePreview({
                 (item as any).gst_percentage ??
                 0
               ) || 0;
-              const cgstRate = Number((item as any).cgst_rate ?? (fallbackRate / 2)) || 0;
-              const sgstRate = Number((item as any).sgst_rate ?? (fallbackRate / 2)) || 0;
               const igstRate = Number((item as any).igst_rate ?? 0) || 0;
               return (
                 <tr key={index} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
@@ -396,10 +393,10 @@ export default function InvoicePreview({
                   {isEnabled('table_hsn_code') && (
                     <td className="border border-gray-300 p-2 text-center text-xs">{item.hsn_code || "-"}</td>
                   )}
+                  <td className="border border-gray-300 p-2 text-center text-xs">{qty}</td>
                   {isEnabled('table_unit_column') && (
                     <td className="border border-gray-300 p-2 text-center text-xs">{unit}</td>
                   )}
-                  <td className="border border-gray-300 p-2 text-center text-xs">{qty}</td>
                   {hasAnyItemDiscount ? (
                     <>
                       <td className="border border-gray-300 p-2 text-right text-xs">
@@ -415,10 +412,7 @@ export default function InvoicePreview({
                     </td>
                   )}
                   <td className="border border-gray-300 p-2 text-center text-xs">
-                    {igstRate > 0 ? `IGST ${igstRate}%` : (cgstRate > 0 ? `${cgstRate}%` : '-')}
-                  </td>
-                  <td className="border border-gray-300 p-2 text-center text-xs">
-                    {igstRate > 0 ? '-' : (sgstRate > 0 ? `${sgstRate}%` : '-')}
+                    {igstRate > 0 ? `${igstRate}%` : (fallbackRate > 0 ? `${fallbackRate}%` : '-')}
                   </td>
                   <td className="border border-gray-300 p-2 text-right text-xs">
                     ₹{itemTotal.toFixed(2)}
@@ -543,7 +537,7 @@ export default function InvoicePreview({
 
       {/* Amount in Words */}
       {isEnabled('totals_amount_in_words') && (
-        <div className="mb-6 p-3 bg-gray-100 rounded">
+        <div className="mb-3 p-2 bg-gray-100 rounded">
           <p className="text-xs">
             <span className="font-bold">Amount in Words:</span> {totalInWords}
           </p>
@@ -552,13 +546,13 @@ export default function InvoicePreview({
 
       {/* CGST Rule 46(o): every tax invoice must state whether tax is payable
           on reverse charge. Always "No" for a normal forward-charge retail sale. */}
-      <p className="text-[11px] text-gray-500 mb-4">
+      <p className="text-[11px] text-gray-500 mb-3">
         Tax is payable on reverse charge: No
       </p>
 
       {/* Bank Details and QR Code */}
       {(isEnabled('payment_bank_details') || isEnabled('payment_qr_code')) && (
-        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Bank Details */}
           {isEnabled('payment_bank_details') && (
             <div>
@@ -592,10 +586,10 @@ export default function InvoicePreview({
 
       {/* Signature */}
       {isEnabled('footer_signature_area') && (
-        <div className="flex justify-end mb-6">
+        <div className="flex justify-end mb-4">
           <div className="text-right">
             <p className="text-xs font-bold mb-1">For {company.name || "Company"}</p>
-            <div className="mt-8 pt-4 border-t border-gray-400">
+            <div className="mt-5 pt-2 border-t border-gray-400">
               <p className="text-xs italic">Authorized Signatory</p>
             </div>
           </div>
