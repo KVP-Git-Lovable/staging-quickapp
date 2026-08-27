@@ -518,10 +518,11 @@ export const Cart = () => {
         quantity: displayQuantity,
         rate: displayRate,
         name: item.name,
-        category_id: item.category_id ?? null
+        category_id: item.category_id ?? null,
+        unit: item.display_unit || item.unit
       };
     });
-    
+
     return calculateOrderWithSchemes(schemeItems, schemes, appliedSchemeIds, manualSelections);
   }, [cartItems, schemes, appliedSchemeIds, manualSelections]);
 

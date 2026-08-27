@@ -11,6 +11,28 @@ export interface SchemeItem {
   rate: number;
   name?: string;
   category_id?: string | null;
+  // Selling unit this line's `quantity`/`rate` are actually expressed in (e.g. 'KG', 'G').
+  // Needed to convert a scheme's per-unit discount rate onto the line's real unit —
+  // without it, a per-kg discount gets applied as-is against a gram-denominated
+  // quantity (or vice versa), off by the conversion factor between them.
+  unit?: string;
+}
+
+// kg<->g and l<->ml are the only conversions the product catalog guarantees
+// (see uomEngine.ts's Phase 1 backfill note). Anything else is left unconverted
+// rather than guessed.
+function convertPerUnitRate(rate: number, fromUnit: string | undefined, toUnit: string | undefined): number {
+  const from = (fromUnit || '').trim().toLowerCase();
+  const to = (toUnit || '').trim().toLowerCase();
+  if (!from || !to || from === to) return rate;
+  const isGram = (u: string) => u === 'g' || u === 'gm' || u === 'gram' || u === 'grams';
+  const isMl = (u: string) => u === 'ml' || u === 'milliliter' || u === 'millilitre';
+  const SCALE = 1000;
+  if (from === 'kg' && isGram(to)) return rate / SCALE;
+  if (isGram(from) && to === 'kg') return rate * SCALE;
+  if (from === 'l' && isMl(to)) return rate / SCALE;
+  if (isMl(from) && to === 'l') return rate * SCALE;
+  return rate;
 }
 
 export interface AppliedScheme {
@@ -392,11 +414,16 @@ function calculateSchemeDiscount(
         const enteredForLine = Math.max(0, Math.min(cap, Number(rawForLine) || 0));
         if (enteredForLine <= 0) continue;
 
-        // For percentage: perUnit = rate * pct/100; line discount = perUnit * qty
+        // For percentage: perUnit = rate * pct/100 (item.rate is already in the
+        // line's real unit, so this is unit-safe as-is). For amount: the rep's
+        // entered value is denominated in the scheme's discount_unit (e.g. kg),
+        // so it must be converted onto the line's actual unit before being
+        // multiplied by item.quantity — otherwise a per-kg discount gets applied
+        // per-gram (or vice versa) whenever the line's unit differs from the scheme's.
         const perUnit =
           valueType === 'percentage'
             ? (Number(item.rate) || 0) * (enteredForLine / 100)
-            : enteredForLine;
+            : convertPerUnitRate(enteredForLine, unit, item.unit);
         if (perUnit <= 0) continue;
 
         const itemDiscount = perUnit * item.quantity;

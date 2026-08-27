@@ -55,6 +55,8 @@ interface OrderRow {
   product?: Product;
   variant?: any;
   quantity: number;
+  unit?: string;
+  uomCode?: string | null;
 }
 
 interface OrderEntrySchemesModalProps {
@@ -285,7 +287,8 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
         quantity: row.quantity,
         rate: row.variant?.price ?? row.product!.rate,
         name: row.variant?.variant_name || row.product!.name,
-        category_id: row.product!.category_id ?? null
+        category_id: row.product!.category_id ?? null,
+        unit: row.uomCode || row.unit
       }));
   }, [orderRows]);
 
