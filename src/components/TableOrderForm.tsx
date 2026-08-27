@@ -421,6 +421,7 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         variant_id: row.variant ? row.variant.id : null,
         name: displayName || 'Unknown Product',
         category: row.product!.category?.name || 'Uncategorized',
+        category_id: row.product!.category_id ?? null,
         rate: effectiveRate,
         original_rate: catalogRate,
         is_price_edited: isPriceEdited,
