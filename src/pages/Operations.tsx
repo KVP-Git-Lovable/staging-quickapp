@@ -2110,7 +2110,17 @@ const Operations = () => {
                                           </div>
                                           <div>
                                             <div className="text-xs text-muted-foreground">Order Date & Time</div>
-                                            <div className="text-sm font-medium">{format(new Date(item.created_at), 'PPpp')}</div>
+                                            <div className="text-sm font-medium">
+                                              {(() => {
+                                                const createdAt = new Date(item.created_at);
+                                                const orderDay = item.order_date ? new Date(`${item.order_date}T00:00:00`) : createdAt;
+                                                const display = new Date(
+                                                  orderDay.getFullYear(), orderDay.getMonth(), orderDay.getDate(),
+                                                  createdAt.getHours(), createdAt.getMinutes()
+                                                );
+                                                return format(display, 'PPpp');
+                                              })()}
+                                            </div>
                                           </div>
                                         </div>
                                         <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
