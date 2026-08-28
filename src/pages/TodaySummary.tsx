@@ -450,6 +450,30 @@ export const TodaySummary = () => {
         todayOrders = ordersResult.orders;
         setIsShowingOfflineData(wasOffline && todayOrders.length > 0);
         console.log(`📊 [SUMMARY] Got ${ordersResult.totalCount} orders from unified source`, ordersResult.sourceBreakdown);
+
+        // Reconcile against the live confirmed set when online. The unified
+        // source's offline/snapshot layers can retain entries that never got
+        // cleaned up after being superseded, cancelled, or synced under a
+        // different id — inflating order count/value/qty with orders that no
+        // longer exist as any real row. Only real confirmed orders count.
+        if (navigator.onLine) {
+          try {
+            const { data: liveConfirmed } = await supabase
+              .from('orders')
+              .select('id')
+              .eq('user_id', authUser.id)
+              .eq('order_date', targetDate)
+              .eq('status', 'confirmed');
+            const liveIds = new Set((liveConfirmed || []).map((o: any) => o.id));
+            const beforeCount = todayOrders.length;
+            todayOrders = todayOrders.filter((o: any) => liveIds.has(o.id));
+            if (todayOrders.length !== beforeCount) {
+              console.warn(`[SUMMARY] Dropped ${beforeCount - todayOrders.length} stale/phantom cached order(s) not present as confirmed in the DB`);
+            }
+          } catch (e) {
+            console.warn('[SUMMARY] Live order reconciliation failed (non-fatal)', e);
+          }
+        }
       } else {
         setIsShowingOfflineData(false);
         // For date ranges or multiple users, fetch from DB directly
