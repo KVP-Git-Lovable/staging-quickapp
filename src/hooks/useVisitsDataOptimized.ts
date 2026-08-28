@@ -112,17 +112,26 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
     ? visits.filter(v => v.planned_date === selectedDate)
     : visits;
   
-  // Also filter orders by date, and to retailer orders only. Counter/event
+  // Filter orders by date, and to retailer orders only, for everything that counts
+  // VISITS (productive/unproductive/planned, teammate breakdown). Counter/event
   // orders carry retailer_id = null, so a set built from o.retailer_id gets a
-  // literal `null` entry — never in countedRetailers, so it always reads as an
-  // extra productive retailer, and the reduce below adds its amount straight
-  // into a KPI titled "Today's Progress" for a beat that never saw it. This is
-  // the retailer/beat widget; activity and event figures are added separately
-  // by the caller (see actTotal/actProductive in MyVisits.tsx).
+  // literal `null` entry — never in countedRetailers, so it would read as an
+  // extra productive retailer for a beat that never saw it, if used for visit
+  // counting. Activity/event visit figures are added separately by the caller
+  // (see actTotal/actProductive in MyVisits.tsx). This set is NOT used for
+  // Total Order Value — see allDateOrders below.
   const dateFilteredOrders = selectedDate
     ? orders.filter(o => o.order_date === selectedDate && o.retailer_id)
     : orders.filter(o => o.retailer_id);
-  
+
+  // Total Order Value must mean "everything sold today, any channel" — the same
+  // question Today's Summary answers — so it's summed separately from the
+  // retailer-only set above rather than narrowed to beat/retailer visits.
+  // Counter/event/van-sales orders carry retailer_id = null and are included here.
+  const allDateOrders = selectedDate
+    ? orders.filter(o => o.order_date === selectedDate)
+    : orders;
+
   // Activity visits (events, meetings, leave) carry retailer_id = null. A caller
   // that derives its retailer list from visits therefore hands us an entry with
   // no id, and counting it as a planned retailer double-counts the activity —
@@ -191,8 +200,8 @@ const calculateStats = (visits: any[], orders: any[], retailers: any[], selected
     planned,
     productive,
     unproductive,
-    totalOrders: dateFilteredOrders.length,
-    totalOrderValue: dateFilteredOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
+    totalOrders: allDateOrders.length,
+    totalOrderValue: allDateOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0),
     totalPlanned,
     teamProductive: teamProductiveRetailers.size,
     teamUnproductive: teamUnproductiveRetailers.size,
