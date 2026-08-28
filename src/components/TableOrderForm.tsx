@@ -806,7 +806,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           quantity: row.quantity,
           rate: eff,
           name: row.variant?.variant_name || row.product!.name,
-          category_id: row.product!.category_id ?? null
+          category_id: row.product!.category_id ?? null,
+          unit: row.uomCode || row.unit
         };
       });
     
@@ -1470,7 +1471,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           quantity: row.quantity,
           rate: eff,
           name: row.variant?.variant_name || row.product!.name,
-          category_id: row.product!.category_id ?? null
+          category_id: row.product!.category_id ?? null,
+          unit: row.uomCode || row.unit
         };
       });
     

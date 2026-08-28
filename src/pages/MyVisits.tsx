@@ -105,12 +105,20 @@ function routeInsightLine(s: RouteStop): string {
   if (s.pending > 0) parts.push(`${inrCompact(s.pending)} is waiting to be collected`);
   if (s.visits > 0) parts.push(`orders land on ${s.productivityPct}% of your visits`);
   const detail = parts.join(", ");
+  // A wider pool (and the stop number mixed into the hash key) keeps
+  // neighbouring cards from repeating the same opener — wording only,
+  // the figures and stop order come from the agent unchanged.
   const variants = [
     `Worth swinging by as stop #${s.sequence} today — ${detail}. A quick hello could go a long way!`,
     `Today's route puts this one at #${s.sequence} — ${detail}. Good moment to check in!`,
     `Pencilled in at #${s.sequence} on today's route: ${detail}. Make it count!`,
+    `Stop #${s.sequence} on your route today — ${detail}. Perfect time to drop by!`,
+    `Your optimiser lined this up at #${s.sequence} — ${detail}. Swing past when you're close!`,
+    `Coming up at #${s.sequence} today: ${detail}. A friendly visit could open doors!`,
+    `Slotted at #${s.sequence} on the day's run — ${detail}. Keep the momentum going!`,
+    `On today's plan at #${s.sequence} — ${detail}. Say hello and see what they need!`,
   ];
-  return variants[wordingIndex(s.retailerId, variants.length)];
+  return variants[wordingIndex(`${s.retailerId}-${s.sequence}`, variants.length)];
 }
 
 function coachInsightLine(r: CoachRow): string {

@@ -1052,19 +1052,41 @@ async function handlePriceQuery(
   if (m1) term = m1[1];
   else if (m2) term = m2[1];
   term = term
-    .replace(/\b(the|a|an|what|whats|what's|is|are|tell|me|please|much|how)\b/g, ' ')
+    .replace(/\b(the|a|an|what|whats|what's|is|are|tell|me|please|much|how|products?|items?|ka|ki|kya|hai)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   // Too vague to search deterministically — let the AI path handle it.
   if (!term || term.length < 2) return null;
 
-  const { data: products } = await supabase
+  // Token-based "grep": every token must match somewhere in the name (AND),
+  // so "nivea lotion" finds "Nivea Derma Lotion". If that yields nothing,
+  // fall back to any-token matches (OR) so near-miss phrasings still
+  // surface the closest products. Tokens are alphanumeric-only, which also
+  // keeps the ILIKE/.or() syntax safe.
+  const tokens = term
+    .split(/\s+/)
+    .map((t) => t.replace(/[^a-z0-9]/g, ''))
+    .filter((t) => t.length >= 2)
+    .slice(0, 5);
+  if (tokens.length === 0) return null;
+
+  let query = supabase
     .from('products')
     .select('name, rate, unit')
-    .eq('is_active', true)
-    .ilike('name', `%${term}%`)
-    .order('name')
-    .limit(5);
+    .eq('is_active', true);
+  for (const t of tokens) query = query.ilike('name', `%${t}%`);
+  let { data: products } = await query.order('name').limit(5);
+
+  if ((!products || products.length === 0) && tokens.length > 1) {
+    const { data: anyMatches } = await supabase
+      .from('products')
+      .select('name, rate, unit')
+      .eq('is_active', true)
+      .or(tokens.map((t) => `name.ilike.%${t}%`).join(','))
+      .order('name')
+      .limit(5);
+    products = anyMatches;
+  }
 
   if (!products || products.length === 0) {
     console.log(`🏷️ Price intent matched — no product for "${term}"`);
