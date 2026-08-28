@@ -32,7 +32,17 @@ export function useLineItemUom(
   return useMemo(() => {
     const activeUnits = (data || []).filter((u) => u);
     const baseUnit = activeUnits.find((u) => u.isBase) ?? null;
-    const priceBasisUnit = activeUnits.find((u) => u.isPriceBasis) ?? activeUnits.find((u) => u.isDefaultSales) ?? baseUnit;
+    // Only fall back to the base unit when it's genuinely the ONLY unit —
+    // a real single-UOM product. When multiple units ARE loaded but none
+    // carries is_price_basis/is_default_sales, that's an incomplete/corrupt
+    // load (e.g. the KG sibling of a Weight product failed to fetch), and
+    // silently treating the base GRAM/ML row as the price basis is what
+    // caused the 1000x pricing incident — return null so callers refuse to
+    // price rather than guess.
+    const priceBasisUnit =
+      activeUnits.find((u) => u.isPriceBasis) ??
+      activeUnits.find((u) => u.isDefaultSales) ??
+      (activeUnits.length <= 1 ? baseUnit : null);
     let defaultUnit: ProductUnit | null = baseUnit;
     if (context === 'sales') {
       defaultUnit = activeUnits.find((u) => u.isDefaultSales) ?? baseUnit;

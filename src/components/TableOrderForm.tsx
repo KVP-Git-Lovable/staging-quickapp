@@ -1062,12 +1062,31 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     // Price book wins when a slab matches; otherwise fall back to the default price.
     const pbRow = getPriceBookRow(prod, variant, qty);
     const baseRate = pbRow ? Number(pbRow.price) || 0 : (Number(variant ? variant.price : prod.rate) || 0);
-    if (conversionToBase && priceBasisConversionToBase) {
-      return baseRate * (Number(conversionToBase) / Number(priceBasisConversionToBase));
-    }
 
     const baseUnit = normalizeUnit(prod.base_unit || prod.unit);
     const targetUnit = normalizeUnit(unit || prod.unit);
+
+    // Guard against an incomplete/stale UOM load: if the loaded unit set
+    // claims a gram-family target shares the SAME conversion factor as a
+    // KG-based product's price basis (ratio 1:1), that's never legitimate —
+    // 1 gram cannot cost the same as 1 KG. This exact shape (price basis
+    // silently resolving to the base GRAM row instead of KG when the KG
+    // sibling failed to load) shipped ~700 order lines at 1000x the correct
+    // price over 10 months before being caught. Fall through to the known-
+    // safe string-based conversion instead of trusting the ratio.
+    const isSuspiciousUnityRatio =
+      !!conversionToBase && !!priceBasisConversionToBase &&
+      Number(conversionToBase) === Number(priceBasisConversionToBase) &&
+      (
+        (baseUnit === "kg" && ["gram", "grams", "g", "gm"].includes(targetUnit)) ||
+        (["g", "gm", "gram", "grams"].includes(baseUnit) && targetUnit === "kg") ||
+        (["litre", "liter", "l"].includes(baseUnit) && ["ml", "milliliter", "milliliters"].includes(targetUnit)) ||
+        (["ml", "milliliter", "milliliters"].includes(baseUnit) && ["litre", "liter", "l"].includes(targetUnit))
+      );
+
+    if (conversionToBase && priceBasisConversionToBase && !isSuspiciousUnityRatio) {
+      return baseRate * (Number(conversionToBase) / Number(priceBasisConversionToBase));
+    }
 
     if (!baseUnit) return baseRate;
 
