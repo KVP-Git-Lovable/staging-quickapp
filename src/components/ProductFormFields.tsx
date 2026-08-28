@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, ChevronsUpDown, X, Upload, Image as ImageIcon, Info } from 'lucide-react';
+import { Check, ChevronsUpDown, X, Upload, Image as ImageIcon, Info, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -99,6 +99,7 @@ interface ProductFormFieldsProps {
   territories: Territory[];
   taxMasters?: TaxMasterOption[];
   onFormChange: (updates: Partial<ProductFormData>) => void;
+  priceLocked?: boolean;
 }
 
 export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
@@ -106,7 +107,8 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
   categories,
   territories,
   taxMasters = [],
-  onFormChange
+  onFormChange,
+  priceLocked = false
 }) => {
   const [territoryComboOpen, setTerritoryComboOpen] = useState(false);
   const [uploadingBarcode, setUploadingBarcode] = useState(false);
@@ -291,7 +293,10 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
       {/* Rate and Stock */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="rate">Rate (₹) *</Label>
+          <Label htmlFor="rate" className="flex items-center gap-1.5">
+            Rate (₹) *
+            {priceLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+          </Label>
           <Input
             id="rate"
             type="number"
@@ -300,7 +305,14 @@ export const ProductFormFields: React.FC<ProductFormFieldsProps> = ({
             onChange={(e) => onFormChange({ rate: parseFloat(e.target.value) || 0 })}
             placeholder="0.00"
             required
+            disabled={priceLocked}
+            className={priceLocked ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}
           />
+          {priceLocked && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Locked — click "Edit Price" above and confirm your password to change.
+            </p>
+          )}
         </div>
         <div>
           <Label htmlFor="closing_stock">Closing Stock</Label>

@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download, Ban, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download, Ban, CheckCircle, Lock, LockOpen } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
 import { ProductExtendedFields } from './ProductExtendedFields';
@@ -209,7 +209,12 @@ const emptyVariantForm = (): any => ({
 });
 
 const [productForm, setProductForm] = useState(emptyProductForm());
-  
+  const [originalRateForAudit, setOriginalRateForAudit] = useState<number | null>(null);
+  const [priceEditUnlocked, setPriceEditUnlocked] = useState(false);
+  const [showPriceUnlockDialog, setShowPriceUnlockDialog] = useState(false);
+  const [priceUnlockPassword, setPriceUnlockPassword] = useState('');
+  const [verifyingPriceUnlock, setVerifyingPriceUnlock] = useState(false);
+
   const [variantForm, setVariantForm] = useState({
     id: '',
     product_id: '',
@@ -706,6 +711,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   // days out of date, quietly reverting a price someone else changed since.
   const openEditProductDialog = (product: any) => {
     setProductForm(mapProductToForm(product));
+    setOriginalRateForAudit(product.rate);
     setUnitsValue(emptyProductUnitsEditorValue());
     setIsProductDialogOpen(true);
     hydrateUnitsEditorFromProduct(product.id)
@@ -722,8 +728,43 @@ const [productForm, setProductForm] = useState(emptyProductForm());
         // Guard against a race: only apply if the dialog is still open for
         // this same product (user didn't close it / switch to another row
         // before the fetch resolved).
-        setProductForm(prev => (prev.id === product.id ? mapProductToForm(data) : prev));
+        setProductForm(prev => {
+          if (prev.id !== product.id) return prev;
+          setOriginalRateForAudit(data.rate);
+          return mapProductToForm(data);
+        });
       });
+  };
+
+  const handlePriceUnlockConfirm = async () => {
+    if (!priceUnlockPassword) {
+      toast.error('Enter your password to unlock price editing');
+      return;
+    }
+    setVerifyingPriceUnlock(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        toast.error('Unable to verify current session');
+        return;
+      }
+      // signInWithPassword re-verifies the current user's password without
+      // disrupting the existing session (same pattern as PasswordChangeSection).
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: priceUnlockPassword,
+      });
+      if (error) {
+        toast.error('Incorrect password');
+        return;
+      }
+      setPriceEditUnlocked(true);
+      setShowPriceUnlockDialog(false);
+      setPriceUnlockPassword('');
+      toast.success('Price editing unlocked for this session');
+    } finally {
+      setVerifyingPriceUnlock(false);
+    }
   };
 
   const handleProductSubmit = async () => {
@@ -732,6 +773,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       // Generate QR code if not exists
       const qrCode = productForm.qr_code || generateQRCode('product', productForm.sku, productForm.name);
       const baseUnitCategory = normalizeProductBaseUnitCategory(unitsValue.baseCategory || productForm.base_unit);
+
+      const rateChanged = !!productForm.id && originalRateForAudit !== null && productForm.rate !== originalRateForAudit;
 
       let savedProductId = productForm.id;
 
@@ -778,6 +821,28 @@ const [productForm, setProductForm] = useState(emptyProductForm());
           .eq('id', productForm.id);
 
         if (error) throw error;
+
+        if (rateChanged) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { error: auditError } = await supabase
+              .from('product_price_change_log' as any)
+              .insert({
+                product_id: productForm.id,
+                sku: productForm.sku,
+                product_name: productForm.name,
+                old_rate: originalRateForAudit,
+                new_rate: productForm.rate,
+                changed_by: user?.id ?? null,
+              });
+            if (auditError) console.warn('Price change audit failed:', auditError);
+          } catch (auditError) {
+            console.warn('Price change audit failed:', auditError);
+          }
+          // Re-lock immediately after a price change so the next edit needs
+          // a fresh password confirmation.
+          setPriceEditUnlocked(false);
+        }
       } else {
         const { data: inserted, error } = await supabase
           .from('products')
@@ -852,6 +917,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
 
       setIsProductDialogOpen(false);
       setProductForm(emptyProductForm());
+      setOriginalRateForAudit(null);
       setUnitsValue(emptyProductUnitsEditorValue());
       fetchProducts();
     } catch (error: any) {
@@ -1129,6 +1195,21 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                   </Select>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    variant={priceEditUnlocked ? 'default' : 'outline'}
+                    onClick={() => {
+                      if (priceEditUnlocked) {
+                        setPriceEditUnlocked(false);
+                        toast.success('Price editing locked');
+                      } else {
+                        setPriceUnlockPassword('');
+                        setShowPriceUnlockDialog(true);
+                      }
+                    }}
+                  >
+                    {priceEditUnlocked ? <LockOpen className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+                    {priceEditUnlocked ? 'Price Unlocked' : 'Edit Price'}
+                  </Button>
                   <Button variant="outline" onClick={() => navigate('/admin/uom-master')}>
                     <SlidersHorizontal className="h-4 w-4 mr-2" />
                     UoM Master
@@ -1173,6 +1254,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       <Button onClick={() => {
                         setUnitsValue(emptyProductUnitsEditorValue());
                         setProductForm(emptyProductForm());
+                        setOriginalRateForAudit(null);
                       }}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
@@ -1193,6 +1275,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           territories={territories}
                           taxMasters={taxMasters}
                           onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
+                          priceLocked={!priceEditUnlocked}
                         />
                         <ProductExtendedFields
                           form={productForm}
@@ -1217,6 +1300,38 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       </Button>
                     </DialogFooter>
                   </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={showPriceUnlockDialog} onOpenChange={(open) => { setShowPriceUnlockDialog(open); if (!open) setPriceUnlockPassword(''); }}>
+                    <DialogContent className="max-w-sm">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Lock className="h-4 w-4" /> Confirm Your Password
+                        </DialogTitle>
+                        <DialogDescription>
+                          Enter your account password to unlock price editing. This is logged so we know who changed a product's price and when.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-2">
+                        <Label htmlFor="price-unlock-password">Password</Label>
+                        <Input
+                          id="price-unlock-password"
+                          type="password"
+                          value={priceUnlockPassword}
+                          onChange={(e) => setPriceUnlockPassword(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handlePriceUnlockConfirm(); }}
+                          autoFocus
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowPriceUnlockDialog(false); setPriceUnlockPassword(''); }}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handlePriceUnlockConfirm} disabled={verifyingPriceUnlock}>
+                          {verifyingPriceUnlock ? 'Verifying…' : 'Unlock'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
                   </Dialog>
                 </div>
               </div>
