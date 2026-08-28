@@ -2260,27 +2260,29 @@ const Operations = () => {
                                 >
                                   <Pencil size={16} />
                                 </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  title="Cancel Order"
-                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => {
-                                    setSelectedOrderForCancel({
-                                      order: {
-                                        id: item.id,
-                                        invoice_number: item.invoice_number || undefined,
-                                        total_amount: item.total_amount,
-                                        is_credit_order: item.is_credit_order,
-                                        credit_pending_amount: item.credit_pending_amount,
-                                      },
-                                      retailerName: item.retailer_name,
-                                    });
-                                    setShowCancelDialog(true);
-                                  }}
-                                >
-                                  <Ban size={16} />
-                                </Button>
+                                {can('action_order_cancel', 'edit') && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Cancel Order"
+                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => {
+                                      setSelectedOrderForCancel({
+                                        order: {
+                                          id: item.id,
+                                          invoice_number: item.invoice_number || undefined,
+                                          total_amount: item.total_amount,
+                                          is_credit_order: item.is_credit_order,
+                                          credit_pending_amount: item.credit_pending_amount,
+                                        },
+                                        retailerName: item.retailer_name,
+                                      });
+                                      setShowCancelDialog(true);
+                                    }}
+                                  >
+                                    <Ban size={16} />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
