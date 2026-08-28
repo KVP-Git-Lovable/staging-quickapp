@@ -192,7 +192,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
     isEntryDirtyRef.current = value;
     setIsEntryDirtyState(value);
   };
-  const [kmTouched, setKmTouched] = useState<{ start: boolean; end: boolean }>({ start: false, end: false });
+  const [kmTouched, setKmTouched] = useState<{ start: boolean }>({ start: false });
   const [sortMode, setSortMode] = useState<'entry' | 'name_asc' | 'name_desc'>('entry');
   
   // Track original loaded values from previous stock to detect edits
@@ -503,7 +503,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         // leaving one fresh empty row ready for the next entry.
         setStockItems([blankStockItem()]);
         setIsEntryDirty(false);
-        setKmTouched({ start: false, end: false });
+        setKmTouched({ start: false });
       } else if (!isEntryDirtyRef.current && (!data?.van_stock_items || data.van_stock_items.length === 0)) {
         setStockItems([blankStockItem()]);
       }
@@ -847,12 +847,6 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       return;
     }
 
-    if (!endKm || endKm === 0) {
-      setKmTouched(prev => ({ ...prev, end: true }));
-      toast.error('Please enter the End KM.');
-      return;
-    }
-
     if (stockItems.length === 0 || stockItems.some(item => !item.product_id)) {
       toast.error('Please add at least one product with valid details');
       return;
@@ -873,7 +867,6 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           stock_date: selectedDate,
           status: 'morning_saved',
           start_km: startKm,
-          end_km: endKm,
         }, {
           onConflict: 'van_id,stock_date,user_id',
         })
@@ -1869,9 +1862,11 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                   </Card>
                 </div>
 
-                {/* KM Tracking */}
+                {/* KM Tracking — Start KM is captured here at Morning GRN time; End KM
+                    (and the Total KM it implies) is only known once the route is done,
+                    so it's captured by the separate Save Closing GRN step below, not here. */}
                 <Card className="p-2.5 bg-blue-50 dark:bg-blue-950">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-[10px] font-semibold">
                         Start KM <span className="text-destructive">*</span>
@@ -1893,30 +1888,10 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
                       )}
                     </div>
                     <div>
-                      <Label className="text-[10px] font-semibold">
-                        End KM <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        type="number"
-                        value={endKm || ''}
-                        onChange={(e) => { setEndKm(parseFloat(e.target.value) || 0); setIsEntryDirty(true); }}
-                        onFocus={(e) => e.target.select()}
-                        onBlur={() => setKmTouched(prev => ({ ...prev, end: true }))}
-                        placeholder="End"
-                        className={cn(
-                          "mt-0.5 h-8 text-xs",
-                          kmTouched.end && !endKm && "border-destructive focus-visible:ring-destructive"
-                        )}
-                      />
-                      {kmTouched.end && !endKm && (
-                        <p className="text-[9px] text-destructive mt-0.5">Required</p>
-                      )}
-                    </div>
-                    <div>
                       <Label className="text-[10px] font-semibold">Total KM</Label>
                       <div className="mt-0.5 h-8 px-2 py-1 bg-primary/10 rounded-md border border-primary/20 flex items-center justify-center">
                         <span className="text-xs font-bold text-primary">
-                          {endKm > 0 ? totalKm.toFixed(2) : '-'}
+                          {endKm > 0 ? totalKm.toFixed(2) : 'Pending closing'}
                         </span>
                       </div>
                     </div>
