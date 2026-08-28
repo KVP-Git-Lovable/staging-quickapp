@@ -504,11 +504,17 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         setStockItems([blankStockItem()]);
         setIsEntryDirty(false);
         setKmTouched({ start: false });
-      } else if (!isEntryDirtyRef.current && (!data?.van_stock_items || data.van_stock_items.length === 0)) {
+      } else if (!isEntryDirtyRef.current) {
+        // Always seed one fresh empty row when there are no unsaved edits to
+        // protect — regardless of whether Morning GRN was already saved
+        // earlier (e.g. reopening this dialog later the same day to add more
+        // stock). Previously this only ran when van_stock_items was empty, so
+        // reopening an already-saved day showed no entry row at all and gave
+        // the rep no way to add anything further.
         setStockItems([blankStockItem()]);
       }
-      // If the entry form has unsaved edits, or there are saved items, leave
-      // stockItems untouched (keeps the entry form exactly as the user left it).
+      // If the entry form has unsaved edits, leave stockItems untouched
+      // (keeps the entry form exactly as the user left it).
       
       // CRITICAL: Cache van stock data for offline use
       // This ensures offline orders can calculate local van stock updates
@@ -886,8 +892,33 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
         existingItemsMap.set(e.product_id, e.id);
       });
       
-      // Process each stock item - upsert by product_id to prevent duplicates
+      // Merge rows sharing the same product (e.g. the rep added a second row for
+      // a product already entered above) into one summed row before saving.
+      // Without this, existingItemsMap only reflects what's already in the DB —
+      // it's never updated as this batch is processed — so two new rows for the
+      // same product both miss it and both take the "insert" branch below,
+      // creating two separate DB rows instead of one row with the combined qty.
+      const dedupedStockItems: StockItem[] = [];
+      const dedupedIndexByProductId = new Map<string, number>();
       for (const item of stockItems) {
+        if (!item.product_id) continue;
+        const existingIndex = dedupedIndexByProductId.get(item.product_id);
+        if (existingIndex === undefined) {
+          dedupedIndexByProductId.set(item.product_id, dedupedStockItems.length);
+          dedupedStockItems.push({ ...item });
+        } else {
+          const merged = dedupedStockItems[existingIndex];
+          const addedStartQty = convertBetweenUnits(item.start_qty || 0, item.unit, merged.unit);
+          const addedReturnedQty = convertBetweenUnits(item.returned_qty || 0, item.unit, merged.unit);
+          merged.start_qty = (merged.start_qty || 0) + addedStartQty;
+          merged.returned_qty = (merged.returned_qty || 0) + addedReturnedQty;
+          merged.ordered_qty = Math.max(merged.ordered_qty || 0, item.ordered_qty || 0);
+          merged.left_qty = merged.start_qty - merged.ordered_qty + merged.returned_qty;
+        }
+      }
+
+      // Process each stock item - upsert by product_id to prevent duplicates
+      for (const item of dedupedStockItems) {
         const existingItemId = existingItemsMap.get(item.product_id);
         
         // Convert kg to grams for storage (database stores integers)
@@ -949,7 +980,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
           edit_source: string;
         }[] = [];
 
-        for (const item of stockItems) {
+        for (const item of dedupedStockItems) {
           // Find the original loaded value for this product
           const original = originalLoadedStock.find(o => o.product_id === item.product_id);
           
