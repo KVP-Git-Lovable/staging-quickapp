@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowUp, ArrowDown, Loader2, Plus, Star, ChevronDown, ChevronRight, Lock, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowUp, ArrowDown, Loader2, Plus, Star, ChevronDown, ChevronRight, Lock, LockOpen, Trash2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
@@ -242,7 +242,8 @@ const CategoryCard: React.FC<{
   onMove: (row: UomRow, dir: -1 | 1) => void;
   onSaveConversion: (row: UomRow, value: number) => Promise<void>;
   onAddCustom: () => void;
-}> = ({ category, rows, savingId, onPersist, onSetDefault, onSetDefaultPurchase, onMove, onSaveConversion, onAddCustom }) => {
+  conversionsLocked: boolean;
+}> = ({ category, rows, savingId, onPersist, onSetDefault, onSetDefaultPurchase, onMove, onSaveConversion, onAddCustom, conversionsLocked }) => {
   const [showHidden, setShowHidden] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -365,6 +366,7 @@ const CategoryCard: React.FC<{
                 onPersist={onPersist}
                 onMove={onMove}
                 onSaveConversion={onSaveConversion}
+                conversionsLocked={conversionsLocked}
               />
             ))}
           </div>
@@ -390,6 +392,7 @@ const CategoryCard: React.FC<{
                 onPersist={onPersist}
                 onMove={onMove}
                 onSaveConversion={onSaveConversion}
+                conversionsLocked={conversionsLocked}
                 muted
               />
             ))}
@@ -420,7 +423,8 @@ const UnitRow: React.FC<{
   onMove: (row: UomRow, dir: -1 | 1) => void;
   onSaveConversion: (row: UomRow, value: number) => Promise<void>;
   muted?: boolean;
-}> = ({ row, baseRow, isUniversal, savingId, onPersist, onMove, onSaveConversion, muted }) => {
+  conversionsLocked: boolean;
+}> = ({ row, baseRow, isUniversal, savingId, onPersist, onMove, onSaveConversion, muted, conversionsLocked }) => {
   const [editVal, setEditVal] = useState(row.conversion_to_base?.toString() ?? '');
   useEffect(() => {
     setEditVal(row.conversion_to_base?.toString() ?? '');
@@ -456,7 +460,10 @@ const UnitRow: React.FC<{
   }, [isUniversal, baseRow, row]);
 
   const handleBlur = () => {
-    if (!isUniversal || row.is_base) return;
+    if (!isUniversal || row.is_base || conversionsLocked) {
+      setEditVal(row.conversion_to_base?.toString() ?? '');
+      return;
+    }
     const v = parseFloat(editVal);
     if (!v || v <= 0) {
       setEditVal(row.conversion_to_base?.toString() ?? '');
@@ -490,14 +497,15 @@ const UnitRow: React.FC<{
       <div>
         {isUniversal && !row.is_base ? (
           <div className="flex items-center gap-1">
+            {conversionsLocked && <Lock className="h-3 w-3 text-muted-foreground shrink-0" />}
             <Input
               value={editVal}
               onChange={(e) => setEditVal(e.target.value)}
               onBlur={handleBlur}
               type="number"
               step="any"
-              className="h-7 text-xs font-mono"
-              disabled={isSaving}
+              className={cn('h-7 text-xs font-mono', conversionsLocked && 'bg-muted text-muted-foreground cursor-not-allowed')}
+              disabled={isSaving || conversionsLocked}
             />
             <span className="text-[10px] text-muted-foreground font-mono">{baseRow?.code}</span>
           </div>
@@ -553,6 +561,41 @@ export const UomMasterPageContent: React.FC = () => {
   const [addCategory, setAddCategory] = useState<UomCategory | null>(null);
   const [confirmBaseToggle, setConfirmBaseToggle] = useState<{ row: UomRow; usage: { products: number; mappings: number } } | null>(null);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
+  const [conversionsLocked, setConversionsLocked] = useState(true);
+  const [showUnlockDialog, setShowUnlockDialog] = useState(false);
+  const [unlockPassword, setUnlockPassword] = useState('');
+  const [verifyingUnlock, setVerifyingUnlock] = useState(false);
+
+  const handleUnlockConfirm = async () => {
+    if (!unlockPassword) {
+      toast.error('Enter your password to unlock conversion rates');
+      return;
+    }
+    setVerifyingUnlock(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        toast.error('Unable to verify current session');
+        return;
+      }
+      // signInWithPassword re-verifies the current user's password without
+      // disrupting the existing session (same pattern as the price-edit lock).
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: unlockPassword,
+      });
+      if (error) {
+        toast.error('Incorrect password');
+        return;
+      }
+      setConversionsLocked(false);
+      setShowUnlockDialog(false);
+      setUnlockPassword('');
+      toast.success('Conversion rates unlocked for this session');
+    } finally {
+      setVerifyingUnlock(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -736,6 +779,9 @@ export const UomMasterPageContent: React.FC = () => {
     clearUomCache();
     qc.invalidateQueries({ queryKey: ['uom'] });
     toast.success(`${row.code} updated`);
+    // Re-lock immediately after a successful change so the next edit needs
+    // a fresh password confirmation.
+    setConversionsLocked(true);
   };
 
   if (loading) {
@@ -759,9 +805,27 @@ export const UomMasterPageContent: React.FC = () => {
             never appear in product unit pickers or order entry.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowCategoryManager(true)}>
-          Manage categories
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={conversionsLocked ? 'outline' : 'default'}
+            size="sm"
+            onClick={() => {
+              if (conversionsLocked) {
+                setUnlockPassword('');
+                setShowUnlockDialog(true);
+              } else {
+                setConversionsLocked(true);
+                toast.success('Conversion rates locked');
+              }
+            }}
+          >
+            {conversionsLocked ? <Lock className="h-4 w-4 mr-2" /> : <LockOpen className="h-4 w-4 mr-2" />}
+            {conversionsLocked ? 'Conversion Rates Locked' : 'Conversion Rates Unlocked'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCategoryManager(true)}>
+            Manage categories
+          </Button>
+        </div>
       </div>
 
       {enabledCategoryCodes.map((cat) => (
@@ -776,8 +840,43 @@ export const UomMasterPageContent: React.FC = () => {
           onMove={move}
           onSaveConversion={saveConversion}
           onAddCustom={() => setAddCategory(cat)}
+          conversionsLocked={conversionsLocked}
         />
       ))}
+
+      <Dialog open={showUnlockDialog} onOpenChange={(open) => { setShowUnlockDialog(open); if (!open) setUnlockPassword(''); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-4 w-4" /> Confirm Your Password
+            </DialogTitle>
+            <DialogDescription>
+              Enter your account password to unlock unit conversion rates (e.g. GRAM ↔ KG). A wrong
+              value here silently corrupts pricing for every product using that unit — this stays
+              locked until you confirm your password each time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="uom-unlock-password">Password</Label>
+            <Input
+              id="uom-unlock-password"
+              type="password"
+              value={unlockPassword}
+              onChange={(e) => setUnlockPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockConfirm(); }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowUnlockDialog(false); setUnlockPassword(''); }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUnlockConfirm} disabled={verifyingUnlock}>
+              {verifyingUnlock ? 'Verifying…' : 'Unlock'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {addCategory && (
         <AddCustomUnitDialog
           open={!!addCategory}
