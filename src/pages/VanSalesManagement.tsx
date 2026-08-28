@@ -9,16 +9,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { moveToRecycleBin } from '@/utils/recycleBinUtils';
-import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ChevronDown, ChevronRight, ShoppingCart, TrendingDown, User } from 'lucide-react';
+import { downloadExcel } from '@/utils/fileDownloader';
+import { computeLineTax } from '@/utils/taxCalc';
+import { Truck, Plus, Edit, Trash2, Package, RotateCcw, ChevronDown, ChevronRight, ShoppingCart, TrendingDown, User, CalendarIcon, Download, ChevronLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useProfilePermissions } from '@/hooks/useProfilePermissions';
 import { UserSelector } from '@/components/UserSelector';
 import { useSubordinates } from '@/hooks/useSubordinates';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface Van {
   id: string;
@@ -90,6 +96,40 @@ interface OpeningGRNEdit {
   edit_source: string;
 }
 
+const numberToWords = (num: number): string => {
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  if (num === 0) return 'Zero Rupees Only';
+
+  const rupees = Math.floor(num);
+  const paise = Math.round((num - rupees) * 100);
+
+  const convertLessThanThousand = (n: number): string => {
+    if (n === 0) return '';
+    if (n < 20) return ones[n];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+    return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + convertLessThanThousand(n % 100) : '');
+  };
+
+  const convertToIndianWords = (n: number): string => {
+    if (n === 0) return '';
+    if (n < 1000) return convertLessThanThousand(n);
+    if (n < 100000) return convertLessThanThousand(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + convertLessThanThousand(n % 1000) : '');
+    if (n < 10000000) return convertLessThanThousand(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + convertToIndianWords(n % 100000) : '');
+    return convertLessThanThousand(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + convertToIndianWords(n % 10000000) : '');
+  };
+
+  let result = convertToIndianWords(rupees) + ' Rupees';
+  if (paise > 0) {
+    result += ' and ' + convertLessThanThousand(paise) + ' Paise';
+  }
+  return result + ' Only';
+};
+
+const PAGE_SIZE = 20;
+
 export default function VanSalesManagement() {
   const navigate = useNavigate();
   const { hasAdminAccess } = useAdminAccess();
@@ -99,8 +139,39 @@ export default function VanSalesManagement() {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingVan, setEditingVan] = useState<Van | null>(null);
-  // No date filter - show all van stock data for admin
   const [vanStockSummaries, setVanStockSummaries] = useState<VanStockSummary[]>([]);
+  const [summariesLoading, setSummariesLoading] = useState(false);
+  const [totalSummaryCount, setTotalSummaryCount] = useState(0);
+  const [page, setPage] = useState(0);
+  const [filterType, setFilterType] = useState<'week' | 'month' | 'date-range'>('month');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dateRangeStart, setDateRangeStart] = useState<Date>();
+  const [dateRangeEnd, setDateRangeEnd] = useState<Date>();
+  const [downloadingChallanId, setDownloadingChallanId] = useState<string | null>(null);
+
+  // Resolves the current filter selection into a concrete [start, end] date range.
+  const dateRange = useMemo(() => {
+    let startDate: Date, endDate: Date;
+    switch (filterType) {
+      case 'week':
+        startDate = new Date(selectedDate);
+        startDate.setDate(selectedDate.getDate() - selectedDate.getDay());
+        endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 6);
+        break;
+      case 'date-range':
+        if (!dateRangeStart || !dateRangeEnd) return null;
+        startDate = new Date(dateRangeStart);
+        endDate = new Date(dateRangeEnd);
+        break;
+      case 'month':
+      default:
+        startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+        endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+        break;
+    }
+    return { start: format(startDate, 'yyyy-MM-dd'), end: format(endDate, 'yyyy-MM-dd') };
+  }, [filterType, selectedDate, dateRangeStart, dateRangeEnd]);
   const [openingGRNEdits, setOpeningGRNEdits] = useState<OpeningGRNEdit[]>([]);
   const [expandedVans, setExpandedVans] = useState<Set<string>>(new Set());
   
@@ -112,21 +183,26 @@ export default function VanSalesManagement() {
   const { hasPermission: hasVanPerm } = useProfilePermissions();
   const canViewAll = hasVanPerm('admin_van_sales', 'can_view_all');
 
-  const filteredVanStockSummaries = useMemo(() => {
+  // Resolves the user filter to a concrete list of user_ids to scope the query
+  // by — applied server-side (alongside pagination) so a manager filtering to one
+  // subordinate doesn't have to page through records for people who aren't a match.
+  // null means "no user scoping" (fetch everyone the query's other filters allow).
+  const userIdsForQuery = useMemo((): string[] | null => {
     if (selectedUserId === 'all') {
-      // Show all if user has can_view_all permission, otherwise filter to subordinates
-      if (isManager && !canViewAll) {
-        return vanStockSummaries.filter(s => 
-          s.user_id === user?.id || subordinateIds.includes(s.user_id)
-        );
+      if (isManager && !canViewAll && user?.id) {
+        return [user.id, ...subordinateIds];
       }
-      return vanStockSummaries;
+      return null;
     }
     if (selectedUserId === 'self') {
-      return vanStockSummaries.filter(s => s.user_id === user?.id);
+      return user?.id ? [user.id] : [];
     }
-    return vanStockSummaries.filter(s => s.user_id === selectedUserId);
-  }, [vanStockSummaries, selectedUserId, user?.id, subordinateIds, isManager, canViewAll]);
+    return [selectedUserId];
+  }, [selectedUserId, user?.id, subordinateIds, isManager, canViewAll]);
+
+  // Server-side date + pagination + user scoping already narrows this to exactly
+  // what should be shown — this is just the display alias for that fetched page.
+  const filteredVanStockSummaries = vanStockSummaries;
   
   const [formData, setFormData] = useState({
     registration_number: '',
@@ -148,9 +224,19 @@ export default function VanSalesManagement() {
     }
     loadVans();
     loadUsers();
-    loadVanStockSummaries();
     loadOpeningGRNEdits();
   }, [hasAdminAccess, navigate]);
+
+  // Reset to page 1 whenever the filter changes, then (re)fetch that page.
+  useEffect(() => {
+    if (!hasAdminAccess || !dateRange) return;
+    setPage(0);
+  }, [hasAdminAccess, filterType, selectedDate, dateRangeStart, dateRangeEnd, userIdsForQuery]);
+
+  useEffect(() => {
+    if (!hasAdminAccess || !dateRange) return;
+    loadVanStockSummaries();
+  }, [hasAdminAccess, dateRange, page, userIdsForQuery]);
 
   // Real-time subscription for van_stock and van_stock_items changes
   useEffect(() => {
@@ -269,35 +355,55 @@ export default function VanSalesManagement() {
   };
 
   const loadVanStockSummaries = async () => {
+    if (!dateRange) return;
+    setSummariesLoading(true);
     try {
-      // Get ALL van_stock records - no date filter for admin view
-      const { data: stockData, error: stockError } = await supabase
+      // Date-filtered, paginated van_stock page — bounded by the selected range and
+      // PAGE_SIZE so this never fetches the whole table's history at once.
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      let stockQuery = supabase
         .from('van_stock')
-        .select('id, van_id, user_id, stock_date, start_km, end_km')
-        .order('stock_date', { ascending: false });
+        .select('id, van_id, user_id, stock_date, start_km, end_km', { count: 'exact' })
+        .gte('stock_date', dateRange.start)
+        .lte('stock_date', dateRange.end);
+      if (userIdsForQuery) {
+        // Empty array (e.g. selectedUserId === 'self' with no session yet) must
+        // still scope to "nothing", not silently fall through to "everyone".
+        stockQuery = stockQuery.in('user_id', userIdsForQuery.length > 0 ? userIdsForQuery : ['00000000-0000-0000-0000-000000000000']);
+      }
+      const { data: stockData, error: stockError, count } = await stockQuery
+        .order('stock_date', { ascending: false })
+        .range(from, to);
 
       if (stockError) {
         console.error('Error fetching van_stock:', stockError);
         toast.error('Failed to load van stock: ' + stockError.message);
         return;
       }
-      
-      console.log('Loaded van_stock records:', stockData?.length, stockData);
+
+      setTotalSummaryCount(count || 0);
 
       if (!stockData || stockData.length === 0) {
         setVanStockSummaries([]);
         return;
       }
 
-      // Fetch vans and profiles separately to avoid join issues
+      const stockIds = stockData.map(s => s.id);
       const vanIds = [...new Set(stockData.map(s => s.van_id))];
       const userIds = [...new Set(stockData.map(s => s.user_id))];
+      const stockDates = [...new Set(stockData.map(s => s.stock_date))];
 
-      const [{ data: vansData }, { data: profilesData }, { data: products }, { data: variants }] = await Promise.all([
+      // One batched query per related table instead of two queries per van_stock
+      // row — the page's data is bounded by PAGE_SIZE now anyway, but there's no
+      // reason to pay an N+1 round trip on top of that.
+      const [{ data: vansData }, { data: profilesData }, { data: products }, { data: variants }, { data: allItems }, { data: beatPlans }] = await Promise.all([
         supabase.from('vans').select('id, registration_number, make_model').in('id', vanIds),
         supabase.from('profiles').select('id, full_name').in('id', userIds),
         supabase.from('products').select('id, name, rate'),
-        supabase.from('product_variants').select('id, variant_name, price')
+        supabase.from('product_variants').select('id, variant_name, price'),
+        supabase.from('van_stock_items').select('id, van_stock_id, product_id, product_name, unit, start_qty, ordered_qty, returned_qty, left_qty').in('van_stock_id', stockIds),
+        supabase.from('beat_plans').select('user_id, plan_date, beat_name').in('user_id', userIds).in('plan_date', stockDates),
       ]);
 
       const vansMap: Record<string, any> = {};
@@ -305,17 +411,17 @@ export default function VanSalesManagement() {
 
       const profilesMap: Record<string, any> = {};
       profilesData?.forEach(p => { profilesMap[p.id] = p; });
-      
+
       // Build product price map from products table - by ID and by name
       const productPriceMapById: Record<string, number> = {};
       const productPriceMapByName: Record<string, number> = {};
-      products?.forEach(p => { 
+      products?.forEach(p => {
         productPriceMapById[p.id] = p.rate || 0;
         if (p.name) {
           productPriceMapByName[p.name.toUpperCase().trim()] = p.rate || 0;
         }
       });
-      
+
       // Build variant price map - van_stock_items.product_id often refers to product_variants.id
       const variantPriceMapById: Record<string, number> = {};
       const variantPriceMapByName: Record<string, number> = {};
@@ -326,32 +432,27 @@ export default function VanSalesManagement() {
         }
       });
 
-      // Get stock items for each van_stock
-      const summaries: VanStockSummary[] = [];
-      
-      for (const stock of stockData || []) {
-        // Get stock items with full details
-        const { data: items } = await supabase
-          .from('van_stock_items')
-          .select('id, product_id, product_name, unit, start_qty, ordered_qty, returned_qty, left_qty')
-          .eq('van_stock_id', stock.id);
+      const itemsByStockId = new Map<string, any[]>();
+      (allItems || []).forEach((item: any) => {
+        const list = itemsByStockId.get(item.van_stock_id) || [];
+        list.push(item);
+        itemsByStockId.set(item.van_stock_id, list);
+      });
 
-        // Get beat name from beat_plans for this user and date
-        const { data: beatPlan } = await supabase
-          .from('beat_plans')
-          .select('beat_name')
-          .eq('user_id', stock.user_id)
-          .eq('plan_date', stock.stock_date)
-          .maybeSingle();
+      const beatPlanByUserAndDate = new Map<string, string>();
+      (beatPlans || []).forEach((bp: any) => {
+        beatPlanByUserAndDate.set(`${bp.user_id}:${bp.plan_date}`, bp.beat_name);
+      });
+
+      const summaries: VanStockSummary[] = stockData.map((stock) => {
+        const items = itemsByStockId.get(stock.id) || [];
 
         // Deduplicate items by product_name (keep latest/aggregated)
         const deduplicatedItemsMap = new Map<string, any>();
-        (items || []).forEach((item: any) => {
-          const existing = deduplicatedItemsMap.get(item.product_name);
-          if (!existing) {
+        items.forEach((item: any) => {
+          if (!deduplicatedItemsMap.has(item.product_name)) {
             deduplicatedItemsMap.set(item.product_name, item);
           }
-          // Keep the first occurrence (they should have same qty anyway)
         });
 
         const stockItems: VanStockItem[] = Array.from(deduplicatedItemsMap.values()).map((item: any) => {
@@ -374,7 +475,7 @@ export default function VanSalesManagement() {
             price_without_gst: priceWithoutGST
           };
         });
-        
+
         // Sort items by product_name alphabetically
         stockItems.sort((a, b) => a.product_name.localeCompare(b.product_name));
 
@@ -386,14 +487,14 @@ export default function VanSalesManagement() {
         const vanInfo = vansMap[stock.van_id];
         const profileInfo = profilesMap[stock.user_id];
 
-        summaries.push({
+        return {
           id: stock.id,
           van_id: stock.van_id,
           van_registration: vanInfo?.registration_number || 'Unknown',
           van_model: vanInfo?.make_model || '',
           user_name: profileInfo?.full_name || 'Unknown User',
           user_id: stock.user_id,
-          beat_name: beatPlan?.beat_name || 'No Beat',
+          beat_name: beatPlanByUserAndDate.get(`${stock.user_id}:${stock.stock_date}`) || 'No Beat',
           stock_date: stock.stock_date,
           total_stock: totalStock,
           total_ordered: totalOrdered,
@@ -402,12 +503,110 @@ export default function VanSalesManagement() {
           start_km: stock.start_km || 0,
           end_km: stock.end_km || 0,
           items: stockItems
-        });
-      }
+        };
+      });
 
       setVanStockSummaries(summaries);
     } catch (error) {
       console.error('Error loading van stock summaries:', error);
+    } finally {
+      setSummariesLoading(false);
+    }
+  };
+
+  const handleDownloadChallan = async (summary: VanStockSummary) => {
+    if (summary.items.length === 0) {
+      toast.error('No stock items to export');
+      return;
+    }
+    setDownloadingChallanId(summary.id);
+    try {
+      const { data: companyData } = await supabase.from('companies').select('*').limit(1).single();
+      const company = (companyData as any) || {};
+
+      const printDateTime = new Date().toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true
+      });
+
+      let totalTaxable = 0;
+      let cgst = 0;
+      let sgst = 0;
+      const itemsData = summary.items.map((item) => {
+        const unit = (item.unit || '').toLowerCase();
+        const isGrams = unit === 'grams' || unit === 'gram' || unit === 'g';
+        const qtyInKG = isGrams ? item.start_qty / 1000 : item.start_qty;
+        const qtyDisplay = isGrams ? `${item.start_qty} (${qtyInKG.toFixed(3)} KG)` : item.start_qty.toString();
+
+        const totalValue = item.price_without_gst * qtyInKG;
+        const lt = computeLineTax({ taxableAmount: totalValue, gstPercentage: 5 });
+        totalTaxable += lt.taxableAmount;
+        cgst += lt.cgst;
+        sgst += lt.sgst;
+
+        return {
+          'Product': item.product_name,
+          'Rate (Excl. GST)': `₹${item.price_without_gst.toFixed(2)}`,
+          'Unit': item.unit,
+          'Quantity': qtyDisplay,
+          'Amount': `₹${totalValue.toFixed(2)}`,
+        };
+      });
+
+      const grandTotal = totalTaxable + cgst + sgst;
+
+      const headerData = [
+        ['DELIVERY CHALLAN'],
+        [''],
+        ['Company:', company.name || ''],
+        ['Address:', company.address || ''],
+        ['GSTIN:', company.gstin || ''],
+        ['Phone:', company.contact_phone || ''],
+        ['Email:', company.email || ''],
+        ['State:', company.state || ''],
+        [''],
+        ['Date & Time:', printDateTime],
+        ['Van:', summary.van_registration],
+        ['Salesman:', summary.user_name],
+        ['Beat:', summary.beat_name],
+        ['']
+      ];
+
+      const XLSX = await import('xlsx');
+      const ws = XLSX.utils.aoa_to_sheet(headerData);
+      XLSX.utils.sheet_add_json(ws, itemsData, { origin: 'A15' });
+
+      const lastRow = 15 + itemsData.length + 1;
+      XLSX.utils.sheet_add_aoa(ws, [
+        [''],
+        ['', '', '', 'Taxable Amount:', `₹${totalTaxable.toFixed(2)}`],
+        ['', '', '', 'CGST (2.5%):', `₹${cgst.toFixed(2)}`],
+        ['', '', '', 'SGST (2.5%):', `₹${sgst.toFixed(2)}`],
+        ['', '', '', 'Grand Total:', `₹${grandTotal.toFixed(2)}`],
+        [''],
+        ['Amount in Words:', numberToWords(grandTotal)],
+        [''],
+        ['Bank Details:'],
+        ['Bank:', company.bank_name || ''],
+        ['Account:', company.bank_account || ''],
+        ['IFSC:', company.ifsc || ''],
+        ['A/c Holder:', company.account_holder_name || ''],
+        ['UPI ID:', company.qr_upi || ''],
+        [''],
+        ['Terms & Conditions:'],
+        [company.terms_conditions || '']
+      ], { origin: `A${lastRow}` });
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Delivery Challan');
+
+      const fileName = `Delivery_Challan_${summary.user_name.replace(/\s+/g, '_')}_${summary.stock_date}.xlsx`;
+      await downloadExcel(wb, fileName, XLSX);
+    } catch (error: any) {
+      console.error('Error downloading challan:', error);
+      toast.error('Failed to download challan: ' + (error?.message || 'Unknown error'));
+    } finally {
+      setDownloadingChallanId(null);
     }
   };
 
@@ -778,14 +977,105 @@ export default function VanSalesManagement() {
                     />
                   )}
                 </div>
+
+                {/* Date Filter Controls */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mt-4">
+                  <Select value={filterType} onValueChange={(value: 'week' | 'month' | 'date-range') => setFilterType(value)}>
+                    <SelectTrigger className="w-full sm:w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="week">Week</SelectItem>
+                      <SelectItem value="month">Month</SelectItem>
+                      <SelectItem value="date-range">Custom Range</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {filterType !== 'date-range' ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full sm:w-[200px] justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, filterType === 'month' ? "MMM yyyy" : "MMM dd, yyyy") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={(d) => d && setSelectedDate(d)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full sm:w-[140px] justify-start text-left font-normal",
+                              !dateRangeStart && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRangeStart ? format(dateRangeStart, "MMM dd") : <span>Start</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={dateRangeStart}
+                            onSelect={setDateRangeStart}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full sm:w-[140px] justify-start text-left font-normal",
+                              !dateRangeEnd && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRangeEnd ? format(dateRangeEnd, "MMM dd") : <span>End</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={dateRangeEnd}
+                            onSelect={setDateRangeEnd}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                {filteredVanStockSummaries.length === 0 ? (
+                {summariesLoading ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Loading van stock…</p>
+                  </div>
+                ) : filteredVanStockSummaries.length === 0 ? (
                   <div className="text-center py-8">
                     <Package className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
                     <p className="text-muted-foreground">No van stock records found</p>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Users will appear here when they add van stock in My Visits
+                      Try a different date range, or users will appear here when they add van stock in My Visits
                     </p>
                   </div>
                 ) : (
@@ -818,6 +1108,18 @@ export default function VanSalesManagement() {
                                   <div className="text-right text-sm">
                                     <p className="text-muted-foreground">Stock: <span className="font-semibold text-foreground">{(summary.total_stock / 1000).toFixed(2)} KG</span></p>
                                   </div>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={downloadingChallanId === summary.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownloadChallan(summary);
+                                    }}
+                                  >
+                                    <Download className="h-4 w-4 mr-1" />
+                                    {downloadingChallanId === summary.id ? 'Downloading…' : 'Challan'}
+                                  </Button>
                                   {expandedVans.has(summary.id) ? (
                                     <ChevronDown className="h-5 w-5 text-muted-foreground" />
                                   ) : (
@@ -870,7 +1172,9 @@ export default function VanSalesManagement() {
                                 <span className="text-muted-foreground">Total KM: <span className="font-semibold text-primary">{summary.end_km > 0 ? summary.end_km - summary.start_km : '-'}</span></span>
                               </div>
 
-                              {/* Product Details - Unified with Opening GRN Edits */}
+                              {/* Product Details - real per-product start/sold/returned/left, with
+                                  opening-stock edits (if any) called out as an annotation rather
+                                  than replacing the actual sales figures. */}
                               <div className="border-t pt-4">
                                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                                   <Package className="h-4 w-4" /> Product Details
@@ -879,80 +1183,53 @@ export default function VanSalesManagement() {
                                   <p className="text-sm text-muted-foreground">No products in this van stock</p>
                                 ) : (
                                   (() => {
-                                    // Get ALL edits for this summary (no longer using a Map which overwrites)
                                     const editsForSummary = openingGRNEdits.filter(
                                       e => e.stock_date === summary.stock_date && e.user_id === summary.user_id
                                     );
-                                    
-                                    // Show edits first, then products without edits
-                                    const productsWithEdits = new Set(editsForSummary.map(e => e.product_id));
-                                    const productsWithoutEdits = summary.items.filter(item => !productsWithEdits.has(item.product_id));
-                                    
+                                    const editByProductId = new Map(editsForSummary.map(e => [e.product_id, e]));
+
                                     return (
-                                      <div className="border rounded-lg overflow-hidden bg-amber-50/50 dark:bg-amber-950/20">
+                                      <div className="border rounded-lg overflow-hidden">
                                         <table className="w-full text-sm">
-                                          <thead className="bg-amber-100/50 dark:bg-amber-900/30">
+                                          <thead className="bg-muted/50">
                                             <tr>
                                               <th className="text-left p-3 font-medium">Product</th>
-                                              <th className="text-left p-3 font-medium">Source</th>
-                                              <th className="text-right p-3 font-medium">Previous Left</th>
-                                              <th className="text-right p-3 font-medium">Edited Qty</th>
-                                              <th className="text-right p-3 font-medium">Difference</th>
+                                              <th className="text-right p-3 font-medium">Start Qty</th>
+                                              <th className="text-right p-3 font-medium">Sold Qty</th>
+                                              <th className="text-right p-3 font-medium">Returned Qty</th>
+                                              <th className="text-right p-3 font-medium">Left Qty</th>
                                             </tr>
                                           </thead>
                                           <tbody>
-                                            {/* First show all edits */}
-                                            {editsForSummary.map((edit) => {
-                                              const unit = edit.unit || 'grams';
-                                              const isGrams = unit.toLowerCase() === 'grams';
-                                              const prevDisplay = isGrams ? (edit.previous_qty / 1000).toFixed(2) : edit.previous_qty.toFixed(2);
-                                              const editDisplay = isGrams ? (edit.edited_qty / 1000).toFixed(2) : edit.edited_qty.toFixed(2);
-                                              const diffDisplay = isGrams ? (edit.difference / 1000).toFixed(2) : edit.difference.toFixed(2);
-                                              const displayUnit = isGrams ? 'KG' : unit;
-                                              
-                                              const sourceLabel = edit.edit_source === 'manual_edit' 
-                                                ? '✏️ Manual Edit' 
-                                                : '📦 Load Previous';
-                                              const sourceColor = edit.edit_source === 'manual_edit'
-                                                ? 'text-blue-600 dark:text-blue-400'
-                                                : 'text-purple-600 dark:text-purple-400';
-                                              
+                                            {summary.items.map((item) => {
+                                              const startQty = item.start_qty / 1000;
+                                              const soldQty = item.ordered_qty / 1000;
+                                              const returnedQty = item.returned_qty / 1000;
+                                              const leftQty = item.left_qty / 1000;
+                                              const edit = editByProductId.get(item.product_id);
                                               return (
-                                                <tr key={edit.id} className="border-t border-amber-200/50 dark:border-amber-800/50">
-                                                  <td className="p-3">
-                                                    <p className="font-medium">{edit.product_name}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                      {new Date(edit.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                                                    </p>
-                                                  </td>
-                                                  <td className={`p-3 text-xs font-medium ${sourceColor}`}>
-                                                    {sourceLabel}
-                                                  </td>
-                                                  <td className="p-3 text-right font-medium">{prevDisplay} {displayUnit}</td>
-                                                  <td className="p-3 text-right font-medium">{editDisplay} {displayUnit}</td>
-                                                  <td className={`p-3 text-right font-medium ${
-                                                    edit.difference > 0 ? 'text-green-600' : 
-                                                    edit.difference < 0 ? 'text-red-600' : 
-                                                    'text-muted-foreground'
-                                                  }`}>
-                                                    {edit.difference > 0 ? '+' : ''}{diffDisplay} {displayUnit}
-                                                  </td>
-                                                </tr>
-                                              );
-                                            })}
-                                            {/* Then show products without any edits */}
-                                            {productsWithoutEdits.map((item) => {
-                                              const startQty = item.start_qty / 1000; // Always grams to KG
-                                              return (
-                                                <tr key={item.id} className="border-t border-amber-200/50 dark:border-amber-800/50 opacity-60">
+                                                <tr key={item.id} className="border-t">
                                                   <td className="p-3">
                                                     <p className="font-medium">{item.product_name}</p>
                                                     <p className="text-xs text-muted-foreground">₹{item.price_without_gst.toFixed(2)}/KG</p>
+                                                    {edit && (() => {
+                                                      const unit = edit.unit || 'grams';
+                                                      const isGrams = unit.toLowerCase() === 'grams';
+                                                      const prevDisplay = isGrams ? (edit.previous_qty / 1000).toFixed(2) : edit.previous_qty.toFixed(2);
+                                                      const editDisplay = isGrams ? (edit.edited_qty / 1000).toFixed(2) : edit.edited_qty.toFixed(2);
+                                                      const displayUnit = isGrams ? 'KG' : unit;
+                                                      const sourceLabel = edit.edit_source === 'manual_edit' ? '✏️ Manual edit' : '📦 Load previous';
+                                                      return (
+                                                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                                                          {sourceLabel}: opening stock {prevDisplay} → {editDisplay} {displayUnit}
+                                                        </p>
+                                                      );
+                                                    })()}
                                                   </td>
-                                                  <td className="p-3 text-xs text-muted-foreground">—</td>
                                                   <td className="p-3 text-right font-medium">{startQty.toFixed(2)} KG</td>
-                                                  <td className="p-3 text-right font-medium">{startQty.toFixed(2)} KG</td>
-                                                  <td className="p-3 text-right text-muted-foreground">0.00 KG</td>
+                                                  <td className="p-3 text-right font-medium text-amber-600 dark:text-amber-400">{soldQty.toFixed(2)} KG</td>
+                                                  <td className="p-3 text-right font-medium text-purple-600 dark:text-purple-400">{returnedQty.toFixed(2)} KG</td>
+                                                  <td className="p-3 text-right font-medium text-green-600 dark:text-green-400">{leftQty.toFixed(2)} KG</td>
                                                 </tr>
                                               );
                                             })}
@@ -968,6 +1245,33 @@ export default function VanSalesManagement() {
                         </CollapsibleContent>
                       </Collapsible>
                     ))}
+                  </div>
+                )}
+                {totalSummaryCount > PAGE_SIZE && (
+                  <div className="flex items-center justify-between pt-4 mt-2 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      Page {page + 1} of {Math.max(1, Math.ceil(totalSummaryCount / PAGE_SIZE))} · {totalSummaryCount} record{totalSummaryCount === 1 ? '' : 's'}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={page === 0 || summariesLoading}
+                        onClick={() => setPage(p => Math.max(0, p - 1))}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={(page + 1) * PAGE_SIZE >= totalSummaryCount || summariesLoading}
+                        onClick={() => setPage(p => p + 1)}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
