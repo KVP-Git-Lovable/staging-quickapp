@@ -549,44 +549,74 @@ function calculateSchemeDiscount(
       const buyQty = scheme.buy_quantity || 0;
       const freeQty = scheme.free_quantity || 0;
       const freeUnit = scheme.free_quantity_unit || 'kg';
-      
+
       if (buyQty <= 0 || freeQty <= 0) break;
 
       const isUserChoice = scheme.free_product_selection_mode === 'user_choice';
 
-      // Check if ANY applicable item meets the buy quantity threshold
-      let thresholdMet = false;
-      for (const item of applicableItems) {
-        if (item.quantity >= buyQty) {
-          thresholdMet = true;
+      // Threshold is checked against the COMBINED quantity across every
+      // eligible (X-pool) item in the cart — matching isSchemeConditionMet's
+      // pooled-sum semantics. Checking each item individually here (the old
+      // behavior) meant a scheme could show as "condition met" in the
+      // eligibility check yet grant nothing on Apply, because no single line
+      // alone reached the threshold even though the pool's total did.
+      const totalQty = applicableItems.reduce((sum, item) => sum + item.quantity, 0);
 
-          // THRESHOLD-BASED: Get free quantity ONCE when threshold is met (not per set)
-          const freeItemsCount = freeQty;
+      if (totalQty >= buyQty) {
+        // Attribute the free item to whichever eligible line has the
+        // largest quantity, purely for display/tracking purposes.
+        const triggeringItem = applicableItems.reduce((max, item) =>
+          item.quantity > max.quantity ? item : max, applicableItems[0]);
 
-          let freeProductName: string;
-          let freeProductId: string | undefined;
-          let otherFreeProductId: string | undefined;
+        // THRESHOLD-BASED: Get free quantity ONCE when threshold is met (not per set)
+        const freeItemsCount = freeQty;
 
-          if (isUserChoice) {
-            // Many-to-many pool: FreeProductChoiceDialog records the order-entry
-            // user's pick before this scheme ever reaches appliedSchemeIds. If no
-            // choice is recorded yet, don't guess — grant nothing.
-            if (!manualSelection?.chosenFreeProductId) break;
+        let freeProductName: string;
+        let freeProductId: string | undefined;
+        let otherFreeProductId: string | undefined;
+
+        if (isUserChoice) {
+          // Many-to-many pool: FreeProductChoiceDialog records the order-entry
+          // user's pick before this scheme ever reaches appliedSchemeIds. If no
+          // choice is recorded yet, don't guess — grant nothing.
+          if (manualSelection?.chosenFreeProductId) {
             freeProductName = manualSelection.chosenFreeProductName || 'Free Item';
             freeProductId = manualSelection.chosenFreeProductSource === 'catalogue' ? manualSelection.chosenFreeProductId : undefined;
             otherFreeProductId = manualSelection.chosenFreeProductSource === 'other' ? manualSelection.chosenFreeProductId : undefined;
-          } else {
-            // Use scheme's FREE product details — either a catalogue product or an
-            // "other" free product maintained specifically for schemes (no products row)
-            const isOtherFreeProduct = scheme.free_product_source === 'other';
-            freeProductName = (isOtherFreeProduct ? scheme.other_free_product_name : scheme.free_product_name) || 'Free Item';
-            freeProductId = isOtherFreeProduct ? undefined : (scheme.free_product_id || undefined);
-            otherFreeProductId = isOtherFreeProduct ? (scheme.other_free_product_id || undefined) : undefined;
+
+            // Track scheme details per item
+            if (!itemSchemeDetails[triggeringItem.id]) itemSchemeDetails[triggeringItem.id] = [];
+            itemSchemeDetails[triggeringItem.id].push({
+              schemeId: scheme.id,
+              schemeName: scheme.name,
+              schemeType: scheme.scheme_type,
+              discountAmount: 0,
+              freeItemName: freeProductName,
+              freeItemQty: freeItemsCount
+            });
+
+            freeItems = freeItems || [];
+            freeItems.push({
+              product_name: freeProductName,
+              quantity: freeItemsCount,
+              product_id: freeProductId,
+              other_free_product_id: otherFreeProductId,
+              original_rate: 0,
+              unit: freeUnit,
+              triggering_item_id: triggeringItem.id
+            });
           }
+        } else {
+          // Use scheme's FREE product details — either a catalogue product or an
+          // "other" free product maintained specifically for schemes (no products row)
+          const isOtherFreeProduct = scheme.free_product_source === 'other';
+          freeProductName = (isOtherFreeProduct ? scheme.other_free_product_name : scheme.free_product_name) || 'Free Item';
+          freeProductId = isOtherFreeProduct ? undefined : (scheme.free_product_id || undefined);
+          otherFreeProductId = isOtherFreeProduct ? (scheme.other_free_product_id || undefined) : undefined;
 
           // Track scheme details per item
-          if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
-          itemSchemeDetails[item.id].push({
+          if (!itemSchemeDetails[triggeringItem.id]) itemSchemeDetails[triggeringItem.id] = [];
+          itemSchemeDetails[triggeringItem.id].push({
             schemeId: scheme.id,
             schemeName: scheme.name,
             schemeType: scheme.scheme_type,
@@ -594,7 +624,7 @@ function calculateSchemeDiscount(
             freeItemName: freeProductName,
             freeItemQty: freeItemsCount
           });
-          
+
           // Track free items with correct unit from scheme and triggering item ID
           freeItems = freeItems || [];
           freeItems.push({
@@ -604,10 +634,8 @@ function calculateSchemeDiscount(
             other_free_product_id: otherFreeProductId,
             original_rate: 0,
             unit: freeUnit,
-            triggering_item_id: item.id
+            triggering_item_id: triggeringItem.id
           });
-          
-          break; // Only apply once per order when threshold is met
         }
       }
       break;
