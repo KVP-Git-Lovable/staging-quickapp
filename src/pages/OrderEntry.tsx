@@ -1478,6 +1478,17 @@ export const OrderEntry = () => {
       return;
     }
 
+    // Van stock at zero means there's physically nothing in the van to sell --
+    // block the order instead of letting it through and going negative.
+    if (stockQuantity <= 0) {
+      toast({
+        title: "Out of Stock",
+        description: `${displayProduct.name} has no stock left in the van. Update Van Stock before ordering this product.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Apply unit conversion to get correct price
     let effectiveRate = Number(displayProduct.rate);
     const selectedUnit = selectedUnits[product.id] || product.unit || 'kg';

@@ -881,15 +881,19 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
       if (stockError) throw stockError;
 
-      // IMPORTANT: Fetch fresh existing items from DB to avoid duplicate insertions
+      // IMPORTANT: Fetch fresh existing items from DB to avoid duplicate insertions.
+      // Also fetch their stored quantities: "Add Stock Items" always starts from
+      // one blank row (see loadTodayStock), so re-entering a product already
+      // saved earlier today means "add more stock", not "replace it" -- the
+      // update below needs the existing amount to add to, not just the id.
       const { data: freshExistingItems } = await supabase
         .from('van_stock_items')
-        .select('id, product_id')
+        .select('id, product_id, start_qty, returned_qty, unit')
         .eq('van_stock_id', vanStock.id);
-      
-      const existingItemsMap = new Map<string, string>();
+
+      const existingItemsMap = new Map<string, { id: string; start_qty: number; returned_qty: number; unit: string }>();
       (freshExistingItems || []).forEach((e: any) => {
-        existingItemsMap.set(e.product_id, e.id);
+        existingItemsMap.set(e.product_id, { id: e.id, start_qty: e.start_qty || 0, returned_qty: e.returned_qty || 0, unit: e.unit });
       });
       
       // Merge rows sharing the same product (e.g. the rep added a second row for
@@ -919,20 +923,34 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
 
       // Process each stock item - upsert by product_id to prevent duplicates
       for (const item of dedupedStockItems) {
-        const existingItemId = existingItemsMap.get(item.product_id);
-        
+        const existing = existingItemsMap.get(item.product_id);
+
         // Convert kg to grams for storage (database stores integers)
         // 2.75 KG = 2750 grams
         const isKgUnit = item.unit?.toLowerCase() === 'kg';
         const conversionFactor = isKgUnit ? 1000 : 1;
         const storageUnit = isKgUnit ? 'Grams' : item.unit;
-        
-        const convertedStartQty = Math.round(Number(item.start_qty || 0) * conversionFactor);
+
+        const newStartQty = Math.round(Number(item.start_qty || 0) * conversionFactor);
         const convertedOrderedQty = Math.round(Number(item.ordered_qty || 0) * conversionFactor);
-        const convertedReturnedQty = Math.round(Number(item.returned_qty || 0) * conversionFactor);
-        const convertedLeftQty = Math.round(Number(item.left_qty || 0) * conversionFactor);
-        
-        if (existingItemId) {
+        const newReturnedQty = Math.round(Number(item.returned_qty || 0) * conversionFactor);
+
+        // "Add Stock Items" always starts from one blank row with no `id`
+        // (loadTodayStock never pre-fills it with what's already saved), so
+        // re-entering a product that already has a row today means "add this
+        // much more stock" -- add to the existing DB amount instead of
+        // overwriting it. The one other way a row reaches this function is
+        // "Product Stock in Van" -> Edit All, which pre-loads the row WITH its
+        // real id and true current value for direct correction -- that case
+        // must keep setting the value as typed, or every edit would double it.
+        const isDirectEditOfExistingRow = !!item.id;
+        const existingStartQty = existing && !isDirectEditOfExistingRow ? convertBetweenUnits(existing.start_qty, existing.unit, storageUnit) : 0;
+        const existingReturnedQty = existing && !isDirectEditOfExistingRow ? convertBetweenUnits(existing.returned_qty, existing.unit, storageUnit) : 0;
+        const convertedStartQty = Math.round(existingStartQty + newStartQty);
+        const convertedReturnedQty = Math.round(existingReturnedQty + newReturnedQty);
+        const convertedLeftQty = convertedStartQty - convertedOrderedQty + convertedReturnedQty;
+
+        if (existing) {
           // Update existing item
           const { error: updateError } = await supabase
             .from('van_stock_items')
@@ -944,7 +962,7 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
               left_qty: convertedLeftQty,
               unit: storageUnit,
             })
-            .eq('id', existingItemId);
+            .eq('id', existing.id);
           
           if (updateError) throw updateError;
         } else {
