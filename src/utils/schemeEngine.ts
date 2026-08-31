@@ -242,17 +242,16 @@ export function isSchemeConditionMet(
     }
   } else if (hasMultiProduct) {
     // Multi-product scheme - check if ANY targeted product is in items and meets quantity
-    const matchingItems = items.filter(item => 
+    const matchingItems = items.filter(item =>
       scheme.target_product_ids!.includes(item.product_id || item.id)
     );
-    
+
     if (matchingItems.length === 0) return false;
-    
-    // Check quantity condition against total of matching items only
-    const requiredQty = scheme.condition_quantity || scheme.buy_quantity;
-    if (requiredQty) {
-      const totalMatchingQty = matchingItems.reduce((sum, item) => sum + item.quantity, 0);
-      if (totalMatchingQty < requiredQty) {
+
+    // Each targeted product's own quantity must independently meet the
+    // condition — never pool quantities across different products to reach it.
+    if (scheme.condition_quantity || scheme.buy_quantity) {
+      if (!matchingItems.some(item => isQuantityConditionMet(scheme, item.quantity))) {
         return false;
       }
     }
