@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ProductScheme } from "@/hooks/useOfflineSchemes";
-import { isSchemeConditionMet, schemeHasConditions, SchemeItem, calculateSchemeDiscountForComparison } from "@/utils/schemeEngine";
+import { isSchemeConditionMet, schemeHasConditions, SchemeItem, calculateSchemeDiscountForComparison, getApplicableTier } from "@/utils/schemeEngine";
 import { getSchemeProductLabel } from "@/utils/schemeProductLabel";
 import { SchemePolicies } from "@/hooks/useSchemePolicies";
 import type { ManualSchemeSelection } from "@/utils/schemeEngine";
@@ -143,6 +143,11 @@ const getConditionText = (scheme: ProductScheme) => {
     const bundleCount = scheme.bundle_product_ids?.length || 0;
     return `Bundle of ${bundleCount} products`;
   }
+  if (scheme.scheme_type === 'tiered_discount' && scheme.tier_data && scheme.tier_data.length > 0) {
+    return scheme.tier_data
+      .map(tier => `${tier.min_qty}-${tier.max_qty}: ${tier.discount_percentage}%`)
+      .join(' · ');
+  }
   if (scheme.condition_quantity && scheme.quantity_condition_type) {
     const unit = formatUnit(scheme.condition_unit);
     return `Buy ${scheme.quantity_condition_type === 'more_than' ? '>' : '≥'} ${scheme.condition_quantity}${unit ? ` ${unit}` : ''}`;
@@ -166,6 +171,10 @@ const getBenefitText = (scheme: ProductScheme) => {
       return `₹${scheme.bundle_discount_amount} off bundle`;
     }
     return 'Bundle discount';
+  }
+  if (scheme.scheme_type === 'tiered_discount' && scheme.tier_data && scheme.tier_data.length > 0) {
+    const maxPct = Math.max(...scheme.tier_data.map(tier => tier.discount_percentage || 0));
+    return `Up to ${maxPct}% off`;
   }
   if (scheme.discount_percentage) {
     return `${scheme.discount_percentage}% off`;
@@ -359,6 +368,22 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
       return;
     }
 
+    // Tiered Discount: two discontinuous quantity ranges have no single
+    // "meets condition" amount to bump the cart to, unlike a plain threshold
+    // scheme — only allow Apply when the cart already sits inside a tier.
+    if (scheme.scheme_type === 'tiered_discount') {
+      if (!isSchemeConditionMet(scheme, schemeItems, subtotal)) {
+        toast({
+          title: "Can't apply yet",
+          description: `${scheme.name}'s condition isn't met by your current order.`,
+          variant: "destructive",
+        });
+        return;
+      }
+      onApplyScheme(scheme);
+      return;
+    }
+
     // Find the product for this scheme
     let targetProduct: Product | undefined;
     let minQuantity = 1;
@@ -418,6 +443,21 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
     const isPurePercentage = scheme.scheme_type === 'percentage_discount' && !hasConditions;
     const isManualPerUnit = scheme.scheme_type === 'manual_per_unit_discount';
     const isFreeProductChoicePool = scheme.scheme_type === 'buy_x_get_y_free' && scheme.free_product_selection_mode === 'user_choice';
+    const isTieredDiscount = scheme.scheme_type === 'tiered_discount';
+    // Which tier the cart's current quantity actually falls into right now, if
+    // any — used to show the applicable rate instead of just the top tier's.
+    const tierRelevantItems = isTieredDiscount
+      ? scheme.product_id
+        ? schemeItems.filter(item => item.product_id === scheme.product_id || item.id === scheme.product_id)
+        : scheme.target_product_ids && scheme.target_product_ids.length > 0
+          ? schemeItems.filter(item => scheme.target_product_ids!.includes(item.product_id || item.id))
+          : scheme.category_id
+            ? schemeItems.filter(item => item.category_id === scheme.category_id)
+            : schemeItems
+      : [];
+    const matchedTier = isTieredDiscount
+      ? tierRelevantItems.map(item => getApplicableTier(scheme, item.quantity)).find(Boolean)
+      : undefined;
     const manualSel = manualSelections[scheme.id];
     const manualValueType: 'amount' | 'percentage' =
       (scheme.discount_value_type as 'amount' | 'percentage') === 'percentage' ? 'percentage' : 'amount';
@@ -553,7 +593,9 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
               <span className="font-medium text-primary">
                 {isManualPerUnit
                   ? `Up to ${manualValueType === 'percentage' ? `${scheme.max_discount_per_unit}%` : `₹${scheme.max_discount_per_unit}`} / ${manualUnit} (manual)`
-                  : getBenefitText(scheme)}
+                  : isTieredDiscount && matchedTier
+                    ? `${matchedTier.discount_percentage}% off`
+                    : getBenefitText(scheme)}
               </span>
             </div>
             {isManualPerUnit && isApplied && manualSel && (
@@ -633,10 +675,12 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                   {!schemePolicies?.allowSchemeStacking ? 'Stacking off' : 'Max offers reached'}
                 </Badge>
               )
-            ) : !scheme.product_id && hasConditions && !conditionMet ? (
+            ) : (!scheme.product_id || isTieredDiscount) && hasConditions && !conditionMet ? (
               // Category/bundle/multi-product schemes have no single product to
-              // add or bump here to make an ineligible scheme qualify — matches
-              // the same guard in handleApply.
+              // add or bump here to make an ineligible scheme qualify; Tiered
+              // Discount has no single "meets condition" quantity to bump to
+              // across its discontinuous ranges either — matches the same
+              // guards in handleApply.
               <Badge variant="outline" className="text-[10px] text-muted-foreground">
                 Condition not met
               </Badge>

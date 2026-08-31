@@ -114,6 +114,8 @@ export interface ProductScheme {
   condition_quantity?: number | null;
   quantity_condition_type?: string | null;
   min_order_value?: number | null;
+  // tiered_discount — quantity ranges, each with its own discount rate.
+  tier_data?: Array<{ min_qty: number; max_qty: number; discount_percentage: number }> | null;
   start_date?: string | null;
   end_date?: string | null;
   is_active?: boolean | null;
@@ -196,7 +198,8 @@ export function schemeHasConditions(scheme: ProductScheme): boolean {
     scheme.condition_quantity ||
     scheme.buy_quantity ||
     scheme.min_order_value ||
-    (scheme.scheme_type === 'bundle_combo' && scheme.bundle_product_ids && scheme.bundle_product_ids.length > 0)
+    (scheme.scheme_type === 'bundle_combo' && scheme.bundle_product_ids && scheme.bundle_product_ids.length > 0) ||
+    (scheme.scheme_type === 'tiered_discount' && scheme.tier_data && scheme.tier_data.length > 0)
   );
 }
 
@@ -225,6 +228,23 @@ export function isSchemeConditionMet(
   }
 
   const hasMultiProduct = scheme.target_product_ids && scheme.target_product_ids.length > 0;
+
+  // Tiered Discount — quantity must fall inside one of the configured
+  // min_qty/max_qty ranges, not a single condition_quantity/buy_quantity
+  // threshold. Checked before the generic branches below, since a tiered
+  // scheme doesn't set those fields and would otherwise show as having no
+  // quantity requirement at all.
+  if (scheme.scheme_type === 'tiered_discount' && scheme.tier_data && scheme.tier_data.length > 0) {
+    const relevantItems = scheme.product_id
+      ? items.filter(item => item.product_id === scheme.product_id || item.id === scheme.product_id)
+      : hasMultiProduct
+        ? items.filter(item => scheme.target_product_ids!.includes(item.product_id || item.id))
+        : scheme.category_id
+          ? items.filter(item => item.category_id === scheme.category_id)
+          : items;
+    if (relevantItems.length === 0) return false;
+    return relevantItems.some(item => isQuantityInAnyTier(scheme, item.quantity));
+  }
 
   // For product-specific schemes, check product and quantity conditions
   if (scheme.product_id) {
@@ -315,6 +335,22 @@ function schemeAppliesToItem(scheme: ProductScheme, item: SchemeItem): boolean {
   }
   
   return false;
+}
+
+/**
+ * Find the tiered_discount tier whose [min_qty, max_qty] range contains this
+ * quantity, if any. A quantity above every configured tier's max_qty matches
+ * no tier — ranges are taken literally, not as an open-ended top tier.
+ */
+export function getApplicableTier(
+  scheme: ProductScheme,
+  quantity: number
+): { min_qty: number; max_qty: number; discount_percentage: number } | undefined {
+  return (scheme.tier_data || []).find(tier => quantity >= tier.min_qty && quantity <= tier.max_qty);
+}
+
+function isQuantityInAnyTier(scheme: ProductScheme, quantity: number): boolean {
+  return !!getApplicableTier(scheme, quantity);
 }
 
 /**
@@ -762,15 +798,19 @@ function calculateSchemeDiscount(
 
     case 'tiered_discount':
     case 'tiered': {
-      // Tiered discount based on quantity thresholds
+      // Each item's own quantity picks its applicable tier and that tier's own
+      // rate — mirrors the lookup isSchemeConditionMet uses, rather than a flat
+      // discount_percentage gated by a condition_quantity/buy_quantity threshold
+      // tiered schemes never set.
       for (const item of applicableItems) {
-        if (isQuantityConditionMet(scheme, item.quantity)) {
-          const discountPct = scheme.discount_percentage || 0;
+        const tier = getApplicableTier(scheme, item.quantity);
+        if (tier) {
+          const discountPct = tier.discount_percentage || 0;
           const itemTotal = item.rate * item.quantity;
           const itemDiscount = itemTotal * (discountPct / 100);
           discount += itemDiscount;
           itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
-          
+
           // Track scheme details per item
           if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
           itemSchemeDetails[item.id].push({
