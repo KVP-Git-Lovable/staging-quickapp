@@ -1115,7 +1115,15 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               productCode: option.sku,
               product: option.product,
               variant: option.variant,
-              unit: '',
+              // A freshly-picked row must start with a real unit, not '' —
+              // the unit-switch handler below only rescales the quantity when
+              // it has a previous unit to convert FROM. If a quantity gets
+              // typed while unit is still blank and the user then picks
+              // "Grams", there's no oldUnit to convert against, so the
+              // quantity is left un-rescaled while the rate correctly divides
+              // by 1000 — producing a near-zero total under a GRAM label
+              // instead of the intended KG amount.
+              unit: defaultUnit,
               uomId: null,
               uomCode: null,
               conversionToBase: null,
