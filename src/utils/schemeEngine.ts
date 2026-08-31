@@ -333,21 +333,26 @@ function getProductDiscountPercentage(scheme: ProductScheme, productId: string):
  * Check if quantity condition is met
  */
 function isQuantityConditionMet(scheme: ProductScheme, quantity: number): boolean {
-  if (!scheme.condition_quantity) return true;
-  
+  // condition_quantity is the general threshold field; buy_x_get_y_free schemes
+  // conventionally use buy_quantity instead — same fallback already used by the
+  // single-product branch of isSchemeConditionMet, so a scheme configured with
+  // only buy_quantity isn't silently treated as having no quantity requirement.
+  const requiredQty = scheme.condition_quantity || scheme.buy_quantity;
+  if (!requiredQty) return true;
+
   const condType = scheme.quantity_condition_type || 'gte';
-  
+
   switch (condType) {
     case 'gte':
     case 'min':
-      return quantity >= scheme.condition_quantity;
+      return quantity >= requiredQty;
     case 'eq':
-      return quantity === scheme.condition_quantity;
+      return quantity === requiredQty;
     case 'lte':
     case 'max':
-      return quantity <= scheme.condition_quantity;
+      return quantity <= requiredQty;
     default:
-      return quantity >= scheme.condition_quantity;
+      return quantity >= requiredQty;
   }
 }
 
@@ -553,19 +558,18 @@ function calculateSchemeDiscount(
 
       const isUserChoice = scheme.free_product_selection_mode === 'user_choice';
 
-      // Threshold is checked against the COMBINED quantity across every
-      // eligible (X-pool) item in the cart — matching isSchemeConditionMet's
-      // pooled-sum semantics. Checking each item individually here (the old
-      // behavior) meant a scheme could show as "condition met" in the
-      // eligibility check yet grant nothing on Apply, because no single line
-      // alone reached the threshold even though the pool's total did.
-      const totalQty = applicableItems.reduce((sum, item) => sum + item.quantity, 0);
+      // Threshold is checked against each eligible (X-pool) item's OWN
+      // quantity — never pooled across different products. This matches
+      // isSchemeConditionMet's per-item semantics for multi-product schemes:
+      // a scheme must never show "condition met" for a combined total that no
+      // single product actually reaches.
+      const qualifyingItems = applicableItems.filter(item => item.quantity >= buyQty);
 
-      if (totalQty >= buyQty) {
-        // Attribute the free item to whichever eligible line has the
+      if (qualifyingItems.length > 0) {
+        // Attribute the free item to whichever qualifying line has the
         // largest quantity, purely for display/tracking purposes.
-        const triggeringItem = applicableItems.reduce((max, item) =>
-          item.quantity > max.quantity ? item : max, applicableItems[0]);
+        const triggeringItem = qualifyingItems.reduce((max, item) =>
+          item.quantity > max.quantity ? item : max, qualifyingItems[0]);
 
         // THRESHOLD-BASED: Get free quantity ONCE when threshold is met (not per set)
         const freeItemsCount = freeQty;

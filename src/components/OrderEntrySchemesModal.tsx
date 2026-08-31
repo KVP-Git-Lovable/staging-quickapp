@@ -384,7 +384,17 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
       // Add or update product with minimum quantity
       onApplyScheme(scheme, targetProduct, minQuantity);
     } else {
-      // Generic scheme (all products)
+      // Generic scheme (category, bundle, or multi-product) — there's no
+      // single product to add/bump here to make an ineligible scheme
+      // qualify, so actually check the condition before applying.
+      if (schemeHasConditions(scheme) && !isSchemeConditionMet(scheme, schemeItems, subtotal)) {
+        toast({
+          title: "Can't apply yet",
+          description: `${scheme.name}'s condition isn't met by your current order.`,
+          variant: "destructive",
+        });
+        return;
+      }
       onApplyScheme(scheme);
     }
   };
@@ -623,6 +633,13 @@ export const OrderEntrySchemesModal: React.FC<OrderEntrySchemesModalProps> = ({
                   {!schemePolicies?.allowSchemeStacking ? 'Stacking off' : 'Max offers reached'}
                 </Badge>
               )
+            ) : !scheme.product_id && hasConditions && !conditionMet ? (
+              // Category/bundle/multi-product schemes have no single product to
+              // add or bump here to make an ineligible scheme qualify — matches
+              // the same guard in handleApply.
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                Condition not met
+              </Badge>
             ) : canApplyScheme(scheme) ? (
               <Button
                 size="sm"
