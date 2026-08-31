@@ -1809,7 +1809,10 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                     {/* Price and Stock in 2 columns */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="variantPrice">Rate (₹) *</Label>
+                        <Label htmlFor="variantPrice" className="flex items-center gap-1.5">
+                          Rate (₹) *
+                          {!priceEditUnlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                        </Label>
                         <Input
                           id="variantPrice"
                           type="number"
@@ -1818,14 +1821,21 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           onChange={(e) => {
                             const price = parseFloat(e.target.value) || 0;
                             const discountAmount = (price * variantForm.discount_percentage) / 100;
-                            setVariantForm({ 
-                              ...variantForm, 
+                            setVariantForm({
+                              ...variantForm,
                               price,
                               discount_amount: Number(discountAmount.toFixed(2))
                             });
                           }}
                           placeholder="0.00"
+                          disabled={!priceEditUnlocked}
+                          className={!priceEditUnlocked ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}
                         />
+                        {!priceEditUnlocked && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Locked — click "Edit Price" above and confirm your password to change.
+                          </p>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="variantStock">Closing Stock</Label>
@@ -2036,48 +2046,69 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
+                            onClick={async () => {
+                              // The `variant` here comes from local state, last
+                              // refreshed whenever this page/list happened to load
+                              // or re-fetch -- it can be stale if someone else
+                              // edited this variant since. Saving this form later
+                              // writes EVERY field in it back, price included, even
+                              // if the admin only touched something unrelated (a
+                              // toggle, stock qty, barcode) -- so a stale price
+                              // silently overwrites whatever the real current price
+                              // is. Re-fetch the row fresh right before editing so
+                              // the form starts from the true current state.
+                              let freshVariant: any = variant;
+                              try {
+                                const { data, error } = await supabase
+                                  .from('product_variants')
+                                  .select('*')
+                                  .eq('id', variant.id)
+                                  .single();
+                                if (!error && data) freshVariant = data;
+                              } catch (e) {
+                                console.warn('Failed to refresh variant before edit, using cached data:', e);
+                              }
                               setVariantForm({
-                                ...variant,
-                                product_number: (variant as any).product_number || '',
+                                ...freshVariant,
+                                product_number: (freshVariant as any).product_number || '',
                                 // Keep DB nulls as nulls so the override editor reads "Inherited" correctly.
-                                description: (variant as any).description ?? null,
-                                base_unit: (variant as any).base_unit ?? null,
-                                unit: (variant as any).unit || 'piece',
-                                conversion_factor: (variant as any).conversion_factor || 1,
-                                hsn_code: (variant as any).hsn_code ?? null,
-                                is_focused_product: variant.is_focused_product || false,
-                                focused_type: (variant as any).focused_type || undefined,
-                                focused_due_date: variant.focused_due_date || '',
-                                focused_target_quantity: variant.focused_target_quantity || 0,
-                                focused_territories: variant.focused_territories || [],
-                                focused_recurring_config: (variant as any).focused_recurring_config || undefined,
-                                barcode: variant.barcode || '',
-                                qr_code: variant.qr_code || '',
-                                barcode_image_url: (variant as any).barcode_image_url || null,
-                                variant_type: (variant as any).variant_type || 'Other',
-                                uom_id: (variant as any).uom_id || null,
-                                variant_weight_g: (variant as any).variant_weight_g ?? null,
-                                variant_cost: (variant as any).variant_cost ?? null,
-                                variant_tax_rate: (variant as any).variant_tax_rate ?? null,
-                                is_discontinued: !!(variant as any).is_discontinued,
-                                discontinued_date: (variant as any).discontinued_date || null,
+                                description: (freshVariant as any).description ?? null,
+                                base_unit: (freshVariant as any).base_unit ?? null,
+                                unit: (freshVariant as any).unit || 'piece',
+                                conversion_factor: (freshVariant as any).conversion_factor || 1,
+                                hsn_code: (freshVariant as any).hsn_code ?? null,
+                                is_focused_product: freshVariant.is_focused_product || false,
+                                focused_type: (freshVariant as any).focused_type || undefined,
+                                focused_due_date: freshVariant.focused_due_date || '',
+                                focused_target_quantity: freshVariant.focused_target_quantity || 0,
+                                focused_territories: freshVariant.focused_territories || [],
+                                focused_recurring_config: (freshVariant as any).focused_recurring_config || undefined,
+                                barcode: freshVariant.barcode || '',
+                                qr_code: freshVariant.qr_code || '',
+                                barcode_image_url: (freshVariant as any).barcode_image_url || null,
+                                variant_type: (freshVariant as any).variant_type || 'Other',
+                                uom_id: (freshVariant as any).uom_id || null,
+                                variant_weight_g: (freshVariant as any).variant_weight_g ?? null,
+                                variant_cost: (freshVariant as any).variant_cost ?? null,
+                                variant_tax_rate: (freshVariant as any).variant_tax_rate ?? null,
+                                is_discontinued: !!(freshVariant as any).is_discontinued,
+                                discontinued_date: (freshVariant as any).discontinued_date || null,
                                 // Phase-4 override columns: preserve NULL = inherit.
-                                tax_master_id: (variant as any).tax_master_id ?? null,
-                                gst_percentage: (variant as any).gst_percentage ?? null,
-                                category_id: (variant as any).category_id ?? null,
-                                brand: (variant as any).brand ?? null,
-                                product_type: (variant as any).product_type ?? null,
-                                default_sales_uom_id: (variant as any).default_sales_uom_id ?? null,
-                                price_basis_uom_id: (variant as any).price_basis_uom_id ?? null,
-                                net_weight_g: (variant as any).net_weight_g ?? null,
-                                net_volume_ml: (variant as any).net_volume_ml ?? null,
-                                standard_cost: (variant as any).standard_cost ?? null,
-                                sku_image_url: (variant as any).sku_image_url ?? null,
-                                reorder_level: (variant as any).reorder_level ?? null,
-                                reorder_quantity: (variant as any).reorder_quantity ?? null,
-                                manufacturer: (variant as any).manufacturer ?? null,
-                                country_of_origin: (variant as any).country_of_origin ?? null,
+                                tax_master_id: (freshVariant as any).tax_master_id ?? null,
+                                gst_percentage: (freshVariant as any).gst_percentage ?? null,
+                                category_id: (freshVariant as any).category_id ?? null,
+                                brand: (freshVariant as any).brand ?? null,
+                                product_type: (freshVariant as any).product_type ?? null,
+                                default_sales_uom_id: (freshVariant as any).default_sales_uom_id ?? null,
+                                price_basis_uom_id: (freshVariant as any).price_basis_uom_id ?? null,
+                                net_weight_g: (freshVariant as any).net_weight_g ?? null,
+                                net_volume_ml: (freshVariant as any).net_volume_ml ?? null,
+                                standard_cost: (freshVariant as any).standard_cost ?? null,
+                                sku_image_url: (freshVariant as any).sku_image_url ?? null,
+                                reorder_level: (freshVariant as any).reorder_level ?? null,
+                                reorder_quantity: (freshVariant as any).reorder_quantity ?? null,
+                                manufacturer: (freshVariant as any).manufacturer ?? null,
+                                country_of_origin: (freshVariant as any).country_of_origin ?? null,
                               });
                               setIsVariantDialogOpen(true);
                             }}
