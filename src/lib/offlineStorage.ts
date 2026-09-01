@@ -54,8 +54,14 @@ export interface SyncMetadata {
   date?: string;
 }
 
-// Minimum sync interval (5 minutes)
-export const MIN_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+// Minimum sync interval. Was 5 minutes — during active order-taking a rep
+// can place several orders within that window, so a screen that's been open
+// (or backgrounded and refocused) stays frozen at a stale total for up to 5
+// minutes while a screen opened fresh elsewhere (e.g. Today's Summary, which
+// always live-fetches on mount) shows a different, more current number for
+// the same day. Shortened to keep foreground refreshes near-live without
+// polling excessively.
+export const MIN_SYNC_INTERVAL_MS = 60 * 1000;
 
 // Chunk size for large datasets (retailers, products)
 const CHUNK_SIZE = 1000;

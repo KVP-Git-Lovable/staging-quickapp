@@ -344,6 +344,7 @@ export const VisitCard = ({
   const { can } = usePermissions();
   const editPolicy = useOrderEditPolicy();
   const canEditPerm = can('order_edit', 'edit');
+  const canCancelPerm = can('action_order_cancel', 'edit');
 
   // Ask the DB per-order whether editing is currently allowed under policy
   // (edit_who / lock point / max edits). Only runs when the policy is on and
@@ -732,7 +733,11 @@ export const VisitCard = ({
                       rate: item.rate,
                       original_rate: item.original_rate || item.rate,
                       unit: item.unit || 'piece',
-                      order_id: order.id
+                      order_id: order.id,
+                      tax_rate_snapshot: item.tax_rate_snapshot,
+                      cgst_rate: item.cgst_rate,
+                      sgst_rate: item.sgst_rate,
+                      igst_rate: item.igst_rate
                     });
                   });
                 }
@@ -746,11 +751,13 @@ export const VisitCard = ({
                   const key = hasMultiOrders ? `${it.order_id}::${it.product_name}` : it.product_name;
                   const existing = grouped.get(key);
                   const qty = Number(it.quantity || 0);
-                  const rate = Number(it.rate || 0);
-                  const originalRate = Number(it.original_rate || it.rate || 0);
+                  // rate/original_rate are stored tax-exclusive — show GST-inclusive prices here.
+                  const gstMultiplier = 1 + (Number(it.tax_rate_snapshot) || (Number(it.cgst_rate || 0) + Number(it.sgst_rate || 0) + Number(it.igst_rate || 0))) / 100;
+                  const rate = Number(it.rate || 0) * gstMultiplier;
+                  const originalRate = Number(it.original_rate || it.rate || 0) * gstMultiplier;
                   const unit = it.unit || 'piece';
                   const unitLower = unit.toLowerCase().trim();
-                  
+
                   let displayQty = qty;
                   let displayUnit = unit;
                   let displayRate = originalRate || rate;
@@ -2590,7 +2597,7 @@ export const VisitCard = ({
 
           const { data, error } = await supabase
             .from('orders')
-            .select('id, user_id, created_at, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, invoice_number, idempotency_key, invoice_generated_at, dispatched_at, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit)')
+            .select('id, user_id, created_at, total_amount, is_credit_order, credit_paid_amount, credit_pending_amount, invoice_number, idempotency_key, invoice_generated_at, dispatched_at, order_items!order_items_order_id_fkey(product_name, quantity, rate, original_rate, total, unit, tax_rate_snapshot, cgst_rate, sgst_rate, igst_rate)')
             .eq('retailer_id', retailerId)
             .in('status', ['confirmed', 'delivered'])
             .eq('order_date', selectedDate || toLocalISODate(targetDate))
@@ -2739,7 +2746,11 @@ export const VisitCard = ({
                 original_rate: item.original_rate || item.rate,
                 total: item.total || (item.quantity * item.rate),
                 order_id: order.id,
-                unit: item.unit || 'piece'
+                unit: item.unit || 'piece',
+                tax_rate_snapshot: item.tax_rate_snapshot,
+                cgst_rate: item.cgst_rate,
+                sgst_rate: item.sgst_rate,
+                igst_rate: item.igst_rate
               });
             });
           }
@@ -2753,7 +2764,7 @@ export const VisitCard = ({
             const allOrderIds = mergedOrders.map((o: any) => o.id).filter(Boolean);
             const { data: items } = await supabase
               .from('order_items')
-              .select('product_name, quantity, rate, original_rate, total, order_id, unit')
+              .select('product_name, quantity, rate, original_rate, total, order_id, unit, tax_rate_snapshot, cgst_rate, sgst_rate, igst_rate')
               .in('order_id', allOrderIds);
             if (items && items.length > 0) {
               allItems = items;
@@ -2783,7 +2794,11 @@ export const VisitCard = ({
                   original_rate: item.original_rate || item.rate,
                   total: item.total || (item.quantity * item.rate),
                   order_id: matchingOrder.id,
-                  unit: item.unit || 'piece'
+                  unit: item.unit || 'piece',
+                  tax_rate_snapshot: item.tax_rate_snapshot,
+                  cgst_rate: item.cgst_rate,
+                  sgst_rate: item.sgst_rate,
+                  igst_rate: item.igst_rate
                 });
               });
             }
@@ -2821,11 +2836,13 @@ export const VisitCard = ({
           const key = hasMultipleOrders ? `${it.order_id}::${it.product_name}` : it.product_name;
           const existing = grouped.get(key);
           const qty = Number(it.quantity || 0);
-          const rate = Number(it.rate || 0);
-          const originalRate = Number(it.original_rate || it.rate || 0);
-          const total = Number(it.total || 0);
+          // rate/original_rate/total are stored tax-exclusive — show GST-inclusive prices here.
+          const gstMultiplier = 1 + (Number((it as any).tax_rate_snapshot) || (Number((it as any).cgst_rate || 0) + Number((it as any).sgst_rate || 0) + Number((it as any).igst_rate || 0))) / 100;
+          const rate = Number(it.rate || 0) * gstMultiplier;
+          const originalRate = Number(it.original_rate || it.rate || 0) * gstMultiplier;
+          const total = Number(it.total || 0) * gstMultiplier;
           const unit = it.unit || 'piece';
-          
+
           const { displayQty, displayUnit, displayRate } = getDisplayValues(qty, rate, originalRate, total, unit);
           
           if (existing) {
@@ -3520,16 +3537,18 @@ export const VisitCard = ({
                         created_at: o.created_at
                       }))} customerPhone={visit.phone} className="w-full" />
                       
-                      {/* Cancel Order Button */}
-                      <Button 
-                        variant="outline"
-                        size="sm"
-                        className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
-                        onClick={() => setShowCancelOrderDialog(true)}
-                      >
-                        <Ban size={14} className="mr-2" />
-                        Cancel Order
-                      </Button>
+                      {/* Cancel Order Button — gated by action_order_cancel */}
+                      {canCancelPerm && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+                          onClick={() => setShowCancelOrderDialog(true)}
+                        >
+                          <Ban size={14} className="mr-2" />
+                          Cancel Order
+                        </Button>
+                      )}
 
                       {/* Edit Order Button (Phase 2b-3b) — gated by operations_config + can_edit_order RPC */}
                       {editPolicy.edit_enabled && editPolicy.edit_visible_in_visit_card && canEditPerm && (() => {

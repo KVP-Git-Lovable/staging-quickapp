@@ -41,18 +41,22 @@ export const OrderItemsExpanded = ({ orderId, displayItems, onItemsLoaded }: Ord
       try {
         const { data } = await supabase
           .from('order_items')
-          .select('product_name, quantity, rate, original_rate, total, unit')
+          .select('product_name, quantity, rate, original_rate, total, unit, tax_rate_snapshot, cgst_rate, sgst_rate, igst_rate')
           .eq('order_id', orderId);
-        
+
         if (data && data.length > 0) {
           const mapped = data.map(it => {
+            // Rate/original_rate are stored tax-exclusive — show GST-inclusive prices here.
+            const gstMultiplier = 1 + (Number(it.tax_rate_snapshot) || (Number(it.cgst_rate || 0) + Number(it.sgst_rate || 0) + Number(it.igst_rate || 0))) / 100;
+            const rateInclGst = it.rate * gstMultiplier;
+            const originalRateInclGst = (it.original_rate || it.rate) * gstMultiplier;
             const { displayQty, displayUnit, displayRate } = getDisplayValues(
-              it.quantity, it.rate, it.original_rate || it.rate, it.unit || 'piece'
+              it.quantity, rateInclGst, originalRateInclGst, it.unit || 'piece'
             );
             return {
               product_name: it.product_name,
               quantity: it.quantity,
-              rate: it.rate,
+              rate: rateInclGst,
               actualRate: displayRate,
               displayQty,
               displayUnit,

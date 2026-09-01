@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
-import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download, Ban, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Package, Tag, Search, Grid3X3, Camera, Loader2, RefreshCw, SlidersHorizontal, FileText, Download, Ban, CheckCircle, Lock, LockOpen } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ProductFormFields } from './ProductFormFields';
 import { ProductExtendedFields } from './ProductExtendedFields';
@@ -209,7 +209,12 @@ const emptyVariantForm = (): any => ({
 });
 
 const [productForm, setProductForm] = useState(emptyProductForm());
-  
+  const [originalRateForAudit, setOriginalRateForAudit] = useState<number | null>(null);
+  const [priceEditUnlocked, setPriceEditUnlocked] = useState(false);
+  const [showPriceUnlockDialog, setShowPriceUnlockDialog] = useState(false);
+  const [priceUnlockPassword, setPriceUnlockPassword] = useState('');
+  const [verifyingPriceUnlock, setVerifyingPriceUnlock] = useState(false);
+
   const [variantForm, setVariantForm] = useState({
     id: '',
     product_id: '',
@@ -706,6 +711,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   // days out of date, quietly reverting a price someone else changed since.
   const openEditProductDialog = (product: any) => {
     setProductForm(mapProductToForm(product));
+    setOriginalRateForAudit(product.rate);
     setUnitsValue(emptyProductUnitsEditorValue());
     setIsProductDialogOpen(true);
     hydrateUnitsEditorFromProduct(product.id)
@@ -722,8 +728,43 @@ const [productForm, setProductForm] = useState(emptyProductForm());
         // Guard against a race: only apply if the dialog is still open for
         // this same product (user didn't close it / switch to another row
         // before the fetch resolved).
-        setProductForm(prev => (prev.id === product.id ? mapProductToForm(data) : prev));
+        setProductForm(prev => {
+          if (prev.id !== product.id) return prev;
+          setOriginalRateForAudit(data.rate);
+          return mapProductToForm(data);
+        });
       });
+  };
+
+  const handlePriceUnlockConfirm = async () => {
+    if (!priceUnlockPassword) {
+      toast.error('Enter your password to unlock price editing');
+      return;
+    }
+    setVerifyingPriceUnlock(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        toast.error('Unable to verify current session');
+        return;
+      }
+      // signInWithPassword re-verifies the current user's password without
+      // disrupting the existing session (same pattern as PasswordChangeSection).
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: priceUnlockPassword,
+      });
+      if (error) {
+        toast.error('Incorrect password');
+        return;
+      }
+      setPriceEditUnlocked(true);
+      setShowPriceUnlockDialog(false);
+      setPriceUnlockPassword('');
+      toast.success('Price editing unlocked for this session');
+    } finally {
+      setVerifyingPriceUnlock(false);
+    }
   };
 
   const handleProductSubmit = async () => {
@@ -732,6 +773,8 @@ const [productForm, setProductForm] = useState(emptyProductForm());
       // Generate QR code if not exists
       const qrCode = productForm.qr_code || generateQRCode('product', productForm.sku, productForm.name);
       const baseUnitCategory = normalizeProductBaseUnitCategory(unitsValue.baseCategory || productForm.base_unit);
+
+      const rateChanged = !!productForm.id && originalRateForAudit !== null && productForm.rate !== originalRateForAudit;
 
       let savedProductId = productForm.id;
 
@@ -778,6 +821,28 @@ const [productForm, setProductForm] = useState(emptyProductForm());
           .eq('id', productForm.id);
 
         if (error) throw error;
+
+        if (rateChanged) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            const { error: auditError } = await supabase
+              .from('product_price_change_log' as any)
+              .insert({
+                product_id: productForm.id,
+                sku: productForm.sku,
+                product_name: productForm.name,
+                old_rate: originalRateForAudit,
+                new_rate: productForm.rate,
+                changed_by: user?.id ?? null,
+              });
+            if (auditError) console.warn('Price change audit failed:', auditError);
+          } catch (auditError) {
+            console.warn('Price change audit failed:', auditError);
+          }
+          // Re-lock immediately after a price change so the next edit needs
+          // a fresh password confirmation.
+          setPriceEditUnlocked(false);
+        }
       } else {
         const { data: inserted, error } = await supabase
           .from('products')
@@ -852,6 +917,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
 
       setIsProductDialogOpen(false);
       setProductForm(emptyProductForm());
+      setOriginalRateForAudit(null);
       setUnitsValue(emptyProductUnitsEditorValue());
       fetchProducts();
     } catch (error: any) {
@@ -1129,6 +1195,21 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                   </Select>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    variant={priceEditUnlocked ? 'default' : 'outline'}
+                    onClick={() => {
+                      if (priceEditUnlocked) {
+                        setPriceEditUnlocked(false);
+                        toast.success('Price editing locked');
+                      } else {
+                        setPriceUnlockPassword('');
+                        setShowPriceUnlockDialog(true);
+                      }
+                    }}
+                  >
+                    {priceEditUnlocked ? <LockOpen className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+                    {priceEditUnlocked ? 'Price Unlocked' : 'Edit Price'}
+                  </Button>
                   <Button variant="outline" onClick={() => navigate('/admin/uom-master')}>
                     <SlidersHorizontal className="h-4 w-4 mr-2" />
                     UoM Master
@@ -1173,6 +1254,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       <Button onClick={() => {
                         setUnitsValue(emptyProductUnitsEditorValue());
                         setProductForm(emptyProductForm());
+                        setOriginalRateForAudit(null);
                       }}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Product
@@ -1193,6 +1275,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           territories={territories}
                           taxMasters={taxMasters}
                           onFormChange={(updates) => setProductForm({ ...productForm, ...updates })}
+                          priceLocked={!priceEditUnlocked}
                         />
                         <ProductExtendedFields
                           form={productForm}
@@ -1217,6 +1300,38 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                       </Button>
                     </DialogFooter>
                   </DialogContent>
+                  </Dialog>
+
+                  <Dialog open={showPriceUnlockDialog} onOpenChange={(open) => { setShowPriceUnlockDialog(open); if (!open) setPriceUnlockPassword(''); }}>
+                    <DialogContent className="max-w-sm">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Lock className="h-4 w-4" /> Confirm Your Password
+                        </DialogTitle>
+                        <DialogDescription>
+                          Enter your account password to unlock price editing. This is logged so we know who changed a product's price and when.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-2">
+                        <Label htmlFor="price-unlock-password">Password</Label>
+                        <Input
+                          id="price-unlock-password"
+                          type="password"
+                          value={priceUnlockPassword}
+                          onChange={(e) => setPriceUnlockPassword(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handlePriceUnlockConfirm(); }}
+                          autoFocus
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => { setShowPriceUnlockDialog(false); setPriceUnlockPassword(''); }}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handlePriceUnlockConfirm} disabled={verifyingPriceUnlock}>
+                          {verifyingPriceUnlock ? 'Verifying…' : 'Unlock'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
                   </Dialog>
                 </div>
               </div>
@@ -1694,7 +1809,10 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                     {/* Price and Stock in 2 columns */}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="variantPrice">Rate (₹) *</Label>
+                        <Label htmlFor="variantPrice" className="flex items-center gap-1.5">
+                          Rate (₹) *
+                          {!priceEditUnlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                        </Label>
                         <Input
                           id="variantPrice"
                           type="number"
@@ -1703,14 +1821,21 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           onChange={(e) => {
                             const price = parseFloat(e.target.value) || 0;
                             const discountAmount = (price * variantForm.discount_percentage) / 100;
-                            setVariantForm({ 
-                              ...variantForm, 
+                            setVariantForm({
+                              ...variantForm,
                               price,
                               discount_amount: Number(discountAmount.toFixed(2))
                             });
                           }}
                           placeholder="0.00"
+                          disabled={!priceEditUnlocked}
+                          className={!priceEditUnlocked ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''}
                         />
+                        {!priceEditUnlocked && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Locked — click "Edit Price" above and confirm your password to change.
+                          </p>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="variantStock">Closing Stock</Label>
@@ -1921,48 +2046,69 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
+                            onClick={async () => {
+                              // The `variant` here comes from local state, last
+                              // refreshed whenever this page/list happened to load
+                              // or re-fetch -- it can be stale if someone else
+                              // edited this variant since. Saving this form later
+                              // writes EVERY field in it back, price included, even
+                              // if the admin only touched something unrelated (a
+                              // toggle, stock qty, barcode) -- so a stale price
+                              // silently overwrites whatever the real current price
+                              // is. Re-fetch the row fresh right before editing so
+                              // the form starts from the true current state.
+                              let freshVariant: any = variant;
+                              try {
+                                const { data, error } = await supabase
+                                  .from('product_variants')
+                                  .select('*')
+                                  .eq('id', variant.id)
+                                  .single();
+                                if (!error && data) freshVariant = data;
+                              } catch (e) {
+                                console.warn('Failed to refresh variant before edit, using cached data:', e);
+                              }
                               setVariantForm({
-                                ...variant,
-                                product_number: (variant as any).product_number || '',
+                                ...freshVariant,
+                                product_number: (freshVariant as any).product_number || '',
                                 // Keep DB nulls as nulls so the override editor reads "Inherited" correctly.
-                                description: (variant as any).description ?? null,
-                                base_unit: (variant as any).base_unit ?? null,
-                                unit: (variant as any).unit || 'piece',
-                                conversion_factor: (variant as any).conversion_factor || 1,
-                                hsn_code: (variant as any).hsn_code ?? null,
-                                is_focused_product: variant.is_focused_product || false,
-                                focused_type: (variant as any).focused_type || undefined,
-                                focused_due_date: variant.focused_due_date || '',
-                                focused_target_quantity: variant.focused_target_quantity || 0,
-                                focused_territories: variant.focused_territories || [],
-                                focused_recurring_config: (variant as any).focused_recurring_config || undefined,
-                                barcode: variant.barcode || '',
-                                qr_code: variant.qr_code || '',
-                                barcode_image_url: (variant as any).barcode_image_url || null,
-                                variant_type: (variant as any).variant_type || 'Other',
-                                uom_id: (variant as any).uom_id || null,
-                                variant_weight_g: (variant as any).variant_weight_g ?? null,
-                                variant_cost: (variant as any).variant_cost ?? null,
-                                variant_tax_rate: (variant as any).variant_tax_rate ?? null,
-                                is_discontinued: !!(variant as any).is_discontinued,
-                                discontinued_date: (variant as any).discontinued_date || null,
+                                description: (freshVariant as any).description ?? null,
+                                base_unit: (freshVariant as any).base_unit ?? null,
+                                unit: (freshVariant as any).unit || 'piece',
+                                conversion_factor: (freshVariant as any).conversion_factor || 1,
+                                hsn_code: (freshVariant as any).hsn_code ?? null,
+                                is_focused_product: freshVariant.is_focused_product || false,
+                                focused_type: (freshVariant as any).focused_type || undefined,
+                                focused_due_date: freshVariant.focused_due_date || '',
+                                focused_target_quantity: freshVariant.focused_target_quantity || 0,
+                                focused_territories: freshVariant.focused_territories || [],
+                                focused_recurring_config: (freshVariant as any).focused_recurring_config || undefined,
+                                barcode: freshVariant.barcode || '',
+                                qr_code: freshVariant.qr_code || '',
+                                barcode_image_url: (freshVariant as any).barcode_image_url || null,
+                                variant_type: (freshVariant as any).variant_type || 'Other',
+                                uom_id: (freshVariant as any).uom_id || null,
+                                variant_weight_g: (freshVariant as any).variant_weight_g ?? null,
+                                variant_cost: (freshVariant as any).variant_cost ?? null,
+                                variant_tax_rate: (freshVariant as any).variant_tax_rate ?? null,
+                                is_discontinued: !!(freshVariant as any).is_discontinued,
+                                discontinued_date: (freshVariant as any).discontinued_date || null,
                                 // Phase-4 override columns: preserve NULL = inherit.
-                                tax_master_id: (variant as any).tax_master_id ?? null,
-                                gst_percentage: (variant as any).gst_percentage ?? null,
-                                category_id: (variant as any).category_id ?? null,
-                                brand: (variant as any).brand ?? null,
-                                product_type: (variant as any).product_type ?? null,
-                                default_sales_uom_id: (variant as any).default_sales_uom_id ?? null,
-                                price_basis_uom_id: (variant as any).price_basis_uom_id ?? null,
-                                net_weight_g: (variant as any).net_weight_g ?? null,
-                                net_volume_ml: (variant as any).net_volume_ml ?? null,
-                                standard_cost: (variant as any).standard_cost ?? null,
-                                sku_image_url: (variant as any).sku_image_url ?? null,
-                                reorder_level: (variant as any).reorder_level ?? null,
-                                reorder_quantity: (variant as any).reorder_quantity ?? null,
-                                manufacturer: (variant as any).manufacturer ?? null,
-                                country_of_origin: (variant as any).country_of_origin ?? null,
+                                tax_master_id: (freshVariant as any).tax_master_id ?? null,
+                                gst_percentage: (freshVariant as any).gst_percentage ?? null,
+                                category_id: (freshVariant as any).category_id ?? null,
+                                brand: (freshVariant as any).brand ?? null,
+                                product_type: (freshVariant as any).product_type ?? null,
+                                default_sales_uom_id: (freshVariant as any).default_sales_uom_id ?? null,
+                                price_basis_uom_id: (freshVariant as any).price_basis_uom_id ?? null,
+                                net_weight_g: (freshVariant as any).net_weight_g ?? null,
+                                net_volume_ml: (freshVariant as any).net_volume_ml ?? null,
+                                standard_cost: (freshVariant as any).standard_cost ?? null,
+                                sku_image_url: (freshVariant as any).sku_image_url ?? null,
+                                reorder_level: (freshVariant as any).reorder_level ?? null,
+                                reorder_quantity: (freshVariant as any).reorder_quantity ?? null,
+                                manufacturer: (freshVariant as any).manufacturer ?? null,
+                                country_of_origin: (freshVariant as any).country_of_origin ?? null,
                               });
                               setIsVariantDialogOpen(true);
                             }}

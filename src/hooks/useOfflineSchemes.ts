@@ -28,6 +28,8 @@ export interface ProductScheme {
   condition_unit?: string | null;
   quantity_condition_type: string | null;
   min_order_value: number | null;
+  // tiered_discount — quantity ranges, each with its own discount rate.
+  tier_data?: Array<{ min_qty: number; max_qty: number; discount_percentage: number }> | null;
   start_date: string | null;
   end_date: string | null;
   is_active: boolean | null;

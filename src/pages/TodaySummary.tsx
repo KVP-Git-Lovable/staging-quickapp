@@ -103,7 +103,7 @@ export const TodaySummary = () => {
     totalOrderValue: 0,
     avgOrderValue: 0,
     totalKgSold: 0,
-    totalKgSoldFormatted: "0 PC",
+    totalKgSoldFormatted: "0 KG",
     visitEfficiency: 0,
     orderConversionRate: 0,
     distanceCovered: 0,
@@ -457,6 +457,30 @@ export const TodaySummary = () => {
         todayOrders = ordersResult.orders;
         setIsShowingOfflineData(wasOffline && todayOrders.length > 0);
         console.log(`📊 [SUMMARY] Got ${ordersResult.totalCount} orders from unified source`, ordersResult.sourceBreakdown);
+
+        // Reconcile against the live confirmed set when online. The unified
+        // source's offline/snapshot layers can retain entries that never got
+        // cleaned up after being superseded, cancelled, or synced under a
+        // different id — inflating order count/value/qty with orders that no
+        // longer exist as any real row. Only real confirmed orders count.
+        if (navigator.onLine) {
+          try {
+            const { data: liveConfirmed } = await supabase
+              .from('orders')
+              .select('id')
+              .eq('user_id', authUser.id)
+              .eq('order_date', targetDate)
+              .eq('status', 'confirmed');
+            const liveIds = new Set((liveConfirmed || []).map((o: any) => o.id));
+            const beforeCount = todayOrders.length;
+            todayOrders = todayOrders.filter((o: any) => liveIds.has(o.id));
+            if (todayOrders.length !== beforeCount) {
+              console.warn(`[SUMMARY] Dropped ${beforeCount - todayOrders.length} stale/phantom cached order(s) not present as confirmed in the DB`);
+            }
+          } catch (e) {
+            console.warn('[SUMMARY] Live order reconciliation failed (non-fatal)', e);
+          }
+        }
       } else {
         setIsShowingOfflineData(false);
         // For date ranges or multiple users, fetch from DB directly
@@ -970,7 +994,28 @@ export const TodaySummary = () => {
         return (unit || 'Piece').toString().trim();
       };
 
-      const allOrderItems = (todayOrders || []).flatMap((order: any) => order.order_items || order.items || []);
+      let allOrderItems = (todayOrders || []).flatMap((order: any) => order.order_items || order.items || []);
+      // Orders sourced from the offline/snapshot cache carry header fields
+      // (total_amount, status) but not always their nested line items — that's
+      // enough for order count/value, but leaves qty aggregation with nothing
+      // to sum, which used to silently fall back to a fabricated "0 Piece".
+      // Fetch the real items directly when that happens instead of guessing.
+      if (allOrderItems.length === 0 && (todayOrders || []).length > 0 && navigator.onLine) {
+        try {
+          const orderIdsNeedingItems = (todayOrders || []).map((o: any) => o.id).filter(Boolean);
+          if (orderIdsNeedingItems.length > 0) {
+            const { data: fetchedItems } = await supabase
+              .from('order_items')
+              .select('product_id, product_name, quantity, unit, rate, original_rate, total, order_id')
+              .in('order_id', orderIdsNeedingItems);
+            if (fetchedItems && fetchedItems.length > 0) {
+              allOrderItems = fetchedItems;
+            }
+          }
+        } catch (e) {
+          console.warn('[SUMMARY] Fallback order_items fetch failed', e);
+        }
+      }
       const productMastersById = new Map<string, { unit: string; rate: number }>();
       const productMastersByName = new Map<string, { unit: string; rate: number }>();
       const cleanProductName = (name?: string) => (name || '').replace(/\s*\(FREE\)$/i, '').trim();
@@ -1025,7 +1070,7 @@ export const TodaySummary = () => {
       });
       const totalKgSoldFormatted = Array.from(totalByUnit.entries())
         .map(([unit, qty]) => `${formatQty(qty)} ${unit}`)
-        .join(', ') || '0 Piece';
+        .join(', ') || '0 KG';
       totalItemsCount = Array.from(totalByUnit.values()).reduce((sum, qty) => sum + qty, 0);
 
       // Calculate distance from van_stock (start_km to end_km)
@@ -1255,13 +1300,16 @@ export const TodaySummary = () => {
         } catch (e) {}
         
         const orderQtyByUnit = new Map<string, number>();
-        order.order_items?.forEach((item: any) => {
+        const itemsForOrder = (order.order_items && order.order_items.length > 0)
+          ? order.order_items
+          : allOrderItems.filter((item: any) => item.order_id === order.id);
+        itemsForOrder.forEach((item: any) => {
           const { qty, unit } = getItemDisplayQtyUnit(item);
           orderQtyByUnit.set(unit, (orderQtyByUnit.get(unit) || 0) + qty);
         });
         const qtyFormatted = Array.from(orderQtyByUnit.entries())
           .map(([unit, qty]) => `${formatQty(qty)} ${unit}`)
-          .join(', ') || '0 Piece';
+          .join(', ') || '0 KG';
 
         return {
           retailer: order.retailer_name,

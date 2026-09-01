@@ -501,7 +501,7 @@ const BeatAllowanceManagement = () => {
       // Fetch orders with visit data to get order values
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('total_amount, visit_id, created_at')
+        .select('total_amount, visit_id, created_at, status')
         .in('user_id', effectiveUserIds);
 
       if (ordersError) throw ordersError;
@@ -535,10 +535,14 @@ const BeatAllowanceManagement = () => {
         retailerToBeatMap.set(retailer.id, { beat_id: retailer.beat_id, beat_name: retailer.beat_name });
       });
 
-      // Count productive visits per date (visits with status='productive')
-      const productiveVisitsMap = new Map();
-      const orderValueByDateMap = new Map();
-      
+      // Count productive visits and order value per (date, beat) — NOT per date
+      // alone. A rep working two beats on the same day used to get the whole
+      // day's total duplicated onto both beat rows (and double-counted in the
+      // "Total" row at the bottom), since both maps were keyed by date only.
+      const productiveVisitsMap = new Map<string, number>();
+      const orderValueByDateBeatMap = new Map<string, number>();
+      const dateBeatKey = (date: string, beatId: string | null) => `${date}::${beatId ?? '__unknown__'}`;
+
       // Map visits by id for lookup
       const visitsById = new Map();
       visitsData?.forEach((visit: any) => {
@@ -546,20 +550,28 @@ const BeatAllowanceManagement = () => {
         // Count visits with status='productive' as productive visits
         if (visit.status === 'productive') {
           const date = visit.planned_date;
-          productiveVisitsMap.set(date, (productiveVisitsMap.get(date) || 0) + 1);
+          const beatId = retailerToBeatMap.get(visit.retailer_id)?.beat_id ?? null;
+          const key = dateBeatKey(date, beatId);
+          productiveVisitsMap.set(key, (productiveVisitsMap.get(key) || 0) + 1);
         }
       });
-      
-      // Calculate order values from orders table by date
-      // Use visit's planned_date if linked, otherwise use order's created_at date
+
+      // Calculate order values from orders table by (date, beat).
+      // Use the linked visit's planned_date + retailer's beat when available;
+      // orders without a resolvable visit/beat fall into an "__unknown__"
+      // bucket per date rather than being attributed to every beat row.
+      // Cancelled orders are excluded — they were never being filtered out.
       ordersData?.forEach((order: any) => {
+        if (order.status && order.status !== 'confirmed' && order.status !== 'delivered') return;
         const orderAmount = parseFloat(order.total_amount || 0);
         let date: string;
-        
+        let beatId: string | null = null;
+
         if (order.visit_id) {
           const visit = visitsById.get(order.visit_id);
           if (visit) {
             date = visit.planned_date;
+            beatId = retailerToBeatMap.get(visit.retailer_id)?.beat_id ?? null;
           } else {
             // Fallback to created_at date if visit not found
             date = format(new Date(order.created_at), 'yyyy-MM-dd');
@@ -568,22 +580,23 @@ const BeatAllowanceManagement = () => {
           // For orders without visit_id, use created_at date
           date = format(new Date(order.created_at), 'yyyy-MM-dd');
         }
-        
-        orderValueByDateMap.set(date, (orderValueByDateMap.get(date) || 0) + orderAmount);
+
+        const key = dateBeatKey(date, beatId);
+        orderValueByDateBeatMap.set(key, (orderValueByDateBeatMap.get(key) || 0) + orderAmount);
       });
 
       // Create expense rows from beat plans
       const rows: ExpenseRow[] = [];
       beatPlans?.forEach((plan: any) => {
         const additionalExpenses = expensesMap.get(plan.plan_date) || 0;
-        // Get order value from visits directly for that date
-        const orderValue = orderValueByDateMap.get(plan.plan_date) || 0;
+        // Get order value for this specific beat on this date, not the whole day.
+        const orderValue = orderValueByDateBeatMap.get(dateBeatKey(plan.plan_date, plan.beat_id)) || 0;
         const isOnLeave = leaveDates.has(plan.plan_date);
-        
+
         // Get TA based on expense master config - Fixed TA, from Beat, or from GPS
         // If on leave, TA is 0; GPS-based TA is handled separately below
         const ta = isOnLeave ? 0 : (taType === 'fixed' ? fixedTaAmount : (taType === 'from_gps' ? 0 : (beatTAMap.get(plan.beat_id) || 0)));
-        const productiveVisits = productiveVisitsMap.get(plan.plan_date) || 0;
+        const productiveVisits = productiveVisitsMap.get(dateBeatKey(plan.plan_date, plan.beat_id)) || 0;
         
         rows.push({
           id: plan.plan_date + '-' + plan.beat_id,

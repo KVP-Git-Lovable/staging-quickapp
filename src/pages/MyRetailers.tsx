@@ -422,9 +422,26 @@ export const MyRetailers = () => {
           setLoadingProgress('Processing...');
           await new Promise(resolve => setTimeout(resolve, 0));
 
+          // beat_name isn't a column on retailers (retailers.beat_id is the
+          // beats.beat_id slug, not a name) -- it has to be joined in here.
+          // This lookup was missing entirely, so every row's beat name fell
+          // through formatBeatName's slug fallback and rendered blank.
+          const distinctBeatIds = Array.from(
+            new Set(allRetailers.map(r => r.beat_id).filter((id): id is string => !!id && id !== 'unassigned'))
+          );
+          let beatNameMap: Record<string, string> = {};
+          if (distinctBeatIds.length > 0) {
+            const { data: beatRows } = await supabase
+              .from('beats')
+              .select('beat_id, beat_name')
+              .in('beat_id', distinctBeatIds);
+            beatNameMap = Object.fromEntries((beatRows || []).map(b => [b.beat_id, b.beat_name]));
+          }
+
           const withOwners = allRetailers.map(r => ({
             ...r,
-            owner_name: userNameMap[r.user_id] || 'Unknown'
+            owner_name: userNameMap[r.user_id] || 'Unknown',
+            beat_name: beatNameMap[r.beat_id] || r.beat_name
           }));
 
           const sorted = [...withOwners].sort((a, b) => a.name.localeCompare(b.name));
@@ -435,8 +452,10 @@ export const MyRetailers = () => {
           // Build index after data is set
           buildRetailerIndex(sorted);
 
-          // Update cache in background (don't await)
-          offlineStorage.mergeData(STORES.RETAILERS, allRetailers as any).catch(console.error);
+          // Update cache in background (don't await). Cache the enriched rows,
+          // not the raw fetch -- otherwise beat_name never reaches the offline
+          // fallback path below, which reads straight from this cache.
+          offlineStorage.mergeData(STORES.RETAILERS, withOwners as any).catch(console.error);
 
           setLoadingProgress('');
           setLoading(false);
@@ -513,12 +532,30 @@ export const MyRetailers = () => {
           .or(`name.ilike.${like},phone.ilike.${like}`)
           .limit(50);
         if (cancelled || !data || data.length === 0) return;
+
+        const searchBeatIds = Array.from(
+          new Set(data.map((r: any) => r.beat_id).filter((id): id is string => !!id && id !== 'unassigned'))
+        );
+        let searchBeatNameMap: Record<string, string> = {};
+        if (searchBeatIds.length > 0) {
+          const { data: beatRows } = await supabase
+            .from('beats')
+            .select('beat_id, beat_name')
+            .in('beat_id', searchBeatIds);
+          searchBeatNameMap = Object.fromEntries((beatRows || []).map(b => [b.beat_id, b.beat_name]));
+        }
+        if (cancelled) return;
+
         setRetailers(prev => {
           const map = new Map<string, any>();
           prev.forEach(r => map.set(r.id, r));
           data.forEach((r: any) => {
             if (!map.has(r.id)) {
-              map.set(r.id, { ...r, owner_name: userNameMap[r.user_id] || 'Other' });
+              map.set(r.id, {
+                ...r,
+                owner_name: userNameMap[r.user_id] || 'Other',
+                beat_name: searchBeatNameMap[r.beat_id] || r.beat_name,
+              });
             }
           });
           const merged = Array.from(map.values());

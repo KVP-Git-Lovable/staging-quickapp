@@ -73,6 +73,8 @@ interface CartItem extends Product {
     condition_quantity?: number;
     discount_percentage?: number;
   }>;
+  display_quantity?: number;
+  display_unit?: string;
 }
 interface GridProduct {
   id: string;
@@ -1478,6 +1480,17 @@ export const OrderEntry = () => {
       return;
     }
 
+    // Van stock at zero means there's physically nothing in the van to sell --
+    // block the order instead of letting it through and going negative.
+    if (stockQuantity <= 0) {
+      toast({
+        title: "Out of Stock",
+        description: `${displayProduct.name} has no stock left in the van. Update Van Stock before ordering this product.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Apply unit conversion to get correct price
     let effectiveRate = Number(displayProduct.rate);
     const selectedUnit = selectedUnits[product.id] || product.unit || 'kg';
@@ -1577,7 +1590,14 @@ export const OrderEntry = () => {
             ...newCart[existingIndex],
             quantity: item.quantity,
             total: item.total,
-            closingStock: item.closingStock
+            closingStock: item.closingStock,
+            // Without these, the row keeps whatever display_quantity/display_unit
+            // it had the FIRST time it entered this cart state, even as `quantity`
+            // (and the amount computed from it) keep updating correctly on every
+            // later edit — Cart.tsx's quantity stepper reads display_quantity
+            // preferentially, so it would freeze on the first-ever qty typed here.
+            display_quantity: item.display_quantity,
+            display_unit: item.display_unit
           };
         } else if (item.quantity > 0) {
           newCart.push(item);

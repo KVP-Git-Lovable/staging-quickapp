@@ -114,6 +114,8 @@ export interface ProductScheme {
   condition_quantity?: number | null;
   quantity_condition_type?: string | null;
   min_order_value?: number | null;
+  // tiered_discount — quantity ranges, each with its own discount rate.
+  tier_data?: Array<{ min_qty: number; max_qty: number; discount_percentage: number }> | null;
   start_date?: string | null;
   end_date?: string | null;
   is_active?: boolean | null;
@@ -196,7 +198,8 @@ export function schemeHasConditions(scheme: ProductScheme): boolean {
     scheme.condition_quantity ||
     scheme.buy_quantity ||
     scheme.min_order_value ||
-    (scheme.scheme_type === 'bundle_combo' && scheme.bundle_product_ids && scheme.bundle_product_ids.length > 0)
+    (scheme.scheme_type === 'bundle_combo' && scheme.bundle_product_ids && scheme.bundle_product_ids.length > 0) ||
+    (scheme.scheme_type === 'tiered_discount' && scheme.tier_data && scheme.tier_data.length > 0)
   );
 }
 
@@ -226,6 +229,23 @@ export function isSchemeConditionMet(
 
   const hasMultiProduct = scheme.target_product_ids && scheme.target_product_ids.length > 0;
 
+  // Tiered Discount — quantity must fall inside one of the configured
+  // min_qty/max_qty ranges, not a single condition_quantity/buy_quantity
+  // threshold. Checked before the generic branches below, since a tiered
+  // scheme doesn't set those fields and would otherwise show as having no
+  // quantity requirement at all.
+  if (scheme.scheme_type === 'tiered_discount' && scheme.tier_data && scheme.tier_data.length > 0) {
+    const relevantItems = scheme.product_id
+      ? items.filter(item => item.product_id === scheme.product_id || item.id === scheme.product_id)
+      : hasMultiProduct
+        ? items.filter(item => scheme.target_product_ids!.includes(item.product_id || item.id))
+        : scheme.category_id
+          ? items.filter(item => item.category_id === scheme.category_id)
+          : items;
+    if (relevantItems.length === 0) return false;
+    return relevantItems.some(item => isQuantityInAnyTier(scheme, item.quantity));
+  }
+
   // For product-specific schemes, check product and quantity conditions
   if (scheme.product_id) {
     const matchingItem = items.find(item => 
@@ -242,17 +262,16 @@ export function isSchemeConditionMet(
     }
   } else if (hasMultiProduct) {
     // Multi-product scheme - check if ANY targeted product is in items and meets quantity
-    const matchingItems = items.filter(item => 
+    const matchingItems = items.filter(item =>
       scheme.target_product_ids!.includes(item.product_id || item.id)
     );
-    
+
     if (matchingItems.length === 0) return false;
-    
-    // Check quantity condition against total of matching items only
-    const requiredQty = scheme.condition_quantity || scheme.buy_quantity;
-    if (requiredQty) {
-      const totalMatchingQty = matchingItems.reduce((sum, item) => sum + item.quantity, 0);
-      if (totalMatchingQty < requiredQty) {
+
+    // Each targeted product's own quantity must independently meet the
+    // condition — never pool quantities across different products to reach it.
+    if (scheme.condition_quantity || scheme.buy_quantity) {
+      if (!matchingItems.some(item => isQuantityConditionMet(scheme, item.quantity))) {
         return false;
       }
     }
@@ -319,6 +338,22 @@ function schemeAppliesToItem(scheme: ProductScheme, item: SchemeItem): boolean {
 }
 
 /**
+ * Find the tiered_discount tier whose [min_qty, max_qty] range contains this
+ * quantity, if any. A quantity above every configured tier's max_qty matches
+ * no tier — ranges are taken literally, not as an open-ended top tier.
+ */
+export function getApplicableTier(
+  scheme: ProductScheme,
+  quantity: number
+): { min_qty: number; max_qty: number; discount_percentage: number } | undefined {
+  return (scheme.tier_data || []).find(tier => quantity >= tier.min_qty && quantity <= tier.max_qty);
+}
+
+function isQuantityInAnyTier(scheme: ProductScheme, quantity: number): boolean {
+  return !!getApplicableTier(scheme, quantity);
+}
+
+/**
  * Get the discount percentage for a specific product (handles per-product discounts)
  */
 function getProductDiscountPercentage(scheme: ProductScheme, productId: string): number {
@@ -334,21 +369,26 @@ function getProductDiscountPercentage(scheme: ProductScheme, productId: string):
  * Check if quantity condition is met
  */
 function isQuantityConditionMet(scheme: ProductScheme, quantity: number): boolean {
-  if (!scheme.condition_quantity) return true;
-  
+  // condition_quantity is the general threshold field; buy_x_get_y_free schemes
+  // conventionally use buy_quantity instead — same fallback already used by the
+  // single-product branch of isSchemeConditionMet, so a scheme configured with
+  // only buy_quantity isn't silently treated as having no quantity requirement.
+  const requiredQty = scheme.condition_quantity || scheme.buy_quantity;
+  if (!requiredQty) return true;
+
   const condType = scheme.quantity_condition_type || 'gte';
-  
+
   switch (condType) {
     case 'gte':
     case 'min':
-      return quantity >= scheme.condition_quantity;
+      return quantity >= requiredQty;
     case 'eq':
-      return quantity === scheme.condition_quantity;
+      return quantity === requiredQty;
     case 'lte':
     case 'max':
-      return quantity <= scheme.condition_quantity;
+      return quantity <= requiredQty;
     default:
-      return quantity >= scheme.condition_quantity;
+      return quantity >= requiredQty;
   }
 }
 
@@ -554,19 +594,18 @@ function calculateSchemeDiscount(
 
       const isUserChoice = scheme.free_product_selection_mode === 'user_choice';
 
-      // Threshold is checked against the COMBINED quantity across every
-      // eligible (X-pool) item in the cart — matching isSchemeConditionMet's
-      // pooled-sum semantics. Checking each item individually here (the old
-      // behavior) meant a scheme could show as "condition met" in the
-      // eligibility check yet grant nothing on Apply, because no single line
-      // alone reached the threshold even though the pool's total did.
-      const totalQty = applicableItems.reduce((sum, item) => sum + item.quantity, 0);
+      // Threshold is checked against each eligible (X-pool) item's OWN
+      // quantity — never pooled across different products. This matches
+      // isSchemeConditionMet's per-item semantics for multi-product schemes:
+      // a scheme must never show "condition met" for a combined total that no
+      // single product actually reaches.
+      const qualifyingItems = applicableItems.filter(item => item.quantity >= buyQty);
 
-      if (totalQty >= buyQty) {
-        // Attribute the free item to whichever eligible line has the
+      if (qualifyingItems.length > 0) {
+        // Attribute the free item to whichever qualifying line has the
         // largest quantity, purely for display/tracking purposes.
-        const triggeringItem = applicableItems.reduce((max, item) =>
-          item.quantity > max.quantity ? item : max, applicableItems[0]);
+        const triggeringItem = qualifyingItems.reduce((max, item) =>
+          item.quantity > max.quantity ? item : max, qualifyingItems[0]);
 
         // THRESHOLD-BASED: Get free quantity ONCE when threshold is met (not per set)
         const freeItemsCount = freeQty;
@@ -759,15 +798,19 @@ function calculateSchemeDiscount(
 
     case 'tiered_discount':
     case 'tiered': {
-      // Tiered discount based on quantity thresholds
+      // Each item's own quantity picks its applicable tier and that tier's own
+      // rate — mirrors the lookup isSchemeConditionMet uses, rather than a flat
+      // discount_percentage gated by a condition_quantity/buy_quantity threshold
+      // tiered schemes never set.
       for (const item of applicableItems) {
-        if (isQuantityConditionMet(scheme, item.quantity)) {
-          const discountPct = scheme.discount_percentage || 0;
+        const tier = getApplicableTier(scheme, item.quantity);
+        if (tier) {
+          const discountPct = tier.discount_percentage || 0;
           const itemTotal = item.rate * item.quantity;
           const itemDiscount = itemTotal * (discountPct / 100);
           discount += itemDiscount;
           itemDiscounts[item.id] = (itemDiscounts[item.id] || 0) + itemDiscount;
-          
+
           // Track scheme details per item
           if (!itemSchemeDetails[item.id]) itemSchemeDetails[item.id] = [];
           itemSchemeDetails[item.id].push({

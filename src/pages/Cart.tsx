@@ -1249,9 +1249,17 @@ export const Cart = () => {
       // This key is unique per order attempt and will be checked before insertion
       const idempotencyKey = `${currentUserId}_${validRetailerId}_${getLocalTodayDate()}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       
+      // EDIT MODE: the replacement order must stay credited to whoever the
+      // original order belonged to, not to whoever is performing the edit —
+      // otherwise an edit done by a manager/other user silently reassigns the
+      // order away from the original salesperson (it vanishes from their visit
+      // card, reports, and gamification, and reappears under the editor's).
+      const editOwnerId = isEditMode ? (editOriginalOrder?.user_id || undefined) : undefined;
       const orderData = {
-        user_id: isOnBehalf ? onBehalfCtx!.userId : currentUserId,
-        placed_by_user_id: isOnBehalf ? currentUserId : undefined,
+        user_id: editOwnerId || (isOnBehalf ? onBehalfCtx!.userId : currentUserId),
+        placed_by_user_id: editOwnerId && editOwnerId !== currentUserId
+          ? currentUserId
+          : (isOnBehalf ? currentUserId : undefined),
         visit_id: actualVisitId, // ALWAYS include - ensures database trigger can update visit status
         retailer_id: validRetailerId,
         retailer_name: retailerName,
@@ -2223,9 +2231,14 @@ export const Cart = () => {
       // Payment status is determined by: is_credit_order + payment_method
       // - Paid: is_credit_order=false, payment_method=cash/upi/cheque/neft
       // - Collect on Delivery: is_credit_order=true, payment_method='collect_on_delivery'
+      // See the same fix in the non-D-1 branch above: an edit must stay
+      // credited to the original order's owner, not to whoever is editing.
+      const editOwnerIdD1 = isEditMode ? (editOriginalOrder?.user_id || undefined) : undefined;
       const orderData = {
-        user_id: isOnBehalf ? onBehalfCtx!.userId : currentUserId,
-        placed_by_user_id: isOnBehalf ? currentUserId : undefined,
+        user_id: editOwnerIdD1 || (isOnBehalf ? onBehalfCtx!.userId : currentUserId),
+        placed_by_user_id: editOwnerIdD1 && editOwnerIdD1 !== currentUserId
+          ? currentUserId
+          : (isOnBehalf ? currentUserId : undefined),
         visit_id: actualVisitId,
         retailer_id: validRetailerId,
         retailer_name: retailerName,

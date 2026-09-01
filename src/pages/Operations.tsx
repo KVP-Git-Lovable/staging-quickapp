@@ -2110,7 +2110,17 @@ const Operations = () => {
                                           </div>
                                           <div>
                                             <div className="text-xs text-muted-foreground">Order Date & Time</div>
-                                            <div className="text-sm font-medium">{format(new Date(item.created_at), 'PPpp')}</div>
+                                            <div className="text-sm font-medium">
+                                              {(() => {
+                                                const createdAt = new Date(item.created_at);
+                                                const orderDay = item.order_date ? new Date(`${item.order_date}T00:00:00`) : createdAt;
+                                                const display = new Date(
+                                                  orderDay.getFullYear(), orderDay.getMonth(), orderDay.getDate(),
+                                                  createdAt.getHours(), createdAt.getMinutes()
+                                                );
+                                                return format(display, 'PPpp');
+                                              })()}
+                                            </div>
                                           </div>
                                         </div>
                                         <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
@@ -2250,27 +2260,29 @@ const Operations = () => {
                                 >
                                   <Pencil size={16} />
                                 </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  title="Cancel Order"
-                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={() => {
-                                    setSelectedOrderForCancel({
-                                      order: {
-                                        id: item.id,
-                                        invoice_number: item.invoice_number || undefined,
-                                        total_amount: item.total_amount,
-                                        is_credit_order: item.is_credit_order,
-                                        credit_pending_amount: item.credit_pending_amount,
-                                      },
-                                      retailerName: item.retailer_name,
-                                    });
-                                    setShowCancelDialog(true);
-                                  }}
-                                >
-                                  <Ban size={16} />
-                                </Button>
+                                {can('action_order_cancel', 'edit') && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Cancel Order"
+                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => {
+                                      setSelectedOrderForCancel({
+                                        order: {
+                                          id: item.id,
+                                          invoice_number: item.invoice_number || undefined,
+                                          total_amount: item.total_amount,
+                                          is_credit_order: item.is_credit_order,
+                                          credit_pending_amount: item.credit_pending_amount,
+                                        },
+                                        retailerName: item.retailer_name,
+                                      });
+                                      setShowCancelDialog(true);
+                                    }}
+                                  >
+                                    <Ban size={16} />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

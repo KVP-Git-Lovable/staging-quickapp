@@ -257,7 +257,12 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const { policies: schemePolicies, loading: policiesLoading } = useSchemePolicies();
   
   // Applied schemes persistence
-  const { appliedSchemeIds, manualSelections, applyScheme, removeScheme, clearSchemes, setOnlyScheme, setManualSelection } = useAppliedSchemes(visitId, retailerId);
+  // Sanitized ids (not the raw searchParams values) — Cart.tsx reads applied
+  // schemes back with the same sanitized pair. Passing the raw ones here meant
+  // an unsanitized retailerId placeholder (e.g. ".") produced a different
+  // storage key than Cart.tsx would look up, so a scheme applied here could
+  // silently vanish (and its free item along with it) once on the Cart screen.
+  const { appliedSchemeIds, manualSelections, applyScheme, removeScheme, clearSchemes, setOnlyScheme, setManualSelection } = useAppliedSchemes(validVisitId || '', validRetailerId || '');
   
   // Track auto-applied schemes to prevent infinite loops
   const autoAppliedSchemesRef = useRef<Set<string>>(new Set());
@@ -1062,12 +1067,31 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
     // Price book wins when a slab matches; otherwise fall back to the default price.
     const pbRow = getPriceBookRow(prod, variant, qty);
     const baseRate = pbRow ? Number(pbRow.price) || 0 : (Number(variant ? variant.price : prod.rate) || 0);
-    if (conversionToBase && priceBasisConversionToBase) {
-      return baseRate * (Number(conversionToBase) / Number(priceBasisConversionToBase));
-    }
 
     const baseUnit = normalizeUnit(prod.base_unit || prod.unit);
     const targetUnit = normalizeUnit(unit || prod.unit);
+
+    // Guard against an incomplete/stale UOM load: if the loaded unit set
+    // claims a gram-family target shares the SAME conversion factor as a
+    // KG-based product's price basis (ratio 1:1), that's never legitimate —
+    // 1 gram cannot cost the same as 1 KG. This exact shape (price basis
+    // silently resolving to the base GRAM row instead of KG when the KG
+    // sibling failed to load) shipped ~700 order lines at 1000x the correct
+    // price over 10 months before being caught. Fall through to the known-
+    // safe string-based conversion instead of trusting the ratio.
+    const isSuspiciousUnityRatio =
+      !!conversionToBase && !!priceBasisConversionToBase &&
+      Number(conversionToBase) === Number(priceBasisConversionToBase) &&
+      (
+        (baseUnit === "kg" && ["gram", "grams", "g", "gm"].includes(targetUnit)) ||
+        (["g", "gm", "gram", "grams"].includes(baseUnit) && targetUnit === "kg") ||
+        (["litre", "liter", "l"].includes(baseUnit) && ["ml", "milliliter", "milliliters"].includes(targetUnit)) ||
+        (["ml", "milliliter", "milliliters"].includes(baseUnit) && ["litre", "liter", "l"].includes(targetUnit))
+      );
+
+    if (conversionToBase && priceBasisConversionToBase && !isSuspiciousUnityRatio) {
+      return baseRate * (Number(conversionToBase) / Number(priceBasisConversionToBase));
+    }
 
     if (!baseUnit) return baseRate;
 
@@ -1096,7 +1120,15 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
               productCode: option.sku,
               product: option.product,
               variant: option.variant,
-              unit: '',
+              // A freshly-picked row must start with a real unit, not '' —
+              // the unit-switch handler below only rescales the quantity when
+              // it has a previous unit to convert FROM. If a quantity gets
+              // typed while unit is still blank and the user then picks
+              // "Grams", there's no oldUnit to convert against, so the
+              // quantity is left un-rescaled while the rate correctly divides
+              // by 1000 — producing a near-zero total under a GRAM label
+              // instead of the intended KG amount.
+              unit: defaultUnit,
               uomId: null,
               uomCode: null,
               conversionToBase: null,
