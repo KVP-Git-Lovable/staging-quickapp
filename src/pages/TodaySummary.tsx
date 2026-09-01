@@ -330,6 +330,9 @@ export const TodaySummary = () => {
           },
           (payload) => {
             console.log('New points earned:', payload);
+            // Monthly target-tier awards belong to the previous month's
+            // achievement, not to today's activity — keep them out of the card.
+            if (payload.new.reference_type === 'target_tier') return;
             setPointsEarnedToday(prev => prev + (payload.new.points || 0));
           }
         )
@@ -630,6 +633,7 @@ export const TodaySummary = () => {
         .from('gamification_points')
         .select('points, earned_at')
         .in('user_id', targetUserIds)
+        .neq('reference_type', 'target_tier')
         .gte('earned_at', pointsFromDate.toISOString())
         .lte('earned_at', pointsToDate.toISOString());
       
