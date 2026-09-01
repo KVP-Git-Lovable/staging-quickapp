@@ -1199,17 +1199,37 @@ export function VanStockManagement({ open, onOpenChange, selectedDate }: VanStoc
       };
     });
     
-    // Then, add/override with unsaved entry form items (stockItems)
+    // Then, merge in unsaved entry form items (stockItems). A blank "Add Stock
+    // Items" row (no `id`) represents stock being added on top of whatever's
+    // already saved for that product -- mirrors the additive save behavior in
+    // handleSaveStock below, so the live totals don't dip while typing. Only a
+    // direct "Product Stock in Van" -> Edit All row (has `id`, pre-loaded with
+    // the real current value) replaces the saved entry outright.
     stockItems.forEach((item) => {
       if (item.product_id) {
         const unit = item.unit || 'piece';
-        productTotals[item.product_id] = {
-          start: item.start_qty || 0,
-          ordered: item.ordered_qty || 0,
-          returned: item.returned_qty || 0,
-          left: item.left_qty || 0,
-          unit
-        };
+        const isDirectEditOfExistingRow = !!item.id;
+        const existing = productTotals[item.product_id];
+
+        if (existing && !isDirectEditOfExistingRow) {
+          const startKg = convertToKg(existing.start, existing.unit) + convertToKg(item.start_qty || 0, unit);
+          const returnedKg = convertToKg(existing.returned, existing.unit) + convertToKg(item.returned_qty || 0, unit);
+          productTotals[item.product_id] = {
+            start: startKg,
+            ordered: existing.ordered,
+            returned: returnedKg,
+            left: startKg - existing.ordered + returnedKg,
+            unit: 'KG'
+          };
+        } else {
+          productTotals[item.product_id] = {
+            start: item.start_qty || 0,
+            ordered: item.ordered_qty || 0,
+            returned: item.returned_qty || 0,
+            left: item.left_qty || 0,
+            unit
+          };
+        }
       }
     });
     
