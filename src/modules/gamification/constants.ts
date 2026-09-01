@@ -102,7 +102,10 @@ export const CONDITION_FIELDS: Record<string, { value: string; label: string }[]
     { value: "has_photo", label: "Photo captured" },
   ],
   productive_visit: [{ value: "order_value", label: "Order value" }],
-  total_visits: [{ value: "visit_count", label: "Visits in the day" }],
+  total_visits: [
+    { value: "visit_count", label: "Visits in the day" },
+    { value: "productive_visit_count", label: "Productive visits in the day (visits with an order)" },
+  ],
   retailer_created: [{ value: "has_gps", label: "GPS captured" }],
   retailer_verified: [{ value: "verification_score", label: "Verification score" }],
   first_order_new_retailer: [{ value: "order_value", label: "Order value" }],
