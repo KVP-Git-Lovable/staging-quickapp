@@ -73,6 +73,8 @@ interface CartItem extends Product {
     condition_quantity?: number;
     discount_percentage?: number;
   }>;
+  display_quantity?: number;
+  display_unit?: string;
 }
 interface GridProduct {
   id: string;
@@ -1577,7 +1579,14 @@ export const OrderEntry = () => {
             ...newCart[existingIndex],
             quantity: item.quantity,
             total: item.total,
-            closingStock: item.closingStock
+            closingStock: item.closingStock,
+            // Without these, the row keeps whatever display_quantity/display_unit
+            // it had the FIRST time it entered this cart state, even as `quantity`
+            // (and the amount computed from it) keep updating correctly on every
+            // later edit — Cart.tsx's quantity stepper reads display_quantity
+            // preferentially, so it would freeze on the first-ever qty typed here.
+            display_quantity: item.display_quantity,
+            display_unit: item.display_unit
           };
         } else if (item.quantity > 0) {
           newCart.push(item);

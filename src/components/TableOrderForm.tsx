@@ -257,7 +257,12 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   const { policies: schemePolicies, loading: policiesLoading } = useSchemePolicies();
   
   // Applied schemes persistence
-  const { appliedSchemeIds, manualSelections, applyScheme, removeScheme, clearSchemes, setOnlyScheme, setManualSelection } = useAppliedSchemes(visitId, retailerId);
+  // Sanitized ids (not the raw searchParams values) — Cart.tsx reads applied
+  // schemes back with the same sanitized pair. Passing the raw ones here meant
+  // an unsanitized retailerId placeholder (e.g. ".") produced a different
+  // storage key than Cart.tsx would look up, so a scheme applied here could
+  // silently vanish (and its free item along with it) once on the Cart screen.
+  const { appliedSchemeIds, manualSelections, applyScheme, removeScheme, clearSchemes, setOnlyScheme, setManualSelection } = useAppliedSchemes(validVisitId || '', validRetailerId || '');
   
   // Track auto-applied schemes to prevent infinite loops
   const autoAppliedSchemesRef = useRef<Set<string>>(new Set());
