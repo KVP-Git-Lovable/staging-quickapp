@@ -235,15 +235,20 @@ const _fetchPointsForDateImpl = async (uid: string, date: string): Promise<Point
   const dateEnd = new Date(date);
   dateEnd.setHours(23, 59, 59, 999);
 
-  // Monthly target-tier awards are credited on the 1st for the *previous*
-  // month's achievement — they belong to a period, not to the day they were
-  // credited, so the "today's points" card excludes them (they still show in
-  // the points ledger and leaderboard).
+  // Target-tier awards are progressive: normally credited the moment an order
+  // crosses a threshold, so they DO belong to the day shown. The exception is a
+  // backstop award for a *previous* month credited later (e.g. on the 1st after
+  // a resync) — its period_key differs from the month it was earned in, and it
+  // must not inflate that day's card. Keep a tier row only when its period_key
+  // matches the displayed date's month.
+  const monthKey = `${dateStart.getFullYear()}-${String(dateStart.getMonth() + 1).padStart(2, '0')}`;
+  const keepForDay = (p: any) =>
+    p.reference_type !== 'target_tier' || p.period_key === monthKey;
+
   let { data: pointsRaw, error: pointsError } = await supabase
     .from('gamification_points')
-    .select('points, reference_id, metadata, gamification_games(name), gamification_actions(action_name)')
+    .select('points, reference_id, reference_type, period_key, metadata, gamification_games(name), gamification_actions(action_name)')
     .eq('user_id', uid)
-    .neq('reference_type', 'target_tier')
     .gte('earned_at', dateStart.toISOString())
     .lte('earned_at', dateEnd.toISOString());
 
@@ -252,13 +257,13 @@ const _fetchPointsForDateImpl = async (uid: string, date: string): Promise<Point
     console.warn('[points] embed query failed, falling back to plain select:', pointsError.message);
     const fallback = await supabase
       .from('gamification_points')
-      .select('points, reference_id, metadata')
+      .select('points, reference_id, reference_type, period_key, metadata')
       .eq('user_id', uid)
-      .neq('reference_type', 'target_tier')
       .gte('earned_at', dateStart.toISOString())
       .lte('earned_at', dateEnd.toISOString());
     pointsRaw = (fallback.data as any) || [];
   }
+  pointsRaw = (pointsRaw || []).filter(keepForDay);
 
   const total = pointsRaw?.reduce((sum, p) => sum + (p.points || 0), 0) || 0;
   const byRetailer = new Map<

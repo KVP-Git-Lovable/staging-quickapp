@@ -330,9 +330,13 @@ export const TodaySummary = () => {
           },
           (payload) => {
             console.log('New points earned:', payload);
-            // Monthly target-tier awards belong to the previous month's
-            // achievement, not to today's activity — keep them out of the card.
-            if (payload.new.reference_type === 'target_tier') return;
+            // Progressive tier awards count for today when they belong to the
+            // current month; a backstop award for a previous month (period_key
+            // differs from the month it was credited in) does not.
+            if (
+              payload.new.reference_type === 'target_tier' &&
+              payload.new.period_key !== String(payload.new.earned_at || '').slice(0, 7)
+            ) return;
             setPointsEarnedToday(prev => prev + (payload.new.points || 0));
           }
         )
@@ -631,18 +635,24 @@ export const TodaySummary = () => {
       
       const { data: pointsData, error: pointsError } = await supabase
         .from('gamification_points')
-        .select('points, earned_at')
+        .select('points, earned_at, reference_type, period_key')
         .in('user_id', targetUserIds)
-        .neq('reference_type', 'target_tier')
         .gte('earned_at', pointsFromDate.toISOString())
         .lte('earned_at', pointsToDate.toISOString());
-      
+
       if (pointsError) {
         console.error('Error fetching points:', pointsError);
       }
-      
+
       console.log('Points data fetched:', pointsData);
-      const totalPointsEarned = pointsData?.reduce((sum, item) => sum + item.points, 0) || 0;
+      // Progressive target-tier awards land the moment an order crosses a
+      // threshold, so they count for the day — EXCEPT backstop awards for a
+      // previous month credited later (period_key differs from the month the
+      // row was earned in); those belong to that earlier period, not today.
+      const inOwnPeriod = (item: any) =>
+        item.reference_type !== 'target_tier' ||
+        item.period_key === String(item.earned_at || '').slice(0, 7);
+      const totalPointsEarned = pointsData?.filter(inOwnPeriod).reduce((sum, item) => sum + item.points, 0) || 0;
       console.log('Total points earned:', totalPointsEarned);
       setPointsEarnedToday(totalPointsEarned);
       
