@@ -37,11 +37,17 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
   const { data: focusedCount = 0 } = useFocusedProductCount();
   const { data: existingTiers = [] } = useActivityTiers(activity?.id);
 
-  const isTiered = category === "targets";
+  const isTargetTiered = category === "targets";
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>({});
   const [conditions, setConditions] = useState<Condition[]>([]);
   const [tiers, setTiers] = useState<Tier[]>([]);
+
+  // Visits can also run tier-based: % thresholds against a company-set daily
+  // visit target, each tier awarded once per day as soon as it is reached.
+  const isVisitTiered =
+    category === "visits" && form.trigger_type === "total_visits" && !!form.visit_tiered;
+  const usesTiers = isTargetTiered || isVisitTiered;
 
   useEffect(() => {
     if (!open) return;
@@ -68,6 +74,8 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
       growth_metric: a.conditions_json?.growth_metric ?? "total_sales",
       growth_compare: a.conditions_json?.compare_against ?? "previous_month",
       min_growth_percentage: a.min_growth_percentage ?? 10,
+      visit_tiered: category === "visits" && !!a.is_tiered && !a.kpi_id,
+      base_daily_target: a.base_daily_target ?? "",
     });
     setConditions(Array.isArray(a.conditions_json) ? a.conditions_json : []);
   }, [open, activity, category, settings?.default_award_mode]);
@@ -87,11 +95,17 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
     if (category === "captures" && (!form.cap_value || Number(form.cap_value) <= 0)) {
       return toast.error("Capture activities need a daily cap");
     }
-    if (isTiered && kpis.length === 0) {
+    if (isTargetTiered && kpis.length === 0) {
       return toast.error("No KPIs defined yet. Set up KPIs in the Targets module first.");
     }
-    if (isTiered && !form.kpi_id) {
+    if (isTargetTiered && !form.kpi_id) {
       return toast.error("Choose a KPI from the Targets module");
+    }
+    if (isVisitTiered && (!form.base_daily_target || Number(form.base_daily_target) <= 0)) {
+      return toast.error("Enter the daily visit target the tier percentages apply to");
+    }
+    if (isVisitTiered && tiers.length === 0) {
+      return toast.error("Add at least one tier");
     }
 
     setSaving(true);
@@ -121,10 +135,11 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
       leaderboard: form.leaderboard,
       eligibility_mode: form.eligibility_mode,
       eligibility_ids: form.eligibility_ids,
-      is_tiered: isTiered,
+      is_tiered: usesTiers,
       tier_mode: "highest",
-      kpi_id: isTiered ? form.kpi_id : null,
-      target_period: isTiered ? form.target_period : null,
+      kpi_id: isTargetTiered ? form.kpi_id : null,
+      target_period: isTargetTiered ? form.target_period : null,
+      base_daily_target: isVisitTiered ? Number(form.base_daily_target) : null,
       min_growth_percentage: category === "beats" ? Number(form.min_growth_percentage) || 0 : null,
     };
 
@@ -138,7 +153,7 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
       actionId = data.id;
     }
 
-    if (isTiered && actionId) {
+    if (usesTiers && actionId) {
       await supabase.from("activity_tiers").delete().eq("action_id", actionId);
       const rows = tiers
         .filter((t) => t.threshold_pct !== null && t.threshold_pct !== undefined)
@@ -250,7 +265,34 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
                 </div>
               )}
 
-              {isTiered && (
+              {category === "visits" && form.trigger_type === "total_visits" && (
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <Label className="mb-0">Tier-based daily reward</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Award tiers as productive visits reach a % of the daily visit target
+                    </p>
+                  </div>
+                  <Switch checked={!!form.visit_tiered} onCheckedChange={(v) => set("visit_tiered", v)} />
+                </div>
+              )}
+
+              {isVisitTiered && (
+                <div>
+                  <Label>Daily visit target (total visits per day)</Label>
+                  <Input
+                    type="number" className="w-40"
+                    value={form.base_daily_target ?? ""}
+                    onChange={(e) => set("base_daily_target", e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tier percentages apply to this number — e.g. 30% of 50 = 15 productive visits required.
+                    A visit counts as productive only when it converts to an order.
+                  </p>
+                </div>
+              )}
+
+              {isTargetTiered && (
                 <div className="space-y-3">
                   <div className="rounded-lg border bg-indigo-50 border-indigo-200 p-3 text-sm text-indigo-900">
                     Reads the Targets module — each rep is scored on their own achievement %. No target is entered here.
@@ -287,10 +329,12 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
                       </div>
                     </div>
                   )}
+                </div>
+              )}
 
-
+              {usesTiers && (
                   <div className="space-y-2">
-                    <Label>Tiers (achievement % ≥ → points)</Label>
+                    <Label>{isVisitTiered ? "Tiers (% of daily visit target → points)" : "Tiers (achievement % ≥ → points)"}</Label>
                     {tiers.map((t, i) => (
                       <div key={i} className="flex items-center gap-2">
                         <Input
@@ -311,12 +355,13 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
                     <Button type="button" variant="outline" size="sm" onClick={() => setTiers([...tiers, { threshold_pct: 100, points: 10 }])}>
                       <Plus className="h-4 w-4 mr-1" /> Add tier
                     </Button>
-                    <p className="text-xs text-muted-foreground">When multiple tiers are reached: <strong>Highest only</strong></p>
+                    <p className="text-xs text-muted-foreground">
+                      Progressive: each tier is awarded once when reached{isVisitTiered ? " (per day)" : " (per period)"} — reaching a higher tier also pays the lower ones.
+                    </p>
                   </div>
-                </div>
               )}
 
-              {!isTiered && category !== "products" && category !== "beats" && category !== "captures" && (
+              {!usesTiers && category !== "products" && category !== "beats" && category !== "captures" && (
                 <div className="space-y-2">
                   <Label>Conditions</Label>
                   {conditions.map((c, i) => (
@@ -359,13 +404,13 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
           <Card>
             <CardHeader className="pb-3"><CardTitle className="font-pixel text-[8.5px] uppercase tracking-[0.05em] text-[#9aa1b5] leading-relaxed">3 · REWARD</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              {!isTiered && (
+              {!usesTiers && (
                 <div>
                   <Label>Reward points per activity</Label>
                   <Input type="number" value={form.points ?? 0} onChange={(e) => set("points", e.target.value)} />
                 </div>
               )}
-              {isTiered && <p className="text-sm text-muted-foreground">Points come from the tier table above.</p>}
+              {usesTiers && <p className="text-sm text-muted-foreground">Points come from the tier table above.</p>}
               <p className="text-xs text-muted-foreground">
                 1 point = ₹{settings?.point_conversion ?? 1} · set in Global settings
               </p>
@@ -439,7 +484,7 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
 
           <div className="flex justify-end gap-2 pb-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={save} disabled={saving || (isTiered && kpis.length === 0)}>
+            <Button onClick={save} disabled={saving || (isTargetTiered && kpis.length === 0)}>
               {saving && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Save activity
             </Button>
           </div>
