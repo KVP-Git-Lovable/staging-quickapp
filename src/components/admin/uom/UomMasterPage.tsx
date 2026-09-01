@@ -763,6 +763,7 @@ export const UomMasterPageContent: React.FC = () => {
   };
 
   const saveConversion = async (row: UomRow, value: number) => {
+    const oldValue = row.conversion_to_base;
     setSavingId(row.id);
     const { error } = await supabase
       .from('uom_master')
@@ -779,6 +780,39 @@ export const UomMasterPageContent: React.FC = () => {
     clearUomCache();
     qc.invalidateQueries({ queryKey: ['uom'] });
     toast.success(`${row.code} updated`);
+
+    // The password unlock proved someone had valid credentials, but nothing
+    // recorded WHO -- this is the only place that gets written down, so a
+    // wrong global conversion rate (which corrupts every product in the
+    // category) can actually be traced back to an account afterward instead
+    // of requiring manual forensics through raw session logs.
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      let changedByName: string | null = null;
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .maybeSingle();
+        changedByName = profile?.full_name ?? null;
+      }
+      const { error: auditError } = await supabase
+        .from('product_audit_log' as any)
+        .insert({
+          entity_type: 'uom_master',
+          entity_id: row.id,
+          field_name: 'conversion_to_base',
+          old_value: oldValue == null ? null : String(oldValue),
+          new_value: String(value),
+          changed_by: user?.id ?? null,
+          changed_by_name: changedByName,
+        });
+      if (auditError) console.warn('UOM conversion audit log failed:', auditError);
+    } catch (auditError) {
+      console.warn('UOM conversion audit log failed:', auditError);
+    }
+
     // Re-lock immediately after a successful change so the next edit needs
     // a fresh password confirmation.
     setConversionsLocked(true);
