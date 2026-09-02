@@ -394,6 +394,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
     return match?.code || product.base_unit || 'kg';
   };
 
+  // `product.rate` is stored per price_basis_unit, not per base_unit -- the
+  // "Rate per KG" column previously labeled it "per {base_unit}" (e.g. GRAM),
+  // which reads as if the number needed dividing by the base/price-basis
+  // conversion factor when it's already the correct price-basis-unit price.
+  const getProductPriceBasisUnit = (product: Product): string => {
+    const units = getCachedProductUnits(product.id);
+    const match = units?.find((u) => u.isPriceBasis) || units?.find((u) => u.isBase);
+    return match?.code || product.base_unit || 'kg';
+  };
+
   const fetchCategories = async () => {
     const { data, error } = await supabase
       .from('product_categories')
@@ -1445,7 +1455,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                         <TableCell>
                           <div>
                             <div className="font-medium">₹{product.rate.toFixed(2)}</div>
-                            <div className="text-xs text-muted-foreground">per {product.base_unit || 'kg'}</div>
+                            <div className="text-xs text-muted-foreground">per {getProductPriceBasisUnit(product)}</div>
                           </div>
                         </TableCell>
                         <TableCell>{getProductDisplayUnit(product)}</TableCell>
