@@ -35,6 +35,7 @@ export interface ProductScheme {
   is_active: boolean | null;
   is_first_order_only: boolean | null;
   product_name?: string;
+  free_variant_id?: string | null;
   free_product_name?: string;
   other_free_product_name?: string;
   // Manual per-unit discount support
@@ -103,6 +104,22 @@ export const useOfflineSchemes = () => {
         .map(s => s.free_product_id)
         .filter(Boolean))] as string[];
 
+      // Free items pinned to a product variant display the variant's name
+      const freeVariantIds = [...new Set(schemesData
+        .map(s => (s as any).free_variant_id)
+        .filter(Boolean))] as string[];
+      let variantsMap: Record<string, string> = {};
+      if (freeVariantIds.length > 0) {
+        const { data: variantRows } = await supabase
+          .from('product_variants')
+          .select('id, variant_name')
+          .in('id', freeVariantIds);
+        variantsMap = (variantRows || []).reduce((acc, v) => {
+          acc[v.id] = v.variant_name;
+          return acc;
+        }, {} as Record<string, string>);
+      }
+
       let productsMap: Record<string, string> = {};
 
       if (productIds.length > 0 || freeProductIds.length > 0) {
@@ -162,7 +179,9 @@ export const useOfflineSchemes = () => {
           ? productsMap[scheme.product_id] || 'Unknown Product'
           : (scheme.category_id ? undefined : 'All Products'),
         category_name: scheme.category_id ? categoriesMap[scheme.category_id] || 'Unknown Category' : undefined,
-        free_product_name: scheme.free_product_id ? productsMap[scheme.free_product_id] || 'Unknown Product' : null,
+        free_product_name: (scheme as any).free_variant_id
+          ? variantsMap[(scheme as any).free_variant_id] || productsMap[scheme.free_product_id] || 'Unknown Product'
+          : (scheme.free_product_id ? productsMap[scheme.free_product_id] || 'Unknown Product' : null),
         other_free_product_name: scheme.other_free_product_id ? otherFreeProductsMap[scheme.other_free_product_id] || 'Unknown Product' : null,
       }));
       

@@ -358,9 +358,44 @@ export const SchemeMaster = () => {
       const isMultiProduct = schemeForm.multi_product_mode && (schemeForm.target_product_ids || []).length > 0;
       const productId = isMultiProduct ? null : (schemeForm.product_id || null);
       const targetProductIds = isMultiProduct ? schemeForm.target_product_ids : null;
-      const perProductDiscounts = isMultiProduct && schemeForm.discount_mode === 'different' 
-        ? schemeForm.per_product_discounts 
+      const perProductDiscounts = isMultiProduct && schemeForm.discount_mode === 'different'
+        ? schemeForm.per_product_discounts
         : null;
+
+      // Resolve the Free Product (Y) picker value. The unified products list
+      // mixes base products and variants; a variant's own id must NOT land in
+      // free_product_id (FK -> products.id) or the save fails. 'same' means
+      // "the scheme's own product".
+      const usesCatalogueFree =
+        schemeForm.free_product_selection_mode !== 'user_choice' &&
+        schemeForm.free_product_source !== 'other';
+      let freeProductId: string | null = null;
+      let freeVariantId: string | null = null;
+      if (usesCatalogueFree && schemeForm.free_product_id) {
+        const sel = schemeForm.free_product_id;
+        if (sel === 'same') {
+          if (!productId) {
+            toast.error('"Same Product (Free)" needs the scheme to target one specific product — pick an explicit free product instead.');
+            return;
+          }
+          freeProductId = productId;
+          freeVariantId = schemeForm.variant_id && schemeForm.variant_id !== 'all' ? schemeForm.variant_id : null;
+        } else {
+          const entry: any = products.find(p => p.id === sel);
+          if (entry?.type === 'variant' && entry.parent_product_id) {
+            freeProductId = entry.parent_product_id;
+            freeVariantId = entry.id;
+          } else {
+            freeProductId = sel;
+          }
+        }
+      }
+      // Spread-friendly so the generated row type (which predates free_variant_id)
+      // doesn't reject the key.
+      const freeProductFields: any = {
+        free_product_id: usesCatalogueFree ? freeProductId : null,
+        free_variant_id: usesCatalogueFree ? freeVariantId : null,
+      };
       
       if (schemeForm.id) {
         const { error } = await supabase
@@ -380,7 +415,7 @@ export const SchemeMaster = () => {
             free_quantity_unit: schemeForm.free_quantity_unit || 'kg',
             buy_quantity: schemeForm.buy_quantity,
             buy_quantity_unit: schemeForm.buy_quantity_unit || 'kg',
-            free_product_id: (schemeForm.free_product_selection_mode !== 'user_choice' && schemeForm.free_product_source !== 'other') ? (schemeForm.free_product_id || null) : null,
+            ...freeProductFields,
             other_free_product_id: (schemeForm.free_product_selection_mode !== 'user_choice' && schemeForm.free_product_source === 'other') ? (schemeForm.other_free_product_id || null) : null,
             free_product_source: schemeForm.free_product_source || 'catalogue',
             free_product_selection_mode: schemeForm.free_product_selection_mode || 'fixed',
@@ -436,7 +471,7 @@ export const SchemeMaster = () => {
             free_quantity_unit: schemeForm.free_quantity_unit || 'kg',
             buy_quantity: schemeForm.buy_quantity,
             buy_quantity_unit: schemeForm.buy_quantity_unit || 'kg',
-            free_product_id: (schemeForm.free_product_selection_mode !== 'user_choice' && schemeForm.free_product_source !== 'other') ? (schemeForm.free_product_id || null) : null,
+            ...freeProductFields,
             other_free_product_id: (schemeForm.free_product_selection_mode !== 'user_choice' && schemeForm.free_product_source === 'other') ? (schemeForm.other_free_product_id || null) : null,
             free_product_source: schemeForm.free_product_source || 'catalogue',
             free_product_selection_mode: schemeForm.free_product_selection_mode || 'fixed',
@@ -610,7 +645,9 @@ export const SchemeMaster = () => {
       free_quantity_unit: schemeAny.free_quantity_unit || 'kg',
       buy_quantity: scheme.buy_quantity || 0,
       buy_quantity_unit: schemeAny.buy_quantity_unit || 'kg',
-      free_product_id: scheme.free_product_id || '',
+      // Show the variant entry in the picker when the free item is a variant;
+      // save() translates it back into free_product_id + free_variant_id.
+      free_product_id: schemeAny.free_variant_id || scheme.free_product_id || '',
       other_free_product_id: schemeAny.other_free_product_id || '',
       free_product_source: (schemeAny.free_product_source as 'catalogue' | 'other') || 'catalogue',
       free_product_selection_mode: (schemeAny.free_product_selection_mode as 'fixed' | 'user_choice') || 'fixed',

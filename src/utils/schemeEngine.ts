@@ -46,6 +46,8 @@ export interface AppliedScheme {
     product_name: string;
     quantity: number;
     product_id?: string;
+    // When the free item is a specific product variant
+    variant_id?: string;
     other_free_product_id?: string;
     original_rate?: number;
     unit?: string;
@@ -103,6 +105,9 @@ export interface ProductScheme {
   free_quantity?: number | null;
   free_quantity_unit?: string | null;
   free_product_id?: string | null;
+  // When the free item is a product variant: free_product_id holds the parent
+  // product and free_variant_id pins the exact variant.
+  free_variant_id?: string | null;
   other_free_product_id?: string | null;
   free_product_source?: 'catalogue' | 'other' | null;
   other_free_product_name?: string;
@@ -404,13 +409,13 @@ function calculateSchemeDiscount(
   discount: number; 
   itemDiscounts: Record<string, number>; 
   itemSchemeDetails: Record<string, ItemSchemeDetail[]>;
-  freeItems?: { product_name: string; quantity: number; product_id?: string; other_free_product_id?: string; original_rate?: number; unit?: string; triggering_item_id?: string }[];
+  freeItems?: { product_name: string; quantity: number; product_id?: string; variant_id?: string; other_free_product_id?: string; original_rate?: number; unit?: string; triggering_item_id?: string }[];
   manualMeta?: { perUnitDiscount: number; unit: string; itemId: string; productName: string; valueType: 'amount' | 'percentage' };
 } {
   let discount = 0;
   const itemDiscounts: Record<string, number> = {};
   const itemSchemeDetails: Record<string, ItemSchemeDetail[]> = {};
-  let freeItems: { product_name: string; quantity: number; product_id?: string; other_free_product_id?: string; original_rate?: number; unit?: string; triggering_item_id?: string }[] | undefined;
+  let freeItems: { product_name: string; quantity: number; product_id?: string; variant_id?: string; other_free_product_id?: string; original_rate?: number; unit?: string; triggering_item_id?: string }[] | undefined;
   let manualMeta: { perUnitDiscount: number; unit: string; itemId: string; productName: string; valueType: 'amount' | 'percentage' } | undefined;
 
   // Get applicable items
@@ -670,6 +675,7 @@ function calculateSchemeDiscount(
             product_name: freeProductName,
             quantity: freeItemsCount,
             product_id: freeProductId,
+            variant_id: isOtherFreeProduct ? undefined : (scheme.free_variant_id || undefined),
             other_free_product_id: otherFreeProductId,
             original_rate: 0,
             unit: freeUnit,

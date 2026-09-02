@@ -1360,7 +1360,7 @@ export const Cart = () => {
           // Only set product_id if it's a real UUID; otherwise null so the DB cast doesn't fail
           product_id: (typeof freeItem.product_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(freeItem.product_id)) ? freeItem.product_id : null,
           other_free_product_id: freeItem.other_free_product_id || null,
-          variant_id: null,
+          variant_id: (typeof freeItem.variant_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(freeItem.variant_id)) ? freeItem.variant_id : null,
           product_name: `${freeItem.product_name} (FREE)`,
           category: 'Free Item',
           rate: 0,
@@ -2331,7 +2331,7 @@ export const Cart = () => {
         .flatMap(s => s.free_items!.map(freeItem => ({
           product_id: (typeof freeItem.product_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(freeItem.product_id)) ? freeItem.product_id : null,
           other_free_product_id: freeItem.other_free_product_id || null,
-          variant_id: null,
+          variant_id: (typeof freeItem.variant_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(freeItem.variant_id)) ? freeItem.variant_id : null,
           product_name: `${freeItem.product_name} (FREE)`,
           category: 'Free Item',
           rate: 0,
