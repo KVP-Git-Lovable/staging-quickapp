@@ -448,6 +448,15 @@ export function ActivityForm({ open, onOpenChange, programId, category, activity
                   <Label>Valid to</Label>
                   <Input type="date" value={form.validity_to ?? ""} onChange={(e) => set("validity_to", e.target.value)} />
                 </div>
+                {form.validity_to && new Date(form.validity_to) < new Date(new Date().toDateString()) && (
+                  <div className="sm:col-span-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>
+                      Validity ended on <strong>{form.validity_to}</strong> — this activity will never award
+                      points until the dates are extended or cleared.
+                    </span>
+                  </div>
+                )}
                 <div>
                   <Label>Cap scope</Label>
                   <Select value={form.cap_scope} onValueChange={(v) => set("cap_scope", v)}>
