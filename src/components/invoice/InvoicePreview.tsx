@@ -118,13 +118,16 @@ export default function InvoicePreview({
     const targetUnit = normalizeUnit(item.unit);
     if (!baseUnit || !item.base_unit) return baseRate;
 
-    // KG ↔ Gram conversions
-    if (baseUnit === "kg" || baseUnit === "kilogram" || baseUnit === "kilograms") {
-      if (["gram", "grams", "g", "gm"].includes(targetUnit)) return baseRate / 1000;
-      if (targetUnit === "kg") return baseRate;
-    } else if (["g", "gm", "gram", "grams"].includes(baseUnit)) {
-      if (targetUnit === "kg") return baseRate * 1000;
-      if (["g", "gm", "gram", "grams"].includes(targetUnit)) return baseRate;
+    // KG <-> Gram conversions. `baseRate` is always priced per KG (the
+    // product's price_basis_unit) regardless of what base_unit says -- it's
+    // NOT priced per base_unit. base_unit=GRAM products (the physics base
+    // under the two-tier UOM rule) still have a KG rate, so this must not
+    // branch on baseUnit or it double-converts (₹319.05 -> ₹3,19,050/KG).
+    const kgWords = ["kg", "kilogram", "kilograms"];
+    const gramWords = ["gram", "grams", "g", "gm"];
+    if (kgWords.includes(baseUnit) || gramWords.includes(baseUnit)) {
+      if (gramWords.includes(targetUnit)) return baseRate / 1000;
+      if (kgWords.includes(targetUnit)) return baseRate;
     }
     return baseRate;
   };
@@ -161,20 +164,7 @@ export default function InvoicePreview({
   const subtotal = cartItems.reduce((sum, item) => {
     // Use display_quantity if available (already in correct unit), otherwise use quantity
     const qty = item.display_quantity !== undefined ? item.display_quantity : (item.quantity || 0);
-    // If display_quantity is used, we need the rate for the display unit
-    const displayUnit = item.display_unit?.toLowerCase() || '';
-    const baseUnit = normalizeUnit(item.base_unit || item.unit);
-    let rate = Number(item.rate || item.price) || 0;
-    
-    // If we have display_quantity, the rate should match the display unit
-    // If rate is per gram but display is KG, multiply rate by 1000
-    if (item.display_quantity !== undefined && (displayUnit === 'kg' || displayUnit === 'kilogram')) {
-      if (['g', 'gm', 'gram', 'grams'].includes(baseUnit)) {
-        rate = rate * 1000;
-      }
-    } else {
-      rate = getDisplayRate(item);
-    }
+    const rate = getDisplayRate(item);
 
     return sum + getLineTotal(item, qty, rate);
   }, 0);
@@ -369,19 +359,8 @@ export default function InvoicePreview({
               // Use display values if available for proper unit representation
               const qty = item.display_quantity !== undefined ? item.display_quantity : (item.quantity || 0);
               const unit = item.display_unit || item.unit || "Piece";
-              const displayUnit = unit.toLowerCase();
-              const baseUnit = normalizeUnit(item.base_unit || item.unit);
-              
-              // Calculate rate for the display unit
-              let rate = Number(item.rate || item.price) || 0;
-              if (item.display_quantity !== undefined && (displayUnit === 'kg' || displayUnit === 'kilogram')) {
-                if (['g', 'gm', 'gram', 'grams'].includes(baseUnit)) {
-                  rate = rate * 1000;
-                }
-              } else {
-                rate = getDisplayRate(item);
-              }
-              
+              const rate = getDisplayRate(item);
+
               const itemTotal = getLineTotal(item, qty, rate);
               const itemDiscount = Number(item.discount_amount) || 0;
               const originalRate = Number(item.original_rate) || rate;
