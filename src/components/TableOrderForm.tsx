@@ -1095,13 +1095,22 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
 
     if (!baseUnit) return baseRate;
 
-    // KG ↔ Gram conversions
-    if (baseUnit === "kg" || baseUnit === "kilogram" || baseUnit === "kilograms") {
-      if (["gram", "grams", "g", "gm"].includes(targetUnit)) return baseRate / 1000;
-      if (targetUnit === "kg") return baseRate;
-    } else if (["g", "gm", "gram", "grams"].includes(baseUnit)) {
-      if (targetUnit === "kg") return baseRate * 1000;
-      if (["g", "gm", "gram", "grams"].includes(targetUnit)) return baseRate;
+    // KG <-> Gram conversions. `baseRate` (product.rate / variant.price) is
+    // always priced per the product's price_basis_unit, which for every
+    // weight-category product in this catalog is KG -- regardless of what
+    // base_unit says. base_unit is the UOM system's physics base (e.g. GRAM
+    // under the two-tier UOM rule), not necessarily the unit the price is
+    // quoted in, so this must NOT branch on baseUnit. It used to: products
+    // with base_unit=GRAM (paired with price_basis_unit=KG) hit the old
+    // "baseUnit === gram" branch and had their already-per-KG rate
+    // multiplied by 1000 a second time (₹319.05 -> ₹3,19,050/KG). Every
+    // product until this catalog happened to have base_unit=KG too, so the
+    // bug was latent until the first GRAM-based import.
+    const kgWords = ["kg", "kilogram", "kilograms"];
+    const gramWords = ["gram", "grams", "g", "gm"];
+    if (kgWords.includes(baseUnit) || gramWords.includes(baseUnit)) {
+      if (gramWords.includes(targetUnit)) return baseRate / 1000;
+      if (kgWords.includes(targetUnit)) return baseRate;
     }
 
     // Piece-based or other units: keep as-is (optional conversion_factor can be added later)
