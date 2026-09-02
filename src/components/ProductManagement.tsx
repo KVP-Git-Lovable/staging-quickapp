@@ -30,6 +30,7 @@ import { PaginationControls } from '@/components/ui/PaginationControls';
 import { useNavigate } from 'react-router-dom';
 import { ProductUnitsEditor, emptyProductUnitsEditorValue, type ProductUnitsEditorValue } from '@/components/admin/uom/ProductUnitsEditor';
 import { reconcileProductUomMapping, hydrateUnitsEditorFromProduct } from '@/lib/productUomPersistence';
+import { prefetchAllProductUnits, getCachedProductUnits } from '@/lib/uomEngine';
 
 import { ProductBulkImportDialog } from '@/components/ProductBulkImportDialog';
 import { ProductExportDialog } from '@/components/ProductExportDialog';
@@ -349,7 +350,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchCategories(), fetchProducts(), fetchVariants(), fetchTerritories(), fetchTaxMasters()]);
+      await Promise.all([fetchCategories(), fetchProducts(), fetchVariants(), fetchTerritories(), fetchTaxMasters(), prefetchAllProductUnits()]);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to fetch data');
@@ -381,6 +382,16 @@ const [productForm, setProductForm] = useState(emptyProductForm());
   // Generate QR code content
   const generateQRCode = (type: 'product' | 'variant', sku: string, name: string) => {
     return `${type}:${sku}:${name}`;
+  };
+
+  // `products.unit` is a legacy column the app stopped writing to (both here
+  // and in the bulk importer) once product_uom_mapping became the source of
+  // truth -- it just sits at its DB default ("piece") forever, so the list
+  // view must resolve the real selling unit from the UOM mapping instead.
+  const getProductDisplayUnit = (product: Product): string => {
+    const units = getCachedProductUnits(product.id);
+    const match = units?.find((u) => u.isDefaultSales) || units?.find((u) => u.isPriceBasis) || units?.find((u) => u.isBase);
+    return match?.code || product.base_unit || 'kg';
   };
 
   const fetchCategories = async () => {
@@ -1428,7 +1439,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                         <TableCell>
                           <div>
                             <div className="font-medium">₹{(product.rate * (product.conversion_factor || 1)).toFixed(2)}</div>
-                            <div className="text-xs text-muted-foreground">per {product.unit}</div>
+                            <div className="text-xs text-muted-foreground">per {getProductDisplayUnit(product)}</div>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1437,7 +1448,7 @@ const [productForm, setProductForm] = useState(emptyProductForm());
                             <div className="text-xs text-muted-foreground">per {product.base_unit || 'kg'}</div>
                           </div>
                         </TableCell>
-                        <TableCell>{product.unit}</TableCell>
+                        <TableCell>{getProductDisplayUnit(product)}</TableCell>
                         <TableCell className="font-mono text-sm">{(product as any).hsn_code || '-'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
