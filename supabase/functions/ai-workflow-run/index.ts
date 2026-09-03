@@ -360,11 +360,14 @@ async function aiOrderStops<
           "relative ordering, never move a distant stop earlier just because it orders earlier in the day; (2) WITHIN a near-tie group " +
           "(stores within about 1 km of each other), stores with earlier typical order times come first; (3) break remaining ties by " +
           "higher score. " +
-          'Also write "lines": one warm, personalised line for EACH stop, indexed by STOP NUMBER (lines[0] is stop 1). Each line is what a ' +
-          "friendly mentor would tell the rep about that store today: weave in that stop's stated facts only (its typical order time, last " +
-          "visit, pending amount or strike rate — never invented details), add one small concrete suggestion, use an exclamation mark where " +
-          "it feels natural, keep it under 32 words. STYLE: simple, everyday Indian English a field salesperson understands at first read — " +
-          "short sentences, common words only, no idioms or fancy phrases (avoid wording like 'pencilled in', 'swing by', 'make it count'). " +
+          'Also write "lines": one warm, personalised line for EACH stop, indexed by STOP NUMBER from the numbered STOPS list above — ' +
+          "lines[0] describes stop 1, lines[1] describes stop 2, and so on, REGARDLESS of the visiting order you chose. Each line must be " +
+          "about that one store ONLY: never mention any other stop's name, and never describe the route sequence (no 'next', 'then', " +
+          "'start with', 'finish with', 'head to'). Each line MUST include at least two of that stop's stated facts WITH their numbers " +
+          "(its typical order time, last visit, pending amount or strike rate — never invented details), plus one small concrete " +
+          "suggestion, an exclamation mark where it feels natural, under 32 words. STYLE: simple, everyday Indian English a field " +
+          "salesperson understands at first read — short sentences, common words only, no idioms or fancy phrases (avoid wording like " +
+          "'pencilled in', 'swing by', 'make it count'). " +
           "CRITICAL: vary the wording — no two lines may open with the same words, and never open " +
           'with "AI Visit Optimiser", "This stop", or the store name pattern repeated across lines. ' +
           'Return STRICT JSON only: {"order":[<every stop number exactly once>],"note":"one short friendly line explaining the ordering",' +
@@ -407,9 +410,32 @@ async function aiOrderStops<
     // Optional per-stop lines (display wording only, facts unchanged):
     // lines[k] belongs to stop number k+1. Missing/short arrays simply leave
     // those stops on the client's fallback wording.
+    //
+    // Deterministic per-line validation: a line may only describe its own
+    // stop. Any line that names another stop, carries no number at all
+    // (every stated fact is numeric), or is route-sequence narration is
+    // blanked — a blank falls back to the client's detailed deterministic
+    // sentence, so cards never show wrong-store or content-free lines.
+    const GENERIC_NAME_WORDS = new Set([
+      "store", "stores", "shop", "shoppe", "mart", "marts", "super", "market",
+      "supermarket", "retailer", "retailers", "traders", "trading", "general",
+      "departmental", "department", "medicals", "medical", "agencies", "agency",
+      "kirana", "enterprises", "provision", "provisions", "bazar", "bazaar",
+    ]);
+    const nameWords = (n: string) =>
+      String(n).toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !GENERIC_NAME_WORDS.has(w));
+    const ROUTE_TALK = /\b(next|then|afterwards|after that|start with|finish with|end with|head to|follow up)\b/i;
     const aiLines: unknown[] = Array.isArray(parsed?.lines) ? parsed.lines : [];
     baseline.forEach((s, k) => {
-      const line = typeof aiLines[k] === "string" ? String(aiLines[k]).trim().slice(0, 240) : "";
+      let line = typeof aiLines[k] === "string" ? String(aiLines[k]).trim().slice(0, 240) : "";
+      if (line) {
+        const lowerLine = line.toLowerCase();
+        const own = new Set(nameWords(s.name));
+        const mentionsOtherStop = baseline.some(
+          (b, i) => i !== k && nameWords(b.name).some((w) => !own.has(w) && lowerLine.includes(w)),
+        );
+        if (mentionsOtherStop || !/\d/.test(line) || ROUTE_TALK.test(line)) line = "";
+      }
       (s as Record<string, unknown>).insightLine = line;
     });
     return { stops: order.map((n) => baseline[n - 1]), note };
