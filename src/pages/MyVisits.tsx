@@ -83,10 +83,12 @@ const wordingIndex = (key: string, variants: number) => {
 
 function churnInsightLine(r: ChurnRow): string {
   const drop = `${r.dropPct}% (${inrCompact(r.priorValue)} → ${inrCompact(r.recentValue)})`;
+  // Simple, everyday Indian English — short sentences, no idioms. Wording
+  // only; the figures come from the agent unchanged.
   const variants = [
-    `They've eased off lately — orders are down ${drop} vs the previous 30 days. A warm visit today could bring things back around!`,
-    `Orders here have slipped ${drop} over the last 30 days — a great chance to reconnect and hear what's changed!`,
-    `This store used to order more — down ${drop} vs the previous 30 days. Drop in with a smile and a fresh pitch today!`,
+    `Orders from this shop have come down ${drop} in the last 30 days. One good visit today can bring them back!`,
+    `This shop is ordering less now — down ${drop} in 30 days. Please visit and ask what they need!`,
+    `Earlier this shop ordered more. Now orders are down ${drop} in 30 days. A visit today will help!`,
   ];
   return variants[wordingIndex(r.retailerId, variants.length)];
 }
@@ -97,26 +99,27 @@ function routeInsightLine(s: RouteStop): string {
   const parts: string[] = [];
   parts.push(
     s.daysSinceLastVisit == null
-      ? "you haven't logged a visit here yet"
+      ? "no visit done here yet"
       : s.daysSinceLastVisit === 0
-        ? "you were here earlier today"
-        : `your last visit was ${s.daysSinceLastVisit} day${s.daysSinceLastVisit === 1 ? "" : "s"} ago`,
+        ? "you came here earlier today"
+        : `last visit was ${s.daysSinceLastVisit} day${s.daysSinceLastVisit === 1 ? "" : "s"} ago`,
   );
-  if (s.pending > 0) parts.push(`${inrCompact(s.pending)} is waiting to be collected`);
-  if (s.visits > 0) parts.push(`orders land on ${s.productivityPct}% of your visits`);
+  if (s.pending > 0) parts.push(`${inrCompact(s.pending)} is pending to collect`);
+  if (s.visits > 0) parts.push(`orders come on ${s.productivityPct}% of your visits`);
   const detail = parts.join(", ");
-  // A wider pool (and the stop number mixed into the hash key) keeps
-  // neighbouring cards from repeating the same opener — wording only,
-  // the figures and stop order come from the agent unchanged.
+  // Simple, everyday Indian English — short sentences, no idioms. A wide
+  // pool (with the stop number mixed into the hash key) keeps neighbouring
+  // cards from repeating the same opener — wording only, the figures and
+  // stop order come from the agent unchanged.
   const variants = [
-    `Worth swinging by as stop #${s.sequence} today — ${detail}. A quick hello could go a long way!`,
-    `Today's route puts this one at #${s.sequence} — ${detail}. Good moment to check in!`,
-    `Pencilled in at #${s.sequence} on today's route: ${detail}. Make it count!`,
-    `Stop #${s.sequence} on your route today — ${detail}. Perfect time to drop by!`,
-    `Your optimiser lined this up at #${s.sequence} — ${detail}. Swing past when you're close!`,
-    `Coming up at #${s.sequence} today: ${detail}. A friendly visit could open doors!`,
-    `Slotted at #${s.sequence} on the day's run — ${detail}. Keep the momentum going!`,
-    `On today's plan at #${s.sequence} — ${detail}. Say hello and see what they need!`,
+    `This shop is stop #${s.sequence} on today's route — ${detail}. Do visit today!`,
+    `Today's plan puts this shop at #${s.sequence} — ${detail}. Good time to go!`,
+    `Shop #${s.sequence} on your route today — ${detail}. Please do visit!`,
+    `Visit this shop at #${s.sequence} today — ${detail}. It will help your day!`,
+    `On today's route this shop comes at #${s.sequence} — ${detail}. Go when you are near!`,
+    `Stop #${s.sequence} for today — ${detail}. A short visit is enough!`,
+    `Today this shop is at #${s.sequence} on your list — ${detail}. Do go once!`,
+    `Route says #${s.sequence} for this shop — ${detail}. Visit and take the order!`,
   ];
   return variants[wordingIndex(`${s.retailerId}-${s.sequence}`, variants.length)];
 }
@@ -126,15 +129,17 @@ function coachInsightLine(r: CoachRow): string {
   const lead = r.topProduct ?? "";
   const gaps = (r.gapProducts ?? []).slice(0, 2);
   const gapText = gaps.join(" or ");
+  // Simple, everyday Indian English — short sentences, no idioms. Wording
+  // only; the figures come from the agent unchanged.
   const variants = gaps.length
     ? [
-        `A steady partner — ${sold} of orders in the last 30 days${lead ? `, mostly ${lead}` : ""} — and they haven't tried ${gapText} yet. Perfect pitch for today!`,
-        `You've built ${sold} of business here in a month${lead ? ` (${lead} leads the way)` : ""} — why not introduce ${gapText} today?`,
-        `Solid buyer: ${sold} in the last 30 days${lead ? `, mostly ${lead}` : ""}. ${gapText} is still missing from their shelf — worth a friendly nudge!`,
+        `This shop bought ${sold} of goods in the last 30 days${lead ? `, mostly ${lead}` : ""}. They have not tried ${gapText} yet — show it today!`,
+        `Good shop — ${sold} of orders in one month${lead ? ` (${lead} sells the most here)` : ""}. Today, try showing ${gapText} also!`,
+        `${sold} of orders in the last 30 days${lead ? `, mostly ${lead}` : ""}. ${gapText} is not in their shop yet — do suggest it!`,
       ]
     : [
-        `One of your best relationships — ${sold} in the last 30 days, and they already take your full top range. Keep them stocked and smiling!`,
-        `${sold} of orders here in just 30 days, covering all your top products — a quick thank-you visit goes a long way!`,
+        `Very good shop — ${sold} of orders in the last 30 days, and they already buy all your top products. Keep them happy!`,
+        `${sold} of orders here in just 30 days, with all your top products. A thank-you visit will be nice!`,
       ];
   return variants[wordingIndex(r.retailerId, variants.length)];
 }

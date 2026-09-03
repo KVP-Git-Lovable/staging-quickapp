@@ -252,6 +252,7 @@ async function generateNewcomerLines(newcomers: Newcomer[], topProducts: string[
           "You write one short, friendly reminder line per newly added retailer for a field sales rep's visit list. " +
           "Each line must (a) convey warmly that the store recently joined the rep's beat, (b) suggest a concrete pitching opportunity personalised to that store's name/category, and " +
           "(c) mention at most two product names, ONLY from yourTopProducts — never invent products, prices or facts. Under 35 words, warm and encouraging, an exclamation mark where natural, no pressure language. " +
+          "STYLE: simple, everyday Indian English a field salesperson understands at first read — short sentences, common words only, no idioms or fancy phrases (avoid wording like 'pencilled in', 'swing by', 'leads the way'). " +
           'CRITICAL: make each line feel personally written — no two lines may open with the same words, and never open with "New retailer" or "New store". ' +
           'Return STRICT JSON only — an array like [{"retailerId":"...","line":"..."}] covering every retailer. No markdown, no extra keys, no commentary.',
       },
@@ -362,7 +363,9 @@ async function aiOrderStops<
           'Also write "lines": one warm, personalised line for EACH stop, indexed by STOP NUMBER (lines[0] is stop 1). Each line is what a ' +
           "friendly mentor would tell the rep about that store today: weave in that stop's stated facts only (its typical order time, last " +
           "visit, pending amount or strike rate — never invented details), add one small concrete suggestion, use an exclamation mark where " +
-          "it feels natural, keep it under 32 words. CRITICAL: vary the wording — no two lines may open with the same words, and never open " +
+          "it feels natural, keep it under 32 words. STYLE: simple, everyday Indian English a field salesperson understands at first read — " +
+          "short sentences, common words only, no idioms or fancy phrases (avoid wording like 'pencilled in', 'swing by', 'make it count'). " +
+          "CRITICAL: vary the wording — no two lines may open with the same words, and never open " +
           'with "AI Visit Optimiser", "This stop", or the store name pattern repeated across lines. ' +
           'Return STRICT JSON only: {"order":[<every stop number exactly once>],"note":"one short friendly line explaining the ordering",' +
           '"lines":["<line for stop 1>", ...]} — no markdown, no extra keys.',
