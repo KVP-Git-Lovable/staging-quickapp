@@ -19,7 +19,7 @@ import {
   type FuzzyProduct,
 } from '@/utils/productFuzzyMatch';
 import { parseTranscriptHeuristic } from '@/utils/transcriptHeuristic';
-import { containsDevanagari, transliterateToLatin, transliterationCandidates, normalizeDevanagariDigits } from '@/utils/transliterate';
+import { containsIndicScript, transliterateToLatin, transliterationCandidates, normalizeDevanagariDigits } from '@/utils/transliterate';
 import type { VoiceAutoFillResult } from '@/components/TableOrderForm';
 
 const SpeechRecognitionImpl =
@@ -67,6 +67,15 @@ const evidenceWords = (text: string): string[] =>
 const wordSimilarity = (a: string, b: string): number => {
   if (a === b) return 1;
   if (a.length >= 4 && (a.includes(b) || b.includes(a))) return 0.8;
+  // Indic transliterations differ from English spellings mostly in vowels
+  // ("lebal" from ಲೇಬಲ್/लेबल vs "label"): equal consonant skeletons of 3+
+  // consonants count as support. Too-short skeletons are excluded so small
+  // words can't collide.
+  if (a.length >= 4 && b.length >= 4) {
+    const sa = a.replace(/[aeiou]+/g, '');
+    const sb = b.replace(/[aeiou]+/g, '');
+    if (sa.length >= 3 && sa === sb) return 0.8;
+  }
   // Small local Damerau-Levenshtein (word-level only; shared util stays
   // untouched). Adjacent transpositions cost 1 edit: STT very often swaps
   // letters ("lable" for "label"), and plain Levenshtein's 2-edit cost put
@@ -339,7 +348,7 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
       // catalog — retry the UNCHANGED matcher with deterministic
       // transliteration candidates (thresholds untouched). If none passes,
       // the item is skipped, never guessed.
-      if (!product && containsDevanagari(searchTerm)) {
+      if (!product && containsIndicScript(searchTerm)) {
         for (const candidate of transliterationCandidates(searchTerm)) {
           const retry = findBestMatch(candidate, productsRef.current);
           if (retry.product) {

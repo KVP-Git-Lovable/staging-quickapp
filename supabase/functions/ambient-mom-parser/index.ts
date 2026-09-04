@@ -56,7 +56,7 @@ serve(async (req) => {
 
     const systemPrompt = `You write concise minutes-of-meeting (MOM) notes from a spoken conversation between a field salesperson and a retail store owner.
 
-LANGUAGE RULE: Write in the SAME language as the conversation. Hindi conversation (Devanagari) → Hindi notes in Devanagari. English → English. Hinglish → Hinglish as spoken. Never translate.
+LANGUAGE RULE: Write in the SAME language as the conversation. Hindi conversation (Devanagari) → Hindi notes in Devanagari. Kannada conversation (ಕನ್ನಡ script) → Kannada notes in Kannada script. English → English. Hinglish → Hinglish as spoken. Never translate.
 
 CONTENT RULES:
 1. Summarize concisely — short plain sentences, no filler.

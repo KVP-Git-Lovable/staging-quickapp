@@ -68,13 +68,15 @@ EXAMPLES:
 - "adarak 20g 5" (no unit spoken) → productSearch: "adarak 20g", quantity: 5, unit: ""
 - Devanagari speech maps to the catalog's Latin names: "मुझे ३ किलो अदरक और २ किलो रेड लेबल चाहिए" → [{"productSearch":"ADRAK","quantity":3,"unit":"kg"},{"productSearch":"RED LABEL","quantity":2,"unit":"kg"}] (use the EXACT names from AVAILABLE PRODUCTS)
 - "५ किलो कड़क गोल्ड 250" → productSearch: "KADAK GOLD 250", quantity: 5, unit: "kg"
+- Kannada speech maps the same way: "ನನಗೆ 3 ಕೆಜಿ ಅದರಕ ಮತ್ತು 2 ಕೆಜಿ ರೆಡ್ ಲೇಬಲ್ ಬೇಕು" → [{"productSearch":"ADRAK","quantity":3,"unit":"kg"},{"productSearch":"RED LABEL","quantity":2,"unit":"kg"}] (ಕೆಜಿ → kg; ಬೇಕು/ಕೊಡಿ are filler like chahiye/de do)
+- "೫ ಕೆಜಿ ಕಡಕ್ ಗೋಲ್ಡ್ 250" → productSearch: "KADAK GOLD 250", quantity: 5, unit: "kg"
 
 RULES:
 1. The product name/search term includes variant info (like "20 gram", "50g", "250")
 2. Normalise spoken units: "kilo"/"kilogram" → "kg", "gram"/"gm" → "g"
-3. Handle Hindi/English mixed inputs (adrak, haldi, mirch, chahiye, de do, etc.)
-4. productSearch MUST ALWAYS be Latin script. When the spoken item clearly refers to a product in AVAILABLE PRODUCTS (same brand/product words), return that EXACT catalog product name, character for character — never a translation of your own, never a paraphrase, never a partial name, and NEVER Devanagari or any other script. NEVER substitute a catalog product for a spoken product: if you cannot map the spoken words to a specific catalog product with reasonable confidence, return the spoken/transliterated term itself instead of choosing another catalog product. Example: the customer says "taj mahal" but no TAJ MAHAL product is in the list → return productSearch "taj mahal" — NEVER another tea brand from the list. A different brand in the same category is NOT a match.
-5. Convert Devanagari numerals to ASCII digits (३ → 3).
+3. Handle Hindi/English/Kannada mixed inputs (adrak, haldi, mirch, chahiye, de do, ಬೇಕು, ಕೊಡಿ, etc.)
+4. productSearch MUST ALWAYS be Latin script. When the spoken item clearly refers to a product in AVAILABLE PRODUCTS (same brand/product words), return that EXACT catalog product name, character for character — never a translation of your own, never a paraphrase, never a partial name, and NEVER Devanagari, Kannada, or any other non-Latin script. NEVER substitute a catalog product for a spoken product: if you cannot map the spoken words to a specific catalog product with reasonable confidence, return the spoken/transliterated term itself instead of choosing another catalog product. Example: the customer says "taj mahal" but no TAJ MAHAL product is in the list → return productSearch "taj mahal" — NEVER another tea brand from the list. A different brand in the same category is NOT a match.
+5. Convert Devanagari (३ → 3) and Kannada (೩ → 3) numerals to ASCII digits.
 6. Ignore conversation filler that is not an order line (greetings, prices being discussed, refusals like "nahi chahiye")
 7. If quantity is unclear, default to 1
 8. If unit is unclear or not clearly spoken, return unit as an empty string "" — do NOT guess "kg". A wrong "kg" guess on a product actually sold by the gram multiplies the order size 1000x, so an uncertain unit must be left blank for the app to resolve from the product's own catalog unit, not guessed here.
