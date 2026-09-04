@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { useOrderEditPolicy } from "@/hooks/useOrderEditPolicy";
 import { useOrderCurrency } from "@/hooks/useOrderCurrency";
 import { computeLineTax } from "@/utils/taxCalc";
 import { usePriceBookPrices } from "@/hooks/usePriceBookPrices";
+import { OrderScribeCard } from "@/components/OrderScribeCard";
 interface Product {
   id: string;
   sku: string;
@@ -475,9 +476,10 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   };
 
 
-  // Expose applyVoiceAutoFill to parent via ref
-  useImperativeHandle(ref, () => ({
-    applyVoiceAutoFill: (results: VoiceAutoFillResult[]) => {
+  // Shared auto-fill path: used by the ref handle (Voice Order / Smart
+  // Basket / Take Action) AND by the Order Scribe card's Accept — one
+  // implementation, identical semantics.
+  const applyAutoFillResults = useCallback((results: VoiceAutoFillResult[]) => {
       if (results.length === 0) return;
 
       console.log('[TableOrderForm] applyVoiceAutoFill called with:', results);
@@ -598,8 +600,12 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         title: `✓ Added ${confirmedResults.length} item${confirmedResults.length > 1 ? 's' : ''} via voice`,
         description: displayNames.join(', '),
       });
-    }
-  }), [products]);
+  }, [products]);
+
+  // Expose applyVoiceAutoFill to parent via ref
+  useImperativeHandle(ref, () => ({
+    applyVoiceAutoFill: applyAutoFillResults,
+  }), [applyAutoFillResults]);
 
 
   useEffect(() => {
@@ -2120,7 +2126,12 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
           "Preview Order"
         )}
       </Button>
-      
+
+      {/* Ambient Order Scribe — transcribes the in-store conversation live;
+          items are created ONLY when the user presses Accept, through the
+          same applyAutoFillResults path Voice Order uses. */}
+      <OrderScribeCard products={products as any} onAccept={applyAutoFillResults} />
+
       <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
         <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.
       </p>

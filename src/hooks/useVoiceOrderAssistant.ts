@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { upsertSingleCartItem, upsertCartItems } from '@/utils/customerCartHelper';
 import { toast } from 'sonner';
 import { normalizeUnit, collapseWhitespace, findBestMatch, buildProductShortlist } from '@/utils/productFuzzyMatch';
+import { parseTranscriptHeuristic } from '@/utils/transcriptHeuristic';
 import { resolveProduct } from '@/utils/resolveProduct';
 
 export interface VoiceOrderItem {
@@ -385,20 +386,11 @@ export const useVoiceOrderAssistant = (products: VoiceProduct[], retailerId?: st
         }
       }
 
-      // Fallback: local fuzzy matching if AI failed
+      // Fallback: local fuzzy matching if AI failed (extracted verbatim to
+      // @/utils/transcriptHeuristic so Order Scribe shares the same parser)
       if (!aiSuccess || parsedOrders.length === 0) {
         console.log('🎤 Using local fuzzy fallback for:', normalizedText);
-        // Simple heuristic: split by commas or common conjunctions
-        const segments = normalizedText.split(/,|aur |and /i).map(s => s.trim()).filter(Boolean);
-        for (const segment of segments) {
-          // Extract trailing number as quantity
-          const qtyMatch = segment.match(/(\d+)\s*(kg|kilo|pieces?|packet|packets?)?\s*$/i);
-          const quantity = qtyMatch ? parseInt(qtyMatch[1]) : 1;
-          const searchPart = qtyMatch ? segment.slice(0, qtyMatch.index).trim() : segment;
-          if (searchPart) {
-            parsedOrders.push({ productSearch: searchPart, quantity, unit: qtyMatch?.[2] || 'kg' });
-          }
-        }
+        parsedOrders.push(...parseTranscriptHeuristic(normalizedText));
       }
 
       console.log('🎤 processTranscript: Parsed orders:', parsedOrders);
