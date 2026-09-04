@@ -19,7 +19,7 @@ import {
   type FuzzyProduct,
 } from '@/utils/productFuzzyMatch';
 import { parseTranscriptHeuristic } from '@/utils/transcriptHeuristic';
-import { containsDevanagari, transliterationCandidates, normalizeDevanagariDigits } from '@/utils/transliterate';
+import { containsDevanagari, transliterateToLatin, transliterationCandidates, normalizeDevanagariDigits } from '@/utils/transliterate';
 import type { VoiceAutoFillResult } from '@/components/TableOrderForm';
 
 const SpeechRecognitionImpl =
@@ -36,6 +36,72 @@ const MAX_LINE_QUANTITY = 999;
 const KNOWN_UNITS = new Set(['', 'kg', 'g', 'piece', 'pieces', 'pc', 'packet', 'packets']);
 
 export type ScribeStatus = 'idle' | 'listening' | 'paused' | 'processing' | 'error';
+
+// ── Transcript-evidence guard ───────────────────────────────────────────────
+// Invariant: NO order row unless the transcript itself supports that product.
+// The parser model, given the catalog list, can substitute a *different real
+// catalog product* for a spoken one (e.g. spoken "taj mahal" → returned
+// "KANAN DEVAN"); such a name sails through findBestMatch with high
+// confidence, so catalog matching alone is not enough. This deterministic
+// layer is the final authority. The shared matcher and its thresholds are
+// deliberately untouched.
+
+// Tokens that can never identify a product on their own.
+const HARD_GENERIC_TOKENS = new Set([
+  'tea', 'chai', 'pack', 'packet', 'packets', 'blend', 'special', 'premium',
+  'extra', 'fresh', 'sample', 'super', 'powder', 'the', 'and', 'aur',
+  'kg', 'kilo', 'kilogram', 'gram', 'grams', 'piece', 'pieces',
+]);
+// Shared brand-ish words: real evidence only in combination or as the whole
+// primary name (so "red label" counts, bare "red" cannot pick RED ME).
+const SOFT_GENERIC_TOKENS = new Set(['gold', 'red', 'blue', 'green', 'yellow', 'label', 'white', 'black']);
+
+const SIZE_TOKEN_RE = /^\d+(g|kg|gm|ml|l|s)?$/i;
+
+const evidenceWords = (text: string): string[] =>
+  String(text || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 3 && !SIZE_TOKEN_RE.test(w));
+
+const wordSimilarity = (a: string, b: string): number => {
+  if (a === b) return 1;
+  if (a.length >= 4 && (a.includes(b) || b.includes(a))) return 0.8;
+  // Small local Levenshtein (word-level only; shared util stays untouched).
+  const m: number[][] = [];
+  for (let i = 0; i <= b.length; i++) m[i] = [i];
+  for (let j = 0; j <= a.length; j++) m[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      m[i][j] = b[i - 1] === a[j - 1]
+        ? m[i - 1][j - 1]
+        : Math.min(m[i - 1][j - 1] + 1, m[i][j - 1] + 1, m[i - 1][j] + 1);
+    }
+  }
+  return 1 - m[b.length][a.length] / Math.max(a.length, b.length);
+};
+
+const isSupported = (token: string, corpus: string[]): boolean =>
+  corpus.some((w) => wordSimilarity(token, w) >= 0.75);
+
+/** A term has transcript evidence when at least one non-generic,
+ * product-identifying token of it is supported by the corpus; soft-generic
+ * tokens (gold/red/label…) count only when every token of the term is
+ * supported AND the term has 2+ tokens or is exactly the product's primary
+ * word. Hard-generic and size tokens never count. */
+function hasTranscriptEvidence(term: string, corpus: string[], primaryName?: string): boolean {
+  const tokens = evidenceWords(term).filter((t) => !HARD_GENERIC_TOKENS.has(t));
+  if (!tokens.length) return false;
+  const identifying = tokens.filter((t) => !SOFT_GENERIC_TOKENS.has(t));
+  if (identifying.some((t) => isSupported(t, corpus))) return true;
+  // Soft-generic-only terms: demand full support plus real specificity.
+  if (tokens.every((t) => isSupported(t, corpus))) {
+    if (tokens.length >= 2) return true;
+    const primary = evidenceWords(primaryName ?? '').filter((t) => !HARD_GENERIC_TOKENS.has(t));
+    if (primary.length === 1 && primary[0] === tokens[0]) return true;
+  }
+  return false;
+}
 
 export interface ScribeAcceptOutcome {
   applied: VoiceAutoFillResult[];
@@ -196,10 +262,17 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
   // Unmount: invalidate generation + stop — no restart callback survives.
   useEffect(() => () => { teardownRecognizer(); }, [teardownRecognizer]);
 
-  /** Parse+validate the model/heuristic orders into apply-ready results. */
-  const resolveOrders = useCallback((orders: unknown[]): { results: VoiceAutoFillResult[]; skipped: string[] } => {
+  /** Parse+validate the model/heuristic orders into apply-ready results.
+   * `snapshot` is the accepted transcript — the evidence authority. */
+  const resolveOrders = useCallback((orders: unknown[], snapshot: string): { results: VoiceAutoFillResult[]; skipped: string[] } => {
     const skipped: string[] = [];
     const resolved: VoiceAutoFillResult[] = [];
+    // Evidence corpus: spoken words plus their transliterations, so Hindi
+    // Devanagari speech supports Latin catalog names.
+    const corpus = [
+      ...evidenceWords(snapshot),
+      ...transliterationCandidates(snapshot).flatMap(evidenceWords),
+    ];
     for (const raw of Array.isArray(orders) ? orders : []) {
       const o = raw as Record<string, unknown>;
       // Deterministic validation — the model is never trusted:
@@ -228,6 +301,28 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
         }
       }
       if (!product) {
+        skipped.push(searchTerm);
+        continue;
+      }
+      // Transcript-evidence guard (final authority): both the claimed spoken
+      // term AND the resolved catalog product must be supported by what was
+      // actually said — a substituted-but-real catalog name fails here.
+      // A Devanagari term is judged via its transliteration candidates,
+      // since evidence tokens are Latin.
+      const matchedName = variant?.variant_name
+        ? `${product.name} ${variant.variant_name}`
+        : product.name;
+      const termForms = [searchTerm, ...transliterationCandidates(searchTerm)];
+      const termSupported = termForms.some((t) => hasTranscriptEvidence(t, corpus, product.name));
+      // The matched catalog name itself must show transcript evidence too,
+      // but only for LOW-confidence matches — that's where matcher drift can
+      // land on an unrelated product. At medium/high the matcher already
+      // ties the (transcript-supported) term tightly to the name, and
+      // demanding the catalog's exact spelling in the corpus would wrongly
+      // reject transliterated speech ("lebal" vs "LABEL").
+      const nameSupported =
+        confidence !== 'low' || hasTranscriptEvidence(matchedName, corpus, product.name);
+      if (!termSupported || !nameSupported) {
         skipped.push(searchTerm);
         continue;
       }
@@ -282,8 +377,10 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
       let parsedOrders: unknown[] = [];
       if (productsRef.current.length) {
         // Shortlist keeps the payload bounded while deterministically
-        // prioritising names relevant to what was actually said.
-        const productNames = buildProductShortlist(snapshot, productsRef.current);
+        // prioritising names relevant to what was actually said; feeding the
+        // transliteration too lets Devanagari speech surface Latin names.
+        const shortlistText = collapseWhitespace(`${snapshot} ${transliterateToLatin(snapshot)}`);
+        const productNames = buildProductShortlist(shortlistText, productsRef.current);
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), PARSER_TIMEOUT_MS);
         try {
@@ -325,7 +422,7 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
         parsedOrders = parseTranscriptHeuristic(normalizeDevanagariDigits(snapshot));
       }
 
-      const { results, skipped } = resolveOrders(parsedOrders);
+      const { results, skipped } = resolveOrders(parsedOrders, snapshot);
       outcome.skipped = skipped;
       if (results.length) {
         apply(results);

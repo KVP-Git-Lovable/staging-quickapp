@@ -73,7 +73,7 @@ RULES:
 1. The product name/search term includes variant info (like "20 gram", "50g", "250")
 2. Normalise spoken units: "kilo"/"kilogram" → "kg", "gram"/"gm" → "g"
 3. Handle Hindi/English mixed inputs (adrak, haldi, mirch, chahiye, de do, etc.)
-4. productSearch MUST ALWAYS be Latin script. When the spoken item refers to a product in AVAILABLE PRODUCTS, return that EXACT catalog product name, character for character — never a translation of your own, never a paraphrase, never a partial name, and NEVER Devanagari or any other script. Only when nothing in the list corresponds may you transliterate the spoken word to Latin letters — and never invent a name that merely looks like a catalog entry.
+4. productSearch MUST ALWAYS be Latin script. When the spoken item clearly refers to a product in AVAILABLE PRODUCTS (same brand/product words), return that EXACT catalog product name, character for character — never a translation of your own, never a paraphrase, never a partial name, and NEVER Devanagari or any other script. NEVER substitute a catalog product for a spoken product: if you cannot map the spoken words to a specific catalog product with reasonable confidence, return the spoken/transliterated term itself instead of choosing another catalog product. Example: the customer says "taj mahal" but no TAJ MAHAL product is in the list → return productSearch "taj mahal" — NEVER another tea brand from the list. A different brand in the same category is NOT a match.
 5. Convert Devanagari numerals to ASCII digits (३ → 3).
 6. Ignore conversation filler that is not an order line (greetings, prices being discussed, refusals like "nahi chahiye")
 7. If quantity is unclear, default to 1
@@ -133,6 +133,13 @@ If you cannot parse any products, return an empty array: []`;
       parsedOrders = [];
     }
     if (!Array.isArray(parsedOrders)) parsedOrders = [];
+
+    // Diagnostics: order names/count only — the transcript itself is never
+    // logged (privacy contract of the Order Scribe).
+    console.log(
+      `[ambient-order-parser] parsed ${parsedOrders.length} order(s):`,
+      parsedOrders.map((o: any) => `${o?.productSearch} x${o?.quantity}${o?.unit ? ` ${o.unit}` : ""}`).join(" | "),
+    );
 
     return json(200, { orders: parsedOrders });
   } catch (error) {
