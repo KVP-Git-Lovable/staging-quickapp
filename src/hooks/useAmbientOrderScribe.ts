@@ -143,6 +143,19 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
 
   const productsRef = useRef(products);
   productsRef.current = products;
+  const languageRef = useRef(language);
+  languageRef.current = language;
+
+  // Browser recognition sessions routinely end after one utterance + pause
+  // even with continuous=true; long-form capture lives or dies on restarts.
+  // A used SpeechRecognition instance must NEVER be start()ed again — that
+  // is unreliable across Chrome/WebKit (throws or dies silently) — so every
+  // restart goes through startRecognizer, which builds a FRESH instance.
+  // These refs let the onend closure reach the current factory without
+  // stale-closure language, and detect a fast-end failure loop.
+  const startRecognizerRef = useRef<(lang: string, attempt?: number) => void>(() => {});
+  const lastStartAtRef = useRef(0);
+  const fastEndCountRef = useRef(0);
 
   const teardownRecognizer = useCallback(() => {
     sessionRef.current += 1; // invalidate all pending callbacks/restarts
@@ -153,7 +166,7 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
     }
   }, []);
 
-  const startRecognizer = useCallback((lang: string) => {
+  const startRecognizer = useCallback((lang: string, attempt = 0) => {
     if (!SpeechRecognitionImpl) return;
     teardownRecognizer();
     const gen = ++sessionRef.current;
@@ -186,6 +199,7 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
     recognition.onerror = (event: any) => {
       if (gen !== sessionRef.current) return;
       if (event.error === 'no-speech' || event.error === 'aborted') return; // benign; onend restarts
+      if (event.error === 'network') return; // transient — onend recreates a fresh recognizer
       if (
         event.error === 'not-allowed' ||
         event.error === 'service-not-allowed' ||
@@ -204,26 +218,50 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
 
     recognition.onend = () => {
       if (gen !== sessionRef.current) return;
-      // Continuous sessions get cut by the browser; restart under the SAME
-      // generation. Pause/Stop/Accept/unmount bump the generation, which
-      // makes this a no-op there.
+      // Fast-end loop breaker: if sessions keep dying within a second of
+      // starting (speech service unavailable), stop retrying and say so —
+      // never leave a dead mic behind a live "Listening…" label.
+      if (Date.now() - lastStartAtRef.current < 1000) {
+        fastEndCountRef.current += 1;
+        if (fastEndCountRef.current >= 5) {
+          teardownRecognizer();
+          setError('Voice capture keeps stopping — check your connection and press Start to resume.');
+          setStatus('error');
+          return;
+        }
+      } else {
+        fastEndCountRef.current = 0;
+      }
+      // Continuous sessions get cut by the browser after most pauses.
+      // Restart with a BRAND-NEW recognizer instance (same pattern as the
+      // customer-portal assistant) — re-start()ing this ended instance is
+      // exactly the unreliable path that froze capture after ~10 words.
+      // Pause/Stop/Accept/unmount bump the generation → no-op there; the
+      // committed transcript lives in refs and survives the swap.
       setTimeout(() => {
         if (gen !== sessionRef.current) return;
-        try { recognition.start(); } catch { /* mid-teardown */ }
+        startRecognizerRef.current(languageRef.current);
       }, 250);
     };
 
     try {
       recognition.start();
+      lastStartAtRef.current = Date.now();
       setError(null);
       setStatus('listening');
     } catch (e) {
       console.error('[OrderScribe] failed to start recognition:', e);
+      if (attempt < 1) {
+        // One retry with another fresh instance before surfacing an error.
+        startRecognizerRef.current(lang, attempt + 1);
+        return;
+      }
       teardownRecognizer();
-      setError('Could not start voice capture. Try again.');
+      setError('Voice capture stopped unexpectedly — press Start to resume.');
       setStatus('error');
     }
   }, [teardownRecognizer]);
+  startRecognizerRef.current = startRecognizer;
 
   /** Explicit user action only — never called on mount. */
   const start = useCallback(() => {
