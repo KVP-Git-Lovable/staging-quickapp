@@ -1350,6 +1350,8 @@ export const Cart = () => {
           cess_rate: 0,
           cess_amount: lineTax?.cess ?? 0,
           is_price_edited: !!(item as any).is_price_edited,
+          price_book_id: (item as any).price_book_id ?? null,
+          price_matched_on: (item as any).price_matched_on ?? null,
         };
       });
 
@@ -2322,6 +2324,8 @@ export const Cart = () => {
           cess_rate: 0,
           cess_amount: lineTax?.cess ?? 0,
           is_price_edited: !!(item as any).is_price_edited,
+          price_book_id: (item as any).price_book_id ?? null,
+          price_matched_on: (item as any).price_matched_on ?? null,
         };
       });
 

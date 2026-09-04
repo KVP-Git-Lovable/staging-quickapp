@@ -58,9 +58,18 @@ export const useResolvedRetailerPrices = (
     queryKey: ['resolved-retailer-prices', retailerId],
     queryFn: async (): Promise<ResolvedPriceRow[]> => {
       if (!retailerId) return [];
+      // Same owner_id -> user_id fallback CustomerCart.tsx already uses to find
+      // "the assigned rep" for this retailer -- without it, a salesperson-level
+      // price book (score 90) could never win from this portal.
+      const { data: retailerRow } = await sb
+        .from('retailers')
+        .select('owner_id, user_id')
+        .eq('id', retailerId)
+        .maybeSingle();
+      const assignedUserId = retailerRow?.owner_id || retailerRow?.user_id || null;
       const { data, error } = await sb.rpc('resolve_prices_for_retailer' as any, {
         p_retailer_id: retailerId,
-        p_user_id: null,
+        p_user_id: assignedUserId,
       });
       if (error) throw error;
       return ((data as any[]) || []).map((r) => ({

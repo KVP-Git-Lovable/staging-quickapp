@@ -31,10 +31,14 @@ import { usePortalAvailability } from '@/hooks/usePortalAvailability';
 import { buildDistributorContext, filterAvailableProducts } from '@/utils/productAvailability';
 
 interface Category { id: string; name: string; }
-interface PriceBookEntry { product_id: string; variant_id: string | null; final_price: number; list_price: number; }
+interface PriceBookEntry {
+  product_id: string; variant_id: string | null; final_price: number; list_price: number;
+  price_book_id?: string | null; matched_on?: string | null;
+}
 interface Product {
   id: string; name: string; category_id?: string; category_name?: string;
   unit?: string; price?: number; priceBookPrice?: number;
+  priceBookId?: string | null; priceBookMatchedOn?: string | null;
   hsn_code?: string; sku?: string; image_url?: string; variants?: any[];
 }
 interface UomOption { code: string; name: string; }
@@ -45,6 +49,8 @@ interface OrderItem {
   price_book_applied?: boolean; line_total: number; category_id?: string;
   applied_scheme_id?: string | null;
   scheme_manually_set?: boolean;
+  price_book_id?: string | null;
+  price_matched_on?: string | null;
 }
 interface SchemeRow {
   id: string; name: string; scheme_type: string;
@@ -252,22 +258,25 @@ const CreatePrimaryOrder = () => {
         .from('product_categories').select('id, name').order('name');
       setCategories(categoriesData || []);
 
-      const { data: priceBookData } = await supabase
-        .from('distributor_price_books')
-        .select('price_book_id, price_books(id, name)')
-        .eq('distributor_id', distributorId).eq('is_active', true).maybeSingle();
-
+      // Resolved via the same scored resolver the retailer-side order entry
+      // uses (territory/category/is_standard fallback, explicit assignment
+      // still wins) instead of a single hardcoded distributor_price_books
+      // row -- so zone/state/city and other targeted books actually apply
+      // here too. Each product can now resolve from a different winning
+      // book, so there's no single "the" price book name to show anymore.
       let priceEntries: PriceBookEntry[] = [];
-      if (priceBookData?.price_book_id) {
-        const pb = priceBookData.price_books as any;
-        setPriceBookName(pb?.name || '');
-        const { data: entriesData } = await supabase
-          .from('price_book_entries')
-          .select('product_id, variant_id, final_price, list_price')
-          .eq('price_book_id', priceBookData.price_book_id).eq('is_active', true);
-        priceEntries = entriesData || [];
-        setPriceBookEntries(priceEntries);
-      }
+      const { data: resolvedRows } = await (supabase as any).rpc('resolve_prices_for_distributor', {
+        p_distributor_id: distributorId,
+      });
+      priceEntries = ((resolvedRows as any[]) || []).map((row) => ({
+        product_id: row.product_id,
+        variant_id: row.variant_id ?? null,
+        final_price: Number(row.price) || 0,
+        list_price: Number(row.price) || 0,
+        price_book_id: row.price_book_id ?? null,
+        matched_on: row.matched_on ?? null,
+      }));
+      setPriceBookEntries(priceEntries);
 
       const productsData = await fetchAllPaginated<any>((from, to) =>
         supabase
@@ -297,6 +306,8 @@ const CreatePrimaryOrder = () => {
           price: baseResolved.rate,
           unit: baseResolved.base_unit || p.unit || 'pieces',
           priceBookPrice: pe?.final_price,
+          priceBookId: pe?.price_book_id ?? null,
+          priceBookMatchedOn: pe?.matched_on ?? null,
         };
         return [baseRow];
       });
@@ -592,6 +603,8 @@ const CreatePrimaryOrder = () => {
           quantity: it.quantity, unit: it.unit, unit_price: it.unit_price,
           discount_percent: it.discount_percent, tax_percent: it.gst_percent,
           line_total: Math.round((taxable + tax) * 100) / 100,
+          price_book_id: it.price_book_id ?? null,
+          price_matched_on: it.price_matched_on ?? null,
         };
       });
 
@@ -993,6 +1006,8 @@ const CartStage = ({
                                         unit_price: price, hsn_code: prod.hsn_code,
                                         sku: (prod as any).sku, image_url: (prod as any).image_url,
                                         price_book_applied: prod.priceBookPrice !== undefined,
+                                        price_book_id: prod.priceBookId ?? null,
+                                        price_matched_on: prod.priceBookMatchedOn ?? null,
                                         category_id: prod.category_id,
                                         line_total: item.quantity * price,
                                       });

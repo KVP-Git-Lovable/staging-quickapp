@@ -126,7 +126,14 @@ const CustomerCart = () => {
       rawItems.map((item) => {
         const qty = localQuantities[item.id] ?? item.quantity;
         const row = resolveDbPrice(item.product_id, null, qty);
-        return row ? { ...item, product_price: Number(row.price) } : item;
+        return row
+          ? {
+              ...item,
+              product_price: Number(row.price),
+              price_book_id: row.price_book_id,
+              price_matched_on: row.matched_on,
+            }
+          : item;
       }),
     [rawItems, localQuantities, resolveDbPrice],
   );
@@ -374,6 +381,8 @@ const CustomerCart = () => {
           cgst_amount: tax.cgst,
           sgst_amount: tax.sgst,
           discount_amount: Math.max(0, tax.lineSub - tax.taxable),
+          price_book_id: (item as any).price_book_id ?? null,
+          price_matched_on: (item as any).price_matched_on ?? null,
         };
       });
 

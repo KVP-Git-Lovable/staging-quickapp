@@ -422,6 +422,9 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         && Math.abs(Number(row.editedRate) - catalogRate) > 0.005;
       const qty = Number(row.quantity) || 0;
       const lineTotal = hasEditedPrice ? +(effectiveRate * qty).toFixed(2) : (Number(row.total) || 0);
+      // Lock in which price book (if any) actually priced this line -- lost if
+      // the admin then hand-edits the rate, since that's no longer the book's price.
+      const pbRow = hasEditedPrice ? null : getPriceBookRow(row.product, row.variant, qty);
 
       return {
         id: itemId,
@@ -433,6 +436,8 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         rate: effectiveRate,
         original_rate: catalogRate,
         is_price_edited: isPriceEdited,
+        price_book_id: pbRow?.price_book_id ?? null,
+        price_matched_on: pbRow?.matched_on ?? null,
         unit: selectedUnit,
         uom_id: safeUomId(row.uomId),
         uom_code: row.uomCode || selectedUnit,
