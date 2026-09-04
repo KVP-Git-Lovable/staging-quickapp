@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.ambient-order-parser]
 verify_jwt = true
+
+[functions.ambient-mom-parser]
+verify_jwt = true

@@ -27,6 +27,8 @@ import { useOrderCurrency } from "@/hooks/useOrderCurrency";
 import { computeLineTax } from "@/utils/taxCalc";
 import { usePriceBookPrices } from "@/hooks/usePriceBookPrices";
 import { OrderScribeCard } from "@/components/OrderScribeCard";
+import { RetailerMeetSummaryCard } from "@/components/RetailerMeetSummaryCard";
+import { useAmbientOrderScribe } from "@/hooks/useAmbientOrderScribe";
 interface Product {
   id: string;
   sku: string;
@@ -479,6 +481,12 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
   // Shared auto-fill path: used by the ref handle (Voice Order / Smart
   // Basket / Take Action) AND by the Order Scribe card's Accept — one
   // implementation, identical semantics.
+  // ONE shared ambient capture session for both consumer cards below —
+  // Order Scribe (order extraction) and Retailer Meet Summary (MOM notes)
+  // read the same transcript; their downstream processing is independent.
+  const ambientScribe = useAmbientOrderScribe(products as any);
+  const scribeRetailerName = searchParams.get("retailer") || undefined;
+
   const applyAutoFillResults = useCallback((results: VoiceAutoFillResult[]) => {
       if (results.length === 0) return;
 
@@ -2127,10 +2135,22 @@ export const TableOrderForm = forwardRef<TableOrderFormHandle, TableOrderFormPro
         )}
       </Button>
 
-      {/* Ambient Order Scribe — transcribes the in-store conversation live;
-          items are created ONLY when the user presses Accept, through the
-          same applyAutoFillResults path Voice Order uses. */}
-      <OrderScribeCard products={products as any} onAccept={applyAutoFillResults} />
+      {/* Ambient conversation cards — ONE shared capture session, two
+          independent consumers side by side: Order Scribe turns speech into
+          order rows on Accept; Retailer Meet Summary writes MOM notes on
+          Generate. A failure in either never affects the other. */}
+      <div className="grid gap-3 md:grid-cols-2 items-start">
+        <OrderScribeCard scribe={ambientScribe} onAccept={applyAutoFillResults} />
+        <RetailerMeetSummaryCard
+          scribe={ambientScribe}
+          retailerName={scribeRetailerName}
+          getOrderItems={() =>
+            orderRows
+              .filter((r) => r.product && r.quantity > 0)
+              .map((r) => `${r.variant?.variant_name || r.product!.name} x${r.quantity} ${r.unit}`)
+          }
+        />
+      </div>
 
       <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded border border-border">
         <strong>Note:</strong> All base prices are stored per KG. Rates auto-adjust when selling in grams or other units.

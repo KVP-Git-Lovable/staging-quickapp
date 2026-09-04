@@ -111,6 +111,10 @@ export interface ScribeAcceptOutcome {
   cleared: boolean;
 }
 
+/** Return shape of useAmbientOrderScribe — the shared capture session both
+ * the Order Scribe card and the Retailer Meet Summary card consume. */
+export type AmbientOrderScribe = ReturnType<typeof useAmbientOrderScribe>;
+
 export function useAmbientOrderScribe(products: FuzzyProduct[]) {
   const isSupported = !!SpeechRecognitionImpl;
 

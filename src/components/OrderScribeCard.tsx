@@ -15,19 +15,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { useAmbientOrderScribe } from "@/hooks/useAmbientOrderScribe";
+import type { AmbientOrderScribe } from "@/hooks/useAmbientOrderScribe";
 import { SUPPORTED_LANGUAGES } from "@/hooks/useVoiceOrderAssistant";
-import type { FuzzyProduct } from "@/utils/productFuzzyMatch";
 import type { VoiceAutoFillResult } from "@/components/TableOrderForm";
 
 interface OrderScribeCardProps {
-  products: FuzzyProduct[];
+  /** Shared capture session, owned by the parent so sibling cards (Retailer
+   * Meet Summary) read the same transcript. Order-extraction logic is
+   * unchanged. */
+  scribe: AmbientOrderScribe;
   /** Applies validated results through the existing table auto-fill path. */
   onAccept: (results: VoiceAutoFillResult[]) => void;
 }
 
-export function OrderScribeCard({ products, onAccept }: OrderScribeCardProps) {
-  const scribe = useAmbientOrderScribe(products);
+export function OrderScribeCard({ scribe, onAccept }: OrderScribeCardProps) {
   const [accepting, setAccepting] = useState(false);
 
   if (!scribe.isSupported) {
