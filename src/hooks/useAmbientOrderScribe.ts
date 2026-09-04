@@ -67,7 +67,10 @@ const evidenceWords = (text: string): string[] =>
 const wordSimilarity = (a: string, b: string): number => {
   if (a === b) return 1;
   if (a.length >= 4 && (a.includes(b) || b.includes(a))) return 0.8;
-  // Small local Levenshtein (word-level only; shared util stays untouched).
+  // Small local Damerau-Levenshtein (word-level only; shared util stays
+  // untouched). Adjacent transpositions cost 1 edit: STT very often swaps
+  // letters ("lable" for "label"), and plain Levenshtein's 2-edit cost put
+  // such words under the 0.75 support threshold.
   const m: number[][] = [];
   for (let i = 0; i <= b.length; i++) m[i] = [i];
   for (let j = 0; j <= a.length; j++) m[0][j] = j;
@@ -76,6 +79,9 @@ const wordSimilarity = (a: string, b: string): number => {
       m[i][j] = b[i - 1] === a[j - 1]
         ? m[i - 1][j - 1]
         : Math.min(m[i - 1][j - 1] + 1, m[i][j - 1] + 1, m[i - 1][j] + 1);
+      if (i > 1 && j > 1 && b[i - 1] === a[j - 2] && b[i - 2] === a[j - 1]) {
+        m[i][j] = Math.min(m[i][j], m[i - 2][j - 2] + 1);
+      }
     }
   }
   return 1 - m[b.length][a.length] / Math.max(a.length, b.length);
