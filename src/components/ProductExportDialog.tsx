@@ -13,7 +13,7 @@ import {
 type Group = { label: string; cols: string[] };
 
 const GROUPS: Group[] = [
-  { label: 'Identity', cols: ['sku', 'name', 'description', 'brand', 'category', 'product_type'] },
+  { label: 'Identity', cols: ['sku', 'parent_sku', 'variant_name', 'name', 'description', 'brand', 'category', 'product_type'] },
   { label: 'Tax', cols: ['gst_percentage', 'hsn_code', 'tax_master'] },
   { label: 'Price', cols: ['rate'] },
   { label: 'Units', cols: ['base_unit', 'price_basis_unit', 'default_sales_unit', 'unit_1', 'unit_1_factor', 'unit_2', 'unit_2_factor', 'unit_3', 'unit_3_factor'] },

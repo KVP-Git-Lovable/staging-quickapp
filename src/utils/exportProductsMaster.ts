@@ -1,9 +1,11 @@
 /**
- * Phase 2: Product master EXPORT (round-trip template).
+ * Phase 2/3: Product master EXPORT (round-trip template).
  *
- * Exports ALL products to a single xlsx with the exact column set agreed for
- * the Phase 3 import template. Resolves FK ids to human-readable codes/names
- * so the file can be edited and re-imported without lookups.
+ * Exports ALL products AND their variants to a single xlsx with the exact
+ * column set the Phase 3 import template (productImportRunner.ts) expects.
+ * A variant row is identified by a filled `parent_sku` column, matching the
+ * importer's own rule. Resolves FK ids to human-readable codes/names so the
+ * file can be edited and re-imported without lookups.
  */
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,6 +51,8 @@ const filenameFromUrl = (url?: string | null): string => {
 
 export const EXPORT_ALL_COLUMNS = [
   'sku',
+  'parent_sku',
+  'variant_name',
   'name',
   'description',
   'brand',
@@ -118,6 +122,15 @@ export async function exportProductsMaster(columns?: string[]): Promise<void> {
     mapByProduct.set(m.product_id, arr);
   }
 
+  // 3b. Variants for every product (paginated). A variant row round-trips
+  // through the importer via `parent_sku` (parent's sku) + `variant_name`;
+  // every other column follows the same product schema, blank = inherit.
+  const variantsRaw = await fetchAll<any>(
+    'product_variants',
+    'id, product_id, sku, variant_name, description, brand, product_type, category_id, gst_percentage, hsn_code, tax_master_id, price, base_unit, price_basis_uom_id, default_sales_uom_id, stock_quantity, net_weight_g, net_volume_ml, sku_image_url, is_active, is_discontinued',
+  );
+  const skuByProductId = new Map(products.map((p: any) => [p.id, p.sku]));
+
   // 4. Build rows in the exact column order. Filter by selection but keep the
   // canonical order, and always include mandatory columns.
   const selected = new Set(columns ?? EXPORT_ALL_COLUMNS);
@@ -154,6 +167,8 @@ export async function exportProductsMaster(columns?: string[]): Promise<void> {
 
     return {
       sku: blank(p.sku),
+      parent_sku: '',
+      variant_name: '',
       name: blank(p.name),
       description: blank(p.description),
       brand: blank(p.brand),
@@ -182,15 +197,55 @@ export async function exportProductsMaster(columns?: string[]): Promise<void> {
     };
   });
 
+  // 4b. Variant rows — same shape, `parent_sku`/`variant_name` filled in,
+  // everything else pulled from the variant's own override columns (blank
+  // here means "inherits from parent", same convention the importer uses).
+  let missingVariantPrice = 0;
+  const variantRows = variantsRaw.map((v: any) => {
+    if (v.price == null || Number(v.price) === 0) missingVariantPrice++;
+    return {
+      sku: blank(v.sku),
+      parent_sku: blank(skuByProductId.get(v.product_id) ?? ''),
+      variant_name: blank(v.variant_name),
+      name: '',
+      description: blank(v.description),
+      brand: blank(v.brand),
+      category: v.category_id ? blank(catName.get(v.category_id) ?? '') : '',
+      product_type: blank(v.product_type),
+      gst_percentage: v.gst_percentage ?? '',
+      hsn_code: blank(v.hsn_code),
+      tax_master: v.tax_master_id ? blank(taxName.get(v.tax_master_id) ?? '') : '',
+      rate: v.price ?? '',
+      base_unit: blank(v.base_unit),
+      price_basis_unit: v.price_basis_uom_id ? blank(uomCode.get(v.price_basis_uom_id) ?? '') : '',
+      default_sales_unit: v.default_sales_uom_id ? blank(uomCode.get(v.default_sales_uom_id) ?? '') : '',
+      unit_1: '',
+      unit_1_factor: '',
+      unit_2: '',
+      unit_2_factor: '',
+      unit_3: '',
+      unit_3_factor: '',
+      opening_stock: v.stock_quantity ?? '',
+      reorder_level: '',
+      net_weight_g: v.net_weight_g ?? '',
+      net_volume_ml: v.net_volume_ml ?? '',
+      image_file: filenameFromUrl(v.sku_image_url),
+      is_active: v.is_active === false ? 'no' : 'yes',
+      is_discontinued: v.is_discontinued ? 'yes' : 'no',
+    };
+  });
+
   // 5. Workbook.
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(rows, { header });
+  const ws = XLSX.utils.json_to_sheet([...rows, ...variantRows], { header });
   XLSX.utils.book_append_sheet(wb, ws, 'Products');
 
   const summary = [
     ['Metric', 'Count'],
     ['Total products', products.length],
+    ['Total variants', variantsRaw.length],
     ['Missing price (rate)', missingPrice],
+    ['Missing variant price', missingVariantPrice],
     ['Missing HSN code', missingHsn],
     ['Missing units (no packaging mapping)', missingUnits],
     ['Missing image', missingImage],
