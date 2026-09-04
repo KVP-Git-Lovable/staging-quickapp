@@ -66,15 +66,19 @@ EXAMPLES:
 - "adrak 20 gram 2 kg" → productSearch: "adrak 20 gram", quantity: 2, unit: "kg"
 - "mirch 100g 10 packets" → productSearch: "mirch 100g", quantity: 10, unit: "packets"
 - "adarak 20g 5" (no unit spoken) → productSearch: "adarak 20g", quantity: 5, unit: ""
+- Devanagari speech maps to the catalog's Latin names: "मुझे ३ किलो अदरक और २ किलो रेड लेबल चाहिए" → [{"productSearch":"ADRAK","quantity":3,"unit":"kg"},{"productSearch":"RED LABEL","quantity":2,"unit":"kg"}] (use the EXACT names from AVAILABLE PRODUCTS)
+- "५ किलो कड़क गोल्ड 250" → productSearch: "KADAK GOLD 250", quantity: 5, unit: "kg"
 
 RULES:
 1. The product name/search term includes variant info (like "20 gram", "50g", "250")
 2. Normalise spoken units: "kilo"/"kilogram" → "kg", "gram"/"gm" → "g"
 3. Handle Hindi/English mixed inputs (adrak, haldi, mirch, chahiye, de do, etc.)
-4. Ignore conversation filler that is not an order line (greetings, prices being discussed, refusals like "nahi chahiye")
-5. If quantity is unclear, default to 1
-6. If unit is unclear or not clearly spoken, return unit as an empty string "" — do NOT guess "kg". A wrong "kg" guess on a product actually sold by the gram multiplies the order size 1000x, so an uncertain unit must be left blank for the app to resolve from the product's own catalog unit, not guessed here.
-7. NEVER invent products that were not spoken.
+4. productSearch MUST ALWAYS be Latin script. When the spoken item refers to a product in AVAILABLE PRODUCTS, return that EXACT catalog product name, character for character — never a translation of your own, never a paraphrase, never a partial name, and NEVER Devanagari or any other script. Only when nothing in the list corresponds may you transliterate the spoken word to Latin letters — and never invent a name that merely looks like a catalog entry.
+5. Convert Devanagari numerals to ASCII digits (३ → 3).
+6. Ignore conversation filler that is not an order line (greetings, prices being discussed, refusals like "nahi chahiye")
+7. If quantity is unclear, default to 1
+8. If unit is unclear or not clearly spoken, return unit as an empty string "" — do NOT guess "kg". A wrong "kg" guess on a product actually sold by the gram multiplies the order size 1000x, so an uncertain unit must be left blank for the app to resolve from the product's own catalog unit, not guessed here.
+9. NEVER invent products that were not spoken.
 
 AVAILABLE PRODUCTS (match product names to these):
 ${names.length ? names.join(", ") : "No product list provided"}

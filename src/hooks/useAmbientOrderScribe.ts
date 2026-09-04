@@ -19,6 +19,7 @@ import {
   type FuzzyProduct,
 } from '@/utils/productFuzzyMatch';
 import { parseTranscriptHeuristic } from '@/utils/transcriptHeuristic';
+import { containsDevanagari, transliterationCandidates, normalizeDevanagariDigits } from '@/utils/transliterate';
 import type { VoiceAutoFillResult } from '@/components/TableOrderForm';
 
 const SpeechRecognitionImpl =
@@ -212,7 +213,20 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
       }
       // Catalog authority is the existing fuzzy matcher; below-threshold
       // terms create no rows.
-      const { product, variant, confidence } = findBestMatch(searchTerm, productsRef.current);
+      let { product, variant, confidence } = findBestMatch(searchTerm, productsRef.current);
+      // Hindi speech yields Devanagari which scores ~0 against the Latin
+      // catalog — retry the UNCHANGED matcher with deterministic
+      // transliteration candidates (thresholds untouched). If none passes,
+      // the item is skipped, never guessed.
+      if (!product && containsDevanagari(searchTerm)) {
+        for (const candidate of transliterationCandidates(searchTerm)) {
+          const retry = findBestMatch(candidate, productsRef.current);
+          if (retry.product) {
+            ({ product, variant, confidence } = retry);
+            break;
+          }
+        }
+      }
       if (!product) {
         skipped.push(searchTerm);
         continue;
@@ -305,7 +319,10 @@ export function useAmbientOrderScribe(products: FuzzyProduct[]) {
       }
 
       if (parsedOrders.length === 0) {
-        parsedOrders = parseTranscriptHeuristic(snapshot);
+        // Devanagari numerals ("३ किलो") must become ASCII before the
+        // heuristic's quantity regex; the parsing logic itself is the
+        // shared, unchanged implementation.
+        parsedOrders = parseTranscriptHeuristic(normalizeDevanagariDigits(snapshot));
       }
 
       const { results, skipped } = resolveOrders(parsedOrders);
