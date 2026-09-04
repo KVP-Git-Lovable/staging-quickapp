@@ -74,13 +74,13 @@ export function OrderScribeCard({ scribe, onAccept }: OrderScribeCardProps) {
   };
 
   return (
-    <Card className="overflow-hidden border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 via-sky-50 to-violet-50 dark:border-indigo-800 dark:from-indigo-950/40 dark:via-sky-950/30 dark:to-violet-950/30">
-      <div className="h-1 bg-gradient-to-r from-indigo-500 via-sky-400 to-violet-500" />
+    <Card className="overflow-hidden border-2 border-slate-300 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:border-slate-700 dark:from-slate-900/40 dark:via-slate-950/30 dark:to-slate-800/30">
+      <div className="h-1 bg-gradient-to-r from-slate-600 via-slate-400 to-slate-500" />
       <CardContent className="p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500/15 to-sky-500/20">
-              <Mic className="h-4 w-4 text-indigo-700 dark:text-indigo-400" />
+            <span className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-slate-500/15 to-gray-500/20">
+              <Mic className="h-4 w-4 text-slate-700 dark:text-slate-300" />
               {listening && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />

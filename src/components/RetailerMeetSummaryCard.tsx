@@ -116,13 +116,13 @@ export function RetailerMeetSummaryCard({ scribe, retailerName, getOrderItems }:
   };
 
   return (
-    <Card className="overflow-hidden border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 via-sky-50 to-violet-50 dark:border-indigo-800 dark:from-indigo-950/40 dark:via-sky-950/30 dark:to-violet-950/30">
-      <div className="h-1 bg-gradient-to-r from-violet-500 via-sky-400 to-indigo-500" />
+    <Card className="overflow-hidden border-2 border-slate-300 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:border-slate-700 dark:from-slate-900/40 dark:via-slate-950/30 dark:to-slate-800/30">
+      <div className="h-1 bg-gradient-to-r from-slate-500 via-slate-400 to-slate-600" />
       <CardContent className="p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/15 to-indigo-500/20">
-              <NotebookPen className="h-4 w-4 text-indigo-700 dark:text-indigo-400" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-slate-500/15 to-gray-500/20">
+              <NotebookPen className="h-4 w-4 text-slate-700 dark:text-slate-300" />
             </span>
             <div>
               <p className="text-sm font-semibold">Retailer Meet Summary</p>
